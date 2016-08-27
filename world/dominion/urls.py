@@ -1,0 +1,18 @@
+#
+# File that determines what each URL points to. This uses _Python_ regular
+# expressions, not Perl's.
+#
+# See:
+# http://diveintopython.org/regular_expressions/street_addresses.html#re.matching.2.3
+#
+
+from django.conf.urls import url
+from game.dominion import views
+
+
+urlpatterns = [
+    url(r'^cal/list/$', views.RPEventListView.as_view(), name="list_events"),
+    url(r'^cal/detail/(?P<pk>\d+)/$', views.RPEventDetailView.as_view(), name='display_event'),
+    url(r'^cal/comment/(?P<pk>\d+)/$', views.event_comment, name='event_comment'),
+    url(r'^taskstories/list/$', views.AssignedTaskListView.as_view(), name="list_task_stories"),
+]
