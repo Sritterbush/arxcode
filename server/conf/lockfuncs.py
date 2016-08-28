@@ -28,3 +28,156 @@ lock functions from evennia.locks.lockfuncs.
 #    """
 #    print "%s tried to access %s. Access denied." % (accessing_obj, accessed_obj)
 #    return False
+
+# Dominion-specific lockfuncs: rank in an organization, or mere membership
+
+def rank(accessing_obj, accessed_obj, *args, **kwargs):
+    """
+    Use rank in an organization to see if we pass. If orgname
+    is not specified, the org is assumed to be the accessed
+    object.
+    Usage:
+        rank(value)
+        rank(value, orgname)
+    """
+    if not args:
+        return False
+    if accessing_obj.db.player_ob:
+        accessing_obj = accessing_obj.db.player_ob
+    if hasattr(accessing_obj, 'dbobj'):
+        accessing_obj = accessing_obj.dbobj
+    rank = int(args[0])
+    if len(args) == 1:
+        org = accessed_obj
+    else:
+        try:
+            from game.dominion.models import Organization
+            org = Organization.objects.get(name__iexact=args[1])
+        except:
+            return False
+    try:
+        member = accessing_obj.Dominion.memberships.get(organization=org)
+        return member.rank <= rank
+    except:
+        return False
+
+def organization(accessing_obj, accessed_obj, *args, **kwargs):
+    """
+    Check if accessing_obj is a member of the Organization given
+    by the name.
+    Usage:
+        organization(orgname)
+    """
+    if not args:
+        return False
+    # if we're accessing as a character, set it to be the player object
+    try:
+        if accessing_obj.db.player_ob:
+            accessing_obj = accessing_obj.db.player_ob
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        print "Error in lockfunc: accessing_obj is %s\n" % accessing_obj
+        print "Accessed_obj is %s\n" % accessed_obj
+    if hasattr(accessing_obj, 'dbobj'):
+        accessing_obj = accessing_obj.dbobj
+    try:
+        from game.dominion.models import Organization
+        org = Organization.objects.get(name__iexact=args[0])
+    except Organization.DoesNotExist:
+        return False
+    try:
+        member = accessing_obj.Dominion.memberships.get(organization=org)
+        # if get fails we get Member.DoesNotExist exception, and won't execute return True
+        return True
+    except:
+        # we weren't a member of the organization
+        return False
+
+#alias for organization lockfunc
+org = organization
+
+def ability(accessing_obj, accessed_obj, *args, **kwargs):
+    """
+    Check accessing_obj's rank in an ability to determine lock.
+    Usage:
+        ability(value)
+        ability(ability_name, value)
+    If only value is given, ability must be a property in accessed_obj
+    that returns ability_name.
+    """
+    if not args:
+        return False
+    if len(args) == 1:
+        if args[0] == "all":
+            return True
+        name = accessed_obj.ability
+        val = int(args[0])
+    else:
+        name = args[0]
+        val = int(args[1])
+    if name == "all":
+        from game.gamesrc.objects.stats_and_skills import _crafting_abilities_
+        ability_list = _crafting_abilities_
+    else:
+        ability_list = name.split(",")
+    for ability in ability_list:
+        ability = ability.lower().strip()
+        pab = accessing_obj.db.abilities.get(ability, 0)
+        if pab >= val:
+            return True
+    return False
+
+def skill(accessing_obj, accessed_obj, *args, **kwargs):
+    """
+    Check accessing_obj's rank in an skill to determine lock.
+    Usage:
+        skill(value)
+        skill(ability_name, value)
+    If only value is given, ability must be a property in accessed_obj
+    that returns ability_name.
+    """
+    if not args:
+        return False
+    if len(args) == 1:
+        if args[0] == "all":
+            return True
+        name = accessed_obj.skill
+        val = int(args[0])
+    else:
+        name = args[0]
+        val = int(args[1])
+    if name == "all":
+        from game.gamesrc.objects.stats_and_skills import _crafting_skills_
+        skill_list = _crafting_skills_
+    else:
+        skill_list = name.split(",")
+    for skill in skill_list:
+        skill = skill.lower().strip()
+        pab = accessing_obj.db.skills.get(skill, 0)
+        if pab >= val:
+            return True
+    return False
+
+def roomkey(accessing_obj, accessed_obj, *args, **kwargs):
+    """
+    A key to a room.
+    """
+    if not args:
+        return False
+    roomid = int(args[0])
+    keylist = accessing_obj.db.keylist or []
+    keylist = [room.id for room in keylist]
+    return roomid in keylist
+
+def chestkey(accessing_obj, accessed_obj, *args, **kwargs):
+    """
+    A key to a chest. Needs to be stored in a different attr than
+    roomkey for display purposes, so separate lockfunc is required.
+    """
+    if not args:
+        return False
+    chestid = int(args[0])
+    keylist = accessing_obj.db.chestkeylist or []
+    keylist = [chest.id for chest in keylist]
+    return chestid in keylist
