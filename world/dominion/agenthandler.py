@@ -14,10 +14,10 @@ __init__ and is populated with the instances of agents we find
 in the world.
 """
 
-from src.utils.create import create_object
-from game.gamesrc.objects.npcs import npc_types
+from evennia.utils.create import create_object
+from typeclasses.npcs import npc_types
 
-npc_typeclass = "game.gamesrc.objects.npcs.npc.Agent"
+npc_typeclass = "typeclasses.npcs.npc.Agent"
 
 
 class AgentHandler(object):

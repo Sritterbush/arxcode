@@ -4,9 +4,9 @@ as creating Land squares of random terrain based on a regional
 climate, and setup a character's initial domain based on their
 social rank.
 """
-from game.dominion.models import (Land, PlayerOrNpc, Ruler, Domain, Army, AssetOwner,
+from .models import (Land, PlayerOrNpc, Ruler, Domain, Army, AssetOwner,
                                   Organization)
-from game.dominion import unit_types
+from . import unit_types
 import random
 
 CAPITALS = [(0,1), # Sanctum

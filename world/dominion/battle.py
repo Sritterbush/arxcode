@@ -7,13 +7,13 @@ rarely fight until one side is completely annihilated - in general, units
 will fight until they rout, and will often lose quite a few troops who
 desert during the retreat, while others are killed in retreating.
 """
-import settings
-from game.dominion.unit_types import get_combat
-from game.dominion.combat_grid import CombatGrid
-from game.dominion.reports import BattleReport
+from django.conf import settings
+from .unit_types import get_combat
+from .combat_grid import CombatGrid
+from .reports import BattleReport
 import operator
 import traceback
-from src.utils.utils import setup_log
+from server.utils.utils import setup_log
 
 
 XP_PER_BATTLE = 5

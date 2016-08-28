@@ -4,7 +4,7 @@ of bad events that have occurred. The Reports here will be wrappers
 around an Inform object that is either created or retrieved based
 on whether the player has an existing report for this week.
 """
-from src.comms.models import Inform
+from world.msgs.models import Inform
 import traceback
 from django.db.models import Q
 

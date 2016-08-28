@@ -53,14 +53,14 @@ that currently have a ruler designated will change on a weekly basis.
 """
 from django.db import models
 from django.db.models import Q
-import settings
-from game.dominion import unit_types
-from game.dominion.reports import WeeklyReport
-from game.dominion.explore import Exploration
-from game.dominion.battle import Battle
-from game.dominion.agenthandler import AgentHandler
-from src.utils.utils import setup_log, get_week
-from src.locks.lockhandler import LockHandler
+from django.conf import settings
+from . import unit_types
+from .reports import WeeklyReport
+from .explore import Exploration
+from .battle import Battle
+from .agenthandler import AgentHandler
+from server.utils.utils import get_week, setup_log
+from evennia.locks.lockhandler import LockHandler
 import traceback
 
 # Dominion constants
@@ -2810,7 +2810,7 @@ class RPEvent(models.Model):
         msg += "{wDesc:{n\n%s" % self.desc
         comments = self.comments.filter(db_header__icontains="white_journal").order_by('-db_date_sent')
         if comments:
-            from src.utils.prettytable import PrettyTable
+            from server.utils.prettytable import PrettyTable
             msg += "\n{wComments:{n"
             table = PrettyTable(["#", "{wName{n"])
             x = 1

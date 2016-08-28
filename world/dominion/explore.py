@@ -9,9 +9,9 @@ events, such as discovering riches, natural resources, ancient artifacts/
 magical items, and so on.
 """
 import random
-from game.dominion.reports import ExplorationReport
-from game.dominion.battle import Battle
-from game.dominion import unit_types
+from .reports import ExplorationReport
+from .battle import Battle
+from . import unit_types
 
 NOTHING = 0
 # types of events

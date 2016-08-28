@@ -1,6 +1,6 @@
 from django.views.generic import ListView, DetailView, FormView
-from game.dominion.models import RPEvent, AssignedTask
-from game.dominion.forms import RPEventCommentForm
+from .models import RPEvent, AssignedTask
+from .forms import RPEventCommentForm
 from django.http import HttpResponseRedirect
 from django.http import Http404
 from django.core.urlresolvers import reverse

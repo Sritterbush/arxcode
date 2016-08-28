@@ -1,5 +1,5 @@
 from django.contrib import admin
-from game.dominion.models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb,
+from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb,
                                   AssetOwner, Region, Land, DomainProject, Castle,
                                   Ruler, Army, Orders, MilitaryUnit, Member, Task,
                                   CraftingRecipe, CraftingMaterialType, CraftingMaterials,

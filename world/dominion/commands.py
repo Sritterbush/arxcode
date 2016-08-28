@@ -5,20 +5,20 @@ to make changes.
 """
 import settings
 from ev import CmdSet
-from src.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from ast import literal_eval
-from game.dominion import setup_utils
-from game.dominion.models import (Region, Domain, Land, PlayerOrNpc, Army,
+from . import setup_utils
+from .models import (Region, Domain, Land, PlayerOrNpc, Army,
                         Castle, AssetOwner, DomainProject, Task,
                         Ruler, Organization, Member, Orders, Agent,
                         SphereOfInfluence, SupportUsed, AssignedTask,
                         TaskSupporter)
-from src.players.models import PlayerDB
-from src.objects.models import ObjectDB, _AT_SEARCH_RESULT
-from game.dominion.unit_types import type_from_str
-from game.gamesrc.objects.npcs.npc_types import get_npc_type
-from src.utils.prettytable import PrettyTable
-from src.utils.utils import get_week
+from evennia.players.models import PlayerDB
+from evennia.objects.models import ObjectDB, _AT_SEARCH_RESULT
+from .unit_types import type_from_str
+from typeclasses.npcs.npc_types import get_npc_type
+from server.utils.prettytable import PrettyTable
+from server.utils.utils import get_week
 from django.db.models import Q, Sum
 
 # Constants for Dominion projects

@@ -5,7 +5,7 @@ All the stats for different kinds of military units are defined here and
 will be used at runtime.
 """
 import traceback
-from game.dominion.combat_grid import PositionActor
+from .combat_grid import PositionActor
 from random import randint
 
 # The corresponding database model will save type as an integer value

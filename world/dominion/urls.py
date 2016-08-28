@@ -7,7 +7,7 @@
 #
 
 from django.conf.urls import url
-from game.dominion import views
+from . import views
 
 
 urlpatterns = [
