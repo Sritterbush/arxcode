@@ -8,16 +8,16 @@ from django.http import HttpResponseRedirect, HttpResponse
 from django.core.urlresolvers import reverse
 from django.conf import settings
 
-from src.utils.search import object_search
-from src.utils.utils import inherits_from
-from src.objects.models import ObjectDB
-from game.dominion.models import Organization
-from game.gamesrc.commands.roster import create_comment
+from evennia.utils.search import object_search
+from evennia.utils.utils import inherits_from
+from evennia.objects.models import ObjectDB
+from world.dominion.models import Organization
+from commands.commands.roster import create_comment
 import cloudinary, cloudinary.uploader, cloudinary.forms
 from cloudinary import api
-from forms import (PhotoForm, PhotoDirectForm, PhotoUnsignedDirectForm, PortraitSelectForm,
+from .forms import (PhotoForm, PhotoDirectForm, PhotoUnsignedDirectForm, PortraitSelectForm,
                    PhotoDeleteForm, PhotoEditForm)
-from models import Photo, Story, Chapter, Episode
+from .models import Photo, Story, Chapter, Episode
 from cloudinary.forms import cl_init_js_callbacks
 import json
 from django.views.decorators.csrf import csrf_exempt

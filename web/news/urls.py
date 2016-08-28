@@ -5,7 +5,7 @@ It is imported from the root handler, game.web.urls.py.
 
 from django.conf.urls import *
 
-urlpatterns = patterns('src.web.news.views',
+urlpatterns = patterns('arx.web.news.views',
      (r'^show/(?P<entry_id>\d+)/$', 'show_news'),
      (r'^archive/$', 'news_archive'),
      (r'^search/$', 'search_form'),

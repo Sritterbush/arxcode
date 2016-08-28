@@ -59,6 +59,8 @@ class MsgAdmin(admin.ModelAdmin):
     raw_id_fields = ("db_sender_players", "db_receivers_players", "db_sender_objects", "db_receivers_objects",
                      "db_hide_from_players", "db_hide_from_objects")
     list_filter = (MsgListFilter,)
+    def get_senders(self, obj):
+        return ", ".join([p.key for p in obj.db_sender_objects.all()])
     def msg_receivers(self, obj):
         return ", ".join([p.key for p in obj.db_receivers_objects.all()])
     def get_queryset(self, request):

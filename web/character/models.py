@@ -1,8 +1,8 @@
 from django.db import models
-import settings
+from django.conf import settings
 from cloudinary.models import CloudinaryField
-from src.objects.models import ObjectDB
-from src.locks.lockhandler import LockHandler
+from evennia.objects.models import ObjectDB
+from evennia.locks.lockhandler import LockHandler
 from django.db.models import Q, F
 
 """

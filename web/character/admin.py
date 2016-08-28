@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.forms import ModelForm
-from src.web.character.models import (Roster, RosterEntry, Photo,
+from .models import (Roster, RosterEntry, Photo,
                                       Story, Chapter, Episode, StoryEmit,
                                       Milestone, Participant, Comment,
                                       PlayerAccount, AccountHistory,

@@ -3,12 +3,12 @@ Commands for the 'Character' app that handles the roster,
 stories, the timeline, etc.
 """
 
-import settings
-from ev import CmdSet
-from src.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from django.conf import settings
+from evennia import CmdSet
+from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from .models import Investigation, Clue
-from src.utils.prettytable import PrettyTable
-from src.utils.utils import inform_staff
+from server.utils.prettytable import PrettyTable
+from server.utils.utils import inform_staff
 
 class CmdInvestigate(MuxCommand):
     """

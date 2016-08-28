@@ -7,7 +7,7 @@
 #
 
 from django.conf.urls import url
-from src.web.character import views
+from . import views
 
 urlpatterns = [
     url(r'^$', views.list_characters, name="list_characters"),
