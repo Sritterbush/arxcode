@@ -3,7 +3,7 @@ Places for tabletalk
 """
 
 from django.conf import settings
-from ev import Object
+from typeclasses.objects import Object
 from cmdset_gambling import DiceCmdSet
 
 

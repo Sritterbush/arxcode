@@ -11,12 +11,11 @@ from django.conf import settings
 from evennia.utils import create, search, utils
 from server.utils import prettytable
 from evennia.utils.utils import make_iter
-from server.utils.utils import inform_staff, get_date
+from server.utils.utils import inform_staff, get_date, idle_timer
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.objects.models import ObjectDB
 from datetime import datetime
 from evennia import gametime
-from evennia.commands.default.player import idle_timer
 from commands.commands.jobs import get_apps_manager
 
 

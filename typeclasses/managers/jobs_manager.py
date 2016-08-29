@@ -2,7 +2,7 @@
 Manager for staff jobs
 """
 
-from ev import Object
+from typeclasses.objects import Object
 from datetime import datetime
 
 

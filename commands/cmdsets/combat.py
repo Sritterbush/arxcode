@@ -789,8 +789,8 @@ class CmdAdminCombat(MuxCommand):
             return
         pass
 
-NPC = "game.gamesrc.objects.npcs.npc.MultiNpc"
-from game.gamesrc.objects.npcs import npc_types
+NPC = "typeclasses.npcs.npc.MultiNpc"
+from typeclasses.npcs import npc_types
 class CmdCreateAntagonist(MuxCommand):
     """
     Creates an object to act as an NPC antagonist for combat.

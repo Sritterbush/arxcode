@@ -6,9 +6,9 @@ work, I'm just going to build and change the fucking models by hand
 here.
 """
 from django.conf import settings
-from src.utils.utils import inform_staff
+from .utils import inform_staff
 from datetime import datetime
-from helpdesk.models import Ticket, Queue, FollowUp
+from web.helpdesk.models import Ticket, Queue, FollowUp
 
 
 

@@ -20,11 +20,11 @@ those guards if they meet certain criteria. If they execute that
 command, it then summons guards for that player character.
 
 """
-from game.gamesrc.objects.character import Character
-from game.gamesrc.objects.npcs.npc_types import (get_npc_stats, get_npc_desc, get_npc_skills,
-                                           get_npc_singular_name, get_npc_plural_name, get_npc_weapon,
-                                                 get_armor_bonus, get_hp_bonus)
-from game.gamesrc.objects.stats_and_skills import do_dice_check
+from typeclasses.characters import Character
+from .npc_types import (get_npc_stats, get_npc_desc, get_npc_skills,
+                        get_npc_singular_name, get_npc_plural_name, get_npc_weapon,
+                        get_armor_bonus, get_hp_bonus)
+from world.stats_and_skills import do_dice_check
 import time
 
 

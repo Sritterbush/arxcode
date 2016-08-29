@@ -6,12 +6,13 @@ from django.conf import settings
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.commands.default import general
 from evennia.commands.default import comms
-from evennia.comms.models import Msg, TempMsg, PlayerChannelConnection, ExternalChannelConnection
+from evennia.comms.models import Msg, TempMsg
 from evennia.utils import create, utils, evtable
 from server.utils import prettytable
 from evennia.utils.utils import make_iter
 from world import stats_and_skills
-from evennia.objects.models import ObjectDB, _AT_SEARCH_RESULT
+from evennia.objects.models import ObjectDB
+from evennia.objects.objects import _AT_SEARCH_RESULT
 from evennia.utils.ansi import raw
 
 class CmdBriefMode(MuxCommand):

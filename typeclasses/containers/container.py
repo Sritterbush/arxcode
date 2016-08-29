@@ -3,9 +3,9 @@ Container objects. Bags, chests, etc.
 
 
 """
-from ev import Object as DefaultObject
-from src.commands.default.muxcommand import MuxCommand
-from src.commands import command, cmdset
+from typeclasses.objects import Object as DefaultObject
+from evennia.commands.default.muxcommand import MuxCommand
+from evennia.commands import command, cmdset
 
 
 class Container(DefaultObject):

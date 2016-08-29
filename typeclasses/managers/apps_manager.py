@@ -2,12 +2,12 @@
 Manager for character applications
 """
 from django.conf import settings
-from ev import Object
+from typeclasses.objects import Object
 from datetime import datetime
 from django.core.mail import send_mail
 import string
 import random
-from src.objects.models import ObjectDB
+from evennia.objects.models import ObjectDB
 import traceback
 
 

@@ -6,52 +6,61 @@ on characters can extend/modify/remove functionality
 from them without explicitly calling individual commands.
 
 """
-
+import traceback
 try:
     from evennia.commands.default import help, admin, system
 except Exception as err:
+    traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
     from evennia.commands.default import general as default_general
 except Exception as err:
+    traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
     from evennia.commands.default import building
 except Exception as err:
+    traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
     from evennia.commands.default import batchprocess
 except Exception as err:
+    traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
     from commands.commands import staff_commands
 except Exception as err:
+    traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
     from commands.commands import roster
 except Exception as err:
+    traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
     from commands.commands import general
 except Exception as err:
-    import traceback
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
     from typeclasses import rooms as extended_room
 except Exception as err:
+    traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
     from commands.commands import social
 except Exception as err:
+    traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
     from commands.commands import xp
 except Exception as err:
+    traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
     from commands.commands import maps
 except Exception as err:
+    traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
     from typeclasses.places import cmdset_places
@@ -60,14 +69,16 @@ except Exception as err:
 try:
     from commands.cmdsets import combat
 except Exception as err:
+    traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
-    from game.dominion import commands as domcommands
+    from world.dominion import commands as domcommands
 except Exception as err:
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
     from commands.commands import crafting
 except Exception as err:
+    traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 from evennia.commands.cmdset import CmdSet
 

@@ -4,9 +4,9 @@ Default Typeclass for Bulletin Boards, based loosely on bboards.
 See objects.objects for more information on Typeclassing.
 """
 #from src.comms import Msg, TempMsg, bboardDB
-from ev import Object
+from typeclasses.objects import Object
 from datetime import datetime
-from src.utils.utils import datetime_format
+from evennia.utils.utils import datetime_format
 
 
 class BBoard(Object):
