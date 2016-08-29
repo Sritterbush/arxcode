@@ -4,14 +4,14 @@ Commands that are available from the connect screen.
 import re
 import traceback
 from django.conf import settings
-from src.players.models import PlayerDB
-from src.objects.models import ObjectDB
-from src.server.models import ServerConfig
-from src.comms.models import ChannelDB
+from evennia.players.models import PlayerDB
+from evennia.objects.models import ObjectDB
+from evennia.server.models import ServerConfig
+from evennia.comms.models import ChannelDB
 
-from src.utils import create, logger, utils, ansi
-from src.commands.default.muxcommand import MuxCommand
-from src.commands.cmdhandler import CMD_LOGINSTART
+from evennia.utils import create, logger, utils, ansi
+from evennia.commands.default.muxcommand import MuxCommand
+from evennia.commands.cmdhandler import CMD_LOGINSTART
 
 # limit symbol import for API
 __all__ = ("CmdGuestConnect", "CmdUnconnectedCreate", "CmdUnconnectedHelp")
@@ -26,7 +26,7 @@ except Exception:
 if not CONNECTION_SCREEN:
     CONNECTION_SCREEN = "\nEvennia: Error in CONNECTION_SCREEN MODULE (randomly picked connection screen variable is not a string). \nEnter 'help' for aid."
 
-GUEST = "game.gamesrc.objects.guest.Guest"
+GUEST = "typeclasses.guest.Guest"
 
 class CmdGuestConnect(MuxCommand):
     """

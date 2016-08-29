@@ -2,18 +2,18 @@
 Module for a number of social commands that we'll add for players. Most
 will be character commands, since they'll deal with the grid.
 """
-from src.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from src.objects.models import ObjectDB
+from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from evennia.objects.models import ObjectDB
 from django.conf import settings
-from game.gamesrc.commands.roster import format_header
-from src.utils.prettytable import PrettyTable
-from src.utils.evtable import EvTable
+from commands.commands.roster import format_header
+from server.utils.prettytable import PrettyTable
+from evennia.utils.evtable import EvTable
 import time
 from datetime import datetime
-from game.dominion import setup_utils
-from game.dominion.models import RPEvent
-from src.utils.utils import inform_staff
-from src.scripts.models import ScriptDB
+from world.dominion import setup_utils
+from world.dominion.models import RPEvent
+from server.utils.utils import inform_staff
+from evennia.scripts.models import ScriptDB
 from django.db.models import Q
 
 

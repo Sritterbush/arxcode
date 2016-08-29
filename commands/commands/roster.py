@@ -8,14 +8,16 @@ players to peruse characters while OOC if they wish.
 
 """
 from django.conf import settings
-from src.utils import create, search, utils, prettytable
-from src.utils.utils import make_iter, inform_staff, get_date
-from src.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from src.objects.models import ObjectDB
+from evennia.utils import create, search, utils
+from server.utils import prettytable
+from evennia.utils.utils import make_iter
+from server.utils.utils import inform_staff, get_date
+from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from evennia.objects.models import ObjectDB
 from datetime import datetime
-from ev import gametime
-from src.commands.default.player import idle_timer
-from game.gamesrc.commands.jobs import get_apps_manager
+from evennia import gametime
+from evennia.commands.default.player import idle_timer
+from commands.commands.jobs import get_apps_manager
 
 
 # limit symbol import for API

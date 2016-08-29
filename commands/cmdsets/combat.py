@@ -13,16 +13,17 @@ situations that are damaging to immersion and the
 creative process.
 """
 
-from ev import CmdSet
-from src.commands.default.muxcommand import MuxCommand
-from src.utils import create, evtable
-from src.utils.utils import inherits_from, inform_staff
+from evennia import CmdSet
+from evennia.commands.default.muxcommand import MuxCommand
+from evennia.utils import create, evtable
+from evennia.utils.utils import inherits_from
+from server.utils.utils import inform_staff
 from django.conf import settings
-from game.gamesrc.scripts import combat_settings
-from src.objects.models import ObjectDB
+from typeclasses.scripts.combat import combat_settings
+from evennia.objects.models import ObjectDB
 import random
 
-CSCRIPT = "game.gamesrc.scripts.combat_script.CombatManager"
+CSCRIPT = "typeclasses.scripts.combat.combat_script.CombatManager"
 
 
 

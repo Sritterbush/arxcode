@@ -9,11 +9,12 @@ be here, as well as related commands such as voting to give
 other players xp awards for good roleplay.
 """
 
-from src.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from django.conf import settings
-from game.gamesrc.objects import stats_and_skills
-from src.utils.utils import inform_staff, list_to_string
-from src.players.models import PlayerDB
+from world import stats_and_skills
+from server.utils.utils import inform_staff
+from evennia.utils.utils import list_to_string
+from evennia.players.models import PlayerDB
 
 class CmdUseXP(MuxCommand):
     """

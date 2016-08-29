@@ -8,13 +8,14 @@ import time
 import re
 from django.conf import settings
 from django.contrib.auth.models import User
-from src.server.sessionhandler import SESSIONS
-from src.server.models import ServerConfig
-from src.utils import utils, prettytable, search, evtable, create
-from src.utils.utils import inform_staff
-from src.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from src.players.models import PlayerDB
-from src.objects.models import ObjectDB
+from evennia.server.sessionhandler import SESSIONS
+from evennia.server.models import ServerConfig
+from evennia.utils import utils, search, evtable, create
+from server.utils import prettytable
+from server.utils.utils import inform_staff
+from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from evennia.players.models import PlayerDB
+from evennia.objects.models import ObjectDB
 
 PERMISSION_HIERARCHY = [p.lower() for p in settings.PERMISSION_HIERARCHY]
 
