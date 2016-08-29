@@ -3,7 +3,7 @@ wearable weapons
 """
 
 from django.conf import settings
-from ev import Object
+from typeclasses.objects import Object
 from cmdset_wieldable import DefaultCmdSet as wieldcmdset
 from cmdset_wearable import DefaultCmdSet as wearcmdset
 from wieldable import Wieldable

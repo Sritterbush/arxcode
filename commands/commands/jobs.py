@@ -9,12 +9,10 @@ database migration to add in their functionality.
 
 """
 from django.conf import settings
-from evennia.utils import create, search, utils
 from server.utils import prettytable, helpdesk_api
 from web.helpdesk.models import Ticket, Queue
-from evennia.utils.utils import make_iter
 from server.utils.utils import inform_staff
-from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from evennia.commands.default.muxcommand import MuxPlayerCommand
 from evennia.objects.models import ObjectDB
 import traceback
 
@@ -75,13 +73,7 @@ class CmdJob(MuxPlayerCommand):
         switches = self.switches
         if not args and not switches:
             #list all open tickets
-            # open & reopened tickets, assigned to current user
-            tickets = list(Ticket.objects.select_related('queue').filter(
-                        assigned_to=caller.id,
-                        ).exclude(
-                            status__in = [Ticket.CLOSED_STATUS, Ticket.RESOLVED_STATUS],
-                            ))
-
+            
             
 
             unassigned_tickets = list(Ticket.objects.select_related('queue').filter(
@@ -429,7 +421,7 @@ class CmdApp(MuxPlayerCommand):
                     if not AccountHistory.objects.filter(account=account, entry=entry):
                         from datetime import datetime
                         date = datetime.now()
-                        history = AccountHistory.objects.create(entry=entry, account=account, start_date=date)
+                        AccountHistory.objects.create(entry=entry, account=account, start_date=date)
                     try:
                         from game.gamesrc.commands.cmdsets.starting_gear import setup_gear_for_char
                         if not entry.character:
@@ -482,7 +474,7 @@ class CmdApp(MuxPlayerCommand):
                 caller.msg("No applications found.")
                 return
             #application[9] field is 'True' if pending/open
-            pend_list = [app for app in all_apps.values() if not app[9]]
+            pend_list = [_app for _app in all_apps.values() if not _app[9]]
             pend_list.sort(key=lambda app: app[0])
             if not pend_list:
                 caller.msg("No closed applications found.")

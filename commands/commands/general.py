@@ -1,13 +1,10 @@
 """
 General Character commands usually availabe to all characters
 """
-from datetime import datetime
 from django.conf import settings
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from evennia.commands.default import general
-from evennia.commands.default import comms
-from evennia.comms.models import Msg, TempMsg
-from evennia.utils import create, utils, evtable
+from evennia.comms.models import TempMsg
+from evennia.utils import utils, evtable
 from server.utils import prettytable
 from evennia.utils.utils import make_iter
 from world import stats_and_skills
@@ -209,7 +206,6 @@ class CmdDitch(MuxCommand):
             return
         # no args, so make everyone stop following
         if followers:
-            f_list = [x.name for x in followers]
             for follower in followers:
                 follower.stop_follow()
         caller.ndb.followers = []

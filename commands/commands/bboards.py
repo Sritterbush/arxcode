@@ -7,9 +7,7 @@ make sure to homogenize self.caller to always be the player object
 for easy handling.
 
 """
-from django.conf import settings
-from evennia.utils import create, search, utils
-from evennia.utils.utils import make_iter
+from evennia.utils import create
 from server.utils import prettytable
 from server.utils.utils import inform_staff
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand

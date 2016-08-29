@@ -33,8 +33,12 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         #
         # any commands you add below will overload the default ones.
         #
-        self.add(standard.StateIndependentCmdSet)
-        self.add(standard.MobileCmdSet)
+        try:
+            self.add(standard.StateIndependentCmdSet)
+            self.add(standard.MobileCmdSet)
+        except Exception:
+            import traceback
+            traceback.print_exc()
 
 
 class PlayerCmdSet(default_cmds.PlayerCmdSet):

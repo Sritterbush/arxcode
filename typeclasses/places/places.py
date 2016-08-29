@@ -3,9 +3,9 @@ Places for tabletalk
 """
 
 from django.conf import settings
-from ev import Object
+from typeclasses.objects import Object
 from cmdset_places import DefaultCmdSet, SittingCmdSet
-from src.utils.utils import make_iter
+from evennia.utils.utils import make_iter
 
 class Place(Object):
     """

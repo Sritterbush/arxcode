@@ -3,9 +3,9 @@ Commands for dominion. This will be the interface through which
 players interact with the system, as well as commands for staff
 to make changes.
 """
-import settings
-from ev import CmdSet
-from commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from django.conf import settings
+from evennia import CmdSet
+from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from ast import literal_eval
 from . import setup_utils
 from .models import (Region, Domain, Land, PlayerOrNpc, Army,
@@ -14,7 +14,8 @@ from .models import (Region, Domain, Land, PlayerOrNpc, Army,
                         SphereOfInfluence, SupportUsed, AssignedTask,
                         TaskSupporter)
 from evennia.players.models import PlayerDB
-from evennia.objects.models import ObjectDB, _AT_SEARCH_RESULT
+from evennia.objects.models import ObjectDB
+from evennia.objects.objects import _AT_SEARCH_RESULT
 from .unit_types import type_from_str
 from typeclasses.npcs.npc_types import get_npc_type
 from server.utils.prettytable import PrettyTable

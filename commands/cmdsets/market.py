@@ -13,13 +13,13 @@ situations that are damaging to immersion and the
 creative process.
 """
 
-from ev import CmdSet
-from src.commands.default.muxcommand import MuxCommand
-from src.utils import prettytable
-from src.utils.create import create_object
+from evennia import CmdSet
+from evennia.commands.default.muxcommand import MuxCommand
+from server.utils import prettytable
+from evennia.utils.create import create_object
 from django.conf import settings
-from game.dominion.models import (CraftingMaterialType, PlayerOrNpc, CraftingMaterials)
-from game.dominion import setup_utils
+from world.dominion.models import (CraftingMaterialType, PlayerOrNpc, CraftingMaterials)
+from world.dominion import setup_utils
 
 
 

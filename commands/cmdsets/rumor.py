@@ -2,15 +2,15 @@
 Commands for rumormills.
 """
 
-from ev import CmdSet
-from src.commands.default.muxcommand import MuxCommand
-from src.utils import evtable
-from src.utils.utils import get_week
-from src.utils.create import create_message
+from evennia import CmdSet
+from evennia.commands.default.muxcommand import MuxCommand
+from evennia.utils import evtable
+from server.utils.utils import get_week
+from evennia.utils.create import create_message
 from django.conf import settings
-from game.gamesrc.objects.stats_and_skills import do_dice_check
-from src.comms.models import Msg
-from game.dominion.models import AssignedTask
+from world.stats_and_skills import do_dice_check
+from evennia.comms.models import Msg
+from world.dominion.models import AssignedTask
 
 RUMOR_LIFETIME = 30
 

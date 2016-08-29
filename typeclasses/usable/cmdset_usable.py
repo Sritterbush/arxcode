@@ -2,8 +2,8 @@
 cmdset for usable object
 """
 from django.conf import settings
-from ev import CmdSet
-from src.commands.default.muxcommand import MuxCommand
+from evennia import CmdSet
+from evennia.commands.default.muxcommand import MuxCommand
 
 
 

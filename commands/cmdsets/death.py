@@ -13,8 +13,8 @@ this is on them, they are dead.
 
 """
 
-from ev import CmdSet
-from src.commands.default.muxcommand import MuxCommand
+from evennia import CmdSet
+from evennia.commands.default.muxcommand import MuxCommand
 
 
 

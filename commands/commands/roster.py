@@ -8,15 +8,14 @@ players to peruse characters while OOC if they wish.
 
 """
 from django.conf import settings
-from evennia.utils import create, search, utils
+from evennia.utils import utils
 from server.utils import prettytable
-from evennia.utils.utils import make_iter
-from server.utils.utils import inform_staff, get_date, idle_timer
+from server.utils.utils import inform_staff, idle_timer
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.objects.models import ObjectDB
 from datetime import datetime
-from evennia import gametime
 from commands.commands.jobs import get_apps_manager
+from django.db.models import Q
 
 
 # limit symbol import for API
@@ -300,11 +299,11 @@ class CmdRosterList(MuxPlayerCommand):
             if 'all' in switches:
                 match_list = roster.search_by_filters(filters)
                 if match_list:
-                    match_list = [char.key.capitalize() for char in match_list]
+                    match_list = [_char.key.capitalize() for _char in match_list]
                 list_characters(caller, match_list, "Active Characters", roster, False)
             match_list = roster.search_by_filters(filters, "available")
             if match_list:
-                match_list = [char.key.capitalize() for char in match_list]
+                match_list = [_char.key.capitalize() for _char in match_list]
             list_characters(caller, match_list, "Available Characters", roster, False)
             return
         rhslist = self.rhslist
@@ -324,11 +323,11 @@ class CmdRosterList(MuxPlayerCommand):
         if 'all' in switches:
             match_list = roster.search_by_filters(lhslist,"active",concept, fealty, social_rank, family)
             if match_list:
-                match_list = [char.key.capitalize() for char in match_list]
+                match_list = [_char.key.capitalize() for _char in match_list]
             list_characters(caller, match_list, "Active Characters", roster, False)
         match_list = roster.search_by_filters(lhslist,"available",concept, fealty, social_rank, family)
         if match_list:
-            match_list = [char.key.capitalize() for char in match_list]
+            match_list = [_char.key.capitalize() for _char in match_list]
         list_characters(caller, match_list, "Available Characters", roster, False)
         return
 
@@ -1097,7 +1096,7 @@ class CmdSheet(MuxPlayerCommand):
                     msg.receivers = caller
                 return
             caller.msg("Relationship notes you are permitted to read for {c%s{n in {c%s{n's %s:" % (targ, char, jname))
-            msglist = [msg for msg in journal.get(targ.key.lower(), []) if msg.access(caller, 'read')]
+            msglist = [_msg for _msg in journal.get(targ.key.lower(), []) if _msg.access(caller, 'read')]
             if not msglist:
                 caller.msg("No entries for %s." % name)
                 return
@@ -1249,7 +1248,6 @@ class CmdRelationship(MuxPlayerCommand):
         # lhs will be used for keys, so need to make sure always lower case
         lhs = lhs.lower()
         desc = rhs
-        date = get_date()    
         if 'change' in switches or 'changeprivate' in switches:
             targ = caller.search(lhs)
             if not targ:
@@ -1384,7 +1382,6 @@ class CmdComment(MuxPlayerCommand):
 
     def func(self):
         caller = self.caller
-        switches = self.switches
         lhs = self.lhs
         comment_txt = self.rhs
         caller_char = caller.db.char_ob

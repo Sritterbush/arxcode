@@ -9,10 +9,10 @@ cmdset - this way you can often re-use the commands too.
 
 import random
 from django.conf import settings
-from ev import CmdSet
-from ev import utils
-from src.commands.default.muxcommand import MuxCommand
-from src.utils.utils import list_to_string
+from evennia import CmdSet
+from evennia import utils
+from evennia.commands.default.muxcommand import MuxCommand
+from evennia.utils.utils import list_to_string
 
 
 #------------------------------------------------------------

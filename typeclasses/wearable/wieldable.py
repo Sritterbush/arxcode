@@ -8,7 +8,7 @@ False if not wielded.
 """
 
 from django.conf import settings
-from ev import Object
+from typeclasses.objects import Object
 from cmdset_wieldable import DefaultCmdSet
 
 

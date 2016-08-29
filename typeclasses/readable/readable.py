@@ -3,9 +3,10 @@ Readable/Writable objects
 """
 
 from django.conf import settings
-from ev import Object, CmdSet
-from src.utils.utils import make_iter
-from src.commands.default.muxcommand import MuxCommand
+from typeclasses.objects import Object
+from evennia import CmdSet
+from evennia.utils.utils import make_iter
+from evennia.commands.default.muxcommand import MuxCommand
 
 class Readable(Object):
     """

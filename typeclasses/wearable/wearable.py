@@ -10,7 +10,7 @@ False if not worn.
 """
 
 from django.conf import settings
-from ev import Object
+from typeclasses.objects import Object
 from cmdset_wearable import DefaultCmdSet
 from time import time
 
@@ -149,7 +149,7 @@ class Wearable(Object):
         return self.calc_armor()[1]
     penalty = property(_get_penalty)
 
-from game.gamesrc.objects.containers.container import Container
+from typeclasses.containers.container import Container
 
 class WearableContainer(Wearable, Container):
     def at_object_creation(self):

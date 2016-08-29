@@ -8,78 +8,70 @@ from them without explicitly calling individual commands.
 """
 import traceback
 try:
-    from evennia.commands.default import help, admin, system
+    from evennia.commands.default import help, admin, system, building, batchprocess
 except Exception as err:
     traceback.print_exc()
-    print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
+    print("<<ERROR>>: Error encountered in loading default commands: %s" % err)
 try:
     from evennia.commands.default import general as default_general
 except Exception as err:
     traceback.print_exc()
-    print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
-try:
-    from evennia.commands.default import building
-except Exception as err:
-    traceback.print_exc()
-    print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
-try:
-    from evennia.commands.default import batchprocess
-except Exception as err:
-    traceback.print_exc()
-    print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
+    print("<<ERROR>>: Error encountered in loading default.general commands: %s" % err)
 try:
     from commands.commands import staff_commands
 except Exception as err:
     traceback.print_exc()
-    print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
+    print("<<ERROR>>: Error encountered in loading staff_commands: %s" % err)
 try:
     from commands.commands import roster
 except Exception as err:
     traceback.print_exc()
-    print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
+    print("<<ERROR>>: Error encountered in loading roster commands: %s" % err)
 try:
     from commands.commands import general
 except Exception as err:
     traceback.print_exc()
-    print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
+    print("<<ERROR>>: Error encountered in loading general commands: %s" % err)
 try:
     from typeclasses import rooms as extended_room
 except Exception as err:
     traceback.print_exc()
-    print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
+    print("<<ERROR>>: Error encountered in loading extended_room: %s" % err)
 try:
     from commands.commands import social
 except Exception as err:
     traceback.print_exc()
-    print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
+    print("<<ERROR>>: Error encountered in loading social commands: %s" % err)
 try:
     from commands.commands import xp
 except Exception as err:
     traceback.print_exc()
-    print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
+    print("<<ERROR>>: Error encountered in loading xp commands: %s" % err)
 try:
     from commands.commands import maps
 except Exception as err:
     traceback.print_exc()
-    print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
+    print("<<ERROR>>: Error encountered in loading maps commands: %s" % err)
 try:
     from typeclasses.places import cmdset_places
 except Exception as err:
-    print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
+    traceback.print_exc()
+    print("<<ERROR>>: Error encountered in loading places commands: %s" % err)
 try:
     from commands.cmdsets import combat
 except Exception as err:
     traceback.print_exc()
-    print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
+    print("<<ERROR>>: Error encountered in loading combat commands: %s" % err)
 try:
     from world.dominion import commands as domcommands
 except Exception as err:
-    print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
+    traceback.print_exc()
+    print("<<ERROR>>: Error encountered in loading dominion commands: %s" % err)
 try:
     from commands.commands import crafting
 except Exception as err:
     traceback.print_exc()
-    print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
+    print("<<ERROR>>: Error encountered in loading crafting commands: %s" % err)
 from evennia.commands.cmdset import CmdSet
 
 class OOCCmdSet(CmdSet):
@@ -155,14 +147,10 @@ class MobileCmdSet(CmdSet):
         self.add(xp.CmdTrain())
         self.add(xp.CmdUseXP())
         self.add(cmdset_places.CmdListPlaces())
-        try:
-            from commands.cmdsets import combat
-            self.add(combat.CmdStartCombat())
-            self.add(combat.CmdProtect())
-            self.add(combat.CmdAutoattack())
-            self.add(combat.CmdCombatStats())
-        except Exception as err:
-            print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
+        self.add(combat.CmdStartCombat())
+        self.add(combat.CmdProtect())
+        self.add(combat.CmdAutoattack())
+        self.add(combat.CmdCombatStats())
         self.add(domcommands.CmdGuards())
         self.add(domcommands.CmdTask())
         self.add(domcommands.CmdSupport())
@@ -232,12 +220,8 @@ class StaffCmdSet(CmdSet):
         self.add(xp.CmdAwardXP())
         self.add(maps.CmdMapCreate())
         self.add(maps.CmdMapRoom())
-        try:
-            from commands.cmdsets import combat
-            self.add(combat.CmdObserveCombat())
-            self.add(combat.CmdAdminCombat())
-            self.add(combat.CmdCreateAntagonist())
-        except Exception as err:
-            print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
+        self.add(combat.CmdObserveCombat())
+        self.add(combat.CmdAdminCombat())
+        self.add(combat.CmdCreateAntagonist())
         self.add(domcommands.CmdSetRoom())
         

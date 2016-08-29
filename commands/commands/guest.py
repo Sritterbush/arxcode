@@ -11,9 +11,7 @@ create the character on the roster, filling in incomplete fields by the player
 jumping around to them.
 
 """
-from datetime import datetime
 from django.conf import settings
-from evennia.server.sessionhandler import SESSIONS
 from evennia.commands.default.muxcommand import MuxPlayerCommand
 from evennia.utils import utils, create, search
 from server.utils.utils import inform_staff

@@ -3,7 +3,7 @@ Usable object.
 """
 
 from django.conf import settings
-from ev import Object
+from typeclasses.objects import Object
 from cmdset_usable import UsableCmdSet
 
 

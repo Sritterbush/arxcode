@@ -2,15 +2,16 @@
 Commands for home spaces/rooms.
 """
 
-from ev import CmdSet
-from src.commands.default.muxcommand import MuxCommand
+from evennia import CmdSet
+from evennia.commands.default.muxcommand import MuxCommand
 from django.conf import settings
-from game.dominion.models import LIFESTYLES
+from world.dominion.models import LIFESTYLES
 from django.db.models import Q
-from src.objects.models import ObjectDB
-from game.dominion.models import AssetOwner, Organization, CraftingRecipe
-from src.utils.prettytable import PrettyTable
-from src.utils import utils
+from evennia.objects.models import ObjectDB
+from world.dominion.models import AssetOwner, Organization, CraftingRecipe
+from server.utils.prettytable import PrettyTable
+from server.utils.utils import inform_staff
+from evennia.utils import utils
 import re
 # error return function, needed by Extended Look command
 AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
@@ -238,7 +239,7 @@ class CmdAllowBuilding(MuxCommand):
         caller.msg("Perms set.")
         return
 
-from src.commands.default.building import CmdDig
+from evennia.commands.default.building import CmdDig
 
 class CmdBuildRoom(CmdDig):
     """
@@ -323,7 +324,7 @@ class CmdBuildRoom(CmdDig):
                 return
         except Exception:
             caller.msg("{rError logged.{n")
-            utils.inform_staff("Room %s has an invalid expansions attribute." % loc.id)
+            inform_staff("Room %s has an invalid expansions attribute." % loc.id)
             return
         if not self.lhs:
             caller.msg("The cost for you to build from this room is %s." % cost)
@@ -729,7 +730,7 @@ class CmdManageShop(MuxCommand):
             return
         caller.msg("Invalid switch.")
 
-from game.gamesrc.commands.crafting import CmdCraft
+from commands.commands.crafting import CmdCraft
 class CmdBuyFromShop(CmdCraft):
     """
     +shop

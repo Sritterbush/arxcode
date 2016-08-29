@@ -55,9 +55,7 @@ def create_wearable(recipe, roll, mats, proj, caller):
     return (obj, quality)
 
 def create_decorative_weapon(recipe, roll, mats, proj, caller):
-    skill = recipe.resultsdict.get("weapon_skill", "small wpn")
-    slot = recipe.resultsdict.get("slot", None)
-    slot_limit = int(recipe.resultsdict.get("slot_limit", 0))                            
+    skill = recipe.resultsdict.get("weapon_skill", "small wpn")                           
     quality = get_quality_lvl(roll, recipe.difficulty)
     obj = create_obj(DECORATIVE_WIELD, proj[1], caller, caller, quality)
     obj.db.attack_skill = skill
@@ -462,7 +460,7 @@ class CmdCraft(MuxCommand):
                 return
             # we have matches, make sure real ones are in recipe, or the object
             recipe = CraftingRecipe.objects.get(id=proj[0])
-            types = [mat.type for mat in recipe.materials.all()]
+            types = [_mat.type for _mat in recipe.materials.all()]
             if real not in types:
                 # not in base recipe, check if it's in adornments
                 if real.id not in proj[3].keys():
