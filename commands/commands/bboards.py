@@ -8,15 +8,17 @@ for easy handling.
 
 """
 from django.conf import settings
-from src.utils import create, search, utils, prettytable
-from src.utils.utils import make_iter, inform_staff
-from src.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from src.objects.models import ObjectDB
+from evennia.utils import create, search, utils
+from evennia.utils.utils import make_iter
+from server.utils import prettytable
+from server.utils.utils import inform_staff
+from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from evennia.objects.models import ObjectDB
 
 # limit symbol import for API
 __all__ = ("CmdBBReadOrPost","CmdBBSub","CmdBBUnsub",
            "CmdBBCreate")
-BOARD_TYPECLASS = "game.gamesrc.objects.bulletin_board.bboard.BBoard"
+BOARD_TYPECLASS = "typeclasses.bulletin_board.bboard.BBoard"
 
 def get_boards(caller):
     """

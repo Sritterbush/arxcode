@@ -3,15 +3,16 @@ General Character commands usually availabe to all characters
 """
 from datetime import datetime
 from django.conf import settings
-from src.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from src.commands.default import general
-from src.commands.default import comms
-from src.comms.models import Msg, TempMsg, PlayerChannelConnection, ExternalChannelConnection
-from src.utils import create, utils, prettytable, evtable
-from src.utils.utils import make_iter
-from game.gamesrc.objects import stats_and_skills
-from src.objects.models import ObjectDB, _AT_SEARCH_RESULT
-from src.utils.ansi import raw
+from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from evennia.commands.default import general
+from evennia.commands.default import comms
+from evennia.comms.models import Msg, TempMsg, PlayerChannelConnection, ExternalChannelConnection
+from evennia.utils import create, utils, evtable
+from server.utils import prettytable
+from evennia.utils.utils import make_iter
+from world import stats_and_skills
+from evennia.objects.models import ObjectDB, _AT_SEARCH_RESULT
+from evennia.utils.ansi import raw
 
 class CmdBriefMode(MuxCommand):
     """

@@ -8,9 +8,9 @@ for easy handling.
 
 """
 from django.conf import settings
-from src.utils import create
-from src.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from src.objects.models import ObjectDB
+from evennia.utils import create
+from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from evennia.objects.models import ObjectDB
 
 MAP_TYPECLASS = "game.gamesrc.objects.map.Map"
 

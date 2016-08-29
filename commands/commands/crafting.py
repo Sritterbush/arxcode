@@ -2,25 +2,25 @@
 Crafting commands. BEHOLD THE MINIGAME.
 """
 from django.conf import settings
-from src.commands.default.muxcommand import MuxCommand
-from game.dominion.models import (AssetOwner, PlayerOrNpc, CraftingRecipe, CraftingMaterials, CraftingMaterialType)
-from game.dominion.setup_utils import setup_dom_for_char
-from game.gamesrc.objects.stats_and_skills import do_dice_check
-from src.utils.create import create_object
-from src.utils.prettytable import PrettyTable
-from src.utils import utils
-from src.utils.utils import make_iter
+from evennia.commands.default.muxcommand import MuxCommand
+from world.dominion.models import (AssetOwner, PlayerOrNpc, CraftingRecipe, CraftingMaterials, CraftingMaterialType)
+from world.dominion.setup_utils import setup_dom_for_char
+from world.stats_and_skills import do_dice_check
+from evennia.utils.create import create_object
+from server.utils.prettytable import PrettyTable
+from evennia.utils import utils
+from evennia.utils.utils import make_iter
 
 AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
 
-WIELD = "game.gamesrc.objects.wearable.wieldable.Wieldable"
-DECORATIVE_WIELD = "game.gamesrc.objects.wearable.decorative_weapon.DecorativeWieldable"
-WEAR = "game.gamesrc.objects.wearable.wearable.Wearable"
-PLACE = "game.gamesrc.objects.places.places.Place"
-BOOK = "game.gamesrc.objects.readable.readable.Readable"
-CONTAINER = "game.gamesrc.objects.containers.container.Container"
-WEARABLE_CONTAINER = "game.gamesrc.objects.wearable.wearable.WearableContainer"
-BAUBLE = "game.gamesrc.objects.bauble.Bauble"
+WIELD = "typeclasses.wearable.wieldable.Wieldable"
+DECORATIVE_WIELD = "typeclasses.wearable.decorative_weapon.DecorativeWieldable"
+WEAR = "typeclasses.wearable.wearable.Wearable"
+PLACE = "typeclasses.places.places.Place"
+BOOK = "typeclasses.readable.readable.Readable"
+CONTAINER = "typeclasses.containers.container.Container"
+WEARABLE_CONTAINER = "typeclasses.wearable.wearable.WearableContainer"
+BAUBLE = "typeclasses.bauble.Bauble"
 
 QUALITY_LEVELS = {
     0: '{rawful{n',

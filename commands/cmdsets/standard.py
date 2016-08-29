@@ -24,41 +24,41 @@ try:
 except Exception as err:
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
-    from commands.cmdsets import staff_commands
+    from commands.commands import staff_commands
 except Exception as err:
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
-    from commands.cmdsets import roster
+    from commands.commands import roster
 except Exception as err:
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
-    from commands.cmdsets import general
+    from commands.commands import general
 except Exception as err:
     import traceback
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
-    from game.gamesrc.objects import extended_room
+    from typeclasses import rooms as extended_room
 except Exception as err:
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
-    from game.gamesrc.commands import social
+    from commands.commands import social
 except Exception as err:
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
-    from game.gamesrc.commands import xp
+    from commands.commands import xp
 except Exception as err:
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
-    from game.gamesrc.commands import maps
+    from commands.commands import maps
 except Exception as err:
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
-    from game.gamesrc.objects.places import cmdset_places
+    from typeclasses.places import cmdset_places
 except Exception as err:
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
-    from game.gamesrc.commands.cmdsets import combat
+    from commands.cmdsets import combat
 except Exception as err:
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
@@ -66,11 +66,10 @@ try:
 except Exception as err:
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
 try:
-    from game.gamesrc.commands import crafting
+    from commands.commands import crafting
 except Exception as err:
     print("<<ERROR>>: Error encountered in loading Character commandset: %s" % err)
-
-
+from evennia.commands.cmdset import CmdSet
 
 class OOCCmdSet(CmdSet):
     "Character-specific OOC commands. Most OOC commands defined in player."    
@@ -146,7 +145,7 @@ class MobileCmdSet(CmdSet):
         self.add(xp.CmdUseXP())
         self.add(cmdset_places.CmdListPlaces())
         try:
-            from game.gamesrc.commands.cmdsets import combat
+            from commands.cmdsets import combat
             self.add(combat.CmdStartCombat())
             self.add(combat.CmdProtect())
             self.add(combat.CmdAutoattack())
@@ -223,7 +222,7 @@ class StaffCmdSet(CmdSet):
         self.add(maps.CmdMapCreate())
         self.add(maps.CmdMapRoom())
         try:
-            from game.gamesrc.commands.cmdsets import combat
+            from commands.cmdsets import combat
             self.add(combat.CmdObserveCombat())
             self.add(combat.CmdAdminCombat())
             self.add(combat.CmdCreateAntagonist())

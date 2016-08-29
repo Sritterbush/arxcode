@@ -13,13 +13,13 @@ jumping around to them.
 """
 from datetime import datetime
 from django.conf import settings
-from src.server.sessionhandler import SESSIONS
-from src.commands.default.muxcommand import MuxPlayerCommand
-from src.utils import utils, create, search, prettytable
-from src.utils.utils import inform_staff
-from src.players.models import PlayerDB
-from ev import syscmdkeys
-from game.gamesrc.objects.stats_and_skills import (get_partial_match, get_skill_cost,
+from evennia.server.sessionhandler import SESSIONS
+from evennia.commands.default.muxcommand import MuxPlayerCommand
+from evennia.utils import utils, create, search
+from server.utils.utils import inform_staff
+from evennia.players.models import PlayerDB
+from evennia import syscmdkeys
+from world.stats_and_skills import (get_partial_match, get_skill_cost,
                                                    _crafting_abilities_, _valid_skills_,
                                                    _valid_stats_,)
 import copy
