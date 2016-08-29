@@ -189,7 +189,7 @@ class WeeklyEvents(Script):
             if player.last_login < date:
                 player.roster.frozen = True
                 player.roster.save()
-        except Exception:
+        except Exception as err:
             import traceback
             traceback.print_exc()
             print "Error on freezing account: ID:%s, Error: %s" % (player.id, err)

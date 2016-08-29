@@ -2521,7 +2521,7 @@ class TaskSupporter(models.Model):
                     ren.rating += inf.rating
                     ren.save()
         else: #we're an unreliable flake. We suffer penalties
-            for req in self.task.requirements.all():
+            for req in self.task.task.requirements.all():
                 category = req.category
                 try:
                     char = self.player
