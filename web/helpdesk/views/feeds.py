@@ -18,7 +18,7 @@ from django.db.models import Q
 from django.utils.translation import ugettext as _
 from django.shortcuts import get_object_or_404
 
-from helpdesk.models import Ticket, FollowUp, Queue
+from web.helpdesk.models import Ticket, FollowUp, Queue
 
 
 class OpenTicketsByUser(Feed):

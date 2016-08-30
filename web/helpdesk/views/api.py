@@ -29,9 +29,9 @@ try:
 except ImportError:
     from datetime import datetime as timezone
 
-from helpdesk.forms import TicketForm
-from helpdesk.lib import send_templated_mail, safe_template_context
-from helpdesk.models import Ticket, Queue, FollowUp
+from web.helpdesk.forms import TicketForm
+from web.helpdesk.lib import send_templated_mail, safe_template_context
+from web.helpdesk.models import Ticket, Queue, FollowUp
 
 STATUS_OK = 200
 

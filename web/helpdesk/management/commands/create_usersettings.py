@@ -16,8 +16,8 @@ try:
 except ImportError:
     from django.contrib.auth.models import User
 
-from helpdesk.models import UserSettings
-from helpdesk.settings import DEFAULT_USER_SETTINGS
+from web.helpdesk.models import UserSettings
+from web.helpdesk.settings import DEFAULT_USER_SETTINGS
 
 class Command(BaseCommand):
     "create_usersettings command"

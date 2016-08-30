@@ -13,10 +13,10 @@ from django.shortcuts import render_to_response, get_object_or_404
 from django.template import loader, Context, RequestContext
 from django.utils.translation import ugettext as _
 
-from helpdesk import settings as helpdesk_settings
-from helpdesk.forms import PublicTicketForm
-from helpdesk.lib import send_templated_mail, text_is_spam
-from helpdesk.models import Ticket, Queue, UserSettings, KBCategory
+from web.helpdesk import settings as helpdesk_settings
+from web.helpdesk.forms import PublicTicketForm
+from web.helpdesk.lib import send_templated_mail, text_is_spam
+from web.helpdesk.models import Ticket, Queue, UserSettings, KBCategory
 
 
 def homepage(request):

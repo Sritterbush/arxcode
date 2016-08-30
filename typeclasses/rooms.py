@@ -74,6 +74,7 @@ from evennia import gametime
 from evennia import default_cmds
 from evennia import utils
 from evennia.objects.models import ObjectDB
+from typeclasses.mixins import ObjectMixins
 
 # error return function, needed by Extended Look command
 _AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
@@ -108,7 +109,7 @@ SHOPCMD = "cmdsets.home.ShopCmdSet"
 
 # implements the Extended Room
 
-class ExtendedRoom(Room):
+class ExtendedRoom(ObjectMixins, Room):
     """
     This room implements a more advanced look functionality depending on
     time. It also allows for "details", together with a slightly modified

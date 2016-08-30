@@ -17,7 +17,7 @@ from django import template
 from django.core.urlresolvers import reverse
 from django.utils.safestring import mark_safe
 
-from helpdesk.models import Ticket
+from web.helpdesk.models import Ticket
 
 
 class ReverseProxy:

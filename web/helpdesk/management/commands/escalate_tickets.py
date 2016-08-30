@@ -22,8 +22,8 @@ try:
 except ImportError:
     from datetime import datetime as timezone
 
-from helpdesk.models import Queue, Ticket, FollowUp, EscalationExclusion, TicketChange
-from helpdesk.lib import send_templated_mail, safe_template_context
+from web.helpdesk.models import Queue, Ticket, FollowUp, EscalationExclusion, TicketChange
+from web.helpdesk.lib import send_templated_mail, safe_template_context
 
 
 class Command(BaseCommand):
