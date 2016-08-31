@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 from django.db import models, migrations
 import django.utils.timezone
 from django.conf import settings
-import helpdesk.models
+import web.helpdesk.models
 
 
 class Migration(migrations.Migration):
@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
             name='Attachment',
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
-                ('file', models.FileField(upload_to=helpdesk.models.attachment_path, max_length=1000, verbose_name='File')),
+                ('file', models.FileField(upload_to=web.helpdesk.models.attachment_path, max_length=1000, verbose_name='File')),
                 ('filename', models.CharField(max_length=1000, verbose_name='Filename')),
                 ('mime_type', models.CharField(max_length=255, verbose_name='MIME Type')),
                 ('size', models.IntegerField(help_text='Size of this file in bytes', verbose_name='Size')),

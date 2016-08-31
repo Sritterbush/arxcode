@@ -44,3 +44,4 @@ class Inform(models.Model):
     category = models.CharField(blank=True, null=True, max_length=80)
     class Meta:
         app_label = "msgs"
+        db_table = "comms_inform"

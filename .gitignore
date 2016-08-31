@@ -22,6 +22,7 @@ __pycache__
 # Other
 *.swp
 *.log
+*.txt
 *.pid
 *.restart
 *.db3
@@ -30,6 +31,7 @@ __pycache__
 # For group efforts, comment out some or all of these.
 server/conf/settings.py
 server/logs/*.log.*
+server/logs/*
 web/static/*
 web/media/*
 

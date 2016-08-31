@@ -14,6 +14,7 @@ just overloads its hooks to have it perform its function.
 
 from evennia import DefaultScript
 
+_SESSIONS = None
 
 class Script(DefaultScript):
     """
@@ -89,3 +90,50 @@ class Script(DefaultScript):
 
     """
     pass
+
+class CheckSessions(Script):
+    "Check sessions regularly."
+    def at_script_creation(self):
+        "Setup the script"
+        self.key = "sys_session_check"
+        self.desc = _("Checks sessions so they are live.")
+        self.interval = 60  # repeat every 60 seconds
+        self.persistent = True
+
+    def at_repeat(self):
+        "called every 60 seconds"
+        global _SESSIONS
+        if not _SESSIONS:
+            from evennia.server.sessionhandler import SESSIONS as _SESSIONS
+        #print "session check!"
+        #print "ValidateSessions run"
+        _SESSIONS.validate_sessions()
+
+
+class ValidateScripts(Script):
+    "Check script validation regularly"
+    def at_script_creation(self):
+        "Setup the script"
+        self.key = "sys_scripts_validate"
+        self.desc = _("Validates all scripts regularly.")
+        self.interval = 3600  # validate every hour.
+        self.persistent = True
+
+    def at_repeat(self):
+        "called every hour"
+        #print "ValidateScripts run."
+        ScriptDB.objects.validate()
+
+class ValidateChannelHandler(Script):
+    "Update the channelhandler to make sure it's in sync."
+    def at_script_creation(self):
+        "Setup the script"
+        self.key = "sys_channels_validate"
+        self.desc = _("Updates the channel handler")
+        self.interval = 3700  # validate a little later than ValidateScripts
+        self.persistent = True
+
+    def at_repeat(self):
+        "called every hour+"
+        #print "ValidateChannelHandler run."
+        channelhandler.CHANNELHANDLER.update()

@@ -3,6 +3,7 @@ Script to handle timing for events in the game.
 """
 
 import datetime
+from django.utils import timezone
 from django.conf import settings
 from .scripts import Script
 from world.dominion.models import RPEvent
@@ -68,7 +69,7 @@ class EventManager(Script):
         for eventid in self.db.active_events:
             self.db.idle_events[eventid] = self.db.idle_events.get(eventid, 0) + 1
         # check for new events to announce
-        now = datetime.datetime.now()
+        now = timezone.now()
         upcoming = RPEvent.objects.filter(finished=False)
         for event in upcoming:
             if event.id in self.db.active_events:
@@ -113,7 +114,7 @@ class EventManager(Script):
         SESSIONS.announce_all(border)
         self.db.active_events.append(event.id)
         self.db.idle_events[event.id] = 0
-        now = datetime.datetime.now()
+        now = timezone.now()
         if now < event.date:
             # if we were forced to start early, update our date
             event.date = now
@@ -208,7 +209,7 @@ class EventManager(Script):
         event.delete()
 
     def reschedule_event(self, event, date):
-        now = datetime.datetime.now()
+        now = timezone.now()
         diff = (event.date - now).total_seconds()
         if diff < 0:
             self.start_event(event)

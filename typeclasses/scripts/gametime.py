@@ -40,7 +40,8 @@ YEAR = MONTH * settings.TIME_MONTH_PER_YEAR
 #added it as a constant in case the module is ever reloaded
 SERVER_STARTTIME = time()
 SERVER_RUNTIME = 0.0
-BACKUP_FILE = "gametime_backup_log.txt"
+LOGPATH = settings.LOG_DIR
+BACKUP_FILE = LOGPATH + "/gametime_backup_log.txt"
 
 
 class GameTime(Script):
@@ -67,7 +68,7 @@ class GameTime(Script):
             if last_time:
                 self.attributes.add("run_time", last_time)
         except Exception:
-            from src.utils import logger
+            from evennia.utils import logger
             logger.log_trace()
 
     def at_repeat(self):
@@ -107,17 +108,17 @@ class GameTime(Script):
             if SERVER_RUNTIME < last_time:
                 SERVER_RUNTIME = last_time
         except Exception:
-            from src.utils import logger
+            from evennia.utils import logger
             logger.log_trace()
 
 def save():
     "Force save of time. This is called by server when shutting down/reloading."
-    from src.scripts.models import ScriptDB
+    from evennia.scripts.models import ScriptDB
     try:
         script = ScriptDB.objects.get(db_key=GAMETIME_SCRIPT_NAME)
         script.at_repeat()
     except Exception:
-        from src.utils import logger
+        from evennia.utils import logger
         logger.log_trace()
     try:
         with open(BACKUP_FILE, 'r+') as logfile:
@@ -127,7 +128,7 @@ def save():
                 logfile.write(str(runtime()))
                 logfile.close()
     except Exception:
-        from src.utils import logger
+        from evennia.utils import logger
         logger.log_trace()
 
 def _format(seconds, *divisors) :

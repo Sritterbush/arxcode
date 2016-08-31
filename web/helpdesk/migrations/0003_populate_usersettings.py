@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 from django.contrib.auth import get_user_model
 from django.db import models, migrations
 
-from helpdesk.settings import DEFAULT_USER_SETTINGS
+from web.helpdesk.settings import DEFAULT_USER_SETTINGS
 
 
 def picke_settings(data):
