@@ -13,6 +13,8 @@ just overloads its hooks to have it perform its function.
 """
 
 from evennia import DefaultScript
+from evennia.scripts.models import ScriptDB
+from evennia.comms import channelhandler
 
 _SESSIONS = None
 

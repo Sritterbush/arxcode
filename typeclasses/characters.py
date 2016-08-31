@@ -8,9 +8,9 @@ creation commands.
 
 """
 from evennia import DefaultCharacter
-from typeclasses.mixins import ObjectMixins
+from typeclasses.mixins import MsgMixins, ObjectMixins
 
-class Character(ObjectMixins, DefaultCharacter):
+class Character(MsgMixins, ObjectMixins, DefaultCharacter):
     """
     The Character defaults to reimplementing some of base Object's hook methods with the
     following functionality:

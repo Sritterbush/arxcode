@@ -96,7 +96,7 @@ class Wearable(Object):
         quality = self.db.quality_level or 0
         recipe_id = self.db.recipe
         penalty = 0
-        from game.dominion.models import CraftingRecipe
+        from world.dominion.models import CraftingRecipe
         try:
             recipe = CraftingRecipe.objects.get(id=recipe_id)
         except CraftingRecipe.DoesNotExist:
@@ -170,7 +170,7 @@ class WearableContainer(Wearable, Container):
         """
         if self.ndb.container_reset or not self.cmdset.has_cmdset("_containerset", must_be_default=True):
             # we are resetting, or no container-cmdset was set. Create one dynamically.
-            self.cmdset.add_default(self.create_container_cmdset(self.dbobj), permanent=False)
+            self.cmdset.add_default(self.create_container_cmdset(self), permanent=False)
             self.ndb.container_reset = False
             if not self.cmdset.has_cmdset(DefaultCmdSet.key):
                 self.cmdset.add(DefaultCmdSet)

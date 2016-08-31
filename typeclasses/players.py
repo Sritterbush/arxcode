@@ -23,8 +23,9 @@ several more options for customizing the Guest account system.
 """
 
 from evennia import DefaultPlayer, DefaultGuest
+from typeclasses.mixins import MsgMixins
 
-class Player(DefaultPlayer):
+class Player(MsgMixins, DefaultPlayer):
     """
     This class describes the actual OOC player (i.e. the user connecting
     to the MUD). It does NOT have visual appearance in the game world (that
