@@ -100,8 +100,10 @@ class Guest(Player):
             now = timezone.now()
             now = "%02i:%02i" % (now.hour, now.minute)
             chan.tempmsg("[%s, %s]: %s" % (chan.key, now, message))
-        except Exception:
-            pass
+        except Exception as err:
+            import traceback
+            traceback.print_exc()
+            print "Error in logging messages to guest channel: %s" % err
             
         
        

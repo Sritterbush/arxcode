@@ -13,7 +13,7 @@ to be modified.
 """
 
 from evennia import DefaultChannel
-from evennia.comms.models import Msg
+from evennia.comms.models import Msg, TempMsg
 from evennia.utils.utils import make_iter
 
 class Channel(DefaultChannel):
