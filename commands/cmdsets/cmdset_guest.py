@@ -25,7 +25,6 @@ class GuestCmdSet(CmdSet):
         try:
             self.add(player.CmdOOCLook())
             self.add(player.CmdWho())
-            self.add(player.CmdEncoding())
             self.add(player.CmdQuit())
             self.add(player.CmdColorTest())       
             # Help command
@@ -36,27 +35,27 @@ class GuestCmdSet(CmdSet):
             self.add(comms.CmdAllCom())
             self.add(comms.CmdChannels())
             self.add(comms.CmdCWho())
-            from commands import general
+            from commands.commands import general
             self.add(general.CmdPage())
-            from commands import roster
+            from commands.commands import roster
             self.add(roster.CmdRosterList())
             self.add(roster.CmdAdminRoster())
             self.add(roster.CmdSheet())
             self.add(roster.CmdRelationship())
-            from commands import guest
+            from commands.commands import guest
             self.add(guest.CmdGuestLook())
             self.add(guest.CmdGuestCharCreate())
             self.add(guest.CmdGuestPrompt())
             self.add(guest.CmdGuestAddInput())
             from world.dominion import commands as domcommands
             self.add(domcommands.CmdFamily())
-            from commands import bboards
+            from commands.commands import bboards
             self.add(bboards.CmdBBReadOrPost())
             self.add(bboards.CmdBBSub())
-            from commands import staff_commands
+            from commands.commands import staff_commands
             self.add(staff_commands.CmdAskStaff())
             self.add(staff_commands.CmdListStaff())
-            from commands import social
+            from commands.commands import social
             self.add(social.CmdWhere())
             self.add(social.CmdFinger())
         except Exception as err:

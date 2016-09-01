@@ -19,6 +19,7 @@ Lock functions in this module extend (and will overload same-named)
 lock functions from evennia.locks.lockfuncs.
 
 """
+from world.dominion.models import Organization
 
 #def myfalse(accessing_obj, accessed_obj, *args, **kwargs):
 #    """
@@ -51,9 +52,8 @@ def rank(accessing_obj, accessed_obj, *args, **kwargs):
         org = accessed_obj
     else:
         try:
-            from game.dominion.models import Organization
             org = Organization.objects.get(name__iexact=args[1])
-        except:
+        except Organization.DoesNotExist:
             return False
     try:
         member = accessing_obj.Dominion.memberships.get(organization=org)
@@ -82,7 +82,7 @@ def organization(accessing_obj, accessed_obj, *args, **kwargs):
     if hasattr(accessing_obj, 'dbobj'):
         accessing_obj = accessing_obj.dbobj
     try:
-        from game.dominion.models import Organization
+        
         org = Organization.objects.get(name__iexact=args[0])
     except Organization.DoesNotExist:
         return False
@@ -148,7 +148,7 @@ def skill(accessing_obj, accessed_obj, *args, **kwargs):
         name = args[0]
         val = int(args[1])
     if name == "all":
-        from game.gamesrc.objects.stats_and_skills import _crafting_skills_
+        from world.stats_and_skills import _crafting_skills_
         skill_list = _crafting_skills_
     else:
         skill_list = name.split(",")
