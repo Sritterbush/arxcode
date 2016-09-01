@@ -1,11 +1,15 @@
 from evennia.utils.utils import fill
 
-class ObjectMixins(object):
+
+
+class DescMixins(object):
     def __desc_get(self):
         return self.db.desc
     def __desc_set(self, val):
         self.db.desc = val
     desc = property(__desc_get, __desc_set)
+
+class AppearanceMixins(object):
     def return_contents(self, pobject, detailed=True, show_ids=False, strip_ansi=False):
         """
         Returns contents of the object, used in formatting our description,
@@ -137,9 +141,9 @@ class ObjectMixins(object):
                 indent = 0
                 if len(desc) > 78:
                     indent = 4
-                string += "\n\n%s{n\n" % fill(desc, initial_indent=indent)
+                string += "\n\n%s{n\n" % desc #fill(desc, indent=indent)
             else:
-                string += "\n%s{n" % fill(desc)
+                string += "\n%s{n" % desc #fill(desc)
         else: # for crafted objects, respect formatting
             string += "\n%s{n" % desc
         if contents and show_contents:
@@ -181,6 +185,9 @@ class ObjectMixins(object):
         if signed:
             string += "\n%s" % (signed.db.crafter_signature or "")
         return string
+
+class ObjectMixins(DescMixins, AppearanceMixins):
+    pass
 
 class MsgMixins(object):
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):

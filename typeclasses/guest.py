@@ -29,7 +29,7 @@ class Guest(Player):
         self.db.tutorial_stage = 0
         self.db.char = None
 
-    def at_post_login(self, sessid=None):
+    def at_post_login(self, session=None):
         """
         Called at the end of the login process, just before letting
         them loose. This is called before an eventual Character's
@@ -51,10 +51,10 @@ class Guest(Player):
         # The tutorial for a guest will be a series of overloaded look
         # commands, returning different results based on the current
         # tutorial stage value. 0 will be the entry window.
-        self.execute_cmd("addcom guest", sessid=sessid)
+        self.execute_cmd("addcom guest")
         self.execute_cmd("@bbsub/quiet wanted concepts")
         self.execute_cmd("@bbsub/quiet story updates")
-        self.execute_cmd("l", sessid=sessid)
+        self.execute_cmd("l")
         
     def is_guest(self):
         """
@@ -92,9 +92,16 @@ class Guest(Player):
         reason = reason and "(%s)" % reason or ""
         self._send_to_connect_channel("{R%s disconnected %s{n" % (self.key, reason))
 
-    def at_server_reload(self):
-        """
-        Called on server reload
-        """
+    def _send_to_connect_channel(self, message):
+        try:
+            from evennia.comms.models import ChannelDB
+            from django.utils import timezone
+            chan = ChannelDB.objects.get(db_key__iexact="guest")
+            now = timezone.now()
+            now = "%02i:%02i" % (now.hour, now.minute)
+            chan.tempmsg("[%s, %s]: %s" % (chan.key, now, message))
+        except Exception:
+            pass
+            
         
        

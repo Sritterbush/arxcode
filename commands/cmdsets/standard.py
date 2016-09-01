@@ -34,6 +34,7 @@ except Exception as err:
     print("<<ERROR>>: Error encountered in loading general commands: %s" % err)
 try:
     from typeclasses import rooms as extended_room
+    from evennia.contrib.extended_room import CmdExtendedLook
 except Exception as err:
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading extended_room: %s" % err)
@@ -116,8 +117,8 @@ class StateIndependentCmdSet(CmdSet):
         self.add(general.CmdDirections())
         self.add(general.CmdKeyring())
         # sorta IC commands, since information is interpretted by the
-        # character and may not be strictly accurate. 
-        self.add(extended_room.CmdExtendedLook())
+        # character and may not be strictly accurate.
+        self.add(CmdExtendedLook())
         self.add(roster.CmdHere())
         self.add(social.CmdHangouts())
         self.add(social.CmdWhere())

@@ -22,7 +22,7 @@ several more options for customizing the Guest account system.
 
 """
 
-from evennia import DefaultPlayer, DefaultGuest
+from evennia import DefaultPlayer
 from typeclasses.mixins import MsgMixins
 
 class Player(MsgMixins, DefaultPlayer):
@@ -92,12 +92,9 @@ class Player(MsgMixins, DefaultPlayer):
      at_server_shutdown()
 
     """
-    pass
+    def is_guest(self):
+        return False
 
+# previously Guest was here, inheriting from DefaultGuest
+# removed it in order to resolve namespace conflicts for typeclasses app
 
-class Guest(DefaultGuest):
-    """
-    This class is used for guest logins. Unlike Players, Guests and their
-    characters are deleted after disconnection.
-    """
-    pass

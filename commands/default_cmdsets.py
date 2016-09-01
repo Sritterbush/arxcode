@@ -60,6 +60,88 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
         #
         self.add(standard.OOCCmdSet)
         self.add(standard.StaffCmdSet)
+        try:
+            from .commands import general
+            self.add(general.CmdPage())
+            self.add(general.CmdMail())
+            self.add(general.CmdGradient())
+            self.add(general.CmdInform())
+            self.add(general.CmdGameSettings())
+        except Exception as err:
+            print("<<ERROR>>: Error encountered in loading general cmdset in Player: %s" % err)
+        try:
+            from .commands import bboards
+            self.add(bboards.CmdBBReadOrPost())
+            self.add(bboards.CmdBBSub())
+            self.add(bboards.CmdBBUnsub())
+            self.add(bboards.CmdBBCreate())
+            self.add(bboards.CmdBBNew())
+        except Exception as err:
+            print("<<ERROR>>: Error encountered in loading bboards cmdset in Player: %s" % err)
+        try:
+            from .commands import roster
+            self.add(roster.CmdRosterList())
+            self.add(roster.CmdAdminRoster())
+            self.add(roster.CmdSheet())
+            self.add(roster.CmdComment())
+            self.add(roster.CmdRelationship())
+            self.add(roster.CmdAddSecret())
+            self.add(roster.CmdDelComment())
+            self.add(roster.CmdAdmRelationship())
+        except Exception as err:
+            print("<<ERROR>>: Error encountered in loading roster cmdset in Player: %s" % err)
+        try:
+            from .commands import jobs
+            self.add(jobs.CmdJob())
+            self.add(jobs.CmdRequest())
+            self.add(jobs.CmdApp())
+        except Exception as err:
+            print("<<ERROR>>: Error encountered in loading jobs cmdset in Player: %s" % err)
+        try:
+            from world.dominion import commands as domcommands
+            self.add(domcommands.CmdAdmDomain())
+            self.add(domcommands.CmdAdmArmy())
+            self.add(domcommands.CmdAdmCastle())
+            self.add(domcommands.CmdAdmAssets())
+            self.add(domcommands.CmdAdmFamily())
+            self.add(domcommands.CmdAdmOrganization())
+            self.add(domcommands.CmdDomain())
+            self.add(domcommands.CmdFamily())
+            self.add(domcommands.CmdOrganization())
+            self.add(domcommands.CmdAgents())
+            self.add(domcommands.CmdPatronage())
+        except Exception as err:
+            print("<<ERROR>>: Error encountered in loading Dominion cmdset in Player: %s" % err)
+        try:
+            from .commands import social
+            self.add(social.CmdFinger())
+            self.add(social.CmdWatch())
+            self.add(social.CmdCalendar())
+            self.add(social.CmdAFK())
+            self.add(social.CmdWhere())
+        except Exception as err:
+            print("<<ERROR>>: Error encountered in loading social cmdset in Player: %s" % err)
+        try:
+            from .commands import staff_commands
+            # more recently implemented staff commands
+            self.add(staff_commands.CmdRestore())
+            self.add(staff_commands.CmdSendVision())
+            self.add(staff_commands.CmdAskStaff())
+            self.add(staff_commands.CmdListStaff())
+            self.add(staff_commands.CmdPurgeJunk())
+        except Exception as err:
+            print("<<ERROR>>: Error encountered in loading staff_commands cmdset in Player: %s" % err)
+        try:
+            from .cmdsets import starting_gear
+            self.add(starting_gear.CmdSetupGear())
+        except Exception as err:
+            print("<<ERROR>>: Error encountered in loading staff_commands cmdset in Player: %s" % err)
+        try:
+            from web.character import commands as investigation
+            self.add(investigation.CmdAdminInvestigations())
+            self.add(investigation.CmdListClues())
+        except Exception as err:
+            print("<<ERROR>>: Error encountered in loading investigation cmdset: %s" % err)
 
 
 class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):
@@ -77,7 +159,11 @@ class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):
         #
         # any commands you add below will overload the default ones.
         #
-
+        try:
+            from .commands import unloggedin
+            self.add(unloggedin.CmdGuestConnect())
+        except Exception as err:
+            print("<<ERROR>>: Error encountered in loading Unlogged cmdset: %s" % err)
 
 class SessionCmdSet(default_cmds.SessionCmdSet):
     """

@@ -306,7 +306,7 @@ class CmdSetupGear(MuxPlayerCommand):
         return
 
 def setup_gear_for_all():
-    from src.web.character.models import RosterEntry
+    from evennia.web.character.models import RosterEntry
     from django.db.models import Q
     entries = RosterEntry.objects.filter(Q(roster__name__iexact="active") |
                                          Q(roster__name__iexact="available"))
