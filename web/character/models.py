@@ -4,6 +4,7 @@ from cloudinary.models import CloudinaryField
 from evennia.objects.models import ObjectDB
 from evennia.locks.lockhandler import LockHandler
 from django.db.models import Q, F
+from .managers import ArxRosterManager
 
 """
 This is the main model in the project. It holds a reference to cloudinary-stored
@@ -38,7 +39,7 @@ class Roster(models.Model):
     """
     name = models.CharField(blank=True, null=True, max_length=255)
     lock_storage = models.TextField('locks', blank=True, help_text='defined in setup_utils')
-    
+    objects = ArxRosterManager()
     def __init__(self, *args, **kwargs):
         super(Roster, self).__init__(*args, **kwargs)
         self.locks = LockHandler(self)

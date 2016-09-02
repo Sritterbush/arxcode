@@ -16,6 +16,7 @@ from evennia.objects.models import ObjectDB
 from datetime import datetime
 from commands.commands.jobs import get_apps_manager
 from django.db.models import Q
+from web.character.models import Roster
 
 
 # limit symbol import for API
@@ -25,14 +26,7 @@ def get_roster_manager(caller):
     """
     returns roster manager object
     """
-    return ObjectDB.objects
-##    roster_manager = ObjectDB.objects.get_objs_with_attr("is_roster_manager")
-##    if not roster_manager:
-##        caller.msg("Roster Manager object not found.")
-##        return
-##    if len(roster_manager) > 1:
-##        caller.msg("Warning. More than one Roster Manager object found.")
-##    return roster_manager[0]
+    return Roster.objects
 
 def format_header(title):
     message  = "\n{w" + "-"*60 + "{n\n"
@@ -68,19 +62,21 @@ def list_characters(caller, character_list, type = "Active Characters", roster=N
                                              "{wFealty{n",
                                              "{wConcept{n",
                                              "{wSR{n"])
-        character_list.sort()
         for char in character_list:
-            name = char
+            try:
+                name = char.name
+                charob = char
+                char = str(char)
+            except AttributeError:
+                # this was not an object, but just a name
+                name = char
+                charob = None
             sex = "-"
             age = "-"
             house = "-"
             concept = "-"
             srank = "-"
-            try:
-                charob = ObjectDB.objects.get(db_key__iexact=char, db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS)
-            except Exception:
-                charob = None
-            #charob = roster.get_character(char)
+            
             # check if the name matches anything in the hidden characters list
             hide = False
             if not charob and hidden_chars:
@@ -223,28 +219,20 @@ class CmdRosterList(MuxPlayerCommand):
             #list all characters in active/available rosters
             if 'all' in switches or 'active' in switches:
                 char_list = roster.get_all_active_characters()
-                if (char_list):
-                    char_list = [char.capitalize() for char in char_list]
                 list_characters(caller, char_list, "Active Characters", roster, False)
                 if 'active' in switches:
                     return
             if 'all' in self.switches or not self.switches:
                 char_list = roster.get_all_available_characters()
-                if char_list:
-                    char_list = [char.capitalize() for char in char_list]
                 list_characters(caller, char_list, "Available Characters", roster, False)
             if caller.check_permstring("Immortals") or caller.check_permstring("Wizards") or caller.check_permstring("Builders"):
                 if 'all' in self.switches or 'unavailable' in self.switches:
                     char_list = roster.get_all_unavailable_characters()
-                    if char_list:
-                        char_list = [char.capitalize() for char in char_list]
                     list_characters(caller, char_list, "Unavailable Characters", roster, False)
                     if 'unavailable' in self.switches:
                         return
                 if 'all' in self.switches or 'incomplete' in self.switches:                
                     char_list = roster.get_all_incomplete_characters()
-                    if char_list:
-                        char_list = [char.capitalize() for char in char_list]
                     list_characters(caller, char_list, "Incomplete Characters", roster, False)
             return
         if 'view' in switches:
