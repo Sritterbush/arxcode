@@ -20,14 +20,28 @@ from evennia import utils
 
 CONNECTION_SCREEN = \
 """{b=============================================================={n
- Welcome to {g%s{n, version %s!
+             Welcome to {gArxMUSH{n
 
  If you have an existing account, connect to it by typing:
       {wconnect <username> <password>{n
- If you need to create an account, type (without the <>'s):
-      {wcreate <username> <password>{n
+      
+ To join the game by creating a character or choosing one
+ from our roster of characters, first login as a guest by
+ typing '{wguest{n' and then use either the {w@roster{n command,
+ or the '{w@charcreate <email>{n' command.
 
- If you have spaces in your username, enclose it in quotes.
  Enter {whelp{n for more info. {wlook{n will re-show this screen.
-{b=============================================================={n""" \
- % (settings.SERVERNAME, utils.get_evennia_version())
+{b=============================================================={n"""
+
+##"""{b=============================================================={n
+## Welcome to {g%s{n, version %s!
+##
+## If you have an existing account, connect to it by typing:
+##      {wconnect <username> <password>{n
+## If you need to create an account, type (without the <>'s):
+##      {wcreate <username> <password>{n
+##
+## If you have spaces in your username, enclose it in quotes.
+## Enter {whelp{n for more info. {wlook{n will re-show this screen.
+##{b=============================================================={n""" \
+## % (settings.SERVERNAME, utils.get_evennia_version())

@@ -155,13 +155,21 @@ class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):
         """
         Populates the cmdset
         """
-        super(UnloggedinCmdSet, self).at_cmdset_creation()
+        #super(UnloggedinCmdSet, self).at_cmdset_creation()
         #
         # any commands you add below will overload the default ones.
         #
+        
         try:
+            from evennia.commands.default import unloggedin as default_unloggedin
+            self.add(default_unloggedin.CmdUnconnectedConnect())
+            self.add(default_unloggedin.CmdUnconnectedQuit())
+            self.add(default_unloggedin.CmdUnconnectedLook())
+            self.add(default_unloggedin.CmdUnconnectedEncoding())
+            self.add(default_unloggedin.CmdUnconnectedScreenreader())
             from .commands import unloggedin
             self.add(unloggedin.CmdGuestConnect())
+            self.add(unloggedin.CmdUnconnectedHelp())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading Unlogged cmdset: %s" % err)
 

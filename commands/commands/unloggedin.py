@@ -212,29 +212,28 @@ class CmdUnconnectedHelp(MuxCommand):
         string = \
             """
 You are not yet logged into the game. Commands available at this point:
-  {wcreate, connect, guest, look, help, quit{n
+  {wconnect, guest, look, help, quit{n
 
 To login to the system, you need to do one of the following:
 
-{w1){n If you have no previous account, you need to use the 'create'
-   command.
+{w1){n If you have no previous account, you must log in as a guest.
 
-     {wcreate Anna c67jHL8p{n
+     {wguest{n
 
-   Note that if you use spaces in your name, you have to enclose in quotes.
+     Guests automatically are placed in a guest channel where you can
+     ask for help by typing {wguest <message>{n. You can then apply
+     to play an existing character on the {w@roster{n, or create a
+     new character with the {w@charcreate{n command. If your application
+     is approved, an email will be sent to you with your password.
 
-     {wcreate "Anna the Barbarian"  c67jHL8p{n
-
-   It's always a good idea (not only here, but everywhere on the net)
-   to not use a regular word for your password. Make it longer than
-   6 characters or write a passphrase.
-
-{w2){n If you have an account already, either because you just created
-   one in {w1){n above or you are returning, use the 'connect' command:
+{w2){n If you have an account already, use the 'connect' command:
 
      {wconnect Anna c67jHL8p{n
 
-   (Again, if there are spaces in the name you have to enclose it in quotes).
+     if your password was c67jHL8p. If you just created or applied
+     for a character, your password is sent to the email you used
+     to apply.
+
    This should log you in. Run {whelp{n again once you're logged in
    to get more aid. Hope you enjoy your stay!
 
