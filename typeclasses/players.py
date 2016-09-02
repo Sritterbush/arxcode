@@ -92,8 +92,122 @@ class Player(MsgMixins, DefaultPlayer):
      at_server_shutdown()
 
     """
+    def at_player_creation(self):
+        """
+        This is called once, the very first time
+        the player is created (i.e. first time they
+        register with the game). It's a good place
+        to store attributes all players should have,
+        like configuration values etc.
+        """
+        # set an (empty) attribute holding the characters this player has
+        lockstring = "attrread:perm(Wizards);attredit:perm(Wizards);attrcreate:perm(Wizards)"
+        self.attributes.add("_playable_characters", [], lockstring=lockstring)
+        self.db.mails = []
+        self.db.newmail = False
+        self.db.readmails = set()
+        self.db.char_ob = None
+        self.db.player_email = ""
+        self.nicks.add('pub', 'public', category="channel")
+
+    def at_post_login(self, session=None):
+        """
+        Called at the end of the login process, just before letting
+        them loose. This is called before an eventual Character's
+        at_post_login hook.
+        """
+        self.db._last_puppet = self.db.char_ob or self.db._last_puppet
+        super(Player, self).at_post_login(session)
+        if self.db.newmail:
+            self.msg("{y*** You have new mail. ***{n")
+        if self.db.new_comments:
+            self.msg("{wYou have new comments.{n")
+        self.db.afk = ""
+        try:
+            unread = self.informs.filter(is_unread=True).count()
+            if unread:
+                self.msg("{w*** You have %s unread informs. Use @informs to read them. ***{n" % unread)
+        except Exception:
+            pass
+        pending = self.db.pending_messages or []
+        for msg in pending:
+            self.msg(msg, box=True)
+        self.db.pending_messages = []
+        # in this mode we should have only one character available. We
+        # try to auto-connect to it by calling the @ic command
+        # (this relies on player.db._last_puppet being set)
+        self.execute_cmd("@bbsub/quiet story updates")
+        try:
+            from commands.commands.bboards import get_unread_posts
+            get_unread_posts(self)
+        except Exception:
+            pass
+        try:
+            if self.roster.frozen:
+                self.roster.frozen = False
+                self.roster.save()
+        except AttributeError:
+            pass
+        
+
     def is_guest(self):
+        """
+        Overload in guest object to return True
+        """
         return False
+    
+    def at_first_login(self):
+        """
+        Only called once, the very first
+        time the user logs in.
+        """
+        self.execute_cmd("addcom pub=public")
+        pass
+
+    def mail(self, message, subject=None, sender=None, receivers=None):
+        """
+        Sends a mail message to player.
+        """
+        from django.utils import timezone
+        sentdate = timezone.now().strftime("%x %X")
+        mail = (sender, subject, message, sentdate, receivers)
+        if not self.db.mails:
+            self.db.mails = []
+        self.db.mails.append(mail)
+        if sender:
+            from_str = " from {c%s{y" % sender.capitalize()
+        else:
+            from_str = ""
+        self.msg("{yYou have new mail%s. Use {w'mail %s' {yto read it.{n" % (from_str, len(self.db.mails)))
+        self.db.newmail = True
+
+    def get_fancy_name(self):
+        return self.key.capitalize() + " {w(OOC){n"
+    name = property(get_fancy_name)
+
+    def inform(self, message, category=None, week=0, append=True):
+        if not append:
+            self.informs.create(message=message, category=category)
+        else:
+            informs = self.informs.filter(category=category, week=week,
+                                          is_unread=True)
+            if informs:
+                inform = informs[0]
+                inform.message += "\n\n" + message
+                inform.save()
+            else:
+                self.informs.create(message=message, category=category,
+                                    week=week)
+        self.msg("{yYou have new informs. Use {w@inform {yto read them.{n")
+
+    def send_or_queue_msg(self, message):
+        if self.is_connected:
+            self.msg(message, box=True)
+            return
+        pending = self.db.pending_messages or []
+        pending.append(message)
+        self.db.pending_messages = pending
+
 
 # previously Guest was here, inheriting from DefaultGuest
 # removed it in order to resolve namespace conflicts for typeclasses app
