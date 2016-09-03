@@ -17,6 +17,7 @@ from datetime import datetime
 from commands.commands.jobs import get_apps_manager
 from django.db.models import Q
 from web.character.models import Roster
+from evennia.utils import evmore
 
 
 # limit symbol import for API
@@ -114,7 +115,7 @@ def list_characters(caller, character_list, type = "Active Characters", roster=N
                 table.add_row([name, sex, age, house, concept[:30], srank])
         message += "\n%s" % table                
     message += "\n"
-    caller.msg(message, formatted=True)
+    evmore.msg(caller, message)
 
 def change_email(player, email, caller=None, roster=None):
     from src.web.character.models import RosterEntry, PlayerAccount, AccountHistory
