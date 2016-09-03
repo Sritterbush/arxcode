@@ -162,6 +162,7 @@ class MobileCmdSet(CmdSet):
         self.add(combat.CmdProtect())
         self.add(combat.CmdAutoattack())
         self.add(combat.CmdCombatStats())
+        self.add(combat.CmdHeal())
         self.add(domcommands.CmdGuards())
         self.add(domcommands.CmdTask())
         self.add(domcommands.CmdSupport())
@@ -226,6 +227,7 @@ class StaffCmdSet(CmdSet):
         self.add(staff_commands.CmdResurrect())
         self.add(staff_commands.CmdKill())
         self.add(staff_commands.CmdForce())
+        self.add(staff_commands.CmdCcolor())
         self.add(extended_room.CmdExtendedDesc())
         self.add(xp.CmdAdjustSkill())
         self.add(xp.CmdAwardXP())
@@ -234,6 +236,7 @@ class StaffCmdSet(CmdSet):
         self.add(combat.CmdObserveCombat())
         self.add(combat.CmdAdminCombat())
         self.add(combat.CmdCreateAntagonist())
+        self.add(combat.CmdStandYoAssUp())
         self.add(domcommands.CmdSetRoom())
         # home commands
         self.add(home.CmdAllowBuilding())

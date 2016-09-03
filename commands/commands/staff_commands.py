@@ -461,7 +461,38 @@ class CmdListStaff(MuxPlayerCommand):
         caller.msg("{wOnline staff:{n %s" % ", ".join(ob.key.capitalize() for ob in staff))
             
             
+class CmdCcolor(MuxPlayerCommand):
+    """
+    @ccolor
 
+    Usage:
+        @ccolor <channel>=<colorstring>
+
+    Sets a channel you control to have the given color
+    """
+
+    key = "@ccolor"
+    help_category = "Comms"
+    locks = "cmd:perm(Builders)"
+
+    def func(self):
+        "Gives channel color string"
+        caller = self.caller
+
+        if not self.lhs or not self.rhs:
+            self.msg("Usage: @ccolor <channelname>=<color code>")
+            return
+        from evennia.commands.default.comms import find_channel
+        channel = find_channel(caller, self.lhs)
+        if not channel:
+            self.msg("Could not find channel %s." % self.args)
+            return
+        if not channel.access(caller, 'control'):
+            self.msg("You are not allowed to do that.")
+            return
+        channel.db.colorstr = self.rhs
+        caller.msg("Channel will now look like this: %s[%s]{n" % (channel.db.colorstr, channel.key))
+        return
 
         
         
