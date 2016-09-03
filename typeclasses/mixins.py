@@ -191,5 +191,9 @@ class ObjectMixins(DescMixins, AppearanceMixins):
 
 class MsgMixins(object):
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):
+        try:
+            text = str(text)
+        except Exception:
+            pass
         text = text.replace("%r", "|/").replace("%t", "|-")
         super(MsgMixins, self).msg(text, from_obj, session, options, **kwargs)

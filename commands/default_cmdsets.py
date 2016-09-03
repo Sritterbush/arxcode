@@ -36,6 +36,8 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         try:
             self.add(standard.StateIndependentCmdSet)
             self.add(standard.MobileCmdSet)
+            self.add(standard.OOCCmdSet)
+            self.add(standard.StaffCmdSet)
         except Exception:
             import traceback
             traceback.print_exc()
@@ -58,8 +60,7 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
         #
         # any commands you add below will overload the default ones.
         #
-        self.add(standard.OOCCmdSet)
-        self.add(standard.StaffCmdSet)
+        
         try:
             from .commands import general
             self.add(general.CmdPage())

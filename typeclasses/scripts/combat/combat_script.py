@@ -438,7 +438,7 @@ class CombatManager(BaseScript):
                     if self.db.lethal:
                         target.death_process()
                     else:
-                        message = "%s is incapacitated from their wounds." % d_fite
+                        message = "%s is {rincapacitated{n from their wounds." % d_fite
                         self.incapacitate(target)
                     
     def incapacitate(self, character):

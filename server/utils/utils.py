@@ -52,7 +52,7 @@ def get_date():
     Get in-game date as a string
     format is 'M/D/YEAR AR'
     """
-    from ev import gametime
+    from typeclasses.scripts import gametime
     time = gametime.gametime(format=True)
     month, day, year = time[1] + 1, time[3] + 1, time[0] + 1001
     day += (time[2] * 7)
@@ -75,3 +75,7 @@ def idle_timer(session):
         if not session.sessions: return 0
         session = session.sessions[0]
     return time.time() - session.cmd_last_visible
+
+def tnow():
+    from django.utils import timezone
+    return timezone.localtime(timezone.now())

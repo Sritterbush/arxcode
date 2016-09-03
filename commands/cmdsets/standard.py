@@ -73,6 +73,16 @@ try:
 except Exception as err:
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading crafting commands: %s" % err)
+try:
+    from commands.cmdsets import home
+except Exception as err:
+    traceback.print_exc()
+    print("<<ERROR>>: Error encountered in loading home commands: %s" % err)
+try:
+    from web.character import commands as investigation
+except Exception as err:
+    traceback.print_exc()
+    print("<<ERROR>>: Error encountered in loading investigation commands: %s" % err)
 from evennia.commands.cmdset import CmdSet
 
 class OOCCmdSet(CmdSet):
@@ -225,4 +235,7 @@ class StaffCmdSet(CmdSet):
         self.add(combat.CmdAdminCombat())
         self.add(combat.CmdCreateAntagonist())
         self.add(domcommands.CmdSetRoom())
-        
+        # home commands
+        self.add(home.CmdAllowBuilding())
+        self.add(home.CmdBuildRoom())
+        self.add(home.CmdManageRoom())
