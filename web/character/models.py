@@ -123,6 +123,8 @@ class RosterEntry(models.Model):
 
     def adjust_xp(self, val):
         try:
+            if val < 0:
+                return
             history = self.accounthistory_set.get(account=self.current_account)
             history.xp_earned += val
             history.save()
@@ -218,6 +220,11 @@ class PlayerAccount(models.Model):
 
     def __unicode__(self):
         return str(self.email)
+    
+    @property
+    def total_xp(self):
+        qs = self.accounthistory_set.all()
+        return sum(ob.xp_earned for ob in qs)
 
 class AccountHistory(models.Model):
     account = models.ForeignKey('PlayerAccount')

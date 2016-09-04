@@ -382,25 +382,32 @@ class CmdAdminRoster(MuxPlayerCommand):
                 return
             entry.roster = avail
             current = entry.current_account 
-            xp = entry.char.db.xp or 0
+            xp = entry.character.db.xp or 0
             try:
-                history = AccountHistory.objects.get(account=current, entry=entry)
-                if xp > history.xp_earned:
-                    xp = history.xp_earned
+                history = AccountHistory.objects.get(account=current, entry=entry)         
                 if xp < 0:
                     xp = 0
                 try:
                     alt = AccountHistory.objects.get(Q(account=current) & ~Q(entry=entry))
-                    altchar = alt.entry.char
-                    altchar.adjust_xp(xp)
+                    altchar = alt.entry.character
+                    if xp > history.xp_earned:
+                        xp = history.xp_earned
+                    if not altchar.db.xp:
+                        altchar.db.xp = 0
+                    altchar.db.xp += xp    
                 except AccountHistory.DoesNotExist:
-                    pass
+                    if xp > current.total_xp:
+                        xp = current.total_xp
+                    current.gm_notes += "\n\nUnspent xp: %s" % xp
+                    current.save()
                 except AccountHistory.MultipleObjectsReturned:
                     caller.msg("ERROR: Found more than one account. No xp transferred.")
-                except Exception:
+                except Exception as err:
                     import traceback
-                    caller.msg("{rEncountered this error when trying to transfer xp{n:\n")
-                    caller.msg(traceback.print_exc())
+                    print "{rEncountered this error when trying to transfer xp{n:\n%s" % err
+                    traceback.print_exc()
+                entry.character.db.xp = 0
+                entry.character.db.total_xp = 0
             except AccountHistory.DoesNotExist:
                 history = AccountHistory.objects.create(account=current, entry=entry)
             except Exception:
