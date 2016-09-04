@@ -1027,12 +1027,12 @@ class CmdDirections(MuxCommand):
         " Handles the toggle "
         caller = self.caller
         if "off" in self.switches or not self.args:
-            caller.ndb.waypoint = None
-            caller.msg("Directions turned off.")
+            if caller.ndb.waypoint:
+                caller.ndb.waypoint = None
+                caller.msg("Directions turned off.")
+            else:
+                caller.msg("You must give the name of a room.")
             return
-##        if caller.location.tags.get("private"):
-##            caller.msg("You cannot use this command from a private room. Go outside first.")
-##            return
         room = ObjectDB.objects.filter(db_typeclass_path=settings.BASE_ROOM_TYPECLASS,
                                         db_key__icontains=self.args)[:10]
         if len(room) > 1:
@@ -1048,9 +1048,6 @@ class CmdDirections(MuxCommand):
         if not room:
             caller.msg("No matches for %s." % self.args)
             return
-##        if room.tags.get("private"):
-##            caller.msg("You cannot get directions to a private room. Try someplace nearby.")
-##            return
         caller.msg("Attempting to find where your destination is in relation to your position." +
                    " Please use {w@map{n if the directions don't have a direct exit there.")
         directions = caller.get_directions(room)

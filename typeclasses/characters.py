@@ -505,4 +505,58 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
     def num_guards(self):
         return sum(ob.quantity for ob in self.guards)
 
-
+    def get_directions(self, room):
+        """
+        Uses the ObjectDB manager and repeated related_set calls in order
+        to find the exit in the current room that directly points to it.
+        """
+        loc = self.location
+        if not loc:
+            return
+        x_ori = loc.db.x_coord
+        y_ori = loc.db.y_coord
+        x_dest = room.db.x_coord
+        y_dest = room.db.y_coord
+        check_exits = []
+        try:
+            x = x_dest - x_ori
+            y = y_dest - y_ori
+            dest = ""
+            if y > 0:
+                dest += "north"
+            if y < 0:
+                dest += "south"
+            check_exits.append(dest)
+            if x > 0:
+                dest += "east"
+                check_exits.append("east")
+            if x < 0:
+                dest += "west"
+                check_exits.append("west")
+            check_exits.insert(0, dest)
+            for dirname in check_exits:
+                if loc.locations_set.filter(db_key__iexact=dirname):
+                    return "{c" + dirname + "{n"
+            dest = "{c" + dest + "{n roughly. Please use '{w@map{n' to determine an exact route"
+        except Exception:
+            import traceback
+            print "Error in using directions for rooms: %s, %s" % (loc.id, room.id)
+            print "origin is (%s,%s), destination is (%s, %s)" % (x_ori, y_ori, x_dest, y_dest)
+            traceback.print_exc()
+            self.msg("Rooms not properly set up for @directions. Logging error.")
+            return
+        # try to find it through traversal
+        base_query = "db_destination_id"
+        exit = []
+        iterations = 0
+        # anything beyond 10 squares becomes extremely lengthy
+        max_iter = 5
+        while not exit and iterations < max_iter:
+            q_add = "db_destination__locations_set__" * iterations
+            query = q_add + base_query
+            filter_dict = { query : room.id}
+            exit = loc.locations_set.filter(**filter_dict)[0:1]
+            iterations += 1
+        if not exit:
+            return "{c" + dest + "{n"
+        return "{c" + str(exit[0]) + "{n"
