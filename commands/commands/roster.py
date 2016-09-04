@@ -355,7 +355,7 @@ class CmdAdminRoster(MuxPlayerCommand):
                 targ = caller.search(self.lhs)
                 if not targ:
                     return
-                active.entries.create(player=targ.dbobj, character=targ.db.char_ob.dbobj)
+                active.entries.create(player=targ, character=targ.db.char_ob)
                 caller.msg("Character added to active roster.")
                 return
         if 'move' in switches:

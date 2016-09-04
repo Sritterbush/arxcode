@@ -9,6 +9,7 @@ creation commands.
 """
 from evennia import DefaultCharacter
 from typeclasses.mixins import MsgMixins, ObjectMixins
+from typeclasses.messagehandler import MessageHandler
 from evennia.utils import create
 from evennia.utils.utils import fill, to_str, to_unicode
 import time
@@ -69,6 +70,7 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         self.is_room = False
         self.is_exit = False
         self.is_character = True
+        self.messages = MessageHandler(self)
         
 
     def at_after_move(self, source_location):

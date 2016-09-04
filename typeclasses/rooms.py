@@ -75,6 +75,7 @@ from evennia import default_cmds
 from evennia import utils
 from evennia.objects.models import ObjectDB
 from typeclasses.mixins import DescMixins, AppearanceMixins
+from typeclasses.messagehandler import MessageHandler
 
 # error return function, needed by Extended Look command
 _AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
@@ -108,6 +109,7 @@ class Room(DescMixins, DefaultRoom, AppearanceMixins):
         self.is_room = True
         self.is_exit = False
         self.is_character = False
+        self.messages = MessageHandler(self)
         
     def get_visible_characters(self, pobject):
         "Returns a list of visible characters in a room."

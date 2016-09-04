@@ -109,7 +109,7 @@ class CmdGemit(MuxPlayerCommand):
         elif "noepisode" not in self.switches:
             episode = Episode.objects.latest('date')
         StoryEmit.objects.create(episode=episode, chapter=chapter, text=msg,
-                                 sender=caller.dbobj)
+                                 sender=caller)
         self.msg("Announcing to all connected players ...")
         SESSIONS.announce_all(msg)
         # get board and post

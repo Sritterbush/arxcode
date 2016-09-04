@@ -265,13 +265,13 @@ class CmdJournal(MuxCommand):
         from django.db.models import Q
         caller = self.caller
         all_writers = ObjectDB.objects.filter(Q(sender_object_set__db_header__contains="white_journal") &
-                                                ~Q(sender_object_set__db_receivers_players=caller.db.player_ob.dbobj) &
+                                                ~Q(sender_object_set__db_receivers_players=caller.db.player_ob) &
                                                 ~Q(roster__current_account=caller.roster.current_account)
                                                 ).distinct().order_by('db_key')
         msglist = []
         for writer in all_writers:
             count = writer.sender_object_set.filter(Q(db_header__contains="white_journal") &
-                                                    ~Q(db_receivers_players=caller.db.player_ob.dbobj)).count()
+                                                    ~Q(db_receivers_players=caller.db.player_ob)).count()
             msglist.append("{C%s{c(%s){n" % (writer.key, count))
         caller.msg("Writers with journals you have not read: %s" % ", ".join(msglist))
             
@@ -1036,7 +1036,7 @@ class CmdCalendar(MuxPlayerCommand):
             else:
                 caller.db.char_ob.pay_money(cost)
                 caller.msg("You pay %s coins for the event." % cost)
-            event = RPEvent.objects.create(name=name, date=date, desc=desc, location=loc.dbobj,
+            event = RPEvent.objects.create(name=name, date=date, desc=desc, location=loc,
                                            public_event=public, celebration_tier=cel_lvl,
                                            room_desc=room_desc)
             for host in hosts:

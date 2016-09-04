@@ -270,7 +270,7 @@ class CmdCraft(MuxCommand):
             self.crafter = caller
         crafter = self.crafter
         try:
-            dompc = PlayerOrNpc.objects.get(player=caller.player.dbobj)
+            dompc = PlayerOrNpc.objects.get(player=caller.player)
             assets = AssetOwner.objects.get(player=dompc)
         except PlayerOrNpc.DoesNotExist:
             # dominion not set up on player
@@ -612,7 +612,7 @@ class CmdRecipes(MuxCommand):
     help_category = "Crafting"
 
     def display_recipes(self, recipes):
-        known_list = CraftingRecipe.objects.filter(known_by__player__player=self.caller.player.dbobj)
+        known_list = CraftingRecipe.objects.filter(known_by__player__player=self.caller.player)
         table = PrettyTable(["{wKnown{n", "{wName{n", "{wAbility{n", 
                              "{wDifficulty{n", "{wCost{n"])
         for recipe in recipes:
@@ -624,11 +624,11 @@ class CmdRecipes(MuxCommand):
     def func(self):
         "Implement the command"
         caller = self.caller
-        recipes = list(CraftingRecipe.objects.filter(known_by__player__player=caller.player.dbobj))
-        unknown = CraftingRecipe.objects.exclude(known_by__player__player=caller.player.dbobj).order_by("additional_cost")
+        recipes = list(CraftingRecipe.objects.filter(known_by__player__player=caller.player))
+        unknown = CraftingRecipe.objects.exclude(known_by__player__player=caller.player).order_by("additional_cost")
         can_learn = [ob for ob in unknown if ob.access(caller, 'learn')]
         try:
-            dompc = PlayerOrNpc.objects.get(player=caller.player.dbobj)
+            dompc = PlayerOrNpc.objects.get(player=caller.player)
         except PlayerOrNpc.DoesNotExist:
             setup_dom_for_char(caller)
         if not self.args and not self.switches:
@@ -697,7 +697,7 @@ class CmdRecipes(MuxCommand):
                 caller.msg("They cannot learn %s." % recipe.name)
                 return
             try:
-                dompc = PlayerOrNpc.objects.get(player=char.player.dbobj)
+                dompc = PlayerOrNpc.objects.get(player=char.player)
             except PlayerOrNpc.DoesNotExist:
                 dompc = setup_dom_for_char(char)
             if recipe in dompc.assets.recipes.all():
@@ -727,11 +727,11 @@ class CmdJunk(MuxCommand):
         pmats = caller.player.Dominion.assets.materials
         obj = caller.search(self.args, use_nicks=True, quiet=True)
         if not obj:
-            AT_SEARCH_RESULT(caller, self.args, obj, False)
+            AT_SEARCH_RESULT(obj, caller, self.args, False)
             return
         else:
             if len(make_iter(obj)) > 1:
-                AT_SEARCH_RESULT(caller, self.args, obj, False)
+                AT_SEARCH_RESULT(obj, caller, self.args, False)
                 return
             obj = make_iter(obj)[0]
         if obj.location != caller:
