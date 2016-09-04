@@ -119,6 +119,7 @@ class OOCCmdSet(CmdSet):
         self.add(xp.CmdVoteXP())
         self.add(social.CmdPosebreak())
         self.add(arxhelp.CmdHelp())
+        self.add(social.CmdSocialScore())
 
 class StateIndependentCmdSet(CmdSet):
     """
@@ -136,6 +137,7 @@ class StateIndependentCmdSet(CmdSet):
         self.add(general.CmdOOCSay())
         self.add(general.CmdDirections())
         self.add(general.CmdKeyring())
+        self.add(general.CmdGlance())
         # sorta IC commands, since information is interpretted by the
         # character and may not be strictly accurate.
         self.add(CmdExtendedLook())
@@ -181,6 +183,10 @@ class MobileCmdSet(CmdSet):
         self.add(crafting.CmdJunk())
         self.add(social.CmdPraise())
         self.add(social.CmdCondemn())
+        self.add(social.CmdThink())
+        self.add(social.CmdFeel())
+        self.add(social.CmdDonate())
+        self.add(investigation.CmdInvestigate())
 
 class StaffCmdSet(CmdSet):
     "OOC staff and building commands. Character-based due to interacting with game world."   

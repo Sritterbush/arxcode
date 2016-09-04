@@ -689,7 +689,7 @@ class CmdCombatStats(MuxCommand):
         caller = self.caller
         combat = check_combat(caller, quiet=True)
         if not combat or caller not in combat.ndb.combatants:
-            from game.gamesrc.scripts.combatant import CharacterCombatData
+            from typeclasses.scripts.combat.combatant import CharacterCombatData
             fighter = CharacterCombatData(caller, None)
         else:
             fighter = combat.get_fighter_data(caller.id)
