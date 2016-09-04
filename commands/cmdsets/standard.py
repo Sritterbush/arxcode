@@ -83,6 +83,16 @@ try:
 except Exception as err:
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading investigation commands: %s" % err)
+try:
+    from commands.commands import overrides
+except Exception as err:
+    traceback.print_exc()
+    print("<<ERROR>>: Error encountered in override commands: %s" % err)
+try:
+    from commands.commands import help as arxhelp
+except Exception as err:
+    traceback.print_exc()
+    print("<<ERROR>>: Error encountered in overriding help: %s" % err)
 from evennia.commands.cmdset import CmdSet
 
 class OOCCmdSet(CmdSet):
@@ -98,10 +108,9 @@ class OOCCmdSet(CmdSet):
         the internal cmdset stack. They will then be able to removed or
         replaced as needed.
         """
-        self.add(default_general.CmdInventory())
+        self.add(overrides.CmdInventory())
         self.add(default_general.CmdNick())
         self.add(default_general.CmdAccess())
-        self.add(help.CmdHelp())
         self.add(general.CmdDiceString())
         self.add(general.CmdDiceCheck())
         self.add(general.CmdPage())
@@ -109,6 +118,7 @@ class OOCCmdSet(CmdSet):
         self.add(extended_room.CmdGameTime())
         self.add(xp.CmdVoteXP())
         self.add(social.CmdPosebreak())
+        self.add(arxhelp.CmdHelp())
 
 class StateIndependentCmdSet(CmdSet):
     """
@@ -120,7 +130,7 @@ class StateIndependentCmdSet(CmdSet):
     def at_cmdset_creation(self):
         self.add(default_general.CmdPose())
         #emit was originally an admin command. Replaced those with gemit
-        self.add(admin.CmdEmit())
+        self.add(overrides.CmdEmit())
         #backup look for non-extended rooms, unsure if still used anywhere
         self.add(general.CmdLook())
         self.add(general.CmdOOCSay())
@@ -146,9 +156,9 @@ class MobileCmdSet(CmdSet):
     """
     key = "MobileCmdSet"
     def at_cmdset_creation(self):
-        self.add(default_general.CmdGet())
-        self.add(default_general.CmdDrop())
-        self.add(default_general.CmdGive())
+        self.add(overrides.CmdGet())
+        self.add(overrides.CmdDrop())
+        self.add(overrides.CmdGive())
         self.add(default_general.CmdSay())
         self.add(general.CmdWhisper())
         self.add(general.CmdFollow())

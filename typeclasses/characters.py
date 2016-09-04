@@ -128,7 +128,7 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
             extras = self.return_extras(pobject)
             if extras:
                 extras += "\n"
-            string += "\n\n%s%s" % (extras, fill(desc, initial_indent=indent))
+            string += "\n\n%s%s" % (extras, fill(desc, indent=indent))
         
         if health_appearance:
             string += "\n\n%s" % health_appearance

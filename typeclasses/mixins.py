@@ -8,6 +8,14 @@ class DescMixins(object):
     def __desc_set(self, val):
         self.db.desc = val
     desc = property(__desc_get, __desc_set)
+    def __get_volume(self):
+        total = 0
+        for obj in self.contents:
+            if obj.db.worn_by != self and obj.db.sheathed_by != self:
+                vol = obj.db.volume or 1
+                total += vol
+        return total
+    volume = property(__get_volume)
 
 class AppearanceMixins(object):
     def return_contents(self, pobject, detailed=True, show_ids=False, strip_ansi=False):

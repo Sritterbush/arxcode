@@ -41,6 +41,8 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         except Exception:
             import traceback
             traceback.print_exc()
+        from .command import CmdViewTestObject
+        self.add(CmdViewTestObject())
 
 
 class PlayerCmdSet(default_cmds.PlayerCmdSet):
@@ -60,7 +62,16 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
         #
         # any commands you add below will overload the default ones.
         #
-        
+        try:
+            from .commands import help
+            self.add(help.CmdHelp())
+        except Exception as err:
+            print("<<ERROR>>: Error in overriding help: %s." % err)
+        try:
+            from .commands import overrides
+            self.add(overrides.CmdWho())
+        except Exception as err:
+            print("<<ERROR>>: Error in overrides: %s." % err)
         try:
             from .commands import general
             self.add(general.CmdPage())

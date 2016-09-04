@@ -161,3 +161,13 @@ class Object(MsgMixins, ObjectMixins, DefaultObject):
 
      """
     pass
+
+class TestObject(Object):
+    def at_object_creation(self):
+        self.db.test1 = "A"
+        self.db.test2 = "B"
+        self.db.test3 = "C"
+        self.db.test4 = "D"
+        self.db.test5 = "E"
+
+

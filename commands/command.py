@@ -6,7 +6,7 @@ Commands describe the input the player can do to the game.
 """
 
 from evennia import Command as BaseCommand
-# from evennia import default_cmds
+from evennia import default_cmds
 
 
 class Command(BaseCommand):
@@ -182,3 +182,15 @@ class Command(BaseCommand):
 #            else:
 #                self.character = None
 #
+
+
+class CmdViewTestObject(default_cmds.MuxCommand):
+    key = "viewtestobj"
+    def func(self):
+        from typeclasses.objects import TestObject
+        objects = TestObject.objects.all()
+        string = ""
+        for obj in list(objects):
+            string += "\n%s: %s, %s, %s, %s, %s" % (obj.key, obj.db.test1, obj.db.test2,
+                                                    obj.db.test3, obj.db.test4, obj.db.test5)
+        self.caller.msg(string)
