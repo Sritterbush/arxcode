@@ -11,7 +11,7 @@ from evennia.utils import create
 from evennia.commands.default.muxcommand import MuxCommand
 from evennia.objects.models import ObjectDB
 
-MAP_TYPECLASS = "game.gamesrc.objects.map.Map"
+MAP_TYPECLASS = "typeclasses.map.Map"
 
 
 
@@ -39,7 +39,7 @@ class CmdMap(MuxCommand):
             caller.msg("There is no map available at your current location.")
             return
         caller.msg("Map of {c%s{n." % map.key)
-        from game.gamesrc.objects.map import _CALLER_ICON
+        from typeclasses.map import _CALLER_ICON
         caller.msg("Your location displayed as %s." % _CALLER_ICON)
         directions = caller.ndb.waypoint
         caller.msg(map.draw_map(room, destination=directions), formatted=True)
