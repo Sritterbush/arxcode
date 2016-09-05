@@ -312,12 +312,12 @@ class CmdGuestLook(MuxPlayerCommand):
             caller.db.tutorial_stage = 0
         char = caller.db.char
         if stage == 0:
-            caller.msg(STAGE0, formatted=True)
+            caller.msg(STAGE0)
             return
         if stage == 1:
             caller.msg(stage_title(stage))
             if not caller.ndb.seen_stage1_intro:               
-                caller.msg(STAGE1, formatted=True)
+                caller.msg(STAGE1)
                 caller.ndb.seen_stage1_intro = True
             else:
                 caller.msg("To choose a name, please use {w'@add/name <name>'{n. Names may only consist " +
@@ -326,7 +326,7 @@ class CmdGuestLook(MuxPlayerCommand):
         if stage == 2:
             caller.msg(stage_title(stage))
             if not caller.ndb.seen_stage2_intro:
-                caller.msg(STAGE2, formatted=True)
+                caller.msg(STAGE2)
                 caller.ndb.seen_stage2_intro = True
             vocs = [item.capitalize() for item in _vocations_]
             vocs = ", ".join(vocs)            
@@ -340,7 +340,7 @@ class CmdGuestLook(MuxPlayerCommand):
         if stage == 3:
             caller.msg(stage_title(stage))
             if not caller.ndb.seen_stage3_intro:               
-                caller.msg(STAGE3, formatted=True)
+                caller.msg(STAGE3)
                 caller.ndb.seen_stage3_intro = True
             unfinished = char.db.unfinished_values
             if not unfinished:               
@@ -369,7 +369,7 @@ class CmdGuestLook(MuxPlayerCommand):
         if stage == 4:
             caller.msg(stage_title(stage))
             if not caller.ndb.seen_stage4_intro:             
-                caller.msg(STAGE4, formatted=True)
+                caller.msg(STAGE4)
                 caller.ndb.seen_stage4_intro = True
                 caller.msg("To see the progress of your character, type '{w@sheet{n'.")
             if char:
@@ -386,17 +386,17 @@ class CmdGuestLook(MuxPlayerCommand):
                     if not val:
                         val = 0
                     stat_str += "{c" +stat + "{n: {w" + str(val) + "{n\t"
-                caller.msg(stat_str, formatted=True)
+                caller.msg(stat_str)
                 skill_str = "{wCurrent skills:{n "
                 for skill in sorted(char.db.skills):
                     skill_str += " {c" + skill + "{n: {w" + str(char.db.skills[skill]) + "{n\t"
-                caller.msg(skill_str, formatted=True)
+                caller.msg(skill_str)
                 caller.msg("""
 To see a list of skills, enter '{whelp skills{n', with a description of each
 under '{whelp {c<skill name>{n'. Stats cost 1 point regardless of their current
 rank, while skills cost 1 point per rank for non-combat skills, and 2
 points per rank for combat skills. So to raise melee from 4 to 5 would
-cost 10 skill points.""", formatted=True)
+cost 10 skill points.""")
                 caller.msg("Please use {w@add/stat{n or {w@add/skill{n to change any stat or skill, " +
                            "or {w@add/submit <any notes you wish to add about your application>{n " +
                            "to finish.")
@@ -404,7 +404,7 @@ cost 10 skill points.""", formatted=True)
             return
         if stage == 5:
             caller.msg(stage_title(stage))
-            caller.msg(STAGE5, formatted=True)
+            caller.msg(STAGE5)
             return
 
 class CmdGuestCharCreate(MuxPlayerCommand):
@@ -452,7 +452,7 @@ class CmdGuestCharCreate(MuxPlayerCommand):
         # we check email address to see if it matches an existing unfinished character
         if email != 'none':
             try:
-                from src.web.character.models import RosterEntry
+                from web.character.models import RosterEntry
                 entry = RosterEntry.objects.get(roster__name="Incomplete",
                                                 player__email=email)
                 self.msg("{wFound an unfinished character with the provided email address. Resuming that session.{n")
@@ -474,7 +474,7 @@ class CmdGuestCharCreate(MuxPlayerCommand):
         if not new_character:
             # create the character
             try:
-                from src.objects.models import ObjectDB
+                from evennia.objects.models import ObjectDB
     
                 default_home = ObjectDB.objects.get_id(settings.CHARACTER_DEFAULT_HOME)
                 typeclass = settings.BASE_CHARACTER_TYPECLASS
@@ -511,9 +511,9 @@ class CmdGuestCharCreate(MuxPlayerCommand):
                 new_character.location = None
                 new_character.save()
                 try:
-                    from src.web.character.models import Roster
+                    from web.character.models import Roster
                     incom = Roster.objects.get(name="Incomplete")
-                    incom.entries.create(character=new_character.dbobj, player=new_player.dbobj)
+                    incom.entries.create(character=new_character, player=new_player)
                 except Exception as err:
                     print("Error in adding character to roster for guest: %s" % err)
                     import traceback
@@ -837,7 +837,7 @@ class CmdGuestAddInput(MuxPlayerCommand):
                        "your preferences in stories, the type of RP you want to seek out or "+
                        "create, etc.")
             return
-        from game.gamesrc.commands.jobs import get_apps_manager
+        from commands.commands.jobs import get_apps_manager
         char = caller.db.char
         #check if we're ready yet
         if char.db.skill_points or char.db.stat_points:
