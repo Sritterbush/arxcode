@@ -804,7 +804,7 @@ def ticket_list(request):
 
 
     import cPickle
-    from helpdesk.lib import b64encode
+    from web.helpdesk.lib import b64encode
     urlsafe_query = b64encode(cPickle.dumps(query_params))
 
     user_saved_queries = SavedSearch.objects.filter(Q(user=request.user) | Q(shared__exact=True))
@@ -848,7 +848,7 @@ def edit_ticket(request, ticket_id):
 edit_ticket = staff_member_required(edit_ticket)
 
 def create_ticket(request):
-    if helpdesk_settings.HELPDESK_STAFF_ONLY_TICKET_OWNERS:
+    if web.helpdesk_settings.HELPDESK_STAFF_ONLY_TICKET_OWNERS:
         assignable_users = User.objects.filter(is_active=True, is_staff=True).order_by(User.USERNAME_FIELD)
     else:
         assignable_users = User.objects.filter(is_active=True).order_by(User.USERNAME_FIELD)
