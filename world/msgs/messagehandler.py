@@ -207,7 +207,7 @@ class MessageHandler(object):
         """
         Returns a list of all rumor entries which we've heard (marked as a receiver for)
         """
-        self._rumors = list(_GA(self.obj, 'receiver_object_set').filter(db_header__icontains="rumor").order_by('-db_date_sent'))
+        self._rumors = list(_GA(self.obj, 'receiver_object_set').filter(db_header__icontains="rumor").order_by('-db_date_created'))
         return self._rumors
     
     def build_gossiplist(self):
@@ -215,15 +215,15 @@ class MessageHandler(object):
         Returns a list of all gossip entries we've heard (marked as a receiver for)
         """
         if self.obj.db.player_ob:
-            self._gossip = list(self.obj.db.player_ob.receiver_player_set.filter(db_header__icontains="gossip").order_by('-db_date_sent'))
+            self._gossip = list(self.obj.db.player_ob.receiver_player_set.filter(db_header__icontains="gossip").order_by('-db_date_created'))
         else:
-            self._gossip = list(_GA(self.obj, 'receiver_object_set').filter(db_header__icontains="gossip").order_by('-db_date_sent'))
+            self._gossip = list(_GA(self.obj, 'receiver_object_set').filter(db_header__icontains="gossip").order_by('-db_date_created'))
 
     def build_visionslist(self):
         """
         Returns a list of all messengers this character has received. Does not include pending.
         """
-        self._visions = list(_GA(self.obj, 'receiver_object_set').filter(db_header__icontains="visions").order_by('-db_date_sent'))
+        self._visions = list(_GA(self.obj, 'receiver_object_set').filter(db_header__icontains="visions").order_by('-db_date_created'))
         return self._visions
         
     
@@ -231,21 +231,21 @@ class MessageHandler(object):
         """
         Returns a list of all 'white journal' entries our character has written.
         """
-        self._white_journal = list(_GA(self.obj,'sender_object_set').filter(db_header__icontains="white_journal").order_by('-db_date_sent'))
+        self._white_journal = list(_GA(self.obj,'sender_object_set').filter(db_header__icontains="white_journal").order_by('-db_date_created'))
         return self._white_journal
 
     def build_blackjournal(self):
         """
         Returns a list of all 'black journal' entries our character has written.
         """
-        self._black_journal = list(_GA(self.obj, 'sender_object_set').filter(db_header__icontains="black_journal").order_by('-db_date_sent'))
+        self._black_journal = list(_GA(self.obj, 'sender_object_set').filter(db_header__icontains="black_journal").order_by('-db_date_created'))
         return self._black_journal
 
     def build_messenger_history(self):
         """
         Returns a list of all messengers this character has received. Does not include pending.
         """
-        self._messenger_history = list(_GA(self.obj, 'receiver_object_set').filter(db_header__icontains="messenger").order_by('-db_date_sent'))
+        self._messenger_history = list(_GA(self.obj, 'receiver_object_set').filter(db_header__icontains="messenger").order_by('-db_date_created'))
         return self._messenger_history
 
     #--------------------------------------------------------------
@@ -362,7 +362,7 @@ class MessageHandler(object):
         if msg not in self.messenger_history:
             self.messenger_history.insert(0, msg)
         qs = self.obj.receiver_object_set.filter(Q(db_header__icontains="messenger")
-                                                 & ~Q(db_header__icontains="preserve")).order_by('db_date_sent')
+                                                 & ~Q(db_header__icontains="preserve")).order_by('db_date_created')
         if qs.count() > 30:
            self.del_messenger(qs.first()) 
         return msg
@@ -397,7 +397,7 @@ class MessageHandler(object):
         msg = "{wDate:{n %s\n" % date
         if entry.event:
             msg += "{wEvent:{n %s\n" % entry.event
-        msg += "{wOOC Date:{n %s\n\n" % entry.db_date_sent.strftime("%x %X")
+        msg += "{wOOC Date:{n %s\n\n" % entry.db_date_created.strftime("%x %X")
         msg += entry.db_message
         try:
             ob = self.obj.db.player_ob
