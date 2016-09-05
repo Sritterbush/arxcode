@@ -12,7 +12,7 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 class JournalListView(ListView):
     model = Msg
-    template_name = 'comms/journal_list.html'
+    template_name = 'msgs/journal_list.html'
     paginate_by = 20
     def get_read_journals(self):
         user = self.request.user
@@ -83,7 +83,7 @@ class JournalListView(ListView):
                 #return render(request, self.template_name, context)
             else:
                 raise Http404(form.errors)
-        return HttpResponseRedirect(reverse('comms:list_journals'))
+        return HttpResponseRedirect(reverse('msgs:list_journals'))
                 
         
 
