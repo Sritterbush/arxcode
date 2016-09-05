@@ -8,7 +8,7 @@ import django
 from django.conf.urls import url, include
 from django.contrib import admin
 from django.conf import settings
-from django import views as django_views
+from django.views.static import serve
 
 # default evennia patterns
 from evennia.web.urls import urlpatterns
@@ -45,7 +45,7 @@ urlpatterns = [
                           namespace='dominion', app_name='dominion')),
     url(r'^comms/', include('world.msgs.urls',
                           namespace='msgs', app_name='msgs')),
-    url(r'^static/(?P<path>.*)$', django_views.static.serve,
+    url(r'^static/(?P<path>.*)$', serve,
         {'document_root': settings.STATIC_ROOT}),
     url(r'^support/', include('web.helpdesk.urls')),
                        
@@ -55,6 +55,6 @@ urlpatterns = [
 # test server (this should normally not be needed).
 if settings.SERVE_MEDIA:
     urlpatterns += [
-        (r'^media/(?P<path>.*)$', django_views.static.serve, {'document_root': settings.MEDIA_ROOT}),
+        (r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
         
     ]
