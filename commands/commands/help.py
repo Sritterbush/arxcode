@@ -152,10 +152,6 @@ class CmdHelp(Command):
         # try an exact command auto-help match
         match = [cmd for cmd in all_cmds if cmd == query]
         if len(match) == 1:
-            if hasattr(match[0], 'is_channel') and match[0].is_channel:
-                channel = ChannelDB.objects.get_channel(match[0].key)
-                match[0].__doc__ = CHANNELHANDLER._format_help(channel)
-            
             doc_text = match[0].__doc__
             if hasattr(match[0], 'dynamic_help'):
                 doc_text = match[0].dynamic_help(caller)

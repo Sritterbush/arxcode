@@ -86,5 +86,5 @@ def tdiff(date):
     try:
         diff = date - tnow()
     except Exception:
-        diff = date - tnow(aware)
+        diff = date - tnow(aware=True)
     return diff

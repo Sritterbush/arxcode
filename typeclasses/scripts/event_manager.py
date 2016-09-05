@@ -92,7 +92,7 @@ class EventManager(Script):
                 self.announce_upcoming_event(event, diff)
 
     def announce_upcoming_event(self, event, diff):
-        mins = diff/60
+        mins = int(diff/60)
         secs = diff % 60
         SESSIONS.announce_all("{wEvent: '%s' will start in %s minutes and %s seconds.{n" % (event.name, mins, secs))
 
