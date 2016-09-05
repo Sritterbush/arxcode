@@ -345,7 +345,7 @@ class CmdAdmDomain(MuxPlayerCommand):
             return
         if "view" in self.switches or not self.switches:
             mssg = dom.display()
-            caller.msg(mssg, formatted=True)
+            caller.msg(mssg)
             return
         if "delete" in self.switches:
             # this nullifies its values and removes it from play, doesn't fully delete it
@@ -412,7 +412,7 @@ class CmdAdmCastle(MuxPlayerCommand):
             caller.msg("Could not find a castle for id %s." % self.lhs)
             return
         if not self.switches or "view" in self.switches:
-            caller.msg(castle.display(), formatted=True)
+            caller.msg(castle.display())
             return
         if not self.rhs:
             caller.msg("Must specify a right hand side argument for that switch.")
@@ -492,7 +492,7 @@ class CmdAdmArmy(MuxPlayerCommand):
             caller.msg("Invalid army id of %s." % self.lhs)
             return
         if "view" in self.switches or not self.switches:
-            caller.msg(army.display(), formatted=True)
+            caller.msg(army.display())
             return
         # after this point, require a self.rhs
         if not self.rhs:
@@ -760,14 +760,14 @@ class CmdAdmOrganization(MuxPlayerCommand):
             caller.msg("No organization found for %s." % self.lhs)
             return
         if not self.switches:
-            caller.msg(org.display(), formatted=True)
+            caller.msg(org.display())
             return
         # already found an existing org
         if 'create' in self.switches:
             caller.msg("Organization %s already exists." % org)
             return
         if 'members' in self.switches:
-            caller.msg(org.display_members(), formatted=True)
+            caller.msg(org.display_members())
             return
         if 'boot' in self.switches:
             try:
@@ -1222,7 +1222,7 @@ class CmdDomain(MuxPlayerCommand):
             caller.msg("No domain found.")
             return
         if not self.switches:
-            caller.msg(dom.display(), formatted=True)
+            caller.msg(dom.display())
             return
 
 class CmdArmy(MuxPlayerCommand):
@@ -1268,7 +1268,7 @@ class CmdArmy(MuxPlayerCommand):
             caller.msg("No armies found by that name or number.")
             return
         if not self.switches:
-            caller.msg(army.display(), formatted=True)
+            caller.msg(army.display())
             return
         if 'countermand' in self.switches:
             val = army.countermand()
@@ -1796,7 +1796,7 @@ class CmdFamily(MuxPlayerCommand):
             famtree = dompc.display_immediate_family()
             if not famtree:
                 famtree = "No relatives found for {c%s{n.\n" % dompc
-            caller.msg(famtree, formatted=True)
+            caller.msg(famtree)
             if player:
                 try:
                     family = player.db.char_ob.db.family
@@ -1807,7 +1807,7 @@ class CmdFamily(MuxPlayerCommand):
                         details = fam_org.display()
                     else:
                         details = fam_org.display_public()
-                    caller.msg("%s family information:\n%s" % (family, details), formatted=True)
+                    caller.msg("%s family information:\n%s" % (family, details))
                     return
                 except Exception:
                     # display nothing
@@ -1976,7 +1976,7 @@ class CmdGuards(MuxCommand):
             return
         if not self.args and not self.switches:
             for guard in guards:
-                caller.msg(guard.display(), formatted=True)
+                caller.msg(guard.display())
                 return
         if self.args:
             guard = ObjectDB.objects.object_search(self.lhs, candidates=guards)
