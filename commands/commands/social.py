@@ -38,7 +38,7 @@ class CmdHangouts(MuxCommand):
         oblist = ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_ROOM_TYPECLASS) &
                                          Q(locations_set__db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS) &
                                          Q(db_tags__db_key="hangouts")).distinct()
-        caller.msg(format_header("Hangouts"), formatted=True)
+        caller.msg(format_header("Hangouts"))
         if not oblist:
             caller.msg("No hangouts are currently occupied.")
             return
@@ -623,7 +623,7 @@ class CmdMessenger(MuxCommand):
                     saved = "{w*{n" if "preserve" in mess.db_header else ""
                     msgtable.add_row([mess_num, name, date, saved])
                     mess_num += 1
-                caller.msg(msgtable, formatted=True)
+                caller.msg(msgtable)
                 return
             try:
                 num = int(self.lhs)
@@ -680,7 +680,7 @@ class CmdMessenger(MuxCommand):
                     date = caller.messages.get_date_from_header(mess) or "Unknown"
                     msgtable.add_row([mess_num, name, date])
                     mess_num += 1
-                caller.msg(msgtable, formatted=True)
+                caller.msg(msgtable)
                 return
             try:
                 num = int(self.lhs)

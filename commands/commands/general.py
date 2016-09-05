@@ -280,7 +280,7 @@ class CmdLook(MuxCommand):
             caller.msg("Could not find '%s'." % args)
             return
         # get object's appearance
-        caller.msg(looking_at_obj.return_appearance(caller), formatted=True)
+        caller.msg(looking_at_obj.return_appearance(caller))
         # the object's at_desc() method.
         looking_at_obj.at_desc(looker=caller)
 
@@ -517,7 +517,7 @@ class CmdPage(MuxPlayerCommand):
             if pages_we_sent:
                 recv = ",".join(obj.key for obj in pages_we_sent[-1].receivers)
                 self.msg("You last paged {c%s{n:%s" % (recv,
-                                                    pages_we_sent[-1].message), formatted=True)
+                                                    pages_we_sent[-1].message))
                 return
             else:
                 self.msg("You haven't paged anyone yet.")
@@ -549,7 +549,7 @@ class CmdPage(MuxPlayerCommand):
                 string = "Your latest pages:\n %s" % lastpages
             else:
                 string = "You haven't paged anyone yet."
-            self.msg(string, formatted=True)
+            self.msg(string)
             return
         # if this is a 'tell' rather than a page, we use different syntax
         cmdstr = self.cmdstring.lower()
@@ -911,7 +911,7 @@ class CmdMail(MuxPlayerCommand):
                         col = "{n"
                     table.add_row([col + str(this_number), col + str(sender), col + str(subject)])
                 string = "{wMailbox:{n\n%s" % table
-                caller.msg(string, formatted=True)
+                caller.msg(string)
                 return
             else:
                 #get mail number, then display the message
@@ -938,7 +938,7 @@ class CmdMail(MuxPlayerCommand):
                 
                 string += raw(message)
                 string +="\n{w"+20*"-"+"{n\n"
-                caller.msg(string, formatted=True)
+                caller.msg(string)
                 if not mail in caller.db.readmails:
                     caller.db.readmails.add(mail)
                 return

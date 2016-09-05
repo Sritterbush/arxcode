@@ -106,7 +106,7 @@ class CmdStartingGear(MuxCommand):
         if not self.args and not self.switches:
             project = caller.db.startgear_project
             if project:
-                caller.msg(self.display_project(project), formatted=True)
+                caller.msg(self.display_project(project))
                 caller.msg("{wTo finish it, use /finish.")
             caller.msg("You have the equivalent of {w%s{n silver remaining to spend on gear." % caller.db.startgear_val)
             return
@@ -191,7 +191,7 @@ class CmdStartingGear(MuxCommand):
                 return
             proj[2] = self.args
             caller.db.startgear_project = proj
-            caller.msg("Desc set to:\n%s" % (self.args), formatted=True)
+            caller.msg("Desc set to:\n%s" % (self.args))
             return
         if "abandon" in self.switches or "abort" in self.switches:
             caller.msg("You have abandoned this crafting project. You may now start another.")

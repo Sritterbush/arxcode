@@ -865,7 +865,7 @@ class CmdBuyFromShop(CmdCraft):
             caller.msg(self.list_prices())
             project = caller.db.crafting_project
             if project:
-                caller.msg(self.display_project(project), formatted=True)
+                caller.msg(self.display_project(project))
             return
         if "buy" in self.switches:
             try:

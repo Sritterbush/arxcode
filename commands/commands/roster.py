@@ -556,7 +556,7 @@ def display_header(caller, character, show_hidden=False):
                       'vocation': vocation, 'height':height, 'eyecolor':eyecolor,
                       'haircolor': haircolor, 'skintone': skintone, 'marital_status': marital_status,
                   }
-    caller.msg(header, formatted=True)
+    caller.msg(header)
     desc = character.desc
     if not desc:
         desc = "No description set."
@@ -576,7 +576,7 @@ def display_header(caller, character, show_hidden=False):
             if rage:
                 mssg = mssg + "{w(Real Age):{n %s" % rage
             caller.msg(mssg)
-    caller.msg("{wDescription:{n \n%s\n" % desc, formatted=True)
+    caller.msg("{wDescription:{n \n%s\n" % desc)
     # this was getting too long so decided to remove them for now
     #caller.msg("{wBackground:{n %s\n" % background)
     #caller.msg("{wPersonality:{n %s" % personality)
@@ -634,7 +634,7 @@ def display_attributes(caller, character):
                     'wit': wit
                 }
     disp = disp.rstrip()
-    caller.msg(disp, formatted=True)
+    caller.msg(disp)
     mana = character.db.mana
     if not mana:
         mana = 0
@@ -653,7 +653,7 @@ def display_attributes(caller, character):
 {wMana:{n %(mana)s                {wLuck:{n %(luck)s             {wWillpower:{n %(will)s
         """ % { 'title': title, 'mana': mana, 'luck': luck, 'will': will }
     disp = disp.rstrip()
-    caller.msg(disp, formatted=True)
+    caller.msg(disp)
     pass
 
 def display_title(caller, title):
@@ -663,7 +663,7 @@ def display_title(caller, title):
 {w==================================================================={n
 {w%(title)s{n
         """ % { 'title': title }
-    caller.msg(disp, formatted=True)
+    caller.msg(disp)
 
 def display_skills(caller, character):
     """
@@ -689,7 +689,7 @@ def display_skills(caller, character):
             if skills_count % 4 == 0:
                 skillstr += "\n"
     display_title(caller, title)
-    caller.msg(skillstr, formatted=True)
+    caller.msg(skillstr)
     try:
         dompc = character.db.player_ob.Dominion
         domskills = ("population", "income", "farming", "productivity",
@@ -706,7 +706,7 @@ def display_skills(caller, character):
                     skillstr += "\n"
         if skillstr:
             display_title(caller, title)
-            caller.msg(skillstr, formatted=True)
+            caller.msg(skillstr)
     except AttributeError:
         pass
 
@@ -732,7 +732,7 @@ def display_abilities(caller, character):
             if abilities_count % 4 == 0:
                 abilstr += "\n"
     display_title(caller, title)
-    caller.msg(abilstr, formatted=True)
+    caller.msg(abilstr)
 
 def display_relationships(caller, character, show_hidden=False):
     """
@@ -1191,7 +1191,7 @@ class CmdRelationship(MuxPlayerCommand):
                 caller.msg("{w%s has relationships with the following characters:{n" % charob)
                 caller.msg("{w--------------------------------------------{n")
                 disp = ", ".join(key for key in sorted(rels.keys()))
-                caller.msg(disp, formatted=True)
+                caller.msg(disp)
                 caller.msg("To see the individual relationships, use {w@relationship %s=<name>{n" % charob)
             caller.msg("\nSocial information for %s:" % charob.key)
             caller.execute_cmd("@sheet/social %s" % charob.key)
@@ -1408,7 +1408,7 @@ class CmdComment(MuxPlayerCommand):
                 return
             # get 5 most recent comments
             for entry in comment_list[:5]:
-                caller.msg("\n%s\n" % char.messages.disp_entry(entry), formatted=True)
+                caller.msg("\n%s\n" % char.messages.disp_entry(entry))
                 entry.receivers = caller
             return
         playob = caller.search(lhs)

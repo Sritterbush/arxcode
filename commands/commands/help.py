@@ -134,7 +134,7 @@ class CmdHelp(Command):
             [hdict_cmd[cmd.help_category].append(cmd.key) for cmd in all_cmds]
             [hdict_topic[topic.help_category].append(topic.key) for topic in all_topics]
             # report back
-            self.msg(format_help_list(hdict_cmd, hdict_topic, brief=True), formatted=True)
+            self.msg(format_help_list(hdict_cmd, hdict_topic, brief=True))
             return
 
         # Try to access a particular command
@@ -158,7 +158,7 @@ class CmdHelp(Command):
             self.msg(format_help_entry(match[0].key,
                      doc_text,
                      aliases=match[0].aliases,
-                     suggested=suggestions), formatted=True)
+                     suggested=suggestions))
             found_match = True
 
 
@@ -168,7 +168,7 @@ class CmdHelp(Command):
         if len(match) == 1:
             self.msg(format_help_entry(match[0].key,
                      match[0].entrytext,
-                     suggested=suggestions), formatted=True)
+                     suggested=suggestions))
             found_match = True
 
         if found_match:
@@ -178,11 +178,11 @@ class CmdHelp(Command):
         if query in all_categories:
             #fixed bug - wouldn't match if category name was capitalized
             self.msg(format_help_list({query:[cmd.key for cmd in all_cmds if cmd.help_category.lower()==query]},
-                                        {query:[topic.key for topic in all_topics if topic.help_category.lower()==query]}), formatted=True)
+                                        {query:[topic.key for topic in all_topics if topic.help_category.lower()==query]}))
             return
 
         # no exact matches found. Just give suggestions.
-        self.msg(format_help_entry("", "No help entry found for '%s'" % query, None, suggested=suggestions), formatted=True)
+        self.msg(format_help_entry("", "No help entry found for '%s'" % query, None, suggested=suggestions))
 
 
 class CmdSetHelp(MuxCommand):

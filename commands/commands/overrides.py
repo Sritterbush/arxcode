@@ -116,7 +116,7 @@ class CmdInventory(MuxCommand):
         self.caller.msg("\n{w%s currently %s {c%s {wxp." % ("You" if not show_other else char.key,
                                                             "have" if not show_other else 'has',
                                                             xp))
-        self.caller.msg(string, formatted=True)
+        self.caller.msg(string)
         if hasattr(player, 'Dominion') and hasattr(player.Dominion, 'assets'):
             vault = player.Dominion.assets.vault
             self.caller.msg("{wBank Account:{n %s silver coins" % vault)
@@ -628,5 +628,5 @@ class CmdWho(MuxPlayerCommand):
 
         isone = nplayers == 1
         string = "{wPlayers:{n\n%s\n%s unique account%s logged in." % (table, "One" if isone else nplayers, "" if isone else "s")
-        self.msg(string, formatted=True)
+        self.msg(string)
 

@@ -112,7 +112,7 @@ class CmdMarket(MuxCommand):
             # add other items by hand
             for mat in other_items:
                 mtable.add_row([mat, other_items[mat][1], other_items[mat][0]])
-            caller.msg("\n{w" + "="*60 + "{n\n%s"% mtable, formatted=True)
+            caller.msg("\n{w" + "="*60 + "{n\n%s"% mtable)
             pmats = CraftingMaterials.objects.filter(owner__player__player=caller.player)
             if pmats:
                 caller.msg("\n{wYour materials:{n %s" % ", ".join(str(ob) for ob in pmats))

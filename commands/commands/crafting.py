@@ -409,7 +409,7 @@ class CmdCraft(MuxCommand):
                 return
             proj[2] = self.args
             caller.db.crafting_project = proj
-            caller.msg("Desc set to:\n%s" % (self.args), formatted=True)
+            caller.msg("Desc set to:\n%s" % (self.args))
             return
         if "abandon" in self.switches:
             caller.msg("You have abandoned this crafting project. You may now start another.")
@@ -637,7 +637,7 @@ class CmdRecipes(MuxCommand):
             from operator import attrgetter
             visible = sorted(visible, key=attrgetter('ability', 'difficulty',
                                                      'name'))
-            caller.msg(self.display_recipes(visible), formatted=True)       
+            caller.msg(self.display_recipes(visible))       
             return
         if not self.switches:
             try:
@@ -653,7 +653,7 @@ class CmdRecipes(MuxCommand):
             if not match:
                 caller.msg("No recipe by that name.")
                 caller.msg("\nRecipes you can learn:")
-                caller.msg(self.display_recipes(can_learn), formatted=True)
+                caller.msg(self.display_recipes(can_learn))
                 return
             match = match[0]
             
@@ -674,7 +674,7 @@ class CmdRecipes(MuxCommand):
             if not match:
                 caller.msg("No recipe by that name.")
                 caller.msg("Recipes you can get /info on:")
-                caller.msg(self.display_recipes(info), formatted=True)
+                caller.msg(self.display_recipes(info))
                 return
             match = match[0]
             display = match.display_reqs(dompc, full=True)
@@ -685,7 +685,7 @@ class CmdRecipes(MuxCommand):
             match = [ob for ob in can_teach if ob.name == self.rhs]
             if not match:
                 caller.msg("Recipes you can teach:")
-                caller.msg(self.display_recipes(can_teach), formatted=True)
+                caller.msg(self.display_recipes(can_teach))
                 if self.rhs:
                     caller.msg("You entered: %s." % self.rhs)
                 return

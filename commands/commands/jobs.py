@@ -97,7 +97,7 @@ class CmdJob(MuxPlayerCommand):
                     prio = "{w%s{n" % ticket.priority
                 q = Queue.objects.get(id=ticket.queue_id)
                 table.add_row([str(ticket.id), str(ticket.submitting_player.key), str(ticket.title)[:20], prio, q.slug])
-            caller.msg("{wOpen Tickets:{n\n%s" % table, formatted=True)
+            caller.msg("{wOpen Tickets:{n\n%s" % table)
             return
         if args and (not switches or 'old' in switches):
             # list individual ticket specified by args
@@ -146,7 +146,7 @@ class CmdJob(MuxPlayerCommand):
                                              "{wGM"])
             for ticket in joblist:
                 table.add_row([str(ticket.id), str(ticket.submitting_player.key), str(ticket.title), str(ticket.assigned_to.key)])
-            caller.msg("{wClosed Tickets:{n\n%s" % table, formatted=True)
+            caller.msg("{wClosed Tickets:{n\n%s" % table)
             return
         if 'moreold' in switches:
             # list closed tickets
@@ -169,7 +169,7 @@ class CmdJob(MuxPlayerCommand):
                                              "{wGM"])
             for ticket in joblist:
                 table.add_row([str(ticket.id), str(ticket.submitting_player), str(ticket.title), str(ticket.assigned_to)])
-            caller.msg("{wClosed Tickets:{n\n%s" % table, formatted=True)
+            caller.msg("{wClosed Tickets:{n\n%s" % table)
             return
         if 'close' in switches:
             # Closing a ticket. Check formatting first
@@ -353,7 +353,7 @@ class CmdApp(MuxPlayerCommand):
                                              "{wDate"])
             for app in pend_list:
                 table.add_row( [app[0], app[1].key.capitalize(), app[2], app[3]] )
-            caller.msg("{wApplications for Characters pending approval:\n%s" % table, formatted=True)
+            caller.msg("{wApplications for Characters pending approval:\n%s" % table)
             caller.msg("To view a particular application, @app <app number>")
             caller.msg("To view closed applications, use @app/old")
             return
@@ -375,7 +375,7 @@ class CmdApp(MuxPlayerCommand):
                                              "{wDate"])
             for app in pend_list:
                 table.add_row( [app[0], app[1].key.capitalize(), app[2], app[3]] )
-            caller.msg("{wPending applications for %s:\n%s" % (args, table), formatted=True)
+            caller.msg("{wPending applications for %s:\n%s" % (args, table))
             caller.msg("To view a specific application, @app <app number>")
             return
         if args and args.isdigit() and (not switches or 'old' in switches):
@@ -495,7 +495,7 @@ class CmdApp(MuxPlayerCommand):
                                              "{wApproved"])
             for app in pend_list:
                 table.add_row( [app[0], app[1].key.capitalize(), app[2], app[3][:9], str(app[8])] )
-            caller.msg("{wOld/Closed applications for characters:\n%s" % table, formatted=True)
+            caller.msg("{wOld/Closed applications for characters:\n%s" % table)
             caller.msg("To view a particular application, @app <app number>")
             return
             pass
@@ -517,7 +517,7 @@ class CmdApp(MuxPlayerCommand):
                                              "{wApproved"])
             for app in pend_list:
                 table.add_row( [app[0], app[1].key.capitalize(), app[2], app[3][:9], app[5].key, str(app[8])] )
-            caller.msg("{wOld/Closed applications for %s:\n%s" % (args, table), formatted=True)
+            caller.msg("{wOld/Closed applications for %s:\n%s" % (args, table))
             caller.msg("To view a particular application, @app <app number>")
             return
         if 'email' in switches:
@@ -531,7 +531,7 @@ class CmdApp(MuxPlayerCommand):
                                              "{wDate"])
             for app in apps_for_email:
                 table.add_row( [app[0], app[1].key.capitalize(), app[2], app[3]] )
-            caller.msg("{wApplications for %s:\n%s" % (args, table), formatted=True)
+            caller.msg("{wApplications for %s:\n%s" % (args, table))
             caller.msg("To view a particular application, @app <app number>")
             return
         if 'fixemail' in switches:

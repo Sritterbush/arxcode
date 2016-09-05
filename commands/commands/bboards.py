@@ -53,7 +53,7 @@ def list_bboards(caller):
         bbtable.add_row([bb_number, bb_name,
                          "{0} unread postings".format(unread_num),
                          len(bboard.db.posts), subbed])
-    caller.msg("\n{w" + "="*60 + "{n\n%s"% bbtable, formatted=True)
+    caller.msg("\n{w" + "="*60 + "{n\n%s"% bbtable)
     pass
 
 def access_bboard(caller, args, request = "read"):
@@ -115,7 +115,7 @@ def list_messages(caller, board):
         if caller not in post['Readers']:
             poster = "{0}".format(poster) + "{n"
         msgtable.add_row([bbmsgnum, subject, date, poster])
-    caller.msg(msgtable, formatted=True) 
+    caller.msg(msgtable) 
     pass
 
 def read_post(caller, post):
@@ -132,7 +132,7 @@ def read_post(caller, post):
     message += "{wDate:{n %s  %s\n" % (post['Date'], post['Time'])
     message += "{w" + "-"*60 + "{n\n"
     message += post['Msg']
-    caller.msg(message, formatted=True)
+    caller.msg(message)
     if caller.is_guest():
         return
     #mark it read

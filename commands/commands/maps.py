@@ -42,7 +42,7 @@ class CmdMap(MuxCommand):
         from typeclasses.map import _CALLER_ICON
         caller.msg("Your location displayed as %s." % _CALLER_ICON)
         directions = caller.ndb.waypoint
-        caller.msg(map.draw_map(room, destination=directions), formatted=True)
+        caller.msg(map.draw_map(room, destination=directions))
 
 
 
