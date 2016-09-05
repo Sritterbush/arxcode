@@ -514,6 +514,9 @@ class CmdMessenger(MuxCommand):
 
     def send_messenger(self, caller, targ, msg, delivery=None, money=None):
         unread = targ.db.pending_messengers or []
+        if type(unread) == 'unicode':
+            # attribute was corrupted due to  database conversion, fix it
+            unread = []
         unread.insert(0, (msg,delivery,money))
         targ.db.pending_messengers = unread
         targ.messenger_notification(2)
@@ -561,6 +564,11 @@ class CmdMessenger(MuxCommand):
         # get the first new messenger we have waiting
         if "receive" in self.switches:
             unread = caller.db.pending_messengers
+            if type(unread) == 'unicode':
+                caller.msg("Your pending_messengers attribute was corrupted " +
+                           "in the database conversion. Sorry! Ask a GM to see "
+                           "if they can find which messages were yours.")
+                caller.db.pending_messengers = []
             if not unread:
                 caller.msg("You have no messengers waiting to be received.")
                 return

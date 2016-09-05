@@ -22,10 +22,7 @@ class Wieldable(Object):
     the object is wielded. ex: @set sword/ready_phrase = "wields a large sword"
     'stealth' determines if the weapon will give an echo to the room when it is
     wielded. Poisons, magic, stealthy daggers, etc, fall into this category.
-    """
-
-    def __init__(self, dbobj):
-        super(Wieldable, self).__init__(dbobj)               
+    """              
 
     def at_object_creation(self):
         """
@@ -153,7 +150,7 @@ class Wieldable(Object):
             diffmod += 5
         elif self.db.attack_skill == "small wpn":
             diffmod -= 1
-        from game.dominion.models import CraftingRecipe
+        from world.dominion.models import CraftingRecipe
         try:
             recipe = CraftingRecipe.objects.get(id=recipe_id)
         except CraftingRecipe.DoesNotExist:

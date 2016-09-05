@@ -415,8 +415,9 @@ class MessageHandler(object):
     def disp_entry(self, entry):
         date = self.get_date_from_header(entry)
         msg = "{wDate:{n %s\n" % date
-        if entry.event:
-            msg += "{wEvent:{n %s\n" % entry.event
+        event = self.get_event(msg)
+        if event:
+            msg += "{wEvent:{n %s\n" % event
         msg += "{wOOC Date:{n %s\n\n" % entry.db_date_sent.strftime("%x %X")
         msg += entry.db_message
         try:

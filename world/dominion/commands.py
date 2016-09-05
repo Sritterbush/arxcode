@@ -1981,7 +1981,7 @@ class CmdGuards(MuxCommand):
         if self.args:
             guard = ObjectDB.objects.object_search(self.lhs, candidates=guards)
             if not guard:
-                _AT_SEARCH_RESULT(caller, self.lhs, guard)
+                _AT_SEARCH_RESULT(guard, caller, self.lhs)
                 return
         else:
             if len(guards) > 1:

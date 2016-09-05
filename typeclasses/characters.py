@@ -562,3 +562,50 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         if not exit:
             return "{c" + dest + "{n"
         return "{c" + str(exit[0]) + "{n"
+
+    def at_post_puppet(self):
+        """
+        Called just after puppeting has completed.
+        """
+        super(Character, self).at_post_puppet()
+        try:
+            if self.db.pending_messengers:
+                self.messenger_notification(2)
+        except:
+            import traceback
+            traceback.print_exc()
+        watched_by = self.db.watched_by or []
+        if self.db.player_ob and not self.db.player_ob.db.hide_from_watch:
+            for watcher in watched_by:
+                watcher.msg("{wA player you are watching, {c%s{w, has entered the game.{n" % self.key)
+
+    def at_post_unpuppet(self, player, session=None):
+        """
+        We stove away the character when the player goes ooc/logs off,
+        otherwise the character object will remain in the room also after the
+        player logged off ("headless", so to say).
+        """
+        super(Character, self).at_post_unpuppet(player, session)
+        watched_by = self.db.watched_by or []
+        if self.db.player_ob and not self.db.player_ob.db.hide_from_watch:
+            for watcher in watched_by:
+                watcher.msg("{wA player you are watching, {c%s{w, has left the game.{n" % self.key)
+
+    def messenger_notification(self, num_times=1):
+        from twisted.internet import reactor
+        num_times -= 1
+        if self.db.pending_messengers:
+            # send messages to our player object so even an @ooc player will see them
+            player = self.db.player_ob
+            if not player or not player.is_connected:
+                return
+            player.msg("{mYou have %s messengers waiting.{n" % len(self.db.pending_messengers))
+            self.msg("(To receive a messenger, type 'receive messenger')")
+            if num_times > 0:
+                reactor.callLater(600, self.messenger_notification, num_times)
+            else:
+                # after the first one, we only tell them once an hour
+                reactor.callLater(3600, self.messenger_notification, num_times)
+
+
+
