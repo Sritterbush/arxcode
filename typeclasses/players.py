@@ -208,6 +208,9 @@ class Player(MsgMixins, DefaultPlayer):
         pending.append(message)
         self.db.pending_messages = pending
 
+    def get_all_sessions(self):
+        return self.sessions.all()
+
 
 # previously Guest was here, inheriting from DefaultGuest
 # removed it in order to resolve namespace conflicts for typeclasses app

@@ -258,6 +258,34 @@ class Room(DescMixins, DefaultRoom, AppearanceMixins):
         self.attributes.remove("crafting_prices")
         self.attributes.remove("blacklist")
         self.attributes.remove("shopowner")
+
+    def msg_contents(self, text=None, exclude=None, from_obj=None, **kwargs):
+        """
+        Emits something to all objects inside an object.
+
+        exclude is a list of objects not to send to. See self.msg() for
+                more info.
+        """
+        eventid = self.db.current_event
+        gm_only = kwargs.get('gm_msg', False)
+        if gm_only:
+            exclude = exclude or []
+            exclude = exclude + [ob for ob in self.contents if not ob.check_permstring("builders")]
+        # if we have an event at this location, log messages
+        if eventid:
+            from evennia.scripts.models import ScriptDB
+            try:
+                event_script = ScriptDB.objects.get(db_key="Event Manager")
+                if gm_only:
+                    event_script.add_gmnote(eventid, text)
+                else:
+                    event_script.add_msg(eventid, text, from_obj)
+            except ScriptDB.DoesNotExist:
+                if from_obj:
+                    from_obj.msg("Error: Event Manager not found.")
+        super(Room, self).msg_contents(text, exclude=exclude,
+                                from_obj=from_obj, **kwargs)
+
         
 
 

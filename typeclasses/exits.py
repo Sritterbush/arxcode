@@ -203,7 +203,7 @@ class Exit(ObjectMixins, DefaultExit):
         traversing_object.msg("That way is locked.")
         
         
-    def msg(self, text=None, from_obj=None, sessid=None, radius=0, echo_list=None, **kwargs):
+    def msg(self, text=None, from_obj=None, radius=0, echo_list=None, **kwargs):
         """
         This allows the exit to pass along a message to its destination.dbref
         The echo list must be called with 'echo_list=[]' for each new call,
@@ -215,14 +215,14 @@ class Exit(ObjectMixins, DefaultExit):
         running out of memory.
         """
         echo_list = echo_list or []
-        if self.location.dbref not in echo_list:
-            echo_list.append(self.location.dbref)
-        if radius and self.destination and self.destination.dbref not in echo_list:
+        if self.location not in echo_list:
+            echo_list.append(self.location)
+        if radius and self.destination and self.destination not in echo_list:
             # we still have radius left to burn, and our destination for this
             # exit has not seen the message. So we send it along with a reduced
             # radius and this room in the echo list, so we don't get it back.
             radius -= 1
-            self.destination.msg_contents(text=text, exclude=None, from_obj=from_obj, sessid=sessid, radius=radius, echo_list=echo_list, **kwargs)
+            self.destination.msg_contents(text, exclude=None, from_obj=from_obj, radius=radius, echo_list=echo_list, **kwargs)
 
 
 
