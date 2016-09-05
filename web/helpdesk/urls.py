@@ -16,7 +16,7 @@ else:
 from django.contrib.auth.decorators import login_required
 
 from . import settings as helpdesk_settings
-from .views import feeds, staff, public, kb
+from .views import feeds, staff, public, kb, api
 
 from django.views.generic import TemplateView
 class DirectTemplateView(TemplateView):
@@ -185,16 +185,16 @@ urlpatterns += [
 
 urlpatterns += [
     url(r'^api/(?P<method>[a-z_-]+)/$',
-        'web.helpdesk.views.api.api',
+        api.api,
         name='helpdesk_api'),
 
     url(r'^login/$',
-        'django.contrib.auth.views.login',
+        django.contrib.auth.views.login,
         {'template_name': 'helpdesk/registration/login.html'},
         name='login'),
 
     url(r'^logout/$',
-        'django.contrib.auth.views.logout',
+        django.contrib.auth.views.logout,
         {'template_name': 'helpdesk/registration/login.html', 'next_page': '../'},
         name='logout'),
 ]
