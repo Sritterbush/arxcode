@@ -5,7 +5,7 @@ Commands for rumormills.
 from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand
 from evennia.utils import evtable
-from server.utils.utils import get_week
+from server.utils.utils import get_week, tnow
 from evennia.utils.create import create_message
 from django.conf import settings
 from world.stats_and_skills import do_dice_check
@@ -77,9 +77,8 @@ class CmdGossip(MuxCommand):
         x = 0
         heard_rumors = caller.ndb.heard_rumors or []
         week = get_week()
-        from datetime import datetime
         for rumor in rumors:
-            now = datetime.now()
+            now = tnow()
             if (now - rumor.db_date_sent).days > RUMOR_LIFETIME:
                 continue
             x += 1
@@ -153,7 +152,7 @@ class CmdGossip(MuxCommand):
                 return
             header = loc.messages.parse_header(rumor)
             difficulty = header.get("difficulty", 15)
-            rumor.db_receivers_objects.add(caller.dbobj)
+            rumor.db_receivers_objects.add(caller)
             origin = self.investigate(rumor, caller, difficulty)
             if origin:
                 senders = ", ".join(ob.key for ob in origin if not ob.check_permstring("builders"))
@@ -174,7 +173,7 @@ class CmdGossip(MuxCommand):
                 return
             caller.location.msg_contents("%s attempts to intimidate people here into stop spreading rumors." % caller.name)
             if self.intimidate(caller, 15):
-                rumor.db_receivers_objects.remove(caller.location.dbobj)
+                rumor.db_receivers_objects.remove(caller.location)
                 caller.msg("People here will 'forget' this rumor existed.")            
                 return
             caller.msg("Your attempt to intimidate the people talking here may not have been effective.")
@@ -190,8 +189,8 @@ class CmdGossip(MuxCommand):
                 return
             try:                
                 rumor = rumors[int(self.args)]
-                rumor.db_receivers_objects.add(loc.dbobj)
-                rumor.db_sender_objects.add(caller.dbobj)
+                rumor.db_receivers_objects.add(loc)
+                rumor.db_sender_objects.add(caller)
                 caller.msg("Rumor added to this location.")
                 return
             except (ValueError, IndexError):

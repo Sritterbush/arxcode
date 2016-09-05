@@ -167,7 +167,7 @@ def cost_at_rank(caller, skill, current_rating, new_rating):
     return cost
                 
 def get_skill_cost_increase(caller):
-    from game.gamesrc.commands import guest
+    from commands.commands import guest
     skills = caller.db.skills or {}
     srank = caller.db.social_rank or 0
     total = 0

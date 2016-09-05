@@ -2834,11 +2834,19 @@ class RPEvent(models.Model):
     @property
     def log(self):
         try:
-            from game.gamesrc.scripts.event_manager import LOGPATH
+            from typeclasses.scripts.event_manager import LOGPATH
             filename = LOGPATH + "%s_%s.txt" % (self.name, self.id)
             return open(filename, 'r').read()
         except Exception:
             return ""
+
+    @property
+    def comments(self):
+        from evennia.comms.models import Msg
+        tagkey = self.name.lower()
+        tagdata = str(self.id)
+        return Msg.objects.filter(db_tags__db_key=tagkey,
+                                  db_tags__db_data=tagdata)
 
     @property
     def public_comments(self):

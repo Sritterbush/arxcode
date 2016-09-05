@@ -149,7 +149,7 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading staff_commands cmdset in Player: %s" % err)
         try:
-            from web.character import commands as investigation
+            from web.character import investigation
             self.add(investigation.CmdAdminInvestigations())
             self.add(investigation.CmdListClues())
         except Exception as err:

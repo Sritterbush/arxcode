@@ -15,8 +15,8 @@ else:
 	from django.conf.urls import *
 from django.contrib.auth.decorators import login_required
 
-from helpdesk import settings as helpdesk_settings
-from helpdesk.views import feeds
+from . import settings as helpdesk_settings
+from .views import feeds
 
 from django.views.generic import TemplateView
 class DirectTemplateView(TemplateView):
@@ -31,7 +31,7 @@ class DirectTemplateView(TemplateView):
                     context[key] = value
         return context
 
-urlpatterns = patterns('helpdesk.views.staff',
+urlpatterns = patterns('web.helpdesk.views.staff',
     url(r'^dashboard/$',
         'dashboard',
         name='helpdesk_dashboard'),
@@ -145,7 +145,7 @@ urlpatterns = patterns('helpdesk.views.staff',
         name='helpdesk_email_ignore_del'),
 )
 
-urlpatterns += patterns('helpdesk.views.public',
+urlpatterns += patterns('web.helpdesk.views.public',
     url(r'^$',
         'homepage',
         name='helpdesk_home'),
@@ -185,7 +185,7 @@ urlpatterns += patterns('',
 
 urlpatterns += patterns('',
     url(r'^api/(?P<method>[a-z_-]+)/$',
-        'helpdesk.views.api.api',
+        'web.helpdesk.views.api.api',
         name='helpdesk_api'),
 
     url(r'^login/$',
@@ -200,7 +200,7 @@ urlpatterns += patterns('',
 )
 
 if helpdesk_settings.HELPDESK_KB_ENABLED:
-    urlpatterns += patterns('helpdesk.views.kb',
+    urlpatterns += patterns('web.helpdesk.views.kb',
         url(r'^kb/$',
             'index', name='helpdesk_kb_index'),
 

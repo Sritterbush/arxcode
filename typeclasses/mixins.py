@@ -18,6 +18,7 @@ class DescMixins(object):
     volume = property(__get_volume)
 
 class AppearanceMixins(object):
+    
     def return_contents(self, pobject, detailed=True, show_ids=False, strip_ansi=False):
         """
         Returns contents of the object, used in formatting our description,
@@ -195,7 +196,11 @@ class AppearanceMixins(object):
         return string
 
 class ObjectMixins(DescMixins, AppearanceMixins):
-    pass
+    def at_init(self):
+        self.is_room = False
+        self.is_exit = False
+        self.is_character = False
+        super(ObjectMixins, self).at_init()
 
 class MsgMixins(object):
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):

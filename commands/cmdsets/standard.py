@@ -79,7 +79,7 @@ except Exception as err:
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading home commands: %s" % err)
 try:
-    from web.character import commands as investigation
+    from web.character import investigation
 except Exception as err:
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading investigation commands: %s" % err)

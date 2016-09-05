@@ -113,7 +113,7 @@ class CmdMarket(MuxCommand):
             for mat in other_items:
                 mtable.add_row([mat, other_items[mat][1], other_items[mat][0]])
             caller.msg("\n{w" + "="*60 + "{n\n%s"% mtable, formatted=True)
-            pmats = CraftingMaterials.objects.filter(owner__player__player=caller.player.dbobj)
+            pmats = CraftingMaterials.objects.filter(owner__player__player=caller.player)
             if pmats:
                 caller.msg("\n{wYour materials:{n %s" % ", ".join(str(ob) for ob in pmats))
             return
@@ -194,7 +194,7 @@ class CmdMarket(MuxCommand):
                 caller.msg("The market will only buy raw materials.")
                 return
             try:
-                dompc = PlayerOrNpc.objects.get(player=caller.player.dbobj)
+                dompc = PlayerOrNpc.objects.get(player=caller.player)
             except PlayerOrNpc.DoesNotExist:
                 dompc = setup_utils.setup_dom_for_char(caller)
             try:

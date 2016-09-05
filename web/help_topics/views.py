@@ -4,12 +4,12 @@ from django.http import Http404
 from django.shortcuts import render
 from django.conf import settings
 
-from src.utils.search import object_search
-from src.utils.utils import inherits_from
-from src.objects.models import ObjectDB
+from evennia.utils.search import object_search
+from evennia.utils.utils import inherits_from
+from evennia.objects.models import ObjectDB
 
-from src.help.models import HelpEntry
-from game.dominion.models import (CraftingRecipe, CraftingMaterialType,
+from evennia.help.models import HelpEntry
+from world.dominion.models import (CraftingRecipe, CraftingMaterialType,
                                   Organization, Member)
 
 def topic(request, object_key):

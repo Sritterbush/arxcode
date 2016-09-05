@@ -114,7 +114,7 @@ class Container(DefaultObject):
         """
         if self.ndb.container_reset or not self.cmdset.has_cmdset("_containerset", must_be_default=True):
             # we are resetting, or no container-cmdset was set. Create one dynamically.
-            self.cmdset.add_default(self.create_container_cmdset(self.dbobj), permanent=False)
+            self.cmdset.add_default(self.create_container_cmdset(self), permanent=False)
             self.ndb.container_reset = False
 
     def at_object_creation(self):

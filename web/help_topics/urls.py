@@ -7,8 +7,8 @@
 #
 
 from django.conf.urls import url
-from src.web.help_topics.views import topic
-from src.web.help_topics.views import list_topics, list_recipes, display_org
+from .views import topic
+from .views import list_topics, list_recipes, display_org
 
 urlpatterns = [
     url(r'^recipes/', list_recipes, name="list_recipes"),

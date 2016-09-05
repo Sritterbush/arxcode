@@ -1,5 +1,5 @@
 from django.views.generic import ListView, DetailView, FormView
-from .models import Msg
+from evennia.comms.models import Msg
 from .forms import JournalMarkAllReadForm, JournalWriteForm, JournalMarkOneReadForm
 from django.db.models import Q
 from django.http import HttpResponseRedirect

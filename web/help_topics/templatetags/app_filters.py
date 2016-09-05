@@ -1,7 +1,7 @@
 from django import template
 from django.template.defaultfilters import stringfilter
 from django.utils.safestring import mark_safe
-from src.utils.ansi import parse_ansi
+from evennia.utils.ansi import parse_ansi
 
 register = template.Library()
 

@@ -9,13 +9,14 @@ from twisted.internet import reactor
 from evennia.server.sessionhandler import SESSIONS
 from evennia.utils.ansi import parse_ansi
 import traceback
-from server.utils.utils import tnow
+from server.utils.utils import tdiff
 
 LOGPATH = settings.LOG_DIR + "/rpevents/"
 GMPATH = LOGPATH + "gm_logs/"
 
-def delayed_start(event):   
+def delayed_start(event_id):   
     try:
+        event = RPEvent.objects.get(id=event_id)
         from evennia.scripts.models import ScriptDB
         script = ScriptDB.objects.get(db_key = "Event Manager")
         if event.id in script.db.cancelled:
@@ -68,18 +69,18 @@ class EventManager(Script):
         for eventid in self.db.active_events:
             self.db.idle_events[eventid] = self.db.idle_events.get(eventid, 0) + 1
         # check for new events to announce
-        now = tnow()
+
         upcoming = RPEvent.objects.filter(finished=False)
         for event in upcoming:
             if event.id in self.db.active_events:
                 continue
-            diff = (event.date - now).total_seconds()
+            diff = tdiff(event.date).total_seconds()
             if diff < 0:
                 self.start_event(event)
                 return
             if diff < 300:
                 if event.id not in self.db.pending_start:                  
-                    self.db.pending_start[event.id] = reactor.callLater(diff, delayed_start, event)
+                    self.db.pending_start[event.id] = reactor.callLater(diff, delayed_start, event.id)
                 return
             if diff < 600:
                 self.announce_upcoming_event(event, diff)
@@ -208,8 +209,7 @@ class EventManager(Script):
         event.delete()
 
     def reschedule_event(self, event, date):
-        now = tnow()
-        diff = (event.date - now).total_seconds()
+        diff = tdiff(event.date).total_seconds()
         if diff < 0:
             self.start_event(event)
             return

@@ -505,6 +505,9 @@ class Agent(MultiNpc):
         self.db.damage = 0
 
     def at_init(self):
+        self.is_room = False
+        self.is_exit = False
+        self.is_character = True
         try:
             if self.location and self.db.guarding:
                 self.follow(self.db.guarding)

@@ -1128,7 +1128,7 @@ class CmdSetRoom(MuxCommand):
                 return
             
             entrances = list(ObjectDB.objects.filter(id__in=id_list))
-            valid_entrances = list(ObjectDB.objects.filter(db_destination=loc.dbobj))
+            valid_entrances = list(ObjectDB.objects.filter(db_destination=loc))
             invalid = [ent for ent in entrances if ent not in valid_entrances]
             if invalid:
                 caller.msg("Some of the entrances do not connect to this room: %s" % ", ".join(str(ob) for ob in invalid))
@@ -1249,9 +1249,9 @@ class CmdArmy(MuxPlayerCommand):
         if not hasattr(caller, 'Dominion'):
             caller.msg("You have no armies to command.")
             return
-        owned = Army.objects.filter(owner__player__player=caller.dbobj)
-        ruled = Army.objects.filter(domain__ruler__castellan__player=caller.dbobj)
-        house_ruled = Army.objects.filter(owner__estate__castellan__player=caller.dbobj)
+        owned = Army.objects.filter(owner__player__player=caller)
+        ruled = Army.objects.filter(domain__ruler__castellan__player=caller)
+        house_ruled = Army.objects.filter(owner__estate__castellan__player=caller)
         armies = owned | ruled | house_ruled
         if not self.args:
             caller.msg("Your armies:")
@@ -1346,7 +1346,7 @@ class CmdOrganization(MuxPlayerCommand):
     
     def func(self):
         caller = self.caller
-        myorgs = Organization.objects.filter(Q(members__player__player=caller.dbobj)
+        myorgs = Organization.objects.filter(Q(members__player__player=caller)
                                              & Q(members__deguilded=False))       
         if 'accept' in self.switches:
             org = caller.ndb.orginvite
@@ -1507,7 +1507,7 @@ class CmdOrganization(MuxPlayerCommand):
                 return
             if Member.objects.filter(Q(deguilded=False)
                                      & Q(organization=org)
-                                     & Q(player__player=player.dbobj)).exists():
+                                     & Q(player__player=player)).exists():
                 caller.msg("They are already a member of your organization.")
                 return
             char = player.db.char_ob
@@ -1625,10 +1625,10 @@ class CmdAgents(MuxPlayerCommand):
     
     def func(self):
         caller = self.caller
-        personal = Agent.objects.filter(owner__player__player=caller.dbobj)
+        personal = Agent.objects.filter(owner__player__player=caller)
         orgs = [org.assets for org in Organization.objects.filter(members__player=caller.Dominion)
                     if org.access(caller, 'guards')]
-        house = Agent.objects.filter(owner__organization_owner__members__player__player=caller.dbobj,
+        house = Agent.objects.filter(owner__organization_owner__members__player__player=caller,
                                          owner__organization_owner__in=[org.organization_owner for org in orgs])
         agents = personal | house
         if not self.args:
@@ -1930,6 +1930,7 @@ class CmdPatronage(MuxPlayerCommand):
         if 'reject' in self.switches:
             if not pending:
                 caller.msg("You have no pending invitation.")
+                return
             caller.msg("You decline %s's invitation." % pending.key.capitalize())
             pending.msg("%s has declined your patronage." % caller.key.capitalize())
             caller.ndb.pending_patron = None

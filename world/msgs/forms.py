@@ -1,7 +1,7 @@
 from django import forms
-from .models import Msg
-from src.objects.models import ObjectDB
-import settings
+from evennia.comms.models import Msg
+from evennia.objects.models import ObjectDB
+from django.conf import settings
 
 
 

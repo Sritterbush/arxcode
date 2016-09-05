@@ -1334,7 +1334,7 @@ class CmdSocialScore(MuxCommand):
     def func(self):
         "Execute command."
         caller = self.caller
-        from game.dominion.models import AssetOwner
+        from world.dominion.models import AssetOwner
         if not self.switches:
             pcs = sorted(AssetOwner.objects.select_related('player__patron').filter(player__player__isnull=False).prefetch_related('player__memberships'),
                          key=lambda x:x.total_prestige, reverse=True)[:20]

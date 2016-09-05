@@ -26,10 +26,9 @@ def inform_staff(message):
     Sends a message to the 'Mudinfo' channel for staff announcements.
     """
     from evennia.comms.models import ChannelDB
-    from datetime import datetime
     
-    wizchan = ChannelDB.objects.filter(db_key=settings.CHANNEL_MUDINFO[0])[0]
-    now = datetime.now().strftime("%X")
+    wizchan = ChannelDB.objects.filter(db_key__iexact="mudinfo")
+    now = tnow().strftime("%X")
     try:
         wizchan.tempmsg("{r[%s, %s]:{n %s" % (wizchan.key, now, message))
     except Exception as err:
@@ -61,7 +60,7 @@ def get_date():
 
 def get_week():
     "Gets the current week for dominion."
-    from src.scripts.models import ScriptDB
+    from evennia.scripts.models import ScriptDB
     weekly = ScriptDB.objects.get(db_key="Weekly Update")
     return weekly.db.week
 
@@ -76,6 +75,16 @@ def idle_timer(session):
         session = session.sessions[0]
     return time.time() - session.cmd_last_visible
 
-def tnow():
-    from django.utils import timezone
-    return timezone.localtime(timezone.now())
+def tnow(aware=False):
+    if aware:
+        from django.utils import timezone
+        return timezone.localtime(timezone.now())
+    from datetime import datetime
+    return datetime.now()
+
+def tdiff(date):
+    try:
+        diff = date - tnow()
+    except Exception:
+        diff = date - tnow(aware)
+    return diff

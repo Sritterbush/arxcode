@@ -48,7 +48,7 @@ class CmdWield(MuxCommand):
         results = caller.search(args, location=caller, quiet=True)
         # now we send it into the error handler (this will output consistent
         # error messages if there are problems).
-        obj = AT_SEARCH_RESULT(caller, args, results, False,
+        obj = AT_SEARCH_RESULT(results, caller, args,False,
                                nofound_string="You don't carry %s." % args,
                                multimatch_string="You carry more than one %s:" % args)
         if not obj:
@@ -140,7 +140,7 @@ class CmdUnwield(MuxCommand):
 
         # now we send it into the error handler (this will output consistent
         # error messages if there are problems).
-        obj = AT_SEARCH_RESULT(caller, args, results, False,
+        obj = AT_SEARCH_RESULT(results, caller, args, False,
                                 nofound_string="You don't carry %s." % args,
                                 multimatch_string="You carry more than one %s:" % args)
         if not obj:
