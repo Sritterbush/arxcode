@@ -607,5 +607,12 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
                 # after the first one, we only tell them once an hour
                 reactor.callLater(3600, self.messenger_notification, num_times)
 
+    @property
+    def portrait(self):
+        try:
+            return self.roster.profile_picture
+        except AttributeError:
+            return None
+
 
 

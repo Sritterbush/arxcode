@@ -22,12 +22,12 @@
 	<div class="container">
 	<div class="row">
 	
-    {% if character.db.portrait %}
+    {% if character.portrait %}
 	<div class="col-md-7 text-center">
-      {% if character.db.portrait.alt_text %}
-        {% cloudinary character.db.portrait.image crop="fit" title=character.db.portrait.alt_text height=pheight width=pwidth %}
+      {% if character.portrait.alt_text %}
+        {% cloudinary character.portrait.image crop="fit" title=character.portrait.alt_text height=pheight width=pwidth %}
       {% else %}
-        {% cloudinary character.db.portrait.image crop="fit" height=pheight width=pwidth %}
+        {% cloudinary character.portrait.image crop="fit" height=pheight width=pwidth %}
       {% endif %}
 	</div>
     {% endif %}

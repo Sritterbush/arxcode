@@ -42,13 +42,13 @@
   <div class="row">
   <div class="col-sm-6">
   <h2>Character portrait</h2>
-      {% if not character.db.portrait %}
+      {% if not character.portrait %}
             <p>No portrait selected yet.</p>
       {% else %}
-            {% if character.db.portrait.alt_text %}
-              {% cloudinary character.db.portrait.image crop="fit" title=character.db.portrait.alt_text height=pheight width=pwidth %}
+            {% if character.portrait.alt_text %}
+              {% cloudinary character.portrait.image crop="fit" title=character.portrait.alt_text height=pheight width=pwidth %}
             {% else %}
-              {% cloudinary character.db.portrait.image crop="fit" height=pheight width=pwidth %}
+              {% cloudinary character.portrait.image crop="fit" height=pheight width=pwidth %}
             {% endif %}
       {% endif %}
       {% if can_upload %}

@@ -141,7 +141,6 @@ def gallery(request, object_id):
     can_upload = False
     if user.is_authenticated() and (user.db.char_ob == character or user.is_staff):
         can_upload = True
-    # photos = [photo for photo in Photo.objects.all() if photo.owner == character]
     photos = Photo.objects.filter(owner__id = object_id)
     portrait_form = PortraitSelectForm(object_id)
     edit_form = PhotoEditForm(object_id)
@@ -206,7 +205,6 @@ def select_portrait(request, object_id):
         portrait = None
         height = None
         width = None
-    character.db.portrait = portrait
     character.db.portrait_height = height or 480
     character.db.portrait_width = width or 320
     try:
