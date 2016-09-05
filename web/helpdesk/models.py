@@ -1014,13 +1014,13 @@ class UserSettings(models.Model):
     def _set_settings(self, data):
         # data should always be a Python dictionary.
         import cPickle
-        from helpdesk.lib import b64encode
+        from .lib import b64encode
         self.settings_pickled = b64encode(cPickle.dumps(data))
 
     def _get_settings(self):
         # return a python dictionary representing the pickled data.
         import cPickle
-        from helpdesk.lib import b64decode
+        from .lib import b64decode
         try:
             return cPickle.loads(b64decode(str(self.settings_pickled)))
         except cPickle.UnpicklingError:
@@ -1045,7 +1045,7 @@ def create_usersettings(sender, instance, created, **kwargs):
     If we end up with users with no UserSettings, then we get horrible
     'DoesNotExist: UserSettings matching query does not exist.' errors.
     """
-    from helpdesk.settings import DEFAULT_USER_SETTINGS
+    from .settings import DEFAULT_USER_SETTINGS
     if created:
         UserSettings.objects.create(user=instance, settings=DEFAULT_USER_SETTINGS)
 
