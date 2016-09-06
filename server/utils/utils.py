@@ -26,10 +26,9 @@ def inform_staff(message):
     Sends a message to the 'Mudinfo' channel for staff announcements.
     """
     from evennia.comms.models import ChannelDB
-    
-    wizchan = ChannelDB.objects.filter(db_key__iexact="mudinfo")
-    now = tnow().strftime("%X")
     try:
+        wizchan = ChannelDB.objects.get(db_key__iexact="mudinfo")
+        now = tnow().strftime("%X")    
         wizchan.tempmsg("{r[%s, %s]:{n %s" % (wizchan.key, now, message))
     except Exception as err:
         print("ERROR when attempting utils.inform_staff() : %s" % err)
