@@ -123,7 +123,7 @@ class EventManager(Script):
         event_logs = self.db.event_logs or {}
         gm_logs = self.db.gm_logs or {}
         try:
-            logname = "%s_%s.txt" % (event.name, event.id)
+            logname = "%event_log_%s.txt" % (event.id)
             gmlogname = "gm_%s" % logname
             log = open(LOGPATH + logname, 'a+')
             gmlog = open(GMPATH + gmlogname, 'a+')

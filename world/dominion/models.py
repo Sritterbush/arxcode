@@ -2835,7 +2835,7 @@ class RPEvent(models.Model):
     def log(self):
         try:
             from typeclasses.scripts.event_manager import LOGPATH
-            filename = LOGPATH + "%s_%s.txt" % (self.name, self.id)
+            filename = LOGPATH + "%event_log_%s.txt" % (self.id)
             return open(filename, 'r').read()
         except Exception:
             return ""
