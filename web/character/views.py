@@ -134,6 +134,7 @@ class RosterListView(ListView):
             show_hidden = True
         context['show_hidden'] = show_hidden
         context['view_name'] = self.view_name
+        return context
 
 class ActiveRosterListView(RosterListView):
     pass
