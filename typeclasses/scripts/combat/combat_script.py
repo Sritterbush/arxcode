@@ -915,7 +915,7 @@ class CombatManager(BaseScript):
             if scripts:
                 scripts[0].start()
             else:
-                character.scripts.add("game.gamesrc.scripts.recovery.Recovery")
+                character.scripts.add("typeclasses.scripts.recovery.Recovery")
         # if we're already shutting down, avoid redundant messages
         if len(self.ndb.combatants) < 2 and not in_shutdown:
             # We weren't shutting down and don't have enough fighters to continue. end the fight.

@@ -39,11 +39,11 @@ class SleepCmdSet(CmdSet):
         the internal cmdset stack. They will then be able to removed or
         replaced as needed.
         """
-        from game.gamesrc.commands.cmdsets.standard import OOCCmdSet
+        from commands.cmdsets.standard import OOCCmdSet
         self.add(OOCCmdSet)
-        from game.gamesrc.commands.cmdsets.standard import StateIndependentCmdSet
+        from commands.cmdsets.standard import StateIndependentCmdSet
         self.add(StateIndependentCmdSet)
-        from game.gamesrc.commands.cmdsets.standard import StaffCmdSet
+        from commands.cmdsets.standard import StaffCmdSet
         self.add(StaffCmdSet)
         self.add(CmdGet())
         self.add(CmdDrop())
