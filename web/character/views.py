@@ -22,6 +22,7 @@ from cloudinary.forms import cl_init_js_callbacks
 import json
 from django.views.decorators.csrf import csrf_exempt
 from django import forms
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 def get_character_from_ob(object_id):
     "Helper function to get a character, run checks, return character + error messages"
@@ -119,6 +120,22 @@ def list_characters(request):
     qs = ObjectDB.objects.filter(db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS).order_by('db_key')
     active = qs.filter(roster__roster__name="Active")
     available = qs.filter(roster__roster__name="Available")
+    paged_active = Paginator(active, 20)
+    paged_available = Paginator(available, 20)
+    active_page = request.GET.get('active_page')
+    available_page = request.GET.get('available_page')
+    try:
+        active = paged_active.page(active_page)
+    except PageNotAnInteger:
+        active = paged_active.page(1)
+    except EmptyPage:
+        active = paged_active.page(paged_active.num_pages)
+    try:
+        available = paged_available.page(available_page)
+    except PageNotAnInteger:
+        available = paged_available.page(1)
+    except EmptyPage:
+        available = paged_available.page(paged_available.num_pages)
     unavailable = []
     incomplete = []
     user = request.user

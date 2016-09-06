@@ -36,6 +36,23 @@
       <li>No characters found.</li>
     {% endfor %}
 	</table>
+        <div class="pagination">
+			<span class="step-links">
+			<ul class="pagination nav navbar-nav">
+				{% if active.has_previous %}
+					<li><a href="?active_page={{ active.previous_page_number }}">previous</a></li>
+				{% endif %}
+
+				{% for page in active.paginator.page_range %}
+					<li class="{% if active.number == page  %}active{% endif %}"><a href="?active_page={{page }}">{{ page }}</a></li>
+				{% endfor %}
+
+				{% if active.has_next %}
+					<li><a href="?active_page={{ active.next_page_number }}">next</a></li>
+				{% endif %}
+			</ul>
+			</span>
+		</div>
 	</div>
 	<div class="text-center">
 	<button data-toggle="collapse" data-target="#Available">
@@ -73,6 +90,23 @@
       <li>No characters found.</li>
     {% endfor %}
 	</table>
+        <div class="pagination">
+			<span class="step-links">
+			<ul class="pagination nav navbar-nav">
+				{% if available.has_previous %}
+					<li><a href="?available_page={{ available.previous_page_number }}">previous</a></li>
+				{% endif %}
+
+				{% for page in available.paginator.page_range %}
+					<li class="{% if available.number == page  %}available{% endif %}"><a href="?available_page={{page }}">{{ page }}</a></li>
+				{% endfor %}
+
+				{% if available.has_next %}
+					<li><a href="?available_page={{ available.next_page_number }}">next</a></li>
+				{% endif %}
+			</ul>
+			</span>
+		</div>
 	</div>
     {% if show_hidden %}
       <button data-toggle="collapse" data-target="#Unavailable">
