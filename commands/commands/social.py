@@ -278,6 +278,7 @@ class CmdJournal(MuxCommand):
 
     def mark_all_read(self):
         from evennia.comms.models import Msg
+        caller = self.caller
         all_msgs = Msg.objects.filter(Q(db_header__contains="white_journal") &
                                       ~Q(db_receivers_players=caller.db.player_ob) &
                                       ~Q(db_sender_objects__roster__current_account=caller.roster.current_account)
