@@ -406,7 +406,7 @@ class WeeklyEvents(Script):
         they received.
         """
         import operator
-        from game.gamesrc.commands.bboards import get_boards
+        from commands.commands.bboards import get_boards
         # this will create a sorted list of tuples of (id, votes), sorted by xp, highest to lowest
         sorted_xp = sorted(self.db.xp.items(), key=operator.itemgetter(1), reverse=True)
         string = "{wTop RPers this week by XP earned{n".center(60)
@@ -430,8 +430,8 @@ class WeeklyEvents(Script):
         inform_staff("Vote process awards complete. Posted on News.")
 
     def post_top_prestige(self):
-        from game.gamesrc.commands.bboards import get_boards
-        from src.utils.evtable import EvTable
+        from commands.commands.bboards import get_boards
+        from evennia.utils.evtable import EvTable
         import random
         boards = get_boards(self)
         boards = [ob for ob in boards if ob.key == BOARD_NAME]
