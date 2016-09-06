@@ -13,7 +13,7 @@
 		<div id="unreadjournals" class="tab-pane fade{% if not read_is_active %} in active{% endif %}">
 		
 		{% for obj in object_list %}
-			<h2> Written By {{obj.senders.0}}{% if obj.private_msg %} in Black Journal{% endif %}</h2>
+			<h2> Written By {{obj.senders.0}}{% if "black_journal" in obj.db_header %} in Black Journal{% endif %}</h2>
 			<p class="newsDate">{{obj.db_date_created}}</p>
 			{% if obj.db_receivers_objects.all.0 %}
 				<h2> Relationship Note on {{ obj.db_receivers_objects.all.0 }}</h2>
