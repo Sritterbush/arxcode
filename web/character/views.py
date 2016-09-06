@@ -123,7 +123,6 @@ class RosterListView(ListView):
     template_name = 'character/list.html'
     paginate_by = 20
     roster_name = "Active"
-    view_name = "active_roster"
     def get_queryset(self):
         return ObjectDB.objects.filter(roster__roster__name=self.roster_name)
     def get_context_data(self, **kwargs):
@@ -133,7 +132,7 @@ class RosterListView(ListView):
         if user.is_authenticated() and user.check_permstring("builders"):
             show_hidden = True
         context['show_hidden'] = show_hidden
-        context['view_name'] = self.view_name
+        context['roster_name'] = self.roster_name
         return context
 
 class ActiveRosterListView(RosterListView):
@@ -141,11 +140,9 @@ class ActiveRosterListView(RosterListView):
 
 class AvailableRosterListView(RosterListView):
     roster_name = "Available"
-    view_name = "available_roster"
 
 class IncompleteRosterListView(RosterListView):
     roster_name = "Incomplete"
-    view_name = "incomplete_roster"
     def get_queryset(self):
         user = self.request.user
         if not (user.is_authenticated() and user.check_permstring("builders")):
@@ -154,7 +151,6 @@ class IncompleteRosterListView(RosterListView):
 
 class UnavailableRosterListView(IncompleteRosterListView):
     roster_name = "Unavailable"
-    view_name = "unavailable_roster"
 
 
 def gallery(request, object_id):

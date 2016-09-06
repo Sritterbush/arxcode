@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 	<div class="text-center">
-	<ul class="nav nav-pills">
+	<ul class="nav nav-pills nav-justified">
 	<li {% if roster_name == "Active" %}class="active"{% endif %}>
 		<a href="{% url 'character:active_roster' %}">Active</a></li>
 	<li {% if roster_name == "Available" %}class="active"{% endif %}>
