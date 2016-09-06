@@ -10,7 +10,10 @@ from django.conf.urls import url
 from . import views
 
 urlpatterns = [
-    url(r'^$', views.list_characters, name="list_characters"),
+    url(r'^list/active/$', views.ActiveRosterListView.as_view(), name="active_roster"),
+    url(r'^list/available/$', views.AvailableRosterListView.as_view(), name="available_roster"),
+    url(r'^list/incomplete/$', views.IncompleteRosterListView.as_view(), name="incomplete_roster"),
+    url(r'^list/unavailable/$', views.UnavailableRosterListView.as_view(), name="unavailable_roster"),
     url(r'^story/$', views.current_story, name="current_story"),
     url(r'^story/episodes/(?P<ep_id>\d+)/$', views.episode, name='episode'),
     url(r'^sheet/(?P<object_id>\d+)/$', views.sheet, name="sheet"),

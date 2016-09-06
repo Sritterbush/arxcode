@@ -23,6 +23,7 @@ import json
 from django.views.decorators.csrf import csrf_exempt
 from django import forms
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.views.generic import ListView
 
 def get_character_from_ob(object_id):
     "Helper function to get a character, run checks, return character + error messages"
@@ -116,39 +117,45 @@ def journals(request, object_id):
                                                      'black_journal': black_journal,
                                                      })
 
-def list_characters(request):
-    qs = ObjectDB.objects.filter(db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS).order_by('db_key')
-    active = qs.filter(roster__roster__name="Active")
-    available = qs.filter(roster__roster__name="Available")
-    paged_active = Paginator(active, 20)
-    paged_available = Paginator(available, 20)
-    active_page = request.GET.get('active_page')
-    available_page = request.GET.get('available_page')
-    try:
-        active = paged_active.page(active_page)
-    except PageNotAnInteger:
-        active = paged_active.page(1)
-    except EmptyPage:
-        active = paged_active.page(paged_active.num_pages)
-    try:
-        available = paged_available.page(available_page)
-    except PageNotAnInteger:
-        available = paged_available.page(1)
-    except EmptyPage:
-        available = paged_available.page(paged_available.num_pages)
-    unavailable = []
-    incomplete = []
-    user = request.user
-    show_hidden = False
-    if user.is_authenticated() and user.check_permstring("builders"):
-        show_hidden = True
-        unavailable = qs.filter(roster__roster__name="Unavailable")
-        incomplete = qs.filter(roster__roster__name="Incomplete")
-    return render(request, 'character/list.html', {'active': active,
-                                                   'available': available,
-                                                   'unavailable':unavailable,
-                                                   'incomplete':incomplete,
-                                                   'show_hidden': show_hidden})
+
+class RosterListView(ListView):
+    model = ObjectDB
+    template_name = 'character/list.html'
+    paginate_by = 20
+    roster_name = "Active"
+    view_name = "active_roster"
+    def get_queryset(self):
+        return ObjectDB.objects.filter(roster__roster__name=self.roster_name)
+    def get_context_data(self, **kwargs):
+        context = super(RosterListView, self).get_context_data(**kwargs)
+        user = self.request.user
+        show_hidden = False
+        if user.is_authenticated() and user.check_permstring("builders"):
+            show_hidden = True
+        context['show_hidden'] = show_hidden
+        context['view_name'] = self.view_name
+
+class ActiveRosterListView(RosterListView):
+    pass
+
+class AvailableRosterListView(RosterListView):
+    roster_name = "Available"
+    view_name = "available_roster"
+
+class IncompleteRosterListView(RosterListView):
+    roster_name = "Incomplete"
+    view_name = "incomplete_roster"
+    def get_queryset(self):
+        user = self.request.user
+        if not (user.is_authenticated() and user.check_permstring("builders")):
+            raise Http404("Not staff")
+        return super(IncompleteRosterListView, self).get_queryset()
+
+class UnavailableRosterListView(IncompleteRosterListView):
+    roster_name = "Unavailable"
+    view_name = "unavailable_roster"
+
+
 def gallery(request, object_id):
     "List photos that belong to object_id"
     character, err = get_character_from_ob(object_id)

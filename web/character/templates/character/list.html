@@ -1,13 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
 	<div class="text-center">
-	<button data-toggle="collapse" data-target="#Active">
-    <h2>Active Characters</h2></button><hr /></div>
-	{% if user.is_authenticated %}
-	<div id="Active" class="collapse in">
-	{% else %}
-	<div id="Active" class="collapse">
+	<ul class="nav nav-pills">
+	<li {% if roster_name == "Active" %}class="active"{% endif %}>
+		<a href="{% url 'character:list_active' %}">Active</a></li>
+	<li {% if roster_name == "Available" %}class="active"{% endif %}>
+		<a href="{% url 'character:list_available' %}">Available</a></li>
+	{% if show_hidden %}
+	<li {% if roster_name == "Unavailable" %}class="active"{% endif %}>
+		<a href="{% url 'character:list_unavailable' %}">Unavailable</a></li>
+	<li {% if roster_name == "Incomplete" %}class="active"{% endif %}>
+		<a href="{% url 'character:list_incomplete' %}">Incomplete</a></li>
 	{% endif %}
+	</div>
 	<table class="table table-hover">
 	<tr class="danger">
 		<td>Name</td>
@@ -20,7 +25,7 @@
 		<td>Email</td>
 		{% endif %}
 	</tr>
-    {% for char in active %}
+    {% for char in object_list %}
 	  <tr class="{% cycle 'success' 'info' %}">
         <td><a href="{% url 'character:sheet' char.id %}">{{ char.key }}</a></td>
 		<td>{{ char.db.gender }}</td>
@@ -39,133 +44,21 @@
         <div class="pagination">
 			<span class="step-links">
 			<ul class="pagination nav navbar-nav">
-				{% if active.has_previous %}
-					<li><a href="?active_page={{ active.previous_page_number }}">previous</a></li>
+				{% if page_obj.has_previous %}
+					<li><a href="?page={{ page_obj.previous_page_number }}">previous</a></li>
 				{% endif %}
 
-				{% for page in active.paginator.page_range %}
-					<li class="{% if active.number == page  %}active{% endif %}"><a href="?active_page={{page }}">{{ page }}</a></li>
+				{% for page in page_obj.paginator.page_range %}
+					<li class="{% if page_obj.number == page  %}active{% endif %}"><a href="?page={{page }}">{{ page }}</a></li>
 				{% endfor %}
 
-				{% if active.has_next %}
-					<li><a href="?active_page={{ active.next_page_number }}">next</a></li>
+				{% if page_obj.has_next %}
+					<li><a href="?page={{ page_obj.next_page_number }}">next</a></li>
 				{% endif %}
 			</ul>
 			</span>
 		</div>
-	</div>
-	<div class="text-center">
-	<button data-toggle="collapse" data-target="#Available">
-    <h2>Available Characters</h2></button><hr /></div>
-	{% if user.is_authenticated %}
-	<div id="Available" class="collapse">
-	{% else %}
-	<div id="Available" class="collapse in">
-	{% endif %}
-	<table class="table table-hover">
-	<tr class="danger">
-		<td>Name</td>
-		<td><a href="{% url 'help_topics:topic' 'gender'%}">Gender</a></td>
-		<td><a href="{% url 'help_topics:topic' 'age'%}">Age</a></td>
-		<td><a href ="{% url 'help_topics:topic' 'concept' %}">Concept</a></td>
-		<td><a href="{% url 'help_topics:topic' 'fealty' %}">Fealty</a></td>
-		<td><a href="{% url 'help_topics:topic' 'social_rank' %}">Social Rank</a></td>
-		{% if show_hidden %}
-		<td>Email</td>
-		{% endif %}
-	</tr>
-    {% for char in available %}
-      <tr class="{% cycle 'success' 'info' %}">
-        <td><a href="{% url 'character:sheet' char.id %}">{{ char.key }}</a></td>
-		<td>{{ char.db.gender }}</td>
-		<td>{{ char.db.age }}</td>
-		<td>{{char.db.concept}}</td>
-		<td>{{char.db.fealty}}</td>
-		<td>{{char.db.social_rank}}</td>
-		{% if show_hidden %}
-		<td>{{char.db.player_ob.email}}</td>
-		{% endif %}
-	  </tr>
-    {% empty %}
-      <li>No characters found.</li>
-    {% endfor %}
-	</table>
-        <div class="pagination">
-			<span class="step-links">
-			<ul class="pagination nav navbar-nav">
-				{% if available.has_previous %}
-					<li><a href="?available_page={{ available.previous_page_number }}">previous</a></li>
-				{% endif %}
-
-				{% for page in available.paginator.page_range %}
-					<li class="{% if available.number == page  %}available{% endif %}"><a href="?available_page={{page }}">{{ page }}</a></li>
-				{% endfor %}
-
-				{% if available.has_next %}
-					<li><a href="?available_page={{ available.next_page_number }}">next</a></li>
-				{% endif %}
-			</ul>
-			</span>
-		</div>
-	</div>
-    {% if show_hidden %}
-      <button data-toggle="collapse" data-target="#Unavailable">
-    <h2>Unavailable Characters</h2></button>
-	<div id="Unavailable" class="collapse">
-	  <table class="table table-hover">
-	  <tr class="danger">
-		<td>Name</td>
-		<td><a href="{% url 'help_topics:topic' 'gender'%}">Gender</a></td>
-		<td><a href="{% url 'help_topics:topic' 'age'%}">Age</a></td>
-		<td><a href ="{% url 'help_topics:topic' 'concept' %}">Concept</a></td>
-		<td><a href="{% url 'help_topics:topic' 'fealty' %}">Fealty</a></td>
-		<td><a href="{% url 'help_topics:topic' 'social_rank' %}">Social Rank</a></td>
-		<td>Email</td>
-	  </tr>
-      {% for char in unavailable%}
-        <tr class="{% cycle 'success' 'info' %}">
-        <td><a href="{% url 'character:sheet' char.id %}">{{ char.key }}</a></td>
-		<td>{{ char.db.gender }}</td>
-		<td>{{ char.db.age }}</td>
-		<td>{{char.db.concept}}</td>
-		<td>{{char.db.fealty}}</td>
-		<td>{{char.db.social_rank}}</td>
-		<td>{{char.db.player_ob.email}}</td>
-	  </tr>
-      {% empty %}
-        <li>No characters found.</li>
-      {% endfor %}
-	  </table>
-	  </div>
-      <button data-toggle="collapse" data-target="#Incomplete">
-    <h2>Incomplete Characters</h2></button><hr />
-	  <div id="Incomplete" class="collapse">
-	  <table class="table table-hover">
-	  <tr class="danger">
-		<td>Name</td>
-		<td><a href="{% url 'help_topics:topic' 'gender'%}">Gender</a></td>
-		<td><a href="{% url 'help_topics:topic' 'age'%}">Age</a></td>
-		<td><a href ="{% url 'help_topics:topic' 'concept' %}">Concept</a></td>
-		<td><a href="{% url 'help_topics:topic' 'fealty' %}">Fealty</a></td>
-		<td><a href="{% url 'help_topics:topic' 'social_rank' %}">Social Rank</a></td>
-		<td>Email</td>
-	  </tr>
-      {% for char in incomplete %}
-        <tr class="{% cycle 'success' 'info' %}">
-        <td><a href="{% url 'character:sheet' char.id %}">{{ char.key }}</a></td>
-		<td>{{ char.db.gender }}</td>
-		<td>{{ char.db.age }}</td>
-		<td>{{char.db.concept}}</td>
-		<td>{{char.db.fealty}}</td>
-		<td>{{char.db.social_rank}}</td>
-		<td>{{char.db.player_ob.email}}</td>
-	  </tr>
-      {% empty %}
-        <li>No characters found.</li>
-      {% endfor %}
-	  </table>
-	  </div>
-    {% endif %}
+	
 	
     
     
