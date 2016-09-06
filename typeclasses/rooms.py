@@ -75,7 +75,7 @@ from evennia import default_cmds
 from evennia import utils
 from evennia.objects.models import ObjectDB
 from typeclasses.mixins import DescMixins, AppearanceMixins
-from typeclasses.messagehandler import MessageHandler
+from world.msgs.messagehandler import MessageHandler
 
 # error return function, needed by Extended Look command
 _AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
