@@ -277,6 +277,7 @@ class CmdJournal(MuxCommand):
         caller.msg("Writers with journals you have not read: %s" % ", ".join(msglist))
 
     def mark_all_read(self):
+        from evennia.comms.models import Msg
         all_msgs = Msg.objects.filter(Q(db_header__contains="white_journal") &
                                       ~Q(db_receivers_players=caller.db.player_ob) &
                                       ~Q(db_sender_objects__roster__current_account=caller.roster.current_account)
