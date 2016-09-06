@@ -14,15 +14,7 @@ __all__ = ("CmdHome", "CmdLook", "CmdNick",
            "CmdSay", "CmdPose", "CmdAccess")
 
 AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.',1))
-def idle_timer(session):
-    "Takes session or object and returns time since last visible command"
-    # If we're given character or player object, get the session
-    if not session:
-        return 0
-    if not hasattr(session, "cmd_last_visible") and hasattr(session, "sessions"):
-        if not session.sessions: return 0
-        session = session.sessions[0]
-    return time.time() - session.cmd_last_visible
+
 def args_are_currency(args):
     """
     Check if args to a given command match the expression of coins. Must be a number
@@ -598,7 +590,7 @@ class CmdWho(MuxPlayerCommand):
                                              "{wHost"])
             for session in session_list:
                 if not session.logged_in: continue
-                delta_cmd = idle_timer(session)
+                delta_cmd = time.time() - session.cmd_last_visible
                 delta_conn = time.time() - session.conn_time
                 plr_pobject = session.get_puppet()
                 plr_pobject = plr_pobject or session.get_player()

@@ -10,7 +10,7 @@ players to peruse characters while OOC if they wish.
 from django.conf import settings
 from evennia.utils import utils
 from server.utils import prettytable
-from server.utils.utils import inform_staff, idle_timer
+from server.utils.utils import inform_staff
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.objects.models import ObjectDB
 from datetime import datetime
@@ -108,7 +108,7 @@ def list_characters(caller, character_list, type = "Active Characters", roster=N
                 if not srank or hide: srank = "-"
                 if not titles or hide: name = "{c" + name + "{n"
                 if display_afk:
-                    afk = utils.time_format(idle_timer(charob), 1)
+                    afk = utils.time_format(charob.idle_time)
             if display_afk:
                 table.add_row([name, sex, age, house, concept[:25], srank, afk])
             else:
@@ -118,7 +118,7 @@ def list_characters(caller, character_list, type = "Active Characters", roster=N
     evmore.msg(caller, message)
 
 def change_email(player, email, caller=None, roster=None):
-    from src.web.character.models import RosterEntry, PlayerAccount, AccountHistory
+    from web.character.models import RosterEntry, PlayerAccount, AccountHistory
     try:
         entry = RosterEntry.objects.get(player__username__iexact=player)
     except RosterEntry.DoesNotExist:
@@ -137,7 +137,7 @@ def change_email(player, email, caller=None, roster=None):
         AccountHistory.objects.create(entry=entry, account=entry.current_account, start_date=date)
 
 def add_note(player, note, caller=None, roster=None):
-    from src.web.character.models import RosterEntry
+    from web.character.models import RosterEntry
     try:
         entry = RosterEntry.objects.get(player__username__iexact=player)
     except RosterEntry.DoesNotExist:
@@ -344,7 +344,7 @@ class CmdAdminRoster(MuxPlayerCommand):
         if not args or not switches:
             caller.msg("Usage: @chroster/switches <arguments>")
             return
-        from src.web.character.models import RosterEntry, Roster, AccountHistory
+        from web.character.models import RosterEntry, Roster, AccountHistory
         if 'add' in switches:
             try:
                 entry = RosterEntry.objects.get(character__db_key__iexact=self.lhs)

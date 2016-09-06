@@ -63,17 +63,6 @@ def get_week():
     weekly = ScriptDB.objects.get(db_key="Weekly Update")
     return weekly.db.week
 
-def idle_timer(session):
-    import time
-    "Takes session or object and returns time since last visible command"
-    # If we're given character or player object, get the session
-    if not session:
-        return 0
-    if not hasattr(session, "cmd_last_visible") and hasattr(session, "sessions"):
-        if not session.sessions: return 0
-        session = session.sessions[0]
-    return time.time() - session.cmd_last_visible
-
 def tnow(aware=False):
     if aware:
         from django.utils import timezone
