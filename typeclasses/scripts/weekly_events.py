@@ -270,7 +270,7 @@ class WeeklyEvents(Script):
         BASE_CONDEMN = 0
         try:
             # our base prestige is our total * .05%
-            dompc = PlayerOrNpc.objects.get(player=player.dbobj)
+            dompc = PlayerOrNpc.objects.get(player=player)
             assets = dompc.assets
             BASE_CONDEMN = int(assets.total_prestige * 0.0005)
         except PlayerOrNpc.DoesNotExist:
