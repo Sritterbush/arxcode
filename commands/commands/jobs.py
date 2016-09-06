@@ -408,22 +408,22 @@ class CmdApp(MuxPlayerCommand):
                     inform_staff("{w%s has approved %s's application.{n" %
                                     (caller.key.capitalize(), app[1].key.capitalize()))
                 try:
-                    from src.web.character.models import Roster, RosterEntry, PlayerAccount, AccountHistory
+                    from web.character.models import Roster, RosterEntry, PlayerAccount, AccountHistory
                     entry = RosterEntry.objects.get(character=app[1])
                     active_roster = Roster.objects.get(name="Active")
                     entry.roster = active_roster
-                    entry.save()
                     try:
                         account = PlayerAccount.objects.get(email=app[2])
                     except Exception:
                         account = PlayerAccount.objects.create(email=app[2])
                     entry.current_account = account
+                    entry.save()
                     if not AccountHistory.objects.filter(account=account, entry=entry):
                         from datetime import datetime
                         date = datetime.now()
                         AccountHistory.objects.create(entry=entry, account=account, start_date=date)
                     try:
-                        from game.gamesrc.commands.cmdsets.starting_gear import setup_gear_for_char
+                        from commands.cmdsets.starting_gear import setup_gear_for_char
                         if not entry.character:
                             raise ValueError("No character found for setup gear")
                         setup_gear_for_char(entry.character)
@@ -433,7 +433,7 @@ class CmdApp(MuxPlayerCommand):
                     print "Error when attempting to mark closed application as active."
                     traceback.print_exc()
                 try:
-                    from game.dominion.setup_utils import setup_dom_for_char
+                    from world.dominion.setup_utils import setup_dom_for_char
                     setup_dom_for_char(app[1])
                 except Exception:
                     # will throw an exception if Dominion already set up
