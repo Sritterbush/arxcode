@@ -28,8 +28,7 @@ def create_ticket(caller, message, priority=5, queue=settings.REQUEST_QUEUE_ID,
                         queue=q,
                         created=datetime.now(),
                         submitter_email=email,
-                        # note - we are required to pass .dbobj here, or django will say it is improper type
-                        submitting_player=caller.dbobj,
+                        submitting_player=caller,
                         description=message,
                         priority=priority,)
     except Exception as err:
