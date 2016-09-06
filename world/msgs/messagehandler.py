@@ -248,6 +248,16 @@ class MessageHandler(object):
         self._messenger_history = list(_GA(self.obj, 'receiver_object_set').filter(db_header__icontains="messenger").order_by('-db_date_created'))
         return self._messenger_history
 
+    def get_event(self, msg):
+        from world.dominion.models import RPEvent
+        try:
+            tag = msg.db_tags.get(db_key__isnull=False,
+                                  db_data__isnull=False,
+                                  db_category="event")
+            return RPEvent.objects.get(db_key__iexact=tag.db_key)
+        except Exception:
+            return None
+
     #--------------------------------------------------------------
     # API/access methods
     #--------------------------------------------------------------
@@ -322,7 +332,18 @@ class MessageHandler(object):
     def add_event_journal(self, event, msg, white=True, date=""):
         "Creates a new journal about event and returns it"
         msg = self.add_journal(msg, white, date)
-        msg.event = event
+        tagkey = event.name.lower()
+        category = "event"
+        data = str(event.id)
+        try:
+            from evennia.typeclasses.tags import Tag
+
+            tag = Tag.objects.get(db_key=tagkey, db_category=category,
+                                  db_data=data, db_model="msg")
+        except Tag.DoesNotExist:
+            tag = Tag.objects.create(db_key=tagkey, db_category=category,
+                                     db_date=data, db_model="msg")
+        msg.db_tags.add(tag)
         msg.save()
         return msg
 
@@ -395,6 +416,7 @@ class MessageHandler(object):
     def disp_entry(self, entry):
         date = self.get_date_from_header(entry)
         msg = "{wDate:{n %s\n" % date
+        event = self.get_event(msg)
         if entry.event:
             msg += "{wEvent:{n %s\n" % entry.event
         msg += "{wOOC Date:{n %s\n\n" % entry.db_date_created.strftime("%x %X")
