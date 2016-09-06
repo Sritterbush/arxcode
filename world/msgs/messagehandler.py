@@ -10,7 +10,7 @@ semicolons.
 """
 
 from evennia.utils.create import create_message
-from world.utils import get_date
+from world.utils.utils import get_date
 from twisted.internet import reactor
 
 _GA = object.__getattribute__
