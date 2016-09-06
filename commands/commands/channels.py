@@ -111,7 +111,7 @@ class ArxChannelCommand(command.Command):
             else:
                 last_messages = chan_messages
             for msg in last_messages:
-                caller.msg("{w%s{n %s" % (datetime_format(msg.date_sent), msg.message))
+                caller.msg("{w%s{n %s" % (datetime_format(msg.date_created), msg.message))
             return
         if msg == "off":
             if player: caller = player
