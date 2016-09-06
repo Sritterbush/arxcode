@@ -228,6 +228,7 @@ class CmdJournal(MuxCommand):
         journal/all
         journal/edit <entry number>=<text>
         journal/editblack <entry number>=<text>
+        journal/markallread
 
     Allows a character to read the White Journals of characters,
     or add to their own White Journal or Black Reflections. White
@@ -262,7 +263,7 @@ class CmdJournal(MuxCommand):
         return str(table)
 
     def disp_unread_journals(self):
-        from django.db.models import Q
+        
         caller = self.caller
         all_writers = ObjectDB.objects.filter(Q(sender_object_set__db_header__contains="white_journal") &
                                                 ~Q(sender_object_set__db_receivers_players=caller.db.player_ob) &
@@ -274,6 +275,14 @@ class CmdJournal(MuxCommand):
                                                     ~Q(db_receivers_players=caller.db.player_ob)).count()
             msglist.append("{C%s{c(%s){n" % (writer.key, count))
         caller.msg("Writers with journals you have not read: %s" % ", ".join(msglist))
+
+    def mark_all_read(self):
+        all_msgs = Msg.objects.filter(Q(db_header__contains="white_journal") &
+                                      ~Q(db_receivers_players=caller.db.player_ob) &
+                                      ~Q(db_sender_objects__roster__current_account=caller.roster.current_account)
+                                      ).distinct()
+        for msg in all_msgs:
+            msg.db_receivers_players.add(caller.db.player_ob)
             
     def func(self):
         "Execute command."
@@ -292,6 +301,10 @@ class CmdJournal(MuxCommand):
             except IndexError:
                 caller.msg("No journal entries written yet.")
             self.disp_unread_journals()
+            return
+        if "markallread" in self.switches:
+            self.mark_all_read()
+            caller.msg("All messages marked read.")
             return
         # if no switches but have args, looking up journal of a character
         if not self.switches or 'black' in self.switches:
