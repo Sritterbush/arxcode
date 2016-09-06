@@ -3,14 +3,14 @@
 	<div class="text-center">
 	<ul class="nav nav-pills">
 	<li {% if roster_name == "Active" %}class="active"{% endif %}>
-		<a href="{% url 'character:list_active' %}">Active</a></li>
+		<a href="{% url 'character:active_roster' %}">Active</a></li>
 	<li {% if roster_name == "Available" %}class="active"{% endif %}>
-		<a href="{% url 'character:list_available' %}">Available</a></li>
+		<a href="{% url 'character:available_roster' %}">Available</a></li>
 	{% if show_hidden %}
 	<li {% if roster_name == "Unavailable" %}class="active"{% endif %}>
-		<a href="{% url 'character:list_unavailable' %}">Unavailable</a></li>
+		<a href="{% url 'character:unavailable_roster' %}">Unavailable</a></li>
 	<li {% if roster_name == "Incomplete" %}class="active"{% endif %}>
-		<a href="{% url 'character:list_incomplete' %}">Incomplete</a></li>
+		<a href="{% url 'character:incomplete_roster' %}">Incomplete</a></li>
 	{% endif %}
 	</div>
 	<table class="table table-hover">

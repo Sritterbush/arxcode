@@ -76,7 +76,7 @@
       <div class="subHeader">
         <!--span class="doNotDisplay">Navigation:</span-->
         <a href="/">Home</a> |
-        <a href="/character/">Characters</a> |
+        <a href="/character/{% if user.is_authenticated %}active{% else %}available{% endif %}">Characters</a> |
         <a href="/topics/">World</a> |
 		<a href="/dom/cal/list/">Events</a> |
 		<a href="/comms/journals/list/">Journals</a>
