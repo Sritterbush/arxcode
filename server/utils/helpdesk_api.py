@@ -42,7 +42,7 @@ def create_ticket(caller, message, priority=5, queue=settings.REQUEST_QUEUE_ID,
     # to do: mail player
     player_msg = "You have successfully created a new ticket.\n\n"
     player_msg += "{wIssue:{n %s" % message
-    caller.mail(player_msg, subject="Ticket opened", sender="ArxMUSH", receivers=caller.key)
+    caller.inform(player_msg, category="requests", append=False)
     return True
 
 def add_followup(caller, ticket, message, mail_player=True):
@@ -88,5 +88,5 @@ def mail_update(ticket, comments, header="New ticket activity\n"):
     msg = header
     msg += "{wIssue:{n %s\n\n" % ticket.description
     msg += "{wGM comments:{n %s" % comments
-    player.mail(msg, subject="New ticket activity", sender="ArxMUSH", receivers=player.key)
+    player.inform(msg, category="requests", append=False)
     
