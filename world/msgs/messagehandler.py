@@ -432,6 +432,8 @@ class MessageHandler(object):
                     caller = caller.db.player_ob
                 entry.receivers = caller
         except Exception:
+            import traceback
+            traceback.print_exc()
             msg = "Error in retrieving journal. It may have been deleted and the server has not yet synchronized."
         return msg
 
