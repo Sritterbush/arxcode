@@ -105,7 +105,7 @@ class WeeklyEvents(Script):
                 print "Error in task completion: %s" % err
 
     def do_investigations(self):
-        from src.web.character.models import Investigation
+        from web.character.models import Investigation
         for investigation in Investigation.objects.filter(active=True):
             try:
                 investigation.process_events()
@@ -115,7 +115,7 @@ class WeeklyEvents(Script):
 
     def do_cleanup(self):
         try:
-            from src.comms.models import Inform
+            from world.msgs.models import Inform
             date = datetime.now()
             offset = timedelta(days=-30)
             date = date + offset
