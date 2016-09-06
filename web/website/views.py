@@ -61,6 +61,7 @@ def page_index(request):
         "num_others": nothers or "no",
         "chapter": chapter,
         "events": events,
+        "game_slogan": settings.GAME_SLOGAN,
     }
 
     context_instance = RequestContext(request)
