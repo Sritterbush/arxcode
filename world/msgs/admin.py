@@ -45,14 +45,14 @@ class MsgListFilter(admin.SimpleListFilter):
             return queryset.filter(event__isnull=False)
         
 class MsgAdmin(admin.ModelAdmin):
-    list_display = ('id', 'db_date_sent', 'get_senders', 'msg_receivers',
+    list_display = ('id', 'db_date_created', 'get_senders', 'msg_receivers',
                     'db_message')
     list_display_links = ("id",)
-    ordering = ["db_date_sent"]
+    ordering = ["db_date_created"]
     #readonly_fields = ['db_message', 'db_sender', 'db_receivers', 'db_channels']
     search_fields = ['db_sender_players__db_key',"db_receivers_players__db_key",
                      "db_sender_objects__db_key", "db_receivers_objects__db_key",
-                     'id', '^db_date_sent', '^db_message']
+                     'id', '^db_date_created', '^db_message']
     save_as = True
     save_on_top = True
     list_select_related = True
