@@ -124,7 +124,7 @@ class RosterListView(ListView):
     paginate_by = 20
     roster_name = "Active"
     def get_queryset(self):
-        return ObjectDB.objects.filter(roster__roster__name=self.roster_name)
+        return ObjectDB.objects.filter(roster__roster__name=self.roster_name).order_by('db_key')
     def get_context_data(self, **kwargs):
         context = super(RosterListView, self).get_context_data(**kwargs)
         user = self.request.user
