@@ -12,7 +12,7 @@ from evennia.utils.search import object_search
 from evennia.utils.utils import inherits_from
 from evennia.objects.models import ObjectDB
 from world.dominion.models import Organization
-from commands.commands.roster import create_comment
+from commands.commands import roster
 import cloudinary, cloudinary.uploader, cloudinary.forms
 from cloudinary import api
 from .forms import (PhotoForm, PhotoDirectForm, PhotoUnsignedDirectForm, PortraitSelectForm,
@@ -45,7 +45,7 @@ def comment(request, object_id):
     if not rec_charob:
         raise Http404(err)
     comment_txt = request.POST['comment']
-    create_comment(send_charob, rec_charob, comment_txt)
+    roster.create_comment(send_charob, rec_charob, comment_txt)
     return HttpResponseRedirect(reverse('character:sheet', args=(object_id,)))
 
 def sheet(request, object_id):
