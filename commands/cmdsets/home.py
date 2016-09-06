@@ -591,7 +591,7 @@ class CmdManageShop(MuxCommand):
                 caller.msg("Price must be a positive number.")
                 return
             results = caller.search(self.lhs, location=caller, quiet=True)
-            obj = AT_SEARCH_RESULT(caller, self.args, results, False,
+            obj = AT_SEARCH_RESULT(results, caller, self.args, False,
                                   nofound_string="You don't carry %s." % self.lhs,
                                   multimatch_string="You carry more than one %s:" % self.lhs)
             if not obj:
