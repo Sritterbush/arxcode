@@ -7,10 +7,10 @@ for allowing Characters to traverse the exit to its destination.
 
 """
 from evennia import DefaultExit
-from typeclasses.mixins import ObjectMixins
+from typeclasses.mixins import ObjectMixins, NameMixins
 from evennia.commands import command, cmdset
 
-class Exit(ObjectMixins, DefaultExit):
+class Exit(NameMixins, ObjectMixins, DefaultExit):
     """
     Exits are connectors between rooms. Exits are normal Objects except
     they defines the `destination` property. It also does work in the

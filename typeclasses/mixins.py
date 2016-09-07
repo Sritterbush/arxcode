@@ -17,6 +17,15 @@ class DescMixins(object):
         return total
     volume = property(__get_volume)
 
+class NameMixins(object):
+    def __name_get(self):
+        return self.db.colored_name or self.key
+    def __name_set(self, val):
+        from evennia.utils.ansi import parse_ansi
+        self.db.colored_name = val
+        self.key = parse_ansi(val, strip_ansi=True)
+    name = property(__name_get, __name_set)
+
 class AppearanceMixins(object):
     
     def return_contents(self, pobject, detailed=True, show_ids=False, strip_ansi=False):

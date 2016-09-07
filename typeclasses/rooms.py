@@ -74,7 +74,7 @@ from evennia import gametime
 from evennia import default_cmds
 from evennia import utils
 from evennia.objects.models import ObjectDB
-from typeclasses.mixins import DescMixins, AppearanceMixins
+from typeclasses.mixins import DescMixins, AppearanceMixins, NameMixins
 from world.msgs.messagehandler import MessageHandler
 
 # error return function, needed by Extended Look command
@@ -90,7 +90,7 @@ SHOPCMD = "cmdsets.home.ShopCmdSet"
 
 # implements the Extended Room
 
-class Room(DescMixins, DefaultRoom, AppearanceMixins):
+class Room(DescMixins, NameMixins, DefaultRoom, AppearanceMixins):
     """
     This room implements a more advanced look functionality depending on
     time. It also allows for "details", together with a slightly modified
