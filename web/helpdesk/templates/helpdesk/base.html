@@ -3,6 +3,7 @@
 {% load load_helpdesk_settings %}
 {% with request|load_helpdesk_settings as helpdesk_settings %}
 {% with user|saved_queries as user_saved_queries_ %}
+{% load static from staticfiles %}
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
     <head>
@@ -10,7 +11,7 @@
 
         <script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
         <!--script src='{{ STATIC_URL }}helpdesk/jquery-ui-1.8.9.custom.min.js' type='text/javascript' language='javascript'></script-->
-        <link rel='stylesheet' href='http://{{ STATIC_URL }}helpdesk/helpdesk-extend.css' type='text/css'  media="screen" >
+        <link rel='stylesheet' href='{% static 'helpdesk/helpdesk-extend.css' %} type='text/css'  media="screen" >
 
         <!--link rel='stylesheet' href='{{ STATIC_URL }}helpdesk/helpdesk-print.css' type='text/css' media="print" /-->
         <!--link rel='stylesheet' href='{{ STATIC_URL }}helpdesk/jquery-smoothness-theme/jquery-ui-1.8.9.custom.css' type='text/css' /-->
