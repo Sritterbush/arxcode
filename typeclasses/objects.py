@@ -11,7 +11,7 @@ inheritance.
 
 """
 from evennia import DefaultObject
-from typeclasses.mixins import ObjectMixins, MsgMixins, NameMixins,
+from typeclasses.mixins import ObjectMixins, MsgMixins, NameMixins
 
 class Object(MsgMixins, ObjectMixins, NameMixins, DefaultObject):
     """
