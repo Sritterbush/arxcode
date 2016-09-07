@@ -1,8 +1,9 @@
 {% extends "helpdesk/base.html" %}{% load i18n humanize %}
 {% block helpdesk_title %}{% trans "Tickets" %}{% endblock %}
 {% block helpdesk_head %}
+{% load static from staticfiles %}
 
-<script type='text/javascript' language='javascript' src='{{ STATIC_URL }}helpdesk/filter.js'></script>
+<script type='text/javascript' language='javascript' src="{% static 'helpdesk/filter.js' %}"></script>
 
 <script type='text/javascript' language='javascript'>
 $(document).ready(function() {
