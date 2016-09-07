@@ -7,12 +7,12 @@ humanize, django-bootstrap-form'
 It requires the following added to settings.py:
 #-----------------------------------------------------------------
 CHANNEL_COMMAND_CLASS = "commands.commands.channels.ArxChannelCommand"
+
 BASE_ROOM_TYPECLASS = "typeclasses.rooms.ExtendedRoom"
+
 TEMPLATES[0]['OPTIONS']['context_processors'] += [
     'web.character.context_processors.consts']
 
-# Global and Evennia-specific apps. This ties everything together so we can
-# refer to app models and perform DB syncs.
 INSTALLED_APPS += ('world.dominion',
                    'world.msgs',
                    'web.character',
@@ -25,13 +25,14 @@ INSTALLED_APPS += ('world.dominion',
                    'markdown_deux',
                    'bootstrapform')
 
-######################################################################
-# Helpdesk settings
-######################################################################
+
+
+
 HELPDESK_CREATE_TICKET_HIDE_ASSIGNED_TO = True
 
-# Queue.id for our Requests. Should normally be 1, but can be changed if you move queues around
+
 REQUEST_QUEUE_ID = 1
+
 BUG_QUEUE_ID = 2
 #----------------------------------------------------------------
 
