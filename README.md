@@ -20,7 +20,6 @@ INSTALLED_APPS += ('world.dominion',
                    'web.helpdesk',
                    'web.help_topics',
                    'cloudinary',
-                   #helpdesk requirements
                    'django.contrib.humanize',
                    'markdown_deux',
                    'bootstrapform')
