@@ -1,35 +1,41 @@
-# Welcome to Evennia!
+Arx is a game based on Evennia. It has the following requirements:
+'pip install unidecode' for use during the guest process
+'pip install cloudinary' for the CDN backend
+for helpdesk, pip install the following: 'django-markdown-deux,
+humanize, django-bootstrap-form'
 
-This is your game directory, set up to let you start with
-your new game right away. An overview of this directory is found here:
-https://github.com/evennia/evennia/wiki/Directory-Overview#the-game-directory
+It requires the following added to settings.py:
+#-----------------------------------------------------------------
+CHANNEL_COMMAND_CLASS = "commands.commands.channels.ArxChannelCommand"
+BASE_ROOM_TYPECLASS = "typeclasses.rooms.ExtendedRoom"
+TEMPLATES[0]['OPTIONS']['context_processors'] += [
+    'web.character.context_processors.consts']
 
-You can delete this readme file when you've read it and you can
-re-arrange things in this game-directory to suit your own sense of
-organisation (the only exception is the directory structure of the
-`server/` directory, which Evennia expects). If you change the structure
-you must however also edit/add to your settings file to tell Evennia
-where to look for things.
+# Global and Evennia-specific apps. This ties everything together so we can
+# refer to app models and perform DB syncs.
+INSTALLED_APPS += ('world.dominion',
+                   'world.msgs',
+                   'web.character',
+                   'web.news',
+                   'web.helpdesk',
+                   'web.help_topics',
+                   'cloudinary',
+                   #helpdesk requirements
+                   'django.contrib.humanize',
+                   'markdown_deux',
+                   'bootstrapform')
 
-Your game's main configuration file is found in
-`server/conf/settings.py` (but you don't need to change it to get
-started). If you just created this directory (which means you'll already
-have a `virtualenv` running if you followed the default instructions),
-`cd` to this directory then initialize a new database using
+######################################################################
+# Helpdesk settings
+######################################################################
+HELPDESK_CREATE_TICKET_HIDE_ASSIGNED_TO = True
 
-    evennia migrate
+# Queue.id for our Requests. Should normally be 1, but can be changed if you move queues around
+REQUEST_QUEUE_ID = 1
+BUG_QUEUE_ID = 2
+#----------------------------------------------------------------
 
-To start the server, stand in this directory and run
-
-    evennia start
-
-This will start the server, logging output to the console. Make
-sure to create a superuser when asked. By default you can now connect
-to your new game using a MUD client on `localhost`, port `4000`.  You can 
-also log into the web client by pointing a browser to
-`http://localhost:8000`.
-
-# Getting started
+Evennia resources:
 
 From here on you might want to look at one of the beginner tutorials:
 http://github.com/evennia/evennia/wiki/Tutorials.

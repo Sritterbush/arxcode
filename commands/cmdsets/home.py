@@ -591,7 +591,7 @@ class CmdManageShop(MuxCommand):
                 caller.msg("Price must be a positive number.")
                 return
             results = caller.search(self.lhs, location=caller, quiet=True)
-            obj = AT_SEARCH_RESULT(results, caller, self.args, False,
+            obj = AT_SEARCH_RESULT(results, caller, self.lhs, False,
                                   nofound_string="You don't carry %s." % self.lhs,
                                   multimatch_string="You carry more than one %s:" % self.lhs)
             if not obj:
@@ -883,7 +883,7 @@ class CmdBuyFromShop(CmdCraft):
         if "look" in self.switches:
             try:
                 num = int(self.args)
-                obj = ObjectDB.objects.get(id=num)
+                obj = ObjectDB.objects.get(id=num, id__in=loc.db.item_prices.keys())
             except Exception:
                 caller.msg("No item found by that number.")
                 return
