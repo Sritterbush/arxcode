@@ -128,37 +128,51 @@ class PlayerOrNpc(models.Model):
         if not self.alive:
             name += "(RIP)"
         return name
+    
     def _get_siblings(self):
-        sibs = []
-        for parent in self.all_parents:
-            for kid in parent.children.exclude(id=self.id):
-                sibs.append(kid)
-        return set(sibs)
+        return PlayerOrNpc.objects.filter(Q(parents__in=self.all_parents) &
+                                          ~Q(id=self.id)).distinct()
 
     def _parents_and_spouses(self):
         return PlayerOrNpc.objects.filter(Q(children__id=self.id) | Q(spouses__children__id=self.id)).distinct()
     all_parents = property(_parents_and_spouses)
-    
+
+    @property
+    def grandparents(self):
+        return PlayerOrNpc.objects.filter(Q(children__children=self) | Q(spouses__children__children=self) |
+                                          Q(children__spouses__children=self) | Q(spouses__children__children__spouses=self) |
+                                          Q(children__children__spouses=self) | Q(spouses__children__spouses__children=self)).distinct()
+
+    @property
+    def greatgrandparents(self):
+        return PlayerOrNpc.objects.filter(Q(children__in=self.grandparents) | Q(spouses__children__in=self.grandparents)).distinct()
+
+    @property
+    def second_cousins(self):
+        return PlayerOrNpc.objects.filter(~Q(id=self.id) & ~Q(id__in=self.cousins) &
+                                          ~Q(id__in=self.siblings) &(
+            Q(parents__parents__parents__in=self.greatgrandparents) |
+            Q(parents__parents__parents__spouses__in=self.greatgrandparents) |
+            Q(parents__parents__spouses__parents__in=self.greatgrandparents) |
+            Q(parents__spouses__parents__parents__in=self.greatgrandparents) |
+            Q(spouses__parents__parents__parents__in=self.greatgrandparents)
+            )).distinct()
+
+
     def _get_cousins(self):
-        cousins = []
-        for parent in self.all_parents:
-            for sibling in parent.siblings:
-                # exclude self in cases of incest
-                for kid in sibling.children.exclude(id=self.id):
-                    cousins.append(kid)
-                for spouse in sibling.spouses.all():
-                    for kid in spouse.children.exclude(id=self.id):
-                        if kid not in cousins:
-                            cousins.append(kid)
-                    for spousesibling in spouse.siblings:
-                        for kid in spousesibling.children.exclude(id=self.id):
-                            if kid not in cousins:
-                                cousins.append(kid)
-        return set(cousins)
+        return PlayerOrNpc.objects.filter( (Q(parents__parents__in=self.grandparents) |
+                                            Q(parents__parents__spouses__in=self.grandparents) |
+                                            Q(parents__spouses__parents__in=self.grandparents) |
+                                            Q(spouses__parents__parents__in=self.grandparents) |
+                                            Q(spouses__parents__parents__spouses__in=self.grandparents)) & ~Q(id=self.id)
+                                          & ~Q(id__in=self.siblings)).distinct()
+    
+
+    cousins = property(_get_cousins)
     siblings = property(_get_siblings)
-    cousins = property(_get_cousins)     
     
     def display_immediate_family(self):
+        ggparents = self.greatgrandparents
         grandparents = []
         parents = self.all_parents or ''
         unc_or_aunts = []
@@ -185,6 +199,9 @@ class PlayerOrNpc(models.Model):
                 grandchildren += list(child.children.all())
             grandchildren = set(grandchildren)
         cousins = self.cousins or ''
+        second_cousins = self.second_cousins
+        if ggparents:
+            ggparents = "{wGreatgrandparents{n: %s\n" % (", ".join(str(ggparent) for ggparent in ggparents))
         if grandparents:
             grandparents = "{wGrandparents{n: %s\n" % (", ".join(str(gparent) for gparent in grandparents))
         else:
@@ -211,8 +228,10 @@ class PlayerOrNpc(models.Model):
             grandchildren = ''
         if cousins:
             cousins = "{wCousins{n: %s\n" % (", ".join(str(cousin) for cousin in cousins))
+        if second_cousins:
+            second_cousins = "{wSecond Cousins{n: %s\n" % (", ".join(str(seco) for seco in second_cousins))
         return (grandparents + parents + unc_or_aunts + spouses + siblings
-                + children + neph_or_nieces + cousins + grandchildren)
+                + children + neph_or_nieces + cousins + second_cousins + grandchildren)
 
     def msg(self, *args, **kwargs):
         self.player.msg(*args, **kwargs)
@@ -296,6 +315,8 @@ class PlayerOrNpc(models.Model):
             if offset:
                 for name in cdowns.keys():
                     cdowns[name] += max/3
+                    if max % 3:
+                        cdowns[name] += 1
                     if cdowns[name] >= max:
                         del cdowns[name]
         for offset in range(-3, 1):
