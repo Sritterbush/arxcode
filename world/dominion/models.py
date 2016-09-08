@@ -2355,7 +2355,7 @@ class Member(models.Model):
     @property
     def rank_title(self):
         try:
-            male = self.player.player.db.char_ob.gender.lower().startswith('m')
+            male = self.player.player.db.char_ob.db.gender.lower().startswith('m')
         except (AttributeError, ValueError, TypeError):
             male = False
         if male:
