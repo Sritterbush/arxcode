@@ -2401,7 +2401,7 @@ class CmdTask(MuxCommand):
                     mailmsg += "also choose to fake your support with the /fake switch. Your current pool "
                     remaining = char.db.player_ob.Dominion.remaining_points
                     mailmsg += "at the time of this mail is %s points remaining." % remaining
-                    pc.mail(mailmsg, subject="Support Request", sender=caller.db.player_ob.key.capitalize())
+                    pc.inform(mailmsg, category="Support Request", append=False)
                     success.append(char)
                 if not success:
                     return
