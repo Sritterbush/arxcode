@@ -154,18 +154,16 @@ class PlayerOrNpc(models.Model):
             Q(parents__parents__parents__in=self.greatgrandparents) |
             Q(parents__parents__parents__spouses__in=self.greatgrandparents) |
             Q(parents__parents__spouses__parents__in=self.greatgrandparents) |
-            Q(parents__spouses__parents__parents__in=self.greatgrandparents) |
-            Q(spouses__parents__parents__parents__in=self.greatgrandparents)
+            Q(parents__spouses__parents__parents__in=self.greatgrandparents) 
             )).distinct()
 
 
     def _get_cousins(self):
         return PlayerOrNpc.objects.filter( (Q(parents__parents__in=self.grandparents) |
                                             Q(parents__parents__spouses__in=self.grandparents) |
-                                            Q(parents__spouses__parents__in=self.grandparents) |
-                                            Q(spouses__parents__parents__in=self.grandparents) |
-                                            Q(spouses__parents__parents__spouses__in=self.grandparents)) & ~Q(id=self.id)
-                                          & ~Q(id__in=self.siblings)).distinct()
+                                            Q(parents__spouses__parents__in=self.grandparents))
+                                           & ~Q(id=self.id)
+                                           & ~Q(id__in=self.siblings)).distinct()
     
 
     cousins = property(_get_cousins)
