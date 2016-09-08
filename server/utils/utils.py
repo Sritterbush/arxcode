@@ -8,6 +8,7 @@ be of use when designing your own game.
 import re
 import traceback
 from django.conf import settings
+from datetime import datetime
 
 
 
@@ -67,7 +68,7 @@ def tnow(aware=False):
     if aware:
         from django.utils import timezone
         return timezone.localtime(timezone.now())
-    from datetime import datetime
+    # naive datetime
     return datetime.now()
 
 def tdiff(date):
@@ -86,7 +87,7 @@ def datetime_format(dtobj):
 
     year, month, day = dtobj.year, dtobj.month, dtobj.day
     hour, minute, second = dtobj.hour, dtobj.minute, dtobj.second
-    now = datetime.datetime.now()
+    now = datetime.now()
 
     if year < now.year:
         # another year
