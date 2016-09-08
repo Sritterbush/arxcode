@@ -2351,6 +2351,18 @@ class Member(models.Model):
         if rep:
             msg += "\n{wReputation{n: {wAffection{n: %s, {wRespect:{n %s" % (rep.affection, rep.respect)
         return msg
+
+    @property
+    def rank_title(self):
+        try:
+            male = self.player.player.db.char_ob.gender.lower().startswith('m')
+        except (AttributeError, ValueError, TypeError):
+            male = False
+        if male:
+            rankstr = "rank_%s_%s" % (self.rank, "male")
+        else:
+            rankstr = "rank_%s_%s" % (self.rank, "female")
+        return getattr(self.organization, rankstr)
         
 
 class Task(models.Model):
