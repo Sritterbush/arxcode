@@ -170,6 +170,11 @@ class CmdMarket(MuxCommand):
                 assets.economic -= eamt         
                 assets.save()
                 paystr = "%s economic resources" % eamt
+                # check if they could have bought more than the amount they specified
+                optimal_amt = (eamt * RESOURCE_VAL)/(material.value or 1)
+                if amt < optimal_amt:
+                    caller.msg("You could get %s for the same price, so doing that instead." % optimal_amt)
+                    amt = optimal_amt
             if usemats:             
                 try:
                     mat = dompc.assets.materials.get(type=material)
