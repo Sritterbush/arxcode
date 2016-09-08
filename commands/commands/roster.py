@@ -145,6 +145,9 @@ def add_note(player, note, caller=None, roster=None):
         return
     new_note = datetime.today().strftime("\n%x: ")
     new_note += note
+    # null check
+    if not entry.gm_notes:
+        entry.gm_notes = ""
     entry.gm_notes += new_note
     entry.save()
 
@@ -398,6 +401,9 @@ class CmdAdminRoster(MuxPlayerCommand):
                 except AccountHistory.DoesNotExist:
                     if xp > current.total_xp:
                         xp = current.total_xp
+                    # null check
+                    if not current.gm_notes:
+                        current.gm_notes = ""
                     current.gm_notes += "\n\nUnspent xp: %s" % xp
                     current.save()
                 except AccountHistory.MultipleObjectsReturned:
