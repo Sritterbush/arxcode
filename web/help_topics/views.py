@@ -63,6 +63,7 @@ def list_recipes(request):
 
 def display_org(request, object_id):
     user = request.user
+    rank_display = 0
     try:
         org = Organization.objects.get(id=object_id)
     except IndexError:
@@ -72,6 +73,11 @@ def display_org(request, object_id):
             if not (org.members.filter(deguilded=False, player__player__id=user.id)
                     or user.is_staff):
                 raise Exception()
+            if not user.is_staff:
+                try:
+                    rank_display = user.Dominion.memberships.get(organization=org).rank
+                except Exception:
+                    rank_display = 11
         except Exception:
             raise Http404("You cannot view this page.")
     try:
@@ -80,4 +86,5 @@ def display_org(request, object_id):
         holdings = []
     
     return render(request, 'help_topics/org.html', {'org': org,
-                                                    'holdings': holdings,})
+                                                    'holdings': holdings,
+                                                    'rank_display': rank_display})
