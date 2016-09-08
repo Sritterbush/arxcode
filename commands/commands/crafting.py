@@ -112,6 +112,8 @@ def create_obj(typec, key, loc, home, quality):
         key += "{n"
     obj = create_object(typeclass=typec, key=key, location=loc, home=home)
     obj.db.quality_level = quality
+    # will set color name and strip ansi from colorized name for key
+    obj.name = key
     return obj
 
 def get_ability_val(char, recipe):

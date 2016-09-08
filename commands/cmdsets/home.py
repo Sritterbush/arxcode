@@ -417,7 +417,7 @@ class CmdManageRoom(MuxCommand):
             caller.msg("{wShop Owners:{n %s" % shops)
             return
         if "name" in self.switches:
-            loc.key = self.args or loc.key
+            loc.name = self.args or loc.key
             caller.msg("Room name changed to %s." % loc)
             return
         if "exitname" in self.switches:
@@ -434,7 +434,7 @@ class CmdManageRoom(MuxCommand):
             if exit.typeclass_path != settings.BASE_EXIT_TYPECLASS:
                 caller.msg("That is not an exit.")
                 return
-            exit.key = self.rhs
+            exit.name = self.rhs
             exit.save()
             for alias in aliases:
                 exit.aliases.add(alias)
