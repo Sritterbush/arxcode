@@ -39,9 +39,9 @@ class AppearanceMixins(object):
         """
         def get_key(ob):
             if show_ids:
-                key = "%s {w(ID: %s){n" % (ob.key, ob.id)
+                key = "%s {w(ID: %s){n" % (ob.name, ob.id)
             else:
-                key = ob.key
+                key = ob.name
             if strip_ansi:
                 try:
                     from evennia.utils.ansi import parse_ansi
