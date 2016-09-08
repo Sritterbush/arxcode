@@ -25,6 +25,9 @@ class NameMixins(object):
         self.db.colored_name = val
         self.key = parse_ansi(val, strip_ansi=True)
     name = property(__name_get, __name_set)
+    
+    def __str__(self):
+        return self.name
 
 class AppearanceMixins(object):
     
