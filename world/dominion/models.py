@@ -199,7 +199,7 @@ class PlayerOrNpc(models.Model):
                 grandchildren += list(child.children.all())
             grandchildren = set(grandchildren)
         cousins = self.cousins or ''
-        second_cousins = self.second_cousins
+        second_cousins = self.second_cousins or ''
         if ggparents:
             ggparents = "{wGreatgrandparents{n: %s\n" % (", ".join(str(ggparent) for ggparent in ggparents))
         if grandparents:
