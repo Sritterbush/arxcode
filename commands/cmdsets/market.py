@@ -96,9 +96,18 @@ class CmdMarket(MuxCommand):
         "Execute command."
         caller = self.caller
         usemats = True
-        if self.cmdstring == "buy" and 'economic' not in self.switches:
+        if self.cmdstring == "buy" and not ('economic' in self.switches or
+                                            'social' in self.switches or
+                                            'military' in self.switches):
+            # allow for buy/economic, etc. buy switch precludes that, so we
+            # only add it if we don't have the above switches
             self.switches.append("buy")
         if self.cmdstring == "sell":
+            # having other switches is misleading. They could think they can sell
+            # other things.
+            if self.switches:
+                caller.msg("Use market/sell or just 'sell' as the command.")
+                return
             self.switches.append("sell")
         materials = CraftingMaterialType.objects.filter(value__gte=0).order_by("value")
         if not caller.check_permstring("builders"):
