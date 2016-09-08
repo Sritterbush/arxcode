@@ -79,10 +79,10 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         if table:
             table.leave(self)
         if self.db.briefmode:
-            string = "{c%s{n" % self.location.key
+            string = "{c%s{n" % self.location.name
             string += self.location.return_contents(self)
             string += self.location.event_string()
-            self.msg(string, formatted=True)
+            self.msg(string)
         else:
             self.execute_cmd('look')
         if self.ndb.waypoint:
