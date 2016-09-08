@@ -76,3 +76,29 @@ def tdiff(date):
     except Exception:
         diff = date - tnow(aware=True)
     return diff
+
+def datetime_format(dtobj):
+    """
+    Takes a datetime object instance (e.g. from django's DateTimeField)
+    and returns a string describing how long ago that date was.
+
+    """
+
+    year, month, day = dtobj.year, dtobj.month, dtobj.day
+    hour, minute, second = dtobj.hour, dtobj.minute, dtobj.second
+    now = datetime.datetime.now()
+
+    if year < now.year:
+        # another year
+        timestring = str(dtobj.date())
+    elif dtobj.date() < now.date():
+        # another date, same year
+        # put month before day because of FREEDOM
+        timestring = "%02i-%02i %02i:%02i" % (month, day, hour, minute)
+    elif hour < now.hour - 1:
+        # same day, more than 1 hour ago
+        timestring = "%02i:%02i" % (hour, minute)
+    else:
+        # same day, less than 1 hour ago
+        timestring = "%02i:%02i:%02i" % (hour, minute, second)
+    return timestring

@@ -9,7 +9,7 @@ accustomed to.
 
 from evennia.commands import command
 from evennia.comms.models import ChannelDB, Msg
-from evennia.utils.utils import datetime_format
+from server.utils.utils import datetime_format
 
 class ArxChannelCommand(command.Command):
     """
