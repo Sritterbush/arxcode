@@ -19,3 +19,7 @@ def mush_to_html(value):
     #value = value.replace('{n', '</strong>')
     value = parse_ansi(value, strip_ansi=True)
     return mark_safe(value)
+
+@register.filter
+def doc_str(value):
+    return value.__doc__
