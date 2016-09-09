@@ -9,7 +9,7 @@ from twisted.internet import reactor
 from evennia.server.sessionhandler import SESSIONS
 from evennia.utils.ansi import parse_ansi
 import traceback
-from server.utils.utils import tdiff
+from server.utils.utils import tdiff, tnow
 
 LOGPATH = settings.LOG_DIR + "/rpevents/"
 GMPATH = LOGPATH + "gm_logs/"
