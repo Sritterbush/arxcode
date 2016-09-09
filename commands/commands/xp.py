@@ -341,20 +341,6 @@ class CmdAdjustSkill(MuxPlayerCommand):
             except (AttributeError, ValueError, TypeError, KeyError):
                 caller.msg("Could not set %s to %s vocation." % (char, self.rhs))
                 return
-        try:
-            player, skill = self.lhs.strip().split("/")
-            rhs = int(self.rhs)
-        except (AttributeError, ValueError, TypeError):
-            caller.msg("Invalid syntax")
-            return
-        targ = caller.search(player)
-        if not targ:
-            caller.msg("No player found by that name.")
-            return
-        char = targ.db.char_ob
-        if not char:
-            caller.msg("No active character for %s." % targ)
-            return
         if "refund" in self.switches:
             if not ability:
                 skill_history = char.db.skill_history or {}
@@ -377,6 +363,20 @@ class CmdAdjustSkill(MuxPlayerCommand):
                 char.db.abilities[self.rhs] -= 1
                 char.db.adjust_xp(cost)
             caller.msg("%s had %s reduced by 1 and was refunded %s xp." %(char, self.rhs, cost))
+            return
+        try:
+            player, skill = self.lhs.strip().split("/")
+            rhs = int(self.rhs)
+        except (AttributeError, ValueError, TypeError):
+            caller.msg("Invalid syntax")
+            return
+        targ = caller.search(player)
+        if not targ:
+            caller.msg("No player found by that name.")
+            return
+        char = targ.db.char_ob
+        if not char:
+            caller.msg("No active character for %s." % targ)
             return
         if rhs <= 0:
             try:

@@ -11,6 +11,8 @@ from evennia.objects.models import ObjectDB
 from evennia.help.models import HelpEntry
 from world.dominion.models import (CraftingRecipe, CraftingMaterialType,
                                   Organization, Member)
+from commands.default_cmdsets import PlayerCmdSet, CharacterCmdSet
+from commands.cmdsets.situational import SituationalCmdSet
 
 def topic(request, object_key):
     object_key = object_key.lower()
@@ -20,6 +22,14 @@ def topic(request, object_key):
         raise Http404("I couldn't find a character with that ID.")
     
     return render(request, 'help_topics/topic.html', {'topic': topic})
+
+def command_help(request, cmd_key):
+    user = request.user
+    cmd_key = cmd_key.lower()
+    matches = [ob for ob in PlayerCmdSet() if ob.key.lower() == cmd_key and ob.access(user, 'cmd')]
+    matches += [ob for ob in CharCmdSet() if ob.key.lower() == cmd_key and ob.access(user, 'cmd')]
+    matches += [ob for ob in SituationalCmdSet() if ob.key.lower() == cmd_key and ob.access(user, 'cmd')]
+    return render(request, 'help_topics/command_help.html', {'matches': matches})
 
 def list_topics(request):
     user = request.user
@@ -87,4 +97,14 @@ def display_org(request, object_id):
     
     return render(request, 'help_topics/org.html', {'org': org,
                                                     'holdings': holdings,
-                                                    'rank_display': rank_display})
+                                                    'rank_display': rank_display,
+                                                    })
+
+def list_commands(request):
+    user = request.user
+    player_cmds = [ob for ob in PlayerCmdSet() if ob.access(user, 'cmd')]
+    char_cmds = [ob for ob in CharacterCmdSet() if ob.access(user, 'cmd')]
+    situational_cmds = [ob for ob in SituationalCmdSet() if ob.access(user, 'cmd')]
+    return render(request, 'help_topics/list_commands.html', {'player_cmds': player_cmds,
+                                                    'char_cmds': char_cmds,
+                                                    'situational_cmds': situational_cmds})

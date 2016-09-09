@@ -7,12 +7,14 @@
 #
 
 from django.conf.urls import url
-from .views import topic
-from .views import list_topics, list_recipes, display_org
+from .views import (topic, list_commands, list_topics, list_recipes,
+                    display_org, command_help)
 
 urlpatterns = [
     url(r'^recipes/', list_recipes, name="list_recipes"),
     url(r'^org/(?P<object_id>[\w\s]+)/$', display_org, name="display_org"),
+    url(r'^commands/(?P<object_id>[\w\s]+)/$', command_help, name="command_help"),
+    url(r'^commands/$', list_commands, name="list_commands"),
     url(r'^(?P<object_key>[\w\s]+)/$', topic, name="topic"),  
     url(r'^$', list_topics, name="list_topics")
 ]
