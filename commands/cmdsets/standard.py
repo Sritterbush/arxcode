@@ -195,7 +195,6 @@ class StaffCmdSet(CmdSet):
         # The help system       
         self.add(help.CmdSetHelp())
         # System commands
-        self.add(system.CmdPy())
         self.add(system.CmdScripts())
         self.add(system.CmdObjects())
         self.add(system.CmdPlayers())

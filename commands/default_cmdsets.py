@@ -58,7 +58,45 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
         """
         Populates the cmdset
         """
-        super(PlayerCmdSet, self).at_cmdset_creation()
+        # super(PlayerCmdSet, self).at_cmdset_creation()
+        from evennia.commands.default import (player, building, system,
+                                              admin, comms)
+        # Player-specific commands
+        self.add(player.CmdOOCLook())
+        self.add(player.CmdIC())
+        self.add(player.CmdOOC())
+        self.add(player.CmdOption())
+        self.add(player.CmdQuit())
+        self.add(player.CmdPassword())
+        self.add(player.CmdColorTest())
+        self.add(player.CmdQuell())
+        self.add(building.CmdExamine())
+        # system commands
+        self.add(system.CmdReload())
+        self.add(system.CmdReset())
+        self.add(system.CmdShutdown())
+        self.add(system.CmdPy())
+
+        # Admin commands
+        self.add(admin.CmdDelPlayer())
+        self.add(admin.CmdNewPassword())
+
+        # Comm commands
+        self.add(comms.CmdAddCom())
+        self.add(comms.CmdDelCom())
+        self.add(comms.CmdAllCom())
+        self.add(comms.CmdChannels())
+        self.add(comms.CmdCdestroy())
+        self.add(comms.CmdChannelCreate())
+        self.add(comms.CmdClock())
+        self.add(comms.CmdCBoot())
+        self.add(comms.CmdCemit())
+        self.add(comms.CmdCWho())
+        self.add(comms.CmdCdesc())
+        self.add(comms.CmdPage())
+        self.add(comms.CmdIRC2Chan())
+        self.add(comms.CmdRSS2Chan())
+                 
         #
         # any commands you add below will overload the default ones.
         #
@@ -204,3 +242,4 @@ class SessionCmdSet(default_cmds.SessionCmdSet):
         #
         # any commands you add below will overload the default ones.
         #
+

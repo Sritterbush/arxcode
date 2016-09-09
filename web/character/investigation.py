@@ -152,11 +152,16 @@ class CmdInvestigate(MuxCommand):
                     ob.stat = stat
                 if skill:
                     ob.skill = skill
-                ob.save()
-                caller.msg("New investigation created. You may now set it as active " +
-                           "if you wish, and add resources/silver to increase its chance of success.")
+                if not entry.investigations.filter(active=True):
+                    ob.active = True
+                    caller.msg("New investigation created. This has been set as your active investigation " +
+                               "for the week, and you may add resources/silver to increase its chance of success.")
+                else:
+                    caller.msg("New investigation created. You already have an active investigation for this week, " +
+                               "but may still add resources/silver to increase its chance of success for when you next mark this as active.")
                 caller.msg("You may only have one active investigation per week, and cannot change it once " +
-                           "it is set. Only the active investigation can progress.")
+                           "it has received GM attention. Only the active investigation can progress.")
+                ob.save()
                 staffmsg = "%s has started an investigation on %s." % (caller, ob.topic)
                 if ob.targeted_clue:
                     staffmsg += " They will roll to find clue %s." % ob.targeted_clue
