@@ -50,7 +50,7 @@
 	<ul class="list-inline text-center">
     {% for cmd in situational_cmds %}
                 
-        <li><a href="..{% url 'help_topics:command_help' cmd.key %}">{{ cmd.key }}</a></li>
+        <li><a href="{% url 'help_topics:command_help' cmd.key %}">{{ cmd.key }}</a></li>
         
       {% empty %}
         <li>No commands found.</li>
