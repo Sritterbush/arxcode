@@ -2559,7 +2559,7 @@ class TaskSupporter(models.Model):
                     ren = char.renown.get(category=category)
                 except Renown.DoesNotExist:
                     ren = char.renown.create(category=category)
-                ren.rating -= 5
+                ren.rating -= 1
                 ren.save()
 
     @property
@@ -2907,6 +2907,8 @@ class Renown(models.Model):
     # scaling for how our renown will be represented
     @property
     def level(self):
+        if self.rating <= 0:
+            return 0
         if self.rating <= 1000:
             return self.rating/200
         if self.rating <= 3000:
