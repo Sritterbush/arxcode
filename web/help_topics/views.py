@@ -25,14 +25,9 @@ def topic(request, object_key):
 
 def command_help(request, cmd_key):
     user = request.user
-    char = None
-    try:
-        char = user.db.char_ob
-    except AttributeError:
-        pass
     cmd_key = cmd_key.lower()
     matches = [ob for ob in PlayerCmdSet() if ob.key.lower() == cmd_key and ob.access(user, 'cmd')]
-    matches += [ob for ob in CharCmdSet() if ob.key.lower() == cmd_key and ob.access(char, 'cmd')]
+    matches += [ob for ob in CharacterCmdSet() if ob.key.lower() == cmd_key and ob.access(user, 'cmd')]
     matches += [ob for ob in SituationalCmdSet() if ob.key.lower() == cmd_key and ob.access(user, 'cmd')]
     return render(request, 'help_topics/command_help.html', {'matches': matches})
 
@@ -107,14 +102,9 @@ def display_org(request, object_id):
 
 def list_commands(request):
     user = request.user
-    char = None
-    try:
-        char = user.db.char_ob
-    except AttributeError:
-        pass
     player_cmds = [ob for ob in PlayerCmdSet() if ob.access(user, 'cmd')]
-    char_cmds = [ob for ob in CharacterCmdSet() if ob.access(char, 'cmd')]
+    char_cmds = [ob for ob in CharacterCmdSet() if ob.access(user, 'cmd')]
     situational_cmds = [ob for ob in SituationalCmdSet() if ob.access(user, 'cmd')]
     return render(request, 'help_topics/list_commands.html', {'player_cmds': player_cmds,
-                                                    'char_cmds': char_cmds,
+                                                    'character_cmds': char_cmds,
                                                     'situational_cmds': situational_cmds})
