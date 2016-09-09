@@ -2407,7 +2407,7 @@ class CmdTask(MuxCommand):
                     mailmsg += "them achieve the goals they indicate. This is represented by using "
                     mailmsg += "the '+support' command, filling out a form that indicates which npcs "
                     mailmsg += "you influenced on their behalf, how you did it, and what happened."
-                    mailmsg += "\n\nYou can ask npcs to support them from any of the following " +
+                    mailmsg += "\n\nYou can ask npcs to support them from any of the following "
                     mailmsg += "areas you have influence in: %s" % ", ".join(str(ob) for ob in matches)              
                     mailmsg += "\n\nThe support command has the usage of {wsupport %s{n, then " % caller
                     mailmsg += "adding fields that indicate how the npcs you influenced are helping them "
