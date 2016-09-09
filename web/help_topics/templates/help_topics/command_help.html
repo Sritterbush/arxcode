@@ -3,6 +3,6 @@
 {% block content %}
     {% for match in matches %}
   <h1><center>{{ match.key }}</center></h1>
-  <p>{{ match|docstr|mush_to_html }}</p>
+  <p>{{ match|doc_str|mush_to_html }}</p>
     {% endfor %}
 {% endblock %}
