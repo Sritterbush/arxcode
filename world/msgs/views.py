@@ -24,7 +24,7 @@ class JournalListView(ListView):
                                     Q(db_receivers_players=user)).order_by('-db_date_created')
         return Msg.objects.filter(( Q(db_header__icontains='white_journal') |
                                     (Q(db_header__icontains='black_journal') &
-                                    Q(db_sender_objects=user.db.char_ob.dbobj))) &
+                                    Q(db_sender_objects=user.db.char_ob))) &
                                   Q(db_receivers_players=user)).order_by('-db_date_created')
     def get_queryset(self):
         user = self.request.user
@@ -36,7 +36,7 @@ class JournalListView(ListView):
                                     ~Q(db_receivers_players=user)).order_by('-db_date_created')
         return Msg.objects.filter( (Q(db_header__icontains='white_journal') |
                                     (Q(db_header__icontains='black_journal') &
-                                    Q(db_sender_objects=user.db.char_ob.dbobj))) &
+                                    Q(db_sender_objects=user.db.char_ob))) &
                                   ~Q(db_receivers_players=user)).order_by('-db_date_created')
     def get_context_data(self, **kwargs):
         context = super(JournalListView, self).get_context_data(**kwargs)
