@@ -184,6 +184,9 @@ class WeeklyEvents(Script):
     def check_freeze(self, player):
         try:
             date = datetime.now()
+            if not player.last_login:
+                player.last_login = date
+                player.save()
             offset = timedelta(days=-14)
             date = date + offset
             if player.last_login < date:

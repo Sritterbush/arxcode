@@ -487,7 +487,7 @@ class Investigation(models.Model):
         if self.check_success():
             # if we don't have a valid clue, then let's
             # tell them about what a valid clue -could- be.
-            if not self.targeted_clue():
+            if not self.targeted_clue:
                 kw = self.find_random_keywords()
                 if not kw:
                     self.results = "There is nothing else for you to find."

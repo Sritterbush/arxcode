@@ -883,6 +883,7 @@ class Domain(models.Model):
             return 0
         if self.ruler.liege.holdings.all():
             return self.ruler.liege.holdings.all()[0].tax_rate
+        return 0
     
     def worker_cost(self, number):
         """
