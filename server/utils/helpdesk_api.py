@@ -40,6 +40,7 @@ def create_ticket(caller, message, priority=5, queue=settings.REQUEST_QUEUE_ID,
     inform_staff(staff_msg)
     # to do: mail player
     player_msg = "You have successfully created a new ticket.\n\n"
+    player_msg += "{wTicket ID:{n %s\n" % ticket.id
     player_msg += "{wIssue:{n %s" % message
     caller.inform(player_msg, category="requests", append=False)
     return True
@@ -59,7 +60,7 @@ def add_followup(caller, ticket, message, mail_player=True):
         return False
     inform_staff("{w[Requests]{n: %s has left a comment on ticket %s." % (caller.key, ticket.id))
     if mail_player:
-        header = "New comment on your ticket by %s." % caller.key
+        header = "New comment on your ticket by %s.\n\n" % caller.key
         mail_update(ticket, message, header)
     return True
 
@@ -85,6 +86,7 @@ def resolve_ticket(caller, ticket_id, message):
 def mail_update(ticket, comments, header="New ticket activity\n"):
     player = ticket.submitting_player
     msg = header
+    msg += "{wTicket ID:{n %s\n" % ticket.id
     msg += "{wIssue:{n %s\n\n" % ticket.description
     msg += "{wGM comments:{n %s" % comments
     player.inform(msg, category="requests", append=False)
