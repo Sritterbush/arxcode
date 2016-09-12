@@ -305,7 +305,7 @@ class CmdStudyRawAnsi(default_cmds.MuxCommand):
         ob = caller.search(self.lhs)
         if not ob:
             return
-        from src.utils.ansi import raw
+        from evennia.utils.ansi import raw
         caller.msg("Escaped name: %s" % raw(ob.name))
         caller.msg("Escaped desc: %s" % raw(ob.return_appearance(caller, detailed=False)))
 

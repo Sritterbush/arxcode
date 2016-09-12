@@ -116,6 +116,7 @@ class OOCCmdSet(CmdSet):
         self.add(general.CmdPage())
         self.add(general.CmdBriefMode())
         self.add(extended_room.CmdGameTime())
+        self.add(extended_room.CmdStudyRawAnsi())
         self.add(xp.CmdVoteXP())
         self.add(social.CmdPosebreak())
         self.add(arxhelp.CmdHelp())
