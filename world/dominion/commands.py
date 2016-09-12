@@ -12,7 +12,7 @@ from .models import (Region, Domain, Land, PlayerOrNpc, Army,
                         Castle, AssetOwner, DomainProject, Task,
                         Ruler, Organization, Member, Orders, Agent,
                         SphereOfInfluence, SupportUsed, AssignedTask,
-                        TaskSupporter)
+                        TaskSupporter, InfluenceCategory)
 from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
 from evennia.objects.objects import _AT_SEARCH_RESULT
