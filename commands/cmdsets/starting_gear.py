@@ -92,7 +92,7 @@ class CmdStartingGear(MuxCommand):
         "Implement the command"
         caller = self.caller
         try:
-            dompc = PlayerOrNpc.objects.get(player=caller.player.dbobj)
+            dompc = PlayerOrNpc.objects.get(player=caller.player)
             assets = AssetOwner.objects.get(player=dompc)
         except PlayerOrNpc.DoesNotExist:
             # dominion not set up on player

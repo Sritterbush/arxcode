@@ -443,7 +443,7 @@ class CmdJournal(MuxCommand):
                 caller.msg("No entry by that number.")
                 return
             now = datetime.now()
-            if (now - entry.db_date_sent).days > 2:
+            if (now - entry.db_date_created).days > 2:
                 caller.msg("It has been too long to edit that message.")
                 return
             old = entry.db_message
@@ -669,7 +669,7 @@ class CmdMessenger(MuxCommand):
                 caller.msg("You must supply a number between 1 and %s. You wrote '%s'." % (len(old), self.lhs))
                 return
         if "sent" in self.switches or "sentindex" in self.switches or "oldsent" in self.switches:
-            old = list(caller.sender_object_set.filter(db_header__icontains="messenger").order_by('-db_date_sent'))
+            old = list(caller.sender_object_set.filter(db_header__icontains="messenger").order_by('-db_date_created'))
             if not old:
                 caller.msg("There are no traces of old messages you sent. They may have all been destroyed.")
                 return
@@ -909,7 +909,7 @@ class CmdCalendar(MuxPlayerCommand):
                 num = int(self.rhs)
                 if num < 1:
                     raise ValueError
-                comments = list(event.comments.filter(db_header__icontains="white_journal").order_by('-db_date_sent'))
+                comments = list(event.comments.filter(db_header__icontains="white_journal").order_by('-db_date_created'))
                 caller.msg(char.messages.disp_entry(comments[num - 1]))
                 return
             except (ValueError, TypeError):

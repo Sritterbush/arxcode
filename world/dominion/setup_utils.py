@@ -23,7 +23,7 @@ org_lockstring = ("edit:rank(2);boot:rank(2);guards:rank(2);withdraw:rank(2)" +
 def setup_dom_for_player(player):
     if hasattr(player, 'Dominion'):
         raise TypeError("Player has an existing PC_Or_NPC model OneToOne instance. Please manually remove or edit it.")
-    return PlayerOrNpc.objects.create(player=player.dbobj)
+    return PlayerOrNpc.objects.create(player=player)
 
 def setup_assets(dompc, amt):
     if hasattr(dompc, 'assets'):
@@ -400,7 +400,7 @@ def replace_vassal(domain, player):
     if npc.player:
         raise ValueError("This domain already has a player ruler.")
     npc.npc_name = None
-    npc.player = player.dbobj
+    npc.player = player
     npc.save()
     org.name = family
     org.save()
