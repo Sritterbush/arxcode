@@ -26,7 +26,7 @@ from world.dominion import setup_utils
 RESOURCE_VAL = 250
 BOOK_PRICE = 1
 other_items = {"book": [BOOK_PRICE, "parchment",
-                        "game.gamesrc.objects.readable.readable.Readable",
+                        "typeclasses.readable.readable.Readable",
                         "A book that you can write in and others can read."],
                }
 
