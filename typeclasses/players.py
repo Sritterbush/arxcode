@@ -92,6 +92,9 @@ class Player(MsgMixins, DefaultPlayer):
      at_server_shutdown()
 
     """
+    def __str__(self):
+        return self.name
+    
     def at_player_creation(self):
         """
         This is called once, the very first time
