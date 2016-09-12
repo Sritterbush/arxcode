@@ -94,6 +94,8 @@ class Player(MsgMixins, DefaultPlayer):
     """
     def __str__(self):
         return self.name
+    def __unicode__(self):
+        return self.name
     
     def at_player_creation(self):
         """
