@@ -16,7 +16,7 @@ creative process.
 from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from server.utils import prettytable
-from evennia.utils import utils
+from server.utils import utils
 from evennia.utils.create import create_object
 from django.conf import settings
 from world.dominion.models import (CraftingMaterialType, PlayerOrNpc,
