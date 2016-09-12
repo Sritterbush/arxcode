@@ -79,7 +79,7 @@ class CmdGossip(MuxCommand):
         week = get_week()
         for rumor in rumors:
             now = tnow()
-            if (now - rumor.db_date_sent).days > RUMOR_LIFETIME:
+            if (now - rumor.db_date_created).days > RUMOR_LIFETIME:
                 continue
             x += 1
             table.add_row(x, rumor.db_message)
