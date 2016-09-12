@@ -214,7 +214,6 @@ class StaffCmdSet(CmdSet):
         self.add(building.CmdSetObjAlias())
         self.add(building.CmdListCmdSets())
         self.add(building.CmdWipe())
-        self.add(building.CmdSetAttribute())
         self.add(building.CmdName())
         self.add(building.CmdCpAttr())
         self.add(building.CmdMvAttr())

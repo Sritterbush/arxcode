@@ -29,7 +29,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         """
         Populates the cmdset
         """
-        super(CharacterCmdSet, self).at_cmdset_creation()
+        #super(CharacterCmdSet, self).at_cmdset_creation()
         #
         # any commands you add below will overload the default ones.
         #
@@ -41,8 +41,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         except Exception:
             import traceback
             traceback.print_exc()
-        from .command import CmdViewTestObject
-        self.add(CmdViewTestObject())
+
 
 
 class PlayerCmdSet(default_cmds.PlayerCmdSet):
@@ -107,6 +106,7 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
         try:
             from .commands import overrides
             self.add(overrides.CmdWho())
+            self.add(overrides.CmdSetAttribute())
         except Exception as err:
             print("<<ERROR>>: Error in overrides: %s." % err)
         try:
