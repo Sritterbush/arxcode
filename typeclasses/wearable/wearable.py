@@ -19,11 +19,7 @@ from time import time
 class Wearable(Object):
     """
     Class for wearable objects
-    """
-
-    def __init__(self, dbobj):
-        super(Wearable, self).__init__(dbobj)               
-
+    """          
     def at_object_creation(self):
         """
         Run at Wearable creation.

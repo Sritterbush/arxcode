@@ -18,11 +18,7 @@ class DecorativeWieldable(Wieldable, Wearable):
     the object is wielded. ex: @set sword/ready_phrase = "wields a large sword"
     'stealth' determines if the weapon will give an echo to the room when it is
     wielded. Poisons, magic, stealthy daggers, etc, fall into this category.
-    """
-
-    def __init__(self, dbobj):
-        super(DecorativeWieldable, self).__init__(dbobj)               
-
+    """             
     def at_object_creation(self):
         """
         Run at wieldable creation. The defaults are for a generic melee
