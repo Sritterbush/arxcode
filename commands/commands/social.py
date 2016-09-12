@@ -251,9 +251,10 @@ class CmdJournal(MuxCommand):
         table = PrettyTable(["{w#{n", "{wWritten About{n", "{wDate{n", "{wUnread?{n"])
         for entry in jlist:
             try:
+                event = character.messages.get_event(entry)
                 name = ", ".join(str(ob) for ob in entry.db_receivers_objects.all())       
-                if entry.event and not name:
-                    name = entry.event.name[:25]
+                if event and not name:
+                    name = event.name[:25]
                 unread = "" if self.caller.db.player_ob in entry.receivers else "{wX{n"
                 date = character.messages.get_date_from_header(entry)
                 table.add_row([num, name, date, unread])

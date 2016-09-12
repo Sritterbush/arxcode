@@ -254,7 +254,7 @@ class MessageHandler(object):
             tag = msg.db_tags.get(db_key__isnull=False,
                                   db_data__isnull=False,
                                   db_category="event")
-            return RPEvent.objects.get(db_key__iexact=tag.db_key)
+            return RPEvent.objects.get(name__iexact=tag.db_key)
         except Exception:
             return None
 
