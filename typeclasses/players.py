@@ -182,7 +182,7 @@ class Player(MsgMixins, DefaultPlayer):
         self.db.newmail = True
 
     def get_fancy_name(self):
-        return self.key.capitalize() + " {w(OOC){n"
+        return self.key.capitalize()
     name = property(get_fancy_name)
 
     def inform(self, message, category=None, week=0, append=True):

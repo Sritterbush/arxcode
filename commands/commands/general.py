@@ -593,12 +593,10 @@ class CmdPage(MuxPlayerCommand):
         for receiver in set(receivers):
               #originally this section had this check, which always was true
               #Not entirely sure what he was trying to check for
-##            if isinstance(receiver, basestring):
-##                self.msg("Debug: inside isinstance(receiver,basestring)")
-##                self.msg("Debug: receiver is %s"% receiver)
-##                self.msg("Debug: basestring is %s"% basestring)
-##                pobj = caller.search(receiver)
-            findpobj = caller.search(receiver, global_search=True)
+            if isinstance(receiver, basestring):
+                findpobj = caller.search(receiver)
+            else:
+                findpobj = receiver
             pobj = None
             if findpobj:
                 # Make certain this is a player object, not a character
