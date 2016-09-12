@@ -93,7 +93,6 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
         self.add(comms.CmdCemit())
         self.add(comms.CmdCWho())
         self.add(comms.CmdCdesc())
-        self.add(comms.CmdPage())
         self.add(comms.CmdIRC2Chan())
         self.add(comms.CmdRSS2Chan())
                  

@@ -344,7 +344,7 @@ class CmdWhisper(MuxCommand):
 
         if not self.args or 'list' in self.switches:
             pages = list(pages_we_sent) + list(pages_we_got)
-            pages.sort(lambda x, y: cmp(x.date_sent, y.date_sent))
+            pages.sort(lambda x, y: cmp(x.date_created, y.date_created))
 
             number = 5
             if self.args:
@@ -360,7 +360,7 @@ class CmdWhisper(MuxCommand):
                 lastpages = pages
             template = "{w%s{n {c%s{n whispered to {c%s{n: %s"
             lastpages = "\n ".join(template %
-                                   (utils.datetime_format(page.date_sent),
+                                   (utils.datetime_format(page.date_created),
                                     ",".join(obj.key for obj in page.senders),
                                     "{n,{c ".join([obj.name for obj in page.receivers]),
                                     page.message) for page in lastpages)
@@ -524,7 +524,7 @@ class CmdPage(MuxPlayerCommand):
                 return
         if 'list' in self.switches or not self.args:
             pages = pages_we_sent + pages_we_got
-            pages.sort(lambda x, y: cmp(x.date_sent, y.date_sent))
+            pages.sort(lambda x, y: cmp(x.date_created, y.date_created))
 
             number = 5
             if self.args:
@@ -540,7 +540,7 @@ class CmdPage(MuxPlayerCommand):
                 lastpages = pages
             template = "{w%s{n {c%s{n paged to {c%s{n: %s"
             lastpages = "\n ".join(template %
-                                   (utils.datetime_format(page.date_sent),
+                                   (utils.datetime_format(page.date_created),
                                     ",".join(obj.key for obj in page.senders),
                                     "{n,{c ".join([obj.name for obj in page.receivers]),
                                     page.message) for page in lastpages)
