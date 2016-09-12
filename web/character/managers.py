@@ -36,8 +36,8 @@ class ArxRosterManager(models.Manager):
     def get_character(self, name):
         from evennia.objects.models import ObjectDB
         try:
-            ObjectDB.objects.get(db_key__iexact=name,
-                                 roster__roster__isnull=False)
+            return ObjectDB.objects.get(db_key__iexact=name,
+                                     roster__roster__isnull=False)
         except ObjectDB.DoesNotExist:
             return None
 

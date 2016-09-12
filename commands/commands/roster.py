@@ -273,7 +273,7 @@ class CmdRosterList(MuxPlayerCommand):
             if not char_ob:
                 caller.msg("No such character on the roster.")
                 return
-            if char_name not in roster.get_all_available_characters():
+            if char_ob.roster.roster.name != "Available":
                 caller.msg("That character is not marked as available for applications.")
                 return
             apps.add_app(char_ob, email, app_string)
