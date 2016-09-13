@@ -745,6 +745,7 @@ class CmdBuyFromShop(CmdCraft):
         +shop/desc <description>
         +shop/adorn <material type>=<amount>
         +shop/finish [<additional silver to invest>]
+        +shop/changename <object>=<new name>
 
     Flags your current room as permitting characters to build there.
     Cost is 50 economic resources unless specified otherwise.
