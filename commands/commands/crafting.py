@@ -327,8 +327,7 @@ class CmdCraft(MuxCommand):
                 return
             caller.pay_money(cost)
             targ.aliases.clear()
-            targ.key = self.rhs
-            targ.save()
+            targ.name = self.rhs
             caller.msg("Changed name to %s." % targ)
             return
         if "refine" in self.switches:
