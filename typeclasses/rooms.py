@@ -288,7 +288,71 @@ class Room(DescMixins, NameMixins, DefaultRoom, AppearanceMixins):
 
         
 
+class CmdExtendedLook(default_cmds.CmdLook):
+    """
+    look
 
+    Usage:
+      look
+      look <obj>
+      look <room detail>
+      look *<player>
+
+    Observes your location, details at your location or objects in your vicinity.
+    """
+    arg_regex = r'\/|\s|$'
+    def func(self):
+        """
+        Handle the looking - add fallback to details.
+        """
+        caller = self.caller
+        args = self.args
+        looking_at_obj = None
+        if args:
+            alist = args.split("'s ")
+            if len(alist) == 2:               
+                obj = caller.search(alist[0], use_nicks=True, quiet=True)
+                if obj:
+                    obj = utils.make_iter(obj)
+                    looking_at_obj = caller.search(alist[1], location=obj[0], use_nicks=True, quiet=True)
+            else:
+                looking_at_obj = caller.search(args, use_nicks=True, quiet=True)
+            # originally called search with invalid arg of no_error or something instead of quiet
+            if not looking_at_obj:
+                # no object found. Check if there is a matching
+                # detail at location.
+                location = caller.location
+                if location and hasattr(location, "return_detail") and callable(location.return_detail):
+                    detail = location.return_detail(args)
+                    if detail:
+                        # we found a detail instead. Show that.
+                        caller.msg(detail)
+                        return
+                # no detail found. Trigger delayed error messages
+                _AT_SEARCH_RESULT(looking_at_obj, caller, args, False)
+                return
+            else:
+                # we need to extract the match manually.
+                if len(utils.make_iter(looking_at_obj)) > 1:
+                    _AT_SEARCH_RESULT(looking_at_obj, caller, args, False)
+                    return
+                looking_at_obj = utils.make_iter(looking_at_obj)[0]
+        else:
+            looking_at_obj = caller.location
+            if not looking_at_obj:
+                caller.msg("You have no location to look at!")
+                return
+
+        if not hasattr(looking_at_obj, 'return_appearance'):
+            # this is likely due to us having a player instead
+            looking_at_obj = looking_at_obj.character
+        if not looking_at_obj.access(caller, "view"):
+            caller.msg("Could not find '%s'." % args)
+            return
+        # get object's appearance
+        caller.msg(looking_at_obj.return_appearance(caller, detailed=False), formatted=True)
+        # the object's at_desc() method.
+        looking_at_obj.at_desc(looker=caller)
 
 class CmdStudyRawAnsi(default_cmds.MuxCommand):
     """
