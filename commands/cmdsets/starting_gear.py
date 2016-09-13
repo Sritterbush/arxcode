@@ -68,6 +68,13 @@ class CmdStartingGear(MuxCommand):
     desc before using /finish. Once you have crafted all you choose,
     you can cash in the remainder of your starting funds with
     /refundremainder, which removes this command permanently.
+    For a list of valid recipes, please look at:
+    http://play.arxmush.org/topics/recipes/
+    
+    Note that the silver cost is an additional cost on top of the
+    cost of materials, so the actual cost of an item is far higher
+    than seen there. You must add in the cost of the materials
+    listed on the page for an accurate cost of crafting an item.
     """
     key = "startgear"
     locks = "cmd:all()"
