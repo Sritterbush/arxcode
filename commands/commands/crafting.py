@@ -329,7 +329,6 @@ class CmdCraft(MuxCommand):
             targ.aliases.clear()
             targ.key = self.rhs
             targ.save()
-            targ.aliases.setup_aliases_from_key()
             caller.msg("Changed name to %s." % targ)
             return
         if "refine" in self.switches:
