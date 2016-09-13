@@ -215,6 +215,10 @@ class ObjectMixins(DescMixins, AppearanceMixins):
         self.is_character = False
         super(ObjectMixins, self).at_init()
 
+    def at_object_creation(self):
+        super(ObjectMixins, self).at_object_creation()
+        self.at_init()
+
 class MsgMixins(object):
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):
         try:

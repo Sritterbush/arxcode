@@ -73,6 +73,7 @@ from evennia.contrib.extended_room import ExtendedRoom
 from evennia import gametime
 from evennia import default_cmds
 from evennia import utils
+from evennia.utils.utils import lazy_property
 from evennia.objects.models import ObjectDB
 from typeclasses.mixins import DescMixins, AppearanceMixins, NameMixins
 from world.msgs.messagehandler import MessageHandler
@@ -109,7 +110,10 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
         self.is_room = True
         self.is_exit = False
         self.is_character = False
-        self.messages = MessageHandler(self)
+        
+    @lazy_property
+    def messages(self):
+        return MessageHandler(self)
         
     def get_visible_characters(self, pobject):
         "Returns a list of visible characters in a room."

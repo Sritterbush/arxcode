@@ -11,7 +11,7 @@ from evennia import DefaultCharacter
 from typeclasses.mixins import MsgMixins, ObjectMixins
 from world.msgs.messagehandler import MessageHandler
 from evennia.utils import create
-from evennia.utils.utils import fill, to_str, to_unicode
+from evennia.utils.utils import fill, to_str, to_unicode, lazy_property
 import time
 from world.stats_and_skills import do_dice_check
 
@@ -70,7 +70,10 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         self.is_room = False
         self.is_exit = False
         self.is_character = True
-        self.messages = MessageHandler(self)
+        
+    @lazy_property
+    def messages(self):    
+        return MessageHandler(self)
         
 
     def at_after_move(self, source_location):
