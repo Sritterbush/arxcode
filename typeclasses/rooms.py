@@ -283,7 +283,7 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
             except ScriptDB.DoesNotExist:
                 if from_obj:
                     from_obj.msg("Error: Event Manager not found.")
-        super(Room, self).msg_contents(text, exclude=exclude,
+        super(ArxRoom, self).msg_contents(text, exclude=exclude,
                                 from_obj=from_obj, **kwargs)
 
         
