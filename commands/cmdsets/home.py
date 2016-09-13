@@ -80,8 +80,8 @@ class CmdManageHome(MuxCommand):
             caller.msg("You are not the owner of this room.")
             return
         if not entrances:
-            from src.objects.models import ObjectDB
-            entrances = list(ObjectDB.objects.filter(db_destination=loc.dbobj))
+            from evennia.objects.models import ObjectDB
+            entrances = list(ObjectDB.objects.filter(db_destination=loc))
             loc.db.entrances = entrances
             for ent in entrances:
                 ent.locks.add("usekey: perm(builders) or roomkey(%s)" % loc.id)

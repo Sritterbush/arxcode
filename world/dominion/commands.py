@@ -989,10 +989,10 @@ class CmdSetRoom(MuxCommand):
     help_category = "Dominion"
     allowed_switches = ("barracks", "market", "bank", "rumormill", "home",
                         "homeaddowner", "homermowner", "none")
-    MARKETCMD = "game.gamesrc.commands.cmdsets.market.MarketCmdSet"
-    BANKCMD = "game.gamesrc.commands.cmdsets.bank.BankCmdSet"
-    RUMORCMD = "game.gamesrc.commands.cmdsets.rumor.RumorCmdSet"
-    HOMECMD = "game.gamesrc.commands.cmdsets.home.HomeCmdSet"
+    MARKETCMD = "commands.cmdsets.market.MarketCmdSet"
+    BANKCMD = "commands.cmdsets.bank.BankCmdSet"
+    RUMORCMD = "commands.cmdsets.rumor.RumorCmdSet"
+    HOMECMD = "commands.cmdsets.home.HomeCmdSet"
     def func(self):
         DEFAULT_HOME = ObjectDB.objects.get(id=13)
         caller=self.caller
