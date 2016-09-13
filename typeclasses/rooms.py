@@ -69,7 +69,7 @@ Installation/testing:
 
 import re
 from django.conf import settings
-from evennia.contrib.extended_room import ExtendedRoom as DefaultRoom
+from evennia.contrib.extended_room import ExtendedRoom
 from evennia import gametime
 from evennia import default_cmds
 from evennia import utils
@@ -90,7 +90,7 @@ SHOPCMD = "cmdsets.home.ShopCmdSet"
 
 # implements the Extended Room
 
-class Room(DescMixins, NameMixins, DefaultRoom, AppearanceMixins):
+class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
     """
     This room implements a more advanced look functionality depending on
     time. It also allows for "details", together with a slightly modified
@@ -121,7 +121,7 @@ class Room(DescMixins, NameMixins, DefaultRoom, AppearanceMixins):
     def return_appearance(self, looker, detailed=False, format_desc=True):
         "This is called when e.g. the look command wants to retrieve the description of this object."
         # update desc
-        super(ExtendedRoom, self).return_appearance(looker)
+        super(ArxRoom, self).return_appearance(looker)
         # return updated desc plus other stuff
         return AppearanceMixins.return_appearance(self, looker, detailed, format_desc) + self.command_string() + self.event_string()
     
@@ -543,7 +543,7 @@ class CmdExtendedDesc(default_cmds.CmdDesc):
                 else:
                     caller.msg("The description was set on %s." % obj.key)
 
-ExtendedRoom = Room
+
 
 # Simple command to view the current time and season
 

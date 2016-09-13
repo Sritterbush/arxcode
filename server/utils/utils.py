@@ -103,3 +103,11 @@ def datetime_format(dtobj):
         # same day, less than 1 hour ago
         timestring = "%02i:%02i:%02i" % (hour, minute, second)
     return timestring
+
+def convert_all_rooms():
+    from evennia.objects.models import ObjectDB
+    from django.conf import settings
+    qs = ObjectDB.objects.filter(db_typeclass_path__icontains="room")
+    for ob in qs:
+        ob.db_typeclass_path = settings.BASE_ROOM_TYPECLASS
+        ob.save()
