@@ -121,7 +121,7 @@ class Exit(NameMixins, ObjectMixins, DefaultExit):
         # create a cmdset
         exit_cmdset = cmdset.CmdSet(None)
         exit_cmdset.key = '_exitset'
-        exit_cmdset.priority = 120 # equal to channel priority
+        exit_cmdset.priority = 101 # equal to channel priority
         exit_cmdset.duplicates = True
         # add command to cmdset
         exit_cmdset.add(exitcmd)
