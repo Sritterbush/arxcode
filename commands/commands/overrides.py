@@ -8,11 +8,6 @@ from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.server.sessionhandler import SESSIONS
 import time
 
-# limit symbol import for API
-__all__ = ("CmdHome", "CmdLook", "CmdNick",
-           "CmdInventory", "CmdGet", "CmdDrop", "CmdGive",
-           "CmdSay", "CmdPose", "CmdAccess")
-
 AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.',1))
 
 def args_are_currency(args):
@@ -744,6 +739,7 @@ class CmdSetAttribute(ObjManipCommand):
         attrs = self.lhs_objattr[0]['attrs']
 
         if objname.startswith('*') or 'char' in self.switches:
+            caller = hasattr(caller, 'player') and caller.player or caller
             obj = caller.search(objname.lstrip('*'))
             if 'char' in self.switches and obj:
                 obj = obj.db.char_ob
@@ -757,7 +753,7 @@ class CmdSetAttribute(ObjManipCommand):
             if self.rhs is None:
                 # no = means we inspect the attribute(s)
                 if not attrs:
-                    attrs = [attr.key for attr in obj.get_all_attributes()]
+                    attrs = [attr.key for attr in obj.attributes.all()]
                 for attr in attrs:
                     if obj.attributes.has(attr):
                         string += "\nAttribute %s/%s = %s" % (obj.name, attr,
