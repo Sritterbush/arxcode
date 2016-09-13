@@ -24,6 +24,7 @@ class NameMixins(object):
         from evennia.utils.ansi import parse_ansi
         self.db.colored_name = val
         self.key = parse_ansi(val, strip_ansi=True)
+        self.save()
     name = property(__name_get, __name_set)
     
     def __str__(self):
