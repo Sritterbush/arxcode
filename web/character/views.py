@@ -267,7 +267,7 @@ def upload(request, object_id):
     context['character'] = character
     if request.method == 'POST':
         # Only backend upload should be posting here
-        owner_char = Photo(owner=character.dbobj)
+        owner_char = Photo(owner=character)
         form = PhotoForm(request.POST, request.FILES, instance=owner_char)
         context['posted'] = False
         if form.is_valid():
@@ -284,7 +284,7 @@ def direct_upload_complete(request, object_id):
     character, err = get_character_from_ob(object_id)
     if not character:
         raise Http404(err)
-    owner_char = Photo(owner = character.dbobj)
+    owner_char = Photo(owner = character)
     form = PhotoDirectForm(request.POST, instance=owner_char)
     if form.is_valid():
         # Create a model instance for uploaded image using the provided data
