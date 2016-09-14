@@ -262,7 +262,7 @@ class CmdBank(MuxCommand):
                     tamt = tresamt + val
                     setattr(sender, matname, samt)
                     setattr(receiver, matname, tamt)
-                    matname = matname = " resources"
+                    matname = matname + " resources"
                 source.save()    
                 targ.save()
                 caller.msg("You have transferred %s %s from %s to %s." % (
