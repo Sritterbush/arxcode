@@ -354,7 +354,7 @@ class CmdExtendedLook(default_cmds.CmdLook):
             caller.msg("Could not find '%s'." % args)
             return
         # get object's appearance
-        caller.msg(looking_at_obj.return_appearance(caller, detailed=False), formatted=True)
+        caller.msg(looking_at_obj.return_appearance(caller, detailed=False))
         # the object's at_desc() method.
         looking_at_obj.at_desc(looker=caller)
 
