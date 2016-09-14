@@ -1457,9 +1457,8 @@ class CmdHere(MuxCommand):
             return
         if self.switches and 'titles' in self.switches: disp_titles = True
         vis_list = caller.location.get_visible_characters(caller)
-        char_list = [char.name.capitalize() for char in vis_list]
         rname = caller.location.name
-        list_characters(caller, char_list, rname, roster, disp_titles, hidden_chars=vis_list, display_afk=True)
+        list_characters(caller, vis_list, rname, roster, disp_titles, hidden_chars=vis_list, display_afk=True)
         if caller.check_permstring("Builders"):
             masks = [char for char in caller.location.get_visible_characters(caller) if char.key != char.name]
             char_list = []
