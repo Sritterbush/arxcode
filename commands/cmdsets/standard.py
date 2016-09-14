@@ -129,7 +129,7 @@ class StateIndependentCmdSet(CmdSet):
     """  
     key = "StateIndependentCmdSet"   
     def at_cmdset_creation(self):
-        self.add(default_general.CmdPose())
+        self.add(overrides.CmdPose())
         #emit was originally an admin command. Replaced those with gemit
         self.add(overrides.CmdEmit())
         self.add(general.CmdOOCSay())

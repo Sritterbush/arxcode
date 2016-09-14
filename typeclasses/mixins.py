@@ -222,15 +222,16 @@ class ObjectMixins(DescMixins, AppearanceMixins):
 class MsgMixins(object):
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):
         options = options or {}
+        options.update(kwargs.get('options', {}))
         try:
             text = str(text)
         except Exception:
             pass
         text = text.replace("%r", "|/").replace("%t", "|-")
-        if options.pop('is_pose', False):
+        if options.get('is_pose', False):
             if self.db.posebreak:
                 text = "\n" + text
-        if options.pop('box', False):
+        if options.get('box', False):
             boxchars = '\n{w' + '*' * 60 + '{n\n'
             text = boxchars + text + boxchars
         super(MsgMixins, self).msg(text, from_obj, session, options, **kwargs)

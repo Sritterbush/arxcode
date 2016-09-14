@@ -271,7 +271,7 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
                 more info.
         """
         eventid = self.db.current_event
-        gm_only = kwargs.get('gm_msg', False)
+        gm_only = kwargs.pop('gm_msg', False)
         if gm_only:
             exclude = exclude or []
             exclude = exclude + [ob for ob in self.contents if not ob.check_permstring("builders")]

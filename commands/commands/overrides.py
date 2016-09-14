@@ -508,8 +508,9 @@ class CmdEmit(MuxCommand):
         # normal emits by players are just sent to the room
         if normal_emit:
             gms = [ob for ob in caller.location.contents if ob.check_permstring('builders')]
-            caller.location.msg_contents("{w[Emit by: {c%s{w]{n %s" % (caller.name, message), gm_msg=True)
-            caller.location.msg_contents(message, exclude=gms, from_obj=caller, is_pose=True)
+            caller.location.msg_contents("{w[Emit by: {c%s{w]{n %s" % (caller.name, message), options={'is_pose':True},
+                                                                                                      gm_msg=True)
+            caller.location.msg_contents(message, exclude=gms, from_obj=caller, options={'is_pose':True})
             return
         # send to all objects
         for objname in objnames:
@@ -531,16 +532,59 @@ class CmdEmit(MuxCommand):
             if obj.access(caller, 'tell'):
                 if obj.check_permstring(perm):
                     bmessage = "{w[Emit by: {c%s{w]{n %s" % (caller.name, message)
-                    obj.msg(bmessage, is_pose=True)
+                    obj.msg(bmessage, options={'is_pose':True})
                 else:
-                    obj.msg(message, is_pose=True)
+                    obj.msg(message, options={'is_pose':True})
                 if send_to_contents and hasattr(obj, "msg_contents"):
-                    obj.msg_contents(message, from_obj=caller, is_pose=True)
+                    obj.msg_contents(message, from_obj=caller, kwargs={'options':{'is_pose':True}})
                     caller.msg("Emitted to %s and contents:\n%s" % (objname, message))
                 elif caller.check_permstring(perm):
                     caller.msg("Emitted to %s:\n%s" % (objname, message))
             else:
                 caller.msg("You are not allowed to emit to %s." % objname)
+
+class CmdPose(MuxCommand):
+    """
+    pose - strike a pose
+
+    Usage:
+      pose <pose text>
+      pose's <pose text>
+
+    Example:
+      pose is standing by the wall, smiling.
+       -> others will see:
+      Tom is standing by the wall, smiling.
+
+    Describe an action being taken. The pose text will
+    automatically begin with your name.
+    """
+    key = "pose"
+    aliases = [":", "emote", ";"]
+    locks = "cmd:all()"
+    help_category = "Social"
+
+    def parse(self):
+        """
+        Custom parse the cases where the emote
+        starts with some special letter, such
+        as 's, at which we don't want to separate
+        the caller's name and the emote with a
+        space.
+        """
+        args = self.args
+        if (args and not args[0] in ["'", ",", ":"]) and not self.cmdstring.startswith(";"):
+            args = " %s" % args.strip()
+        self.args = args
+
+    def func(self):
+        "Hook function"
+        if not self.args:
+            msg = "What do you want to do?"
+            self.caller.msg(msg)
+        else:
+            msg = "%s%s" % (self.caller.name, self.args)
+            self.caller.location.msg_contents(msg, from_obj=self.caller, options={'is_pose':True})
 
 #Changed to display room dbref number rather than room name
 class CmdWho(MuxPlayerCommand):
