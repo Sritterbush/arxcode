@@ -104,10 +104,27 @@ def datetime_format(dtobj):
         timestring = "%02i:%02i:%02i" % (hour, minute, second)
     return timestring
 
-def convert_all_rooms():
-    from evennia.objects.models import ObjectDB
-    from django.conf import settings
-    qs = ObjectDB.objects.filter(db_typeclass_path__icontains="room")
-    for ob in qs:
-        ob.db_typeclass_path = settings.BASE_ROOM_TYPECLASS
-        ob.save()
+def sub_old_ansi(text):
+    text = text.replace('%r', '|/')
+    text = text.replace('%R', '|/')
+    text = text.replace('%t', '|-')
+    text = text.replace('%b', '|_')
+    text = text.replace('%cr', '|r')
+    text = text.replace('%cR', '|[R')
+    text = text.replace('%cg', '|g')
+    text = text.replace('%cG', '|[G')
+    text = text.replace('%cy', '|!Y')
+    text = text.replace('%cY', '|[Y')
+    text = text.replace('%cb', '|!B')
+    text = text.replace('%cB', '|[B')
+    text = text.replace('%cm', '|!M')
+    text = text.replace('%cM', '|[M')
+    text = text.replace('%cc', '|!C')
+    text = text.replace('%cC', '|[C')
+    text = text.replace('%cw', '|!W')
+    text = text.replace('%cW', '|[W')
+    text = text.replace('%cx', '|!X')
+    text = text.replace('%cX', '|[X')
+    text = text.replace('%ch', '|h')
+    text = text.replace('%cn', '|H')
+    return text

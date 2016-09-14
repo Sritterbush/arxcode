@@ -1,4 +1,5 @@
 from evennia.utils.utils import fill
+from server.utils.utils import sub_old_ansi
 
 
 
@@ -22,6 +23,8 @@ class NameMixins(object):
         return self.db.colored_name or self.key
     def __name_set(self, val):
         from evennia.utils.ansi import parse_ansi
+        # convert color codes
+        val = sub_old_ansi(val)
         self.db.colored_name = val
         self.key = parse_ansi(val, strip_ansi=True)
         self.save()
@@ -227,7 +230,7 @@ class MsgMixins(object):
             text = str(text)
         except Exception:
             pass
-        text = text.replace("%r", "|/").replace("%t", "|-")
+        text = sub_old_ansi(text)
         if options.get('is_pose', False):
             if self.db.posebreak:
                 text = "\n" + text
