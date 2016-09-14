@@ -1199,7 +1199,7 @@ class CmdInform(MuxPlayerCommand):
     locks = "cmd: all()"
 
     def read_inform(self, caller, inform):
-        caller.msg(inform.message, box=True)
+        caller.msg(inform.message, options={'box':True})
         if inform.is_unread:
             inform.is_unread = False
             inform.save()
