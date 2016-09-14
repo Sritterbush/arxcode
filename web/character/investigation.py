@@ -352,6 +352,7 @@ class CmdListClues(MuxPlayerCommand):
         if not self.args:
             if not clues:
                 caller.msg("Nothing yet.")
+            caller.msg("{wDiscovered clue #'s: Please use '@clues <#>' to dislplay them.{n")
             caller.msg(", ".join(str(clue.id) for clue in clues))
             return
         try:
