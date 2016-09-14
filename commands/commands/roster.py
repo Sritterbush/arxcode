@@ -833,7 +833,7 @@ def display_visions(caller, character):
         caller.msg("No visions to display.")
         return
     for vision in visions:
-        caller.msg(character.messages.disp_entry(vision), box=True)
+        caller.msg(character.messages.disp_entry(vision), options={'box':True})
         vision.receivers = caller
 
 def display_timeline(caller, character):
@@ -1239,7 +1239,7 @@ class CmdRelationship(MuxPlayerCommand):
             for msg in entries:            
                 jname = "{wJournal:{n %s\n" % ("White Journal" if msg in white.get(self.rhs.lower() if self.rhs else self.args.lower(), [])
                                                else "Black Reflection")
-                caller.msg("\n" + jname + charob.messages.disp_entry(msg), box=True)
+                caller.msg("\n" + jname + charob.messages.disp_entry(msg), options={'box':True})
                 msg.receivers = caller
             return
         lhs = self.lhs

@@ -654,7 +654,7 @@ class CmdAdmAssets(MuxPlayerCommand):
             caller.msg("No assetowner found for %s." % self.lhs)
             return
         if not self.rhs:
-            caller.msg(owner.display(), box=True)
+            caller.msg(owner.display(), options={'box':True})
             return
         if "money" in self.switches or not self.switches:
             try:
@@ -1342,7 +1342,7 @@ class CmdOrganization(MuxPlayerCommand):
             if len(olock) > 1:
                 olock = olock[1]
             table.add_row([lock, olock])
-        caller.msg(table, box=True)
+        caller.msg(table, options={'box':True})
     
     def func(self):
         caller = self.caller
@@ -1386,14 +1386,14 @@ class CmdOrganization(MuxPlayerCommand):
                     self.disp_org_locks(caller, myorgs[0])
                     return
                 member = caller.Dominion.memberships.get(organization=myorgs[0])
-                caller.msg(myorgs[0].display(member), box=True)
+                caller.msg(myorgs[0].display(member), options={'box':True})
                 return
             caller.msg("Your organizations: %s" % ", ".join(org.name for org in myorgs))
             return
         if not self.switches:
             try:
                 org, member = self.get_org_and_member(caller, myorgs, self.lhs)
-                caller.msg(org.display(member), box=True)
+                caller.msg(org.display(member), options={'box':True})
                 return
             except Organization.DoesNotExist:
                 caller.msg("You are not a member of any organization named %s." % self.lhs)
@@ -1632,7 +1632,7 @@ class CmdAgents(MuxPlayerCommand):
                                          owner__organization_owner__in=[org.organization_owner for org in orgs])
         agents = personal | house
         if not self.args:
-            caller.msg("{WYour agents:{n\n%s" % ", ".join(agent.display() for agent in agents), box=True)
+            caller.msg("{WYour agents:{n\n%s" % ", ".join(agent.display() for agent in agents), options={'box':True})
             barracks = self.find_barracks(caller.Dominion.assets)
             for org in orgs:
                 barracks.extend(self.find_barracks(org))
@@ -1645,7 +1645,7 @@ class CmdAgents(MuxPlayerCommand):
             except Organization.DoesNotExist:
                 caller.msg("You are not a member of an organization named %s." % self.args)
                 return
-            caller.msg(", ".join(agent.display() for agent in org.assets.agents.all()), box=True)
+            caller.msg(", ".join(agent.display() for agent in org.assets.agents.all()), options={'box':True})
             barracks = self.find_barracks(org.assets)
             caller.msg("{wBarracks locations:{n %s" % ", ".join(ob.key for ob in barracks))
             return       
@@ -1859,7 +1859,7 @@ class CmdPatronage(MuxPlayerCommand):
         except Exception:
             dompc = setup_utils.setup_dom_for_char(self.caller.db.char_ob)
         if not self.args and not self.switches:        
-            caller.msg(self.display_patronage(dompc), box=True)
+            caller.msg(self.display_patronage(dompc), options={'box':True})
             return
         if self.args:
             player = caller.search(self.args)
@@ -1874,7 +1874,7 @@ class CmdPatronage(MuxPlayerCommand):
             except Exception:
                 tdompc = setup_utils.setup_dom_for_char(char)
             if not self.switches:
-                caller.msg(self.display_patronage(tdompc), box=True)
+                caller.msg(self.display_patronage(tdompc), options={'box':True})
                 return
             if "addprotege" in self.switches:
                 if not player.is_connected:

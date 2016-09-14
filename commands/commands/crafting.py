@@ -647,7 +647,7 @@ class CmdRecipes(MuxCommand):
                 caller.msg("You don't know a recipe by %s." % self.lhs)
                 return
             caller.msg("Requirements for %s:" % recipe.name)
-            caller.msg(recipe.display_reqs(dompc, full=True), box=True)
+            caller.msg(recipe.display_reqs(dompc, full=True), options={'box':True})
             return
         if 'learn' in self.switches:
             match = [ob for ob in can_learn if ob.name == self.args]
@@ -679,7 +679,7 @@ class CmdRecipes(MuxCommand):
                 return
             match = match[0]
             display = match.display_reqs(dompc, full=True)
-            caller.msg(display, box=True)
+            caller.msg(display, options={'box':True})
             return
         if 'teach' in self.switches:
             can_teach = [ob for ob in recipes if ob.access(caller, 'teach')]

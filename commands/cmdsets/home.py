@@ -67,7 +67,7 @@ class CmdManageHome(MuxCommand):
             if caller.db.player_ob.Dominion.lifestyle_rating == rating:
                 num += '{w*{n'
             table.add_row([num, LIFESTYLES[rating][0], LIFESTYLES[rating][1]])
-        caller.msg(str(table), box=True)
+        caller.msg(str(table), options={'box':True})
     
     def func(self):
         "Execute command."

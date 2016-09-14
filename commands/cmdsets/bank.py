@@ -100,7 +100,7 @@ class CmdBank(MuxCommand):
                 if acc.organization_owner.access(caller, 'withdraw') and acc.debts.all():
                     debts += list(acc.debts.all())
             if not self.args:                
-                caller.msg(str(self.get_debt_table(debts)), box=True)
+                caller.msg(str(self.get_debt_table(debts)), options={'box':True})
                 return
             if "endpayment" in self.switches or "adjustpayment" in self.switches:
                 try:
@@ -112,7 +112,7 @@ class CmdBank(MuxCommand):
                     return
                 except AccountTransaction.DoesNotExist:
                     caller.msg("Invalid number. Select one of the following:")
-                    caller.msg(str(self.get_debt_table(debts)), box=True)
+                    caller.msg(str(self.get_debt_table(debts)), options={'box':True})
                     return
                 if "endpayment" in self.switches:
                     debt.delete()
@@ -200,7 +200,7 @@ class CmdBank(MuxCommand):
                     msg += str(self.get_debt_table(debts))
                     msg += "\n"
             msg += str(actable)
-            caller.msg(msg, box=True)
+            caller.msg(msg, options={'box':True})
             return       
         if ("depositmats" in self.switches or "withdrawmats" in self.switches
             or "depositres" in self.switches or "withdrawres" in self.switches):
