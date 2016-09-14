@@ -200,7 +200,7 @@ class CmdDitch(MuxCommand):
                 if obj:
                     matches.append(obj[0])
                 else:
-                    _AT_SEARCH_RESULT(caller, arg, obj)
+                    _AT_SEARCH_RESULT(obj, caller, arg)
             for match in matches:
                 match.stop_follow()
             return
@@ -1076,11 +1076,11 @@ class CmdPut(MuxCommand):
             return
         dest = caller.search(args[1], use_nicks=True, quiet=True)
         if not dest:
-            return _AT_SEARCH_RESULT(caller, args[1], dest)
+            return _AT_SEARCH_RESULT(dest, caller, args[1])
         dest = make_iter(dest)[0]
         obj = caller.search(args[0], location=caller, use_nicks=True, quiet=True)
         if not obj:
-            return _AT_SEARCH_RESULT(caller, args[0], obj)
+            return _AT_SEARCH_RESULT(obj, caller, args[0])
         obj = make_iter(obj)[0]
         if obj == dest:
             caller.msg("You can't put an object inside itself.")
