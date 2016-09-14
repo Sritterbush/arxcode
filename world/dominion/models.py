@@ -2840,7 +2840,7 @@ class RPEvent(models.Model):
         msg += "{wEvent Scale:{n %s\n" % self.get_celebration_tier_display()
         msg += "{wDate:{n %s\n" % self.date.strftime("%x %X")
         msg += "{wDesc:{n\n%s" % self.desc
-        comments = self.comments.filter(db_header__icontains="white_journal").order_by('-db_date_sent')
+        comments = self.comments.filter(db_header__icontains="white_journal").order_by('-db_date_created')
         if comments:
             from server.utils.prettytable import PrettyTable
             msg += "\n{wComments:{n"

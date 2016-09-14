@@ -111,7 +111,7 @@ class CmdWatch(MuxPlayerCommand):
         if not watchlist:
             caller.msg("Not watching anyone.")
             return
-        caller.msg("Currently watching:\n%s" % ", ".join(ob.key for ob in watchlist), box=True)
+        caller.msg("Currently watching:\n%s" % ", ".join(ob.key for ob in watchlist), options={'box':True})
         if caller.db.hide_from_watch:
             caller.msg("You are currently in hidden mode.")
         return
@@ -205,7 +205,7 @@ class CmdFinger(MuxPlayerCommand):
         quote = char.db.quote
         if quote:
             msg += "{wQuote:{n %s\n" % quote
-        caller.msg(msg, box=True)
+        caller.msg(msg, options={'box':True})
         
 
 # for a character writing in their White Journal or Black Reflection
@@ -300,7 +300,8 @@ class CmdJournal(MuxCommand):
             # display caller's latest white or black journal entry
             try:
                 self.msg("Number of entries in your %s: %s" % (jname, char.messages.size(white))) 
-                self.msg(char.messages.disp_entry_by_num(num=num, white=white, caller=caller.db.player_ob), box=True)
+                self.msg(char.messages.disp_entry_by_num(num=num, white=white, caller=caller.db.player_ob),
+                         options={'box':True})
             except IndexError:
                 caller.msg("No journal entries written yet.")
             self.disp_unread_journals()
@@ -340,7 +341,7 @@ class CmdJournal(MuxCommand):
                     caller.msg("Empty entry.")
                     return
                 caller.msg("Number of entries for {c%s{n's %s journal: %s" % (char, "white" if white else "black", len(journal)))
-                caller.msg(msg, box=True)
+                caller.msg(msg, options={'box':True})
             except AttributeError:
                 caller.msg("No player found for %s." % self.lhs)
                 return
@@ -374,7 +375,7 @@ class CmdJournal(MuxCommand):
             else:
                 entry = caller.messages.add_journal(self.lhs, white=white)
             caller.msg("New %s added:" % ("white journal" if white else "black reflection"))
-            caller.msg(caller.messages.disp_entry(entry), box=True)
+            caller.msg(caller.messages.disp_entry(entry), options={'box':True})
             if white:
                 caller.msg_watchlist("A player you are watching, {c%s{n, has updated their white journal." % caller)
             return
@@ -558,7 +559,7 @@ class CmdMessenger(MuxCommand):
             name = "Unknown Sender"
         mssg = "{wSent by:{n %s\n" % name
         mssg += caller.messages.disp_entry(msg)
-        caller.msg(mssg, box=True)
+        caller.msg(mssg, options={'box':True})
             
     def func(self):
         "Execute command."
@@ -884,7 +885,7 @@ class CmdCalendar(MuxPlayerCommand):
         proj = caller.ndb.event_creation
         if not self.args and not self.switches:
             if proj:
-                caller.msg("{wEvent you're creating:\n%s" % self.display_project(proj), box=True)
+                caller.msg("{wEvent you're creating:\n%s" % self.display_project(proj), options={'box':True})
                 return
             else:
                 # if we don't have a project, just display upcoming events
@@ -904,7 +905,7 @@ class CmdCalendar(MuxPlayerCommand):
                 return
             # display info on a given event
             if not self.rhs:
-                caller.msg(event.display(), box=True)
+                caller.msg(event.display(), options={'box':True})
                 return
             try:
                 num = int(self.rhs)
@@ -923,13 +924,13 @@ class CmdCalendar(MuxPlayerCommand):
             #display upcoming events
             unfinished = RPEvent.objects.filter(finished=False).order_by('date')
             table = self.display_events(unfinished)
-            caller.msg("{wUpcoming events:\n%s" % table, box=True)
+            caller.msg("{wUpcoming events:\n%s" % table, options={'box':True})
             return
         if "old" in self.switches:
             # display finished events
             finished = RPEvent.objects.filter(finished=True).order_by('date')
             table = self.display_events(finished)
-            caller.msg("{wOld events:\n%s" % table, box=True)
+            caller.msg("{wOld events:\n%s" % table, options={'box':True})
             return
         # at this point, we may be trying to update our project. Set defaults.
         proj = caller.ndb.event_creation or [None, None, None, None, True, [], None, None]
@@ -938,7 +939,7 @@ class CmdCalendar(MuxPlayerCommand):
                 table = PrettyTable(['level', 'cost', 'prestige'])
                 for key in largesse_types:
                     table.add_row([key, costs[key][0], costs[key][1]])
-                caller.msg(table, box=True)
+                caller.msg(table, options={'box':True})
                 return
             args = self.args.lower()
             if args not in largesse_types:
@@ -1032,14 +1033,14 @@ class CmdCalendar(MuxPlayerCommand):
             proj = [self.lhs, proj[1], proj[2], proj[3], proj[4], [dompc] if dompc not in proj[5] else proj[5], proj[6], proj[7]]
             caller.msg("{wStarting project. It will not be saved until you submit it. "+
                        "Does not persist through logout/server reload.{n")
-            caller.msg(self.display_project(proj), box=True)
+            caller.msg(self.display_project(proj), options={'box':True})
             caller.ndb.event_creation = proj
             return
         if "submit" in self.switches:
             name, date, loc, desc, public, hosts, largesse, room_desc = proj
             if not (name and date and loc and desc and hosts):
                 caller.msg("All fields must be defined before you submit.")
-                caller.msg(self.display_project(proj), box=True)
+                caller.msg(self.display_project(proj), options={'box':True})
                 return         
             if not largesse:
                 cel_lvl = 0
@@ -1097,7 +1098,7 @@ class CmdCalendar(MuxPlayerCommand):
             eventid = int(self.lhs)
         except (ValueError, TypeError):
             caller.msg("You must supply a number for an event.")
-            caller.msg(self.display_events(events), box=True)
+            caller.msg(self.display_events(events), options={'box':True})
             return
         # get the script that manages events
         event_manager = ScriptDB.objects.get(db_key="Event Manager")
@@ -1106,7 +1107,7 @@ class CmdCalendar(MuxPlayerCommand):
             event = events.get(id=eventid)
         except RPEvent.DoesNotExist:
             caller.msg("You are not hosting any event by that number. Your events:")
-            caller.msg(self.display_events(events), box=True)
+            caller.msg(self.display_events(events), options={'box':True})
             return
         if "starteventearly" in self.switches:
             event_manager.start_event(event)
@@ -1221,7 +1222,7 @@ class CmdPraise(MuxCommand):
         "Execute command."
         caller = self.caller
         if not self.args:
-            caller.msg(display_praises(caller.player), box=True)
+            caller.msg(display_praises(caller.player), options={'box':True})
             return
         targ = caller.player.search(self.lhs)
         if not targ or not targ.db.char_ob:
