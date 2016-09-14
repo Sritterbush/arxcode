@@ -823,7 +823,7 @@ class CmdBuyFromShop(CmdCraft):
         prices = loc.db.item_prices or {}
         for price in prices:
             obj = ObjectDB.objects.get(id=price)
-            table.add_row([price, obj.key, prices[price]])
+            table.add_row([price, obj.name, prices[price]])
         msg += str(table)
         return msg
     
