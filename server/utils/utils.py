@@ -126,5 +126,5 @@ def sub_old_ansi(text):
     text = text.replace('%cx', '|!X')
     text = text.replace('%cX', '|[X')
     text = text.replace('%ch', '|h')
-    text = text.replace('%cn', '|H')
+    text = text.replace('%cn', '|n')
     return text
