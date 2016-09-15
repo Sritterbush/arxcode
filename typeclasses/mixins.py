@@ -5,9 +5,12 @@ from server.utils.utils import sub_old_ansi
 
 class DescMixins(object):
     def __desc_get(self):
-        return self.db.desc
+        return self.db.desc or self.db.general_desc
     def __desc_set(self, val):
+        # desc may be changed dynamically
         self.db.desc = val
+        # general desc is our fallback
+        self.db.general_desc = val
     desc = property(__desc_get, __desc_set)
     def __get_volume(self):
         total = 0

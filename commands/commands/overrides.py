@@ -334,7 +334,7 @@ class CmdGive(MuxCommand):
         if "mats" in self.switches:
             lhslist = self.lhs.split(",")
             try:
-                from game.dominion.models import CraftingMaterials
+                from world.dominion.models import CraftingMaterials
                 mat = caller.db.player_ob.Dominion.assets.materials.get(type__name__iexact=lhslist[0])
                 amount = int(lhslist[1])
             except (IndexError, ValueError):
