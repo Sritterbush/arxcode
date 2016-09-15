@@ -9,9 +9,11 @@ register = template.Library()
 def mush_to_html(value):
     if not value:
         return value
-    value = value.replace('<', '(')
-    value = value.replace('>', ')')
+    value = value.replace('&', '&amp')
+    value = value.replace('<', '&lt')
+    value = value.replace('>', '&gt')
     value = value.replace('%r', '<br>')
+    value = value.replace('%R', '<br>')
     value = value.replace('\n', '<br>')
     value = value.replace('%b', ' ')
     value = value.replace('%t', '&nbsp&nbsp&nbsp&nbsp')
