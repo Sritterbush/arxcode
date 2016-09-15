@@ -132,7 +132,10 @@ class CmdShout(MuxCommand):
             radius = 2
         caller.msg('You shout, "%s"' % args)
         txt = '{c%s{n shouts from elsewhere, "%s"' % (caller.name, args)
-        caller.location.msg_contents(txt, exclude=caller, radius=radius)
+        caller.location.msg_contents(txt, exclude=caller, options={'radius':radius,
+                                                                   'origin_id': caller.location.id,
+                                                                   'origin_x':caller.location.db.x_coord,
+                                                                   'origin_y':caller.location.db.y_coord})
 
 
 class CmdFollow(MuxCommand):
