@@ -395,6 +395,13 @@ class ClueDiscovery(models.Model):
     def __str__(self):
         return "%s's discovery of %s" % (self.character, self.clue)
 
+    @property
+    def progress_percentage(self):
+        try:
+            return self.clue.rating/self.roll
+        except Exception:
+            return 0
+
 class ClueForRevelation(models.Model):
     clue = models.ForeignKey('Clue', related_name="usage")
     revelation = models.ForeignKey('Revelation', related_name="clues_used")
@@ -426,7 +433,7 @@ class Investigation(models.Model):
         msg += "{wTopic{n: %s\n" % self.topic
         msg += "{wActions{n:\n%s\n" % self.actions
         msg += "{wModified Difficulty{n: %s\n" % self.difficulty
-        msg += "{wTargeted Clue{n: %s\n" % self.targeted_clue
+        msg += "{wCurrent Progress{n: %s\n" % self.progress_str
         msg += "{wStat used{n: %s\n" % self.stat_used
         msg += "{wSkill used{n: %s\n" % self.skill_used
         return msg
@@ -595,7 +602,6 @@ class Investigation(models.Model):
         if not self.targeted_clue:
             return
         roll = (hasattr(self, 'last_roll') and self.last_roll) or 0
-        roll /= 5
         if not roll:
             return roll
         try:
@@ -608,5 +614,21 @@ class Investigation(models.Model):
                                                 character=self.character)
         return roll
         
-    
+    @property
+    def progress_str(self):
+        try:
+            clue = self.clues.get(clue=self.targeted_clue)
+            prog = clue.progress_percentage
+        except (ClueDiscovery.DoesNotExist, AttributeError):
+            prog = 0
+        if prog <= 0:
+            return "No real progress has been made to finding something new."
+        if prog <= 25:
+            return "You've made some progress."
+        if prog <= 50:
+            return "You've made a good amount of progress."
+        if prog <= 75:
+            return "You feel like you're getting close to finding something."
+        return "You feel like you're on the verge of a breakthrough. You just need more time."
+        
     
