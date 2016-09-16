@@ -117,10 +117,8 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
         
     def get_visible_characters(self, pobject):
         "Returns a list of visible characters in a room."
-        char_list = [ob for ob in self.contents if ob.is_character]
+        char_list = [ob for ob in self.contents if ob.is_character and ob.player]
         return [char for char in char_list if char.access(pobject, "view")]
-
-    
 
     def return_appearance(self, looker, detailed=False, format_desc=True):
         "This is called when e.g. the look command wants to retrieve the description of this object."
