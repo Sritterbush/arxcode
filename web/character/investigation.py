@@ -40,12 +40,13 @@ class CmdInvestigate(MuxCommand):
     read and modify your results accordingly. /stat and /skill allow you to
     specify which stat and skill seem appropriate to the story of your
     investigation, though the 'investigation' skill is always additionally
-    used.
+    used. Use /cancel to cancel the form.
 
     You may have many ongoing investigations, but only one may advance per
     week. You determine that by selecting the 'active' investigation. You
     may spend silver and resources to attempt to make your investigation
-    more likely to find a result.
+    more likely to find a result. Investigations may be abandoned with
+    the /abandon switch, which marks them as no longer ongoing.
         
     """
     key = "@investigate"
@@ -127,7 +128,7 @@ class CmdInvestigate(MuxCommand):
                 investigation[3] = self.args
                 self.disp_investigation_form()
                 return
-            if "abandon" in self.switches:
+            if "cancel" in self.switches:
                 caller.attributes.remove("investigation_form")
                 caller.msg("Investigation abandoned.")
                 return
@@ -149,9 +150,9 @@ class CmdInvestigate(MuxCommand):
                 dompc.assets.save()
                 ob = entry.investigations.create(topic=topic, actions=actions)
                 if stat:
-                    ob.stat = stat
+                    ob.stat_used = stat
                 if skill:
-                    ob.skill = skill
+                    ob.skill_used = skill
                 if not entry.investigations.filter(active=True):
                     ob.active = True
                     caller.msg("New investigation created. This has been set as your active investigation " +
@@ -178,6 +179,10 @@ class CmdInvestigate(MuxCommand):
             except Investigation.DoesNotExist:
                 caller.msg("Investigation not found.")
                 return
+            if "abandon" in self.switches:
+                ob.ongoing = False
+                ob.save()
+                caller.msg("Investigation has been marked to no longer be ongoing.")
             if "view" in self.switches:
                 caller.msg(ob.display())
                 return
@@ -263,6 +268,8 @@ class CmdAdminInvestigations(MuxPlayerCommand):
         @gminvest/target <ID #>=<Clue #>
         @gminvest/roll <ID #>[=<roll mod>,<difficulty>]
         @gminvest/result <ID #>=<result string>
+        @gminvest/cluemessage <ID #>=<message>
+        @gminvest/setclueprogress <ID #>=<amount>
 
     Checks active investigations, and allows you to override their
     automatic results. You can /roll to see a result - base difficulty
@@ -315,9 +322,12 @@ class CmdAdminInvestigations(MuxPlayerCommand):
                     diff = int(self.rhslist[1])
                 except IndexError:
                     pass
-                check = ob.check_success(modifier=mod, diff=diff)
+                roll = ob.do_roll(mod=mod, diff=diff)
+                ob.char.db.investigation_roll = roll
+                caller.msg("Their roll was %s." % roll)
+                check = ob.check_success(mod=mod, diff=diff)
                 if check:
-                    caller.msg("They succeeded in the check.")
+                    caller.msg("They will succeed this week.")
                 else:
                     caller.msg("They failed the check.")
                 return

@@ -438,24 +438,34 @@ class Investigation(models.Model):
         msg += "{wSkill used{n: %s\n" % self.skill_used
         return msg
     
-    def roll(self, difficulty=0):
+    def do_roll(self, mod=0, diff=0):
         """
         Do a dice roll to return a result
         """
-        from game.gamesrc.objects.stats_and_skills import do_dice_check
+        from world.stats_and_skills import do_dice_check
         char = self.character.character
-        base = do_dice_check(char, stat_list=[self.stat_used, "perception"], skill_list=[self.skill_used, "investigation"],
-                             difficulty=difficulty, average_lists=True)
+        diff = (diff if diff != None else self.difficulty) + mod
+        roll = do_dice_check(char, stat_list=[self.stat_used, "perception"], skill_list=[self.skill_used, "investigation"],
+                             difficulty=diff, average_lists=True)
         silvermod = self.silver/5000
         if silvermod > 10:
             silvermod = 10
-        base += silvermod
+        roll += silvermod
         resmod = (self.economic + self.military + self.social)/5
         if resmod > 30:
             resmod = 30
-        base += resmod
-        self.last_roll = base
-        return self.last_roll
+        roll += resmod
+        # save the character's roll
+        char.db.investigation_roll = roll
+        return roll
+
+    @property
+    def roll(self):
+        char = self.character.character
+        try:
+            return int(char.db.investigation_roll)
+        except (ValueError, TypeError):
+            return self.do_roll()
     
     @property
     def difficulty(self):
@@ -464,7 +474,7 @@ class Investigation(models.Model):
         we're trying to uncover.
         """
         if not self.automate_result or not self.targeted_clue:
-            base = 50 # base difficulty for things without clues
+            base = 30 # base difficulty for things without clues
         else:
             base = 20 + (self.targeted_clue.rating) - self.progress
         return base
@@ -477,11 +487,10 @@ class Investigation(models.Model):
         on that.
         """
         if diff != None:
-            return self.roll() >= diff + modifier
-        return self.roll() >= self.difficulty + modifier
+            return (self.roll + self.progress) >= (diff + modifier)
+        return (self.roll + self.progress) >= (self.difficulty + modifier)
 
     def process_events(self):
-        self.active = False
         if self.automate_result:
             self.generate_result()
         self.use_resources()
@@ -601,9 +610,11 @@ class Investigation(models.Model):
     def add_progress(self):
         if not self.targeted_clue:
             return
-        roll = (hasattr(self, 'last_roll') and self.last_roll) or 0
-        if not roll:
-            return roll
+        roll = self.roll
+        try:
+            roll = int(roll)
+        except (ValueError, TypeError):
+            return
         try:
             clue = self.clues.get(clue=self.targeted_clue)
             clue.roll += roll
