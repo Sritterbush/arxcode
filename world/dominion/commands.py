@@ -190,6 +190,7 @@ class CmdAdmDomain(MuxPlayerCommand):
                 try:
                     region = dom.land.region
                     setup_utils.setup_dom_for_char(player.db.char_ob, liege_domain=dom, region=region)
+                    caller.msg("Vassal created.")
                 except Exception as err:
                     caller.msg(err)
                 return
