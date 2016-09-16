@@ -37,6 +37,7 @@ class CmdAdmDomain(MuxPlayerCommand):
       @admin_domain
       @admin_domain/create player=region[, social rank]
       @admin_domain/replacevassal receiver=domain_id
+      @admin_domain/createvassal receiver=liege_domain_id
       @admin_domain/transferowner receiver=domain_id
       @admdin_domain/transferrule char=domain_id
       @admin_domain/liege domain_id=family
@@ -84,6 +85,7 @@ class CmdAdmDomain(MuxPlayerCommand):
     locks = "cmd:perm(Wizards)"
     aliases = ["@admin_domains", "@admdomain", "@admdomains", "@adm_domain", "@adm_domains"]
     help_category = "Dominion"
+    
     def func(self):
         caller = self.caller
         if not self.args:
@@ -167,7 +169,7 @@ class CmdAdmDomain(MuxPlayerCommand):
             caller.msg("New Domain #%s created: %s in land square: %s" % (dom.id, str(dom), str(dom.land)))
             return
         if ("transferowner" in self.switches or "transferrule" in self.switches
-            or "replacevassal" in self.switches):
+            or "replacevassal" in self.switches or "createvassal" in self.switches):
             # usage: @admin_domain/transfer receiver=domain_id
             if not self.rhs or not self.lhs:
                 caller.msg("Usage: @admin_domain/transfer receiver=domain's id")
@@ -183,6 +185,13 @@ class CmdAdmDomain(MuxPlayerCommand):
                 return
             except Domain.DoesNotExist:
                 caller.msg("No domain by that id number.")
+                return
+            if "createvassal" in self.switches:
+                try:
+                    region = dom.land.region
+                    setup_utils.setup_dom_for_char(player.db.char_ob, liege_domain=dom, region=region)
+                except Exception as err:
+                    caller.msg(err)
                 return
             if "replacevassal" in self.switches:
                 try:
