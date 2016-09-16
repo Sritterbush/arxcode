@@ -14,9 +14,7 @@ import traceback
 class AppsManager(Object):
     """
     Class to store and manage the roster
-    """
-    def __init__(self, dbobj):
-        super(AppsManager, self).__init__(dbobj)               
+    """            
 
     def at_object_creation(self):
         """
@@ -93,7 +91,7 @@ class AppsManager(Object):
             if not player.is_superuser:
                 player.set_password(newpass) 
                 try:
-                    from game.gamesrc.commands.roster import change_email, add_note
+                    from commands.commands.roster import change_email, add_note
                     change_email(found_app[1].key, email, caller)
                     caller.msg("Updated email of %s in roster to be %s." % (player, email))
                     add_note(found_app[1].key, "Application approved by %s" % caller, caller)
