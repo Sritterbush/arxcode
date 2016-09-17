@@ -128,14 +128,10 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
             except Exception:
                 pass
         if desc:
-            indent = 0
-            if len(desc) > 78:
-                indent = 4
             extras = self.return_extras(pobject)
             if extras:
                 extras += "\n"
-            string += "\n\n%s%s" % (extras, fill(desc, indent=indent))
-        
+            string += "\n\n%s%s" % (extras, desc)
         if health_appearance:
             string += "\n\n%s" % health_appearance
         string += self.return_contents(pobject, detailed, strip_ansi=strip_ansi)
