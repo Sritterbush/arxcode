@@ -24,18 +24,6 @@ class Readable(Object):
         self.db.do_not_format_desc = True
         self.db.destroyable = True
         self.at_init()
-
-    def at_init(self):
-        """
-        This is always called whenever this object is initiated --
-        that is, whenever it its typeclass is cached from memory. This
-        happens on-demand first time the object is used or activated
-        in some way after being created but also after each server
-        restart or reload.
-        """
-        self.is_character = False
-        self.is_room = False
-        self.is_exit = False
         
     def at_after_move(self, source_location):
         if self.db.num_instances > 1 and not self.db.written:

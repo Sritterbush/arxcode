@@ -246,5 +246,9 @@ class Exit(NameMixins, ObjectMixins, DefaultExit):
         except Exception:
             return False
 
+    @property
+    def is_exit(self):
+        return True
+
 
 

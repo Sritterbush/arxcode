@@ -215,15 +215,16 @@ class AppearanceMixins(object):
         return string
 
 class ObjectMixins(DescMixins, AppearanceMixins):
-    def at_init(self):
-        self.is_room = False
-        self.is_exit = False
-        self.is_character = False
-        super(ObjectMixins, self).at_init()
 
-    def at_object_creation(self):
-        super(ObjectMixins, self).at_object_creation()
-        self.at_init()
+    @property
+    def is_room(self):
+        return False
+    @property
+    def is_exit(self):
+        return False
+    @property
+    def is_character(self):
+        return False
 
 class MsgMixins(object):
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):

@@ -60,17 +60,9 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         self.db.abilities = {}
         self.at_init()
 
-    def at_init(self):
-        """
-        This is always called whenever this object is initiated --
-        that is, whenever it its typeclass is cached from memory. This
-        happens on-demand first time the object is used or activated
-        in some way after being created but also after each server
-        restart or reload.
-        """
-        self.is_room = False
-        self.is_exit = False
-        self.is_character = True
+    @property
+    def is_character(self):
+        return True
         
     @lazy_property
     def messages(self):    

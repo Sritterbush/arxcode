@@ -79,17 +79,6 @@ class Npc(Character):
         self.db.damage = 0
         self.at_init()
 
-    def at_init(self):
-        """
-        This is always called whenever this object is initiated --
-        that is, whenever it its typeclass is cached from memory. This
-        happens on-demand first time the object is used or activated
-        in some way after being created but also after each server
-        restart or reload.
-        """
-        self.is_room = False
-        self.is_exit = False
-        self.is_character = True
 
     def return_appearance(self, pobject, detailed=False, format_desc=False):
         """

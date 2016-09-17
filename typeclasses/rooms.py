@@ -97,19 +97,16 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
     time. It also allows for "details", together with a slightly modified
     look command.
     """
-    
 
-    def at_init(self):
-        """
-        This is always called whenever this object is initiated --
-        that is, whenever it its typeclass is cached from memory. This
-        happens on-demand first time the object is used or activated
-        in some way after being created but also after each server
-        restart or reload.
-        """
-        self.is_room = True
-        self.is_exit = False
-        self.is_character = False
+    @property
+    def is_room(self):
+        return True
+    @property
+    def is_character(self):
+        return False
+    @property
+    def is_exit(self):
+        return False
         
     @lazy_property
     def messages(self):
