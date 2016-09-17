@@ -355,8 +355,7 @@ class RevelationDiscovery(models.Model):
         inside the character before we award it to the character
         """
         # get our RevForMystery where the player does not yet have the mystery, and the rev is required
-        rev_usage = self.revelation.usage.filter(~Q(mystery__in=self.character.mysteries.all()) &
-                                            Q(required_for_mystery=True)).distinct()
+        rev_usage = self.revelation.usage.filter(required_for_mystery=True).exclude(mystery__discoveries__in=self.character.mysteries.all()).distinct()
         # get the associated mysteries the player doesn't yet have
         mysteries = Mystery.objects.filter(revelations_used__in=rev_usage)
         mysts = []
@@ -407,8 +406,7 @@ class ClueDiscovery(models.Model):
         for the revelation, we award it to them.
         """
         # get our ClueForRevelations where the player does not yet have the revelation, and the clue is required
-        clue_usage = self.clue.usage.filter(~Q(revelation__in=self.character.revelations.all()) &
-                                            Q(required_for_revelation=True)).distinct()
+        clue_usage = self.clue.usage.filter(required_for_revelation=True).exclude(revelation__discoveries__in=self.character.revelations.all()).distinct()
         # get the associated revelations the player doesn't yet have
         revelations = Revelation.objects.filter(clues_used__in=clue_usage)
         revs = []
