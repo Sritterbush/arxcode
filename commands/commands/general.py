@@ -608,7 +608,7 @@ class CmdPage(MuxPlayerCommand):
                     if not hasattr(findpobj, 'is_connected'):
                         #only allow online tells
                         self.msg("%s is not online."% findpobj.key)
-                        return
+                        continue
                     elif findpobj.character:
                         #player is online, and @ic, so redirect to their character
                         #one more online check on character level
@@ -625,10 +625,9 @@ class CmdPage(MuxPlayerCommand):
                 else:
                     #Offline players do not have the character attribute
                     self.msg("%s is not online."% findpobj.key)
-                    return
+                    continue
             else:
-                self.msg("Who do you want to page?")
-                return
+                continue
             if pobj:
                 if hasattr(pobj, 'player') and pobj.player:
                     pobj = pobj.player
