@@ -115,7 +115,11 @@ class ArxChannelCommand(command.Command):
             return
         if msg == "off":
             if player: caller = player
-            caller.execute_cmd("delcom %s" % channelkey)
+            disconnect = channel.disconnect(player)
+            if disconnect:
+                caller.msg("You stop listening to channel '%s'." % channel.key)
+            else:
+                caller.msg("You cannot disconnect from channel '%s'." % channel.key)
             return
         channel.msg(msg, senders=self.caller, persistent=True, online=True)
         if Msg.objects.get_messages_by_channel(channel.id).count() > 200:
