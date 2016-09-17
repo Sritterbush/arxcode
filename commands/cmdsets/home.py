@@ -239,7 +239,7 @@ class CmdAllowBuilding(MuxCommand):
         caller.msg("Perms set.")
         return
 
-from evennia.commands.default.building import CmdDig
+from commands.commands.overrides import CmdDig
 
 class CmdBuildRoom(CmdDig):
     """

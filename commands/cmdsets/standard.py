@@ -207,7 +207,7 @@ class StaffCmdSet(CmdSet):
         self.add(admin.CmdPerm())
         self.add(admin.CmdWall())
         # Building and world manipulation
-        self.add(building.CmdTeleport())
+        self.add(overrides.CmdTeleport())
         self.add(building.CmdSetObjAlias())
         self.add(building.CmdListCmdSets())
         self.add(building.CmdWipe())
@@ -220,7 +220,7 @@ class StaffCmdSet(CmdSet):
         self.add(building.CmdLink())
         self.add(building.CmdUnLink())
         self.add(building.CmdCreate())
-        self.add(building.CmdDig())
+        self.add(overrides.CmdDig())
         self.add(building.CmdTunnel())
         self.add(building.CmdDestroy())
         self.add(building.CmdExamine())

@@ -841,4 +841,265 @@ class CmdSetAttribute(ObjManipCommand):
         if obj != caller and not caller.check_permstring("immortals"):
             utils.inform_staff("Building command by %s: %s" % (caller, string))
 
+from evennia.utils import create
+class CmdDig(ObjManipCommand):
+    """
+    build new rooms and connect them to the current location
+    Usage:
+      @dig[/switches] roomname[;alias;alias...][:typeclass]
+            [= exit_to_there[;alias][:typeclass]]
+               [, exit_to_here[;alias][:typeclass]]
+    Switches:
+       tel or teleport - move yourself to the new room
+    Examples:
+       @dig kitchen = north;n, south;s
+       @dig house:myrooms.MyHouseTypeclass
+       @dig sheer cliff;cliff;sheer = climb up, climb down
+    This command is a convenient way to build rooms quickly; it creates the
+    new room and you can optionally set up exits back and forth between your
+    current room and the new one. You can add as many aliases as you
+    like to the name of the room and the exits in question; an example
+    would be 'north;no;n'.
+    """
+    key = "@dig"
+    locks = "cmd:perm(dig) or perm(Builders)"
+    help_category = "Building"
+
+    def func(self):
+        "Do the digging. Inherits variables from ObjManipCommand.parse()"
+
+        caller = self.caller
+
+        if not self.lhs:
+            string = "Usage: @dig[/teleport] roomname[;alias;alias...][:parent] [= exit_there"
+            string += "[;alias;alias..][:parent]] "
+            string += "[, exit_back_here[;alias;alias..][:parent]]"
+            caller.msg(string)
+            return
+
+        room = self.lhs_objs[0]
+
+        if not room["name"]:
+            caller.msg("You must supply a new room name.")
+            return
+        location = caller.location
+
+        # Create the new room
+        typeclass = room['option']
+        if not typeclass:
+            typeclass = settings.BASE_ROOM_TYPECLASS
+
+        # create room
+        lockstring = "control:id(%s) or perm(Immortals); delete:id(%s) or perm(Wizards); edit:id(%s) or perm(Wizards)"
+        lockstring = lockstring % (caller.dbref, caller.dbref, caller.dbref)
+
+        new_room = create.create_object(typeclass, room["name"],
+                                        aliases=room["aliases"],
+                                        report_to=caller)
+        new_room.locks.add(lockstring)
+        alias_string = ""
+        if new_room.aliases.all():
+            alias_string = " (%s)" % ", ".join(new_room.aliases.all())
+        room_string = "Created room %s(%s)%s of type %s." % (new_room,
+                                        new_room.dbref, alias_string, typeclass)
+
+        # create exit to room
+
+        exit_to_string = ""
+        exit_back_string = ""
+
+        if self.rhs_objs:
+            to_exit = self.rhs_objs[0]
+            if not to_exit["name"]:
+                exit_to_string = \
+                    "\nNo exit created to new room."
+            elif not location:
+                exit_to_string = \
+                  "\nYou cannot create an exit from a None-location."
+            else:
+                # Build the exit to the new room from the current one
+                typeclass = to_exit["option"]
+                if not typeclass:
+                    typeclass = settings.BASE_EXIT_TYPECLASS
+
+                new_to_exit = create.create_object(typeclass, to_exit["name"],
+                                                   location,
+                                                   aliases=to_exit["aliases"],
+                                                   locks=lockstring,
+                                                   destination=new_room,
+                                                   report_to=caller)
+                alias_string = ""
+                if new_to_exit.aliases.all():
+                    alias_string = " (%s)" % ", ".join(new_to_exit.aliases.all())
+                exit_to_string = "\nCreated Exit from %s to %s: %s(%s)%s."
+                exit_to_string = exit_to_string % (location.name,
+                                                   new_room.name,
+                                                   new_to_exit,
+                                                   new_to_exit.dbref,
+                                                   alias_string)
+
+        # Create exit back from new room
+
+        if len(self.rhs_objs) > 1:
+            # Building the exit back to the current room
+            back_exit = self.rhs_objs[1]
+            if not back_exit["name"]:
+                exit_back_string = \
+                    "\nNo back exit created."
+            elif not location:
+                exit_back_string = \
+                   "\nYou cannot create an exit back to a None-location."
+            else:
+                typeclass = back_exit["option"]
+                if not typeclass:
+                    typeclass = settings.BASE_EXIT_TYPECLASS
+                new_back_exit = create.create_object(typeclass,
+                                                   back_exit["name"],
+                                                   new_room,
+                                                   aliases=back_exit["aliases"],
+                                                   locks=lockstring,
+                                                   destination=location,
+                                                   report_to=caller)
+                alias_string = ""
+                if new_back_exit.aliases.all():
+                    alias_string = " (%s)" % ", ".join(new_back_exit.aliases.all())
+                exit_back_string = "\nCreated Exit back from %s to %s: %s(%s)%s."
+                exit_back_string = exit_back_string % (new_room.name,
+                                                       location.name,
+                                                       new_back_exit,
+                                                       new_back_exit.dbref,
+                                                       alias_string)
+        caller.msg("%s%s%s" % (room_string, exit_to_string, exit_back_string))
+        if new_room and ('teleport' in self.switches or "tel" in self.switches):
+            caller.move_to(new_room)
+        return new_room
+
+class CmdTeleport(MuxCommand):
+    """
+    teleport object to another location
+
+    Usage:
+      @tel/switch [<object> =] <target location>
+      @go <target player>
+
+    Examples:
+      @tel Limbo
+      @tel/quiet box Limbo
+      @tel/tonone box
+      @tel/grab Bob
+      @tel/goto Bob
+      @go Bob
+
+    Switches:
+      quiet  - don't echo leave/arrive messages to the source/target
+               locations for the move.
+      intoexit - if target is an exit, teleport INTO
+                 the exit object instead of to its destination
+      tonone - if set, teleport the object to a None-location. If this
+               switch is set, <target location> is ignored.
+               Note that the only way to retrieve
+               an object from a None location is by direct #dbref
+               reference.
+      grab - if set, summons the character by that player's name to your location
+      goto - if set, goes to the location of that player's character
+
+    Teleports an object somewhere. If no object is given, you yourself
+    is teleported to the target location. @go is an alias for @tel/goto.     """
+    key = "@tel"
+    aliases = "@teleport, @go"
+    locks = "cmd:perm(teleport) or perm(Builders)"
+    help_category = "Building"
+
+    def func(self):
+        "Performs the teleport"
+
+        caller = self.caller
+        args = self.args
+        lhs, rhs = self.lhs, self.rhs
+        switches = self.switches
+
+        # setting switches
+        tel_quietly = "quiet" in switches
+        to_none = "tonone" in switches
+        get_char = "grab" in switches or "goto" in switches or self.cmdstring == "@go"
+
+        if to_none:
+            # teleporting to None
+            if not args:
+                obj_to_teleport = caller
+                caller.msg("Teleported to None-location.")
+                if caller.location and not tel_quietly:
+                    caller.location.msg_contents("%s teleported into nothingness." % caller, exclude=caller)
+            else:
+                obj_to_teleport = caller.search(lhs, global_search=True)
+                if not obj_to_teleport:
+                    caller.msg("Did not find object to teleport.")
+                    return
+                if not obj_to_teleport.access(caller, 'delete'):
+                    caller.msg("Access denied.")
+                    return
+                caller.msg("Teleported %s -> None-location." % obj_to_teleport)
+                if obj_to_teleport.location and not tel_quietly:
+                    obj_to_teleport.location.msg_contents("%s teleported %s into nothingness."
+                                                          % (caller, obj_to_teleport),
+                                                          exclude=caller)
+            obj_to_teleport.location=None
+            if obj_to_teleport != caller and not caller.check_permstring("immortals"):
+                string = "%s teleported to None-location." % obj_to_teleport
+                utils.inform_staff("Building command by %s: %s" % (caller, string))
+            return
+
+        # not teleporting to None location
+        if not args and not to_none:
+            caller.msg("Usage: teleport[/switches] [<obj> =] <target_loc>|home")
+            return
+
+        if rhs:
+            obj_to_teleport = caller.search(lhs, global_search=True)
+            destination = caller.search(rhs, global_search=True)
+        else:
+            if not get_char:
+                obj_to_teleport = caller
+                destination = caller.search(lhs, global_search=True)
+            else:
+                player = caller.search_player(lhs)
+                destination = None
+                if 'goto' in switches or self.cmdstring == "@go":
+                    obj_to_teleport = caller
+                    if player and player.character:
+                        destination = player.character.location
+                elif 'grab' in switches:
+                    obj_to_teleport = player.character
+                    destination = caller.location
+        if not obj_to_teleport:
+            caller.msg("Did not find object to teleport.")
+            return
+
+        if not destination:
+            caller.msg("Destination not found.")
+            return
+        if obj_to_teleport == destination:
+            caller.msg("You can't teleport an object inside of itself!")
+            return
+        if obj_to_teleport.location and obj_to_teleport.location == destination:
+            caller.msg("%s is already at %s." % (obj_to_teleport, destination))
+            return
+        use_destination = True
+        if "intoexit" in self.switches:
+            use_destination = False
+        if not obj_to_teleport.access(caller, "edit") and caller != obj_to_teleport:
+            caller.msg("Access denied for teleporting %s." % obj_to_teleport)
+            return
+        # try the teleport
+        if obj_to_teleport.move_to(destination, quiet=tel_quietly,
+                                   emit_to_obj=caller,
+                                   use_destination=use_destination):
+            if obj_to_teleport == caller:
+                caller.msg("Teleported to %s." % destination)
+            else:
+                string = "Teleported %s -> %s." % (obj_to_teleport,
+                                                     destination)
+                caller.msg(string)
+                utils.inform_staff("Building command by %s: %s" % (caller, string))
+
 
