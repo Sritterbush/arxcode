@@ -188,6 +188,7 @@ class CmdInvestigate(MuxCommand):
                 return
             if "abandon" in self.switches:
                 ob.ongoing = False
+                ob.active = False
                 ob.save()
                 caller.msg("Investigation has been marked to no longer be ongoing.")
                 return

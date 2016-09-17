@@ -591,9 +591,10 @@ class Investigation(models.Model):
                         myst = MysteryDiscovery.objects.create(character=self.character, investigation=self,
                                                                  message="Your investigation uncovered this mystery!",
                                                                  mystery=mystery, date=datetime.now())
-                # we found a clue, so reset for next week
+                # we found a clue, so this investigation is done.
                 self.clue_target = None
-                    
+                self.active = False
+                self.ongoing = False          
         else:
             # update results to indicate our failure
             self.results = "Your investigation failed to find anything."
