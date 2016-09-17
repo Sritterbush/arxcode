@@ -23,12 +23,14 @@ class CmdInvestigate(MuxCommand):
         @investigate/resource <id #>=<resource type>,<amount>
         @investigate/changetopic <id #>=<new topic>
         @investigate/changestory <id #>=<new story>
+        @investigate/abandon <id #>
+        @investigate/resume <id #>
         @investigate/new
         @investigate/topic <keyword to investigate>
         @investigate/story <text of how you do the investigation>
         @investigate/stat <stat to use for the check>
         @investigate/skill <additional skill to use besides investigation>
-        @investigate/abandon
+        @investigate/cancel
         @investigate/finish
 
     Investigation allows your character to attempt to discover secrets and
@@ -54,9 +56,9 @@ class CmdInvestigate(MuxCommand):
     help_category = "Investigation"
     aliases = ["+investigate", "investigate"]
     base_cost = 25
-    form_switches = ("topic", "story", "stat", "skill", "abandon", "finish")
+    form_switches = ("topic", "story", "stat", "skill", "cancel", "finish")
     model_switches = ("view", "active", "silver", "resource", "changetopic",
-                      "changestory")
+                      "changestory", "abandon", "resume")
     def disp_investigation_form(self):
         caller = self.caller
         form = caller.db.investigation_form
@@ -179,10 +181,16 @@ class CmdInvestigate(MuxCommand):
             except Investigation.DoesNotExist:
                 caller.msg("Investigation not found.")
                 return
+            if "resume" in self.switches:
+                ob.ongonig = True
+                ob.save()
+                caller.msg("Investigation has been marked to be ongoing.")
+                return
             if "abandon" in self.switches:
                 ob.ongoing = False
                 ob.save()
                 caller.msg("Investigation has been marked to no longer be ongoing.")
+                return
             if "view" in self.switches:
                 caller.msg(ob.display())
                 return
@@ -300,7 +308,7 @@ class CmdAdminInvestigations(MuxPlayerCommand):
         try:
             if "view" in self.switches or not self.switches:
                 ob = Investigation.objects.get(id=int(self.args))
-                caller.msg(ob.display())
+                caller.msg(ob.gm_display())
                 return
             if "target" in self.switches:
                 ob = self.qs.get(id=int(self.lhs))
@@ -323,13 +331,13 @@ class CmdAdminInvestigations(MuxPlayerCommand):
                 except IndexError:
                     pass
                 roll = ob.do_roll(mod=mod, diff=diff)
-                ob.char.db.investigation_roll = roll
-                caller.msg("Their roll was %s." % roll)
-                check = ob.check_success(mod=mod, diff=diff)
+                ob.roll = roll
+                caller.msg("Recording their new roll as: %s." % roll)
+                check = ob.check_success(modifier=mod, diff=diff)
                 if check:
-                    caller.msg("They will succeed this week.")
+                    caller.msg("They will succeed the check to discover a clue this week.")
                 else:
-                    caller.msg("They failed the check.")
+                    caller.msg("They will fail the check to discover a clue this week.")
                 return
             if "result" in self.switches:
                 ob = self.qs.get(id=int(self.lhs))
@@ -338,7 +346,10 @@ class CmdAdminInvestigations(MuxPlayerCommand):
                 caller.msg("Result is now:\n%s" % ob.result)
                 return
         except (TypeError, ValueError):
+            import traceback
+            traceback.print_exc()
             caller.msg("Arguments must be numbers.")
+            return
         except Investigation.DoesNotExist:
             caller.msg("No Investigation by that ID.")
             return

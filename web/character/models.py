@@ -350,10 +350,25 @@ class RevelationDiscovery(models.Model):
     discovery_method = models.CharField(help_text="How this was discovered - exploration, trauma, etc", max_length=255)
     revealed_by = models.ForeignKey('RosterEntry', related_name="revelations_spoiled", blank=True, null=True)
     def check_mystery_discovery(self):
-        mysts = self.revelation.usage.mystery.exclude(id__in=self.character.mysteries.values_list('mystery', flat=True))
-        for myst in mysts:
-            if not myst.revelations_used.exclude(id__in=self.character.revelations.values_list('revelation', flat=True)):
-                return myst
+        """
+        For the mystery, make sure that we have all the revelations required
+        inside the character before we award it to the character
+        """
+        # get our RevForMystery where the player does not yet have the mystery, and the rev is required
+        rev_usage = self.revelation.usage.filter(~Q(mystery__in=self.character.mysteries.all()) &
+                                            Q(required_for_mystery=True)).distinct()
+        # get the associated mysteries the player doesn't yet have
+        mysteries = Mystery.objects.filter(revelations_used__in=rev_usage)
+        mysts = []
+        char_revs = self.character.revelations.all()
+        for myst in mysteries:
+            for _rev_usage in myst.revelations_used.filter(required_for_mystery=True):
+                if _rev_usage.revelation not in char_revs:
+                    # character missing required revelation, can't discover
+                    continue
+            # character now has all revelations, we add the mystery
+            mysts.append(myst)
+        return mysts
 
 class RevelationForMystery(models.Model):
     mystery = models.ForeignKey('Mystery', related_name="revelations_used")
@@ -387,10 +402,25 @@ class ClueDiscovery(models.Model):
         return msg
 
     def check_revelation_discovery(self):
-        revs = self.clue.usage.revelation.exclude(id__in=self.character.revelations.values_list('revelation', flat=True))
-        for rev in revs:
-            if not rev.clues_used.exclude(id__in=self.character.clues.values_list('clue', flat=True)):
-                return rev
+        """
+        If this Clue discovery means that the character now has every clue
+        for the revelation, we award it to them.
+        """
+        # get our ClueForRevelations where the player does not yet have the revelation, and the clue is required
+        clue_usage = self.clue.usage.filter(~Q(revelation__in=self.character.revelations.all()) &
+                                            Q(required_for_revelation=True)).distinct()
+        # get the associated revelations the player doesn't yet have
+        revelations = Revelation.objects.filter(clues_used__in=clue_usage)
+        revs = []
+        char_clues = self.character.clues.all()
+        for rev in revelations:
+            for clue_usage in rev.clues_used.filter(required_for_revelation=True):
+                if clue_usage.clue not in char_clues:
+                    # character missing required clue, can't discover
+                    continue
+            # character now has all clues, we add the revelation
+            revs.append(rev)
+        return revs
 
     def __str__(self):
         return "%s's discovery of %s" % (self.character, self.clue)
@@ -437,13 +467,25 @@ class Investigation(models.Model):
         msg += "{wStat used{n: %s\n" % self.stat_used
         msg += "{wSkill used{n: %s\n" % self.skill_used
         return msg
+
+    def gm_display(self):
+        msg = self.display()
+        msg += "{wCurrent Roll{n: %s\n" % self.roll
+        msg += "{wTargeted Clue{n: %s\n" % self.targeted_clue
+        msg += "{wProgress Value{n: %s\n" % self.progress
+        msg += "{wComplete this week?{n: %s\n" % self.check_success()
+        return msg
+
+    @property
+    def char(self):
+        return self.character.character
     
     def do_roll(self, mod=0, diff=0):
         """
         Do a dice roll to return a result
         """
         from world.stats_and_skills import do_dice_check
-        char = self.character.character
+        char = self.char
         diff = (diff if diff != None else self.difficulty) + mod
         roll = do_dice_check(char, stat_list=[self.stat_used, "perception"], skill_list=[self.skill_used, "investigation"],
                              difficulty=diff, average_lists=True)
@@ -456,16 +498,20 @@ class Investigation(models.Model):
             resmod = 30
         roll += resmod
         # save the character's roll
-        char.db.investigation_roll = roll
+        self.roll = roll
         return roll
 
-    @property
-    def roll(self):
-        char = self.character.character
+    def _get_roll(self):
+        char = self.char
         try:
             return int(char.db.investigation_roll)
         except (ValueError, TypeError):
             return self.do_roll()
+        
+    def _set_roll(self, value):
+        char = self.char
+        char.db.investigation_roll = int(value)
+    roll = property(_get_roll, _set_roll)
     
     @property
     def difficulty(self):
@@ -476,7 +522,7 @@ class Investigation(models.Model):
         if not self.automate_result or not self.targeted_clue:
             base = 30 # base difficulty for things without clues
         else:
-            base = 20 + (self.targeted_clue.rating) - self.progress
+            base = 20 + (self.targeted_clue.rating)
         return base
 
     def check_success(self, modifier=0, diff=None):
@@ -491,9 +537,13 @@ class Investigation(models.Model):
         return (self.roll + self.progress) >= (self.difficulty + modifier)
 
     def process_events(self):
-        if self.automate_result:
-            self.generate_result()
+        self.generate_result()
         self.use_resources()
+        # wipe the stale roll
+        self.char.attributes.remove("investigation_roll")
+        msg = "Your investigation into '%s' has had the following result:\n" % self.topic
+        msg += self.results
+        self.character.player.inform(msg, category="Investigations")
 
     def generate_result(self):
         """
@@ -503,7 +553,7 @@ class Investigation(models.Model):
         if self.check_success():
             # if we don't have a valid clue, then let's
             # tell them about what a valid clue -could- be.
-            if not self.targeted_clue:
+            if not self.targeted_clue and self.automate_result:
                 kw = self.find_random_keywords()
                 if not kw:
                     self.results = "There is nothing else for you to find."
@@ -513,29 +563,33 @@ class Investigation(models.Model):
             else:
                 # add a valid clue and update results string
                 from datetime import datetime
-                roll = (hasattr(self, 'last_roll') and self.last_roll) or 0
+                roll = self.roll
                 try:
                     clue = self.clues.get(clue=self.targeted_clue, character=self.character)
                 except ClueDiscovery.DoesNotExist:                    
                     clue = ClueDiscovery.objects.create(clue=self.targeted_clue, investigation=self,
                                                         character=self.character)
                 clue.roll += roll
-                clue.message = "Your investigation uncovered this clue!"
+                if self.automate_result:
+                    self.results = "Your investigation has discovered a clue!\n"
+                self.results += clue.display()
+                if not clue.message:
+                    clue.message = "Your investigation has discovered this!"
                 clue.date=datetime.now()
                 clue.discovery_method="investigation"
                 clue.save()
                 
                 # check if we also discover a revelation
-                revelation = clue.check_revelation_discovery()
-                if revelation:
-                    self.results += "\nYou have also discovered a revelation!"
+                revelations = clue.check_revelation_discovery()
+                for revelation in revelations:
+                    self.results += "\nYou have also discovered a revelation: %s" % str(revelation)
                     rev = RevelationDiscovery.objects.create(character=self.character, investigation=self,
                                                              discovery_method="investigation",
                                                              message="Your investigation uncovered this revelation!",
                                                              revelation=revelation, date=datetime.now())
-                    mystery = rev.check_mystery_discovery()
-                    if mystery:
-                        self.results += "\nYou have also discovered a mystery!"
+                    mysteries = rev.check_mystery_discovery()
+                    for mystery in mysteries:
+                        self.results += "\nYou have also discovered a mystery: %s" % str(mystery)
                         myst = MysteryDiscovery.objects.create(character=self.character, investigation=self,
                                                                  message="Your investigation uncovered this mystery!",
                                                                  mystery=mystery, date=datetime.now())
