@@ -32,6 +32,7 @@ class Wearable(Object):
         self.db.slot = None
         self.db.slot_limit = 1
         self.cmdset.add_default(DefaultCmdSet, permanent=True)
+        self.at_init()
 
     def remove(self, wearer):
         """

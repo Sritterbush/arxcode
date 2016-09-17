@@ -58,6 +58,7 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         self.db.attackable = True
         self.db.skills = {}
         self.db.abilities = {}
+        self.at_init()
 
     def at_init(self):
         """

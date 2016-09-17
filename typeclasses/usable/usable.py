@@ -18,6 +18,7 @@ class Usable(Object):
         """
         self.desc = "It looks like someone could {use{n it."
         self.cmdset.add_default(UsableCmdSet, permanent=True)
+        self.at_init()
 
      
     

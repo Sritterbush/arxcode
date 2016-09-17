@@ -21,6 +21,7 @@ class Place(Object):
         self.desc = "A place for people to privately chat. Dropping it in a room will make it part of the room."
         # locks so characters cannot 'get' it
         self.locks.add("get:perm(Builders)")
+        self.at_init()
         
 
     def at_init(self):

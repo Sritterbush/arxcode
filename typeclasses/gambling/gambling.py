@@ -18,6 +18,7 @@ class Dice(Object):
         """
         self.desc = "A set of five dice. It looks like someone could {wroll{n them."
         self.cmdset.add_default(DiceCmdSet, permanent=True)
+        self.at_init()
 
      
     

@@ -22,6 +22,7 @@ class Map(Object):
         self.desc = "A map that holds data about a particular grid area."
         # locks so characters cannot 'get' it
         self.locks.add("get:perm(Builders);delete:false()")
+        self.at_init()
 
     def get_icon(self, origin_room, x, y, destination=None):
         room = self.db.rooms.get((x,y), None)

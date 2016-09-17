@@ -9,9 +9,7 @@ from datetime import datetime
 class JobsManager(Object):
     """
     Class to store and manage the roster
-    """
-    def __init__(self, dbobj):
-        super(JobsManager, self).__init__(dbobj)               
+    """           
 
     def at_object_creation(self):
         """
@@ -21,15 +19,7 @@ class JobsManager(Object):
         self.db.open_list = []
         self.db.jobs_manager = True
         self.db.num_tickets = 0
-
-    def at_init(self):
-        """
-        This is always called whenever this manager is initiated --
-        that is, whenever it its typeclass is cached from memory. This
-        happens on-demand first time the manager is used or activated
-        in some way after being created but also after each server
-        restart or reload.
-        """
+        self.at_init()
 
     def close_ticket(self, ticket_num, caller, gm_notes):
         """

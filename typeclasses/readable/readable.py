@@ -23,6 +23,7 @@ class Readable(Object):
         self.db.can_stack = True
         self.db.do_not_format_desc = True
         self.db.destroyable = True
+        self.at_init()
 
     def at_init(self):
         """

@@ -51,6 +51,7 @@ class Wieldable(Object):
         self.db.sheathed_by = None
         self.db.difficulty_mod = 0
         self.cmdset.add_default(DefaultCmdSet, permanent=True)
+        self.at_init()
 
     def ranged_mode(self):
         self.db.can_be_parried = False

@@ -77,6 +77,7 @@ class Npc(Character):
         self.db.npc = True
         self.db.automate_combat = True
         self.db.damage = 0
+        self.at_init()
 
     def at_init(self):
         """

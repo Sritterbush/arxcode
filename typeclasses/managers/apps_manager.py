@@ -30,6 +30,7 @@ class AppsManager(Object):
         self.db.apps_manager = True
         self.db.num_apps = 0
         self.db.roster_manager_ref = None
+        self.at_init()
 
     def at_init(self):
         """
@@ -39,6 +40,7 @@ class AppsManager(Object):
         in some way after being created but also after each server
         restart or reload.
         """
+        super(AppsManager, self).at_init()
         roster_manager = ObjectDB.objects.get_objs_with_attr("is_roster_manager")
         if roster_manager:
             self.db.roster_manager_ref = roster_manager[0]
