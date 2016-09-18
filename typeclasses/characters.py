@@ -448,7 +448,10 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         we are not hiding from watch.
         """
         watchers = self.db.watched_by or []
-        if not watchers or self.db.hide_from_watch:
+        pc = self.db.player_ob
+        if not pc:
+            return
+        if not watchers or pc.db.hide_from_watch:
             return
         for watcher in watchers:
             spam = watcher.ndb.journal_spam or []

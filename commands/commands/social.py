@@ -314,23 +314,27 @@ class CmdJournal(MuxCommand):
         if not self.switches or 'black' in self.switches:
             white = "black" not in self.switches
             try:
-                if self.lhs.isdigit():
-                    num = int(self.lhs)
+                if not self.args:
                     char = caller
+                    num = 1
                 else:
-                    # search as a player to make it global
-                    char = caller.player.search(self.lhs)
-                    # get character object from player we found
-                    char = char.db.char_ob
-                    if not char: raise AttributeError
-                    # display their latest white journal entry of the character
-                    if not self.rhs:
-                        num = 1
+                    if self.lhs.isdigit():
+                        num = int(self.lhs)
+                        char = caller
                     else:
-                        num = int(self.rhs)
-                if num < 1:
-                    caller.msg("Journal entry number must be at least 1.")
-                    return
+                        # search as a player to make it global
+                        char = caller.player.search(self.lhs)
+                        # get character object from player we found
+                        char = char.db.char_ob
+                        if not char: raise AttributeError
+                        # display their latest white journal entry of the character
+                        if not self.rhs:
+                            num = 1
+                        else:
+                            num = int(self.rhs)
+                    if num < 1:
+                        caller.msg("Journal entry number must be at least 1.")
+                        return
                 journal = char.messages.white_journal if white else char.messages.black_journal
                 msg = char.messages.disp_entry_by_num(num, white=white, caller=caller.db.player_ob)
                 # if we fail access check, we have 'False' instead of a msg
