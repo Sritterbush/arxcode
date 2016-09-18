@@ -16,6 +16,8 @@ import re
 # error return function, needed by Extended Look command
 AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
 
+DESC_COST = 0
+
 
 
 class HomeCmdSet(CmdSet):
@@ -444,7 +446,7 @@ class CmdManageRoom(MuxCommand):
             return
         if "desc" in self.switches:
             if loc.desc:
-                cost = loc.db.desc_cost or 50
+                cost = loc.db.desc_cost or DESC_COST
             else:
                 cost = 0
             if loc.ndb.confirm_desc_change != self.args:
@@ -458,11 +460,12 @@ class CmdManageRoom(MuxCommand):
                     caller.msg("{wChanging this desc will prompt you again for a confirmation.{n")
                     loc.ndb.confirm_desc_change = self.args
                 return
-            if cost > owner.economic:
-                caller.msg("It would cost %s to re-desc the room, and you have %s." % (cost, owner.economic))
-                return
-            owner.economic -= cost
-            owner.save()
+            if cost:
+                if cost > owner.economic:
+                    caller.msg("It would cost %s to re-desc the room, and you have %s." % (cost, owner.economic))
+                    return
+                owner.economic -= cost
+                owner.save()
             loc.desc = self.args
             loc.save()
             loc.ndb.confirm_desc_change = None
