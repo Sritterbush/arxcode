@@ -523,6 +523,12 @@ class Investigation(models.Model):
             base = 20 + (self.targeted_clue.rating)
         return base
 
+    @property
+    def completion_value(self):
+        if not self.targeted_clue:
+            return 30
+        return self.targeted_clue.rating
+    
     def check_success(self, modifier=0, diff=None):
         """
         Checks success. Modifier can be passed by a GM based on their
@@ -532,7 +538,7 @@ class Investigation(models.Model):
         """
         if diff != None:
             return (self.roll + self.progress) >= (diff + modifier)
-        return (self.roll + self.progress) >= (self.difficulty + modifier)
+        return (self.roll + self.progress) >= (self.completion_value)
 
     def process_events(self):
         self.generate_result()
