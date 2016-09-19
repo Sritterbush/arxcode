@@ -455,6 +455,9 @@ class Investigation(models.Model):
     military = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Additional military resources added by the player")
     social = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Additional social resources added by the player")
 
+    def __str__(self):
+        return "%s's investigation on %s" % (self.character, self.topic)
+
     def display(self):
         msg = ""
         msg = "{wCharacter{n: %s\n" % self.character
