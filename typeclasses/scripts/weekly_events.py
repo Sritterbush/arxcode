@@ -106,7 +106,7 @@ class WeeklyEvents(Script):
 
     def do_investigations(self):
         from web.character.models import Investigation
-        for investigation in Investigation.objects.filter(active=True):
+        for investigation in Investigation.objects.filter(active=True, ongoing=True):
             try:
                 investigation.process_events()
             except Exception as err:
