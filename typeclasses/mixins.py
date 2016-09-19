@@ -241,4 +241,7 @@ class MsgMixins(object):
         if options.get('box', False):
             boxchars = '\n{w' + '*' * 60 + '{n\n'
             text = boxchars + text + boxchars
+        if options.get('roll', False):
+            if self.attributes.has("dice_string"):
+                text = "{w<" + self.db.dice_string + "> {n" + text
         super(MsgMixins, self).msg(text, from_obj, session, options, **kwargs)

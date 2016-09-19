@@ -720,6 +720,7 @@ class CmdOOCSay(MuxCommand):
 
         # calling the speech hook on the location
         speech = caller.location.at_say(caller, speech)
+        options = {"ooc_note": True}
 
         # Feedback for the object doing the talking.
         if not oocpose:
@@ -729,13 +730,13 @@ class CmdOOCSay(MuxCommand):
             emit_string = '{y(OOC){n {c%s{n says: %s{n' % (caller.name,
                                                    speech)
             caller.location.msg_contents(emit_string,
-                                         exclude=caller)
+                                         exclude=caller, options=options)
         else:
             if nospace:
                 emit_string = '{y(OOC){n {c%s{n%s' % (caller.name, speech)
             else:
                 emit_string = '{y(OOC){n {c%s{n %s' % (caller.name, speech)
-            caller.location.msg_contents(emit_string, exclude=None)
+            caller.location.msg_contents(emit_string, exclude=None, options=options)
 
 class CmdDiceCheck(MuxCommand):
     """
@@ -838,14 +839,7 @@ class CmdDiceCheck(MuxCommand):
             for GM in staff_list: GM.msg("{w(Private roll){n" + roll_msg)
             return
         # not a private roll, tell everyone who is here
-        for ob in caller.location.contents:
-            orig_msg = roll_msg
-            if ob.attributes.has("dice_string") and ob != caller:
-                roll_msg = "{w<" + ob.db.dice_string + "> {n" + roll_msg
-                ob.msg(roll_msg)
-                roll_msg = orig_msg
-            elif ob != caller:
-                ob.msg(roll_msg)
+        caller.location.msg_contents(roll_msg, exclude=caller, options={'roll':True})
         
 # implement CmdMail. player.db.Mails is List of Mail
 # each Mail is tuple of 3 strings - sender, subject, message        
