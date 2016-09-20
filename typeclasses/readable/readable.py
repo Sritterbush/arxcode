@@ -173,6 +173,7 @@ class CmdWrite(MuxCommand):
             obj.db.written = True
             obj.cmdset.delete_default()
             obj.cmdset.add_default(SignCmdSet, permanent=True)
+            obj.aliases.add("book")
             return
         caller.msg("Unrecognized syntax for write.")
         
