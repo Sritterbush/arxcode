@@ -1075,7 +1075,7 @@ class CmdCalendar(MuxPlayerCommand):
             caller.msg("New event created: %s at %s." % (event.name, date.strftime("%x %X")))
             inform_staff("New event created by %s: %s, scheduled for %s." % (caller, event.name, date.strftime("%x %X")))
             try:
-                from game.gamesrc.commands.bboards import get_boards
+                from commands.commands.bboards import get_boards
                 boards = get_boards(self)
                 boards = [ob for ob in boards if ob.key == "events"]
                 board = boards[0]
