@@ -163,7 +163,7 @@ class CmdWrite(MuxCommand):
                                        key='book', location=caller, home=caller)
                 newobj.set_num(remain)
             obj.db.num_instances = 1
-            obj.key = name
+            obj.name = name
             obj.desc = desc
             obj.save()        
             caller.msg("You have written on %s." % obj.name)
