@@ -165,8 +165,7 @@ class CmdWrite(MuxCommand):
             obj.db.num_instances = 1
             obj.key = name
             obj.desc = desc
-            obj.save()
-            obj.aliases.setup_aliases_from_key()          
+            obj.save()        
             caller.msg("You have written on %s." % obj.name)
             obj.attributes.remove("quality_level")
             obj.attributes.remove("can_stack")
