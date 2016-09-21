@@ -205,6 +205,8 @@ class CmdFinger(MuxPlayerCommand):
         quote = char.db.quote
         if quote:
             msg += "{wQuote:{n %s\n" % quote
+        webpage = "http://play.arxgame.org" + char.get_absolute_url()
+        msg += "{wCharacter page:{n %s\n" % webpage
         caller.msg(msg, options={'box':True})
         
 
