@@ -15,6 +15,8 @@ from world.dominion.models import PlayerOrNpc, AssetOwner, Army, AssignedTask
 import traceback
 from django.db.models import Q
 from datetime import datetime, timedelta
+from commands.commands.bboards import get_boards
+from evennia.utils.evtable import EvTable
 
 EVENT_SCRIPT_NAME = "Weekly Update"
 # number of seconds in a week
@@ -196,6 +198,20 @@ class WeeklyEvents(Script):
             import traceback
             traceback.print_exc()
             print "Error on freezing account: ID:%s, Error: %s" % (player.id, err)
+
+    def post_inactives(self):
+        from typeclasses.bulletin_board.bboard import BBoard
+        date = datetime.now()
+        cutoffdate = date - timedelta(days=30)
+        qs = PlayerDB.objects.filter(roster__roster__name="Active", last_login__isnull=False).filter(
+            last_login__lte=cutoffdate)
+        board = BBoard.objects.get(db_key="staff")
+        table = EvTable("{wName{n", "{wLast Login Date{n", border="cells", width=78)
+        for ob in qs:
+            table.add_row(ob.key.capitalize(), ob.last_login.strftime("%x"))
+        board.bb_post(poster_obj=self, msg=str(table), subject="Inactive List", poster_name="Inactives")
+        inform_staff("List of Inactive Characters posted.")
+        
     # Various 'Beats' -------------------------------------------------
 
     def process_journals(self, player):
@@ -409,7 +425,6 @@ class WeeklyEvents(Script):
         they received.
         """
         import operator
-        from commands.commands.bboards import get_boards
         # this will create a sorted list of tuples of (id, votes), sorted by xp, highest to lowest
         sorted_xp = sorted(self.db.xp.items(), key=operator.itemgetter(1), reverse=True)
         string = "{wTop RPers this week by XP earned{n".center(60)
@@ -433,8 +448,6 @@ class WeeklyEvents(Script):
         inform_staff("Vote process awards complete. Posted on News.")
 
     def post_top_prestige(self):
-        from commands.commands.bboards import get_boards
-        from evennia.utils.evtable import EvTable
         import random
         boards = get_boards(self)
         boards = [ob for ob in boards if ob.key == BOARD_NAME]
