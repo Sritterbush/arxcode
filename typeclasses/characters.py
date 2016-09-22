@@ -40,8 +40,6 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         Called once, when this object is first created.
         """
         # setting up custom attributes for ArxMUSH
-        # Mails is a list of mail for the mail handler
-        self.db.mails = []
         #BriefMode is for toggling brief descriptions from rooms
         self.db.briefmode = False
         # identification attributes about our player
@@ -59,6 +57,7 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         self.db.skills = {}
         self.db.abilities = {}
         self.at_init()
+        self.locks.add("delete:perm(Immortals);tell:all()")
 
     @property
     def is_character(self):
