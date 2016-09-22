@@ -188,7 +188,9 @@ class Player(MsgMixins, DefaultPlayer):
 
     def get_fancy_name(self):
         return self.key.capitalize()
-    name = property(get_fancy_name)
+    def set_name(self, value):
+        self.key = value
+    name = property(get_fancy_name, set_name)
 
     def inform(self, message, category=None, week=0, append=True):
         if not append:
