@@ -2776,7 +2776,10 @@ class CmdSupport(MuxCommand):
                 return
             char = form[0]
             sdict = form[2]
-            total_points = sum(sdict.values())
+            # check if we already have points set for the sphere we're modifying
+            diff = points - sdict.get(sphere.id, 0)
+            # add the new points to the total
+            total_points = sum(sdict.values()) + diff
             if total_points > remaining:
                 caller.msg("You are trying to spend %s, bringing your total to %s, and only have %s." % (points,
                                                                                                          total_points,
