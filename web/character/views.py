@@ -23,6 +23,7 @@ import json
 from django.views.decorators.csrf import csrf_exempt
 from django import forms
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from server.utils.name_paginator import NamePaginator
 from django.views.generic import ListView
 
 def get_character_from_ob(object_id):
@@ -121,6 +122,7 @@ def journals(request, object_id):
 class RosterListView(ListView):
     model = ObjectDB
     template_name = 'character/list.html'
+    paginator_class = NamePaginator
     paginate_by = 20
     roster_name = "Active"
     def get_queryset(self):

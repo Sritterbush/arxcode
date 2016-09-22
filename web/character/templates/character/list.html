@@ -48,8 +48,8 @@
 					<li><a href="?page={{ page_obj.previous_page_number }}">previous</a></li>
 				{% endif %}
 
-				{% for page in page_obj.paginator.page_range %}
-					<li class="{% if page_obj.number == page  %}active{% endif %}"><a href="?page={{page }}">{{ page }}</a></li>
+				{% for page in page_obj.paginator.pages %}
+					<li {% if page_obj == page %}class="active"{% endif %}><a href="?page={{page.number }}">{{ page }}</a></li>
 				{% endfor %}
 
 				{% if page_obj.has_next %}
