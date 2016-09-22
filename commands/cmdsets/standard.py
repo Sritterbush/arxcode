@@ -185,6 +185,7 @@ class MobileCmdSet(CmdSet):
         self.add(social.CmdFeel())
         self.add(social.CmdDonate())
         self.add(investigation.CmdInvestigate())
+        self.add(general.CmdUndress())
 
 class StaffCmdSet(CmdSet):
     "OOC staff and building commands. Character-based due to interacting with game world."   

@@ -1250,7 +1250,52 @@ class CmdKeyring(MuxCommand):
         caller.msg("Keys: %s" % ", ".join(ob.key for ob in keylist))
         return
 
+class CmdUndress(MuxCommand):
+    """
+    Completely remove all worn and wielded items on your person.
+    Usage:
+        undress
 
-            
-            
-        
+    Undress will completely remove all worn and wielded items on your person at once.
+    """
+    key = "undress"
+    aliases = ["removeall"]
+    locks = "cmd:all()"
+
+    def func(self):
+        caller = self.caller
+
+        # Get the combat script if one is present
+        cscript = caller.location.ndb.combat_manager
+
+        # If there is a combat script present and the caller is one of the combatants we'll want to make some
+        # additional checks about whether or not we can continue
+        if cscript and caller in cscript.ndb.combatants:
+
+            # If the current stage is not setup then we can't allow people to undress as we also unwield weapons
+            if cscript.ndb.phase != 2:
+                caller.msg("You cannot undress in combat outside of the setup phase.")
+                return
+
+        # Iterate over all the contents of the caller's inventory
+        for obj in caller.contents:
+            # Ensure the item is currently worn and that it's worn by the wearer - just in case
+            if obj.db.currently_worn and obj.db.worn_by == caller:
+                # Remove the wearable, setting the fact it is worn and who it is worn by to false/null
+                obj.remove(caller)
+
+                # Call the post-command hook explicitly - this might change to something internal to obj.remove later
+                obj.at_post_remove(caller)
+
+            # Ensure the item is currently wielded and that it's wielded by the wearer - just in case
+            if obj.db.currently_wielded and obj.db.wielded_by == caller:
+                # Remove the wieldable, setting the fact it is wielded and who it is wielded by to false/null
+                obj.sheathe(caller)
+
+                # Call the post-command hook explicitly - this might change to something internal to obj.sheathe later
+                obj.at_post_remove(caller)
+
+        # Throw a simple message to the caller only. We don't need to alert the room unless this design decision changes
+        caller.msg("You undress.");
+
+        return
