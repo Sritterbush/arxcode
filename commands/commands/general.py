@@ -1273,7 +1273,7 @@ class CmdUndress(MuxCommand):
         if cscript and caller in cscript.ndb.combatants:
 
             # If the current stage is not setup then we can't allow people to undress as we also unwield weapons
-            if cscript.ndb.phase != 2:
+            if cscript.ndb.phase != 1:
                 caller.msg("You cannot undress in combat outside of the setup phase.")
                 return
 
