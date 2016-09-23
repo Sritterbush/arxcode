@@ -150,10 +150,13 @@ class CmdAutoattack(MuxCommand):
         combat = check_combat(caller, quiet=True)
         autoattack_on = False
         if not self.switches:
-            caller.db.autoattack = True
-            caller.msg("Autoattack is now set to be on.")
-            autoattack_on = True
-        else:
+            if not caller.db.autoattack:
+                caller.db.autoattack = True
+                caller.msg("Autoattack is now set to be on.")
+                autoattack_on = True
+            else:
+                self.switches.append("stop")
+        if "stop" in self.switches:
             caller.db.autoattack = False
             caller.msg("Autoattack is now set to be off.")
             autoattack_on = False

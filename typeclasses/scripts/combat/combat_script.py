@@ -138,7 +138,6 @@ class CombatManager(BaseScript):
         # reset the script timers
         if self.ndb.shutting_down:
             return
-        self.start(force_restart=True)
         # proceed to combat
         if self.ndb.phase == 1:
             self.ready_check()
@@ -502,6 +501,17 @@ class CombatManager(BaseScript):
         def_pen = 5 + combat_settings._STANCE_DEF_MOD_[g_fite.stance]
         self.do_attack(attacker, target, attack_penalty=-5, defense_penalty=def_pen)
 
+    def check_char_active(self, character):
+        """
+        Returns True if the character is in our fighter data
+        and has a status of True, False otherwise.
+        """
+        try:
+            g_fite = self.ndb.fighter_data[character.id]
+            return g_fite.status == "active"
+        except KeyError:
+            return False
+
     def do_pass(self, character):
         """
         Passes a combat turn for character. If it's their turn, next character goes.
@@ -634,7 +644,8 @@ class CombatManager(BaseScript):
         """
         Returns list of defenders of a target.
         """
-        return self.ndb.fighter_data.get(target.id).defenders
+        return [ob for ob in self.ndb.fighter_data.get(target.id).defenders if self.check_char_active(ob)]
+        
     
     def clear_defended_by_list(self, character):
         """
@@ -1035,7 +1046,7 @@ class CombatManager(BaseScript):
             return
         for char in self.ndb.combatants:
             self.ndb.fighter_data[char.id].reset()
-        self.at_repeat()
+        self.force_repeat()
         self.ndb.rounds += 1
         if self.ndb.rounds >= self.ndb.max_rounds:
             self.end_combat()
@@ -1069,7 +1080,7 @@ class CombatManager(BaseScript):
             if (awake == "asleep" or awake == "unconscious") and char not in self.ndb.incapacitated:
                 self.ndb.incapacitated.append(char)
         self.build_initiative_list()
-        self.at_repeat()
+        self.force_repeat()
         self.next_character_turn()
 
     def vote_to_end(self, character):
