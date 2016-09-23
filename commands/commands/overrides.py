@@ -592,13 +592,14 @@ class CmdWho(MuxPlayerCommand):
     who
 
     Usage:
-      who
-      doing
+      who [<filter>]
+      doing [<filter>]
 
     Shows who is currently online. Doing is an alias that limits info
     also for those with all permissions. Players who are currently
     looking for scenes show up with the (LRP) flag, which can be
-    toggled with the @settings command.
+    toggled with the @settings command. If a filter is supplied, it
+    will match names that start with it.
     """
 
     key = "who"
@@ -617,6 +618,22 @@ class CmdWho(MuxPlayerCommand):
         if player.is_staff:
             base += " {c(Staff){n"
         return base
+
+    def check_filters(self, pname):
+        """
+        If we have no filters or the name starts with the
+        filter or matches a flag, we return True. Otherwise
+        we return False.
+        """
+        if not self.args:
+            return True
+        if self.args.lower() == "afk":
+            return "(AFK)" in pname
+        if self.args.lower() == "lrp":
+            return "(LRP)" in pname
+        if self.args.lower() == "staff":
+            return "(Staff)" in pname
+        return pname.lower().startswith(self.args.lower())
 
     def func(self):
         """
@@ -646,9 +663,14 @@ class CmdWho(MuxPlayerCommand):
                 if not session.logged_in: continue
                 delta_cmd = time.time() - session.cmd_last_visible
                 delta_conn = time.time() - session.conn_time
+                pc = session.get_player()
                 plr_pobject = session.get_puppet()
-                plr_pobject = plr_pobject or session.get_player()
-                table.add_row([crop(self.format_pname(session.get_player()), width=25),
+                plr_pobject = plr_pobject or pc
+                pname = self.format_pname(session.get_player())
+                if not self.check_filters(pname):
+                    continue
+                pname = crop(pname, width=25)
+                table.add_row([pname,
                                time_format(delta_conn, 0),
                                time_format(delta_cmd, 1),
                                # hasattr(plr_pobject, "location") and plr_pobject.location.key or "None",
@@ -664,9 +686,14 @@ class CmdWho(MuxPlayerCommand):
                 delta_cmd = time.time() - session.cmd_last_visible
                 delta_conn = time.time() - session.conn_time
                 plr_pobject = session.get_puppet()
-                plr_pobject = plr_pobject or session.get_player()
-                if not session.get_player().db.hide_from_watch:
-                    table.add_row([crop(self.format_pname(session.get_player()), width=50),
+                pc = session.get_player()
+                plr_pobject = plr_pobject or pc
+                if not pc.db.hide_from_watch:
+                    pname = self.format_pname(pc)
+                    if not self.check_filters(pname):
+                        continue
+                    pname = crop(pname, width=50)
+                    table.add_row([pname,
                                    time_format(delta_conn, 0),
                                    time_format(delta_cmd, 1)])
                 else:
