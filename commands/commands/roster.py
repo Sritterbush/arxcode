@@ -1226,7 +1226,7 @@ class CmdRelationship(MuxPlayerCommand):
                 caller.msg("No relationships found.")
                 return
             entries = rels.get(name, [])
-            entries = [msg for msg in entries if msg.access(caller, 'read')]
+            entries = [msg for msg in entries if msg.access(caller, 'read') or 'white' in msg.header]
             if not entries:
                 caller.msg("No relationship found.")
                 return
