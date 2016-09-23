@@ -1220,6 +1220,7 @@ class CmdPraise(MuxCommand):
     key = "praise"
     locks = "cmd:all()"
     help_category = "Social"
+    aliases = ["igotyoufam"]
     attr = "praises"
     verb = "praise"
     verbing = "praising"

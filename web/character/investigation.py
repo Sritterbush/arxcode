@@ -368,7 +368,7 @@ class CmdListClues(MuxPlayerCommand):
     """
     key = "@clues"
     locks = "cmd:all()"
-    aliases = ["+clues", "@clue", "+clue"]
+    aliases = ["+clues", "@clue", "+clue", "@zoinks", "@jinkies"]
     help_category = "Investigation"
     
     @property
