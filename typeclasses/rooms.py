@@ -128,7 +128,7 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
         if not self.db.current_event:
             return None
         try:
-            from game.dominion.models import RPEvent
+            from world.dominion.models import RPEvent
             return RPEvent.objects.get(id=self.db.current_event)
         except Exception:
             return None
