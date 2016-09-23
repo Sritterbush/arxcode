@@ -5,6 +5,7 @@ from evennia.objects.models import ObjectDB
 from evennia.locks.lockhandler import LockHandler
 from django.db.models import Q, F
 from .managers import ArxRosterManager
+from datetime import datetime
 
 """
 This is the main model in the project. It holds a reference to cloudinary-stored
@@ -243,7 +244,6 @@ def setup_accounts():
         except Exception:
             ob.current_account = PlayerAccount.objects.create(email=email)
         ob.save()
-        from datetime import datetime
         date = datetime.now()
         if not AccountHistory.objects.filter(account=ob.current_account, entry=ob):
             AccountHistory.objects.create(entry=ob, account=ob.current_account, start_date=date)
@@ -388,6 +388,10 @@ class ClueDiscovery(models.Model):
     revealed_by = models.ForeignKey('RosterEntry', related_name="clues_spoiled", blank=True, null=True)
 
     @property
+    def name(self):
+        return self.clue.name
+    
+    @property
     def finished(self):
         return self.roll >= self.clue.rating
 
@@ -429,6 +433,40 @@ class ClueDiscovery(models.Model):
             return self.clue.rating/self.roll
         except Exception:
             return 0
+
+    def share(self, entry):
+        """
+        Copy this clue to target entry. If they already have the
+        discovery, we'll add our roll to theirs (which presumably should
+        finish it). If not, they'll get a copy with their roll value
+        equal to ours. We'll check for them getting a revelation discovery.
+        """
+        try:
+            targ_clue = entry.clues.get(clue=self.clue)
+        except ClueDiscovery.DoesNotExist:
+            targ_clue = entry.clues.create(clue=self.clue)
+        targ_clue.roll += self.roll
+        targ_clue.discovery_method = "Sharing"
+        targ_clue.message = "This clue was shared to you by %s." % self.character
+        targ_clue.revealed_by = self.character
+        targ_clue.date = datetime.now()
+        targ_clue.save()
+        pc = targ_clue.character.player
+        msg = "A new clue has been shared with you by %s!\n\n%s\n" % (self.character,
+                                                                    targ_clue.display())
+        for revelation in targ_clue.check_revelation_discovery():
+            msg += "\nYou have also discovered a revelation: %s" % str(revelation)
+            rev = RevelationDiscovery.objects.create(character=entry,
+                                                     discovery_method="Sharing",
+                                                     message="You had a revelation after learning a clue from %s!" % self.character,
+                                                     revelation=revelation, date=datetime.now())
+            mysteries = rev.check_mystery_discovery()
+            for mystery in mysteries:
+                msg += "\nYou have also discovered a mystery: %s" % str(mystery)
+                myst = MysteryDiscovery.objects.create(character=self.character,
+                                                       message="Your uncovered a mystery after learning a clue from %s!" % self.character,
+                                                       mystery=mystery, date=datetime.now())
+        pc.inform(msg, category="Investigations", append=False)
 
 class ClueForRevelation(models.Model):
     clue = models.ForeignKey('Clue', related_name="usage")
@@ -569,7 +607,6 @@ class Investigation(models.Model):
                     self.results += "but you keep on finding mention of '%s' in your search." % kw
             else:
                 # add a valid clue and update results string
-                from datetime import datetime
                 roll = self.roll
                 try:
                     clue = self.clues.get(clue=self.targeted_clue, character=self.character)

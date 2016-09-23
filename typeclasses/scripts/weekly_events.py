@@ -76,6 +76,7 @@ class WeeklyEvents(Script):
         self.do_dominion_events()
         self.do_investigations()
         self.do_cleanup()
+        self.post_inactives()
         self.db.week += 1
 
     def do_dominion_events(self):

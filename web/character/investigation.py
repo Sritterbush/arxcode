@@ -363,27 +363,58 @@ class CmdListClues(MuxPlayerCommand):
     
     Usage:
         @clues
+        @clues <clue #>
+        @clues/share <clue #>=<target>
     """
     key = "@clues"
     locks = "cmd:all()"
-    aliases = ["+clues"]
+    aliases = ["+clues", "@clue", "+clue"]
     help_category = "Investigation"
+    
+    @property
+    def finished_clues(self):
+        try:
+            return self.caller.roster.finished_clues
+        except Exception:
+            return []
+    
+    def disp_clue_table(self):
+        caller = self.caller
+        table = PrettyTable(["{wClue #{n", "{wSubject{n"])
+        clues = self.finished_clues
+        msg = "{wDiscovered Clues{n\n"
+        for clue in clues:
+            table.add_row([clue.id, clue.name])
+        msg += str(table)
+        caller.msg(msg, options={'box':True})
     def func(self):
         caller = self.caller
-        clues = caller.roster.finished_clues
+        clues = self.finished_clues
         if not self.args:
             if not clues:
                 caller.msg("Nothing yet.")
                 return
-            caller.msg("{wDiscovered clue #'s: Please use '@clues <#>' to dislplay them.{n")
-            caller.msg(", ".join(str(clue.id) for clue in clues))
+            self.disp_clue_table()
             return
+        # get clue for display or sharing
         try:
-            clue = clues.get(id=self.args)
-            caller.msg(clue.display())
+            clue = clues.get(id=self.lhs)  
         except Exception:
             caller.msg("No clue found by that ID.")
+            self.disp_clue_table()
             return
+        if not self.switches:
+            caller.msg(clue.display())
+            return
+        if "share" in self.switches:
+            pc = caller.search(self.rhs)
+            if not pc:
+                return
+            clue.share(pc.roster)
+            caller.msg("You have shared the clue '%s' with %s." % (clue, pc.roster))
+            return
+        caller.msg("Invalid switch")
+        return
 
 class CmdListRevelations(MuxPlayerCommand):
     """
