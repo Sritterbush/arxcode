@@ -108,6 +108,7 @@ def sub_old_ansi(text):
     text = text.replace('%r', '|/')
     text = text.replace('%R', '|/')
     text = text.replace('%t', '|-')
+    text = text.replace('%T', '|-')
     text = text.replace('%b', '|_')
     text = text.replace('%cr', '|r')
     text = text.replace('%cR', '|[R')

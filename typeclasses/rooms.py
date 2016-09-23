@@ -266,7 +266,8 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
                 more info.
         """
         eventid = self.db.current_event
-        gm_only = kwargs.pop('gm_msg', False) or kwargs.pop('ooc_note', False)
+        gm_only = kwargs.pop('gm_msg', False)
+        options = kwargs.get('options', {})
         if gm_only:
             exclude = exclude or []
             exclude = exclude + [ob for ob in self.contents if not ob.check_permstring("builders")]
@@ -275,7 +276,8 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
             from evennia.scripts.models import ScriptDB
             try:
                 event_script = ScriptDB.objects.get(db_key="Event Manager")
-                if gm_only:
+                ooc = options.get('ooc_note', False)
+                if gm_only or ooc:
                     event_script.add_gmnote(eventid, text)
                 else:
                     event_script.add_msg(eventid, text, from_obj)
