@@ -44,8 +44,14 @@ class CmdGameSettings(MuxPlayerCommand):
         @settings/brief
         @settings/posebreak
         @settings/stripansinames
+        @settings/lrp
+        @settings/afk <message>
 
-    Toggles different settings.
+    Toggles different settings. Brief surpresses room descs when
+    moving through rooms. Posebreak adds a newline between poses
+    fro mcharacters. lrp flags your name in the who list
+    as looking for scenes. afk sets that you are away from the
+    keyboard, with an optional message.
     """
     key = "@settings"
     locks = "cmd:all()"
@@ -73,6 +79,12 @@ class CmdGameSettings(MuxPlayerCommand):
             return
         if "stripansinames" in self.switches:
             self.togglesetting(char, "stripansinames")
+            return
+        if "lrp" in self.switches:
+            self.togglesetting(caller, "lookingforrp")
+            return
+        if "afk" in self.switches:
+            caller.execute_cmd("afk %s" % self.args)
             return
         caller.msg("Invalid switch.")
 

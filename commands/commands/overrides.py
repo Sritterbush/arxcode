@@ -596,12 +596,27 @@ class CmdWho(MuxPlayerCommand):
       doing
 
     Shows who is currently online. Doing is an alias that limits info
-    also for those with all permissions.
+    also for those with all permissions. Players who are currently
+    looking for scenes show up with the (LRP) flag, which can be
+    toggled with the @settings command.
     """
 
     key = "who"
     aliases = ["doing", "+who"]
     locks = "cmd:all()"
+
+    def format_pname(self, player):
+        """
+        Returns name of player with flags
+        """
+        base = player.name.capitalize()
+        if player.db.afk:
+            base += " {w(AFK){n"
+        if player.db.lookingforrp:
+            base += " {w(LRP){n"
+        if player.is_staff:
+            base += " {c(Staff){n"
+        return base
 
     def func(self):
         """
@@ -633,7 +648,7 @@ class CmdWho(MuxPlayerCommand):
                 delta_conn = time.time() - session.conn_time
                 plr_pobject = session.get_puppet()
                 plr_pobject = plr_pobject or session.get_player()
-                table.add_row([crop(plr_pobject.name, width=25),
+                table.add_row([crop(self.format_pname(session.get_player()), width=25),
                                time_format(delta_conn, 0),
                                time_format(delta_cmd, 1),
                                # hasattr(plr_pobject, "location") and plr_pobject.location.key or "None",
@@ -651,7 +666,7 @@ class CmdWho(MuxPlayerCommand):
                 plr_pobject = session.get_puppet()
                 plr_pobject = plr_pobject or session.get_player()
                 if not session.get_player().db.hide_from_watch:
-                    table.add_row([crop(plr_pobject.name, width=25),
+                    table.add_row([crop(self.format_pname(session.get_player()), width=50),
                                    time_format(delta_conn, 0),
                                    time_format(delta_cmd, 1)])
                 else:
