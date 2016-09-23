@@ -56,6 +56,7 @@ class CmdGameSettings(MuxPlayerCommand):
     key = "@settings"
     locks = "cmd:all()"
     help_category = "Settings"
+    aliases = ["lrp"]
 
     def togglesetting(self, char, attr):
         caller = self.caller
@@ -71,6 +72,8 @@ class CmdGameSettings(MuxPlayerCommand):
         if not char:
             caller.msg("Settings have no effect without a character object.")
             return
+        if self.cmdstring == "lrp":
+            self.switches = ["lrp"]
         if "brief" in self.switches:
             self.togglesetting(char, "briefmode")
             return
