@@ -669,7 +669,7 @@ class CmdWho(MuxPlayerCommand):
                 pname = self.format_pname(session.get_player())
                 if not self.check_filters(pname):
                     continue
-                pname = crop(pname, width=25)
+                pname = crop(pname, width=20)
                 table.add_row([pname,
                                time_format(delta_conn, 0),
                                time_format(delta_cmd, 1),

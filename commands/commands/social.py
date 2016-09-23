@@ -111,10 +111,13 @@ class CmdWatch(MuxPlayerCommand):
         if not watchlist:
             caller.msg("Not watching anyone.")
             return
-        table = EvTable("{wName{n", "{wOnline?{n")
+        table = []
         for ob in sorted(watchlist, key=lambda x: x.key):
-            table.add_row(ob.key.capitalize(), "{wX{n" if ob.db.player_ob.is_connected else "")
-        caller.msg("Currently watching:\n%s" % str(table), options={'box':True})
+            name = ob.key.capitalize()
+            if ob.db.player_ob.is_connected:
+                name = "{c%s{n" % name
+            table.append(name)
+        caller.msg("Currently watching (online players are highlighted):\n%s" % ", ".join(table), options={'box':True})
         if caller.db.hide_from_watch:
             caller.msg("You are currently in hidden mode.")
         return
