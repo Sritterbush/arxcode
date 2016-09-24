@@ -218,6 +218,16 @@ class Player(MsgMixins, DefaultPlayer):
     def get_all_sessions(self):
         return self.sessions.all()
 
+    @property
+    def public_orgs(self):
+        """
+        Return public organizations we're in.
+        """
+        try:
+            return self.Dominion.current_orgs.filter(secret=False)
+        except AttributeError:
+            return []
+
 
 
 

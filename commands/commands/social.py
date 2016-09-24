@@ -208,11 +208,23 @@ class CmdFinger(MuxPlayerCommand):
             msg += "{wStatus:{n Last logged in: %s\n" % last_online
         fealty = char.db.fealty or "None"
         msg += "{wFealty:{n %s\n" % fealty
+        pageroot = "http://play.arxgame.org"
         quote = char.db.quote
         if quote:
             msg += "{wQuote:{n %s\n" % quote
-        webpage = "http://play.arxgame.org" + char.get_absolute_url()
+        webpage = pageroot + char.get_absolute_url()
         msg += "{wCharacter page:{n %s\n" % webpage
+        orgs = player.public_orgs
+        if orgs:       
+            orgstr = ""
+            applybuffer = False
+            for org in orgs:
+                buffer = ""
+                if applybuffer:
+                    buffer = " " * 15
+                orgstr += "%s%s: %s\n" % (buffer, org.name, pageroot + org.get_absolute_url())
+                applybuffer=True
+            msg += "{wOrganizations:{n %s" % orgstr
         caller.msg(msg, options={'box':True})
         
 
