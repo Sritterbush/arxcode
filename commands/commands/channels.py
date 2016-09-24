@@ -121,7 +121,7 @@ class ArxChannelCommand(command.Command):
             else:
                 caller.msg("You cannot disconnect from channel '%s'." % channel.key)
             return
-        channel.msg(msg, senders=self.caller, persistent=True, online=True)
+        channel.msg(msg, senders=caller.db.char_ob or caller, persistent=True, online=True)
         if Msg.objects.get_messages_by_channel(channel.id).count() > 200:
             earliest = Msg.objects.get_messages_by_channel(channel.id).earliest('db_date_created')
             channel.delete_chan_message(earliest)
