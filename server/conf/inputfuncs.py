@@ -26,31 +26,42 @@ as argument.
 
 """
 
-# import the contents of the default inputhandler_func module
-#from evennia.server.inputfuncs import *
+from evennia.commands.cmdhandler import cmdhandler
+from evennia.server.inputfuncs import _IDLE_COMMAND
+# All global functions are inputfuncs available to process inputs
 
+def json(session, *args, **kwargs):
+    """
+    Main cmd input from the client. This mimics the way text is handled to work
+    with legacy string implementation.
+    Args:
+        cmd (str): First arg is used as text-command input. Other
+            arguments are ignored.
+    Kwargs:
+        opts (dict): Holds all of the switch/arg/param in json format.
+    """
 
-# def oob_echo(session, *args, **kwargs):
-#     """
-#     Example echo function. Echoes args, kwargs sent to it.
-#
-#     Args:
-#         session (Session): The Session to receive the echo.
-#         args (list of str): Echo text.
-#         kwargs (dict of str, optional): Keyed echo text
-#
-#     """
-#     session.msg(oob=("echo", args, kwargs))
-#
-#
-# def default(session, cmdname, *args, **kwargs):
-#     """
-#     Handles commands without a matching inputhandler func.
-#
-#     Args:
-#         session (Session): The active Session.
-#         cmdname (str): The (unmatched) command name
-#         args, kwargs (any): Arguments to function.
-#
-#     """
-#     pass
+    cmd = args[0] if args else None
+
+    #explicitly check for None since cmd can be an empty string, which is
+    #also valid
+    if cmd is None:
+        return
+    # this is treated as a command input
+    # handle the 'idle' command
+    if cmd.strip() in _IDLE_COMMAND:
+        session.update_session_counters(idle=True)
+        return
+    if session.player:
+        # nick replacement
+        puppet = session.puppet
+        if puppet:
+            cmd = puppet.nicks.nickreplace(cmd,
+                          categories=("inputline", "channel"), include_player=True)
+        else:
+            cmd = session.player.nicks.nickreplace(cmd,
+                        categories=("inputline", "channel"), include_player=False)
+
+    kwargs['json'] = True
+    cmdhandler(session, cmd, callertype="session", session=session, **kwargs)
+    session.update_session_counters()
