@@ -61,35 +61,35 @@ class ArxRosterManager(models.Manager):
         for filter in list_of_filters:
             if filter == "male":
                 for char in char_list:
-                    if char.db.gender.lower() != "male":
+                    if not char.db.gender or char.db.gender.lower() != "male":
                         match_set.discard(char)
             if filter == "female":
                 for char in char_list:
-                    if char.db.gender.lower() != "female":
+                    if not char.db.gender or char.db.gender.lower() != "female":
                         match_set.discard(char)
             if filter == "young":
                 for char in char_list:
-                    if char.db.age > 20:
+                    if not char.db.age or char.db.age > 20:
                         match_set.discard(char)
             if filter == "adult":
                 for char in char_list:
-                    if  char.db.age >= 40 or char.db.age < 21:
+                    if  not char.db.age or char.db.age >= 40 or char.db.age < 21:
                         match_set.discard(char)
             if filter == "mature":
                 for char in char_list:
-                    if char.db.age < 40 or char.db.age >= 60:
+                    if not char.db.age or char.db.age < 40 or char.db.age >= 60:
                         match_set.discard(char)
             if filter == "elder":
                 for char in char_list:
-                    if char.db.age < 60:
+                    if not char.db.age or char.db.age < 60:
                         match_set.discard(char)
             if filter == "concept":
                 for char in char_list:
-                    if concept.lower() not in char.db.concept.lower():
+                    if not char.db.concept or concept.lower() not in char.db.concept.lower():
                         match_set.discard(char)
             if filter == "fealty":
                 for char in char_list:
-                    if fealty.lower() not in char.db.fealty.lower():
+                    if not char.db.fealty or fealty.lower() not in char.db.fealty.lower():
                         match_set.discard(char)
             if filter == "social rank":
                 for char in char_list:
@@ -100,14 +100,14 @@ class ArxRosterManager(models.Manager):
                         match_set.discard(char)
             if filter == "married":
                 for char in char_list:
-                    if char.db.marital_status.lower() != "married":
+                    if not char.db.marital_status or char.db.marital_status.lower() != "married":
                         match_set.discard(char)
             if filter == "single":
                 for char in char_list:
-                    if char.db.marital_status.lower() != "unmarried":
+                    if not char.db.marital_status or char.db.marital_status.lower() != "unmarried":
                         match_set.discard(char)
             if filter == "family":
                 for char in char_list:
-                    if family.lower() not in char.db.family.lower():
+                    if not char.db.family or family.lower() not in char.db.family.lower():
                         match_set.discard(char)
         return match_set

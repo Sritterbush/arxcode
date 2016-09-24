@@ -314,12 +314,8 @@ class CmdRosterList(MuxPlayerCommand):
         social_rank = filtdict.get('social rank', "None")
         if 'all' in switches:
             match_list = roster.search_by_filters(lhslist,"active",concept, fealty, social_rank, family)
-            if match_list:
-                match_list = [_char.key.capitalize() for _char in match_list]
             list_characters(caller, match_list, "Active Characters", roster, False)
         match_list = roster.search_by_filters(lhslist,"available",concept, fealty, social_rank, family)
-        if match_list:
-            match_list = [_char.key.capitalize() for _char in match_list]
         list_characters(caller, match_list, "Available Characters", roster, False)
         return
 
