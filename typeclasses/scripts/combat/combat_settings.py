@@ -45,7 +45,7 @@ appropriately to actions with poses as needed.
 """
 
 MAX_AFK = 120
-ROUND_DELAY = 210
+ROUND_DELAY = 300
 
 class CombatError(Exception):
     pass
