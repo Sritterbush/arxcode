@@ -36,8 +36,8 @@ class CmdAdmDomain(MuxPlayerCommand):
     Usage:
       @admin_domain
       @admin_domain/create player=region[, social rank]
-      @admin_domain/replacevassal receiver=domain_id
-      @admin_domain/createvassal receiver=liege_domain_id
+      @admin_domain/replacevassal receiver=domain_id, numvassals
+      @admin_domain/createvassal receiver=liege_domain_id, numvassals
       @admin_domain/transferowner receiver=domain_id
       @admdin_domain/transferrule char=domain_id
       @admin_domain/liege domain_id=family
@@ -178,7 +178,11 @@ class CmdAdmDomain(MuxPlayerCommand):
             if not player:
                 caller.msg("No player by the name %s." % self.lhs)
             try:
-                id = int(self.rhs)
+                id = int(self.rhslist[0])
+                if len(self.rhslist) > 1:
+                    num_vassals = int(self.rhslist[1])
+                else:
+                    num_vassals = 2
                 dom = Domain.objects.get(id=id)
             except ValueError:
                 caller.msg("Domain's id must be a number.")
@@ -198,7 +202,7 @@ class CmdAdmDomain(MuxPlayerCommand):
                 return
             if "replacevassal" in self.switches:
                 try:
-                    setup_utils.replace_vassal(dom, player)
+                    setup_utils.replace_vassal(dom, player, num_vassals)
                     caller.msg("%s now ruled by %s." % (dom, player))
                 except Exception as err:
                     caller.msg(err)
