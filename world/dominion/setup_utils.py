@@ -248,7 +248,8 @@ def setup_units(army, srank):
             army.units.create(unit_type=unit, quantity=units[unit])
     
 def setup_family(dompc, family, create_liege=True, create_vassals=True,
-                 character=None, srank=None, region=None, liege=None):
+                 character=None, srank=None, region=None, liege=None,
+                 num_vassals=2):
     """
     Creates a ruler object and either retrieves a house
     organization or creates it. Then we also create similar
@@ -265,7 +266,7 @@ def setup_family(dompc, family, create_liege=True, create_vassals=True,
         liege = setup_ruler(name)
     ruler = setup_ruler(family, dompc, liege)
     if create_vassals:
-        vassals = setup_vassals(family, ruler, region, character, srank) 
+        vassals = setup_vassals(family, ruler, region, character, srank, num=num_vassals) 
     return (ruler, liege, vassals)
 
 def setup_vassals(family, ruler, region, character, srank, num=2):
@@ -319,7 +320,8 @@ def setup_ruler(name, castellan=None, liege=None):
 
 def setup_dom_for_char(character, create_dompc=True, create_assets=True,
                        region=None, srank=None, family=None, liege_domain=None,
-                       create_domain=True, create_liege=True, create_vassals=True):
+                       create_domain=True, create_liege=True, create_vassals=True,
+                       num_vassals=2):
     """
     Creates both a PlayerOrNpc instance and an AssetOwner instance for
     a given character. If region is defined and create_domain is True,
@@ -357,7 +359,8 @@ def setup_dom_for_char(character, create_dompc=True, create_assets=True,
             create_liege = False
             liege = liege_domain.ruler
         ruler, liege, vassals = setup_family(dompc, family, create_liege=create_liege, create_vassals=create_vassals,
-                                             character=character, srank=srank, region=region, liege=liege)
+                                             character=character, srank=srank, region=region, liege=liege,
+                                             num_vassals=num_vassals)
         # if we created a liege, finish setting them up
         if create_liege:
             name = "%s's Liege" % character
@@ -385,7 +388,7 @@ def setup_dom_for_npc(name, srank, gender='male', region=None, ruler=None,
     if create_domain and region:
         setup_domain(domnpc, region, srank, male, ruler)
 
-def replace_vassal(domain, player):
+def replace_vassal(domain, player, num_vassals=2):
     """
     Replaces the npc ruler of a domain that is someone's vassal, and then
     creates vassals of their own.
@@ -403,15 +406,16 @@ def replace_vassal(domain, player):
     assets = domain.ruler.house
     org = assets.organization_owner
     npc = ruler.castellan
-    if npc.player:
-        raise ValueError("This domain already has a player ruler.")
-    npc.npc_name = None
-    npc.player = player
-    npc.save()
+    if npc:
+        if npc.player:
+            raise ValueError("This domain already has a player ruler.")
+        npc.npc_name = None
+        npc.player = player
+        npc.save()
     org.name = family
     org.save()
     # create their vassals
-    setup_vassals(family, ruler, domain.land.region, char, srank)
+    setup_vassals(family, ruler, domain.land.region, char, srank, num=num_vassals)
 
 REGION_TYPES = ("coast", "temperate", "continental", "tropical")
 def get_terrain(type):

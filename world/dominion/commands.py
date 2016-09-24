@@ -193,6 +193,8 @@ class CmdAdmDomain(MuxPlayerCommand):
                     caller.msg("Vassal created.")
                 except Exception as err:
                     caller.msg(err)
+                    import traceback
+                    traceback.print_exc()
                 return
             if "replacevassal" in self.switches:
                 try:
@@ -200,6 +202,8 @@ class CmdAdmDomain(MuxPlayerCommand):
                     caller.msg("%s now ruled by %s." % (dom, player))
                 except Exception as err:
                     caller.msg(err)
+                    import traceback
+                    traceback.print_exc()
                 return
             if not hasattr(player, 'Dominion'):
                 dompc = setup_utils.setup_dom_for_char(player.db.char_ob)
