@@ -65,10 +65,14 @@ def sheet(request, object_id):
     # we allow only staff or the player to see secret information
     # but only other characters can leave IC comments.
     if user.is_authenticated():
-        if user.db.char_ob.id == character.id or user.check_permstring("builders"):
-            show_hidden = True
-        if user.db.char_ob.id != character.id:
-            can_comment = True
+        try:
+            if user.db.char_ob.id == character.id or user.check_permstring("builders"):
+                show_hidden = True
+            if user.db.char_ob.id != character.id:
+                can_comment = True
+        # if we're logged in as a player without a character assigned somehow
+        except Exception:
+            pass
     if not show_hidden and (hasattr(character, 'roster') and
                             character.roster.roster.name == "Unavailable"):
         from django.core.exceptions import PermissionDenied
