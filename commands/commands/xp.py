@@ -406,6 +406,7 @@ class CmdVoteXP(MuxPlayerCommand):
 
     Usage:
         vote <player>
+        unvote <player>
 
     Lodges a vote for a character to receive an additional xp point for
     this week due to excellent RP. Please vote for players who have
@@ -413,7 +414,7 @@ class CmdVoteXP(MuxPlayerCommand):
     alts is obviously against the rules.
     """
     key = "vote"
-    aliases = ["+vote", "@vote"]
+    aliases = ["+vote", "@vote", "unvote"]
     locks = "cmd:all()"
     help_category = "Progression"
     def count_votes(self):
@@ -456,12 +457,19 @@ class CmdVoteXP(MuxPlayerCommand):
             return     
         if not targ.db.char_ob:
             caller.msg("%s doesn't have a character object assigned to them." % targ)
-            return
+            return  
         if targ in votes:
-            caller.msg("Removing your vote for %s." % targ)
-            votes.remove(targ)
-            caller.db.votes = votes
+            if self.cmdstring == "unvote":
+                caller.msg("Removing your vote for %s." % targ)
+                votes.remove(targ)
+                caller.db.votes = votes
+            else:
+                caller.msg("You are already voting for %s. To remove them, use 'unvote'." % targ)
             return
+        else:
+            if self.cmdstring == "unvote":
+                caller.msg("You are not currently voting for %s." % targ)
+                return
         num_votes = self.count_votes()
         if num_votes >= 10:
             caller.msg("You have voted %s times, which is the maximum." % num_votes)
