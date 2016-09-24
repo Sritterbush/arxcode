@@ -11,7 +11,7 @@ from evennia import DefaultCharacter
 from typeclasses.mixins import MsgMixins, ObjectMixins
 from world.msgs.messagehandler import MessageHandler
 from evennia.utils import create
-from evennia.utils.utils import fill, to_str, to_unicode
+from evennia.utils.utils import fill, to_str, to_unicode, lazy_property
 import time
 from world.stats_and_skills import do_dice_check
 
@@ -40,8 +40,6 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         Called once, when this object is first created.
         """
         # setting up custom attributes for ArxMUSH
-        # Mails is a list of mail for the mail handler
-        self.db.mails = []
         #BriefMode is for toggling brief descriptions from rooms
         self.db.briefmode = False
         # identification attributes about our player
@@ -58,19 +56,16 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         self.db.attackable = True
         self.db.skills = {}
         self.db.abilities = {}
+        self.at_init()
+        self.locks.add("delete:perm(Immortals);tell:all()")
 
-    def at_init(self):
-        """
-        This is always called whenever this object is initiated --
-        that is, whenever it its typeclass is cached from memory. This
-        happens on-demand first time the object is used or activated
-        in some way after being created but also after each server
-        restart or reload.
-        """
-        self.is_room = False
-        self.is_exit = False
-        self.is_character = True
-        self.messages = MessageHandler(self)
+    @property
+    def is_character(self):
+        return True
+        
+    @lazy_property
+    def messages(self):    
+        return MessageHandler(self)
         
 
     def at_after_move(self, source_location):
@@ -124,14 +119,10 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
             except Exception:
                 pass
         if desc:
-            indent = 0
-            if len(desc) > 78:
-                indent = 4
             extras = self.return_extras(pobject)
             if extras:
                 extras += "\n"
-            string += "\n\n%s%s" % (extras, fill(desc, indent=indent))
-        
+            string += "\n\n%s%s" % (extras, desc)
         if health_appearance:
             string += "\n\n%s" % health_appearance
         string += self.return_contents(pobject, detailed, strip_ansi=strip_ansi)
@@ -456,7 +447,10 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         we are not hiding from watch.
         """
         watchers = self.db.watched_by or []
-        if not watchers or self.db.hide_from_watch:
+        pc = self.db.player_ob
+        if not pc:
+            return
+        if not watchers or pc.db.hide_from_watch:
             return
         for watcher in watchers:
             spam = watcher.ndb.journal_spam or []
@@ -613,6 +607,10 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
             return self.roster.profile_picture
         except AttributeError:
             return None
+
+    def get_absolute_url(self):
+        from django.core.urlresolvers import reverse
+        return reverse('character:sheet', kwargs={'object_id': self.id})
 
 
 

@@ -32,6 +32,7 @@ class Wearable(Object):
         self.db.slot = None
         self.db.slot_limit = 1
         self.cmdset.add_default(DefaultCmdSet, permanent=True)
+        self.at_init()
 
     def remove(self, wearer):
         """
@@ -41,6 +42,8 @@ class Wearable(Object):
             return False
         self.db.worn_by = None
         self.db.currently_worn = False
+        # TODO it could be worth moving self.at_post_remove to this point rather than have separate calls
+        # outside the function. Be sure to search for all instances of the usage of at_post_remove.
         return True
 
     def wear(self, wearer):

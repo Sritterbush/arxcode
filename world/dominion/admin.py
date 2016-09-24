@@ -36,10 +36,25 @@ class MemberInline(admin.StackedInline):
     exclude = ('object','pc_exists', 'salary')
     readonly_fields = ('work_this_week', 'work_total')
 
+class OrgListFilter(admin.SimpleListFilter):
+    title = ('PC or NPC')
+    parameter_name = 'played'
+    def lookups(self, request, model_admin):
+        return (
+            ('pc', ('Has Players')),
+            ('npc', ('NPCs Only')),
+            )
+    def queryset(self, request, queryset):
+        if self.value() == 'pc':
+            return queryset.filter(members__player__player__isnull=False).distinct()
+        if self.value() == 'npc':
+            return queryset.filter(members__player__player__isnull=True).distinct()
+
 class OrgAdmin(DomAdmin):
     list_display = ('name', 'membership')
     ordering = ['name']
     search_fields = ['name']
+    list_filter = (OrgListFilter,)
     def membership(self, obj):
         return ", ".join([str(p) for p in obj.members.filter(deguilded=False)])
     inlines = [MemberInline]
@@ -148,6 +163,10 @@ class TaskAdmin(DomAdmin):
     def orgs(self, obj):
         return ", ".join([p.name for p in obj.org.all()])
     filter_horizontal = ['org']
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        if db_field.name == "org":
+            kwargs["queryset"] = Organization.objects.filter(members__player__player__isnull=False).distinct().order_by('name')
+        return super(TaskAdmin, self).formfield_for_manytomany(db_field, request, **kwargs)
 
 class CrisisAdmin(DomAdmin):
     filter_horizontal = ['orgs']
@@ -162,6 +181,10 @@ class ReputationAdmin(DomAdmin):
 class SpheresInline(admin.TabularInline):
     model = SphereOfInfluence
     extra = 0
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "org":
+            kwargs["queryset"] = Organization.objects.filter(members__player__player__isnull=False).distinct().order_by('name')
+        return super(SpheresInline, self).formfield_for_foreignkey(db_field, request, **kwargs)
 
 class RenownInline(admin.TabularInline):
     model = Renown

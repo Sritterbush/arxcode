@@ -342,7 +342,7 @@ class MessageHandler(object):
                                   db_data=data, db_model="msg")
         except Tag.DoesNotExist:
             tag = Tag.objects.create(db_key=tagkey, db_category=category,
-                                     db_date=data, db_model="msg")
+                                     db_data=data, db_model="msg")
         msg.db_tags.add(tag)
         msg.save()
         return msg

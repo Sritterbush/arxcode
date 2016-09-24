@@ -92,7 +92,7 @@ class ClueAdmin(BaseCharAdmin):
     list_display = ('id', 'name', 'known_by')
     inlines = [ClueDiscoInline]
     def known_by(self, obj):
-        return ", ".join([str(ob.character) for ob in obj.discoveries.all()])
+        return ", ".join([str(ob.character) for ob in obj.discoveries.all() if ob.roll >= obj.rating])
 
 class ClueForEntry(ClueDiscoInline):
     fk_name = 'character'

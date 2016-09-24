@@ -163,7 +163,7 @@ class EventManager(Script):
         event = RPEvent.objects.get(id=eventid)
         try:
             log = open(LOGPATH + self.db.event_logs[eventid], 'a+')
-            msg = "\n" + msg
+            msg = "\n" + msg + "\n"
             log.write(msg)
         except Exception:
             traceback.print_exc()
@@ -178,7 +178,7 @@ class EventManager(Script):
         event = RPEvent.objects.get(id=eventid)
         try:
             log = open(GMPATH + self.db.gm_logs[eventid], 'a+')
-            msg = "\n" + msg
+            msg = "\n" + msg + "\n"
             log.write(msg)
         except Exception:
             traceback.print_exc()

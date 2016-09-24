@@ -188,7 +188,9 @@ class Player(MsgMixins, DefaultPlayer):
 
     def get_fancy_name(self):
         return self.key.capitalize()
-    name = property(get_fancy_name)
+    def set_name(self, value):
+        self.key = value
+    name = property(get_fancy_name, set_name)
 
     def inform(self, message, category=None, week=0, append=True):
         if not append:
@@ -216,56 +218,7 @@ class Player(MsgMixins, DefaultPlayer):
     def get_all_sessions(self):
         return self.sessions.all()
 
-    def search(self, searchdata, return_puppet=False, search_object=False,
-               nofound_string=None, multimatch_string=None, **kwargs):
-        """
-        This is similar to `DefaultObject.search` but defaults to searching
-        for Players only.
 
-        Args:
-            searchdata (str or int): Search criterion, the Player's
-                key or dbref to search for.
-            return_puppet (bool, optional): Instructs the method to
-                return matches as the object the Player controls rather
-                than the Player itself (or None) if nothing is puppeted).
-            search_object (bool, optional): Search for Objects instead of
-                Players. This is used by e.g. the @examine command when
-                wanting to examine Objects while OOC.
-            nofound_string (str, optional): A one-time error message
-                to echo if `searchdata` leads to no matches. If not given,
-                will fall back to the default handler.
-            multimatch_string (str, optional): A one-time error
-                message to echo if `searchdata` leads to multiple matches.
-                If not given, will fall back to the default handler.
-
-        Return:
-            match (Player, Object or None): A single Player or Object match.
-        Notes:
-            Extra keywords are ignored, but are allowed in call in
-            order to make API more consistent with
-            objects.objects.DefaultObject.search.
-
-        """
-        from evennia.players.models import PlayerDB
-        from evennia.players.players import _AT_SEARCH_RESULT
-        # handle me, self and *me, *self
-        if isinstance(searchdata, basestring):
-            # handle wrapping of common terms
-            if searchdata.lower() in ("me", "*me", "self", "*self",):
-                return self
-        if search_object:
-            matches = ObjectDB.objects.object_search(searchdata)
-        else:
-            matches = PlayerDB.objects.player_search(searchdata)
-        matches = _AT_SEARCH_RESULT(matches, self, query=searchdata,
-                                    nofound_string=nofound_string,
-                                    multimatch_string=multimatch_string)
-        if matches and return_puppet:
-            try:
-                return matches.puppet
-            except AttributeError:
-                return None
-        return matches
 
 
 # previously Guest was here, inheriting from DefaultGuest

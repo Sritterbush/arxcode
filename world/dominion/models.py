@@ -62,6 +62,7 @@ from .agenthandler import AgentHandler
 from server.utils.utils import get_week, setup_log
 from evennia.locks.lockhandler import LockHandler
 import traceback
+from django.core.urlresolvers import reverse
 
 # Dominion constants
 BASE_WORKER_COST = 0.10
@@ -85,6 +86,8 @@ LIFESTYLES = {
     5:(1500,7000),
     6:(5000,10000),
     }
+
+PAGEROOT = "http://play.arxgame.org"
 
 
 
@@ -1504,6 +1507,8 @@ class Organization(models.Model):
         msg += "{wDesc{n: %s\n" % self.desc
         if not self.secret:
             msg += "\n{wLeaders of %s:\n%s\n" % (self.name, self.display_members(end=2))
+        webpage = PAGEROOT + self.get_absolute_url()
+        msg += "{wWebpage{n: %s\n" % webpage
         return msg
     
     def display(self, viewing_member=None):
@@ -1579,6 +1584,9 @@ class Organization(models.Model):
             self.assets.clear_cache()
         except Exception:
             pass
+
+    def get_absolute_url(self):
+        return reverse('help_topics:display_org', kwargs={'object_id': self.id})
 
 class Agent(models.Model):
     """
@@ -2839,8 +2847,10 @@ class RPEvent(models.Model):
             msg += "{w*This event has been marked as private. Ask the host about attending.*{n\n"
         msg += "{wEvent Scale:{n %s\n" % self.get_celebration_tier_display()
         msg += "{wDate:{n %s\n" % self.date.strftime("%x %X")
-        msg += "{wDesc:{n\n%s" % self.desc
-        comments = self.comments.filter(db_header__icontains="white_journal").order_by('-db_date_sent')
+        msg += "{wDesc:{n\n%s\n" % self.desc
+        webpage = PAGEROOT + self.get_absolute_url()
+        msg += "{wEvent Page:{n %s\n" % webpage
+        comments = self.comments.filter(db_header__icontains="white_journal").order_by('-db_date_created')
         if comments:
             from server.utils.prettytable import PrettyTable
             msg += "\n{wComments:{n"
@@ -2883,6 +2893,9 @@ class RPEvent(models.Model):
     @property
     def public_comments(self):
         return self.comments.filter(db_header__icontains="white_journal")
+
+    def get_absolute_url(self):
+        return reverse('dominion:display_event', kwargs={'pk': self.id})
     
 
 class InfluenceCategory(models.Model):

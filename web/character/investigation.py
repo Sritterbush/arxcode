@@ -23,12 +23,14 @@ class CmdInvestigate(MuxCommand):
         @investigate/resource <id #>=<resource type>,<amount>
         @investigate/changetopic <id #>=<new topic>
         @investigate/changestory <id #>=<new story>
+        @investigate/abandon <id #>
+        @investigate/resume <id #>
         @investigate/new
         @investigate/topic <keyword to investigate>
         @investigate/story <text of how you do the investigation>
         @investigate/stat <stat to use for the check>
         @investigate/skill <additional skill to use besides investigation>
-        @investigate/abandon
+        @investigate/cancel
         @investigate/finish
 
     Investigation allows your character to attempt to discover secrets and
@@ -40,12 +42,13 @@ class CmdInvestigate(MuxCommand):
     read and modify your results accordingly. /stat and /skill allow you to
     specify which stat and skill seem appropriate to the story of your
     investigation, though the 'investigation' skill is always additionally
-    used.
+    used. Use /cancel to cancel the form.
 
     You may have many ongoing investigations, but only one may advance per
     week. You determine that by selecting the 'active' investigation. You
     may spend silver and resources to attempt to make your investigation
-    more likely to find a result.
+    more likely to find a result. Investigations may be abandoned with
+    the /abandon switch, which marks them as no longer ongoing.
         
     """
     key = "@investigate"
@@ -53,9 +56,9 @@ class CmdInvestigate(MuxCommand):
     help_category = "Investigation"
     aliases = ["+investigate", "investigate"]
     base_cost = 25
-    form_switches = ("topic", "story", "stat", "skill", "abandon", "finish")
+    form_switches = ("topic", "story", "stat", "skill", "cancel", "finish")
     model_switches = ("view", "active", "silver", "resource", "changetopic",
-                      "changestory")
+                      "changestory", "abandon", "resume")
     def disp_investigation_form(self):
         caller = self.caller
         form = caller.db.investigation_form
@@ -127,7 +130,7 @@ class CmdInvestigate(MuxCommand):
                 investigation[3] = self.args
                 self.disp_investigation_form()
                 return
-            if "abandon" in self.switches:
+            if "cancel" in self.switches:
                 caller.attributes.remove("investigation_form")
                 caller.msg("Investigation abandoned.")
                 return
@@ -149,9 +152,9 @@ class CmdInvestigate(MuxCommand):
                 dompc.assets.save()
                 ob = entry.investigations.create(topic=topic, actions=actions)
                 if stat:
-                    ob.stat = stat
+                    ob.stat_used = stat
                 if skill:
-                    ob.skill = skill
+                    ob.skill_used = skill
                 if not entry.investigations.filter(active=True):
                     ob.active = True
                     caller.msg("New investigation created. This has been set as your active investigation " +
@@ -177,6 +180,17 @@ class CmdInvestigate(MuxCommand):
                 return
             except Investigation.DoesNotExist:
                 caller.msg("Investigation not found.")
+                return
+            if "resume" in self.switches:
+                ob.ongonig = True
+                ob.save()
+                caller.msg("Investigation has been marked to be ongoing.")
+                return
+            if "abandon" in self.switches:
+                ob.ongoing = False
+                ob.active = False
+                ob.save()
+                caller.msg("Investigation has been marked to no longer be ongoing.")
                 return
             if "view" in self.switches:
                 caller.msg(ob.display())
@@ -263,6 +277,8 @@ class CmdAdminInvestigations(MuxPlayerCommand):
         @gminvest/target <ID #>=<Clue #>
         @gminvest/roll <ID #>[=<roll mod>,<difficulty>]
         @gminvest/result <ID #>=<result string>
+        @gminvest/cluemessage <ID #>=<message>
+        @gminvest/setclueprogress <ID #>=<amount>
 
     Checks active investigations, and allows you to override their
     automatic results. You can /roll to see a result - base difficulty
@@ -293,7 +309,7 @@ class CmdAdminInvestigations(MuxPlayerCommand):
         try:
             if "view" in self.switches or not self.switches:
                 ob = Investigation.objects.get(id=int(self.args))
-                caller.msg(ob.display())
+                caller.msg(ob.gm_display())
                 return
             if "target" in self.switches:
                 ob = self.qs.get(id=int(self.lhs))
@@ -315,11 +331,14 @@ class CmdAdminInvestigations(MuxPlayerCommand):
                     diff = int(self.rhslist[1])
                 except IndexError:
                     pass
+                roll = ob.do_roll(mod=mod, diff=diff)
+                ob.roll = roll
+                caller.msg("Recording their new roll as: %s." % roll)
                 check = ob.check_success(modifier=mod, diff=diff)
                 if check:
-                    caller.msg("They succeeded in the check.")
+                    caller.msg("They will succeed the check to discover a clue this week.")
                 else:
-                    caller.msg("They failed the check.")
+                    caller.msg("They will fail the check to discover a clue this week.")
                 return
             if "result" in self.switches:
                 ob = self.qs.get(id=int(self.lhs))
@@ -328,7 +347,10 @@ class CmdAdminInvestigations(MuxPlayerCommand):
                 caller.msg("Result is now:\n%s" % ob.result)
                 return
         except (TypeError, ValueError):
+            import traceback
+            traceback.print_exc()
             caller.msg("Arguments must be numbers.")
+            return
         except Investigation.DoesNotExist:
             caller.msg("No Investigation by that ID.")
             return
@@ -341,25 +363,58 @@ class CmdListClues(MuxPlayerCommand):
     
     Usage:
         @clues
+        @clues <clue #>
+        @clues/share <clue #>=<target>
     """
     key = "@clues"
     locks = "cmd:all()"
-    aliases = ["+clues"]
+    aliases = ["+clues", "@clue", "+clue", "@zoinks", "@jinkies"]
     help_category = "Investigation"
+    
+    @property
+    def finished_clues(self):
+        try:
+            return self.caller.roster.finished_clues
+        except Exception:
+            return []
+    
+    def disp_clue_table(self):
+        caller = self.caller
+        table = PrettyTable(["{wClue #{n", "{wSubject{n"])
+        clues = self.finished_clues
+        msg = "{wDiscovered Clues{n\n"
+        for clue in clues:
+            table.add_row([clue.id, clue.name])
+        msg += str(table)
+        caller.msg(msg, options={'box':True})
     def func(self):
         caller = self.caller
-        clues = caller.roster.finished_clues
+        clues = self.finished_clues
         if not self.args:
             if not clues:
                 caller.msg("Nothing yet.")
-            caller.msg(", ".join(str(clue.id) for clue in clues))
+                return
+            self.disp_clue_table()
             return
+        # get clue for display or sharing
         try:
-            clue = clues.get(id=self.args)
-            caller.msg(clue.display())
+            clue = clues.get(id=self.lhs)  
         except Exception:
             caller.msg("No clue found by that ID.")
+            self.disp_clue_table()
             return
+        if not self.switches:
+            caller.msg(clue.display())
+            return
+        if "share" in self.switches:
+            pc = caller.search(self.rhs)
+            if not pc:
+                return
+            clue.share(pc.roster)
+            caller.msg("You have shared the clue '%s' with %s." % (clue, pc.roster))
+            return
+        caller.msg("Invalid switch")
+        return
 
 class CmdListRevelations(MuxPlayerCommand):
     """

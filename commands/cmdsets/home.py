@@ -16,6 +16,8 @@ import re
 # error return function, needed by Extended Look command
 AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
 
+DESC_COST = 0
+
 
 
 class HomeCmdSet(CmdSet):
@@ -67,7 +69,7 @@ class CmdManageHome(MuxCommand):
             if caller.db.player_ob.Dominion.lifestyle_rating == rating:
                 num += '{w*{n'
             table.add_row([num, LIFESTYLES[rating][0], LIFESTYLES[rating][1]])
-        caller.msg(str(table), box=True)
+        caller.msg(str(table), options={'box':True})
     
     def func(self):
         "Execute command."
@@ -80,8 +82,8 @@ class CmdManageHome(MuxCommand):
             caller.msg("You are not the owner of this room.")
             return
         if not entrances:
-            from src.objects.models import ObjectDB
-            entrances = list(ObjectDB.objects.filter(db_destination=loc.dbobj))
+            from evennia.objects.models import ObjectDB
+            entrances = list(ObjectDB.objects.filter(db_destination=loc))
             loc.db.entrances = entrances
             for ent in entrances:
                 ent.locks.add("usekey: perm(builders) or roomkey(%s)" % loc.id)
@@ -239,7 +241,7 @@ class CmdAllowBuilding(MuxCommand):
         caller.msg("Perms set.")
         return
 
-from evennia.commands.default.building import CmdDig
+from commands.commands.overrides import CmdDig
 
 class CmdBuildRoom(CmdDig):
     """
@@ -444,7 +446,7 @@ class CmdManageRoom(MuxCommand):
             return
         if "desc" in self.switches:
             if loc.desc:
-                cost = loc.db.desc_cost or 50
+                cost = loc.db.desc_cost or DESC_COST
             else:
                 cost = 0
             if loc.ndb.confirm_desc_change != self.args:
@@ -458,11 +460,12 @@ class CmdManageRoom(MuxCommand):
                     caller.msg("{wChanging this desc will prompt you again for a confirmation.{n")
                     loc.ndb.confirm_desc_change = self.args
                 return
-            if cost > owner.economic:
-                caller.msg("It would cost %s to re-desc the room, and you have %s." % (cost, owner.economic))
-                return
-            owner.economic -= cost
-            owner.save()
+            if cost:
+                if cost > owner.economic:
+                    caller.msg("It would cost %s to re-desc the room, and you have %s." % (cost, owner.economic))
+                    return
+                owner.economic -= cost
+                owner.save()
             loc.desc = self.args
             loc.save()
             loc.ndb.confirm_desc_change = None
@@ -745,6 +748,7 @@ class CmdBuyFromShop(CmdCraft):
         +shop/desc <description>
         +shop/adorn <material type>=<amount>
         +shop/finish [<additional silver to invest>]
+        +shop/changename <object>=<new name>
 
     Flags your current room as permitting characters to build there.
     Cost is 50 economic resources unless specified otherwise.
@@ -822,7 +826,7 @@ class CmdBuyFromShop(CmdCraft):
         prices = loc.db.item_prices or {}
         for price in prices:
             obj = ObjectDB.objects.get(id=price)
-            table.add_row([price, obj.key, prices[price]])
+            table.add_row([price, obj.name, prices[price]])
         msg += str(table)
         return msg
     

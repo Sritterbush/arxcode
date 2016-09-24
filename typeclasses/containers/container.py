@@ -122,6 +122,7 @@ class Container(DefaultObject):
         self.locks.add("usekey: chestkey(%s)" % self.id)
         self.db.container = True
         self.db.max_volume = 1
+        self.at_init()
 
     def grantkey(self, char):
         "Grants a key to this chest for char."

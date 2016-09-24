@@ -37,6 +37,7 @@ class CmdAdmDomain(MuxPlayerCommand):
       @admin_domain
       @admin_domain/create player=region[, social rank]
       @admin_domain/replacevassal receiver=domain_id
+      @admin_domain/createvassal receiver=liege_domain_id
       @admin_domain/transferowner receiver=domain_id
       @admdin_domain/transferrule char=domain_id
       @admin_domain/liege domain_id=family
@@ -84,6 +85,7 @@ class CmdAdmDomain(MuxPlayerCommand):
     locks = "cmd:perm(Wizards)"
     aliases = ["@admin_domains", "@admdomain", "@admdomains", "@adm_domain", "@adm_domains"]
     help_category = "Dominion"
+    
     def func(self):
         caller = self.caller
         if not self.args:
@@ -167,7 +169,7 @@ class CmdAdmDomain(MuxPlayerCommand):
             caller.msg("New Domain #%s created: %s in land square: %s" % (dom.id, str(dom), str(dom.land)))
             return
         if ("transferowner" in self.switches or "transferrule" in self.switches
-            or "replacevassal" in self.switches):
+            or "replacevassal" in self.switches or "createvassal" in self.switches):
             # usage: @admin_domain/transfer receiver=domain_id
             if not self.rhs or not self.lhs:
                 caller.msg("Usage: @admin_domain/transfer receiver=domain's id")
@@ -183,6 +185,14 @@ class CmdAdmDomain(MuxPlayerCommand):
                 return
             except Domain.DoesNotExist:
                 caller.msg("No domain by that id number.")
+                return
+            if "createvassal" in self.switches:
+                try:
+                    region = dom.land.region
+                    setup_utils.setup_dom_for_char(player.db.char_ob, liege_domain=dom, region=region)
+                    caller.msg("Vassal created.")
+                except Exception as err:
+                    caller.msg(err)
                 return
             if "replacevassal" in self.switches:
                 try:
@@ -654,7 +664,7 @@ class CmdAdmAssets(MuxPlayerCommand):
             caller.msg("No assetowner found for %s." % self.lhs)
             return
         if not self.rhs:
-            caller.msg(owner.display(), box=True)
+            caller.msg(owner.display(), options={'box':True})
             return
         if "money" in self.switches or not self.switches:
             try:
@@ -989,10 +999,10 @@ class CmdSetRoom(MuxCommand):
     help_category = "Dominion"
     allowed_switches = ("barracks", "market", "bank", "rumormill", "home",
                         "homeaddowner", "homermowner", "none")
-    MARKETCMD = "game.gamesrc.commands.cmdsets.market.MarketCmdSet"
-    BANKCMD = "game.gamesrc.commands.cmdsets.bank.BankCmdSet"
-    RUMORCMD = "game.gamesrc.commands.cmdsets.rumor.RumorCmdSet"
-    HOMECMD = "game.gamesrc.commands.cmdsets.home.HomeCmdSet"
+    MARKETCMD = "commands.cmdsets.market.MarketCmdSet"
+    BANKCMD = "commands.cmdsets.bank.BankCmdSet"
+    RUMORCMD = "commands.cmdsets.rumor.RumorCmdSet"
+    HOMECMD = "commands.cmdsets.home.HomeCmdSet"
     def func(self):
         DEFAULT_HOME = ObjectDB.objects.get(id=13)
         caller=self.caller
@@ -1342,7 +1352,7 @@ class CmdOrganization(MuxPlayerCommand):
             if len(olock) > 1:
                 olock = olock[1]
             table.add_row([lock, olock])
-        caller.msg(table, box=True)
+        caller.msg(table, options={'box':True})
     
     def func(self):
         caller = self.caller
@@ -1386,14 +1396,14 @@ class CmdOrganization(MuxPlayerCommand):
                     self.disp_org_locks(caller, myorgs[0])
                     return
                 member = caller.Dominion.memberships.get(organization=myorgs[0])
-                caller.msg(myorgs[0].display(member), box=True)
+                caller.msg(myorgs[0].display(member), options={'box':True})
                 return
             caller.msg("Your organizations: %s" % ", ".join(org.name for org in myorgs))
             return
         if not self.switches:
             try:
                 org, member = self.get_org_and_member(caller, myorgs, self.lhs)
-                caller.msg(org.display(member), box=True)
+                caller.msg(org.display(member), options={'box':True})
                 return
             except Organization.DoesNotExist:
                 caller.msg("You are not a member of any organization named %s." % self.lhs)
@@ -1632,7 +1642,7 @@ class CmdAgents(MuxPlayerCommand):
                                          owner__organization_owner__in=[org.organization_owner for org in orgs])
         agents = personal | house
         if not self.args:
-            caller.msg("{WYour agents:{n\n%s" % ", ".join(agent.display() for agent in agents), box=True)
+            caller.msg("{WYour agents:{n\n%s" % ", ".join(agent.display() for agent in agents), options={'box':True})
             barracks = self.find_barracks(caller.Dominion.assets)
             for org in orgs:
                 barracks.extend(self.find_barracks(org))
@@ -1645,7 +1655,7 @@ class CmdAgents(MuxPlayerCommand):
             except Organization.DoesNotExist:
                 caller.msg("You are not a member of an organization named %s." % self.args)
                 return
-            caller.msg(", ".join(agent.display() for agent in org.assets.agents.all()), box=True)
+            caller.msg(", ".join(agent.display() for agent in org.assets.agents.all()), options={'box':True})
             barracks = self.find_barracks(org.assets)
             caller.msg("{wBarracks locations:{n %s" % ", ".join(ob.key for ob in barracks))
             return       
@@ -1859,7 +1869,7 @@ class CmdPatronage(MuxPlayerCommand):
         except Exception:
             dompc = setup_utils.setup_dom_for_char(self.caller.db.char_ob)
         if not self.args and not self.switches:        
-            caller.msg(self.display_patronage(dompc), box=True)
+            caller.msg(self.display_patronage(dompc), options={'box':True})
             return
         if self.args:
             player = caller.search(self.args)
@@ -1874,7 +1884,7 @@ class CmdPatronage(MuxPlayerCommand):
             except Exception:
                 tdompc = setup_utils.setup_dom_for_char(char)
             if not self.switches:
-                caller.msg(self.display_patronage(tdompc), box=True)
+                caller.msg(self.display_patronage(tdompc), options={'box':True})
                 return
             if "addprotege" in self.switches:
                 if not player.is_connected:
@@ -2766,7 +2776,10 @@ class CmdSupport(MuxCommand):
                 return
             char = form[0]
             sdict = form[2]
-            total_points = sum(sdict.values())
+            # check if we already have points set for the sphere we're modifying
+            diff = points - sdict.get(sphere.id, 0)
+            # add the new points to the total
+            total_points = sum(sdict.values()) + diff
             if total_points > remaining:
                 caller.msg("You are trying to spend %s, bringing your total to %s, and only have %s." % (points,
                                                                                                          total_points,

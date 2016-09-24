@@ -8,7 +8,7 @@ It requires the following added to settings.py:
 #-----------------------------------------------------------------
 CHANNEL_COMMAND_CLASS = "commands.commands.channels.ArxChannelCommand"
 
-BASE_ROOM_TYPECLASS = "typeclasses.rooms.ExtendedRoom"
+BASE_ROOM_TYPECLASS = "typeclasses.rooms.ArxRoom"
 
 TEMPLATES[0]['OPTIONS']['context_processors'] += [
     'web.character.context_processors.consts']

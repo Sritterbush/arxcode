@@ -14,8 +14,6 @@ class BBoard(Object):
     This is the base class for all Bulletin Boards. Inherit from this to create different
     types of communication bboards.
     """
-    def __init__(self, dbobj):
-        super(BBoard, self).__init__(dbobj)
        
 
     def bb_post(self, poster_obj, msg, subject="No Subject", poster_name=None):
@@ -99,15 +97,6 @@ class BBoard(Object):
             return True
         else:
             return False
-
-    def at_init(self):
-        """
-        This is always called whenever this bboard is initiated --
-        that is, whenever it its typeclass is cached from memory. This
-        happens on-demand first time the bboard is used or activated
-        in some way after being created but also after each server
-        restart or reload.
-        """
 
     def is_bboard(self):
         """

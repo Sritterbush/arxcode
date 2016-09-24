@@ -1,12 +1,16 @@
 from evennia.utils.utils import fill
+from server.utils.utils import sub_old_ansi
 
 
 
 class DescMixins(object):
     def __desc_get(self):
-        return self.db.desc
+        return self.db.desc or self.db.general_desc
     def __desc_set(self, val):
+        # desc may be changed dynamically
         self.db.desc = val
+        # general desc is our fallback
+        self.db.general_desc = val
     desc = property(__desc_get, __desc_set)
     def __get_volume(self):
         total = 0
@@ -22,8 +26,11 @@ class NameMixins(object):
         return self.db.colored_name or self.key
     def __name_set(self, val):
         from evennia.utils.ansi import parse_ansi
+        # convert color codes
+        val = sub_old_ansi(val)
         self.db.colored_name = val
         self.key = parse_ansi(val, strip_ansi=True)
+        self.save()
     name = property(__name_get, __name_set)
     
     def __str__(self):
@@ -208,17 +215,33 @@ class AppearanceMixins(object):
         return string
 
 class ObjectMixins(DescMixins, AppearanceMixins):
-    def at_init(self):
-        self.is_room = False
-        self.is_exit = False
-        self.is_character = False
-        super(ObjectMixins, self).at_init()
+
+    @property
+    def is_room(self):
+        return False
+    @property
+    def is_exit(self):
+        return False
+    @property
+    def is_character(self):
+        return False
 
 class MsgMixins(object):
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):
+        options = options or {}
+        options.update(kwargs.get('options', {}))
         try:
             text = str(text)
         except Exception:
             pass
-        text = text.replace("%r", "|/").replace("%t", "|-")
+        text = sub_old_ansi(text)
+        if options.get('is_pose', False):
+            if self.db.posebreak:
+                text = "\n" + text
+        if options.get('box', False):
+            boxchars = '\n{w' + '*' * 60 + '{n\n'
+            text = boxchars + text + boxchars
+        if options.get('roll', False):
+            if self.attributes.has("dice_string"):
+                text = "{w<" + self.db.dice_string + "> {n" + text
         super(MsgMixins, self).msg(text, from_obj, session, options, **kwargs)

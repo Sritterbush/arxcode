@@ -21,20 +21,7 @@ class Place(Object):
         self.desc = "A place for people to privately chat. Dropping it in a room will make it part of the room."
         # locks so characters cannot 'get' it
         self.locks.add("get:perm(Builders)")
-        
-
-    def at_init(self):
-        """
-        This is always called whenever this object is initiated --
-        that is, whenever it its typeclass is cached from memory. This
-        happens on-demand first time the object is used or activated
-        in some way after being created but also after each server
-        restart or reload.
-        """
-        self.is_character = False
-        self.is_room = False
-        self.is_exit = False
-        
+        self.at_init()      
         
     def leave(self, character):
         """
@@ -78,7 +65,7 @@ class Place(Object):
         "If new location is not our wearer, remove."
         location = self.location
         # first, remove ourself from the source location's places, if it exists
-        if source_location.is_room:
+        if source_location and hasattr(source_location, 'is_room') and source_location.is_room:
             if source_location.db.places and self in source_location.db.places:
                 source_location.db.places.remove(self)
         # if location is a room, add cmdset

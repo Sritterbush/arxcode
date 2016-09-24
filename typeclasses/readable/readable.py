@@ -23,18 +23,7 @@ class Readable(Object):
         self.db.can_stack = True
         self.db.do_not_format_desc = True
         self.db.destroyable = True
-
-    def at_init(self):
-        """
-        This is always called whenever this object is initiated --
-        that is, whenever it its typeclass is cached from memory. This
-        happens on-demand first time the object is used or activated
-        in some way after being created but also after each server
-        restart or reload.
-        """
-        self.is_character = False
-        self.is_room = False
-        self.is_exit = False
+        self.at_init()
         
     def at_after_move(self, source_location):
         if self.db.num_instances > 1 and not self.db.written:
@@ -174,10 +163,9 @@ class CmdWrite(MuxCommand):
                                        key='book', location=caller, home=caller)
                 newobj.set_num(remain)
             obj.db.num_instances = 1
-            obj.key = name
+            obj.name = name
             obj.desc = desc
-            obj.save()
-            obj.aliases.setup_aliases_from_key()          
+            obj.save()        
             caller.msg("You have written on %s." % obj.name)
             obj.attributes.remove("quality_level")
             obj.attributes.remove("can_stack")
@@ -185,6 +173,7 @@ class CmdWrite(MuxCommand):
             obj.db.written = True
             obj.cmdset.delete_default()
             obj.cmdset.add_default(SignCmdSet, permanent=True)
+            obj.aliases.add("book")
             return
         caller.msg("Unrecognized syntax for write.")
         

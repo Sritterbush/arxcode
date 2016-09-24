@@ -134,7 +134,7 @@ class CmdGossip(MuxCommand):
             except (ValueError, TypeError):
                 caller.msg("Story must be a number.")
                 return
-            caller.msg(story.story, box=True)
+            caller.msg(story.story, options={'box':True})
             return
         if "investigate" in self.switches:
             try:

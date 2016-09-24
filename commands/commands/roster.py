@@ -833,7 +833,7 @@ def display_visions(caller, character):
         caller.msg("No visions to display.")
         return
     for vision in visions:
-        caller.msg(character.messages.disp_entry(vision), box=True)
+        caller.msg(character.messages.disp_entry(vision), options={'box':True})
         vision.receivers = caller
 
 def display_timeline(caller, character):
@@ -1226,7 +1226,7 @@ class CmdRelationship(MuxPlayerCommand):
                 caller.msg("No relationships found.")
                 return
             entries = rels.get(name, [])
-            entries = [msg for msg in entries if msg.access(caller, 'read')]
+            entries = [msg for msg in entries if msg.access(caller, 'read') or 'white' in msg.header]
             if not entries:
                 caller.msg("No relationship found.")
                 return
@@ -1239,7 +1239,7 @@ class CmdRelationship(MuxPlayerCommand):
             for msg in entries:            
                 jname = "{wJournal:{n %s\n" % ("White Journal" if msg in white.get(self.rhs.lower() if self.rhs else self.args.lower(), [])
                                                else "Black Reflection")
-                caller.msg("\n" + jname + charob.messages.disp_entry(msg), box=True)
+                caller.msg("\n" + jname + charob.messages.disp_entry(msg), options={'box':True})
                 msg.receivers = caller
             return
         lhs = self.lhs
@@ -1457,9 +1457,8 @@ class CmdHere(MuxCommand):
             return
         if self.switches and 'titles' in self.switches: disp_titles = True
         vis_list = caller.location.get_visible_characters(caller)
-        char_list = [char.name.capitalize() for char in vis_list]
         rname = caller.location.name
-        list_characters(caller, char_list, rname, roster, disp_titles, hidden_chars=vis_list, display_afk=True)
+        list_characters(caller, vis_list, rname, roster, disp_titles, hidden_chars=vis_list, display_afk=True)
         if caller.check_permstring("Builders"):
             masks = [char for char in caller.location.get_visible_characters(caller) if char.key != char.name]
             char_list = []

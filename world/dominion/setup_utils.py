@@ -22,12 +22,13 @@ org_lockstring = ("edit:rank(2);boot:rank(2);guards:rank(2);withdraw:rank(2)" +
 
 def setup_dom_for_player(player):
     if hasattr(player, 'Dominion'):
-        raise TypeError("Player has an existing PC_Or_NPC model OneToOne instance. Please manually remove or edit it.")
+        # they already have one
+        return player.Dominion
     return PlayerOrNpc.objects.create(player=player)
 
 def setup_assets(dompc, amt):
     if hasattr(dompc, 'assets'):
-        raise TypeError("Player already has assets. Aborting initialization.")
+        return
     AssetOwner.objects.create(player=dompc, vault=amt)
 
 def starting_money(srank):
@@ -247,7 +248,7 @@ def setup_units(army, srank):
             army.units.create(unit_type=unit, quantity=units[unit])
     
 def setup_family(dompc, family, create_liege=True, create_vassals=True,
-                 character=None, srank=None, region=None):
+                 character=None, srank=None, region=None, liege=None):
     """
     Creates a ruler object and either retrieves a house
     organization or creates it. Then we also create similar
@@ -256,16 +257,15 @@ def setup_family(dompc, family, create_liege=True, create_vassals=True,
     our ruler object, our liege's ruler object or None, and a list
     of vassals' ruler objects.
     """
-    liege = None
     ruler = None
-    vassals = [] 
-    if create_liege:
+    vassals = []
+    # create a liege only if we don't have one already
+    if create_liege and not liege:
         name = "Liege of %s" % family
         liege = setup_ruler(name)
     ruler = setup_ruler(family, dompc, liege)
     if create_vassals:
-        vassals = setup_vassals(family, ruler, region, character, srank)
-       
+        vassals = setup_vassals(family, ruler, region, character, srank) 
     return (ruler, liege, vassals)
 
 def setup_vassals(family, ruler, region, character, srank, num=2):
@@ -318,7 +318,7 @@ def setup_ruler(name, castellan=None, liege=None):
     return ruler
 
 def setup_dom_for_char(character, create_dompc=True, create_assets=True,
-                       region=None, srank=None, family=None,
+                       region=None, srank=None, family=None, liege_domain=None,
                        create_domain=True, create_liege=True, create_vassals=True):
     """
     Creates both a PlayerOrNpc instance and an AssetOwner instance for
@@ -351,9 +351,15 @@ def setup_dom_for_char(character, create_dompc=True, create_assets=True,
         # We make vassals if our social rank permits it
         if create_vassals:
             create_vassals = srank < 6
+        # if we're setting them as vassals to a house, then we don't create a liege
+        liege = None
+        if liege_domain:
+            create_liege = False
+            liege = liege_domain.ruler
         ruler, liege, vassals = setup_family(dompc, family, create_liege=create_liege, create_vassals=create_vassals,
-                                             character=character, srank=srank, region=region)
-        if liege:
+                                             character=character, srank=srank, region=region, liege=liege)
+        # if we created a liege, finish setting them up
+        if create_liege:
             name = "%s's Liege" % character
             setup_dom_for_npc(name, srank=srank - 1, region=region, ruler=liege)
         # return the new domain if we were supposed to create one

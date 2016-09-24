@@ -34,7 +34,6 @@ except Exception as err:
     print("<<ERROR>>: Error encountered in loading general commands: %s" % err)
 try:
     from typeclasses import rooms as extended_room
-    from evennia.contrib.extended_room import CmdExtendedLook
 except Exception as err:
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading extended_room: %s" % err)
@@ -130,18 +129,16 @@ class StateIndependentCmdSet(CmdSet):
     """  
     key = "StateIndependentCmdSet"   
     def at_cmdset_creation(self):
-        self.add(default_general.CmdPose())
+        self.add(overrides.CmdPose())
         #emit was originally an admin command. Replaced those with gemit
         self.add(overrides.CmdEmit())
-        #backup look for non-extended rooms, unsure if still used anywhere
-        self.add(general.CmdLook())
         self.add(general.CmdOOCSay())
         self.add(general.CmdDirections())
         self.add(general.CmdKeyring())
         self.add(general.CmdGlance())
         # sorta IC commands, since information is interpretted by the
         # character and may not be strictly accurate.
-        self.add(CmdExtendedLook())
+        self.add(extended_room.CmdExtendedLook())
         self.add(roster.CmdHere())
         self.add(social.CmdHangouts())
         self.add(social.CmdWhere())
@@ -188,6 +185,7 @@ class MobileCmdSet(CmdSet):
         self.add(social.CmdFeel())
         self.add(social.CmdDonate())
         self.add(investigation.CmdInvestigate())
+        self.add(general.CmdUndress())
 
 class StaffCmdSet(CmdSet):
     "OOC staff and building commands. Character-based due to interacting with game world."   
@@ -210,7 +208,7 @@ class StaffCmdSet(CmdSet):
         self.add(admin.CmdPerm())
         self.add(admin.CmdWall())
         # Building and world manipulation
-        self.add(building.CmdTeleport())
+        self.add(overrides.CmdTeleport())
         self.add(building.CmdSetObjAlias())
         self.add(building.CmdListCmdSets())
         self.add(building.CmdWipe())
@@ -223,7 +221,7 @@ class StaffCmdSet(CmdSet):
         self.add(building.CmdLink())
         self.add(building.CmdUnLink())
         self.add(building.CmdCreate())
-        self.add(building.CmdDig())
+        self.add(overrides.CmdDig())
         self.add(building.CmdTunnel())
         self.add(building.CmdDestroy())
         self.add(building.CmdExamine())

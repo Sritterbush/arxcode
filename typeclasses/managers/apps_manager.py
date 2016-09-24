@@ -14,9 +14,7 @@ import traceback
 class AppsManager(Object):
     """
     Class to store and manage the roster
-    """
-    def __init__(self, dbobj):
-        super(AppsManager, self).__init__(dbobj)               
+    """            
 
     def at_object_creation(self):
         """
@@ -32,6 +30,7 @@ class AppsManager(Object):
         self.db.apps_manager = True
         self.db.num_apps = 0
         self.db.roster_manager_ref = None
+        self.at_init()
 
     def at_init(self):
         """
@@ -41,6 +40,7 @@ class AppsManager(Object):
         in some way after being created but also after each server
         restart or reload.
         """
+        super(AppsManager, self).at_init()
         roster_manager = ObjectDB.objects.get_objs_with_attr("is_roster_manager")
         if roster_manager:
             self.db.roster_manager_ref = roster_manager[0]
@@ -93,7 +93,7 @@ class AppsManager(Object):
             if not player.is_superuser:
                 player.set_password(newpass) 
                 try:
-                    from game.gamesrc.commands.roster import change_email, add_note
+                    from commands.commands.roster import change_email, add_note
                     change_email(found_app[1].key, email, caller)
                     caller.msg("Updated email of %s in roster to be %s." % (player, email))
                     add_note(found_app[1].key, "Application approved by %s" % caller, caller)

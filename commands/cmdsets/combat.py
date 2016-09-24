@@ -150,10 +150,13 @@ class CmdAutoattack(MuxCommand):
         combat = check_combat(caller, quiet=True)
         autoattack_on = False
         if not self.switches:
-            caller.db.autoattack = True
-            caller.msg("Autoattack is now set to be on.")
-            autoattack_on = True
-        else:
+            if not caller.db.autoattack:
+                caller.db.autoattack = True
+                caller.msg("Autoattack is now set to be on.")
+                autoattack_on = True
+            else:
+                self.switches.append("stop")
+        if "stop" in self.switches:
             caller.db.autoattack = False
             caller.msg("Autoattack is now set to be off.")
             autoattack_on = False
@@ -826,7 +829,7 @@ class CmdCreateAntagonist(MuxCommand):
                 ntype = npc_types.get_npc_singular_name(npc.db.npc_type)
                 table.add_row(npc.id, npc.key or "None", ntype, npc.db.num_living,
                               npc.db.npc_quality, npc.location, npc.desc )
-            caller.msg(str(table), box=True)
+            caller.msg(str(table), options={'box':True})
             return
         if not self.switches or 'new' in self.switches or 'overwrite' in self.switches:
             if 'new' in self.switches and 'overwrite' in self.switches:

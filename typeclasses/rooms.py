@@ -69,10 +69,11 @@ Installation/testing:
 
 import re
 from django.conf import settings
-from evennia.contrib.extended_room import ExtendedRoom as DefaultRoom
+from evennia.contrib.extended_room import ExtendedRoom
 from evennia import gametime
 from evennia import default_cmds
 from evennia import utils
+from evennia.utils.utils import lazy_property
 from evennia.objects.models import ObjectDB
 from typeclasses.mixins import DescMixins, AppearanceMixins, NameMixins
 from world.msgs.messagehandler import MessageHandler
@@ -90,38 +91,36 @@ SHOPCMD = "cmdsets.home.ShopCmdSet"
 
 # implements the Extended Room
 
-class Room(DescMixins, NameMixins, DefaultRoom, AppearanceMixins):
+class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
     """
     This room implements a more advanced look functionality depending on
     time. It also allows for "details", together with a slightly modified
     look command.
     """
-    
 
-    def at_init(self):
-        """
-        This is always called whenever this object is initiated --
-        that is, whenever it its typeclass is cached from memory. This
-        happens on-demand first time the object is used or activated
-        in some way after being created but also after each server
-        restart or reload.
-        """
-        self.is_room = True
-        self.is_exit = False
-        self.is_character = False
-        self.messages = MessageHandler(self)
+    @property
+    def is_room(self):
+        return True
+    @property
+    def is_character(self):
+        return False
+    @property
+    def is_exit(self):
+        return False
+        
+    @lazy_property
+    def messages(self):
+        return MessageHandler(self)
         
     def get_visible_characters(self, pobject):
         "Returns a list of visible characters in a room."
-        char_list = [ob for ob in self.contents if ob.is_character]
+        char_list = [ob for ob in self.contents if ob.is_character and ob.player]
         return [char for char in char_list if char.access(pobject, "view")]
-
-    
 
     def return_appearance(self, looker, detailed=False, format_desc=True):
         "This is called when e.g. the look command wants to retrieve the description of this object."
         # update desc
-        super(ExtendedRoom, self).return_appearance(looker)
+        super(ArxRoom, self).return_appearance(looker)
         # return updated desc plus other stuff
         return AppearanceMixins.return_appearance(self, looker, detailed, format_desc) + self.command_string() + self.event_string()
     
@@ -129,7 +128,7 @@ class Room(DescMixins, NameMixins, DefaultRoom, AppearanceMixins):
         if not self.db.current_event:
             return None
         try:
-            from game.dominion.models import RPEvent
+            from world.dominion.models import RPEvent
             return RPEvent.objects.get(id=self.db.current_event)
         except Exception:
             return None
@@ -267,7 +266,8 @@ class Room(DescMixins, NameMixins, DefaultRoom, AppearanceMixins):
                 more info.
         """
         eventid = self.db.current_event
-        gm_only = kwargs.get('gm_msg', False)
+        gm_only = kwargs.pop('gm_msg', False)
+        options = kwargs.get('options', {})
         if gm_only:
             exclude = exclude or []
             exclude = exclude + [ob for ob in self.contents if not ob.check_permstring("builders")]
@@ -276,19 +276,84 @@ class Room(DescMixins, NameMixins, DefaultRoom, AppearanceMixins):
             from evennia.scripts.models import ScriptDB
             try:
                 event_script = ScriptDB.objects.get(db_key="Event Manager")
-                if gm_only:
+                ooc = options.get('ooc_note', False)
+                if gm_only or ooc:
                     event_script.add_gmnote(eventid, text)
                 else:
                     event_script.add_msg(eventid, text, from_obj)
             except ScriptDB.DoesNotExist:
                 if from_obj:
                     from_obj.msg("Error: Event Manager not found.")
-        super(Room, self).msg_contents(text, exclude=exclude,
+        super(ArxRoom, self).msg_contents(text, exclude=exclude,
                                 from_obj=from_obj, **kwargs)
 
         
 
+class CmdExtendedLook(default_cmds.CmdLook):
+    """
+    look
 
+    Usage:
+      look
+      look <obj>
+      look <room detail>
+      look *<player>
+
+    Observes your location, details at your location or objects in your vicinity.
+    """
+    arg_regex = r'\/|\s|$'
+    def func(self):
+        """
+        Handle the looking - add fallback to details.
+        """
+        caller = self.caller
+        args = self.args
+        looking_at_obj = None
+        if args:
+            alist = args.split("'s ")
+            if len(alist) == 2:               
+                obj = caller.search(alist[0], use_nicks=True, quiet=True)
+                if obj:
+                    obj = utils.make_iter(obj)
+                    looking_at_obj = caller.search(alist[1], location=obj[0], use_nicks=True, quiet=True)
+            else:
+                looking_at_obj = caller.search(args, use_nicks=True, quiet=True)
+            # originally called search with invalid arg of no_error or something instead of quiet
+            if not looking_at_obj:
+                # no object found. Check if there is a matching
+                # detail at location.
+                location = caller.location
+                if location and hasattr(location, "return_detail") and callable(location.return_detail):
+                    detail = location.return_detail(args)
+                    if detail:
+                        # we found a detail instead. Show that.
+                        caller.msg(detail)
+                        return
+                # no detail found. Trigger delayed error messages
+                _AT_SEARCH_RESULT(looking_at_obj, caller, args, False)
+                return
+            else:
+                # we need to extract the match manually.
+                if len(utils.make_iter(looking_at_obj)) > 1:
+                    _AT_SEARCH_RESULT(looking_at_obj, caller, args, False)
+                    return
+                looking_at_obj = utils.make_iter(looking_at_obj)[0]
+        else:
+            looking_at_obj = caller.location
+            if not looking_at_obj:
+                caller.msg("You have no location to look at!")
+                return
+
+        if not hasattr(looking_at_obj, 'return_appearance'):
+            # this is likely due to us having a player instead
+            looking_at_obj = looking_at_obj.character
+        if not looking_at_obj.access(caller, "view"):
+            caller.msg("Could not find '%s'." % args)
+            return
+        # get object's appearance
+        caller.msg(looking_at_obj.return_appearance(caller, detailed=False))
+        # the object's at_desc() method.
+        looking_at_obj.at_desc(looker=caller)
 
 class CmdStudyRawAnsi(default_cmds.MuxCommand):
     """
@@ -479,7 +544,7 @@ class CmdExtendedDesc(default_cmds.CmdDesc):
                 else:
                     caller.msg("The description was set on %s." % obj.key)
 
-ExtendedRoom = Room
+
 
 # Simple command to view the current time and season
 

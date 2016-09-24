@@ -43,8 +43,14 @@ def page_index(request):
     nchars = ObjectDB.objects.filter(db_typeclass_path=_BASE_CHAR_TYPECLASS).count()
     nothers = nobjs - nrooms - nchars - nexits
 
-    chapter = Chapter.objects.latest('start_date')
-    events = RPEvent.objects.filter(finished=False).order_by('date')[:3]
+    try:
+        chapter = Chapter.objects.latest('start_date')
+    except Chapter.DoesNotExist:
+        chapter = None
+    try:
+        events = RPEvent.objects.filter(finished=False).order_by('date')[:3]
+    except Exception:
+        events = []
 
     pagevars = {
         "page_title": "Front Page",

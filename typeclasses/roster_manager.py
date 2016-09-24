@@ -16,9 +16,7 @@ from evennia.objects.models import ObjectDB
 class RosterManager(Object):
     """
     Class to store and manage the roster
-    """
-    def __init__(self, dbobj):
-        super(RosterManager, self).__init__(dbobj)               
+    """               
 
     def at_object_creation(self):
         """

@@ -13,6 +13,8 @@ can be added to it). The function should not return anything. Plugin
 services are started last in the Server startup process.
 
 """
+from django.conf import settings
+from evennia.contrib.egi_client import EvenniaGameIndexService
 
 
 def start_plugin_services(server):
@@ -21,4 +23,9 @@ def start_plugin_services(server):
 
     server - a reference to the main server application.
     """
-    pass
+    try:
+        if settings.GAME_INDEX_LISTING:
+            egi_service = EvenniaGameIndexService()
+            server.services.addService(egi_service)
+    except Exception:
+        pass

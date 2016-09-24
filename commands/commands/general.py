@@ -44,12 +44,19 @@ class CmdGameSettings(MuxPlayerCommand):
         @settings/brief
         @settings/posebreak
         @settings/stripansinames
+        @settings/lrp
+        @settings/afk <message>
 
-    Toggles different settings.
+    Toggles different settings. Brief surpresses room descs when
+    moving through rooms. Posebreak adds a newline between poses
+    fro mcharacters. lrp flags your name in the who list
+    as looking for scenes. afk sets that you are away from the
+    keyboard, with an optional message.
     """
     key = "@settings"
     locks = "cmd:all()"
     help_category = "Settings"
+    aliases = ["lrp"]
 
     def togglesetting(self, char, attr):
         caller = self.caller
@@ -65,6 +72,8 @@ class CmdGameSettings(MuxPlayerCommand):
         if not char:
             caller.msg("Settings have no effect without a character object.")
             return
+        if self.cmdstring == "lrp":
+            self.switches = ["lrp"]
         if "brief" in self.switches:
             self.togglesetting(char, "briefmode")
             return
@@ -73,6 +82,12 @@ class CmdGameSettings(MuxPlayerCommand):
             return
         if "stripansinames" in self.switches:
             self.togglesetting(char, "stripansinames")
+            return
+        if "lrp" in self.switches:
+            self.togglesetting(caller, "lookingforrp")
+            return
+        if "afk" in self.switches:
+            caller.execute_cmd("afk %s" % self.args)
             return
         caller.msg("Invalid switch.")
 
@@ -132,7 +147,10 @@ class CmdShout(MuxCommand):
             radius = 2
         caller.msg('You shout, "%s"' % args)
         txt = '{c%s{n shouts from elsewhere, "%s"' % (caller.name, args)
-        caller.location.msg_contents(txt, exclude=caller, radius=radius)
+        caller.location.msg_contents(txt, exclude=caller, options={'radius':radius,
+                                                                   'origin_id': caller.location.id,
+                                                                   'origin_x':caller.location.db.x_coord,
+                                                                   'origin_y':caller.location.db.y_coord})
 
 
 class CmdFollow(MuxCommand):
@@ -200,7 +218,7 @@ class CmdDitch(MuxCommand):
                 if obj:
                     matches.append(obj[0])
                 else:
-                    _AT_SEARCH_RESULT(caller, arg, obj)
+                    _AT_SEARCH_RESULT(obj, caller, arg)
             for match in matches:
                 match.stop_follow()
             return
@@ -605,7 +623,7 @@ class CmdPage(MuxPlayerCommand):
                     if not hasattr(findpobj, 'is_connected'):
                         #only allow online tells
                         self.msg("%s is not online."% findpobj.key)
-                        return
+                        continue
                     elif findpobj.character:
                         #player is online, and @ic, so redirect to their character
                         #one more online check on character level
@@ -622,10 +640,9 @@ class CmdPage(MuxPlayerCommand):
                 else:
                     #Offline players do not have the character attribute
                     self.msg("%s is not online."% findpobj.key)
-                    return
+                    continue
             else:
-                self.msg("Who do you want to page?")
-                return
+                continue
             if pobj:
                 if hasattr(pobj, 'player') and pobj.player:
                     pobj = pobj.player
@@ -718,6 +735,7 @@ class CmdOOCSay(MuxCommand):
 
         # calling the speech hook on the location
         speech = caller.location.at_say(caller, speech)
+        options = {"ooc_note": True}
 
         # Feedback for the object doing the talking.
         if not oocpose:
@@ -727,13 +745,13 @@ class CmdOOCSay(MuxCommand):
             emit_string = '{y(OOC){n {c%s{n says: %s{n' % (caller.name,
                                                    speech)
             caller.location.msg_contents(emit_string,
-                                         exclude=caller)
+                                         exclude=caller, options=options)
         else:
             if nospace:
                 emit_string = '{y(OOC){n {c%s{n%s' % (caller.name, speech)
             else:
                 emit_string = '{y(OOC){n {c%s{n %s' % (caller.name, speech)
-            caller.location.msg_contents(emit_string, exclude=None)
+            caller.location.msg_contents(emit_string, exclude=None, options=options)
 
 class CmdDiceCheck(MuxCommand):
     """
@@ -836,14 +854,7 @@ class CmdDiceCheck(MuxCommand):
             for GM in staff_list: GM.msg("{w(Private roll){n" + roll_msg)
             return
         # not a private roll, tell everyone who is here
-        for ob in caller.location.contents:
-            orig_msg = roll_msg
-            if ob.attributes.has("dice_string") and ob != caller:
-                roll_msg = "{w<" + ob.db.dice_string + "> {n" + roll_msg
-                ob.msg(roll_msg)
-                roll_msg = orig_msg
-            elif ob != caller:
-                ob.msg(roll_msg)
+        caller.location.msg_contents(roll_msg, exclude=caller, options={'roll':True})
         
 # implement CmdMail. player.db.Mails is List of Mail
 # each Mail is tuple of 3 strings - sender, subject, message        
@@ -1076,11 +1087,11 @@ class CmdPut(MuxCommand):
             return
         dest = caller.search(args[1], use_nicks=True, quiet=True)
         if not dest:
-            return _AT_SEARCH_RESULT(caller, args[1], dest)
+            return _AT_SEARCH_RESULT(dest, caller, args[1])
         dest = make_iter(dest)[0]
         obj = caller.search(args[0], location=caller, use_nicks=True, quiet=True)
         if not obj:
-            return _AT_SEARCH_RESULT(caller, args[0], obj)
+            return _AT_SEARCH_RESULT(obj, caller, args[0])
         obj = make_iter(obj)[0]
         if obj == dest:
             caller.msg("You can't put an object inside itself.")
@@ -1199,7 +1210,7 @@ class CmdInform(MuxPlayerCommand):
     locks = "cmd: all()"
 
     def read_inform(self, caller, inform):
-        caller.msg(inform.message, box=True)
+        caller.msg(inform.message, options={'box':True})
         if inform.is_unread:
             inform.is_unread = False
             inform.save()
@@ -1254,7 +1265,52 @@ class CmdKeyring(MuxCommand):
         caller.msg("Keys: %s" % ", ".join(ob.key for ob in keylist))
         return
 
+class CmdUndress(MuxCommand):
+    """
+    Completely remove all worn and wielded items on your person.
+    Usage:
+        undress
 
-            
-            
-        
+    Undress will completely remove all worn and wielded items on your person at once.
+    """
+    key = "undress"
+    aliases = ["removeall"]
+    locks = "cmd:all()"
+
+    def func(self):
+        caller = self.caller
+
+        # Get the combat script if one is present
+        cscript = caller.location.ndb.combat_manager
+
+        # If there is a combat script present and the caller is one of the combatants we'll want to make some
+        # additional checks about whether or not we can continue
+        if cscript and caller in cscript.ndb.combatants:
+
+            # If the current stage is not setup then we can't allow people to undress as we also unwield weapons
+            if cscript.ndb.phase != 1:
+                caller.msg("You cannot undress in combat outside of the setup phase.")
+                return
+
+        # Iterate over all the contents of the caller's inventory
+        for obj in caller.contents:
+            # Ensure the item is currently worn and that it's worn by the wearer - just in case
+            if obj.db.currently_worn and obj.db.worn_by == caller:
+                # Remove the wearable, setting the fact it is worn and who it is worn by to false/null
+                obj.remove(caller)
+
+                # Call the post-command hook explicitly - this might change to something internal to obj.remove later
+                obj.at_post_remove(caller)
+
+            # Ensure the item is currently wielded and that it's wielded by the wearer - just in case
+            if obj.db.currently_wielded and obj.db.wielded_by == caller:
+                # Remove the wieldable, setting the fact it is wielded and who it is wielded by to false/null
+                obj.sheathe(caller)
+
+                # Call the post-command hook explicitly - this might change to something internal to obj.sheathe later
+                obj.at_post_remove(caller)
+
+        # Throw a simple message to the caller only. We don't need to alert the room unless this design decision changes
+        caller.msg("You undress.");
+
+        return

@@ -181,3 +181,17 @@ def chestkey(accessing_obj, accessed_obj, *args, **kwargs):
     keylist = accessing_obj.db.chestkeylist or []
     keylist = [chest.id for chest in keylist]
     return chestid in keylist
+
+def cattr(accessing_obj, accessed_obj, *args, **kwargs):
+    """
+    Checks attr in the character object of the accessing_obj, which
+    should be a player.
+    """
+    from evennia.locks.lockfuncs import attr
+    try:
+        if accessing_obj.db.player_ob:
+            return attr(accessing_obj, accessed_obj, *args, **kwargs)
+        char_ob = accessing_obj.db.char_ob
+        return attr(char_ob, accessed_obj, *args, **kwargs)
+    except Exception:
+        return False
