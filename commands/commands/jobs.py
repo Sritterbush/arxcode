@@ -409,7 +409,8 @@ class CmdApp(MuxPlayerCommand):
                                     (caller.key.capitalize(), app[1].key.capitalize()))
                 try:
                     from web.character.models import Roster, RosterEntry, PlayerAccount, AccountHistory
-                    entry = RosterEntry.objects.get(character=app[1])
+                    entry = RosterEntry.objects.get(character__id=app[1].id,
+                                                    player__id=app[1].db.player_ob.id)
                     active_roster = Roster.objects.get(name="Active")
                     entry.roster = active_roster
                     try:
