@@ -136,4 +136,36 @@ def get_armor_bonus(type, quality):
 def get_hp_bonus(type, quality):
     base, scale = npc_hp.get(type, guard_hp)
     return base + (scale * quality)
+
+def generate_default_name_and_desc(type, quality, org):
+    """
+    Returns a two-tuple of name, desc based on the
+    org name, the quality level of the agent, and
+    the type.
+    """
+    name = org.name
+    if type == GUARD:
+        tname = "guards"
+    if type == THUG:
+        tname = "thugs"
+    if quality == 0:
+        name += " untrained %s" % tname
+        desc = "Completely untrained %s. Farmers and the like." % tname
+    if quality == 1:
+        name += " novice %s" % tname
+        desc = "Untested and barely trained %s." % tname
+    if quality == 2:
+        name += " trained %s" % tname
+        desc = "%s who have at least received some training." % tname.capitalize()
+    if quality == 3:
+        name += " veteran %s" % tname
+        desc = "%s who have seen combat before." % tname.capitalize()
+    if quality == 4
+        name += " skilled veteran %s" % tname
+        desc = "%s who have seen combat, and proven to be very good at it." % tname.capitalize()
+    if quality == 5:
+        name += " elite %s" % tname
+        desc = "Highly skilled %s. Most probably would have name-recognition for their skill." % tname
+    return (name, desc)
+
     

@@ -17,7 +17,7 @@ from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
 from evennia.objects.objects import _AT_SEARCH_RESULT
 from .unit_types import type_from_str
-from typeclasses.npcs.npc_types import get_npc_type
+from typeclasses.npcs.npc_types import get_npc_type, generate_default_name_and_desc
 from server.utils.prettytable import PrettyTable
 from server.utils.utils import get_week
 from django.db.models import Q, Sum
@@ -1593,7 +1593,7 @@ class CmdAgents(MuxPlayerCommand):
         @agents <org name>
         @agents/guard player,<id #>,<amt>
         @agents/recall player,<id #>,<amt>
-        @agents/hire <type>,<amount>=<organization>
+        @agents/hire <type>,<level>,<amount>=<organization>
         @agents/desc <ID #>,<desc>
         @agents/name <ID #>=name
 
@@ -1617,7 +1617,9 @@ class CmdAgents(MuxPlayerCommand):
     player B. To recall 10 of the guards assigned to player B, you would do
     @agents/recall grayson house guards,B,10=grayson.
 
-    hire: enter the ID of the agent and the amount. Cost = 25*(lvl+1)^3 in
+    hire: enter the type, level, and quantity of the agents and the org you
+    wish to buy them for. The type will generally be 'guard' for nobles,
+    and 'thug' for crime families and the like. Cost = 25*(lvl+1)^3 in
     military resources for each agent.
         
     """
@@ -1640,6 +1642,13 @@ class CmdAgents(MuxPlayerCommand):
             srank = char.db.social_rank or 10
             return 17 - (2*srank)
         return 6
+
+    def get_allowed_types_from_org(self, org):
+        if ("noble" in org.category or "social" in org.category or
+            "military" in org.category):
+            return ["guards"]
+        if "crime" in org.category:
+            return ["thugs"]
     
     def func(self):
         caller = self.caller
@@ -1748,21 +1757,33 @@ class CmdAgents(MuxPlayerCommand):
             except Exception:
                 caller.msg("You are not in an organization by that name.")
                 return
-            level,amt = int(self.lhslist[0]), int(self.lhslist[1])
-            # get or create agents of the appropriate type
             try:
-                agent = owner.agents.get(quality=level)
-            except Agent.DoesNotExist:
-                agent = owner.agents.create(quality=level)
-            if not agent.access(caller, 'agents'):
-                caller.msg("No access.")
+                gtype,level,amt = self.lhslist[0], int(self.lhslist[1]), int(self.lhslist[2])
+            except (IndexError, TypeError, ValueError):
+                caller.msg("Please give the type, level, and amount of agents to buy.")
                 return
+            if not org.access(caller, 'agents'):
+                caller.msg("You do not have permission to hire agents for %s." % org)
+                return
+            types = self.get_allowed_types_from_org(org)
+            if gtype not in types:
+                caller.msg("%s is not a type %s is allowed to hire." % (gtype, org))
+                caller.msg("You can buy: %s" % ", ".join(types))
+                return
+            gtype_num = get_npc_type(gtype)
             cost = self.get_cost(level, amt)
             if owner.military < cost:
                 caller.msg("Not enough military resources. Cost was %s." % cost)
                 return
             owner.military -= cost
             owner.save()
+            # get or create agents of the appropriate type
+            try:
+                agent = owner.agents.get(quality=level, type=gtype_num)
+            except Agent.DoesNotExist:
+                gname, gdesc = generate_default_name_and_desc(gtype_num, level, org)
+                agent = owner.agents.create(quality=level, type=gtype_num, name=gname,
+                                            desc = gdesc)
             agent.quantity += amt
             agent.save()
             caller.msg("You have bought %s %s." % (amt, agent))
