@@ -1416,6 +1416,7 @@ class Organization(models.Model):
     """
     name = models.CharField(blank=True, null=True, max_length=255)
     desc = models.TextField(blank=True, null=True)
+    category = models.CharField(blank=True, null=True, default="noble", max_length=255)
     # In a RP game, titles are IMPORTANT. And we need to divide them by gender.
     rank_1_male = models.CharField(default="Prince", blank=True, null=True, max_length=255)
     rank_1_female = models.CharField(default="Princess", blank=True, null=True, max_length=255)

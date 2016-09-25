@@ -1593,8 +1593,9 @@ class CmdAgents(MuxPlayerCommand):
         @agents <org name>
         @agents/guard player,<id #>,<amt>
         @agents/recall player,<id #>,<amt>
-        @agents/hire <id #>,<amount>
+        @agents/hire <type>,<amount>=<organization>
         @agents/desc <ID #>,<desc>
+        @agents/name <ID #>=name
 
     Hires guards, assassins, spies, or any other form of NPC that has a
     presence in-game and can act on player orders. Agents can be owned
@@ -1630,8 +1631,7 @@ class CmdAgents(MuxPlayerCommand):
         rooms = ObjectDB.objects.filter(db_tags__db_key__iexact=tagname)
         return list(rooms)
 
-    def get_cost(self, agent, amt):
-        lvl = agent.quality
+    def get_cost(self, lvl, amt):
         cost = pow((lvl + 1),3) * 100
         return cost
 
@@ -1743,27 +1743,30 @@ class CmdAgents(MuxPlayerCommand):
                 return
         if 'hire' in self.switches:
             try:
-                a_id,amt = int(self.lhslist[0]), int(self.lhslist[1])
-                agent = Agent.objects.get(id=a_id)
-                if not agent.access(caller, 'agents'):
-                    caller.msg("No access.")
-                    return
-                cost = self.get_cost(agent, amt)
-                if owner.military < cost:
-                    caller.msg("Not enough military resources. Cost was %s." % cost)
-                    return
-                owner.military -= cost
-                owner.save()
-                agent.quantity += amt
-                agent.save()
-                caller.msg("You have bought %s %s." % (amt, agent))
+                org = caller.Dominion.active_orgs.get(name__iexact=self.rhs)
+                owner = org.assets
+            except Exception:
+                caller.msg("You are not in an organization by that name.")
                 return
-            except (TypeError, ValueError, IndexError):
-                caller.msg("Invalid syntax.")
-                return
+            level,amt = int(self.lhslist[0]), int(self.lhslist[1])
+            # get or create agents of the appropriate type
+            try:
+                agent = owner.agents.get(quality=level)
             except Agent.DoesNotExist:
-                caller.msg("No agent by that ID.")
+                agent = owner.agents.create(quality=level)
+            if not agent.access(caller, 'agents'):
+                caller.msg("No access.")
                 return
+            cost = self.get_cost(level, amt)
+            if owner.military < cost:
+                caller.msg("Not enough military resources. Cost was %s." % cost)
+                return
+            owner.military -= cost
+            owner.save()
+            agent.quantity += amt
+            agent.save()
+            caller.msg("You have bought %s %s." % (amt, agent))
+            return
         if 'desc' in self.switches or 'name' in self.switches:
             try:
                 agent = Agent.objects.get(id=int(self.lhslist[0]))
