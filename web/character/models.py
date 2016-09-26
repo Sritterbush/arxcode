@@ -575,7 +575,7 @@ class Investigation(models.Model):
         if not self.automate_result or not self.targeted_clue:
             base = 30 # base difficulty for things without clues
         else:
-            base = 20 + (self.targeted_clue.rating)
+            base = self.targeted_clue.rating
         return base - self.resource_mod
 
     @property
