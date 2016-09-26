@@ -543,13 +543,13 @@ class Investigation(models.Model):
     @property
     def resource_mod(self):
         mod = 0
-        silvermod = self.silver/5000
-        if silvermod > 10:
-            silvermod = 10
+        silvermod = self.silver/2500
+        if silvermod > 20:
+            silvermod = 20
         mod += silvermod
-        resmod = (self.economic + self.military + self.social)/5
-        if resmod > 30:
-            resmod = 30
+        resmod = int((self.economic + self.military + self.social)/2.5)
+        if resmod > 60:
+            resmod = 60
         mod += resmod
         return mod
         
