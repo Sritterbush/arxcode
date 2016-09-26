@@ -523,7 +523,7 @@ class Investigation(models.Model):
     def char(self):
         return self.character.character
     
-    def do_roll(self, mod=0, diff=0):
+    def do_roll(self, mod=0, diff=None):
         """
         Do a dice roll to return a result
         """
@@ -532,17 +532,23 @@ class Investigation(models.Model):
         diff = (diff if diff != None else self.difficulty) + mod
         roll = do_dice_check(char, stat_list=[self.stat_used, "perception"], skill_list=[self.skill_used, "investigation"],
                              difficulty=diff, average_lists=True)
-        silvermod = self.silver/5000
-        if silvermod > 10:
-            silvermod = 10
-        roll += silvermod
-        resmod = (self.economic + self.military + self.social)/5
-        if resmod > 30:
-            resmod = 30
-        roll += resmod
         # save the character's roll
         self.roll = roll
         return roll
+
+    @property
+    def resource_mod(self):
+        mod = 0
+        silvermod = self.silver/5000
+        if silvermod > 10:
+            silvermod = 10
+        mod += silvermod
+        resmod = (self.economic + self.military + self.social)/5
+        if resmod > 30:
+            resmod = 30
+        mod += resmod
+        return mod
+        
 
     def _get_roll(self):
         char = self.char
@@ -566,7 +572,7 @@ class Investigation(models.Model):
             base = 30 # base difficulty for things without clues
         else:
             base = 20 + (self.targeted_clue.rating)
-        return base
+        return base - self.resource_mod
 
     @property
     def completion_value(self):

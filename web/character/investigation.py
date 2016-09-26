@@ -228,6 +228,8 @@ class CmdInvestigate(MuxCommand):
                 caller.pay_money(val)
                 ob.silver += val
                 ob.save()
+                # redo the roll with new difficulty
+                ob.do_roll()
                 caller.msg("You add %s silver to the investigation." % val)
                 return
             if "resource" in self.switches or "resources" in self.switches:
@@ -252,6 +254,8 @@ class CmdInvestigate(MuxCommand):
                 oamt += val
                 setattr(ob, rtype, oamt)
                 ob.save()
+                # redo the roll with new difficulty
+                ob.do_roll()
                 caller.msg("You have added %s resources to the investigation." % val)
                 return
             if "changetopic" in self.switches:
