@@ -517,6 +517,10 @@ class Investigation(models.Model):
         msg += "{wTargeted Clue{n: %s\n" % self.targeted_clue
         msg += "{wProgress Value{n: %s\n" % self.progress
         msg += "{wComplete this week?{n: %s\n" % self.check_success()
+        msg += "{wSilver Used{n: %s\n" % self.silver
+        msg += "{wEconomic Used{n %s\n" % self.economic
+        msg += "{wMilitary Used{n %s\n" % self.military
+        msg += "{wSocial Used{n %s\n" % self.social
         return msg
 
     @property
@@ -656,6 +660,8 @@ class Investigation(models.Model):
             self.results = "Your investigation failed to find anything."
             if self.add_progress():
                 self.results += " But you feel you've made some progress in following some leads."
+            else:
+                self.results += " None of your leads seemed to go anywhere this week."
         self.save()
         
     def use_resources(self):
@@ -723,6 +729,8 @@ class Investigation(models.Model):
         try:
             roll = int(roll)
         except (ValueError, TypeError):
+            return
+        if roll <= 0:
             return
         try:
             clue = self.clues.get(clue=self.targeted_clue)
