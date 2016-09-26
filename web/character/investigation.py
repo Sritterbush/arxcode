@@ -90,6 +90,12 @@ class CmdInvestigate(MuxCommand):
             table.add_row([ob.id, ob.topic])
         caller.msg("Old investigations")
         caller.msg(str(table))
+
+    @property
+    def start_cost(self):
+        caller = self.caller
+        skill = caller.db.skills.get("investigation", 0)
+        return self.base_cost - (5 * skill)
         
     def func(self):
         caller = self.caller
@@ -144,10 +150,11 @@ class CmdInvestigate(MuxCommand):
                     caller.msg("You must have a story defined.")
                     return
                 amt = dompc.assets.social
-                amt -= self.base_cost
+                amt -= self.start_cost
                 if amt < 0:
-                    caller.msg("It costs 25 social resources to start a new investigation.")
+                    caller.msg("It costs %s social resources to start a new investigation." % self.start_cost)
                     return
+                caller.msg("You spend %s social resources to start a new investigation." % self.start_cost)
                 dompc.assets.social = amt
                 dompc.assets.save()
                 ob = entry.investigations.create(topic=topic, actions=actions)
@@ -297,7 +304,8 @@ class CmdAdminInvestigations(MuxPlayerCommand):
     
     @property
     def qs(self):
-        return Investigation.objects.filter(active=True)
+        return Investigation.objects.filter(active=True, ongoing=True,
+                                            character__roster__name="Active")
     
     def disp_active(self):
         table = PrettyTable(["ID", "Char", "Topic", "Targeted Clue", "Difficulty"])
