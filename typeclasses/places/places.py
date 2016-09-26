@@ -59,7 +59,7 @@ class Place(Object):
         exclude = make_iter(exclude)
         for ob in self.db.occupants:
             if ob not in exclude:
-                ob.msg(message, is_pose=True)
+                ob.msg(message, options={'is_pose':True})
 
     def at_after_move(self, source_location):
         "If new location is not our wearer, remove."
