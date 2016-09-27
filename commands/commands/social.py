@@ -1100,7 +1100,7 @@ class CmdCalendar(MuxPlayerCommand):
             inform_staff("New event created by %s: %s, scheduled for %s." % (caller, event.name, date.strftime("%x %X")))
             try:
                 from commands.commands.bboards import get_boards
-                boards = get_boards(self)
+                boards = get_boards(caller)
                 boards = [ob for ob in boards if ob.key == "events"]
                 board = boards[0]
                 board.bb_post(poster_obj=caller, msg=post, subject=event.name, poster_name="New Events")
