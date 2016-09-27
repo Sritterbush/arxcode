@@ -895,9 +895,6 @@ class CmdMail(MuxPlayerCommand):
         
         #error message for invalid argument
         nomatch = "You must supply a number matching a mail message."
-        
-        for char in caller.db._playable_characters:
-            mails += char.db.mails
 
         if not switches:
             #if no argument and no switches, list all mail
@@ -964,17 +961,8 @@ class CmdMail(MuxPlayerCommand):
                 caller.msg(nomatch)
                 return
             mail = mails[mail_number - 1]
-            #if the mail isn't found in the player, look in characters
-            try:
-                caller.db.mails.remove(mail)
-                caller.db.readmails.discard(mail)
-            except ValueError:
-                for char in caller.db._playable_characters:
-                    try:
-                        char.db.mails.remove(mail)
-                        caller.db.readmails.discard(mail)
-                    except ValueError:
-                        pass
+            caller.db.mails.remove(mail)
+            caller.db.readmails.discard(mail)         
             caller.msg("Message deleted.")
             return
         if 'quick' in switches:

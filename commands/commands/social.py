@@ -1078,6 +1078,10 @@ class CmdCalendar(MuxPlayerCommand):
                 cel_lvl = 4
             elif largesse.lower() == 'legendary':
                 cel_lvl = 5
+            else:
+                caller.msg("That is not a valid type of largesse.")
+                caller.msg("It must be 'common', 'refined', 'grand', 'extravagant', or 'legendary.'")
+                return
             cost = costs.get(largesse, (0,0))[0]
             if cost > caller.db.char_ob.db.currency:
                 caller.msg("The largesse level set requires %s, you have %s." % (cost, caller.db.currency))
