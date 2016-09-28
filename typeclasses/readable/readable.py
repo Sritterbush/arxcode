@@ -30,7 +30,7 @@ class Readable(Object):
             self.setup_multiname()
         location = self.location
         # first, remove ourself from the source location's places, if it exists
-        if source_location.is_room:
+        if source_location and source_location.is_room:
             if source_location.db.places and self in source_location.db.places:
                 source_location.db.places.remove(self)
         # if location is a room, add cmdset
@@ -53,10 +53,9 @@ class Readable(Object):
         if self.db.num_instances > 1:
             self.key = "%s books" % self.db.num_instances
             self.save()
-            self.aliases.add("books")
         else:
             self.key = "a book"
-            self.aliases.add("book")
+            
 
     def set_num(self, value):
         self.db.num_instances = value
