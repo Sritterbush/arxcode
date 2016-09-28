@@ -1598,12 +1598,11 @@ class CmdAgents(MuxPlayerCommand):
         @agents/name <ID #>=name
 
     Hires guards, assassins, spies, or any other form of NPC that has a
-    presence in-game and can act on player orders. Agents can be owned
-    either personally by a character, or on behalf of an organization. If
-    the name of an organization is omitted, it is assumed you are ordering
-    agents that are owned personally. To use any of the switches of this
-    command, you must be in a space designated by GMs to be the barracks
-    your agents report to.
+    presence in-game and can act on player orders. Agents are owned by an
+    organization and are generic, while personalized agents are created and
+    ordered by the @retainer command, which are unique individuals. To use
+    any of the switches of this command, you must be in a space designated
+    by GMs to be the barracks your agents report to.
 
     Switches:
     guard: The 'guard' switch assigns agents of the type and the
@@ -1804,7 +1803,74 @@ class CmdAgents(MuxPlayerCommand):
             except (Agent.DoesNotExist, TypeError, ValueError, IndexError):
                 caller.msg("User error.")
                 return
-            
+
+class CmdRetainer(MuxPlayerCommand):
+    """
+    @retainers
+
+    Usage:
+        @retainers
+        @retainers/create <name>,<type>
+        @retainers/train <id #>=<xp>
+        @retainers/buyability <id #>=<ability>
+        @retainers/buyskill <id #>=<skill>
+        @retainers/buylevel <id #>
+
+    Allows you to create and train unique agents that serve you,
+    called retainers. They are still agents, and use the @agents
+    command to set their name and description. They can be summoned
+    in-game through the use of the +guards command.
+    
+    """
+    key = "@retainers"
+    aliases = ["@retainer"]
+    locks = "cmd:all()"
+    help_category = "Dominion"
+
+    def get_agent_from_args(self):
+        "Get our retainer's Agent model from an ID number in args"
+        return self.caller.Dominion.agents.get(id=self.lhs)
+    
+    def display_retainers(self):
+        """
+        Displays retainers the player owns
+        """
+        return
+
+    def create_new_retainer(self):
+        return
+
+    def train_retainer(self, agent):
+        return
+
+    def buy_ability(self, agent):
+        return
+    
+    def func(self):
+        if not self.args:
+            self.display_retainers()
+            return
+        if "create" in self.switches:
+            self.create_new_retainer()
+            return
+        try:
+            agent = self.get_agent_from_args()
+        except (Agent.DoesNotExist, ValueError, TypeError):
+            caller.msg("No agent found for that number.")
+            return
+        if "train" in self.switches:
+            self.train_retainer(agent)
+            return
+        if "buyability" in self.switches:
+            self.buy_ability(agent)
+            return
+        if "buyskill" in self.switches:
+            self.buy_skill(agent)
+            return
+        if "buylevel" in self.switches:
+            self.buy_level(agent)
+            return
+        
         
 
 class CmdFamily(MuxPlayerCommand):
