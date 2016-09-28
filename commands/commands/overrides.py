@@ -1144,4 +1144,24 @@ class CmdTeleport(MuxCommand):
                 caller.msg(string)
                 utils.inform_staff("Building command by %s: %s" % (caller, string))
 
+from evennia.commands.default.comms import (CmdCdestroy,CmdChannelCreate,
+                                            CmdClock, CmdCBoot,CmdCdesc)
+
+newlock = "cmd: perm(Builders)"
+class CmdArxCdestroy(CmdCdestroy):
+    __doc__ = CmdCdestroy.__doc__
+    locks = newlock
+class CmdArxChannelCreate(CmdChannelCreate):
+    __doc__ = CmdChannelCreate.__doc__
+    locks = newlock
+class CmdArxClock(CmdClock):
+    __doc__ = CmdClock.__doc__
+    locks = newlock
+class CmdArxCBoot(CmdCBoot):
+    __doc__ = CmdCBoot.__doc__
+    locks = newlock
+class CmdArxCdesc(CmdCdesc):
+    __doc__ = CmdCdesc.__doc__
+    locks = newlock
+
 

@@ -1078,6 +1078,10 @@ class CmdCalendar(MuxPlayerCommand):
                 cel_lvl = 4
             elif largesse.lower() == 'legendary':
                 cel_lvl = 5
+            else:
+                caller.msg("That is not a valid type of largesse.")
+                caller.msg("It must be 'common', 'refined', 'grand', 'extravagant', or 'legendary.'")
+                return
             cost = costs.get(largesse, (0,0))[0]
             if cost > caller.db.char_ob.db.currency:
                 caller.msg("The largesse level set requires %s, you have %s." % (cost, caller.db.currency))
@@ -1096,7 +1100,7 @@ class CmdCalendar(MuxPlayerCommand):
             inform_staff("New event created by %s: %s, scheduled for %s." % (caller, event.name, date.strftime("%x %X")))
             try:
                 from commands.commands.bboards import get_boards
-                boards = get_boards(self)
+                boards = get_boards(caller)
                 boards = [ob for ob in boards if ob.key == "events"]
                 board = boards[0]
                 board.bb_post(poster_obj=caller, msg=post, subject=event.name, poster_name="New Events")

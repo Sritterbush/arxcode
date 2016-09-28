@@ -517,13 +517,17 @@ class Investigation(models.Model):
         msg += "{wTargeted Clue{n: %s\n" % self.targeted_clue
         msg += "{wProgress Value{n: %s\n" % self.progress
         msg += "{wComplete this week?{n: %s\n" % self.check_success()
+        msg += "{wSilver Used{n: %s\n" % self.silver
+        msg += "{wEconomic Used{n %s\n" % self.economic
+        msg += "{wMilitary Used{n %s\n" % self.military
+        msg += "{wSocial Used{n %s\n" % self.social
         return msg
 
     @property
     def char(self):
         return self.character.character
     
-    def do_roll(self, mod=0, diff=0):
+    def do_roll(self, mod=0, diff=None):
         """
         Do a dice roll to return a result
         """
@@ -532,17 +536,23 @@ class Investigation(models.Model):
         diff = (diff if diff != None else self.difficulty) + mod
         roll = do_dice_check(char, stat_list=[self.stat_used, "perception"], skill_list=[self.skill_used, "investigation"],
                              difficulty=diff, average_lists=True)
-        silvermod = self.silver/5000
-        if silvermod > 10:
-            silvermod = 10
-        roll += silvermod
-        resmod = (self.economic + self.military + self.social)/5
-        if resmod > 30:
-            resmod = 30
-        roll += resmod
         # save the character's roll
         self.roll = roll
         return roll
+
+    @property
+    def resource_mod(self):
+        mod = 0
+        silvermod = self.silver/2500
+        if silvermod > 20:
+            silvermod = 20
+        mod += silvermod
+        resmod = int((self.economic + self.military + self.social)/2.5)
+        if resmod > 60:
+            resmod = 60
+        mod += resmod
+        return mod
+        
 
     def _get_roll(self):
         char = self.char
@@ -565,8 +575,8 @@ class Investigation(models.Model):
         if not self.automate_result or not self.targeted_clue:
             base = 30 # base difficulty for things without clues
         else:
-            base = 20 + (self.targeted_clue.rating)
-        return base
+            base = self.targeted_clue.rating
+        return base - self.resource_mod
 
     @property
     def completion_value(self):
@@ -650,6 +660,8 @@ class Investigation(models.Model):
             self.results = "Your investigation failed to find anything."
             if self.add_progress():
                 self.results += " But you feel you've made some progress in following some leads."
+            else:
+                self.results += " None of your leads seemed to go anywhere this week."
         self.save()
         
     def use_resources(self):
@@ -717,6 +729,8 @@ class Investigation(models.Model):
         try:
             roll = int(roll)
         except (ValueError, TypeError):
+            return
+        if roll <= 0:
             return
         try:
             clue = self.clues.get(clue=self.targeted_clue)
