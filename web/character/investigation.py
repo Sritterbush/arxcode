@@ -178,6 +178,7 @@ class CmdInvestigate(MuxCommand):
                 else:
                     staffmsg += " Their topic does not target a clue, and will automatically fail unless GM'd."
                 inform_staff(staffmsg)
+                caller.attribute.remove("investigation_form")
                 return
         if set(self.switches) & set(self.model_switches):
             try:
