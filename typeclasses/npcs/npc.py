@@ -276,13 +276,7 @@ class MultiNpc(Npc):
                 self.key = "%s %s" % (self.db.num_dead, noun)
             else:
                 self.key = "%s %s" % (self.db.num_living, noun)
-        self.setup_aliases()
         self.save()
-
-    def setup_aliases(self):
-        self.aliases.clear()
-        self.aliases.setup_aliases_from_key()
-        self.aliases.add(self.get_singular_name())
 
     def setup_npc(self, ntype=0, threat=0, num=1, sing_name=None, plural_name=None, desc=None, keepold=False):
         self.db.num_living = num
@@ -318,11 +312,7 @@ class MultiNpc(Npc):
     def quantity(self):
         return self.db.num_living
 
-class Agent(MultiNpc):
-    #-----------------------------------------------
-    # AgentHandler Admin client methods
-    #-----------------------------------------------
-           
+class AgentMixin(object):
     def setup_agent(self):
         """
         We'll set up our stats based on the type given by our agent class.
@@ -332,23 +322,7 @@ class Agent(MultiNpc):
         quality = agent_class.quality or 0
         # set up our stats based on our type
         desc = agent_class.desc
-        self.setup_npc(ntype=agent_class.type, threat=quality, num=agent.quantity, desc=desc)
-
-    def setup_name(self):
-        type = self.agentob.agent_class.type
-        noun = self.agentob.agent_class.name
-        if not noun:
-            if self.db.num_living == 1:
-                noun = get_npc_singular_name(type)
-            else:
-                noun = get_npc_plural_name(type)
-        if self.db.num_living:
-            self.key = "%s %s" % (self.db.num_living, noun)
-        else:
-            self.key = noun
-        self.setup_aliases()
-        self.save()  
-
+        
     def setup_locks(self):
         # base lock - the 'command' lock string
         lockfunc = ["command: %s", "desc: %s"]
@@ -374,7 +348,7 @@ class Agent(MultiNpc):
             lock = lock % perm
             # note that this will replace any currently defined 'command' lock
             self.locks.add(lock)
-    
+
     def assign(self, targ):
         """
         When given a Character as targ, we add ourselves to their list of
@@ -389,23 +363,14 @@ class Agent(MultiNpc):
         self.setup_name()
 
     def lose_agents(self, num, death=False):
-        """
-        Called whenever we lose one of our agents, due to them being recalled
-        or dying.
-        """
-        if num < 0:
-            raise ValueError("Must pass a positive integer to lose_agents.")
-        self.multideath(num, death)
-        self.agentob.lose_agents(num)
-        self.setup_name()       
-        if self.db.num_living <= 0:
-            self.unassign()
-        return num
-    
+        self.unassign()
+
     def gain_agents(self, num):
-        self.db.num_living += num
         self.setup_name()
-        
+
+    def setup_name(self):
+        self.name = self.agentob.agent_class.name
+
     def unassign(self):
         """
         When unassigned from the Character we were guarding, we remove
@@ -421,13 +386,6 @@ class Agent(MultiNpc):
         self.agentob.unassign()
         self.locks.add("command: false()")
 
-    def display(self):
-        msg = "\n{wGuards:{n %s\n" % self.name
-        if self.db.guarding:
-            msg += "{wAssigned to:{n %s\n" % self.db.guarding
-        msg += "{wLocation:{n %s\n" % (self.location or self.db.docked or "Home Barracks")
-        return msg
-    
     def _get_npc_type(self):
         agent = self.agentob
         agent_class = agent.agent_class
@@ -484,6 +442,77 @@ class Agent(MultiNpc):
         if self.ndb.combat_manager:
             self.ndb.combat_manager.remove_combatant(self)
 
+    def at_init(self):
+        try:
+            if self.location and self.db.guarding:
+                self.follow(self.db.guarding)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+
+class Retainer(AgentMixin, Npc):
+    @property
+    def desc(self):
+        return self.agentob.agent_class.desc
+
+    def display(self):
+        msg = "\n{wRetainer:{n %s\n" % self.name
+        if self.db.guarding:
+            msg += "{wAssigned to:{n %s\n" % self.db.guarding
+        msg += "{wLocation:{n %s\n" % (self.location or self.db.docked or "Home Barracks")
+        return msg
+    
+class Agent(AgentMixin, MultiNpc):
+    #-----------------------------------------------
+    # AgentHandler Admin client methods
+    #-----------------------------------------------
+           
+    def setup_agent(self):
+        """
+        We'll set up our stats based on the type given by our agent class.
+        """
+        super(Agent, self).setup_agent()
+        self.setup_npc(ntype=agent_class.type, threat=quality, num=agent.quantity, desc=desc)
+
+    def setup_name(self):
+        type = self.agentob.agent_class.type
+        noun = self.agentob.agent_class.name
+        if not noun:
+            if self.db.num_living == 1:
+                noun = get_npc_singular_name(type)
+            else:
+                noun = get_npc_plural_name(type)
+        if self.db.num_living:
+            self.key = "%s %s" % (self.db.num_living, noun)
+        else:
+            self.key = noun
+        self.save()     
+
+    def lose_agents(self, num, death=False):
+        """
+        Called whenever we lose one of our agents, due to them being recalled
+        or dying.
+        """
+        if num < 0:
+            raise ValueError("Must pass a positive integer to lose_agents.")
+        self.multideath(num, death)
+        self.agentob.lose_agents(num)
+        self.setup_name()       
+        if self.db.num_living <= 0:
+            self.unassign()
+        return num
+    
+    def gain_agents(self, num):
+        self.db.num_living += num
+        self.setup_name()
+        
+    def display(self):
+        msg = "\n{wGuards:{n %s\n" % self.name
+        if self.db.guarding:
+            msg += "{wAssigned to:{n %s\n" % self.db.guarding
+        msg += "{wLocation:{n %s\n" % (self.location or self.db.docked or "Home Barracks")
+        return msg
+
     def death_process(self, *args, **kwargs):
         """
         This object dying. Set its state to dead, send out
@@ -494,16 +523,7 @@ class Agent(MultiNpc):
         self.lose_agents(num=1, death=True)
         self.db.damage = 0
 
-    def at_init(self):
-        self.is_room = False
-        self.is_exit = False
-        self.is_character = True
-        try:
-            if self.location and self.db.guarding:
-                self.follow(self.db.guarding)
-        except Exception:
-            import traceback
-            traceback.print_exc()
+    
 
 
         
