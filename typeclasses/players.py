@@ -228,6 +228,22 @@ class Player(MsgMixins, DefaultPlayer):
         except AttributeError:
             return []
 
+    def pay_resources(self, rtype, amt):
+        """
+        Attempt to pay resources. If we don't have enough,
+        return False.
+        """
+        try:
+            assets = self.Dominion.assets
+            current = getattr(assets, rtype)
+            if current < amt:
+                return False
+            setattr(assets, rtype, current - amt)
+            assets.save()
+            return True
+        except AttributeError:
+            return False
+
 
 
 

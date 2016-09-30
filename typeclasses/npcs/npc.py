@@ -223,6 +223,18 @@ class Npc(Character):
     def quantity(self):
         return 1
 
+    def setup_stats(self, ntype, threat):
+        self.db.npc_quality = threat
+        for stat,value in get_npc_stats(ntype).items():
+            self.attributes.add(stat, value)
+        skills = get_npc_skills(ntype)
+        for skill in skills:
+            skills[skill] += threat
+        self.db.skills = skills
+        self.db.fakeweapon = get_npc_weapon(ntype, threat)
+        self.db.armor_class = get_armor_bonus(self._get_npc_type(), self._get_quality())
+        self.db.bonus_max_hp = get_hp_bonus(self._get_npc_type(), self._get_quality())  
+
 class MultiNpc(Npc):
     def multideath(self, num, death=False):
         living = self.db.num_living or 0       
@@ -291,17 +303,7 @@ class MultiNpc(Npc):
             self.db.singular_name = sing_name
             self.db.plural_name = plural_name
             self.desc = desc or get_npc_desc(ntype)
-        self.db.npc_quality = threat
-        for stat,value in get_npc_stats(ntype).items():
-            self.attributes.add(stat, value)
-        skills = get_npc_skills(ntype)
-        for skill in skills:
-            skills[skill] += threat
-        self.db.skills = skills
-        self.db.fakeweapon = get_npc_weapon(ntype, threat)
-        self.db.armor_class = get_armor_bonus(self._get_npc_type(), self._get_quality())
-        self.db.bonus_max_hp = get_hp_bonus(self._get_npc_type(), self._get_quality())       
-        self.save()
+        self.setup_stats(ntype, threat)     
         self.setup_name()
 
     def dismiss(self):
@@ -322,6 +324,7 @@ class AgentMixin(object):
         quality = agent_class.quality or 0
         # set up our stats based on our type
         desc = agent_class.desc
+        self.setup_npc(ntype=agent_class.type, threat=quality, num=agent.quantity, desc=desc)
         
     def setup_locks(self):
         # base lock - the 'command' lock string
@@ -461,18 +464,19 @@ class Retainer(AgentMixin, Npc):
             msg += "{wAssigned to:{n %s\n" % self.db.guarding
         msg += "{wLocation:{n %s\n" % (self.location or self.db.docked or "Home Barracks")
         return msg
+
+    def setup_npc(self, ntype=None, threat=None, num=None, desc=None, keepold=False):
+        self.db.damage = 0
+        self.db.health_status = "alive"
+        self.db.sleep_status = "awake"
+        self.setup_stats(ntype, threat)
+        self.name = self.agentob.agent_class.name
     
 class Agent(AgentMixin, MultiNpc):
     #-----------------------------------------------
     # AgentHandler Admin client methods
     #-----------------------------------------------
-           
-    def setup_agent(self):
-        """
-        We'll set up our stats based on the type given by our agent class.
-        """
-        super(Agent, self).setup_agent()
-        self.setup_npc(ntype=agent_class.type, threat=quality, num=agent.quantity, desc=desc)
+        
 
     def setup_name(self):
         type = self.agentob.agent_class.type

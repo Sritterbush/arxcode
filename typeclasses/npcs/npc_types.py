@@ -160,7 +160,7 @@ def generate_default_name_and_desc(type, quality, org):
     if quality == 3:
         name += " veteran %s" % tname
         desc = "%s who have seen combat before." % tname.capitalize()
-    if quality == 4
+    if quality == 4:
         name += " skilled veteran %s" % tname
         desc = "%s who have seen combat, and proven to be very good at it." % tname.capitalize()
     if quality == 5:

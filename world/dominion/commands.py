@@ -1826,6 +1826,9 @@ class CmdRetainer(MuxPlayerCommand):
     aliases = ["@retainer"]
     locks = "cmd:all()"
     help_category = "Dominion"
+    # cost of a new retainer in resources
+    new_retainer_cost = 100
+    retainer_types = ("champion", "assistant", "spy")
 
     def get_agent_from_args(self):
         "Get our retainer's Agent model from an ID number in args"
@@ -1838,6 +1841,28 @@ class CmdRetainer(MuxPlayerCommand):
         return
 
     def create_new_retainer(self):
+        """
+        Create a new retainer that will be attached to the assetowner
+        object of the caller. The cost will be in resources determined
+        by the type passed by arguments.
+        """
+        caller = self.caller
+        try:
+            aname, atype = self.lhslist[0], self.lhslist[1]
+        except IndexError:
+            caller.msg("You must provide both a name and a type for your new retainer.")
+            return
+        if atype not in self.retainer_types:
+            caller.msg("The type of retainer must be one of the following: %s" % ", ".join(self.retainer_types))
+            return
+        if atype == "champion":
+            rtype = "military"
+        if atype == "assistant" or atype == "spy":
+            rtype = "social"
+        if not caller.pay_resources(rtype, self.new_retainer_cost):
+            caller.msg("You do not have enough %s resources." % rtype)
+            return
+        # all checks passed, and we've paid the cost. Create a new agent
         return
 
     def train_retainer(self, agent):
@@ -1853,6 +1878,7 @@ class CmdRetainer(MuxPlayerCommand):
         if "create" in self.switches:
             self.create_new_retainer()
             return
+        # methods that require an agent below
         try:
             agent = self.get_agent_from_args()
         except (Agent.DoesNotExist, ValueError, TypeError):
