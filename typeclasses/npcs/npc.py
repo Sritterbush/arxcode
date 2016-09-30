@@ -471,6 +471,18 @@ class Retainer(AgentMixin, Npc):
         self.db.sleep_status = "awake"
         self.setup_stats(ntype, threat)
         self.name = self.agentob.agent_class.name
+
+    def upgrade_weapon(self, *args, **kwargs):
+        """
+        Upgrades the 'fake_weapon' dict for this retainer.
+        """
+        pass
+
+    def upgrade_armor(self, *args, **kwargs):
+        """
+        Upgrades the armor for this retainer.
+        """
+        pass
     
 class Agent(AgentMixin, MultiNpc):
     #-----------------------------------------------

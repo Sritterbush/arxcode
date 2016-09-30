@@ -1815,6 +1815,11 @@ class CmdRetainer(MuxPlayerCommand):
         @retainers/buyability <id #>=<ability>
         @retainers/buyskill <id #>=<skill>
         @retainers/buylevel <id #>
+        @retainers/weaponupgrade <id #>=<field>
+        @retainers/armorupgrade <id #>=<field>
+        @retainers/statupgrade <id #>=<stat>
+        @retainers/desc <id #>=<new description>
+        @retainers/name <id #>=<new name>
 
     Allows you to create and train unique agents that serve you,
     called retainers. They are still agents, and use the @agents
@@ -1863,12 +1868,28 @@ class CmdRetainer(MuxPlayerCommand):
             caller.msg("You do not have enough %s resources." % rtype)
             return
         # all checks passed, and we've paid the cost. Create a new agent
+        npc_type = get_npc_type(atype)
         return
 
     def train_retainer(self, agent):
         return
 
     def buy_ability(self, agent):
+        return
+
+    def upgrade_weapon(self, agent):
+        return
+
+    def upgrade_armor(self, agent):
+        return
+
+    def upgrade_stat(self, agent):
+        return
+
+    def change_desc(self, agent):
+        return
+
+    def change_name(self, agent):
         return
     
     def func(self):
@@ -1896,6 +1917,22 @@ class CmdRetainer(MuxPlayerCommand):
         if "buylevel" in self.switches:
             self.buy_level(agent)
             return
+        if "upgradeweapon" in self.switches:
+            self.upgrade_weapon(agent)
+            return
+        if "upgradearmor" in self.switches:
+            self.upgrade_armor(agent)
+            return
+        if "upgradestat" in self.switches:
+            self.upgrade_stat(agent)
+            return
+        if "changedesc" in self.switches:
+            self.change_desc(agent)
+            return
+        if "changename" in self.switches:
+            self.change_name(agent)
+            return
+        caller.msg("Invalid switch.")
         
         
 

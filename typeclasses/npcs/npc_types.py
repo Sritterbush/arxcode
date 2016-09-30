@@ -3,11 +3,14 @@ import copy
 GUARD = 0
 THUG = 1
 SPY = 2
+ASSISTANT = 3
 
 npc_templates = {
     "guard": GUARD,
     "thug": THUG,
     "spy": SPY,
+    "champion": GUARD,
+    "assistant": ASSISTANT,
     }
 
 guard_stats = {
@@ -17,6 +20,12 @@ guard_stats = {
     'mana':1, 'luck':1, 'willpower':1,   
     }
 spy_stats = {
+    'strength': 1, 'stamina': 1, 'dexterity':1,
+    'charm':3, 'command':3, 'composure':3,
+    'intellect':2, 'perception':2, 'wits':2,
+    'mana':1, 'luck':1, 'willpower':1, 
+    }
+assistant_stats = {
     'strength': 1, 'stamina': 1, 'dexterity':1,
     'charm':2, 'command':2, 'composure':2,
     'intellect':3, 'perception':3, 'wits':3,
@@ -33,6 +42,7 @@ npc_stats = {
     GUARD: guard_stats,
     THUG: guard_stats,
     SPY: spy_stats,
+    ASSISTANT: assistant_stats,
     }
 
 guard_skills = {
@@ -47,6 +57,7 @@ npc_skills = {
     GUARD: guard_skills,
     THUG: guard_skills,
     SPY: spy_skills,
+    ASSISTANT: spy_skills,
     }
 
 guard_weapon = {
@@ -67,6 +78,8 @@ guard_weapon = {
 npc_weapons = {
     GUARD: guard_weapon,
     THUG: guard_weapon,
+    SPY: guard_weapon,
+    ASSISTANT: guard_weapon,
     }
 
 # all armor values are (base, scaling)

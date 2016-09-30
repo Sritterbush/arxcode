@@ -39,11 +39,19 @@ class AgentHandler(object):
 
     def get_or_create_agentob(self, num):
         assert (self.agent.quantity >= num), "Not enough agents to assign."
-        if self.unassigned:
-            agent_ob = self.unassigned[0]
-            agent_ob.quantity = num
+        if self.agent.unique:
+            # ensure we can only ever have one agent object
+            agent_obs = self.agent.agent_objects.all()
+            if agent_obs:
+                agent_ob = agent_obs[0]
+            else:
+                agent_ob = self.agent.agent_objects.create(quantity=1)
         else:
-            agent_ob = self.agent.agent_objects.create(quantity=num)
+            if self.unassigned:
+                agent_ob = self.unassigned[0]
+                agent_ob.quantity = num
+            else:
+                agent_ob = self.agent.agent_objects.create(quantity=num)
         self.agent.quantity -= num
         self.agent.save()
         if not agent_ob.dbobj:

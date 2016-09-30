@@ -1656,6 +1656,12 @@ class Agent(models.Model):
         """
         return self.npcs.find_agentob_by_character(player.db.char_ob)
 
+    @property
+    def dbobj(self):
+        "Return dbobj of an agent_ob when we are unique"
+        agentob = self.agent_objects.get(dbobj__isnull=False)
+        return agentob.dbobj
+
     def __init__(self, *args, **kwargs):
         super(Agent, self).__init__(*args, **kwargs)
         self.npcs = AgentHandler(self)
