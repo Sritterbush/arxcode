@@ -21,6 +21,7 @@ command, it then summons guards for that player character.
 
 """
 from typeclasses.characters import Character
+from typeclasses.mixins import NameMixins
 from .npc_types import (get_npc_stats, get_npc_desc, get_npc_skills,
                         get_npc_singular_name, get_npc_plural_name, get_npc_weapon,
                         get_armor_bonus, get_hp_bonus)
@@ -28,7 +29,7 @@ from world.stats_and_skills import do_dice_check
 import time
 
 
-class Npc(Character):
+class Npc(NameMixins, Character):
     """
     NPC objects
 

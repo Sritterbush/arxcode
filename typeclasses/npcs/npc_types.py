@@ -130,12 +130,13 @@ def get_npc_singular_name(type):
 
 def get_npc_type(name):
     name = name.lower()
-    for key,val in npc_plural_names.values():
+    for key,val in npc_plural_names.items():
         if val == name:
             return key
-    for key,val in npc_singular_names.values():
+    for key,val in npc_singular_names.items():
         if val == name:
             return key
+    return npc_templates[name]
 
 def get_npc_weapon(type, quality):
     weapon = copy.deepcopy(npc_weapons.get(type, guard_weapon))

@@ -59,8 +59,8 @@ class AgentHandler(object):
                 ntype = retainer_typeclass
             else:
                 ntype = npc_typeclass
-            ob = create_object(typeclass=ntype)
-            agent_ob.dbobj = ob.dbobj
+            ob = create_object(typeclass=ntype, key=self.agent.name or "Unnamed Agent")
+            agent_ob.dbobj = ob
             agent_ob.save()
         agent_ob.dbobj.setup_agent()
         return agent_ob      

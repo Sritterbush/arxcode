@@ -1804,7 +1804,7 @@ class CmdAgents(MuxPlayerCommand):
                 caller.msg("User error.")
                 return
 
-class CmdRetainer(MuxPlayerCommand):
+class CmdRetainers(MuxPlayerCommand):
     """
     @retainers
 
@@ -1869,6 +1869,12 @@ class CmdRetainer(MuxPlayerCommand):
             return
         # all checks passed, and we've paid the cost. Create a new agent
         npc_type = get_npc_type(atype)
+        desc = "An agent belonging to %s." % caller
+        agent = caller.Dominion.assets.agents.create(type=npc_type, quality=0, name=aname,
+                                                     quantity=1, unique=True, desc=desc)
+        caller.msg("You have created a new %s named %s." % (atype, aname))
+        agent.assign(caller.db.char_ob, 1)
+        caller.msg("Assigning %s to you." % aname)
         return
 
     def train_retainer(self, agent):
@@ -1887,9 +1893,18 @@ class CmdRetainer(MuxPlayerCommand):
         return
 
     def change_desc(self, agent):
+        old = agent.desc
+        agent.desc = self.rhs
+        agent.save()
+        self.caller.msg("Desc changed from %s to %s." % (old, self.rhs))
         return
 
     def change_name(self, agent):
+        old = agent.name
+        agent.name = self.rhs
+        agent.dbobj.name = self.rhs
+        agent.save()
+        self.caller.msg("Name changed from %s to %s." % (old, self.rhs))
         return
     
     def func(self):

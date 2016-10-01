@@ -159,6 +159,7 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(domcommands.CmdOrganization())
             self.add(domcommands.CmdAgents())
             self.add(domcommands.CmdPatronage())
+            self.add(domcommands.CmdRetainers())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading Dominion cmdset in Player: %s" % err)
         try:

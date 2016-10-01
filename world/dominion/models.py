@@ -1644,6 +1644,9 @@ class Agent(models.Model):
             msg += agent.display()
         return msg
     def assign(self, targ, num):
+        """
+        Assigns num agents to target character object.
+        """
         if num > self.quantity:
             raise ValueError("Agent only has %s to assign, asked for %s." % (self.quantity, num))
         self.npcs.assign(targ, num)
