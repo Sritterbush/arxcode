@@ -4,12 +4,13 @@ GUARD = 0
 THUG = 1
 SPY = 2
 ASSISTANT = 3
+CHAMPION = 4
 
 npc_templates = {
     "guard": GUARD,
     "thug": THUG,
     "spy": SPY,
-    "champion": GUARD,
+    "champion": CHAMPION,
     "assistant": ASSISTANT,
     }
 
@@ -43,6 +44,7 @@ npc_stats = {
     THUG: guard_stats,
     SPY: spy_stats,
     ASSISTANT: assistant_stats,
+    CHAMPION: guard_stats,
     }
 
 guard_skills = {
@@ -58,6 +60,7 @@ npc_skills = {
     THUG: guard_skills,
     SPY: spy_skills,
     ASSISTANT: spy_skills,
+    CHAMPION: guard_skills,
     }
 
 guard_weapon = {
@@ -80,6 +83,7 @@ npc_weapons = {
     THUG: guard_weapon,
     SPY: guard_weapon,
     ASSISTANT: guard_weapon,
+    CHAMPION: guard_weapon,
     }
 
 # all armor values are (base, scaling)
@@ -99,6 +103,8 @@ npc_descs = {
     GUARD: "A group of guards.",
     THUG: "A group of thugs.",
     SPY: "A group of spies.",
+    ASSISTANT: "A loyal assistant.",
+    CHAMPION: "A loyal champion.",
     }
 
 npc_plural_names = {
@@ -111,6 +117,8 @@ npc_singular_names = {
     GUARD: "guard",
     THUG: "thug",
     SPY: "spy",
+    CHAMPION: "champion",
+    ASSISTANT: "assistant",
     }
 
 def get_npc_stats(type):

@@ -244,6 +244,13 @@ class Player(MsgMixins, DefaultPlayer):
         except AttributeError:
             return False
 
+    @property
+    def retainers(self):
+        try:
+            return self.Dominion.assets.agents.filter(unique=True)
+        except AttributeError:
+            return []
+
 
 
 

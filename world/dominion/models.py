@@ -1637,7 +1637,7 @@ class Agent(models.Model):
         return "<Agent (#%s): %s>" % (self.id, self.name)
     def display(self, show_assignments=True):
         msg = "\n\n{wID{n: %s {wName{n: %s {wType:{n %s {wUnassigned:{n %s\n" % (
-            self.id, self.name, self.typename, self.quantity)
+            self.id, self.name, self.typename, self.quantity if not self.unique else self.quantity != 0)
         if not show_assignments:
             return msg
         for agent in self.agent_objects.all():

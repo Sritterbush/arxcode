@@ -1814,7 +1814,7 @@ class CmdRetainers(MuxPlayerCommand):
         @retainers/train <id #>=<xp>
         @retainers/buyability <id #>=<ability>
         @retainers/buyskill <id #>=<skill>
-        @retainers/buylevel <id #>
+        @retainers/buylevel <id #>=<field>
         @retainers/weaponupgrade <id #>=<field>
         @retainers/armorupgrade <id #>=<field>
         @retainers/statupgrade <id #>=<stat>
@@ -1824,8 +1824,12 @@ class CmdRetainers(MuxPlayerCommand):
     Allows you to create and train unique agents that serve you,
     called retainers. They are still agents, and use the @agents
     command to set their name and description. They can be summoned
-    in-game through the use of the +guards command.
-    
+    in-game through the use of the +guards command while in your home.
+
+    @retainers are upgraded through transfer of XP and the expenditure
+    of resources. XP transferred to @retainers is multiplied by three,
+    making it far easier (but much more expensive) to have skilled
+    retainers.
     """
     key = "@retainers"
     aliases = ["@retainer"]
@@ -1837,12 +1841,14 @@ class CmdRetainers(MuxPlayerCommand):
 
     def get_agent_from_args(self):
         "Get our retainer's Agent model from an ID number in args"
-        return self.caller.Dominion.agents.get(id=self.lhs)
+        return self.caller.retainers.get(id=self.lhs)
     
     def display_retainers(self):
         """
         Displays retainers the player owns
         """
+        agents = self.caller.retainers
+        self.caller.msg("{WYour retainers:{n\n%s" % ", ".join(agent.display() for agent in agents), options={'box':True})
         return
 
     def create_new_retainer(self):
@@ -1878,9 +1884,47 @@ class CmdRetainers(MuxPlayerCommand):
         return
 
     def train_retainer(self, agent):
+        """
+        Transfers xp to a retainer
+        """
+        char = self.caller.db.char_ob
+        try:
+            amt = int(self.rhs)
+        except (TypeError, ValueError):
+            self.msg("You must specify an xp value to transfer to your retainer.")
+            return
+        if char.db.xp < amt:
+            self.msg("You want to transfer %s xp, but only have %s." % (amt, char.db.xp))
+            return
+        npc = agent.dbobj
+        npc.db.xp = npc.db.xp or 0
+        char.db.xp -= amt
+        amt *= 3
+        npc.db.xp += amt  
+        self.msg("%s now has %s xp to spend." % (npc, npc.db.xp))
         return
 
     def buy_ability(self, agent):
+        return
+
+    def buy_level(self, agent):
+        if not self.rhs:
+            self.rhs = agent.typename
+        if self.rhs not in self.retainer_types:
+            self.msg("The type of level to buy must be one of the following: %s" % ", ".join(self.retainer_types))
+            return
+        if self.rhs == agent.typename:
+            max = 6
+        else:
+            max = agent.quality - 1
+        attrname = "%s_level" % self.rhs
+        current = agent.dbobj.attributes.get(attrname) or 0
+        if current >= max:
+            self.msg("Their level in %s is currently at the maximum." % self.rhs)
+            return
+        # check and pay costs
+        # all checks passed, increase it and raise quality if it was our main category
+        agent.dbobj.add(attrname, current + 1)
         return
 
     def upgrade_weapon(self, agent):
@@ -1908,6 +1952,7 @@ class CmdRetainers(MuxPlayerCommand):
         return
     
     def func(self):
+        caller = self.caller
         if not self.args:
             self.display_retainers()
             return
@@ -1941,10 +1986,10 @@ class CmdRetainers(MuxPlayerCommand):
         if "upgradestat" in self.switches:
             self.upgrade_stat(agent)
             return
-        if "changedesc" in self.switches:
+        if "desc" in self.switches:
             self.change_desc(agent)
             return
-        if "changename" in self.switches:
+        if "name" in self.switches:
             self.change_name(agent)
             return
         caller.msg("Invalid switch.")
@@ -2163,7 +2208,7 @@ class CmdGuards(MuxCommand):
         if not self.args and not self.switches:
             for guard in guards:
                 caller.msg(guard.display())
-                return
+            return
         if self.args:
             guard = ObjectDB.objects.object_search(self.lhs, candidates=guards)
             if not guard:
@@ -2174,7 +2219,7 @@ class CmdGuards(MuxCommand):
                 caller.msg("You must specify which guards.")
                 for guard in guards:
                     caller.msg(guard.display())
-                    return
+                return
             guard = guards
         # object_search returns a list
         guard = guard[0]
@@ -2196,6 +2241,9 @@ class CmdGuards(MuxCommand):
             # if they're only one square away
             loc = guard.location or guard.db.docked
             if loc and caller.location.locations_set.filter(db_destination_id=loc.id):
+                guard.summon()
+                return
+            if caller.location == caller.home:
                 guard.summon()
                 return
             caller.msg("Your guards aren't close enough to summon. They are at %s." % loc)
