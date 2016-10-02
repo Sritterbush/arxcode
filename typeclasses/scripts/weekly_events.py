@@ -21,7 +21,8 @@ from evennia.utils.evtable import EvTable
 EVENT_SCRIPT_NAME = "Weekly Update"
 # number of seconds in a week
 WEEK_INTERVAL = 604800
-BOARD_NAME = 'News'
+VOTES_BOARD_NAME = 'Votes'
+PRESTIGE_BOARD_NAME = 'Prestige Changes'
 
 
 class WeeklyEvents(Script):
@@ -444,15 +445,15 @@ class WeeklyEvents(Script):
             except ObjectDB.DoesNotExist:
                 print "Could not find character of id %s during posting." % str(tup[0])
         boards = get_boards(self)
-        boards = [ob for ob in boards if ob.key == BOARD_NAME]
+        boards = [ob for ob in boards if ob.key == VOTES_BOARD_NAME]
         board = boards[0]
         board.bb_post(poster_obj=self, msg=string, subject="Weekly Votes", poster_name="Vote Results")
-        inform_staff("Vote process awards complete. Posted on News.")
+        inform_staff("Vote process awards complete. Posted on %s." % board)
 
     def post_top_prestige(self):
         import random
         boards = get_boards(self)
-        boards = [ob for ob in boards if ob.key == BOARD_NAME]
+        boards = [ob for ob in boards if ob.key == PRESTIGE_BOARD_NAME]
         board = boards[0]
         sorted_praises = sorted(self.db.praises.items(), key=lambda x:x[1][1], reverse=True)
         sorted_praises = sorted_praises[:20]
@@ -497,5 +498,5 @@ class WeeklyEvents(Script):
             import traceback
             traceback.print_exc()
         board.bb_post(poster_obj=self, msg=pmsg, subject="Weekly Praises/Condemns", poster_name="Prestige")
-        inform_staff("Praises/condemns tally complete. Posted on News.")
+        inform_staff("Praises/condemns tally complete. Posted on %s." % board)
         
