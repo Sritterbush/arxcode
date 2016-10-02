@@ -4,10 +4,10 @@ def adjust_pagination(context, page, begin_pages=2, end_pages=2, before_current_
     # Digg-like pages
     before = max(page.number - before_current_pages - 1, 0)
     after = page.number + after_current_pages
-    
-    begin = page.paginator.page_range[:begin_pages]
-    middle = page.paginator.page_range[before:after]
-    end = page.paginator.page_range[-end_pages:]
+    print "Begin_pages is %s" % begin_pages
+    begin = list(page.paginator.page_range)[:begin_pages]
+    middle = list(page.paginator.page_range)[before:after]
+    end = list(page.paginator.page_range)[-end_pages:]
     last_page_number = end[-1]
     
     def collides(firstlist, secondlist):
@@ -68,10 +68,12 @@ class LimitPageMixin(object):
         context = super(LimitPageMixin, self).get_context_data(**kwargs)
         if self.default_page_name:
             default_page = context[self.default_page_name]
-            context = adjust_pagination(context, default_page, self.default_page_name)
+            context = adjust_pagination(context=context, page=default_page, begin_pages=self.begin_pages,
+                                        end_pages=self.end_pages, before_current_pages=self.before_current_pages,
+                                        after_current_pages=self.after_current_pages, page_name=self.default_page_name)
         for page_name in self.additional_pages:
             # get the queryset we'll paginate
-            qs = self.additional_pages[page_name][0]()
+            qs = getattr(self, self.additional_pages[page_name][0])()
             # get the number of the requested page from GET request
             requested_page_num = self.request.GET.get(self.additional_pages[page_name][1])
             paged_qs = Paginator(qs, self.paginate_by)

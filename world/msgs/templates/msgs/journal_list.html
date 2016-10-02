@@ -36,10 +36,25 @@
 				{% if page_obj.has_previous %}
 					<li><a href="?page={{ page_obj.previous_page_number }}">previous</a></li>
 				{% endif %}
+                {% for pnum in page_obj_begin %}
+                     <li class="{% if page_obj.number == pnum  %}active{% endif %}"><a href="?page={{ pnum }}">{{ pnum }}</a></li> 
+                {% endfor %}
+                {% if page_obj_middle %}
+                    <li><strong>...</strong></li>
 
-				{% for page in page_obj.paginator.page_range %}
-					<li class="{% if page_obj.number == page  %}active{% endif %}"><a href="?page={{page }}">{{ page }}</a></li>
-				{% endfor %}
+                    {% for pnum in page_obj_middle %}
+                       <li class="{% if page_obj.number == pnum  %}active{% endif %}"><a href="?page={{ pnum }}">{{ pnum }}</a></li>  
+                    {% endfor %}
+                {% endif %}
+
+                {% if page_obj_end %}
+                    <li><strong>...</strong></li>
+
+                    {% for pnum in page_obj_end %}
+                        <li class="{% if page_obj.number == pnum  %}active{% endif %}"><a href="?page={{ pnum }}">{{ pnum }}</a></li> 
+                    {% endfor %}
+                {% endif %}
+				
 
 				{% if page_obj.has_next %}
 					<li><a href="?page={{ page_obj.next_page_number }}">next</a></li>
@@ -79,9 +94,24 @@
 					<li><a href="?read_page={{ read_journals.previous_page_number }}">previous</a></li>
 				{% endif %}
 
-				{% for page in read_journals.paginator.page_range %}
-					<li class="{% if read_journals.number == page  %}active{% endif %}"><a href="?read_page={{page }}">{{ page }}</a></li>
-				{% endfor %}
+				{% for pnum in read_journals_begin %}
+                     <li class="{% if read_journals.number == pnum  %}active{% endif %}"><a href="?read_page={{ pnum }}">{{ pnum }}</a></li> 
+                {% endfor %}
+                {% if read_journals_middle %}
+                    <li><strong>...</strong></li>
+
+                    {% for pnum in read_journals_middle %}
+                       <li class="{% if read_journals.number == pnum  %}active{% endif %}"><a href="?read_page={{ pnum }}">{{ pnum }}</a></li>  
+                    {% endfor %}
+                {% endif %}
+
+                {% if read_journals_end %}
+                    <li><strong>...</strong></li>
+
+                    {% for pnum in read_journals_end %}
+                        <li class="{% if read_journals.number == pnum  %}active{% endif %}"><a href="?read_page={{ pnum }}">{{ pnum }}</a></li> 
+                    {% endfor %}
+                {% endif %}
 
 				{% if read_journals.has_next %}
 					<li><a href="?read_page={{ read_journals.next_page_number }}">next</a></li>
