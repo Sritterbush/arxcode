@@ -11,7 +11,6 @@ False if not worn.
 
 from django.conf import settings
 from typeclasses.objects import Object
-from cmdset_wearable import DefaultCmdSet
 from time import time
 
 
@@ -31,7 +30,6 @@ class Wearable(Object):
         self.db.armor_class = 0
         self.db.slot = None
         self.db.slot_limit = 1
-        self.cmdset.add_default(DefaultCmdSet, permanent=True)
         self.at_init()
 
     def remove(self, wearer):
@@ -154,12 +152,6 @@ class WearableContainer(Wearable, Container):
     def at_object_creation(self):
         Wearable.at_object_creation(self)
         Container.at_object_creation(self)
-
-##    def create_container_cmdset(self, dbobj):
-##        container_cmdset = Container.create_container_cmdset(self, dbobj)
-##        container_cmdset.duplicates = False
-##        container_cmdset.add(DefaultCmdSet)
-##        return container_cmdset
     
     def at_cmdset_get(self):
         """
@@ -171,8 +163,6 @@ class WearableContainer(Wearable, Container):
             # we are resetting, or no container-cmdset was set. Create one dynamically.
             self.cmdset.add_default(self.create_container_cmdset(self), permanent=False)
             self.ndb.container_reset = False
-            if not self.cmdset.has_cmdset(DefaultCmdSet.key):
-                self.cmdset.add(DefaultCmdSet)
 
     def _get_armor(self):
         return 0
