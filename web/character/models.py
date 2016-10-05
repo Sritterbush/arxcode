@@ -330,7 +330,7 @@ class Clue(models.Model):
 
     @property
     def keywords(self):
-        return self.investigation_tags.split(";")
+        return self.investigation_tags.lower().split(";")
 
 class MysteryDiscovery(models.Model):
     character = models.ForeignKey('RosterEntry', related_name="mysteries") 
@@ -685,20 +685,43 @@ class Investigation(models.Model):
         self.save()
         return self.clue_target
 
+    @property
+    def keywords(self):
+        kwords = self.topic.lower().split()
+        # add back in the phrases for phrase matching
+        if len(kwords) > 1:
+            for pos in range(0, len(kwords)):
+                phrase = []
+                for spos in range(0, pos):
+                    phrase.append(kwords[spos])
+                kwords.append(" ".join(phrase))
+        for word in ("a", "or", "an", "the", "and", "but", "not",
+                     "yet", "with", "in", "how", "if", "of"):
+            if word in kwords:
+                kwords.remove(word)
+        return kwords
+        
+
     def find_target_clue(self):
         """
         Finds a target clue based on our topic and our investigation history.
         We'll choose the lowest rating out of 3 random choices.
         """
+        kwords = self.keywords
         candidates = Clue.objects.filter(Q(investigation_tags__icontains=self.topic) &
                                          ~Q(characters=self.character)).order_by('rating')
+        for kword in kwords:
+            qs = Clue.objects.filter(Q(investigation_tags__icontains=kword) &
+                                         ~Q(characters=self.character)).order_by('rating')
+            candidates = candidates | qs
         try:
             import random
+            candidates = [ob for ob in candidates if any(set(kwords) & set(ob.keywords))]
             choices = []
             for x in range(0, 3):
-                choices.append(random.randint(0, candidates.count()))
+                choices.append(random.randint(0, len(candidates) - 1))
             return candidates[min(choices)]
-        except IndexError:
+        except (IndexError, ValueError):
             return None
 
     def find_random_keywords(self):
