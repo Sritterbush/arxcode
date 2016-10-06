@@ -24,7 +24,8 @@ class GuestCmdSet(CmdSet):
         # Player-specific commands
         try:
             self.add(player.CmdOOCLook())
-            self.add(player.CmdWho())
+            from commands.commands import overrides
+            self.add(overrides.CmdWho())
             self.add(player.CmdQuit())
             self.add(player.CmdColorTest())       
             # Help command

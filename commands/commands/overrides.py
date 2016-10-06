@@ -617,7 +617,8 @@ class CmdWho(MuxPlayerCommand):
         base = player.name.capitalize()
         if lname:
             char = player.db.char_ob
-            base = char.db.longname or base
+            if char:
+                base = char.db.longname or base
         if player.db.afk:
             base += " {w(AFK){n"
         if player.db.lookingforrp:
