@@ -643,7 +643,7 @@ class CmdWho(MuxPlayerCommand):
             return "(LRP)" in pname
         if self.args.lower() == "staff":
             return "(Staff)" in pname
-        if self.args.lower() in fealty.lower():
+        if self.args.lower() == fealty.lower():
             return True
         return base.lower().startswith(self.args.lower())
 
