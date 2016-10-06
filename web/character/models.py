@@ -316,7 +316,7 @@ class Revelation(models.Model):
         Returns the total value of the clues used for this revelation by
         char.
         """
-        return sum(ob.roll for ob in char.finished_clues.filter(clue__revelations=self))
+        return sum(ob.clue.rating for ob in char.finished_clues.filter(clue__revelations=self))
 
 class Clue(models.Model):
     name = models.CharField(max_length=255, blank=True)
