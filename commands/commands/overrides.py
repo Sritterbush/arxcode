@@ -3,10 +3,14 @@ General Character commands usually availabe to all characters
 """
 from django.conf import settings
 from server.utils import utils, prettytable
-from evennia.utils.utils import make_iter, crop, time_format, variable_from_module
+from evennia.utils.utils import make_iter, crop, time_format, variable_from_module, inherits_from
+from evennia.commands.cmdhandler import get_and_merge_cmdsets
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.server.sessionhandler import SESSIONS
 import time
+from evennia.commands.default.comms import (CmdCdestroy,CmdChannelCreate,
+                                            CmdClock, CmdCBoot,CmdCdesc)
+from evennia.commands.default.building import CmdExamine
 
 AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.',1))
 
@@ -606,11 +610,14 @@ class CmdWho(MuxPlayerCommand):
     aliases = ["doing", "+who"]
     locks = "cmd:all()"
 
-    def format_pname(self, player):
+    def format_pname(self, player, lname=False):
         """
         Returns name of player with flags
         """
         base = player.name.capitalize()
+        if lname:
+            char = player.db.char_ob
+            base = char.db.longname or base
         if player.db.afk:
             base += " {w(AFK){n"
         if player.db.lookingforrp:
@@ -669,7 +676,7 @@ class CmdWho(MuxPlayerCommand):
                 pname = self.format_pname(session.get_player())
                 if not self.check_filters(pname):
                     continue
-                pname = crop(pname, width=20)
+                pname = crop(pname, width=18)
                 table.add_row([pname,
                                time_format(delta_conn, 0),
                                time_format(delta_cmd, 1),
@@ -679,7 +686,7 @@ class CmdWho(MuxPlayerCommand):
                                session.protocol_key,
                                isinstance(session.address, tuple) and session.address[0] or session.address])
         else:
-            table = prettytable.PrettyTable(["{wPlayer name", "{wOn for", "{wIdle"])
+            table = prettytable.PrettyTable(["{wPlayer name", "{wFealty", "{wIdle"])
             for session in session_list:
                 if not session.logged_in:
                     continue
@@ -689,13 +696,22 @@ class CmdWho(MuxPlayerCommand):
                 pc = session.get_player()
                 plr_pobject = plr_pobject or pc
                 if not pc.db.hide_from_watch:
-                    pname = self.format_pname(pc)
+                    pname = self.format_pname(pc, lname=True)
                     if not self.check_filters(pname):
                         continue
-                    pname = crop(pname, width=50)
+                    char = pc.db.char_ob
+                    if not char or not char.db.fealty:
+                        fealty = "---"
+                    else:
+                        fealty = char.db.fealty
+                    if delta_cmd > 360:
+                        idlestr = "Yes"
+                    else:
+                        idlestr = "No"
+                    pname = crop(pname, width=57)
                     table.add_row([pname,
-                                   time_format(delta_conn, 0),
-                                   time_format(delta_cmd, 1)])
+                                   fealty,
+                                   idlestr])
                 else:
                     nplayers -= 1
 
@@ -1144,8 +1160,9 @@ class CmdTeleport(MuxCommand):
                 caller.msg(string)
                 utils.inform_staff("Building command by %s: %s" % (caller, string))
 
-from evennia.commands.default.comms import (CmdCdestroy,CmdChannelCreate,
-                                            CmdClock, CmdCBoot,CmdCdesc)
+
+
+
 
 newlock = "cmd: perm(Builders)"
 class CmdArxCdestroy(CmdCdestroy):
@@ -1163,5 +1180,98 @@ class CmdArxCBoot(CmdCBoot):
 class CmdArxCdesc(CmdCdesc):
     __doc__ = CmdCdesc.__doc__
     locks = newlock
+
+class CmdArxExamine(CmdExamine):
+    """
+    get detailed information about an object
+
+    Usage:
+      examine [<object>[/attrname]]
+      examine [*<player>[/attrname]]
+      examine/char <character name>
+
+    Switch:
+      player - examine a Player (same as adding *)
+      object - examine an Object (useful when OOC)
+
+    The examine command shows detailed game info about an
+    object and optionally a specific attribute on it.
+    If object is not specified, the current location is examined.
+
+    Append a * before the search string to examine a player.
+
+    """
+    
+    def func(self):
+        "Process command"
+        caller = self.caller
+
+        def get_cmdset_callback(cmdset):
+            """
+            We make use of the cmdhandeler.get_and_merge_cmdsets below. This
+            is an asynchronous function, returning a Twisted deferred.
+            So in order to properly use this we need use this callback;
+            it is called with the result of get_and_merge_cmdsets, whenever
+            that function finishes. Taking the resulting cmdset, we continue
+            to format and output the result.
+            """
+            string = self.format_output(obj, cmdset)
+            self.msg(string.strip())
+
+        if not self.args:
+            # If no arguments are provided, examine the invoker's location.
+            if hasattr(caller, "location"):
+                obj = caller.location
+                if not obj.access(caller, 'examine'):
+                #If we don't have special info access, just look at the object instead.
+                    self.msg(caller.at_look(obj))
+                    return
+                # using callback for printing result whenever function returns.
+                get_and_merge_cmdsets(obj, self.session, self.player, obj, "object").addCallback(get_cmdset_callback)
+            else:
+                self.msg("You need to supply a target to examine.")
+            return
+
+        # we have given a specific target object
+        for objdef in self.lhs_objattr:
+
+            obj = None
+            obj_name = objdef['name']
+            obj_attrs = objdef['attrs']
+
+            self.player_mode = inherits_from(caller, "evennia.players.players.DefaultPlayer") or \
+                               "player" in self.switches or obj_name.startswith('*')
+            if self.player_mode or "char" in self.switches:
+                try:
+                    obj = caller.search_player(obj_name.lstrip('*'))
+                    if "char" in self.switches:
+                        obj = obj.db.char_ob
+                except AttributeError:
+                    # this means we are calling examine from a player object
+                    obj = caller.search(obj_name.lstrip('*'), search_object = 'object' in self.switches)
+            else:
+                obj = caller.search(obj_name)
+            if not obj:
+                continue
+
+            if not obj.access(caller, 'examine'):
+                #If we don't have special info access, just look
+                # at the object instead.
+                self.msg(caller.at_look(obj))
+                continue
+
+            if obj_attrs:
+                for attrname in obj_attrs:
+                    # we are only interested in specific attributes
+                    caller.msg(self.format_attributes(obj, attrname, crop=False))
+            else:
+                if obj.sessions.count():
+                    mergemode = "session"
+                elif self.player_mode:
+                    mergemode = "player"
+                else:
+                    mergemode = "object"
+                # using callback to print results whenever function returns.
+                get_and_merge_cmdsets(obj, self.session, self.player, obj, mergemode).addCallback(get_cmdset_callback)
 
 
