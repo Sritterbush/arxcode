@@ -311,6 +311,13 @@ class Revelation(models.Model):
     def __str__(self):
         return self.name
 
+    def check_progress(self, char):
+        """
+        Returns the total value of the clues used for this revelation by
+        char.
+        """
+        return sum(ob.roll for ob in char.finished_clues.filter(clue__revelations=self))
+
 class Clue(models.Model):
     name = models.CharField(max_length=255, blank=True)
     rating = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Value required to get this clue")
@@ -339,6 +346,8 @@ class MysteryDiscovery(models.Model):
     message = models.TextField(blank=True, help_text="Message for the player's records about how they discovered this.")
     date = models.DateTimeField(blank=True, null=True)
     milestone = models.OneToOneField('Milestone', related_name="mystery", blank=True, null=True)
+    def __str__(self):
+        return "%s's discovery of %s" % (self.character, self.mystery)
 
 class RevelationDiscovery(models.Model):
     character = models.ForeignKey('RosterEntry', related_name="revelations") 
@@ -355,19 +364,20 @@ class RevelationDiscovery(models.Model):
         inside the character before we award it to the character
         """
         # get our RevForMystery where the player does not yet have the mystery, and the rev is required
-        rev_usage = self.revelation.usage.filter(required_for_mystery=True).exclude(mystery__discoveries__in=self.character.mysteries.all()).distinct()
+        rev_usage = self.revelation.usage.filter(required_for_mystery=True).distinct()
         # get the associated mysteries the player doesn't yet have
-        mysteries = Mystery.objects.filter(revelations_used__in=rev_usage)
-        mysts = []
-        char_revs = self.character.revelations.all()
+        mysteries = Mystery.objects.filter(Q(revelations_used__in=rev_usage) &
+                                           ~Q(characters=self.character)).distinct()
+        discoveries = []
+        char_revs = set([ob.revelation for ob in self.character.revelations.all()])
         for myst in mysteries:
-            for _rev_usage in myst.revelations_used.filter(required_for_mystery=True):
-                if _rev_usage.revelation not in char_revs:
-                    # character missing required revelation, can't discover
-                    continue
+            required_revs = set([ob.revelation for ob in myst.revelations_used.filter(required_for_mystery=True)])
             # character now has all revelations, we add the mystery
-            mysts.append(myst)
-        return mysts
+            if required_revs.issubset(char_revs):
+                discoveries.append(myst)
+        return discoveries
+    def __str__(self):
+        return "%s's discovery of %s" % (self.character, self.revelation)
 
 class RevelationForMystery(models.Model):
     mystery = models.ForeignKey('Mystery', related_name="revelations_used")
@@ -375,6 +385,8 @@ class RevelationForMystery(models.Model):
     required_for_mystery = models.BooleanField(default=True, help_text="Whether this must be discovered for the mystery to finish")
     tier = models.PositiveSmallIntegerField(default=0, blank=0,
                                             help_text="How high in the hierarchy of discoveries this revelation is, lower number discovered first")
+    def __str__(self):
+        return "Revelation %s used for %s" % (self.revelation, self.mystery)
     
 class ClueDiscovery(models.Model):
     clue = models.ForeignKey('Clue', related_name="discoveries")
@@ -409,20 +421,21 @@ class ClueDiscovery(models.Model):
         If this Clue discovery means that the character now has every clue
         for the revelation, we award it to them.
         """
-        # get our ClueForRevelations where the player does not yet have the revelation, and the clue is required
-        clue_usage = self.clue.usage.filter(required_for_revelation=True).exclude(revelation__discoveries__in=self.character.revelations.all()).distinct()
+        # find all ClueForRevelations used for this discovery
+        clue_usage = self.clue.usage.all()
         # get the associated revelations the player doesn't yet have
-        revelations = Revelation.objects.filter(clues_used__in=clue_usage)
-        revs = []
-        char_clues = self.character.clues.all()
+        revelations = Revelation.objects.filter(Q(clues_used__in=clue_usage) &
+                                                ~Q(characters=self.character))
+        discovered = []
+        char_clues = set([ob.clue for ob in self.character.finished_clues])
         for rev in revelations:
-            for clue_usage in rev.clues_used.filter(required_for_revelation=True):
-                if clue_usage.clue not in char_clues:
-                    # character missing required clue, can't discover
-                    continue
-            # character now has all clues, we add the revelation
-            revs.append(rev)
-        return revs
+            used_clues = set([ob.clue for ob in rev.clues_used.filter(required_for_revelation=True)])
+            # check if we have all the required clues for this revelation discovered
+            if used_clues.issubset(char_clues):
+                # check if we have enough numerical value of clues to pass
+                if rev.check_progress(self.character) >= rev.required_clue_value:
+                    discovered.append(rev)
+        return discovered
 
     def __str__(self):
         return "%s's discovery of %s" % (self.character, self.clue)
@@ -459,14 +472,14 @@ class ClueDiscovery(models.Model):
         msg = "A new clue has been shared with you by %s!\n\n%s\n" % (self.character,
                                                                     targ_clue.display())
         for revelation in targ_clue.check_revelation_discovery():
-            msg += "\nYou have also discovered a revelation: %s" % str(revelation)
+            msg += "\nYou have also discovered a revelation: %s\n%s" % (str(revelation), revelation.desc)
             rev = RevelationDiscovery.objects.create(character=entry,
                                                      discovery_method="Sharing",
                                                      message="You had a revelation after learning a clue from %s!" % self.character,
                                                      revelation=revelation, date=datetime.now())
             mysteries = rev.check_mystery_discovery()
             for mystery in mysteries:
-                msg += "\nYou have also discovered a mystery: %s" % str(mystery)
+                msg += "\nYou have also discovered a mystery: %s\n%s" % (str(mystery), mystery.desc)
                 myst = MysteryDiscovery.objects.create(character=self.character,
                                                        message="Your uncovered a mystery after learning a clue from %s!" % self.character,
                                                        mystery=mystery, date=datetime.now())
@@ -478,6 +491,8 @@ class ClueForRevelation(models.Model):
     required_for_revelation = models.BooleanField(default=True, help_text="Whether this must be discovered for the revelation to finish")
     tier = models.PositiveSmallIntegerField(default=0, blank=0,
                                             help_text="How high in the hierarchy of discoveries this clue is, lower number discovered first")
+    def __str__(self):
+        return "Clue %s used for %s" % (self.clue, self.revelation)
 
 class Investigation(models.Model):
     character = models.ForeignKey('RosterEntry', related_name="investigations")
@@ -640,14 +655,14 @@ class Investigation(models.Model):
                 # check if we also discover a revelation
                 revelations = clue.check_revelation_discovery()
                 for revelation in revelations:
-                    self.results += "\nYou have also discovered a revelation: %s" % str(revelation)
+                    self.results += "\nYou have also discovered a revelation: %s\n%s" % (str(revelation), revelation.desc)
                     rev = RevelationDiscovery.objects.create(character=self.character, investigation=self,
                                                              discovery_method="investigation",
                                                              message="Your investigation uncovered this revelation!",
                                                              revelation=revelation, date=datetime.now())
                     mysteries = rev.check_mystery_discovery()
                     for mystery in mysteries:
-                        self.results += "\nYou have also discovered a mystery: %s" % str(mystery)
+                        self.results += "\nYou have also discovered a mystery: %s\n%s" % (str(mystery), mystery.desc)
                         myst = MysteryDiscovery.objects.create(character=self.character, investigation=self,
                                                                  message="Your investigation uncovered this mystery!",
                                                                  mystery=mystery, date=datetime.now())
