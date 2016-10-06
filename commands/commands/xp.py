@@ -346,6 +346,7 @@ class CmdAdjustSkill(MuxPlayerCommand):
             if not ability:
                 skill_history = char.db.skill_history or {}
                 try:
+                    current = char.db.skill_history[self.rhs]
                     skill_list = skill_history[self.rhs]
                     cost = skill_list.pop()
                     skill_history[self.rhs] = skill_list
@@ -365,6 +366,7 @@ class CmdAdjustSkill(MuxPlayerCommand):
             else:
                 ability_history = char.db.ability_history or {}
                 try:
+                    current = char.db.abilities[self.rhs]
                     ability_list = ability_history[self.rhs]
                     cost = ability_list.pop()
                     ability_history[self.rhs] = ability_list
