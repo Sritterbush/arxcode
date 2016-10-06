@@ -629,7 +629,7 @@ class CmdWho(MuxPlayerCommand):
             base += " {c(Staff){n"
         return base
 
-    def check_filters(self, pname):
+    def check_filters(self, pname, base, fealty=""):
         """
         If we have no filters or the name starts with the
         filter or matches a flag, we return True. Otherwise
@@ -643,7 +643,18 @@ class CmdWho(MuxPlayerCommand):
             return "(LRP)" in pname
         if self.args.lower() == "staff":
             return "(Staff)" in pname
-        return pname.lower().startswith(self.args.lower())
+        if self.args.lower() in fealty.lower():
+            return True
+        return base.lower().startswith(self.args.lower())
+
+    def get_idlestr(self, time):
+        if time < 1200:
+            return "No"
+        if time < 3600:
+            return "Idle-"
+        if time < 86400:
+            return "Idle"
+        return "Idle+"
 
     def func(self):
         """
@@ -677,8 +688,9 @@ class CmdWho(MuxPlayerCommand):
                 pc = session.get_player()
                 plr_pobject = session.get_puppet()
                 plr_pobject = plr_pobject or pc
+                base = str(session.get_player())
                 pname = self.format_pname(session.get_player())
-                if not self.check_filters(pname):
+                if not self.check_filters(pname, base):
                     continue
                 pname = crop(pname, width=18)
                 table.add_row([pname,
@@ -703,22 +715,20 @@ class CmdWho(MuxPlayerCommand):
                 pc = session.get_player()
                 plr_pobject = plr_pobject or pc
                 if not pc.db.hide_from_watch:
+                    base = str(pc)
                     pname = self.format_pname(pc, lname=True, sparse=sparse)
-                    if not self.check_filters(pname):
-                        continue
                     char = pc.db.char_ob
                     if not char or not char.db.fealty:
                         fealty = "---"
                     else:
                         fealty = char.db.fealty
-                    if delta_cmd > 1200:
-                        idlestr = "Yes"
-                    else:
-                        idlestr = "No"
+                    if not self.check_filters(pname, base, fealty):
+                        continue
+                    idlestr = self.get_idlestr(delta_cmd)
                     if sparse:
                         width = 30
                     else:
-                        width = 57
+                        width = 55
                     pname = crop(pname, width=width)
                     if not sparse:
                         table.add_row([pname,
