@@ -201,7 +201,7 @@ class CmdFinger(MuxPlayerCommand):
         session = player.get_all_sessions() and player.get_all_sessions()[0]
         if session and (not player.db.hide_from_watch or caller.check_permstring("builders")):
             idle_time = time.time() - session.cmd_last_visible
-            idle = "Online and is idle" if idle_time > 360 else "Online, not idle"
+            idle = "Online and is idle" if idle_time > 1200 else "Online, not idle"
             msg += "{wStatus:{n %s\n" % idle
         else:
             last_online = player.last_login and player.last_login.strftime("%m-%d-%y") or "Never"

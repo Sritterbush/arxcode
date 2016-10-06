@@ -704,7 +704,7 @@ class CmdWho(MuxPlayerCommand):
                         fealty = "---"
                     else:
                         fealty = char.db.fealty
-                    if delta_cmd > 360:
+                    if delta_cmd > 1200:
                         idlestr = "Yes"
                     else:
                         idlestr = "No"
