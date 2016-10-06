@@ -2645,7 +2645,7 @@ class CmdTask(MuxCommand):
                     mailmsg += "areas you have influence in: %s" % ", ".join(str(ob) for ob in matches)              
                     mailmsg += "\n\nThe support command has the usage of {wsupport %s{n, then " % caller
                     mailmsg += "adding fields that indicate how the npcs you influenced are helping them "
-                    mailmsg += "out. '{w+support/note{n' Lets you state OOCly to GMs what occurs, while "
+                    mailmsg += "out. '{w+support/notes{n' Lets you state OOCly to GMs what occurs, while "
                     mailmsg += "'{wsupport/rumors{n' lets you write a short blurb that is displayed as a "
                     mailmsg += "rumor that other characters might hear around the city, noting what's "
                     mailmsg += "going on. To show how much support you're throwing their way, you use "

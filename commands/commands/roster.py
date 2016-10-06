@@ -115,7 +115,7 @@ def list_characters(caller, character_list, type = "Active Characters", roster=N
                 table.add_row([name, sex, age, house, concept[:30], srank])
         message += "\n%s" % table                
     message += "\n"
-    evmore.msg(caller, message)
+    evmore.msg(caller, message, justify_kwargs=False)
 
 def change_email(player, email, caller=None, roster=None):
     from web.character.models import RosterEntry, PlayerAccount, AccountHistory

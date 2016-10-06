@@ -201,7 +201,7 @@ class CmdFinger(MuxPlayerCommand):
         session = player.get_all_sessions() and player.get_all_sessions()[0]
         if session and (not player.db.hide_from_watch or caller.check_permstring("builders")):
             idle_time = time.time() - session.cmd_last_visible
-            idle = "Online and is idle" if idle_time > 360 else "Online, not idle"
+            idle = "Online and is idle" if idle_time > 1200 else "Online, not idle"
             msg += "{wStatus:{n %s\n" % idle
         else:
             last_online = player.last_login and player.last_login.strftime("%m-%d-%y") or "Never"
@@ -621,18 +621,18 @@ class CmdMessenger(MuxCommand):
             elif len(msgtuple) == 3:
                 msg,obj,money = msgtuple
             caller.db.pending_messengers = unread
+            # adds it to our list of old messages
+            caller.messages.receive_messenger(msg)
+            self.disp_messenger(caller, msg)
             # handle a delivered object
             if obj:
                 obj.move_to(caller, quiet=True)
-                caller.msg("You receive %s." % obj)
+                caller.msg("{wYou receive{n %s{w.{n" % obj)
             if money and money > 0:
                 currency = caller.db.currency or 0.0
                 currency += money
                 caller.db.currency = currency
-                caller.msg("You receive %s silver coins." % money)
-            # adds it to our list of old messages
-            caller.messages.receive_messenger(msg)
-            self.disp_messenger(caller, msg)
+                caller.msg("{wYou receive %s silver coins.{n" % money)
             caller.location.msg_contents("A messenger arrives, delivering a message to {c%s{n before departing." % caller.name)
             return
         # display an old message

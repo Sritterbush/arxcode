@@ -320,48 +320,67 @@ class CmdAdjustSkill(MuxPlayerCommand):
         "Execute command."
         caller = self.caller
         ability = "ability" in self.switches or self.cmdstring == "@adjustability" or self.cmdstring == "@adjustabilities"
-        if "reset" in self.switches:
+        if "reset" in self.switches or "refund" in self.switches:
             try:
                 char = caller.search(self.lhs).db.char_ob
             except (AttributeError, ValueError, TypeError):
                 caller.msg("No player by that name.")
                 return
-            try:
-                from game.gamesrc.commands.guest import setup_voc, XP_BONUS_BY_SRANK
-                rhs = self.rhs.lower()
-                setup_voc(char, rhs)
-                char.db.vocation = rhs
-                total_xp = char.db.total_xp or 0
-                total_xp = int(total_xp)
-                xp = XP_BONUS_BY_SRANK[char.db.social_rank]
-                xp += total_xp
-                char.db.xp = xp
-                caller.msg("%s has had their skills and stats set up as a %s." % (char,rhs))
-                return
-            except (AttributeError, ValueError, TypeError, KeyError):
-                caller.msg("Could not set %s to %s vocation." % (char, self.rhs))
-                return
+            if "reset" in self.switches:
+                try:
+                    from commands.commands.guest import setup_voc, XP_BONUS_BY_SRANK
+                    rhs = self.rhs.lower()
+                    setup_voc(char, rhs)
+                    char.db.vocation = rhs
+                    total_xp = char.db.total_xp or 0
+                    total_xp = int(total_xp)
+                    xp = XP_BONUS_BY_SRANK[char.db.social_rank]
+                    xp += total_xp
+                    char.db.xp = xp
+                    caller.msg("%s has had their skills and stats set up as a %s." % (char,rhs))
+                    return
+                except (AttributeError, ValueError, TypeError, KeyError):
+                    caller.msg("Could not set %s to %s vocation." % (char, self.rhs))
+                    return
         if "refund" in self.switches:
             if not ability:
                 skill_history = char.db.skill_history or {}
                 try:
                     skill_list = skill_history[self.rhs]
                     cost = skill_list.pop()
-                except KeyError:
-                    current = caller.db.skills[self.rhs]
-                    cost = stats_and_skills.cost_at_rank(caller, self.rhs, current - 1, current)
+                    skill_history[self.rhs] = skill_list
+                    char.db.skill_history = skill_history
+                except (KeyError, IndexError):
+                    try:
+                        current = char.db.skills[self.rhs]
+                    except KeyError:
+                        caller.msg("No such skill.")
+                        return
+                    cost = stats_and_skills.cost_at_rank(char, self.rhs, current - 1, current)
+                if current <= 0:
+                    caller.msg("That would give them a negative skill.")
+                    return
                 char.db.skills[self.rhs] -= 1
-                char.db.adjust_xp(cost)
+                char.db.xp += cost
             else:
                 ability_history = char.db.ability_history or {}
                 try:
                     ability_list = ability_history[self.rhs]
                     cost = ability_list.pop()
-                except KeyError:
-                    current = caller.db.abilities[self.rhs]
-                    cost = stats_and_skills.cost_at_rank(caller, self.rhs, current - 1, current)
+                    ability_history[self.rhs] = ability_list
+                    char.db.ability_history = ability_history
+                except (KeyError, IndexError):
+                    try:
+                        current = char.db.abilities[self.rhs]
+                    except KeyError:
+                        caller.msg("No such ability.")
+                        return
+                    cost = stats_and_skills.cost_at_rank(char, self.rhs, current - 1, current)
+                if current <= 0:
+                    caller.msg("That would give them a negative rating.")
+                    return
                 char.db.abilities[self.rhs] -= 1
-                char.db.adjust_xp(cost)
+                char.db.xp += cost
             caller.msg("%s had %s reduced by 1 and was refunded %s xp." %(char, self.rhs, cost))
             return
         try:

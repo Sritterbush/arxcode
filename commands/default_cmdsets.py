@@ -16,6 +16,7 @@ own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
 
 from evennia import default_cmds
 from .cmdsets import standard
+from typeclasses.wearable import cmdset_wearable
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
     """
@@ -38,6 +39,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
             self.add(standard.MobileCmdSet)
             self.add(standard.OOCCmdSet)
             self.add(standard.StaffCmdSet)
+            self.add(cmdset_wearable.WearCmdSet)
         except Exception:
             import traceback
             traceback.print_exc()

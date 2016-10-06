@@ -224,7 +224,7 @@ class StaffCmdSet(CmdSet):
         self.add(overrides.CmdDig())
         self.add(building.CmdTunnel())
         self.add(building.CmdDestroy())
-        self.add(building.CmdExamine())
+        self.add(overrides.CmdArxExamine())
         self.add(building.CmdTypeclass())
         self.add(building.CmdLock())
         self.add(building.CmdScript())
