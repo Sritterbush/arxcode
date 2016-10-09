@@ -1815,9 +1815,9 @@ class CmdRetainers(MuxPlayerCommand):
         @retainers/buyability <id #>=<ability>
         @retainers/buyskill <id #>=<skill>
         @retainers/buylevel <id #>=<field>
+        @retainers/buystat <id #>=<stat>
         @retainers/weaponupgrade <id #>=<field>
-        @retainers/armorupgrade <id #>=<field>
-        @retainers/statupgrade <id #>=<stat>
+        @retainers/armorupgrade <id #>=<field>       
         @retainers/desc <id #>=<new description>
         @retainers/name <id #>=<new name>
 
@@ -1896,15 +1896,17 @@ class CmdRetainers(MuxPlayerCommand):
         if char.db.xp < amt:
             self.msg("You want to transfer %s xp, but only have %s." % (amt, char.db.xp))
             return
-        npc = agent.dbobj
-        npc.db.xp = npc.db.xp or 0
         char.db.xp -= amt
         amt *= 3
-        npc.db.xp += amt  
-        self.msg("%s now has %s xp to spend." % (npc, npc.db.xp))
+        agent.xp += amt
+        agent.save()
+        self.msg("%s now has %s xp to spend." % (agent, agent.xp))
         return
 
     def buy_ability(self, agent):
+        return
+
+    def buy_skill(self, agent):
         return
 
     def buy_level(self, agent):
@@ -1923,9 +1925,26 @@ class CmdRetainers(MuxPlayerCommand):
             self.msg("Their level in %s is currently at the maximum." % self.rhs)
             return
         # check and pay costs
+        xp_cost, res_cost, res_type = self.get_attr_cost(agent, attrname)
+        if xp_cost > agent.xp:
+            self.msg("Cost is %s and they only have %s xp." % (xp_cost, agent.xp))
+            return
+        if not caller.pay_resources(res_type, res_cost):
+            caller.msg("You do not have enough %s resources." % res_type)
+            return
         # all checks passed, increase it and raise quality if it was our main category
         agent.dbobj.add(attrname, current + 1)
         return
+
+    def get_attr_cost(self, agent, attrname):
+        """
+        Determines the xp cost, resource cost, and type of resources based
+        on the type of attribute we're trying to raise.
+        """
+        xpcost = 0
+        rescost = 0
+        restype = "military"
+        return xpcost, rescost, restype
 
     def upgrade_weapon(self, agent):
         return
@@ -1933,7 +1952,7 @@ class CmdRetainers(MuxPlayerCommand):
     def upgrade_armor(self, agent):
         return
 
-    def upgrade_stat(self, agent):
+    def buy_stat(self, agent):
         return
 
     def change_desc(self, agent):
@@ -1977,15 +1996,15 @@ class CmdRetainers(MuxPlayerCommand):
         if "buylevel" in self.switches:
             self.buy_level(agent)
             return
+        if "buystat" in self.switches:
+            self.buy_stat(agent)
+            return
         if "upgradeweapon" in self.switches:
             self.upgrade_weapon(agent)
             return
         if "upgradearmor" in self.switches:
             self.upgrade_armor(agent)
-            return
-        if "upgradestat" in self.switches:
-            self.upgrade_stat(agent)
-            return
+            return   
         if "desc" in self.switches:
             self.change_desc(agent)
             return
