@@ -598,6 +598,8 @@ class CmdWho(MuxPlayerCommand):
     Usage:
       who [<filter>]
       doing [<filter>]
+      who/sparse [<filter>]
+      doing/sparse [<filter>]
 
     Shows who is currently online. Doing is an alias that limits info
     also for those with all permissions. Players who are currently
@@ -610,12 +612,12 @@ class CmdWho(MuxPlayerCommand):
     aliases = ["doing", "+who"]
     locks = "cmd:all()"
 
-    def format_pname(self, player, lname=False):
+    def format_pname(self, player, lname=False, sparse=False):
         """
         Returns name of player with flags
         """
         base = player.name.capitalize()
-        if lname:
+        if lname and not sparse:
             char = player.db.char_ob
             if char:
                 base = char.db.longname or base
@@ -627,7 +629,7 @@ class CmdWho(MuxPlayerCommand):
             base += " {c(Staff){n"
         return base
 
-    def check_filters(self, pname):
+    def check_filters(self, pname, base, fealty=""):
         """
         If we have no filters or the name starts with the
         filter or matches a flag, we return True. Otherwise
@@ -641,7 +643,18 @@ class CmdWho(MuxPlayerCommand):
             return "(LRP)" in pname
         if self.args.lower() == "staff":
             return "(Staff)" in pname
-        return pname.lower().startswith(self.args.lower())
+        if self.args.lower() == fealty.lower():
+            return True
+        return base.lower().startswith(self.args.lower())
+
+    def get_idlestr(self, time):
+        if time < 1200:
+            return "No"
+        if time < 3600:
+            return "Idle-"
+        if time < 86400:
+            return "Idle"
+        return "Idle+"
 
     def func(self):
         """
@@ -652,6 +665,7 @@ class CmdWho(MuxPlayerCommand):
         session_list = SESSIONS.get_sessions()
 
         session_list = sorted(session_list, key=lambda o: o.player.key.lower())
+        sparse = "sparse" in self.switches
 
         if self.cmdstring == "doing":
             show_session_data = False
@@ -674,8 +688,9 @@ class CmdWho(MuxPlayerCommand):
                 pc = session.get_player()
                 plr_pobject = session.get_puppet()
                 plr_pobject = plr_pobject or pc
+                base = str(session.get_player())
                 pname = self.format_pname(session.get_player())
-                if not self.check_filters(pname):
+                if not self.check_filters(pname, base):
                     continue
                 pname = crop(pname, width=18)
                 table.add_row([pname,
@@ -687,7 +702,10 @@ class CmdWho(MuxPlayerCommand):
                                session.protocol_key,
                                isinstance(session.address, tuple) and session.address[0] or session.address])
         else:
-            table = prettytable.PrettyTable(["{wPlayer name", "{wFealty", "{wIdle"])
+            if not sparse:
+                table = prettytable.PrettyTable(["{wPlayer name", "{wFealty", "{wIdle"])
+            else:
+                table = prettytable.PrettyTable(["{wPlayer name", "{wIdle"])
             for session in session_list:
                 if not session.logged_in:
                     continue
@@ -697,22 +715,27 @@ class CmdWho(MuxPlayerCommand):
                 pc = session.get_player()
                 plr_pobject = plr_pobject or pc
                 if not pc.db.hide_from_watch:
-                    pname = self.format_pname(pc, lname=True)
-                    if not self.check_filters(pname):
-                        continue
+                    base = str(pc)
+                    pname = self.format_pname(pc, lname=True, sparse=sparse)
                     char = pc.db.char_ob
                     if not char or not char.db.fealty:
                         fealty = "---"
                     else:
                         fealty = char.db.fealty
-                    if delta_cmd > 1200:
-                        idlestr = "Yes"
+                    if not self.check_filters(pname, base, fealty):
+                        continue
+                    idlestr = self.get_idlestr(delta_cmd)
+                    if sparse:
+                        width = 30
                     else:
-                        idlestr = "No"
-                    pname = crop(pname, width=57)
-                    table.add_row([pname,
-                                   fealty,
-                                   idlestr])
+                        width = 55
+                    pname = crop(pname, width=width)
+                    if not sparse:
+                        table.add_row([pname,
+                                       fealty,
+                                       idlestr])
+                    else:
+                        table.add_row([pname, idlestr])
                 else:
                     nplayers -= 1
 
