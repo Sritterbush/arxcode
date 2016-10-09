@@ -336,7 +336,7 @@ class CmdCraft(MuxCommand):
                 return
             recipe = targ.db.recipe
             recipe = CraftingRecipe.objects.get(id=recipe)
-            base_cost = recipe.value / 2
+            base_cost = recipe.value / 4
             caller.msg("The base cost of refining this recipe is %s." % base_cost)
             try:
                 price = self.get_refine_price(base_cost)
