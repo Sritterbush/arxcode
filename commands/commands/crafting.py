@@ -447,7 +447,7 @@ class CmdCraft(MuxCommand):
             return
         if "forgery" in self.switches:
             if not (self.lhs and self.rhs):
-                caller.msg("Usage: craft/forgery <fake>=<real>")
+                caller.msg("Usage: craft/forgery <real>=<fake>")
                 return
             # check that the materials are legit
             try:
@@ -462,9 +462,9 @@ class CmdCraft(MuxCommand):
             # we have matches, make sure real ones are in recipe, or the object
             recipe = CraftingRecipe.objects.get(id=proj[0])
             types = [_mat.type for _mat in recipe.materials.all()]
-            if real not in types:
+            if fake not in types:
                 # not in base recipe, check if it's in adornments
-                if real.id not in proj[3].keys():
+                if fake.id not in proj[3].keys():
                     caller.msg("Material that you want to fake does not appear in the project's recipe nor adornments.")
                     return
             proj[4][real.id] = fake.id
