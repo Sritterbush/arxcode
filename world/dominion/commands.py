@@ -1885,7 +1885,9 @@ class CmdRetainers(MuxPlayerCommand):
 
     def train_retainer(self, agent):
         """
-        Transfers xp to a retainer
+        Transfers xp to a retainer. All retainer upgrades cost xp and
+        resources. XP transferred to a retainer is multiplied to make
+        it appealing to dump xp on them rather than spend it personally.
         """
         char = self.caller.db.char_ob
         try:
@@ -1904,12 +1906,24 @@ class CmdRetainers(MuxPlayerCommand):
         return
 
     def buy_ability(self, agent):
+        """
+        Buys a command/ability for a retainer. Available commands are limited
+        by the levels we have in the different categories available.
+        """
         return
 
     def buy_skill(self, agent):
+        """
+        Increase one of the retainer's skills. Maximum is determined by our
+        level in one of the categories available.
+        """
         return
 
     def buy_level(self, agent):
+        """
+        Increases one of the retainer's levels. If its our main category,
+        raise our rating.
+        """
         if not self.rhs:
             self.rhs = agent.typename
         if self.rhs not in self.retainer_types:
@@ -1933,10 +1947,14 @@ class CmdRetainers(MuxPlayerCommand):
             caller.msg("You do not have enough %s resources." % res_type)
             return
         # all checks passed, increase it and raise quality if it was our main category
-        agent.dbobj.add(attrname, current + 1)
+        agent.dbobj.db.add(attrname, current + 1)
+        if self.rhs == agent.typename:
+            agent.quality += 1
+        agent.xp -= xp_cost
+        agent.save()
         return
 
-    def get_attr_cost(self, agent, attrname):
+    def get_attr_cost(self, agent, attrname, category):
         """
         Determines the xp cost, resource cost, and type of resources based
         on the type of attribute we're trying to raise.
@@ -1944,6 +1962,12 @@ class CmdRetainers(MuxPlayerCommand):
         xpcost = 0
         rescost = 0
         restype = "military"
+        if category == "level":
+            pass
+        if category == "skill":
+            pass
+        if category == "stat":
+            pass
         return xpcost, rescost, restype
 
     def upgrade_weapon(self, agent):
