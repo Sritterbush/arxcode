@@ -260,8 +260,8 @@ class CmdCraft(MuxCommand):
         if adorns:
             msg += "{wAdornments:{n %s\n" % ", ".join("%s: %s" % (CraftingMaterialType.objects.get(id=mat).name,amt) for mat,amt in adorns.items())
         if forgery:
-            msg += "{wForgeries:{n %s\n" % ", ".join("%s as %s" % (CraftingMaterialType.objects.get(id=value).name,
-                                                 CraftingMaterialType.objects.get(id=key).name) for key,value in forgery.items())
+            msg += "{wForgeries:{n %s\n" % ", ".join("%s as %s" % (CraftingMaterialType.objects.get(id=key).name,
+                                                 CraftingMaterialType.objects.get(id=value).name) for key,value in forgery.items())
         caller.msg(msg)
         caller.msg("{wTo finish it, use /finish after you gather the following:{n")
         caller.msg(recipe.display_reqs(dompc))
@@ -467,9 +467,13 @@ class CmdCraft(MuxCommand):
                 if fake.id not in proj[3].keys():
                     caller.msg("Material that you want to fake does not appear in the project's recipe nor adornments.")
                     return
-            proj[4][real.id] = fake.id
+            if real.category != fake.category:
+                caller.msg("The categories of the materials must match. %s is %s, %s is %s." % (real, real.category,
+                                                                                                fake, fake.category))
+                return
+            proj[4][fake.id] = real.id
             caller.db.crafting_project = proj
-            caller.msg("Now using %s in place of %s in the recipe, and hoping no one notices." % (fake.name, real.name))
+            caller.msg("Now using %s in place of %s in the recipe, and hoping no one notices." % (real.name, fake.name))
             return
         # do rolls for our crafting. determine quality level, handle forgery stuff
         if "finish" in self.switches:
@@ -501,7 +505,7 @@ class CmdCraft(MuxCommand):
             for adorn in proj[3]:
                 mats[adorn] = mats.get(adorn, 0) + proj[3][adorn]
             # replace with forgeries
-            for rep in proj[4]:
+            for rep in proj[4].keys():
                 # rep is ID to replace
                 forg = proj[4][rep]
                 if rep in mats:
