@@ -389,7 +389,10 @@ class AssetOwner(models.Model):
                                                      & Q(rank__lte=5)):
             mult = (12 - (2*member.rank))/100.0
             org = member.organization
-            bonus += int(org.assets.prestige * mult)
+            try:
+                bonus += int(org.assets.prestige * mult)
+            except Exception:
+                print "Org %s lacks asset_owner instance!" % org
         return bonus + self.prestige
     total_prestige = property(_total_prestige)
 
@@ -469,10 +472,12 @@ class AssetOwner(models.Model):
                 member.save()
         else:
             # if we're an organization, we see if we have a player Castellan to send reports
-            if hasattr(self, 'estate') and self.estate.castellan and self.estate.castellan.player:
+            if (hasattr(self, 'estate') and self.estate.castellan and self.estate.castellan.player
+                and hasattr(self.estate.castellan.player, 'roster') and self.estate.castellan.player.roster.roster and
+                self.estate.castellan.player.roster.roster == "Active"):
                 player = self.estate.castellan.player
-            elif self.organization_owner: # otherwise send it to the highest ranked player
-                members = self.organization_owner.members.filter(player__player__isnull=False)
+            elif self.organization_owner: # otherwise send it to the highest ranked active player
+                members = self.organization_owner.members.filter(player__player__roster__roster__name="Active").order_by('rank')
                 if members:
                     player = members[0].player.player
         if player:

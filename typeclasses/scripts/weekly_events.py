@@ -83,7 +83,7 @@ class WeeklyEvents(Script):
     def do_dominion_events(self):
         from django.db.models import Q
         for owner in AssetOwner.objects.filter((Q(organization_owner__isnull=False) &
-                                                Q(organization_owner__members__player__player__isnull=False) &
+                                                Q(organization_owner__members__player__player__roster__roster__name="Active") &
                                                 Q(organization_owner__members__player__player__roster__frozen=False))|
                                                Q(player__player__roster__roster__name="Active")).distinct():
             try:
@@ -152,8 +152,9 @@ class WeeklyEvents(Script):
             self.db.prestige_changes = {}
             self.db.xptypes = {}
             self.db.requested_support = {}
-        players = [ob for ob in PlayerDB.objects.filter(Q(roster__roster__name="Active") &
-                                                        Q(roster__frozen=False)) if ob.db.char_ob]
+        players = [ob for ob in PlayerDB.objects.filter(Q(Q(roster__roster__name="Active") &
+                                                        Q(roster__frozen=False)) |
+                                                        Q(is_staff=True)) if ob.db.char_ob]
         for player in players:
             self.check_freeze(player)
             self.count_votes(player)
@@ -248,10 +249,7 @@ class WeeklyEvents(Script):
             if xp > 7:
                 xp = 7
             if xp + total > 7:
-                if total > xp:
-                    xp = 7 - total
-                else:
-                    xp = 7 - xp
+                xp = 7 - total
             if xp <= 0:
                 return
         except (ValueError, TypeError):
@@ -296,7 +294,7 @@ class WeeklyEvents(Script):
             assets = dompc.assets
             BASE_CONDEMN = int(assets.total_prestige * 0.0005)
         except PlayerOrNpc.DoesNotExist:
-            from game.dominion.setup_utils import setup_dom_for_char
+            from world.dominion.setup_utils import setup_dom_for_char
             char = player.db.char_ob
             if not char or not char.db.social_rank:
                 return
