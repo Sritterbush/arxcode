@@ -31,9 +31,10 @@ def page_index(request):
     # A QuerySet of recent news entries.
     news_entries = NewsEntry.objects.all().order_by('-date_posted')[:fpage_news_entries]
     # A QuerySet of the most recently connected players.
-    recent_users = PlayerDB.objects.get_recently_connected_players()[:fpage_player_limit]
+    recent_users = [ob for ob in PlayerDB.objects.get_recently_connected_players() if hasattr(ob, 'roster') and
+                    ob.roster.roster.name == "Active"][:fpage_player_limit]
     nplyrs_conn_recent = len(recent_users) or "none"
-    nplyrs = PlayerDB.objects.num_total_players() or "none"
+    nplyrs = PlayerDB.objects.filter(roster__roster__name="Active").count() or "none"
     nplyrs_reg_recent = len(PlayerDB.objects.get_recently_created_players()) or "none"
     nsess = len(PlayerDB.objects.get_connected_players()) or "noone"
 
