@@ -260,8 +260,8 @@ class CmdCraft(MuxCommand):
         if adorns:
             msg += "{wAdornments:{n %s\n" % ", ".join("%s: %s" % (CraftingMaterialType.objects.get(id=mat).name,amt) for mat,amt in adorns.items())
         if forgery:
-            msg += "{wForgeries:{n %s\n" % ", ".join("%s as %s" % (CraftingMaterialType.objects.get(id=key).name,
-                                                 CraftingMaterialType.objects.get(id=value).name) for key,value in forgery.items())
+            msg += "{wForgeries:{n %s\n" % ", ".join("%s as %s" % (CraftingMaterialType.objects.get(id=value).name,
+                                                 CraftingMaterialType.objects.get(id=key).name) for key,value in forgery.items())
         caller.msg(msg)
         caller.msg("{wTo finish it, use /finish after you gather the following:{n")
         caller.msg(recipe.display_reqs(dompc))
