@@ -351,7 +351,14 @@ class CmdExtendedLook(default_cmds.CmdLook):
             caller.msg("Could not find '%s'." % args)
             return
         # get object's appearance
-        caller.msg(looking_at_obj.return_appearance(caller, detailed=False))
+        desc = looking_at_obj.return_appearance(caller, detailed=False)
+        # if it's a written object, we'll paginate the description
+        if looking_at_obj.db.written:
+            from evennia.utils import evmore
+            desc = desc.replace('%r', '\n')
+            evmore.msg(caller, desc)
+        else:
+            caller.msg(desc)
         # the object's at_desc() method.
         looking_at_obj.at_desc(looker=caller)
 

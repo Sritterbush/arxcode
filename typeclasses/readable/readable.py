@@ -156,9 +156,9 @@ class CmdWrite(MuxCommand):
                 caller.msg("Still needs a description set.")
                 return
             if obj.db.num_instances > 1:
-                from src.utils.create import create_object
+                from evennia.utils.create import create_object
                 remain = obj.db.num_instances - 1
-                newobj = create_object(typeclass="game.gamesrc.objects.readable.readable.Readable",
+                newobj = create_object(typeclass="typeclasses.readable.readable.Readable",
                                        key='book', location=caller, home=caller)
                 newobj.set_num(remain)
             obj.db.num_instances = 1
