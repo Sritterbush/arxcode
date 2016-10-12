@@ -38,7 +38,8 @@ class NameMixins(object):
 
 class AppearanceMixins(object):
     
-    def return_contents(self, pobject, detailed=True, show_ids=False, strip_ansi=False):
+    def return_contents(self, pobject, detailed=True, show_ids=False,
+                        strip_ansi=False, show_places=True):
         """
         Returns contents of the object, used in formatting our description,
         as well as when in 'brief mode' and skipping a description, but
@@ -60,14 +61,18 @@ class AppearanceMixins(object):
         # get and identify all objects
         visible = (con for con in self.contents if con != pobject and
                                                     con.access(pobject, "view"))
-        exits, users, things, worn, sheathed, wielded = [], [], [], [], [], []
+        exits, users, things, worn, sheathed, wielded, places = [], [], [], [], [], [], []
         currency = self.return_currency(pobject)
+        try:
+            from typeclasses.places.places import Place
+            qs = Place.objects.filter(db_location=self)
+        except Exception:
+            qs = []
         for con in visible:
             key = get_key(con)
-##            if show_ids:
-##                key = "%s {w(ID: %s){n" % (con.key, con.id)
-##            else:
-##                key = con.key
+            if con in qs and show_places:
+                places.append(key)
+                continue
             if con.destination:
                 exits.append(key)
             # Only display worn items in inventory to other characters
@@ -102,6 +107,8 @@ class AppearanceMixins(object):
         if wielded:
             string += "\n"  + "{wWielding:{n " + ", ".join(wielded)
         if detailed:
+            if show_places and places:
+                string += "\n{wPlaces:{n " + ", ".join(places)
             if exits:
                 string += "\n{wExits:{n " + ", ".join(exits)
             if users or things:

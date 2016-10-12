@@ -75,7 +75,7 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
             table.leave(self)
         if self.db.briefmode:
             string = "{c%s{n" % self.location.name
-            string += self.location.return_contents(self)
+            string += self.location.return_contents(self, show_places=False)
             string += self.location.event_string()
             self.msg(string)
         else:
