@@ -438,14 +438,17 @@ class CmdVoteXP(MuxPlayerCommand):
     aliases = ["+vote", "@vote", "unvote"]
     locks = "cmd:all()"
     help_category = "Progression"
+    
+    @property
+    def caller_alts(self):
+        return PlayerDB.objects.filter(roster__current_account__isnull=False,
+                                roster__roster__name="Active",
+                                roster__current_account=self.caller.roster.current_account)
     def count_votes(self):
         num_votes = 0
-        players = PlayerDB.objects.filter(roster__current_account__isnull=False,
-                                             roster__current_account=self.caller.roster.current_account)
-        for player in players:
+        for player in self.caller_alts:
             votes = player.db.votes or []
             num_votes += len(votes)
-
         return num_votes
     
     def func(self):
@@ -469,7 +472,7 @@ class CmdVoteXP(MuxPlayerCommand):
         if not targ:
             caller.msg("Vote for who?")
             return
-        if targ.roster.current_account == caller.roster.current_account:
+        if targ in self.caller_alts:
             caller.msg("You cannot vote for your alts.")
             return
         votes = caller.db.votes or []

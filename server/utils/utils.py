@@ -19,7 +19,7 @@ def validate_name(name, formatting=True):
     ansi formatting if flag is set
     """
     if formatting:
-        return re.findall('^[\-\w\'\{\[\,\% ]+$', name)
+        return re.findall('^[\-\w\'\{\[\,\|\% ]+$', name)
     return re.findall('^[\w\']+$', name)
 
 def inform_staff(message):
