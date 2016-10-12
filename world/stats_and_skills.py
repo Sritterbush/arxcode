@@ -145,7 +145,8 @@ def get_stat_cost(caller, stat):
     for stat in _valid_stats_:
         total_stats += caller.attributes.get(stat)
     bonus_stats = total_stats - 36
-    cost *= (1 + 0.5*bonus_stats)
+    if bonus_stats > 0:
+        cost *= (1 + 0.5*bonus_stats)
     return int(cost)
 
 def cost_at_rank(caller, skill, current_rating, new_rating):

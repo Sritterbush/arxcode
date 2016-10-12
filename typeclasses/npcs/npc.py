@@ -24,8 +24,10 @@ from typeclasses.characters import Character
 from typeclasses.mixins import NameMixins
 from .npc_types import (get_npc_stats, get_npc_desc, get_npc_skills,
                         get_npc_singular_name, get_npc_plural_name, get_npc_weapon,
-                        get_armor_bonus, get_hp_bonus)
-from world.stats_and_skills import do_dice_check
+                        get_armor_bonus, get_hp_bonus, primary_stats, guard_skills,
+                        assistant_skills, spy_skills)
+from world.stats_and_skills import (do_dice_check, get_stat_cost, get_skill_cost,
+                                    PHYSICAL_STATS, MENTAL_STATS, SOCIAL_STATS)
 import time
 
 
@@ -457,8 +459,20 @@ class AgentMixin(object):
         """
         xpcost = 0
         rescost = 0
-        restype = "military"
         atype = self.agent.type
+        stats = primary_stats.get(atype, [])
+        current = self.attributes.get(attr)
+        base = get_stat_cost(self, attr)
+        if attr not in stats:
+            base *= 2
+        xpcost = base
+        rescost = base
+        if attr in MENTAL_STATS:
+            restype = "economic"
+        elif attr in SOCIAL_STATS:
+            restype = "social"
+        else:
+            restype = "military"
         return xpcost, rescost, restype
     
     def get_skill_cost(self, attr):
@@ -470,6 +484,16 @@ class AgentMixin(object):
         rescost = 0
         restype = "military"
         atype = self.agent.type
+        primary_skills = get_npc_skills(atype)
+        base = get_skill_cost(self, attr)
+        if attr not in primary_skills:
+            base *= 2
+        xpcost = base
+        rescost = base
+        if attr in spy_skills:
+            restype = "social"
+        elif attr in assistant_skills:
+            restype = "economic"
         return xpcost, rescost, restype
 
     @property
