@@ -1905,56 +1905,69 @@ class CmdRetainers(MuxPlayerCommand):
         self.msg("%s now has %s xp to spend." % (agent, agent.xp))
         return
 
-    def buy_ability(self, agent):
+    #------ Helper methods for performing pre-purchase checks -------------
+    
+    def get_attr_from_args(self, category="stat"):
         """
-        Buys a command/ability for a retainer. Available commands are limited
-        by the levels we have in the different categories available.
+        Helper method that returns the attr that the player is buying
+        or displays a failure message and returns None.
         """
-        return
-
-    def buy_skill(self, agent):
-        """
-        Increase one of the retainer's skills. Maximum is determined by our
-        level in one of the categories available.
-        """
-        return
-
-    def buy_level(self, agent):
-        """
-        Increases one of the retainer's levels. If its our main category,
-        raise our rating.
-        """
-        if not self.rhs:
+        from world.stats_and_skills import _valid_skills_, _valid_stats_
+        if category == "level" and not self.rhs:
             self.rhs = agent.typename
-        if self.rhs not in self.retainer_types:
-            self.msg("The type of level to buy must be one of the following: %s" % ", ".join(self.retainer_types))
+        if not self.rhs:
+            self.msg("You must provide the name of what you want to purchase.")
             return
-        if self.rhs == agent.typename:
-            max = 6
-        else:
-            max = agent.quality - 1
-        attrname = "%s_level" % self.rhs
-        current = agent.dbobj.attributes.get(attrname) or 0
-        if current >= max:
-            self.msg("Their level in %s is currently at the maximum." % self.rhs)
-            return
-        # check and pay costs
-        xp_cost, res_cost, res_type = self.get_attr_cost(agent, attrname, "level", current)
+        attr = self.rhs.lower()
+        if category == "stat":
+            if attr not in _valid_stats_:
+                self.msg("When buying a stat, it must be one of the following: %s" % ", ".join(_valid_stats_))
+                return
+            return attr
+        if category == "skill":
+            if attr not in _valid_skills_:
+                self.msg("When buying a skill, it must be one of the following: %s" % ", ".join(_valid_skills_))
+                return
+            return attr
+        if category == "level":
+            if attr not in self.retainer_types:
+                self.msg("The type of level to buy must be one of the following: %s" % ", ".join(self.retainer_types))
+                return
+            return "%s_level" % attr 
+
+    def pay_resources(self, res_cost, res_type):
+        if not self.caller.pay_resources(res_type, res_cost):
+            self.msg("You do not have enough %s resources." % res_type)
+            return False
+        return True
+
+    def pay_xp_and_resources(self, agent, xp_cost, res_cost, res_type):
         if xp_cost > agent.xp:
             self.msg("Cost is %s and they only have %s xp." % (xp_cost, agent.xp))
-            return
-        if not caller.pay_resources(res_type, res_cost):
-            caller.msg("You do not have enough %s resources." % res_type)
-            return
-        # all checks passed, increase it and raise quality if it was our main category
-        agent.dbobj.db.add(attrname, current + 1)
-        if self.rhs == agent.typename:
-            agent.quality += 1
+            return False
+        if not self.pay_resources(res_cost, res_type):
+            return False
         agent.xp -= xp_cost
         agent.save()
-        return
+        return True
 
-    def get_attr_cost(self, agent, attrname, category, current):
+    def check_max_for_attr(self, agent, attr, category):
+        if category == "level":
+            if agent.typename in attr:
+                max = 6
+            else:
+                max = agent.quality - 1
+            current = agent.dbobj.attributes.get(attr) or 0
+            if current >= max:
+                self.msg("Their level in %s is currently at the maximum." % attr)
+                return
+            return True
+        if category == "stat":
+            return
+        if category == "skill":
+            return
+
+    def get_attr_cost(self, agent, attrname, category, current=0):
         """
         Determines the xp cost, resource cost, and type of resources based
         on the type of attribute we're trying to raise.
@@ -1980,6 +1993,70 @@ class CmdRetainers(MuxPlayerCommand):
             xpcost, rescost, restype = agent.get_stat_cost(attrname)
         return xpcost, rescost, restype
 
+    #----- Upgrade methods that use the purchase checks -------------------
+    
+    def buy_ability(self, agent):
+        """
+        Buys a command/ability for a retainer. Available commands are limited
+        by the levels we have in the different categories available.
+        """
+        return
+
+    def buy_skill(self, agent):
+        """
+        Increase one of the retainer's skills. Maximum is determined by our
+        level in one of the categories available.
+        """
+        attr = self.get_attr_from_args(category="skill")
+        if not attr:
+            return
+        if not self.check_max_for_attr(agent, attr, category="skill"):
+            return
+        current = agent.dbobj.db.skills.get(attr, 0)
+        xp_cost, res_cost, res_type = self.get_attr_cost(agent, attr, "skill", current)
+        if not self.pay_xp_and_resources(agent, xp_cost, res_cost, res_type):
+            return
+        return
+    
+    def buy_stat(self, agent):
+        """
+        Increase one of the retainer's stats. Maximum is determined by our
+        quality level.
+        """
+        attr = self.get_attr_from_args(category="stat")
+        if not attr:
+            return
+        if not self.check_max_for_attr(agent, attr, category="stat"):
+            return
+        current = agent.dbobj.attributes.get(attr) or 0
+        xp_cost, res_cost, res_type = self.get_attr_cost(agent, attr, "stat", current)
+        if not self.pay_xp_and_resources(agent, xp_cost, res_cost, res_type):
+            return
+        return
+
+    def buy_level(self, agent):
+        """
+        Increases one of the retainer's levels. If its our main category,
+        raise our rating.
+        """
+        attrname = self.get_attr_from_args(agent, category="level")
+        if not attrname:
+            return
+        if not self.check_max_for_attr(agent, attrname, category="level"):
+            return
+        current = agent.dbobj.attributes.get(attrname) or 0
+        # check and pay costs
+        xp_cost, res_cost, res_type = self.get_attr_cost(agent, attrname, "level", current)
+        if not self.pay_xp_and_resources(agent, xp_cost, res_cost, res_type):
+            return
+        # all checks passed, increase it and raise quality if it was our main category
+        agent.dbobj.attributes.add(attrname, current + 1)
+        if agent.typename in attrname:
+            agent.quality += 1
+            agent.save()
+        self.msg("You have raised %s to %s" % (attrname, current + 1))
+        return
+
     def upgrade_weapon(self, agent):
         """
         Upgrade/buy a fake weapon for the agent. Should be significantly cheaper
@@ -1994,8 +2071,7 @@ class CmdRetainers(MuxPlayerCommand):
         """
         return
 
-    def buy_stat(self, agent):
-        return
+    # Cosmetic methods
 
     def change_desc(self, agent):
         old = agent.desc
