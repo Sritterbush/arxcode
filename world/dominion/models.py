@@ -1675,6 +1675,12 @@ class Agent(models.Model):
         except AttributeError:
             return False
 
+    def get_stat_cost(self, attr):
+        return self.dbobj.get_stat_cost(attr)
+    
+    def get_skill_cost(self, attr):
+        return self.dbobj.get_skill_cost(attr)
+
 class AgentMission(models.Model):
     """
     Missions that AgentObs go on.

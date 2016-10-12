@@ -373,7 +373,7 @@ class AgentMixin(object):
         self.setup_name()
 
     def setup_name(self):
-        self.name = self.agentob.agent_class.name
+        self.name = self.agent.name
 
     def unassign(self):
         """
@@ -391,13 +391,9 @@ class AgentMixin(object):
         self.locks.add("command: false()")
 
     def _get_npc_type(self):
-        agent = self.agentob
-        agent_class = agent.agent_class
-        return agent_class.type
+        return self.agent.type
     def _get_quality(self):
-        agent = self.agentob
-        agent_class = agent.agent_class
-        return agent_class.quality or 0
+        return self.agent.quality or 0
     npc_type = property(_get_npc_type)
     quality = property(_get_quality)
     
@@ -454,10 +450,39 @@ class AgentMixin(object):
             import traceback
             traceback.print_exc()
 
+    def get_stat_cost(self, attr):
+        """
+        Get the cost of a stat based on our current
+        rating and the type of agent we are.
+        """
+        xpcost = 0
+        rescost = 0
+        restype = "military"
+        atype = self.agent.type
+        return xpcost, rescost, restype
+    
+    def get_skill_cost(self, attr):
+        """
+        Get the cost of a skill based on our current rating and the
+        type of agent that we are.
+        """
+        xpcost = 0
+        rescost = 0
+        restype = "military"
+        atype = self.agent.type
+        return xpcost, rescost, restype
+
+    @property
+    def agent(self):
+        """
+        Returns the agent type that this object belongs to.
+        """
+        return self.agentob.agent_class
+
 class Retainer(AgentMixin, Npc):
     @property
     def desc(self):
-        return self.agentob.agent_class.desc
+        return self.agent.desc
 
     def display(self):
         msg = "\n{wRetainer:{n %s\n" % self.name

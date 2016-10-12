@@ -1939,7 +1939,7 @@ class CmdRetainers(MuxPlayerCommand):
             self.msg("Their level in %s is currently at the maximum." % self.rhs)
             return
         # check and pay costs
-        xp_cost, res_cost, res_type = self.get_attr_cost(agent, attrname)
+        xp_cost, res_cost, res_type = self.get_attr_cost(agent, attrname, "level", current)
         if xp_cost > agent.xp:
             self.msg("Cost is %s and they only have %s xp." % (xp_cost, agent.xp))
             return
@@ -1954,26 +1954,44 @@ class CmdRetainers(MuxPlayerCommand):
         agent.save()
         return
 
-    def get_attr_cost(self, agent, attrname, category):
+    def get_attr_cost(self, agent, attrname, category, current):
         """
         Determines the xp cost, resource cost, and type of resources based
         on the type of attribute we're trying to raise.
         """
+        atype = agent.typename
         xpcost = 0
         rescost = 0
         restype = "military"
         if category == "level":
-            pass
+            base = (current + 1) * 100 + 25
+            # increase the cost if not raising our primary type
+            if atype not in attrname:
+                base *= 2
+            xpcost = base
+            rescost = base
+            if atype == self.retainer_types[1]: # assistant
+                restype = "economic"
+            if atype == self.retainer_types[2]: # spy
+                restype = "social"
         if category == "skill":
-            pass
+            xpcost, rescost, restype = agent.get_skill_cost(attrname)
         if category == "stat":
-            pass
+            xpcost, rescost, restype = agent.get_stat_cost(attrname)
         return xpcost, rescost, restype
 
     def upgrade_weapon(self, agent):
+        """
+        Upgrade/buy a fake weapon for the agent. Should be significantly cheaper
+        than using resources to buy the same sort of weapon for a player.
+        """
         return
 
     def upgrade_armor(self, agent):
+        """
+        Upgrade/buy fake armor for the agent. Significantly cheaper than the same
+        sort of armor would be for a real character.
+        """
         return
 
     def buy_stat(self, agent):
