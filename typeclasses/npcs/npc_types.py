@@ -1,4 +1,6 @@
 import copy
+from world.stats_and_skills import (PHYSICAL_STATS, MENTAL_STATS, SOCIAL_STATS,
+                                    _combat_skills_, _general_skills_, _social_skills_)
 
 GUARD = 0
 THUG = 1
@@ -46,20 +48,26 @@ npc_stats = {
     ASSISTANT: assistant_stats,
     CHAMPION: guard_stats,
     }
+primary_stats = {
+    GUARD: PHYSICAL_STATS,
+    THUG: PHYSICAL_STATS,
+    SPY: SOCIAL_STATS,
+    ASSISTANT: MENTAL_STATS,
+    CHAMPION: PHYSICAL_STATS
+    }
 
-guard_skills = {
-    "crushing melee": 0, "piercing melee": 0, "slashing melee": 0,
-    "brawl":  0, "dodge": 0
-    }
-spy_skills = {
-    "streetwise": 0, "seduction":0, "investigation":0,
-    "intimidation":0, "empathy":0, "manipulation":0
-    }
+guard_skills = dict([(key, 0) for key in _combat_skills_])
+guard_skills.update({"riding":0, "leadership":0, "war":0})
+spy_skills = dict([(key, 0) for key in _social_skills_])
+spy_skills.update({"streetwise": 0, "investigation":0})
+assistant_skills = dict([(key, 0) for key in _general_skills_])
+assistant_skills.update({"etiquette":0, "diplomacy":0})
+
 npc_skills = {
     GUARD: guard_skills,
     THUG: guard_skills,
     SPY: spy_skills,
-    ASSISTANT: spy_skills,
+    ASSISTANT: assistant_skills,
     CHAMPION: guard_skills,
     }
 

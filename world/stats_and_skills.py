@@ -16,8 +16,11 @@ from random import randint
 
 #tuples of allowed stats and skills
 
-_valid_stats_ = ("strength", "dexterity", "stamina", "charm", "command", "composure",
-                 "intellect", "perception", "wits", "mana", "luck", "willpower")
+PHYSICAL_STATS = ("strength", "dexterity", "stamina")
+SOCIAL_STATS = ("charm", "command", "composure")
+MENTAL_STATS = ("intellect", "perception", "wits")
+MAGIC_STATS = ("mana", "luck", "willpower")
+_valid_stats_ = PHYSICAL_STATS + SOCIAL_STATS + MENTAL_STATS + MAGIC_STATS
 _combat_skills_ = ("athletics", "brawl", "dodge", "archery", "small wpn", "medium wpn",
                    "huge wpn", "stealth", "survival")
 _social_skills_ = ("intimidation", "leadership","manipulation","seduction","diplomacy",
