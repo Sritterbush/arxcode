@@ -1824,7 +1824,8 @@ class CmdRetainers(MuxPlayerCommand):
     Usage:
         @retainers
         @retainers/create <name>,<type>
-        @retainers/train <id #>=<xp>
+        @retainers/train <owner>=<retainer name>
+        @retainers/transferxp <id #>=<xp>
         @retainers/buyability <id #>=<ability>
         @retainers/buyskill <id #>=<skill>
         @retainers/buylevel <id #>=<field>
@@ -1896,7 +1897,22 @@ class CmdRetainers(MuxPlayerCommand):
         caller.msg("Assigning %s to you." % aname)
         return
 
-    def train_retainer(self, agent):
+    def train_retainer(self):
+        """
+        Trains a retainer belonging to a player
+        """
+        if not self.rhs:
+            self.msg("You must provide both an owner and the name of their retainer to train.")
+            return
+        player = self.caller.search(self.lhs)
+        try:
+            targ = player.retainers.get(name__iexact=self.rhs)
+        except Exception:
+            self.msg("Could not find a retainer by that name.")
+            return
+        targ.train_agent(self.caller.db.char_ob)
+
+    def transfer_xp(self, agent):
         """
         Transfers xp to a retainer. All retainer upgrades cost xp and
         resources. XP transferred to a retainer is multiplied to make
@@ -2115,14 +2131,17 @@ class CmdRetainers(MuxPlayerCommand):
         if "create" in self.switches:
             self.create_new_retainer()
             return
+        if "train" in self.switches:
+            self.train()
+            return
         # methods that require an agent below
         try:
             agent = self.get_agent_from_args()
         except (Agent.DoesNotExist, ValueError, TypeError):
             caller.msg("No agent found for that number.")
             return
-        if "train" in self.switches:
-            self.train_retainer(agent)
+        if "transferxp" in self.switches:
+            self.transfer_xp(agent)
             return
         if "buyability" in self.switches:
             self.buy_ability(agent)

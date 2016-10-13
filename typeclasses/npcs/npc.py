@@ -526,6 +526,21 @@ class AgentMixin(object):
         """
         return self.agentob.agent_class
 
+    def train_agent(self, trainer):
+        trainer.msg("This type of agent cannot be trained.")
+        return False
+    @property
+    def training_skill(self):
+        return "teaching"
+    
+    @property
+    def owner(self):
+        return self.agent.owner
+    
+    def inform_owner(text):
+        "Passes along an inform to our owner."
+        self.owner.inform(text, category="Agents")
+
 class Retainer(AgentMixin, Npc):
     @property
     def desc(self):
@@ -557,6 +572,30 @@ class Retainer(AgentMixin, Npc):
         Upgrades the armor for this retainer.
         """
         pass
+
+    def train_agent(self, trainer):
+        """
+        Gives xp to this agent if they haven't been trained yet this week.
+        The skill used to train them is based on our type - animal ken for
+        animals, teaching for non-animals.
+        """
+        skill = trainer.db.skills.get(self.training_skill, 0)
+        if not skill:
+            trainer.msg("You must have %s skill to train them." % self.training_skill)
+            return False
+        if self.db.trainer:
+            trainer.msg("They have already been trained by %s this week." % self.db.trainer)
+            return False
+        # do training roll
+        roll = do_dice_check(trainer, stat="command", skill=skill, difficulty=0)
+        self.agent.xp += roll
+        self.agent.save()
+        self.db.trainer = trainer
+        currently_training = trainer.db.currently_training or []
+        currently_training.append(self)
+        trainer.db.currently_training = currently_training
+        trainer.msg("You have trained %s, giving them %s xp." % (self, roll))
+        self.inform_owner("%s has trained %s, giving them %s xp." % (trainer, self, roll))
     
 class Agent(AgentMixin, MultiNpc):
     #-----------------------------------------------

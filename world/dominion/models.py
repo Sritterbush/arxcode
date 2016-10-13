@@ -459,17 +459,15 @@ class AssetOwner(models.Model):
     income = property(_income)
     net_income = property(_net_income)
     costs = property(_costs)
-           
-    def do_weekly_adjustment(self, week):
-        amount = 0
-        report = None
+
+    @property
+    def inform_target(self):
+        """
+        Determines who should get some sort of inform for this assetowner
+        """
         player = None
         if self.player and self.player.player:
-            # if we're a player, send them the report
             player = self.player.player
-            for member in self.player.memberships.filter(deguilded=False):
-                member.work_this_week = 0
-                member.save()
         else:
             # if we're an organization, we see if we have a player Castellan to send reports
             if (hasattr(self, 'estate') and self.estate.castellan and self.estate.castellan.player
@@ -480,6 +478,17 @@ class AssetOwner(models.Model):
                 members = self.organization_owner.members.filter(player__player__roster__roster__name="Active").order_by('rank')
                 if members:
                     player = members[0].player.player
+        return player
+        
+    def do_weekly_adjustment(self, week):
+        amount = 0
+        report = None
+        player = self.inform_target
+        if self.player and self.player.player:
+            # if we're a player, send them the report
+            for member in self.player.memberships.filter(deguilded=False):
+                member.work_this_week = 0
+                member.save()
         if player:
             report = WeeklyReport(player, week, self)
         if hasattr(self, 'estate'):
@@ -530,6 +539,12 @@ class AssetOwner(models.Model):
     def save(self, *args, **kwargs):
         self.clear_cache()
         super(AssetOwner, self).save(*args, **kwargs)
+
+    def inform_owner(self, text, category=None, append=False):
+        player = self.inform_target
+        week = get_week()
+        if player:
+            player.inform(text, category=category, week=week, append=append)
 
 class AccountTransaction(models.Model):
     """

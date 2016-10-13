@@ -203,6 +203,7 @@ class CmdTrain(MuxCommand):
     Usage:
         train/stat  <trainee>=<stat>
         train/skill <trainee>=<skill>
+        train/retainer <owner>=<npc>
 
     Allows you to flag a character as being trained with you, imparting a
     temporary xp cost reduction to the appropriate stat or skill. This bonus
@@ -215,19 +216,46 @@ class CmdTrain(MuxCommand):
     aliases = ["+train", "teach", "+teach"]
     locks = "cmd:all()"
     help_category = "Progression"
+    MAX_TRAINEES = 1
+
+    def post_training(self, targ):
+        "Set attributes after training checks."
+        caller = self.caller
+        currently_training = self.currently_training
+        targ.db.trainer = caller
+        currently_training.append(targ)
+        caller.db.currently_training = currently_training
+    
+    @property
+    def currently_training(self):
+        return self.caller.db.currently_training or []
+
+    def check_max_train(self):
+        if len(self.currently_training) >= self.MAX_TRAINEES:
+            self.msg("You are training as many people as you can handle.")
+            return False
+        return True
+        
     def func(self):
         "Execute command."
-        MAX_TRAINEES = 1
         caller = self.caller
         switches = self.switches
         if not self.lhs or not self.rhs or not self.switches:
             caller.msg("Usage: train/[stat or skill] <character to train>=<name of stat or skill to train>")
             return
-        targ = caller.search(self.lhs)
-        currently_training = caller.db.currently_training or []
-        if len(currently_training) > MAX_TRAINEES:
-            caller.msg("You are training as many people as you can handle.")
+        if not self.check_max_train():
             return
+        if "retainer" in self.switches:
+            player = caller.player.search(self.lhs)
+            try:
+                targ = player.retainers.get(name__iexact=self.rhs).dbobj
+            except Exception:
+                self.msg("Could not find %s's retainer named %s." % (player, self.rhs))
+                return
+            targ.train_agent(caller)
+            return
+        else:
+            targ = caller.search(self.lhs)
         if not targ:
             caller.msg("No one to train by the name of %s." % self.lhs)
             return
@@ -251,9 +279,7 @@ class CmdTrain(MuxCommand):
         else:
             caller.msg("Usage: train/[stat or skill] <character>=<stat or skill name>")
             return
-        targ.db.trainer = caller
-        currently_training.append(targ)
-        caller.db.currently_training = currently_training
+        self.post_training(targ)
         caller.msg("You have provided training to %s for them to increase their %s." % (targ.name, stat))
         targ.msg("%s has provided you training, helping you increase your %s." % (caller.name, stat))
         return
