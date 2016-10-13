@@ -2083,7 +2083,6 @@ class CmdRetainers(MuxPlayerCommand):
         old = agent.desc
         agent.desc = self.rhs
         agent.save()
-        agent.dbobj.flush_from_cache(force=True)
         self.caller.msg("Desc changed from %s to %s." % (old, self.rhs))
         return
 

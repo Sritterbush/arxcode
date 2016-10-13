@@ -529,6 +529,7 @@ class AgentMixin(object):
 class Retainer(AgentMixin, Npc):
     @property
     def desc(self):
+        self.agent.refresh_from_db(fields=('desc',))
         return self.agent.desc
 
     def display(self):
