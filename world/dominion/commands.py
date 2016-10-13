@@ -1958,14 +1958,17 @@ class CmdRetainers(MuxPlayerCommand):
             else:
                 max = agent.quality - 1
             current = agent.dbobj.attributes.get(attr) or 0
-            if current >= max:
-                self.msg("Their level in %s is currently at the maximum." % attr)
-                return
-            return True
-        if category == "stat":
-            return
-        if category == "skill":
-            return
+        elif category == "stat":
+            max = agent.get_stat_maximum(attr)
+            current = agent.dbobj.attributes.get(attr)
+        elif category == "skill":
+            max = agent.get_skill_maximum(attr)
+            current = agent.dbobj.db.skills.get(attr, 0)
+        if current >= max:
+            self.msg("Their level in %s is currently at the maximum of %s." % (attr, max))
+            return False
+        return True
+        
 
     def get_attr_cost(self, agent, attrname, category, current=0):
         """
@@ -2016,7 +2019,9 @@ class CmdRetainers(MuxPlayerCommand):
         xp_cost, res_cost, res_type = self.get_attr_cost(agent, attr, "skill", current)
         if not self.pay_xp_and_resources(agent, xp_cost, res_cost, res_type):
             return
-        return
+        newval = current + 1
+        agent.dbobj.db.skills.add(attr, newval)
+        self.msg("You have increased %s to %s." % (attr, newval))
     
     def buy_stat(self, agent):
         """
@@ -2032,7 +2037,9 @@ class CmdRetainers(MuxPlayerCommand):
         xp_cost, res_cost, res_type = self.get_attr_cost(agent, attr, "stat", current)
         if not self.pay_xp_and_resources(agent, xp_cost, res_cost, res_type):
             return
-        return
+        newval = current + 1
+        agent.dbobj.attributes.add(attr, newval)
+        self.msg("You have increased %s to %s." % (attr, newval))
 
     def buy_level(self, agent):
         """
@@ -2055,7 +2062,6 @@ class CmdRetainers(MuxPlayerCommand):
             agent.quality += 1
             agent.save()
         self.msg("You have raised %s to %s" % (attrname, current + 1))
-        return
 
     def upgrade_weapon(self, agent):
         """
@@ -2077,6 +2083,7 @@ class CmdRetainers(MuxPlayerCommand):
         old = agent.desc
         agent.desc = self.rhs
         agent.save()
+        agent.dbobj.flush_from_cache(force=True)
         self.caller.msg("Desc changed from %s to %s." % (old, self.rhs))
         return
 

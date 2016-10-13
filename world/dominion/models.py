@@ -1686,6 +1686,12 @@ class Agent(models.Model):
     def get_skill_cost(self, attr):
         return self.dbobj.get_skill_cost(attr)
 
+    def get_stat_maximum(self, attr):
+        return self.dbobj.get_stat_maximum(attr)
+    
+    def get_skill_maximum(self, attr):
+        return self.dbobj.get_skill_maximum(attr)
+
 class AgentMission(models.Model):
     """
     Missions that AgentObs go on.

@@ -496,6 +496,29 @@ class AgentMixin(object):
             restype = "economic"
         return xpcost, rescost, restype
 
+    def get_stat_maximum(self, attr):
+        """
+        Get the current max for a stat based on the type
+        of agent we are. If it's primary stats, == to our
+        quality level. Otherwise, quality - 1.
+        """
+        atype = self.agent.type
+        pstats = primary_stats.get(atype, [])
+        if attr in pstats:
+            return self.agent.quality
+        return self.agent.quality - 1
+    
+    def get_skill_maximum(self, attr):
+        """
+        Get the current max for a skill based on the type
+        of agent we are
+        """
+        atype = self.agent.type
+        primary_skills = get_npc_skills(atype)
+        if attr in primary_skills:
+            return self.agent.quality
+        return self.agent.quality - 1
+
     @property
     def agent(self):
         """
