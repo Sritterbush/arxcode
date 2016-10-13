@@ -1334,6 +1334,7 @@ class CmdOrganization(MuxPlayerCommand):
         @org/accept
         @org/decline
         @org/memberview <player>[=<org name>]
+        @org/secret <player>[=<org name>]
 
     Lists the houses/organizations your character is a member
     of. Give the name of an organization for more detailed information.
@@ -1565,6 +1566,18 @@ class CmdOrganization(MuxPlayerCommand):
                 return
             caller.msg("{wMember info for {c%s{n" % tarmember)
             caller.msg(tarmember.display())
+            return
+        if 'secret' in self.switches:
+            if not org.access(caller, 'setrank'):
+                caller.msg("You do not have permission to change member status.")
+                return
+            member = caller.Dominion.memberships.get(organization=org)
+            if member.rank > tarmember.rank:
+                caller.msg("You cannot change someone who is higher ranked than you.")
+                return
+            tarmember.secret = not tarmember.secret
+            tarmember.save()
+            caller.msg("Their secret status is now %s" % tarmember.secret)
             return
         if 'setruler' in self.switches:
             if not org.access(caller, 'setruler'):
