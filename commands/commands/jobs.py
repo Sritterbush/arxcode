@@ -419,6 +419,9 @@ class CmdApp(MuxPlayerCommand):
                         account = PlayerAccount.objects.create(email=app[2])
                     entry.current_account = account
                     entry.save()
+                    # clear cache so the character is moved correctly
+                    entry.character.flush_from_cache(force=True)
+                    entry.player.flush_from_cache(force=True)
                     if not AccountHistory.objects.filter(account=account, entry=entry):
                         from datetime import datetime
                         date = datetime.now()
