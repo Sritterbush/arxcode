@@ -4,8 +4,32 @@ from server.utils.utils import sub_old_ansi
 
 
 class DescMixins(object):
+    """
+    Handles descriptions for objects, which is controlled by three
+    Evennia Attributes: desc, raw_desc, and general_desc. desc is
+    the current description that is used/seen when looking at an
+    object. raw_desc is a permanent desc that might be elaborated
+    upon with other things, such as additional strings from other
+    methods or properties. general_desc is a fallback that can be
+    used if raw_desc is unavailable or unused.
+
+    These are accessed by three properties: desc, temp_desc, and
+    perm_desc. desc returns the temporary desc first if it exists,
+    then the raw_desc, then the fallback general_desc, the the desc
+    setter will set all three of these to the same value, intended
+    to be a universal change. temp_desc will return the same value
+    as desc, but its setter only modifies the temporary desc, and
+    it has a deleter that sets the temporary desc to an empty string.
+    perm_desc returns the raw_desc first or its fallback, only returning
+    the temporary desc if neither exist. Its setter sets the general_desc
+    and raw_desc, but not the temporary desc.
+
+    So for a temporary disguise, use .temp_desc. For a permanent change
+    that won't override any current disguise, use .perm_desc. For a change
+    that will change everything right now, disguise or not, use .desc.
+    """
     def __desc_get(self):
-        return self.db.desc or self.db.general_desc
+        return self.db.desc or self.db.raw_desc or self.db.general_desc
     def __desc_set(self, val):
         # desc may be changed dynamically
         self.db.raw_desc = val
@@ -13,6 +37,19 @@ class DescMixins(object):
         # general desc is our fallback
         self.db.general_desc = val
     desc = property(__desc_get, __desc_set)
+    def __temp_desc_get(self):
+        return self.db.desc or self.db.raw_desc or self.db.general_desc
+    def __temp_desc_set(self, val):
+        self.db.desc = val
+    def __temp_desc_del(self):
+        self.db.desc = ""
+    temp_desc = property(__temp_desc_get, __temp_desc_set, __temp_desc_del)
+    def __perm_desc_get(self):
+        return self.db.raw_desc or self.db.general_desc or self.db.desc
+    def __perm_desc_set(self, val):
+        self.db.general_desc = val
+        self.db.raw_desc = val
+    perm_desc = property(__perm_desc_get, __perm_desc_set)
     def __get_volume(self):
         total = 0
         for obj in self.contents:
