@@ -1834,11 +1834,19 @@ class CmdRetainers(MuxPlayerCommand):
         @retainers/armorupgrade <id #>=<field>       
         @retainers/desc <id #>=<new description>
         @retainers/name <id #>=<new name>
+        @retainers/customize <id #>=<trait name>,<value>
+        @retainers/viewstats <id #>
 
     Allows you to create and train unique agents that serve you,
     called retainers. They are still agents, and use the @agents
     command to set their name and description. They can be summoned
     in-game through the use of the +guards command while in your home.
+
+    Retainers may be four types: champion, assistant, spy, or animal.
+    Champions are guards and protectors. Animals are assumed to be any
+    large animal that can serve as a guardian or a mount. Assistants
+    provide personal assistance in everyday tasks and adventures outside
+    of combat. Spies may assistant in criminal or sneaky activities.
 
     @retainers are upgraded through transfer of XP and the expenditure
     of resources. XP transferred to @retainers is multiplied by three,
@@ -1851,7 +1859,9 @@ class CmdRetainers(MuxPlayerCommand):
     help_category = "Dominion"
     # cost of a new retainer in resources
     new_retainer_cost = 100
-    retainer_types = ("champion", "assistant", "spy")
+    retainer_types = ("champion", "assistant", "spy", "animal")
+    valid_traits = ("species", "gender", "age", "haircolor", "eyecolor",
+                    "skintone", "height")
 
     def get_agent_from_args(self):
         "Get our retainer's Agent model from an ID number in args"
@@ -1864,6 +1874,11 @@ class CmdRetainers(MuxPlayerCommand):
         agents = self.caller.retainers
         self.caller.msg("{WYour retainers:{n\n%s" % ", ".join(agent.display() for agent in agents), options={'box':True})
         return
+
+    def view_stats(self, agent):
+        char = agent.dbobj
+        self.msg(agent.display())
+        char.view_stats(self.caller)   
 
     def create_new_retainer(self):
         """
@@ -1906,7 +1921,7 @@ class CmdRetainers(MuxPlayerCommand):
             return
         player = self.caller.search(self.lhs)
         try:
-            targ = player.retainers.get(name__iexact=self.rhs)
+            targ = player.retainers.get(name__iexact=self.rhs).dbobj
         except Exception:
             self.msg("Could not find a retainer by that name.")
             return
@@ -1936,7 +1951,7 @@ class CmdRetainers(MuxPlayerCommand):
 
     #------ Helper methods for performing pre-purchase checks -------------
     
-    def get_attr_from_args(self, category="stat"):
+    def get_attr_from_args(self, agent, category="stat"):
         """
         Helper method that returns the attr that the player is buying
         or displays a failure message and returns None.
@@ -1978,6 +1993,7 @@ class CmdRetainers(MuxPlayerCommand):
             return False
         agent.xp -= xp_cost
         agent.save()
+        self.msg("You pay %s %s resources and %s %s's xp." % (res_cost, res_type, xp_cost, agent))
         return True
 
     def check_max_for_attr(self, agent, attr, category):
@@ -1994,7 +2010,7 @@ class CmdRetainers(MuxPlayerCommand):
             max = agent.get_skill_maximum(attr)
             current = agent.dbobj.db.skills.get(attr, 0)
         if current >= max:
-            self.msg("Their level in %s is currently at the maximum of %s." % (attr, max))
+            self.msg("Their level in %s is currently %s, the maximum is %s." % (attr, current, max))
             return False
         return True
         
@@ -2039,7 +2055,7 @@ class CmdRetainers(MuxPlayerCommand):
         Increase one of the retainer's skills. Maximum is determined by our
         level in one of the categories available.
         """
-        attr = self.get_attr_from_args(category="skill")
+        attr = self.get_attr_from_args(agent, category="skill")
         if not attr:
             return
         if not self.check_max_for_attr(agent, attr, category="skill"):
@@ -2049,7 +2065,7 @@ class CmdRetainers(MuxPlayerCommand):
         if not self.pay_xp_and_resources(agent, xp_cost, res_cost, res_type):
             return
         newval = current + 1
-        agent.dbobj.db.skills.add(attr, newval)
+        agent.dbobj.db.skills[attr] = newval
         self.msg("You have increased %s to %s." % (attr, newval))
     
     def buy_stat(self, agent):
@@ -2057,7 +2073,7 @@ class CmdRetainers(MuxPlayerCommand):
         Increase one of the retainer's stats. Maximum is determined by our
         quality level.
         """
-        attr = self.get_attr_from_args(category="stat")
+        attr = self.get_attr_from_args(agent, category="stat")
         if not attr:
             return
         if not self.check_max_for_attr(agent, attr, category="stat"):
@@ -2122,6 +2138,19 @@ class CmdRetainers(MuxPlayerCommand):
         agent.save()
         self.caller.msg("Name changed from %s to %s." % (old, self.rhs))
         return
+
+    def customize(self, agent):
+        try:
+            attr,val = self.rhslist[0], self.rhslist[1]
+        except (TypeError, ValueError, IndexError):
+            self.msg("Please provide an attribute and a value.")
+            self.msg("Valid attributes: %s" % ", ".join(self.valid_traits))
+            return
+        if attr not in self.valid_traits:
+            self.msg("Trait to customize must be one of the following: %s" % ", ".join(self.valid_traits))
+            return
+        agent.dbobj.attributes.add(attr, val)
+        self.msg("%s's %s set to %s." % (agent, attr, val))
     
     def func(self):
         caller = self.caller
@@ -2132,7 +2161,7 @@ class CmdRetainers(MuxPlayerCommand):
             self.create_new_retainer()
             return
         if "train" in self.switches:
-            self.train()
+            self.train_retainer()
             return
         # methods that require an agent below
         try:
@@ -2166,6 +2195,12 @@ class CmdRetainers(MuxPlayerCommand):
             return
         if "name" in self.switches:
             self.change_name(agent)
+            return
+        if "customize" in self.switches:
+            self.customize(agent)
+            return
+        if "viewstats" in self.switches:
+            self.view_stats(agent)
             return
         caller.msg("Invalid switch.")
         

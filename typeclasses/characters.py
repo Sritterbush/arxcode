@@ -612,5 +612,10 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         from django.core.urlresolvers import reverse
         return reverse('character:sheet', kwargs={'object_id': self.id})
 
+    def view_stats(self, viewer):
+        from commands.commands.roster import display_attributes, display_skills
+        display_attributes(viewer, self)
+        display_skills(viewer, self)
+
 
 

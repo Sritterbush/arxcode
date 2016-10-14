@@ -1650,14 +1650,18 @@ class Agent(models.Model):
     active = property(_get_active)
     def __unicode__(self):
         name = self.name or self.typename
-        if self.quantity == 1:
+        if self.unique or self.quantity == 1:
             return name
         return "%s %s" % (self.quantity, self.name)
     def __repr__(self):
         return "<Agent (#%s): %s>" % (self.id, self.name)
     def display(self, show_assignments=True):
-        msg = "\n\n{wID{n: %s {wName{n: %s {wType:{n %s {wUnassigned:{n %s\n" % (
-            self.id, self.name, self.typename, self.quantity if not self.unique else self.quantity != 0)
+        msg = "\n\n{wID{n: %s {wName{n: %s {wType:{n %s" % (
+            self.id, self.name, self.typename)
+        if not self.unique:
+            msg +=  " {wUnassigned:{n %s\n" % self.quantity
+        else:
+            msg += "  {wXP:{n %s {wLoyalty{n: %s\n" % (self.xp, self.loyalty)
         if not show_assignments:
             return msg
         for agent in self.agent_objects.all():

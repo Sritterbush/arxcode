@@ -7,6 +7,7 @@ THUG = 1
 SPY = 2
 ASSISTANT = 3
 CHAMPION = 4
+ANIMAL = 5
 
 npc_templates = {
     "guard": GUARD,
@@ -14,6 +15,7 @@ npc_templates = {
     "spy": SPY,
     "champion": CHAMPION,
     "assistant": ASSISTANT,
+    "animal": ANIMAL,
     }
 
 guard_stats = {
@@ -34,6 +36,12 @@ assistant_stats = {
     'intellect':3, 'perception':3, 'wits':3,
     'mana':1, 'luck':1, 'willpower':1, 
     }
+animal_stats = {
+    'strength':3, 'stamina':3, 'dexterity':3,
+    'charm':1, 'command':1, 'composure':1,
+    'intellect':1, 'perception':3, 'wits':2,
+    'mana':1, 'luck':1, 'willpower':1,  
+    }
 unknown_stats = {
     'strength': 2, 'stamina': 2, 'dexterity':2,
     'charm':1, 'command':1, 'composure':1,
@@ -47,13 +55,15 @@ npc_stats = {
     SPY: spy_stats,
     ASSISTANT: assistant_stats,
     CHAMPION: guard_stats,
+    ANIMAL: animal_stats,
     }
 primary_stats = {
     GUARD: PHYSICAL_STATS,
     THUG: PHYSICAL_STATS,
     SPY: SOCIAL_STATS,
     ASSISTANT: MENTAL_STATS,
-    CHAMPION: PHYSICAL_STATS
+    CHAMPION: PHYSICAL_STATS,
+    ANIMAL: PHYSICAL_STATS,
     }
 
 guard_skills = dict([(key, 0) for key in _combat_skills_])
@@ -62,6 +72,8 @@ spy_skills = dict([(key, 0) for key in _social_skills_])
 spy_skills.update({"streetwise": 0, "investigation":0})
 assistant_skills = dict([(key, 0) for key in _general_skills_])
 assistant_skills.update({"etiquette":0, "diplomacy":0})
+animal_skills = {"athletics":1, "brawl":1, "dodge":1, "stealth":0,
+                 "survival":2, "legerdemain":0, "performance":0}
 
 npc_skills = {
     GUARD: guard_skills,
@@ -69,6 +81,7 @@ npc_skills = {
     SPY: spy_skills,
     ASSISTANT: assistant_skills,
     CHAMPION: guard_skills,
+    ANIMAL: animal_skills,
     }
 
 guard_weapon = {
@@ -86,12 +99,28 @@ guard_weapon = {
     'minimum_range': 0,
     }
 
+animal_weapon = {
+    'attack_skill': 'brawl',
+    'attack_stat': 'dexterity',
+    'damage_stat': 'strength',
+    'weapon_damage': 2,
+    'attack_type': 'melee',
+    'can_be_parried': True,
+    'can_be_blocked': True,
+    'can_be_dodged': True,
+    'can_parry': True,
+    'can_riposte': True,
+    'reach': 1,
+    'minimum_range': 0,
+    }
+
 npc_weapons = {
     GUARD: guard_weapon,
     THUG: guard_weapon,
     SPY: guard_weapon,
     ASSISTANT: guard_weapon,
     CHAMPION: guard_weapon,
+    ANIMAL: animal_weapon
     }
 
 # all armor values are (base, scaling)
@@ -113,6 +142,7 @@ npc_descs = {
     SPY: "A group of spies.",
     ASSISTANT: "A loyal assistant.",
     CHAMPION: "A loyal champion.",
+    ANIMAL: "A faithful animal companion."
     }
 
 npc_plural_names = {
@@ -127,6 +157,7 @@ npc_singular_names = {
     SPY: "spy",
     CHAMPION: "champion",
     ASSISTANT: "assistant",
+    ANIMAL: "animal",
     }
 
 def get_npc_stats(type):

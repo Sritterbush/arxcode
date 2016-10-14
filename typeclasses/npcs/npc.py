@@ -529,6 +529,7 @@ class AgentMixin(object):
     def train_agent(self, trainer):
         trainer.msg("This type of agent cannot be trained.")
         return False
+    
     @property
     def training_skill(self):
         return "teaching"
@@ -537,9 +538,9 @@ class AgentMixin(object):
     def owner(self):
         return self.agent.owner
     
-    def inform_owner(text):
+    def inform_owner(self, text):
         "Passes along an inform to our owner."
-        self.owner.inform(text, category="Agents")
+        self.owner.inform_owner(text, category="Agents")
 
 class Retainer(AgentMixin, Npc):
     @property
@@ -548,9 +549,7 @@ class Retainer(AgentMixin, Npc):
         return self.agent.desc
 
     def display(self):
-        msg = "\n{wRetainer:{n %s\n" % self.name
-        if self.db.guarding:
-            msg += "{wAssigned to:{n %s\n" % self.db.guarding
+        msg = "{wAssigned to:{n %s " % self.db.guarding
         msg += "{wLocation:{n %s\n" % (self.location or self.db.docked or "Home Barracks")
         return msg
 
@@ -595,7 +594,8 @@ class Retainer(AgentMixin, Npc):
         currently_training.append(self)
         trainer.db.currently_training = currently_training
         trainer.msg("You have trained %s, giving them %s xp." % (self, roll))
-        self.inform_owner("%s has trained %s, giving them %s xp." % (trainer, self, roll))
+        msg = "%s has trained %s, giving them %s xp." % (trainer, self, roll)
+        self.inform_owner(msg)
     
 class Agent(AgentMixin, MultiNpc):
     #-----------------------------------------------
