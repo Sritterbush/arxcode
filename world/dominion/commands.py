@@ -1895,7 +1895,7 @@ class CmdRetainers(MuxPlayerCommand):
         if atype not in self.retainer_types:
             caller.msg("The type of retainer must be one of the following: %s" % ", ".join(self.retainer_types))
             return
-        if atype == "champion":
+        if atype == "champion" or atype == "animal":
             rtype = "military"
         if atype == "assistant" or atype == "spy":
             rtype = "social"
