@@ -1846,12 +1846,13 @@ class CmdRetainers(MuxPlayerCommand):
     Champions are guards and protectors. Animals are assumed to be any
     large animal that can serve as a guardian or a mount. Assistants
     provide personal assistance in everyday tasks and adventures outside
-    of combat. Spies may assistant in criminal or sneaky activities.
+    of combat. Spies may assist in criminal or sneaky activities.
 
     @retainers are upgraded through transfer of XP and the expenditure
     of resources. XP transferred to @retainers is multiplied by three,
     making it far easier (but much more expensive) to have skilled
-    retainers.
+    retainers. Changing the name, desc, or cosmetic traits of a retainer
+    is free.
     """
     key = "@retainers"
     aliases = ["@retainer"]
