@@ -8,6 +8,7 @@ class DescMixins(object):
         return self.db.desc or self.db.general_desc
     def __desc_set(self, val):
         # desc may be changed dynamically
+        self.db.raw_desc = val
         self.db.desc = val
         # general desc is our fallback
         self.db.general_desc = val

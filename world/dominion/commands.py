@@ -1852,7 +1852,9 @@ class CmdRetainers(MuxPlayerCommand):
     of resources. XP transferred to @retainers is multiplied by three,
     making it far easier (but much more expensive) to have skilled
     retainers. Changing the name, desc, or cosmetic traits of a retainer
-    is free.
+    is free. The cost of a new retainer is 100 resources, with champions
+    and animals requiring military, assistants requiring economic, and
+    spies requiring social.
     """
     key = "@retainers"
     aliases = ["@retainer"]
