@@ -4,7 +4,6 @@ def adjust_pagination(context, page, begin_pages=2, end_pages=2, before_current_
     # Digg-like pages
     before = max(page.number - before_current_pages - 1, 0)
     after = page.number + after_current_pages
-    print "Begin_pages is %s" % begin_pages
     begin = list(page.paginator.page_range)[:begin_pages]
     middle = list(page.paginator.page_range)[before:after]
     end = list(page.paginator.page_range)[-end_pages:]
