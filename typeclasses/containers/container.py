@@ -6,9 +6,10 @@ Container objects. Bags, chests, etc.
 from typeclasses.objects import Object as DefaultObject
 from evennia.commands.default.muxcommand import MuxCommand
 from evennia.commands import command, cmdset
+from typeclasses.mixins import LockMixins
 
 
-class Container(DefaultObject):
+class Container(LockMixins, DefaultObject):
     """
     Containers - bags, chests, etc. Players can have keys and can
     lock/unlock containers.
@@ -27,28 +28,6 @@ class Container(DefaultObject):
         """
         containerkey = contdbobj.db_key.strip().lower()
         containeraliases = list(contdbobj.aliases.all())
-
-        class CmdLockContainer(command.Command):
-            def func(self):
-                if self.obj.db.locked:
-                    self.caller.msg("It is already locked.")
-                    return
-                if not self.obj.access(self.caller, 'usekey'):
-                    self.caller.msg("You don't have a key to this container.")
-                    return
-                self.obj.db.locked = True
-                self.caller.msg("You lock %s." % self.obj.name)
- 
-        class CmdUnlockContainer(command.Command):
-            def func(self):
-                if not self.obj.db.locked:
-                    self.caller.msg("It is already unlocked.")
-                    return
-                if not self.obj.access(self.caller, 'usekey'):
-                    self.caller.msg("You don't have a key to this container.")
-                    return
-                self.obj.db.locked = False
-                self.caller.msg("You unlock %s." % self.obj.name)
 
         class CmdChestKey(MuxCommand):
             """
@@ -90,19 +69,12 @@ class Container(DefaultObject):
                     return
                 caller.msg("Invalid switch.")
                 return
-
-        lockaliases = ["lock %s" % alias for alias in containeraliases]
-        lockcmd = CmdLockContainer(key="lock %s" % containerkey, aliases=lockaliases, auto_help=False, obj=contdbobj)
-        unlockaliases = ["unlock %s" % alias for alias in containeraliases]
-        unlockcmd = CmdUnlockContainer(key="unlock %s" % containerkey, aliases=unlockaliases, auto_help=False, obj=contdbobj)
         # create a cmdset
         container_cmdset = cmdset.CmdSet(None)
         container_cmdset.key = '_containerset'
         container_cmdset.priority = 9
         container_cmdset.duplicates = True
         # add command to cmdset
-        container_cmdset.add(lockcmd)
-        container_cmdset.add(unlockcmd)
         container_cmdset.add(CmdChestKey(obj=contdbobj))
         return container_cmdset
     
@@ -142,14 +114,4 @@ class Container(DefaultObject):
         char.db.chestkeylist = chestkeys
         return True
 
-    def return_appearance(self, pobject, detailed=False, format_desc=False,
-                          show_contents=True):
-        show_contents = not self.db.locked
-        string = DefaultObject.return_appearance(self, pobject, detailed, format_desc,
-                                                 show_contents)
-        if self.db.locked:
-            string += "\nIt is locked."
-        else:
-            string += "\nIt is unlocked."
-        return string
     

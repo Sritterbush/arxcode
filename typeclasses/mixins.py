@@ -290,3 +290,47 @@ class MsgMixins(object):
             if self.attributes.has("dice_string"):
                 text = "{w<" + self.db.dice_string + "> {n" + text
         super(MsgMixins, self).msg(text, from_obj, session, options, **kwargs)
+
+
+class LockMixins(object):
+    def lock(self, caller=None):
+        if self.db.locked:
+            if caller:
+                caller.msg("%s is already locked." % self)
+            return
+        if caller and not self.access(caller, 'usekey'):
+            caller.msg("You do not have a key to %s." % self)
+            return
+        self.db.locked = True
+        self.locks.add("traverse: perm(builders)")
+        msg = "%s is now locked." % self.key
+        if caller: caller.msg(msg)
+        self.location.msg_contents(msg, exclude=caller)
+        # set the locked attribute of the destination of this exit, if we have one
+        if self.destination and hasattr(self.destination, 'entrances') and self.destination.db.locked == False:
+            entrances = [ob for ob in self.destination.entrances if ob.db.locked == False]
+            if not entrances:
+                self.destination.db.locked = True
+
+    def unlock(self, caller=None):
+        if not self.db.locked:
+            if caller:
+                caller.msg("%s is already locked." % self)
+            return
+        if caller and not self.access(caller, 'usekey'):
+            caller.msg("You do not have a key to %s." % self)
+            return
+        self.db.locked = False
+        self.locks.add("traverse: all()")
+        msg = "%s is now unlocked." % self.key
+        if caller: caller.msg(msg)
+        self.location.msg_contents(msg, exclude=caller)
+        if self.destination:
+            self.destination.db.locked = False
+
+    def return_appearance(self, pobject, detailed=False, format_desc=False,
+                          show_contents=True):
+        show_contents = not self.db.locked
+        base = super(LockMixins, self).return_appearance(pobject, detailed=detailed,
+                                                         format_desc=False, show_contents=show_contents)
+        return base + "\nIt is currently %s." % ("locked" if self.db.locked else "unlocked")

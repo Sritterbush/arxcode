@@ -1300,5 +1300,33 @@ class CmdUndress(MuxCommand):
 
         # Throw a simple message to the caller only. We don't need to alert the room unless this design decision changes
         caller.msg("You undress.");
-
         return
+
+class CmdLockObject(MuxCommand):
+    """
+    Locks or unlocks an exit or container
+
+    Usage:
+        lock <object>
+        unlock <object>
+
+    Locks or unlocks an object for which you have a key.
+    """
+    key = "+lock"
+    aliases = ["lock", "unlock", "+unlock"]
+    locks = "cmd:all()"
+
+    def func(self):
+        caller = self.caller
+        verb = self.cmdstring.lstrip("+")
+        obj = caller.search(self.args)
+        if not obj:
+            return
+        try:
+            lock_method = getattr(obj, verb)
+            lock_method(caller)
+        except AttributeError:
+            self.msg("You cannot %s %s." % (verb, obj))
+            return
+
+

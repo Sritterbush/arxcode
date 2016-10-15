@@ -7,10 +7,10 @@ for allowing Characters to traverse the exit to its destination.
 
 """
 from evennia import DefaultExit
-from typeclasses.mixins import ObjectMixins, NameMixins
+from typeclasses.mixins import ObjectMixins, NameMixins, LockMixins
 from evennia.commands import command, cmdset
 
-class Exit(NameMixins, ObjectMixins, DefaultExit):
+class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
     """
     Exits are connectors between rooms. Exits are normal Objects except
     they defines the `destination` property. It also does work in the
@@ -74,26 +74,6 @@ class Exit(NameMixins, ObjectMixins, DefaultExit):
                         # No shorthand error message. Call hook.
                         self.obj.at_failed_traverse(self.caller)
 
-        class LockExit(command.Command):
-            def func(self):
-                if self.obj.db.locked:
-                    self.caller.msg("It is already locked.")
-                    return
-                if not self.obj.access(self.caller, 'usekey'):
-                    self.caller.msg("You don't have a key to this exit.")
-                    return
-                self.obj.lock()
- 
-        class UnlockExit(command.Command):
-            def func(self):
-                if not self.obj.db.locked:
-                    self.caller.msg("It is already unlocked.")
-                    return
-                if not self.obj.access(self.caller, 'usekey'):
-                    self.caller.msg("You don't have a key to this exit.")
-                    return
-                self.obj.unlock()
-
         class PassExit(command.Command):
             def func(self):
                 if self.obj.db.locked and not self.obj.access(self.caller, 'usekey'):
@@ -112,10 +92,6 @@ class Exit(NameMixins, ObjectMixins, DefaultExit):
                           arg_regex=r"$",
                           is_exit=True,
                           obj=exidbobj)
-        lockaliases = ["lock %s" % alias for alias in exitaliases]
-        lockcmd = LockExit(key="lock %s" % exitkey, aliases=lockaliases, auto_help=False, obj=exidbobj)
-        unlockaliases = ["unlock %s" % alias for alias in exitaliases]
-        unlockcmd = UnlockExit(key="unlock %s" % exitkey, aliases=unlockaliases, auto_help=False, obj=exidbobj)
         passaliases = ["pass %s" % alias for alias in exitaliases]
         passcmd = PassExit(key="pass %s" % exitkey, aliases = passaliases, is_exit=True, auto_help=False, obj=exidbobj)
         # create a cmdset
@@ -125,30 +101,9 @@ class Exit(NameMixins, ObjectMixins, DefaultExit):
         exit_cmdset.duplicates = True
         # add command to cmdset
         exit_cmdset.add(exitcmd)
-        exit_cmdset.add(lockcmd)
-        exit_cmdset.add(unlockcmd)
         exit_cmdset.add(passcmd)
         return exit_cmdset
-
-    # this and other hooks are what usually can be modified safely.
-    def lock(self):
-        self.db.locked = True
-        self.locks.add("traverse: perm(builders)")
-        self.location.msg_contents("%s is now locked." % self.key)
-        if self.destination.db.locked == False:
-            entrances = [ob for ob in self.destination.db.entrances if ob.db.locked == False]
-            if not entrances:
-                self.destination.db.locked = True
-        
-
-    def unlock(self):
-        self.db.locked = False
-        self.locks.add("traverse: all()")
-        self.location.msg_contents("%s is now unlocked." % self.key)
-        self.destination.db.locked = False
-
-
-    
+  
     def at_init(self):
         """
         This is always called whenever this object is initiated --

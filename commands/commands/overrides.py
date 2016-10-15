@@ -10,7 +10,7 @@ from evennia.server.sessionhandler import SESSIONS
 import time
 from evennia.commands.default.comms import (CmdCdestroy,CmdChannelCreate,
                                             CmdClock, CmdCBoot,CmdCdesc)
-from evennia.commands.default.building import CmdExamine
+from evennia.commands.default.building import CmdExamine, CmdLock
 
 AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.',1))
 
@@ -1204,6 +1204,10 @@ class CmdArxCBoot(CmdCBoot):
 class CmdArxCdesc(CmdCdesc):
     __doc__ = CmdCdesc.__doc__
     locks = newlock
+
+class CmdArxLock(CmdLock):
+    __doc__ = CmdLock.__doc__
+    aliases = ["@locks", "locks"]
 
 class CmdArxExamine(CmdExamine):
     """
