@@ -114,6 +114,7 @@ class OOCCmdSet(CmdSet):
         self.add(general.CmdDiceCheck())
         self.add(general.CmdPage())
         self.add(general.CmdBriefMode())
+        self.add(general.CmdTidyUp())
         self.add(extended_room.CmdGameTime())
         self.add(extended_room.CmdStudyRawAnsi())
         self.add(xp.CmdVoteXP())

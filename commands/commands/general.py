@@ -1329,4 +1329,44 @@ class CmdLockObject(MuxCommand):
             self.msg("You cannot %s %s." % (verb, obj))
             return
 
+class CmdTidyUp(MuxCommand):
+    """
+    Removes idle characters from the room
+
+    Usage:
+        +tidy
+
+    This removes any character who has been idle for at least
+    one hour in your current room, provided that the room is
+    public.
+    """
+    key = "+tidy"
+    locks = "cmd:all()"
+
+    def func(self):
+        caller = self.caller
+        loc = caller.location
+        if "private" in loc.tags.all():
+            self.msg("This is a private room.")
+            return
+        from typeclasses.characters import Character
+        # can only boot Player Characters
+        chars = Character.objects.filter(db_location=loc, roster__roster__name="Active")
+        found = []
+        for char in chars:
+            time = char.idle_time
+            player = char.player
+            # no sessions connected, character that somehow became headless, such as server crash
+            if not player:
+                char.at_post_unpuppet(player)
+                found.append(char)
+                continue
+            if time > 3600:
+                player.execute_cmd("@ooc")
+                found.append(char)
+        if not found:
+            self.msg("No characters were found to be idle.")
+        else:
+            self.msg("The following characters were removed: %s" % ", ".join(ob.name for ob in found))
+
 
