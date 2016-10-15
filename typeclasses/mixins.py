@@ -315,7 +315,7 @@ class LockMixins(object):
     def unlock(self, caller=None):
         if not self.db.locked:
             if caller:
-                caller.msg("%s is already locked." % self)
+                caller.msg("%s is already unlocked." % self)
             return
         if caller and not self.access(caller, 'usekey'):
             caller.msg("You do not have a key to %s." % self)
