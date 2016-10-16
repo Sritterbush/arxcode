@@ -754,6 +754,7 @@ class CmdBuyFromShop(CmdCraft):
     Cost is 50 economic resources unless specified otherwise.
     """
     key = "+shop"
+    aliases = ["@shop", "shop"]
     locks = "cmd:all()"
     help_category = "Home"
     def get_discount(self):
