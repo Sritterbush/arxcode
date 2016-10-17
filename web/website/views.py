@@ -49,7 +49,7 @@ def page_index(request):
     except Chapter.DoesNotExist:
         chapter = None
     try:
-        events = RPEvent.objects.filter(finished=False).order_by('date')[:3]
+        events = RPEvent.objects.filter(finished=False, public_event=True).order_by('date')[:3]
     except Exception:
         events = []
 
