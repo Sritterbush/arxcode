@@ -791,7 +791,7 @@ class CmdBuyFromShop(CmdCraft):
         price = 0
         if recipe.id in loc.db.crafting_prices:
             price = (base * loc.db.crafting_prices[recipe.id])/100.0
-        if "all" in loc.db.crafting_prices:
+        elif "all" in loc.db.crafting_prices:
             price = (base * loc.db.crafting_prices["all"])/100.0
         if price:
             price = price - (price * self.get_discount()/100.0)

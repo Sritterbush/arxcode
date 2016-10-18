@@ -2127,7 +2127,9 @@ class CmdRetainers(MuxPlayerCommand):
     def upgrade_armor(self, agent):
         """
         Upgrade/buy fake armor for the agent. Significantly cheaper than the same
-        sort of armor would be for a real character.
+        sort of armor would be for a real character. They can only raise 1 point
+        of armor at a time, which is kind of tedious but allows us to easily
+        have increasing costs.
         """
         current = agent.dbobj.db.armor_class
         if not self.check_max_for_attr(agent, "armor", category="armor"):
@@ -2218,6 +2220,22 @@ class CmdRetainers(MuxPlayerCommand):
             return
         if "viewstats" in self.switches:
             self.view_stats(agent)
+            return
+        if "cost" in self.switches:
+            if len(self.rhslist) != 2:
+                self.msg("@retainers/cost <agent ID>=<attribute>,<category>")
+                return
+            category = self.rhslist[1]
+            cats = ("skill", "stat", "level", "armor", "weapon")
+            if category not in cats:
+                self.msg("Category must be one of the following: %s" % ", ".join(cats))
+                return
+            self.rhs = self.rhslist[0]
+            attr = self.get_attr_from_args(agent, category)
+            if not attr:
+                return
+            xpcost, rescost, restype = self.get_attr_cost(agent, attr, category)
+            self.msg("Raising %s would cost %s xp, %s %s resources." % (attr, xpcost, rescost, restype))
             return
         caller.msg("Invalid switch.")
         
