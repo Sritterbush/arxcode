@@ -9,7 +9,7 @@ from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.server.sessionhandler import SESSIONS
 import time
 from evennia.commands.default.comms import (CmdCdestroy,CmdChannelCreate,
-                                            CmdClock, CmdCBoot,CmdCdesc)
+                                            CmdClock, CmdCBoot,CmdCdesc, CmdAllCom)
 from evennia.commands.default.building import CmdExamine, CmdLock
 
 AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.',1))
@@ -1204,6 +1204,16 @@ class CmdArxCBoot(CmdCBoot):
 class CmdArxCdesc(CmdCdesc):
     __doc__ = CmdCdesc.__doc__
     locks = newlock
+class CmdArxAllCom(CmdAllCom):
+    __doc__ = CmdAllCom.__doc__
+    def func(self):
+        from evennia.comms.models import ChannelDB
+        caller = self.caller
+        if self.args != "off":
+            return super(CmdArxAllCom, self).func()
+        channels = ChannelDB.objects.get_subscriptions(caller)
+        for channel in channels:
+            caller.execute_cmd("%s off" % channel.key)
 
 class CmdArxLock(CmdLock):
     __doc__ = CmdLock.__doc__

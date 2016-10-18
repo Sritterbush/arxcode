@@ -1830,8 +1830,8 @@ class CmdRetainers(MuxPlayerCommand):
         @retainers/buyskill <id #>=<skill>
         @retainers/buylevel <id #>=<field>
         @retainers/buystat <id #>=<stat>
-        @retainers/weaponupgrade <id #>=<field>
-        @retainers/armorupgrade <id #>=<field>       
+        @retainers/upgradeweapon <id #>=<field>
+        @retainers/upgradearmor <id #>      
         @retainers/desc <id #>=<new description>
         @retainers/name <id #>=<new name>
         @retainers/customize <id #>=<trait name>,<value>
@@ -2006,6 +2006,9 @@ class CmdRetainers(MuxPlayerCommand):
             else:
                 max = agent.quality - 1
             current = agent.dbobj.attributes.get(attr) or 0
+        elif category == "armor":
+            current = agent.dbobj.db.armor_class
+            max = agent.quality * 15
         elif category == "stat":
             max = agent.get_stat_maximum(attr)
             current = agent.dbobj.attributes.get(attr)
@@ -2042,6 +2045,9 @@ class CmdRetainers(MuxPlayerCommand):
             xpcost, rescost, restype = agent.get_skill_cost(attrname)
         if category == "stat":
             xpcost, rescost, restype = agent.get_stat_cost(attrname)
+        if category == "armor":
+            xpcost = current + 1
+            rescost = current + 1
         return xpcost, rescost, restype
 
     #----- Upgrade methods that use the purchase checks -------------------
@@ -2123,6 +2129,14 @@ class CmdRetainers(MuxPlayerCommand):
         Upgrade/buy fake armor for the agent. Significantly cheaper than the same
         sort of armor would be for a real character.
         """
+        current = agent.dbobj.db.armor_class
+        if not self.check_max_for_attr(agent, "armor", category="armor"):
+            return
+        xp_cost, res_cost, res_type = self.get_attr_cost(agent, "armor", "armor", current)
+        if not self.pay_xp_and_resources(agent, xp_cost, res_cost, res_type):
+            return
+        agent.dbobj.db.armor_class = current + 1
+        self.msg("You have raised %s's armor to %s." % (agent, current+1))
         return
 
     # Cosmetic methods

@@ -627,7 +627,8 @@ class CmdMessenger(MuxCommand):
             # handle a delivered object
             if obj:
                 obj.move_to(caller, quiet=True)
-                caller.msg("{wYou receive{n %s{w.{n" % obj)
+                caller.msg("{gYou also have received a delivery!")
+                caller.msg("{wYou receive{n %s." % obj)
             if money and money > 0:
                 currency = caller.db.currency or 0.0
                 currency += money
