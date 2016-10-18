@@ -59,6 +59,34 @@ class Channel(DefaultChannel):
         post_send_message(msg) - called just after message was sent to channel
 
     """
+    @property
+    def mutelist(self):
+        return self.db.mute_list or []
+
+    def mute(self, subscriber):
+        """
+        Adds an entity to the list of muted subscribers.
+        A muted subscriber will no longer see channel messages,
+        but may use channel commands.
+        """
+        mutelist = self.mutelist
+        if subscriber not in mutelist:
+            mutelist.append(subscriber)
+            self.db.mute_list = mutelist
+            return True
+
+    def unmute(self, subscriber):
+        """
+        Removes an entity to the list of muted subscribers.
+        A muted subscriber will no longer see channel messages,
+        but may use channel commands.
+        """
+        mutelist = self.mutelist
+        if subscriber in mutelist:
+            mutelist.remove(subscriber)
+            self.db.mute_list = mutelist
+            return True
+        
     def delete_chan_message(self, message):
         """
         When given a message object, if the message has other
@@ -82,6 +110,8 @@ class Channel(DefaultChannel):
         """
         # get all players connected to this channel and send to them
         for entity in self.subscriptions.all():
+            if entity in self.mutelist:
+                continue
             try:
                 entity.msg(msg.message, from_obj=msg.senders,
                            options={"from_channel":self.id})

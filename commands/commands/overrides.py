@@ -1209,8 +1209,20 @@ class CmdArxAllCom(CmdAllCom):
     def func(self):
         from evennia.comms.models import ChannelDB
         caller = self.caller
-        if self.args != "off":
+        if self.args not in ("on", "off"):
             return super(CmdArxAllCom, self).func()
+        if self.args == "on":
+            # get names of all channels available to listen to
+            # and activate them all
+            channels = [chan for chan in ChannelDB.objects.get_all_channels()
+                        if chan.access(caller, 'listen')]
+            for channel in channels:
+                unmuted = channel.unmute(caller)
+                if unmuted:
+                    self.msg("You unmute channel %s." % channel)
+                else:
+                    caller.execute_cmd("addcom %s" % channel.key)
+            return
         channels = ChannelDB.objects.get_subscriptions(caller)
         for channel in channels:
             caller.execute_cmd("%s off" % channel.key)

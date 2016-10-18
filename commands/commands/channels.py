@@ -73,6 +73,9 @@ class ArxChannelCommand(command.Command):
             return
         if msg == "on":
             if player: caller = player
+            if channel.unmute(caller):
+                self.msg("You unmute channel %s." % channel)
+                return
             caller.execute_cmd("addcom %s" % channelkey)
             return
         if not channel.has_connection(caller):
@@ -115,11 +118,14 @@ class ArxChannelCommand(command.Command):
             return
         if msg == "off":
             if player: caller = player
-            disconnect = channel.disconnect(player)
-            if disconnect:
+            muted = channel.mute(player)
+            if muted:
                 caller.msg("You stop listening to channel '%s'." % channel.key)
             else:
-                caller.msg("You cannot disconnect from channel '%s'." % channel.key)
+                caller.msg("You already muted channel '%s'." % channel.key)
+            return
+        if player in channel.mutelist or caller in channel.mutelist:
+            self.msg("You have that channel muted.")
             return
         channel.msg(msg, senders=caller.db.char_ob or caller, persistent=True, online=True)
         if Msg.objects.get_messages_by_channel(channel.id).count() > 200:
