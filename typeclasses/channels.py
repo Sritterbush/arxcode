@@ -67,9 +67,9 @@ class Channel(DefaultChannel):
     def wholist(self):
         subs = self.db_subscriptions.all()
         listening = [ob for ob in subs if ob.is_connected and ob not in self.mutelist]
-        if subs:
-            # display listening subscribers in bold
-            string = ", ".join([player.key if player not in listening else "{w%s{n" % player.key for player in subs])
+        if listening:
+            listening = sorted(listening, key=lambda x: x.key.capitalize())
+            string = ", ".join([player.key.capitalize() for player in listening])
         else:
             string = "<None>"
         return string
