@@ -158,52 +158,70 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         traversing_object.msg("That way is locked.")
         
         
+##    def msg(self, text=None, from_obj=None, options=None, **kwargs):
+##        """
+##        This allows the exit to pass along a message to its destination.dbref
+##        The echo list must be called with 'echo_list=[]' for each new call,
+##        since it will be saved and passed on to all calls of msg in exits
+##        until it is initialized again. This is intentional to prevent longer
+##        radius calls from overlapping rooms with one another, which is entirely
+##        possible even with a radius of 3. Higher radius calls are discouraged
+##        due to the amount of traversals causing significant lag and possibly
+##        running out of memory.
+##        """
+##        options = options or {}
+##        echo_list = options.get('echo_list', [])
+##        radius = options.get('radius', 0)
+##        origin_id = options.get('origin_id', None)
+##        origin_x = options.get('origin_x', None)
+##        origin_y = options.get('origin_y', None)
+##        if self.location.id not in echo_list:
+##            echo_list.append(self.location.id)
+##            options['echo_list'] = echo_list
+##        if self.check_propogation(radius, origin_x, origin_y, origin_id) and self.destination and self.destination.id not in echo_list:
+##            self.destination.msg_contents(text, exclude=None, from_obj=from_obj, options=options, **kwargs)
+##            
+##    def check_propogation(self, radius, x, y, origin_id):
+##        # always make it propogate once if we're on the initial square and we have a radius
+##        if self.location.id == origin_id and radius:
+##            return True
+##        # we have to do this or the identical coordinates may well crash the server
+##        if 'private' in self.location.tags.all():
+##            return False
+##        try:
+##            x_cur = self.location.db.x_coord
+##            y_cur = self.location.db.y_coord
+##            #x_ori = origin.db.x_coord
+##            #y_ori = origin.db.y_coord
+##            if abs(x - x_cur) > radius:
+##                return False
+##            if abs(y - y_cur) > radius:
+##                return False
+##            return True
+##        except Exception:
+##            return False
+
     def msg(self, text=None, from_obj=None, options=None, **kwargs):
-        """
-        This allows the exit to pass along a message to its destination.dbref
-        The echo list must be called with 'echo_list=[]' for each new call,
-        since it will be saved and passed on to all calls of msg in exits
-        until it is initialized again. This is intentional to prevent longer
-        radius calls from overlapping rooms with one another, which is entirely
-        possible even with a radius of 3. Higher radius calls are discouraged
-        due to the amount of traversals causing significant lag and possibly
-        running out of memory.
-        """
         options = options or {}
-        echo_list = options.get('echo_list', [])
-        radius = options.get('radius', 0)
-        origin_id = options.get('origin_id', None)
-        origin_x = options.get('origin_x', None)
-        origin_y = options.get('origin_y', None)
-        if self.location.id not in echo_list:
-            echo_list.append(self.location.id)
-            options['echo_list'] = echo_list
-        if self.check_propogation(radius, origin_x, origin_y, origin_id) and self.destination and self.destination.id not in echo_list:
-            self.destination.msg_contents(text, exclude=None, from_obj=from_obj, options=options, **kwargs)
-            
-    def check_propogation(self, radius, x, y, origin_id):
-        # always make it propogate once if we're on the initial square and we have a radius
-        if self.location.id == origin_id and radius:
-            return True
-        # we have to do this or the identical coordinates may well crash the server
-        if 'private' in self.location.tags.all():
-            return False
-        try:
-            x_cur = self.location.db.x_coord
-            y_cur = self.location.db.y_coord
-            #x_ori = origin.db.x_coord
-            #y_ori = origin.db.y_coord
-            if abs(x - x_cur) > radius:
-                return False
-            if abs(y - y_cur) > radius:
-                return False
-            return True
-        except Exception:
-            return False
+        if options.get('shout', False):
+            other_options = options.copy()
+            from_dir = options.get('from_dir', 'from nearby')
+            new_from_dir = "from the %s" % str(self.reverse_exit)
+            text = text.replace(from_dir, new_from_dir)
+            del other_options['shout']
+            other_options['from_dir'] = new_from_dir
+            self.destination.msg_contents(text, exclude=None, from_obj=from_obj, options=other_options, **kwargs)
 
     @property
     def is_exit(self):
         return True
+
+    @property
+    def reverse_exit(self):
+        entrances = [ob for ob in self.destination.exits if ob.destination == self.location]
+        if not entrances:
+            return "nowhere"
+        return entrances[0]
 
 
 

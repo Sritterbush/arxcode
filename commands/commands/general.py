@@ -140,17 +140,22 @@ class CmdShout(MuxCommand):
         args = self.args
         switches = self.switches
         radius = 1
+        loudly = False
         if not args:
             caller.msg("Shout what?")
             return
         if switches and "loudly" in switches:
-            radius = 2
+            loudly = True
+        loudstr = "loudly " if loudly else ""
+        from_dir = "from nearby"
         caller.msg('You shout, "%s"' % args)
-        txt = '{c%s{n shouts from elsewhere, "%s"' % (caller.name, args)
-        caller.location.msg_contents(txt, exclude=caller, options={'radius':radius,
-                                                                   'origin_id': caller.location.id,
-                                                                   'origin_x':caller.location.db.x_coord,
-                                                                   'origin_y':caller.location.db.y_coord})
+        txt = '{c%s{n shouts %s%s, "%s"' % (caller.name, loudstr, from_dir, args)
+##        caller.location.msg_contents(txt, exclude=caller, options={'radius':radius,
+##                                                                   'origin_id': caller.location.id,
+##                                                                   'origin_x':caller.location.db.x_coord,
+##                                                                   'origin_y':caller.location.db.y_coord})
+        caller.location.msg_contents(txt, exclude=caller, options={'shout':True,
+                                                                   'from_dir': from_dir})
 
 
 class CmdFollow(MuxCommand):
