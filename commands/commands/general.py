@@ -1253,9 +1253,17 @@ class CmdKeyring(MuxCommand):
     def func(self):
         caller = self.caller
         roomkeys = caller.db.keylist or []
+        # remove any deleted objects
+        if None in roomkeys:
+            roomkeys = [ob for ob in roomkeys if ob != None]
+            caller.db.keylist = roomkeys
         chestkeys = caller.db.chestkeylist or []
+        # remove any deleted objects
+        if None in chestkeys:
+            chestkeys = [ob for ob in chestkeys if ob != None]
+            caller.db.chestkeylist = chestkeys
         keylist = list(roomkeys) + list(chestkeys)
-        caller.msg("Keys: %s" % ", ".join(ob.key for ob in keylist))
+        caller.msg("Keys: %s" % ", ".join(ob.key for ob in keylist if ob))
         return
 
 class CmdUndress(MuxCommand):
