@@ -91,7 +91,7 @@ class ArxChannelCommand(command.Command):
             return
         if msg == "who" or msg == "?" or msg == "all" or msg == "list":
             if player: caller = player
-            caller.execute_cmd("@cwho %s" % channelkey)
+            self.msg("{w%s:{n\n %s" % (channel, channel.wholist))
             return
         if msg == 'last' or msg.startswith("last "):
             msglist = msg.split()
