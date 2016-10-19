@@ -870,7 +870,8 @@ class CmdCalendar(MuxPlayerCommand):
     def display_events(self, events):
         table = PrettyTable(["{wID{n", "{wName{n", "{wDate{n", "{wHost{n", "{wPublic{n"])
         for event in events:
-            host = (event.hosts.all() and event.hosts.all()[0]) or "No host"
+            host = event.main_host or "No host"
+            host = str(host).capitalize()
             public = "Public" if event.public_event else "Not Public"
             table.add_row([event.id, event.name[:25], event.date.strftime("%x %X"), host, public])
         return table
@@ -1096,6 +1097,8 @@ class CmdCalendar(MuxPlayerCommand):
             for host in hosts:
                 event.hosts.add(host)
             post = self.display_project(proj)
+            # mark as main host with a tag
+            event.tag_obj(caller)
             caller.ndb.event_creation = None
             caller.msg("New event created: %s at %s." % (event.name, date.strftime("%x %X")))
             inform_staff("New event created by %s: %s, scheduled for %s." % (caller, event.name, date.strftime("%x %X")))

@@ -2937,6 +2937,25 @@ class RPEvent(models.Model):
                                   db_tags__db_data=tagdata)
 
     @property
+    def main_host(self):
+        from typeclasses.players import Player
+        tagkey = self.name.lower()
+        tagdata = str(self.id)
+        try:
+            return Player.objects.get(db_tags__db_key=tagkey,
+                                      db_tags__db_data=tagdata)
+        except (Player.DoesNotExist, Player.MultipleObjectsReturned):
+            try:
+                return self.hosts.first()
+            except Exception:
+                return None
+
+    def tag_obj(self, obj):
+        tagkey = self.name.lower()
+        tagdata = str(self.id)
+        obj.tags.add(tag=tagkey, data=tagdata)
+
+    @property
     def public_comments(self):
         return self.comments.filter(db_header__icontains="white_journal")
 
