@@ -610,6 +610,8 @@ class CombatManager(BaseScript):
             return
         if protected.location != self.ndb.combat_location or guard.location != self.ndb.combat_location:
             return
+        if guard.db.passive_guard:
+            return
         if guard not in self.ndb.combatants:
             self.add_combatant(guard)
             guard.msg("{rYou enter combat to protect %s.{n" % protected.name)
@@ -1095,7 +1097,9 @@ class CombatManager(BaseScript):
             self.ndb.votes_to_end.append(character)
         not_voted = [ob for ob in self.ndb.combatants if ob and ob not in self.ndb.votes_to_end]
         # only let conscious people vote
-        not_voted = [ob for ob in not_voted if self.get_fighter_data(ob.id) and self.get_fighter_data(ob.id).status == "active"]
+        not_voted = [ob for ob in not_voted if self.get_fighter_data(ob.id)
+                     and self.get_fighter_data(ob.id).status == "active"
+                     and not self.get_fighter_data(ob.id).wants_to_end]
         if not not_voted:
             self.msg("All parties have voted to end combat.")
             self.end_combat()

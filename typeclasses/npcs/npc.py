@@ -25,7 +25,7 @@ from typeclasses.mixins import NameMixins
 from .npc_types import (get_npc_stats, get_npc_desc, get_npc_skills,
                         get_npc_singular_name, get_npc_plural_name, get_npc_weapon,
                         get_armor_bonus, get_hp_bonus, primary_stats, guard_skills,
-                        assistant_skills, spy_skills)
+                        assistant_skills, spy_skills, get_npc_stat_cap, check_passive_guard)
 from world.stats_and_skills import (do_dice_check, get_stat_cost, get_skill_cost,
                                     PHYSICAL_STATS, MENTAL_STATS, SOCIAL_STATS)
 import time
@@ -61,6 +61,16 @@ class Npc(NameMixins, Character):
         if gfite:
             gfite.wants_to_end = True
             gfite.reset()
+
+    def _get_passive(self):
+        return self.db.passive_guard or False
+    def _set_passive(self, val):
+        if val:
+            self.db.passive_guard = True
+            self.stop()
+        else:
+            self.db.passive_guard = False
+    passive = property(_get_passive, _set_passive)
 
     #------------------------------------------------
     # Inherited Character methods
@@ -327,7 +337,9 @@ class AgentMixin(object):
         quality = agent_class.quality or 0
         # set up our stats based on our type
         desc = agent_class.desc
-        self.setup_npc(ntype=agent_class.type, threat=quality, num=agent.quantity, desc=desc)
+        atype = agent_class.type
+        self.setup_npc(ntype=atype, threat=quality, num=agent.quantity, desc=desc)
+        self.db.passive_guard = check_passive_guard(atype)
         
     def setup_locks(self):
         # base lock - the 'command' lock string
@@ -505,8 +517,13 @@ class AgentMixin(object):
         atype = self.agent.type
         pstats = primary_stats.get(atype, [])
         if attr in pstats:
-            return self.agent.quality
-        return self.agent.quality - 1
+            cap = self.agent.quality
+        else:
+            cap = self.agent.quality - 1
+        typecap = get_npc_stat_cap(atype, attr)
+        if cap > typecap:
+            cap = typecap
+        return cap
     
     def get_skill_maximum(self, attr):
         """

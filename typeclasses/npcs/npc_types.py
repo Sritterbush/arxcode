@@ -8,6 +8,7 @@ SPY = 2
 ASSISTANT = 3
 CHAMPION = 4
 ANIMAL = 5
+SMALL_ANIMAL = 6
 
 npc_templates = {
     "guard": GUARD,
@@ -16,6 +17,7 @@ npc_templates = {
     "champion": CHAMPION,
     "assistant": ASSISTANT,
     "animal": ANIMAL,
+    "small animal": SMALL_ANIMAL
     }
 
 guard_stats = {
@@ -42,6 +44,8 @@ animal_stats = {
     'intellect':1, 'perception':3, 'wits':2,
     'mana':1, 'luck':1, 'willpower':1,  
     }
+small_animal_stats = animal_stats.copy()
+small_animal_stats.update({'strength':1, 'stamina':1})
 unknown_stats = {
     'strength': 2, 'stamina': 2, 'dexterity':2,
     'charm':1, 'command':1, 'composure':1,
@@ -56,6 +60,7 @@ npc_stats = {
     ASSISTANT: assistant_stats,
     CHAMPION: guard_stats,
     ANIMAL: animal_stats,
+    SMALL_ANIMAL: small_animal_stats,
     }
 primary_stats = {
     GUARD: PHYSICAL_STATS,
@@ -64,6 +69,7 @@ primary_stats = {
     ASSISTANT: MENTAL_STATS,
     CHAMPION: PHYSICAL_STATS,
     ANIMAL: PHYSICAL_STATS,
+    SMALL_ANIMAL: PHYSICAL_STATS,
     }
 
 guard_skills = dict([(key, 0) for key in _combat_skills_])
@@ -74,6 +80,8 @@ assistant_skills = dict([(key, 0) for key in _general_skills_])
 assistant_skills.update({"etiquette":0, "diplomacy":0})
 animal_skills = {"athletics":1, "brawl":1, "dodge":1, "stealth":0,
                  "survival":2, "legerdemain":0, "performance":0}
+small_animal_skills = animal_skills.copy()
+small_animal_skills.update({"stealth":1, "brawl":0})
 
 npc_skills = {
     GUARD: guard_skills,
@@ -82,6 +90,7 @@ npc_skills = {
     ASSISTANT: assistant_skills,
     CHAMPION: guard_skills,
     ANIMAL: animal_skills,
+    SMALL_ANIMAL: small_animal_skills,
     }
 
 guard_weapon = {
@@ -114,13 +123,17 @@ animal_weapon = {
     'minimum_range': 0,
     }
 
+small_animal_weapon = animal_weapon.copy()
+small_animal_weapon.update({'weapon_damage':1})
+
 npc_weapons = {
     GUARD: guard_weapon,
     THUG: guard_weapon,
     SPY: guard_weapon,
     ASSISTANT: guard_weapon,
     CHAMPION: guard_weapon,
-    ANIMAL: animal_weapon
+    ANIMAL: animal_weapon,
+    SMALL_ANIMAL: small_animal_weapon,
     }
 
 # all armor values are (base, scaling)
@@ -142,7 +155,8 @@ npc_descs = {
     SPY: "A group of spies.",
     ASSISTANT: "A loyal assistant.",
     CHAMPION: "A loyal champion.",
-    ANIMAL: "A faithful animal companion."
+    ANIMAL: "A faithful animal companion.",
+    SMALL_ANIMAL: "A small faithful animal companion."
     }
 
 npc_plural_names = {
@@ -158,6 +172,7 @@ npc_singular_names = {
     CHAMPION: "champion",
     ASSISTANT: "assistant",
     ANIMAL: "animal",
+    SMALL_ANIMAL: "small animal",
     }
 
 def get_npc_stats(type):
@@ -228,5 +243,16 @@ def generate_default_name_and_desc(type, quality, org):
         name += " elite %s" % tname
         desc = "Highly skilled %s. Most probably would have name-recognition for their skill." % tname
     return (name, desc)
+
+def get_npc_stat_cap(atype, stat):
+    if atype == SMALL_ANIMAL and stat in PHYSICAL_STATS:
+        return 2
+    return 5
+
+def check_passive_guard(atype):
+    passives = (SMALL_ANIMAL, ASSISTANT)
+    if atype in passives:
+        return True
+    return FALSE
 
     

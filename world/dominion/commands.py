@@ -1842,9 +1842,11 @@ class CmdRetainers(MuxPlayerCommand):
     command to set their name and description. They can be summoned
     in-game through the use of the +guards command while in your home.
 
-    Retainers may be four types: champion, assistant, spy, or animal.
-    Champions are guards and protectors. Animals are assumed to be any
-    large animal that can serve as a guardian or a mount. Assistants
+    Retainers may be five types: champion, assistant, spy, animal, or
+    small animal. Small animals are essentially pets that may be trained
+    to perform tasks such as carrying messages, but no combat ability.
+    Champions are guards and protectors. Non-small animals are assumed to
+    be any large animal that can serve as a guardian or a mount. Assistants
     provide personal assistance in everyday tasks and adventures outside
     of combat. Spies may assist in criminal or sneaky activities.
 
@@ -1853,8 +1855,9 @@ class CmdRetainers(MuxPlayerCommand):
     making it far easier (but much more expensive) to have skilled
     retainers. Changing the name, desc, or cosmetic traits of a retainer
     is free. The cost of a new retainer is 100 resources, with champions
-    and animals requiring military, assistants requiring economic, and
-    spies requiring social.
+    and large animals requiring military, assistants using economic, and
+    spies requiring social. Small animals, due to their limited use, only
+    cost 25 social resources.
     """
     key = "@retainers"
     aliases = ["@retainer"]
@@ -1862,7 +1865,7 @@ class CmdRetainers(MuxPlayerCommand):
     help_category = "Dominion"
     # cost of a new retainer in resources
     new_retainer_cost = 100
-    retainer_types = ("champion", "assistant", "spy", "animal")
+    retainer_types = ("champion", "assistant", "spy", "animal", "small animal")
     valid_traits = ("species", "gender", "age", "haircolor", "eyecolor",
                     "skintone", "height")
 
@@ -1898,10 +1901,14 @@ class CmdRetainers(MuxPlayerCommand):
         if atype not in self.retainer_types:
             caller.msg("The type of retainer must be one of the following: %s" % ", ".join(self.retainer_types))
             return
+        cost = self.new_retainer_cost
         if atype == "champion" or atype == "animal":
             rtype = "military"
-        if atype == "assistant" or atype == "spy":
+        if atype == "spy":
             rtype = "social"
+        if atype == "small animal" or "assistant":
+            rtype = "economic"
+            cost /= 4
         if not caller.pay_resources(rtype, self.new_retainer_cost):
             caller.msg("You do not have enough %s resources." % rtype)
             return
@@ -1913,6 +1920,7 @@ class CmdRetainers(MuxPlayerCommand):
         caller.msg("You have created a new %s named %s." % (atype, aname))
         agent.assign(caller.db.char_ob, 1)
         caller.msg("Assigning %s to you." % aname)
+        self.msg("You now have a new agent. You can return to your home to summon them with the +guard command.")
         return
 
     def train_retainer(self):
@@ -2030,8 +2038,9 @@ class CmdRetainers(MuxPlayerCommand):
         xpcost = 0
         rescost = 0
         restype = "military"
+        newrating = current + 1
         if category == "level":
-            base = (current + 1) * 100 + 25
+            base = ((newrating) * (newrating) * 5) + 25
             # increase the cost if not raising our primary type
             if atype not in attrname:
                 base *= 2
@@ -2046,8 +2055,8 @@ class CmdRetainers(MuxPlayerCommand):
         if category == "stat":
             xpcost, rescost, restype = agent.get_stat_cost(attrname)
         if category == "armor":
-            xpcost = current + 1
-            rescost = current + 1
+            xpcost = newrating
+            rescost = newrating
         return xpcost, rescost, restype
 
     #----- Upgrade methods that use the purchase checks -------------------
@@ -2439,6 +2448,16 @@ class CmdGuards(MuxCommand):
         +guards/kill <guard>=<victim>
         +guards/stop <guard>
         +guards/follow <guard>=<person to follow>
+        +guards/passive <guard>
+
+    Controls summoned guards or retainers. Guards that belong to a
+    player may be summoned from their home, while guards belonging
+    to an organization may be summoned from their barracks. Dismissing
+    them will cause the guards to temporarily leave, and they may be
+    resummoned from close to that location. Guards will automatically
+    attempt to protect their owner unless they are marked as passive,
+    which may be toggled with the /passive switch. Some types of agents,
+    such as small animals or assistants, are passive by default.
     """
     key = "+guards"
     locks = "cmd:all()"
@@ -2504,6 +2523,15 @@ class CmdGuards(MuxCommand):
         if 'stop' in self.switches:
             guard.stop()
             caller.msg("You order your guards to stop what they're doing.")
+            return
+        if 'passive' in self.switches:
+            current = guard.passive
+            if current:
+                guard.passive = False
+                self.msg("%s will now actively protect you." % guard.name)
+                return
+            guard.passive = True
+            self.msg("%s will no longer actively protect you." % guard.name)
             return
         targ = caller.search(self.rhs)
         if not targ:
