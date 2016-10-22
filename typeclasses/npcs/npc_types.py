@@ -253,6 +253,6 @@ def check_passive_guard(atype):
     passives = (SMALL_ANIMAL, ASSISTANT)
     if atype in passives:
         return True
-    return FALSE
+    return False
 
     
