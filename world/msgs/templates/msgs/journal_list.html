@@ -78,7 +78,7 @@
 		{% if user.is_authenticated and user.db.char_ob %}
 		<div id="readjournals" class="tab-pane fade{% if read_is_active %} in active{% endif %}">
 		{% for obj in read_journals %}
-			<h2> Written By {{obj.senders.0}}</h2>
+			<h2> Written By {{obj.senders.0}}{% if "black_journal" in obj.db_header %} in Black Journal{% endif %}</h2>
 			<p class="newsDate">{{obj.db_date_created}}</p>
 			{% if obj.db_receivers_objects.all.0 %}
 				<h2> Relationship Note on {{ obj.db_receivers_objects.all.0 }}</h2>
