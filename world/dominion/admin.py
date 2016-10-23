@@ -157,9 +157,14 @@ class AgentObAdmin(DomAdmin):
             return None
         return obj.dbobj.db.guarding
 
+class TaskRequirementsInline(admin.TabularInline):
+    model = TaskRequirement
+    extra = 0
+
 class TaskAdmin(DomAdmin):
     list_display = ('id', 'name', 'orgs', 'category', 'active', 'difficulty')
     search_fields = ('name', 'org__name')
+    inlines = [TaskRequirementsInline]
     def orgs(self, obj):
         return ", ".join([p.name for p in obj.org.all()])
     filter_horizontal = ['org']
@@ -190,9 +195,7 @@ class RenownInline(admin.TabularInline):
     model = Renown
     extra = 0
 
-class TaskRequirementsInline(admin.TabularInline):
-    model = TaskRequirement
-    extra = 0
+
 
 class InfluenceCategoryAdmin(DomAdmin):
     list_display = ('name', 'Orgs', 'Tasks')
