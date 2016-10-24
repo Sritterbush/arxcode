@@ -1904,12 +1904,12 @@ class CmdRetainers(MuxPlayerCommand):
         cost = self.new_retainer_cost
         if atype == "champion" or atype == "animal":
             rtype = "military"
-        if atype == "spy":
+        if atype == "spy" or atype == "small animal":
             rtype = "social"
-        if atype == "small animal" or "assistant":
+        if atype == "assistant":
             rtype = "economic"
             cost /= 4
-        if not caller.pay_resources(rtype, self.new_retainer_cost):
+        if not caller.pay_resources(rtype, cost):
             caller.msg("You do not have enough %s resources." % rtype)
             return
         # all checks passed, and we've paid the cost. Create a new agent
