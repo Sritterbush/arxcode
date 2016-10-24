@@ -1836,6 +1836,7 @@ class CmdRetainers(MuxPlayerCommand):
         @retainers/name <id #>=<new name>
         @retainers/customize <id #>=<trait name>,<value>
         @retainers/viewstats <id #>
+        @retainers/cost <id #>=<attribute>,<category>
 
     Allows you to create and train unique agents that serve you,
     called retainers. They are still agents, and use the @agents

@@ -146,11 +146,12 @@ class CmdUseXP(MuxCommand):
             caller.msg("Cost for %s: %s" % (self.args, cost))
             return
         if "spend" in self.switches:
-            if stype == "dom" and cost > getattr(dompc.assets, resource):
-                msg = "Unable to buy influence in %s. The cost is %s, " % (args, cost)
-                msg += "and you have %s %s resources available." % (getattr(dompc.assets, resource), resource)
-                caller.msg(msg)
-                return
+            if stype == "dom":
+                if cost > getattr(dompc.assets, resource):
+                    msg = "Unable to buy influence in %s. The cost is %s, " % (args, cost)
+                    msg += "and you have %s %s resources available." % (getattr(dompc.assets, resource), resource)
+                    caller.msg(msg)
+                    return
             elif cost > caller.db.xp:
                 caller.msg("Unable to raise %s. The cost is %s, and you have %s xp." % (args, cost, caller.db.xp))
                 return
