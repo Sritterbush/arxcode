@@ -549,7 +549,11 @@ class Investigation(models.Model):
         from world.stats_and_skills import do_dice_check
         char = self.char
         diff = (diff if diff != None else self.difficulty) + mod
-        roll = do_dice_check(char, stat_list=[self.stat_used, "perception"], skill_list=[self.skill_used, "investigation"],
+        stat = self.stat_used or "perception"
+        stat = stat.lower()
+        skill = self.skill_used or "investigation"
+        skill = skill.lower()
+        roll = do_dice_check(char, stat_list=[stat, "perception"], skill_list=[skill, "investigation"],
                              difficulty=diff, average_lists=True)
         # save the character's roll
         self.roll = roll
