@@ -1907,9 +1907,11 @@ class CmdRetainers(MuxPlayerCommand):
             rtype = "military"
         if atype == "spy" or atype == "small animal":
             rtype = "social"
+            if atype == "small animal":
+                cost /= 4
         if atype == "assistant":
             rtype = "economic"
-            cost /= 4
+            
         if not caller.pay_resources(rtype, cost):
             caller.msg("You do not have enough %s resources." % rtype)
             return
