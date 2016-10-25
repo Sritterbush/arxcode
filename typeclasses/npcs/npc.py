@@ -412,7 +412,7 @@ class AgentMixin(object):
     quality = property(_get_quality)
     
     def stop_follow(self, unassigning=False):
-        super(Agent, self).stop_follow()
+        super(AgentMixin, self).stop_follow()
         # if we're not being unassigned, we dock them. otherwise, they're gone
         self.dismiss(dock=not unassigning)
     

@@ -129,10 +129,16 @@ class CmdInvestigate(MuxCommand):
                 self.disp_investigation_form()
                 return
             if "stat" in self.switches:
+                if not caller.attributes.get(self.args.lower()):
+                    self.msg("No stat by the name of %s." % self.args)
+                    return
                 investigation[2] = self.args
                 self.disp_investigation_form()
                 return
             if "skill" in self.switches:
+                if self.args.lower() not in caller.db.skills:
+                    self.msg("You have no skill by the name of %s." % self.args)
+                    return
                 investigation[3] = self.args
                 self.disp_investigation_form()
                 return
