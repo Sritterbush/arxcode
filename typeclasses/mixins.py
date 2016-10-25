@@ -294,6 +294,7 @@ class MsgMixins(object):
 
 class LockMixins(object):
     def lock(self, caller=None):
+        self.locks.add("traverse: perm(builders)")
         if self.db.locked:
             if caller:
                 caller.msg("%s is already locked." % self)
@@ -301,8 +302,7 @@ class LockMixins(object):
         if caller and not self.access(caller, 'usekey'):
             caller.msg("You do not have a key to %s." % self)
             return
-        self.db.locked = True
-        self.locks.add("traverse: perm(builders)")
+        self.db.locked = True      
         msg = "%s is now locked." % self.key
         if caller: caller.msg(msg)
         self.location.msg_contents(msg, exclude=caller)
@@ -313,6 +313,7 @@ class LockMixins(object):
                 self.destination.db.locked = True
 
     def unlock(self, caller=None):
+        self.locks.add("traverse: all()")
         if not self.db.locked:
             if caller:
                 caller.msg("%s is already unlocked." % self)
@@ -320,8 +321,7 @@ class LockMixins(object):
         if caller and not self.access(caller, 'usekey'):
             caller.msg("You do not have a key to %s." % self)
             return
-        self.db.locked = False
-        self.locks.add("traverse: all()")
+        self.db.locked = False  
         msg = "%s is now unlocked." % self.key
         if caller: caller.msg(msg)
         self.location.msg_contents(msg, exclude=caller)
