@@ -60,7 +60,10 @@ class CmdHome(MuxCommand):
             caller.move_to(home)
             caller.msg("There's no place like home ...")
             for guard in guards:
-                guard.summon()
+                if guard.location:
+                    guard.summon()
+                else:
+                    guard.db.docked = home
 
 class CmdGemit(MuxPlayerCommand):
     """

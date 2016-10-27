@@ -1650,10 +1650,7 @@ class CmdAgents(MuxPlayerCommand):
         return cost
 
     def get_guard_cap(self, gtype, char):
-        if gtype == 0:
-            srank = char.db.social_rank or 10
-            return 17 - (2*srank)
-        return 6
+        return char.max_guards
 
     def get_allowed_types_from_org(self, org):
         if ("noble" in org.category or "social" in org.category or
@@ -1879,7 +1876,7 @@ class CmdRetainers(MuxPlayerCommand):
         Displays retainers the player owns
         """
         agents = self.caller.retainers
-        self.caller.msg("{WYour retainers:{n\n%s" % ", ".join(agent.display() for agent in agents), options={'box':True})
+        self.msg("{WYour retainers:{n\n%s" % "".join(agent.display() for agent in agents), options={'box':True})
         return
 
     def view_stats(self, agent):
@@ -2382,13 +2379,6 @@ class CmdPatronage(MuxPlayerCommand):
                 if psrank >= tsrank:
                     caller.msg("They must be a worse social rank than you to be your protege.")
                     return
-##                # check if they're in any of the same organizations publicly
-##                porgs = [member.organization for member in dompc.memberships.filter(secret=False)]
-##                torgs = [member.organization for member in tdompc.memberships.filter(secret=False)]
-##                for org in porgs:
-##                    if org in torgs:
-##                        caller.msg("You cannot be the patron for someone in the same organization as you.")
-##                        return
                 player.ndb.pending_patron = caller
                 player.msg("{c%s {wwants to become your patron. Use @patronage/accept to accept" % caller.key.capitalize())
                 player.msg("{wthis offer, or @patronage/reject to reject it.{n")
@@ -2473,8 +2463,7 @@ class CmdGuards(MuxCommand):
             caller.msg("You have no guards assigned to you.")
             return
         if not self.args and not self.switches:
-            for guard in guards:
-                caller.msg(guard.display())
+            self.msg("{WYour guards:{n\n%s" % "".join(guard.agent.display() for guard in guards), options={'box':True})
             return
         if self.args:
             guard = ObjectDB.objects.object_search(self.lhs, candidates=guards)
@@ -2496,6 +2485,12 @@ class CmdGuards(MuxCommand):
         if 'summon' in self.switches:
             if guard.location == caller.location:
                 caller.msg("They are already here.")
+                return
+            # check maximum guards and how many we have
+            current = caller.num_armed_guards + guard.num_armed_guards
+            max = caller.max_guards
+            if current >= max:
+                self.msg("You are only permitted to have %s guards, and summoning them would give you %s." (max, current))
                 return
             if caller.location.db.docked_guards and guard in caller.location.db.docked_guards:
                 guard.summon()

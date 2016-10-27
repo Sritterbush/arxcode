@@ -20,6 +20,8 @@ npc_templates = {
     "small animal": SMALL_ANIMAL
     }
 
+COMBAT_TYPES = (GUARD, THUG, CHAMPION, ANIMAL)
+
 guard_stats = {
     'strength': 3, 'stamina': 3, 'dexterity':3,
     'charm':1, 'command':1, 'composure':1,

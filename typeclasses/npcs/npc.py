@@ -25,7 +25,8 @@ from typeclasses.mixins import NameMixins
 from .npc_types import (get_npc_stats, get_npc_desc, get_npc_skills,
                         get_npc_singular_name, get_npc_plural_name, get_npc_weapon,
                         get_armor_bonus, get_hp_bonus, primary_stats, guard_skills,
-                        assistant_skills, spy_skills, get_npc_stat_cap, check_passive_guard)
+                        assistant_skills, spy_skills, get_npc_stat_cap, check_passive_guard,
+                        COMBAT_TYPES)
 from world.stats_and_skills import (do_dice_check, get_stat_cost, get_skill_cost,
                                     PHYSICAL_STATS, MENTAL_STATS, SOCIAL_STATS)
 import time
@@ -234,7 +235,11 @@ class Npc(NameMixins, Character):
 
     @property
     def quantity(self):
-        return 1
+        return 1 if self.conscious else 0
+
+    @property
+    def weaponized(self):
+        return True
 
     def setup_stats(self, ntype, threat):
         self.db.npc_quality = threat
@@ -246,7 +251,13 @@ class Npc(NameMixins, Character):
         self.db.skills = skills
         self.db.fakeweapon = get_npc_weapon(ntype, threat)
         self.db.armor_class = get_armor_bonus(self._get_npc_type(), self._get_quality())
-        self.db.bonus_max_hp = get_hp_bonus(self._get_npc_type(), self._get_quality())  
+        self.db.bonus_max_hp = get_hp_bonus(self._get_npc_type(), self._get_quality())
+
+    @property
+    def num_armed_guards(self):
+        if self.weaponized:
+            return self.quantity
+        return 0
 
 class MultiNpc(Npc):
     def multideath(self, num, death=False):
@@ -325,7 +336,11 @@ class MultiNpc(Npc):
 
     @property
     def quantity(self):
-        return self.db.num_living
+        return self.db.num_living or 0
+
+    @property
+    def conscious(self):
+        return self.quantity > 0
 
 class AgentMixin(object):
     def setup_agent(self):
@@ -558,6 +573,18 @@ class AgentMixin(object):
     def inform_owner(self, text):
         "Passes along an inform to our owner."
         self.owner.inform_owner(text, category="Agents")
+
+    @property
+    def weaponized(self):
+        if self.npc_type in COMBAT_TYPES:
+            return True
+        if self.weapons_hidden:
+            return False
+        try:
+            if self.weapondata.get('weapon_damage', 1) > 1:
+                return True
+        except (AttributeError, KeyError):
+            return False
 
 class Retainer(AgentMixin, Npc):
     @property

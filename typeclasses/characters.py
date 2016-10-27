@@ -208,6 +208,10 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         except Exception as err:
             print "<<ERROR>>: Error when importing death cmdset: %s" % err
 
+    @property
+    def conscious(self):
+        return self.db.sleep_status == "awake" and self.db.health_status != "dead"
+
     def wake_up(self, quiet=False):
         """
         Wakes up.
@@ -441,6 +445,14 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
 
     weapondata = property(_get_weapondata)
 
+    @property
+    def weapons_hidden(self):
+        "Returns True if we have a hidden weapon, false otherwise"
+        try:
+            return self.weapondata['hidden_weapon']
+        except (AttributeError, KeyError):
+            return False
+
     def msg_watchlist(self, msg):
         """
         Sends a message to all players who are watching this character if
@@ -500,6 +512,24 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
     @property
     def num_guards(self):
         return sum(ob.quantity for ob in self.guards)
+
+    @property
+    def present_guards(self):
+        return [ob for ob in self.guards if ob.location == self.location]
+
+    @property
+    def num_armed_guards(self):
+        try:
+            return sum([ob.num_armed_guards for ob in self.present_guards])
+        except TypeError:
+            return 0
+
+    @property
+    def max_guards(self):
+        try:
+            return 15 - (self.db.social_rank or 10)
+        except TypeError:
+            return 5
 
     def get_directions(self, room):
         """
