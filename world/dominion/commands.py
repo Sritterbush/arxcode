@@ -2841,8 +2841,10 @@ class CmdTask(MuxCommand):
                 caller.msg("Task must be a number.")
                 return
             if "update" in self.switches or "supportme" in self.switches:
+                asked_supporters = caller.db.asked_supporters or {}
+                asklist = asked_supporters.get(assignment.id, [])
                 if not self.rhslist:
-                    caller.msg("Must give at least one character to ask to support you.")
+                    self.msg("Players you've asked for this task already: %s" % ", ".join(str(ob) for ob in asklist))
                     return
                 playerlist = [caller.player.search(val) for val in self.rhslist]
                 playerlist = [ob for ob in playerlist if ob]
@@ -2864,6 +2866,7 @@ class CmdTask(MuxCommand):
                 warnmsg = "As a reminder, it is considered in bad form and is against the rules to "
                 warnmsg += "ask someone OOCly for support, such as trying to convince them to help in pages. No OOC pressure, please."
                 for pc in playerlist:
+                    reminder = False
                     char = pc.db.char_ob
                     if not char:
                         continue
@@ -2891,6 +2894,7 @@ class CmdTask(MuxCommand):
                             caller.msg("Replacing their previous request.")
                         else:
                             caller.msg("Sending them a reminder.")
+                            reminder = True
                     
                     highest = char.db.player_ob.Dominion.memberships.filter(Q(secret=False) &
                                                                             Q(deguilded=False)).order_by('rank')
@@ -2902,43 +2906,52 @@ class CmdTask(MuxCommand):
                                           & Q(deguilded=False)):
                         caller.msg("You cannot gain support from a member whose highest rank is in the same organization as the task.")
                         continue
+                    if char not in asklist:
+                        asklist.append(char)
                     matches = self.match_char_spheres_for_task(assignment, char)
                     requests[caller.id] = assignment.id
                     char.db.requested_support = requests
                     mailmsg = "%s has asked you to support them in their task:" % caller.name
                     mailmsg += "\n" + assignment.current_alt_echo
-                    mailmsg += "\nWhat this means is that they're asking for your character to use "
-                    mailmsg += "influence that they have with different npc groups in order to help "
-                    mailmsg += "them achieve the goals they indicate. This is represented by using "
-                    mailmsg += "the '+support' command, filling out a form that indicates which npcs "
-                    mailmsg += "you influenced on their behalf, how you did it, and what happened."
-                    mailmsg += "\n\nYou can ask npcs to support them from any of the following "
-                    mailmsg += "areas you have influence in: %s" % ", ".join(str(ob) for ob in matches)              
-                    mailmsg += "\n\nThe support command has the usage of {wsupport %s{n, then " % caller
-                    mailmsg += "adding fields that indicate how the npcs you influenced are helping them "
-                    mailmsg += "out. '{w+support/notes{n' Lets you state OOCly to GMs what occurs, while "
-                    mailmsg += "'{wsupport/rumors{n' lets you write a short blurb that is displayed as a "
-                    mailmsg += "rumor that other characters might hear around the city, noting what's "
-                    mailmsg += "going on. To show how much support you're throwing their way, you use "
-                    mailmsg += "{wsupport/value <organization>,<category>=<amount>{n. For example, if "
-                    mailmsg += "you wanted to have sailors loyal to House Thrax pitch in to help, you "
-                    mailmsg += "would do {wsupport/value thrax,sailors=2{n to use 2 points from your "
-                    mailmsg += "support pool, representing the work your character is doing behind the "
-                    mailmsg += "scenes, talking to npcs on %s's behalf.\n" % caller
-                    mailmsg += "Pledging a value of 0 will give them 1 free point, while additional points "
-                    mailmsg += "are subtracted from your available pool. You can "
-                    mailmsg += "also choose to fake your support with the /fake switch. Your current pool "
-                    remaining = char.db.player_ob.Dominion.remaining_points
-                    mailmsg += "at the time of this message is %s points remaining." % remaining
-                    mailmsg += "\nIf you decide to give them support, you finalize your choices with "
-                    mailmsg += "'{wsupport/finish{n' once you have finished the form."
-                    mailmsg += "\n\n" + warnmsg
+                    if reminder:
+                        mailmsg += "\nYou already have a pending request for that task, and they are "
+                        mailmsg += "sending a reminder."
+                    else:
+                        mailmsg += "\nWhat this means is that they're asking for your character to use "
+                        mailmsg += "influence that they have with different npc groups in order to help "
+                        mailmsg += "them achieve the goals they indicate. This is represented by using "
+                        mailmsg += "the '+support' command, filling out a form that indicates which npcs "
+                        mailmsg += "you influenced on their behalf, how you did it, and what happened."
+                        mailmsg += "\n\nYou can ask npcs to support them from any of the following "
+                        mailmsg += "areas you have influence in: %s" % ", ".join(str(ob) for ob in matches)              
+                        mailmsg += "\n\nThe support command has the usage of {wsupport %s{n, then " % caller
+                        mailmsg += "adding fields that indicate how the npcs you influenced are helping them "
+                        mailmsg += "out. '{w+support/notes{n' Lets you state OOCly to GMs what occurs, while "
+                        mailmsg += "'{wsupport/rumors{n' lets you write a short blurb that is displayed as a "
+                        mailmsg += "rumor that other characters might hear around the city, noting what's "
+                        mailmsg += "going on. To show how much support you're throwing their way, you use "
+                        mailmsg += "{wsupport/value <organization>,<category>=<amount>{n. For example, if "
+                        mailmsg += "you wanted to have sailors loyal to House Thrax pitch in to help, you "
+                        mailmsg += "would do {wsupport/value thrax,sailors=2{n to use 2 points from your "
+                        mailmsg += "support pool, representing the work your character is doing behind the "
+                        mailmsg += "scenes, talking to npcs on %s's behalf.\n" % caller
+                        mailmsg += "Pledging a value of 0 will give them 1 free point, while additional points "
+                        mailmsg += "are subtracted from your available pool. You can "
+                        mailmsg += "also choose to fake your support with the /fake switch. Your current pool "
+                        remaining = char.db.player_ob.Dominion.remaining_points
+                        mailmsg += "at the time of this message is %s points remaining." % remaining
+                        mailmsg += "\nIf you decide to give them support, you finalize your choices with "
+                        mailmsg += "'{wsupport/finish{n' once you have finished the form."
+                        mailmsg += "\n\n" + warnmsg
                     pc.inform(mailmsg, category="Support Request", append=False)
                     success.append(char)
                 if not success:
                     return
                 caller.msg("You ask for the support of %s." % ", ".join(char.name for char in success))
                 caller.msg(warnmsg)
+                #update asklist
+                asked_supporters[assignment.id] = asklist
+                caller.db.asked_supporters = asked_supporters
                 return      
             if "story" in self.switches:
                 if not self.rhs:

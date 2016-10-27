@@ -2493,7 +2493,23 @@ class AssignedTask(models.Model):
     @property
     def org(self):
         return self.member.organization
-    
+
+    @property
+    def dompc(self):
+        return self.member.player
+
+    @property
+    def player(self):
+        return self.dompc.player
+
+    def cleanup_request_list(self):
+        "Cleans the Attribute that lists who we requested support from"
+        char = self.player.db.char_ob
+        try:
+            del char.db.asked_supporters[self.id]
+        except Exception:
+            pass
+           
     def payout_check(self, week):
         total = self.total
         category_list = self.task.category.split(",")
@@ -2504,6 +2520,7 @@ class AssignedTask(models.Model):
         total_rep = 0
         # set week to the week we finished
         self.week = week
+        self.cleanup_request_list()
         msg = "You have completed the task: %s\n" % self.task.name
         for category in category_list:
             category = category.strip().lower()
@@ -2515,13 +2532,13 @@ class AssignedTask(models.Model):
             amt /= div
             # calculate resources for org. We compare multiplier for org to player mod, calc through that
             orgres = self.get_org_amount(category)/div
-            memassets = self.member.player.assets
+            memassets = self.dompc.assets
             orgassets = org.assets
             current = getattr(memassets, category)
             setattr(memassets, category, current + amt)
             current = getattr(orgassets, category)
             setattr(orgassets, category, current + orgres)
-            self.member.player.gain_reputation(org, amt, amt)
+            self.dompc.gain_reputation(org, amt, amt)
             self.save()
             memassets.save()
             orgassets.save()
@@ -2530,7 +2547,7 @@ class AssignedTask(models.Model):
         msg += "Reputation earned: %s\n" % total_rep
         for support in self.supporters.all():
             support.award_renown()
-        self.member.player.player.inform(msg, category="task", week=week,
+        self.player.inform(msg, category="task", week=week,
                                          append=True)
     @property
     def total(self):
