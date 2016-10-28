@@ -115,14 +115,14 @@ class CmdJob(MuxPlayerCommand):
             try:
                 ticknum = int(args)
             except ValueError:
-                caller.msg("Usage: Argument must be a ticket number.")
                 self.display_open_tickets()
+                caller.msg("Usage: Argument must be a ticket number.") 
                 return
             try:
                 ticket = Ticket.objects.get(id=ticknum)
             except Ticket.DoesNotExist:
-                caller.msg("No ticket found by that number.")
                 self.display_open_tickets()
+                caller.msg("No ticket found by that number.")   
                 return
             q = Queue.objects.get(id=ticket.queue_id)
             caller.msg("\n{wQueue:{n %s" % q)
