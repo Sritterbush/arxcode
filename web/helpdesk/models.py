@@ -331,6 +331,13 @@ class Ticket(models.Model):
         null=True,
         verbose_name=_('Player who opened this ticket'),
         )
+
+    submitting_room = models.ForeignKey(
+        'objects.ObjectDB',
+        blank=True,
+        null=True,
+        verbose_name=_('Room where this was submitted'),
+        )
     
     status = models.IntegerField(
         _('Status'),

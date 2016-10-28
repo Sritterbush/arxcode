@@ -15,6 +15,7 @@ from server.utils.utils import inform_staff
 from evennia.commands.default.muxcommand import MuxPlayerCommand
 from evennia.objects.models import ObjectDB
 import traceback
+from web.character.models import Roster, RosterEntry, PlayerAccount, AccountHistory
 
 def get_jobs_manager(caller):
     """
@@ -51,6 +52,8 @@ class CmdJob(MuxPlayerCommand):
         @job - List all open tickets
         @job <#> - info about particular ticket
         @job/close <#>=<notes> - close ticket #
+        @job/move <#>=<queue>
+        @job/delete <#>
         @job/old - List 20 most recent closed tickets
         @job/old <#> - info about closed ticket
         @job/moreold <#> - List # of recent closed tickets
@@ -62,9 +65,40 @@ class CmdJob(MuxPlayerCommand):
     of players when answering tickets.
     """
     key = "@job"
-    aliases = ["@jobs"]
+    aliases = ["@jobs", "@bug", "@code"]
     help_category = "Admin"
     locks = "cmd:perm(job) or perm(Builders)"
+
+    def display_open_tickets(self):
+        if self.cmdstring == "@code":
+                queues = Queue.objects.filter(slug="Code")
+        elif self.cmdstring == "@bug":
+            queues = Queue.objects.filter(slug="Bugs")
+        else:
+            queues = Queue.objects.all()
+        unassigned_tickets = list(Ticket.objects.select_related('queue').filter(
+                                assigned_to__isnull=True,
+                                queue__in=queues
+                                ).exclude(
+                                status=Ticket.CLOSED_STATUS,
+                                ))
+        joblist = unassigned_tickets
+        if not joblist:
+            self.msg("No open tickets.")
+            return
+        table = prettytable.PrettyTable(["{w#",
+                                         "{wPlayer",
+                                         "{wRequest",
+                                         "{wPriority",
+                                         "{wQueue"])
+        for ticket in joblist:
+            if ticket.priority == 1:
+                prio = "{r%s{n" % ticket.priority
+            else:
+                prio = "{w%s{n" % ticket.priority
+            q = Queue.objects.get(id=ticket.queue_id)
+            table.add_row([str(ticket.id), str(ticket.submitting_player.key), str(ticket.title)[:20], prio, q.slug])
+        self.msg("{wOpen Tickets:{n\n%s" % table)
 
     def func(self):
         "Implement the command"
@@ -72,32 +106,8 @@ class CmdJob(MuxPlayerCommand):
         args = self.args
         switches = self.switches
         if not args and not switches:
-            #list all open tickets
-            
-            
-
-            unassigned_tickets = list(Ticket.objects.select_related('queue').filter(
-                                    assigned_to__isnull=True,
-                                    ).exclude(
-                                    status=Ticket.CLOSED_STATUS,
-                                    ))
-            joblist = unassigned_tickets
-            if not joblist:
-                caller.msg("No open tickets.")
-                return
-            table = prettytable.PrettyTable(["{w#",
-                                             "{wPlayer",
-                                             "{wRequest",
-                                             "{wPriority",
-                                             "{wQueue"])
-            for ticket in joblist:
-                if ticket.priority == 1:
-                    prio = "{r%s{n" % ticket.priority
-                else:
-                    prio = "{w%s{n" % ticket.priority
-                q = Queue.objects.get(id=ticket.queue_id)
-                table.add_row([str(ticket.id), str(ticket.submitting_player.key), str(ticket.title)[:20], prio, q.slug])
-            caller.msg("{wOpen Tickets:{n\n%s" % table)
+            #list all open tickets 
+            self.display_open_tickets()
             return
         if args and (not switches or 'old' in switches):
             # list individual ticket specified by args
@@ -106,11 +116,13 @@ class CmdJob(MuxPlayerCommand):
                 ticknum = int(args)
             except ValueError:
                 caller.msg("Usage: Argument must be a ticket number.")
+                self.display_open_tickets()
                 return
             try:
                 ticket = Ticket.objects.get(id=ticknum)
             except Ticket.DoesNotExist:
                 caller.msg("No ticket found by that number.")
+                self.display_open_tickets()
                 return
             q = Queue.objects.get(id=ticket.queue_id)
             caller.msg("\n{wQueue:{n %s" % q)
@@ -120,13 +132,14 @@ class CmdJob(MuxPlayerCommand):
             caller.msg("{wDate submitted:{n %s" % ticket.created)
             caller.msg("{wLast modified:{n %s" % ticket.modified)
             caller.msg("{wTitle:{n %s" % ticket.title)
+            caller.msg("{wLocation:{n %s" % ticket.submitting_room)
             caller.msg("{wPriority:{n %s" % ticket.priority)
             caller.msg("{wRequest:{n %s" % ticket.description)
             if ticket.assigned_to:
                 caller.msg("{wGM:{n %s" % ticket.assigned_to.key)
                 caller.msg("{wGM Notes:{n %s" % ticket.resolution)
             for followup in ticket.followup_set.all():
-                caller.msg("{wFollowup by:{n %s" % followup.user_id)
+                caller.msg("{wFollowup by:{n %s" % followup.user)
                 caller.msg("{wComment:{n %s" % followup.comment)
             return
         if 'old' in switches and not args:
@@ -210,6 +223,33 @@ class CmdJob(MuxPlayerCommand):
                 return
             caller.msg("Error in followup.")
             return
+        if 'move' in switches:
+            if not self.lhs or not self.rhs:
+                self.msg("Usage: @job/move <#>=<msg>")
+                return
+            try:
+                queue = Queue.objects.get(slug__iexact=self.rhs)
+            except Queue.DoesNotExist:
+                self.msg("Queue must be one of the following: %s" % ", ".join(ob.slug for ob in Queue.objects.all()))
+                return
+            try:
+                ticket = Ticket.objects.get(id=self.lhs)
+            except Ticket.DoesNotExist:
+                self.msg("Invalid ticket number.")
+            ticket.queue = queue
+            ticket.save()
+            self.msg("Ticket %s is now in queue %s." % (ticket.id, queue))
+            return
+        if 'delete' in switches:
+            try:
+                ticket = Ticket.objects.get(id=self.lhs)
+            except Ticket.DoesNotExist:
+                self.msg("No ticket by that number.")
+                return
+            ticket.delete()
+            self.msg("Ticket #%s deleted." % self.lhs)
+            return
+                
         if 'approve' in switches:
             pass
         if 'deny' in switches:
@@ -226,6 +266,8 @@ class CmdRequest(MuxPlayerCommand):
        +request <title>=<message>
        +911 <title>=<message>
        bug <report>
+       typo <report>
+       feedback <report>
        +request/followup <#>=<message>
 
     Send a message to the GMs for help. This is usually because
@@ -236,10 +278,15 @@ class CmdRequest(MuxPlayerCommand):
 
     +911 is used for emergencies and has an elevated priority.
     Use of this for non-emergencies is prohibited.
+
+    'typo' may be used to report errors in descriptions or formatting.
+    'bug' is used for reporting game errors in code.
+    'feedback' is used for making suggestions on different game systems.
     """
 
     key = "+request"
-    aliases = ["@request","+requests","@requests", "+911", "+ineedanadult", "bug"]
+    aliases = ["@request","+requests","@requests", "+911", "+ineedanadult",
+               "bug", "typo", "feedback"]
     help_category = "Admin"
     locks = "cmd:perm(request) or perm(Players)"
 
@@ -288,6 +335,12 @@ class CmdRequest(MuxPlayerCommand):
             optional_title = "Bug Report"
             args = self.args
             queue = settings.BUG_QUEUE_ID
+        elif cmdstr == "typo":
+            optional_title = "Typo found"
+            queue = Queue.objects.get(slug="Typo").id
+        elif cmdstr == "feedback":
+            optional_title = "Feedback"
+            queue = Queue.objects.get(slug="Code").id
         else:
             queue = settings.REQUEST_QUEUE_ID
         if helpdesk_api.create_ticket(caller, args, priority, queue=queue, send_email=email, optional_title=optional_title):
@@ -385,8 +438,12 @@ class CmdApp(MuxPlayerCommand):
             if not app:
                 caller.msg("No application by that number for that character.")
                 return
+            email = app[2]
+            alts = RosterEntry.objects.filter(current_account__email=email)
             caller.msg("{wCharacter:{n %s" % app[1].key.capitalize())
-            caller.msg("{wApp Email:{n %s" % app[2])
+            caller.msg("{wApp Email:{n %s" % email)
+            if alts:
+                caller.msg("{wCurrent characters:{n %s" % ", ".join(str(ob) for ob in alts))
             caller.msg("{wDate Submitted:{n %s" % app[3])
             caller.msg("{wApplication:{n %s" % app[4])
             if not app[9]:
@@ -408,7 +465,7 @@ class CmdApp(MuxPlayerCommand):
                     inform_staff("{w%s has approved %s's application.{n" %
                                     (caller.key.capitalize(), app[1].key.capitalize()))
                 try:
-                    from web.character.models import Roster, RosterEntry, PlayerAccount, AccountHistory
+                    
                     entry = RosterEntry.objects.get(character__id=app[1].id,
                                                     player__id=app[1].db.player_ob.id)
                     active_roster = Roster.objects.get(name="Active")
