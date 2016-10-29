@@ -233,6 +233,11 @@ class Npc(NameMixins, Character):
             self.db.fakeweapon = get_npc_weapon(npctype, quality)
         return self.db.fakeweapon
 
+    def _set_fakeweapon(self, val):
+        self.db.fakeweapon = val
+
+    fakeweapon = property(get_fakeweapon, _set_fakeweapon)
+
     @property
     def quantity(self):
         return 1 if self.conscious else 0
@@ -581,7 +586,7 @@ class AgentMixin(object):
         if self.weapons_hidden:
             return False
         try:
-            if self.weapondata.get('weapon_damage', 1) > 1:
+            if self.weapondata.get('weapon_damage', 1) > 2:
                 return True
         except (AttributeError, KeyError):
             return False

@@ -1715,11 +1715,27 @@ class Agent(models.Model):
     def get_skill_cost(self, attr):
         return self.dbobj.get_skill_cost(attr)
 
-    def get_stat_maximum(self, attr):
-        return self.dbobj.get_stat_maximum(attr)
-    
-    def get_skill_maximum(self, attr):
-        return self.dbobj.get_skill_maximum(attr)
+    def get_attr_maximum(self, attr, category):
+        if category == "level":
+            if self.typename in attr:
+                max = 6
+            else:
+                max = self.quality - 1
+        elif category == "armor":
+            max = (self.quality * 15) + 10
+        elif category == "stat":
+            max = self.dbobj.get_stat_maximum(attr)
+        elif category == "skill":
+            max = self.dbobj.get_skill_maximum(attr)
+        elif category == "weapon":
+            if attr == 'weapon_damage':
+                max = (self.quality + 2) * 2
+            elif attr == 'difficulty_mod':
+                max = (self.quality + 1) * 2
+        return max
+
+
+
 
 class AgentMission(models.Model):
     """

@@ -1905,7 +1905,7 @@ class CmdRetainers(MuxPlayerCommand):
     def view_stats(self, agent):
         char = agent.dbobj
         self.msg(agent.display())
-        char.view_stats(self.caller)   
+        char.view_stats(self.caller, combat=True)   
 
     def create_new_retainer(self):
         """
@@ -2011,7 +2011,20 @@ class CmdRetainers(MuxPlayerCommand):
             if attr not in self.retainer_types:
                 self.msg("The type of level to buy must be one of the following: %s" % ", ".join(self.retainer_types))
                 return
-            return "%s_level" % attr 
+            return "%s_level" % attr
+        if category == "armor":
+            return "armor"
+        if category == "weapon":
+            try:
+                cats = ("weapon_damage", "difficulty_mod")
+                attr = self.rhslist[0]
+                if attr not in cats:
+                    self.msg("Must specify one of the following: %s" % ", ".join(cats))
+                    return
+            except IndexError:
+                self.msg("Must specify a weapon field, and the weapon category.")
+                return
+            return attr
 
     def pay_resources(self, res_cost, res_type):
         if not self.caller.pay_resources(res_type, res_cost):
@@ -2031,28 +2044,28 @@ class CmdRetainers(MuxPlayerCommand):
         return True
 
     def check_max_for_attr(self, agent, attr, category):
-        if category == "level":
-            if agent.typename in attr:
-                max = 6
-            else:
-                max = agent.quality - 1
-            current = agent.dbobj.attributes.get(attr) or 0
-        elif category == "armor":
-            current = agent.dbobj.db.armor_class
-            max = agent.quality * 15
-        elif category == "stat":
-            max = agent.get_stat_maximum(attr)
-            current = agent.dbobj.attributes.get(attr)
-        elif category == "skill":
-            max = agent.get_skill_maximum(attr)
-            current = agent.dbobj.db.skills.get(attr, 0)
+        max = agent.get_attr_maximum(attr, category)
+        current = self.get_attr_current_value(agent, attr, category)
         if current >= max:
             self.msg("Their level in %s is currently %s, the maximum is %s." % (attr, current, max))
             return False
         return True
+
+    def get_attr_current_value(self, agent, attr, category):
+        if category == "level":
+            current = agent.dbobj.attributes.get(attr) or 0
+        elif category == "armor":
+            current = agent.dbobj.db.armor_class
+        elif category == "stat":
+            current = agent.dbobj.attributes.get(attr)
+        elif category == "skill":
+            current = agent.dbobj.db.skills.get(attr, 0)
+        elif category == "weapon":
+            current = agent.dbobj.fakeweapon.get(attr, 0)
+        return current
         
 
-    def get_attr_cost(self, agent, attrname, category, current=0):
+    def get_attr_cost(self, agent, attrname, category, current=None):
         """
         Determines the xp cost, resource cost, and type of resources based
         on the type of attribute we're trying to raise.
@@ -2061,6 +2074,8 @@ class CmdRetainers(MuxPlayerCommand):
         xpcost = 0
         rescost = 0
         restype = "military"
+        if current == None:
+            current = self.get_attr_current_value(agent, attrname, category)
         newrating = current + 1
         if category == "level":
             base = ((newrating) * (newrating) * 5) + 25
@@ -2080,6 +2095,13 @@ class CmdRetainers(MuxPlayerCommand):
         if category == "armor":
             xpcost = newrating
             rescost = newrating
+        if category == "weapon":
+            if attrname == 'weapon_damage':
+                xpcost = newrating * newrating * 10
+                rescost = newrating * newrating * 20
+            elif attrname == 'difficulty_mod':
+                xpcost = newrating * 50
+                rescost = newrating * 100
         return xpcost, rescost, restype
 
     #----- Upgrade methods that use the purchase checks -------------------
@@ -2154,6 +2176,27 @@ class CmdRetainers(MuxPlayerCommand):
         Upgrade/buy a fake weapon for the agent. Should be significantly cheaper
         than using resources to buy the same sort of weapon for a player.
         """
+        fields = ('weapon_damage', 'difficulty_mod')
+        if self.rhs not in fields:
+            self.msg("You must specify one of the following: %s" % ", ".join(fields))
+            return
+        fake = agent.dbobj.fakeweapon
+        current = fake.get(self.rhs, 0)
+        if self.rhs == 'difficulty_mod':
+            current *= -1
+            if current < 0:
+                current = 0
+        if not self.check_max_for_attr(agent, self.rhs, category="weapon"):
+            return
+        xp_cost, res_cost, res_type = self.get_attr_cost(agent, self.rhs, "weapon", current)
+        if not self.pay_xp_and_resources(agent, xp_cost, res_cost, res_type):
+            return
+        newval = current + 1
+        if self.rhs == 'difficulty_mod':
+            newval *= -1
+        fake[self.rhs] = newval
+        agent.dbobj.fakeweapon = fake
+        self.msg("You have raised %s's %s to %s." % (agent, self.rhs, newval))
         return
 
     def upgrade_armor(self, agent):
@@ -2266,7 +2309,8 @@ class CmdRetainers(MuxPlayerCommand):
             attr = self.get_attr_from_args(agent, category)
             if not attr:
                 return
-            xpcost, rescost, restype = self.get_attr_cost(agent, attr, category)
+            current = self.get_attr_current_value(agent, attr, category)
+            xpcost, rescost, restype = self.get_attr_cost(agent, attr, category, current)
             self.msg("Raising %s would cost %s xp, %s %s resources." % (attr, xpcost, rescost, restype))
             return
         caller.msg("Invalid switch.")

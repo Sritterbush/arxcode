@@ -642,10 +642,18 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         from django.core.urlresolvers import reverse
         return reverse('character:sheet', kwargs={'object_id': self.id})
 
-    def view_stats(self, viewer):
+    @property
+    def combat_data(self):
+        from typeclasses.scripts.combat.combatant import CharacterCombatData
+        return CharacterCombatData(self, None)
+
+    def view_stats(self, viewer, combat=False):
         from commands.commands.roster import display_attributes, display_skills
         display_attributes(viewer, self)
         display_skills(viewer, self)
+        if combat:
+            viewer.msg(self.combat_data.display_stats())
+        
 
 
 
