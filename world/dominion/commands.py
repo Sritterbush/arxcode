@@ -1608,7 +1608,8 @@ class CmdAgents(MuxPlayerCommand):
         @agents/recall player,<id #>,<amt>
         @agents/hire <type>,<level>,<amount>=<organization>
         @agents/desc <ID #>,<desc>
-        @agents/name <ID #>=name
+        @agents/name <ID #>,name
+        @agents/transferownership <ID #>,<new owner>
 
     Hires guards, assassins, spies, or any other form of NPC that has a
     presence in-game and can act on player orders. Agents are owned by an
@@ -1646,7 +1647,7 @@ class CmdAgents(MuxPlayerCommand):
         return list(rooms)
 
     def get_cost(self, lvl, amt):
-        cost = pow((lvl + 1),3) * 100
+        cost = pow((lvl + 1),2) * 50
         return cost
 
     def get_guard_cap(self, gtype, char):
@@ -1687,9 +1688,15 @@ class CmdAgents(MuxPlayerCommand):
             return       
         try:
             loc = caller.character.location
-            owner = AssetOwner.objects.get(id=loc.db.barracks_owner)
-            if owner != caller.Dominion.assets and not owner.organization_owner.access(caller, 'guards'):
-                caller.msg("You do not have access to guards here.")
+            if loc.db.barracks_owner:
+                owner = AssetOwner.objects.get(id=loc.db.barracks_owner)
+                if owner != caller.Dominion.assets and not owner.organization_owner.access(caller, 'guards'):
+                    caller.msg("You do not have access to guards here.")
+            else:
+                owner = caller.Dominion.assets
+                if loc != caller.character.home:
+                    self.msg("You do not have access to guards here.")
+                    return
         except (AttributeError, AssetOwner.DoesNotExist, ValueError, TypeError):
             caller.msg("You do not have access to guards here.")
             return
@@ -1797,22 +1804,38 @@ class CmdAgents(MuxPlayerCommand):
             agent.save()
             caller.msg("You have bought %s %s." % (amt, agent))
             return
-        if 'desc' in self.switches or 'name' in self.switches:
+        if ('desc' in self.switches or 'name' in self.switches
+            or 'transferowner' in self.switches):
             try:
                 agent = Agent.objects.get(id=int(self.lhslist[0]))
                 if not agent.access(caller, 'agents'):
                     caller.msg("No access.")
                     return
                 if 'desc' in self.switches:
+                    attr = 'desc'
                     agent.desc = self.lhslist[1]
                 elif 'name' in self.switches:
+                    attr = 'name'
                     agent.name = self.lhslist[1]
+                elif 'transferowner' in self.switches:
+                    attr = 'owner'
+                    try:
+                        agent.owner = AssetOwner.objects.get(Q(player__player__username__iexact=self.lhslist[1]) |
+                                                             Q(organization_owner__name__iexact=self.lhslist[1]))
+                    except AssetOwner.DoesNotExist:
+                        self.msg("No owner found by that name to transfer to.")
+                        return
                 agent.save()
-                caller.msg("Changed.")
+                # do we need to do any refresh_from_db calls here to prevent sync errors with stale foreignkeys?
+                caller.msg("Changed %s to %s." % (attr, self.lhslist[1]))
+                if attr == 'owner':
+                    agent.owner.inform_owner("You have been transferred ownership of %s from %s." % (agent, caller),
+                                             category="agents")
                 return
             except (Agent.DoesNotExist, TypeError, ValueError, IndexError):
                 caller.msg("User error.")
                 return
+        self.msg("Unrecognized switch.")
 
 class CmdRetainers(MuxPlayerCommand):
     """

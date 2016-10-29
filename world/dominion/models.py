@@ -546,6 +546,19 @@ class AssetOwner(models.Model):
         if player:
             player.inform(text, category=category, week=week, append=append)
 
+    def access(self, accessing_obj, access_type='agent', default=False):
+        if self.organization_owner:
+            return self.organization_owner.access(accessing_obj, access_type, default)
+        # it's a player, check if it's our player
+        if hasattr(accessing_obj, 'character'):
+            return self.player.player == accessing_obj
+        # it's a character, check if it's the character of our player
+        try:
+            return accessing_obj.db.player_ob == self.player.player
+        except AttributeError:
+            return default
+
+
 class AccountTransaction(models.Model):
     """
     Represents both income and costs that happen on a weekly
@@ -1694,10 +1707,7 @@ class Agent(models.Model):
         self.npcs = AgentHandler(self)
 
     def access(self, accessing_obj, access_type='agent', default=False):
-        try:
-            return self.owner.organization_owner.access(accessing_obj, access_type, default)
-        except AttributeError:
-            return False
+        return self.owner.access(accessing_obj, access_type, default)
 
     def get_stat_cost(self, attr):
         return self.dbobj.get_stat_cost(attr)
