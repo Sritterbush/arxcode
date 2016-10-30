@@ -132,7 +132,9 @@ class CmdJob(MuxPlayerCommand):
             caller.msg("{wDate submitted:{n %s" % ticket.created)
             caller.msg("{wLast modified:{n %s" % ticket.modified)
             caller.msg("{wTitle:{n %s" % ticket.title)
-            caller.msg("{wLocation:{n %s" % ticket.submitting_room)
+            room = ticket.submitting_room
+            if room:
+                caller.msg("{wLocation:{n %s (#%s)" % (room, room.id))
             caller.msg("{wPriority:{n %s" % ticket.priority)
             caller.msg("{wRequest:{n %s" % ticket.description)
             if ticket.assigned_to:
