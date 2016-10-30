@@ -8,6 +8,7 @@ from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from .models import Investigation, Clue
 from server.utils.prettytable import PrettyTable
+from evennia.utils.evtable import EvTable
 from server.utils.utils import inform_staff
 
 class CmdInvestigate(MuxCommand):
@@ -315,9 +316,9 @@ class CmdAdminInvestigations(MuxPlayerCommand):
                                             character__roster__name="Active")
     
     def disp_active(self):
-        table = PrettyTable(["ID", "Char", "Topic", "Targeted Clue", "Difficulty"])
+        table = EvTable("ID", "Char", "Topic", "Targeted Clue", "Roll", border="cells", width=78)
         for ob in self.qs:
-            table.add_row([ob.id, ob.character, ob.topic, ob.targeted_clue, ob.difficulty])
+            table.add_row(ob.id, ob.character, str(ob.topic), str(ob.targeted_clue), ob.roll)
         self.caller.msg(str(table))
     
     def func(self):
