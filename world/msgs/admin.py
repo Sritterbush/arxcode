@@ -6,6 +6,7 @@
 from django.contrib import admin
 from .models import Inform
 from evennia.comms.models import Msg
+from evennia.typeclasses.admin import TagInline
 
 
 class InformAdmin(admin.ModelAdmin):
@@ -27,6 +28,7 @@ class MsgListFilter(admin.SimpleListFilter):
             ('dispgossip', ('Gossip')),
             ('dispvision', ('Visions')),
             ('dispevent', ('Events')),
+            ('disposts', ('Board Posts')),
             )
     def queryset(self, request, queryset):
         if self.value() == 'dispwhite':
@@ -42,9 +44,20 @@ class MsgListFilter(admin.SimpleListFilter):
         if self.value() == "dispvision":
             return queryset.filter(db_header__icontains="visions")
         if self.value() == "dispevent":
-            return queryset.filter(event__isnull=False)
+            return queryset.filter(db_tags__db_category="event")
+        if self.value() == "disposts":
+            return queryset.filter(db_tags__db_category="board",
+                                   db_tags__db_key="Board Post")
+
+class MsgTagInline(TagInline):
+    """
+    Defines inline descriptions of Tags (experimental)
+
+    """
+    model = Msg.db_tags.through
         
 class MsgAdmin(admin.ModelAdmin):
+    inlines = [MsgTagInline]
     list_display = ('id', 'db_date_created', 'get_senders', 'msg_receivers',
                     'db_message')
     list_display_links = ("id",)
@@ -59,6 +72,7 @@ class MsgAdmin(admin.ModelAdmin):
     raw_id_fields = ("db_sender_players", "db_receivers_players", "db_sender_objects", "db_receivers_objects",
                      "db_hide_from_players", "db_hide_from_objects")
     list_filter = (MsgListFilter,)
+    exclude = ('db_tags',)
     def get_senders(self, obj):
         return ", ".join([p.key for p in obj.db_sender_objects.all()])
     def msg_receivers(self, obj):

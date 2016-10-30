@@ -92,7 +92,7 @@ class CmdGemit(MuxPlayerCommand):
             self.msg("Announcing to all connected players ...")
             SESSIONS.announce_all(self.args)
             return
-        from src.web.character.models import Story,Episode,Chapter,StoryEmit
+        from web.character.models import Story,Episode,Chapter,StoryEmit
         # current story
         story = Story.objects.latest('start_date')
         chapter = story.current_chapter
@@ -116,9 +116,8 @@ class CmdGemit(MuxPlayerCommand):
         self.msg("Announcing to all connected players ...")
         SESSIONS.announce_all(msg)
         # get board and post
-        BOARDS = "game.gamesrc.objects.bulletin_board.bboard.BBoard"
-        bboard = ObjectDB.objects.get(db_typeclass_path=BOARDS,
-                                      db_key="story updates")
+        from typeclasses.bulletin_board.bboard import BBoard
+        bboard = BBoard.objects.get(db_key="story updates")
         subject = "Story Update"
         if episode:
             subject = "Episode: %s" % episode.name
