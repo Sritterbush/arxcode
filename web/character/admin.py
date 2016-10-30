@@ -81,18 +81,26 @@ class RevDiscoInline(admin.TabularInline):
     extra = 0
 
 class RevelationAdmin(BaseCharAdmin):
-    list_display = ('id', 'name')
+    list_display = ('id', 'name', 'known_by', 'used_for')
     inlines = [ClueForRevInline, RevDiscoInline]
+    search_fields = ('id', 'name', 'characters__character__db_key', 'mysteries__name')
+    def known_by(self, obj):
+        return ", ".join([str(ob.character) for ob in obj.discoveries.all()])
+    def used_for(self, obj):
+        return ", ".join([str(ob) for ob in obj.mysteries.all()])
 
 class ClueDiscoInline(admin.TabularInline):
     model = ClueDiscovery
     extra = 0
 
 class ClueAdmin(BaseCharAdmin):
-    list_display = ('id', 'name', 'known_by')
+    list_display = ('id', 'name', 'known_by', 'used_for')
     inlines = [ClueDiscoInline]
+    search_fields = ('id', 'name', 'characters__character__db_key', 'revelations__name')
     def known_by(self, obj):
         return ", ".join([str(ob.character) for ob in obj.discoveries.all() if ob.roll >= obj.rating])
+    def used_for(self, obj):
+        return ", ".join([str(ob) for ob in obj.revelations.all()])
 
 class ClueForEntry(ClueDiscoInline):
     fk_name = 'character'
