@@ -12,6 +12,7 @@ from server.utils import prettytable
 from server.utils.utils import inform_staff
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.objects.models import ObjectDB
+from typeclasses.bulletin_board.bboard import BBoard
 
 # limit symbol import for API
 __all__ = ("CmdBBReadOrPost","CmdBBSub","CmdBBUnsub",
@@ -22,11 +23,7 @@ def get_boards(caller):
     """
     returns list of bulletin boards
     """
-    bb_list = ObjectDB.objects.get_objs_with_attr("bboard")
-    bb_list = [bb for bb in bb_list if hasattr(bb, "is_bboard")]
-    if not bb_list:
-        caller.msg("No boards found.")
-        return
+    bb_list = list(BBoard.objects.all())
     bb_list = [ob for ob in bb_list if ob.access(caller, 'read')]
     return bb_list
     
@@ -52,7 +49,7 @@ def list_bboards(caller):
         subbed = bboard in my_subs
         bbtable.add_row([bb_number, bb_name,
                          "{0} unread postings".format(unread_num),
-                         len(bboard.db.posts), subbed])
+                         len(bboard.posts), subbed])
     caller.msg("\n{w" + "="*60 + "{n\n%s"% bbtable)
     pass
 
@@ -72,9 +69,8 @@ def access_bboard(caller, args, request = "read"):
         board = bboards[bb_num]
     else:
         try:
-            board = ObjectDB.objects.get(db_key__iexact=args,
-                                db_typeclass_path=BOARD_TYPECLASS)
-        except Exception:
+            board = BBoard.objects.get(db_key__iexact=args)
+        except BBoard.DoesNotExist:
             caller.msg("Could not find a unique board by name %s." % args)
             return
     if not board.access(caller, request):
@@ -83,7 +79,7 @@ def access_bboard(caller, args, request = "read"):
     #passed all checks, so return board
     return board
 
-def list_messages(caller, board):
+def list_messages(caller, board, board_num):
     """
     Helper function for printing all the posts on board
     to caller.
@@ -91,7 +87,6 @@ def list_messages(caller, board):
     if not board:
         caller.msg("No bulletin board found.")
         return
-    board_num = get_boards(caller).index(board)
     caller.msg("{w" + "="*60 + "\n{n")
     title = "{w**** %s ****{n"% board.key.capitalize()
     title = "{:^80}".format(title)
@@ -102,42 +97,26 @@ def list_messages(caller, board):
                                        "{wSubject",
                                        "{wPostDate",
                                        "{wPosted By"])
+    read_posts = caller.receiver_player_set.all()
     for post in posts:
+        unread = post not in read_posts
         msgnum += 1
         bbmsgnum = str(board_num) + "/" + str(msgnum)
         #if unread message, make the message white-bold
-        if caller not in post['Readers']:
+        if unread:
             bbmsgnum = "{w" + "{0}".format(bbmsgnum)
-        subject = post['Subject'][:35]
-        date = post['Date']
-        poster = post['Poster'][:10]
+        subject = post.db_header[:35]
+        date = post.db_date_created.strftime("%x")
+        poster = board.get_poster(post)[:10]
         #turn off white-bold color if unread message
-        if caller not in post['Readers']:
+        if unread:
             poster = "{0}".format(poster) + "{n"
         msgtable.add_row([bbmsgnum, subject, date, poster])
     caller.msg(msgtable) 
     pass
 
-def read_post(caller, post):
-    """
-    Helper function to read a single post.
-    post is a dict with Poster, Subject, Date, Readers
-    """
-    #format post
-    if 'Time' not in post.keys():
-        post['Time'] = post['Date']
-    message  = "\n{w" + "-"*60 + "{n\n"
-    message += "{wPoster:{n %s\n"% post['Poster']
-    message += "{wSubject:{n %s\n" % post['Subject']
-    message += "{wDate:{n %s  %s\n" % (post['Date'], post['Time'])
-    message += "{w" + "-"*60 + "{n\n"
-    message += post['Msg']
-    caller.msg(message)
-    if caller.is_guest():
-        return
-    #mark it read
-    if caller not in post['Readers']:
-        post['Readers'].append(caller)
+
+    
 
 def get_unread_posts(caller):
     bb_list = get_boards(caller)
@@ -165,6 +144,7 @@ class CmdBBNew(MuxPlayerCommand):
         +bbnew  - retrieve a single post
         +bbnew <number of posts>[=<board num>] - retrive posts
         +bbnew all[=<board num>] - retrieve all posts
+        +bbnew/markread <number of posts or all>[=<board num>]
 
     +bbnew will retrieve unread messages. If an argument is passed,
     it will retrieve up to the number of messages specified.
@@ -205,19 +185,24 @@ class CmdBBNew(MuxPlayerCommand):
         found_posts = 0
         caller.msg("{wUnread posts:")
         caller.msg("{w" + "-"*60 + "{n")
+        noread = "markread" in self.switches
         for bb in my_subs:
             posts = bb.get_all_posts()
             caller.msg("{wBoard %s:{n" % bb.key)
             posts_on_board = 0
-            for post in posts:
-                if caller not in post['Readers']:
-                    read_post(caller, post)
-                    found_posts += 1
-                    posts_on_board += 1
-                    if found_posts >= num_posts:
-                        return
+            for post in posts.exclude(db_receivers_players=caller):
+                if noread:
+                    bb.mark_read(caller, post)
+                else:
+                    bb.read_post(caller, post)
+                found_posts += 1
+                posts_on_board += 1
+                if found_posts >= num_posts:
+                    return
             if not posts_on_board:
-                caller.msg("No unread posts found.")       
+                caller.msg("No unread posts found.")
+            if noread:
+                self.msg("You have marked %s posts as read." % posts_on_board)
 
 class CmdBBReadOrPost(MuxPlayerCommand):
     """
@@ -262,7 +247,7 @@ class CmdBBReadOrPost(MuxPlayerCommand):
                 caller.msg("You are not yet a subscriber to {0}".format(board.key))
                 caller.msg("Use {w@bbsub{n to subscribe to it.")
                 return    
-            list_messages(caller, board)
+            list_messages(caller, board, int(args))
             
         if not switches:
             arglist = args.split("/")
@@ -301,14 +286,14 @@ class CmdBBReadOrPost(MuxPlayerCommand):
                 post = board.get_post(caller, post_num)
                 if not post:
                     return
-                read_post(caller, post)
+                board.read_post(caller, post)
                 return
             num_read = 0
             try:
                 for post_num in range(int(postrange[0]), int(postrange[1]) + 1):
                     try:
                         post = board.get_post(caller, int(post_num))
-                        read_post(caller, post)
+                        board.read_post(caller, post)
                         num_read += 1
                     except Exception:
                         continue
@@ -330,7 +315,7 @@ class CmdBBReadOrPost(MuxPlayerCommand):
             post = board.get_post(caller, post_num)
             if not post:
                 return
-            if not caller.key.capitalize() == post['Poster'] and not board.access(caller, "edit"):
+            if not caller in post.db_sender_players.all() and not board.access(caller, "edit"):
                 caller.msg("You cannot delete someone else's post, only your own.")
                 return
             if board.delete_post(post_num, caller) == True:

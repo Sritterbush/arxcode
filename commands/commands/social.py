@@ -1102,14 +1102,8 @@ class CmdCalendar(MuxPlayerCommand):
             caller.ndb.event_creation = None
             caller.msg("New event created: %s at %s." % (event.name, date.strftime("%x %X")))
             inform_staff("New event created by %s: %s, scheduled for %s." % (caller, event.name, date.strftime("%x %X")))
-            try:
-                from commands.commands.bboards import get_boards
-                boards = get_boards(caller)
-                boards = [ob for ob in boards if ob.key == "events"]
-                board = boards[0]
-                board.bb_post(poster_obj=caller, msg=post, subject=event.name, poster_name="New Events")
-            except Exception:
-                pass
+            event_manager = ScriptDB.objects.get(db_key="Event Manager")
+            event_manager.post_event(event, caller, post)         
             return
         # both starting an event and ending one requires a Dominion object
         try:

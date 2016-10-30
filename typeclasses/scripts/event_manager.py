@@ -155,6 +155,7 @@ class EventManager(Script):
             del self.db.gm_logs[event.id]
         except Exception:
             traceback.print_exc()
+        self.delete_event_post(event)
 
     def add_msg(self, eventid, msg, sender=None):
         # reset idle timer for event
@@ -206,6 +207,7 @@ class EventManager(Script):
         if event.id in self.db.pending_start:
             self.db.cancelled.append(event.id)
             del self.db.pending_start[event.id]
+        self.delete_event_post(event)
         event.delete()
 
     def reschedule_event(self, event, date):
@@ -213,6 +215,24 @@ class EventManager(Script):
         if diff < 0:
             self.start_event(event)
             return
+
+    def get_event_board(self):
+        from typeclasses.bulletin_board.bboard import BBoard
+        return BBoard.objects.get(db_key="events")
+
+    def post_event(self, event, poster, post):
+        board = self.get_event_board()
+        board.bb_post(poster_obj=poster, msg=post, subject=event.name,
+                      event=event)
+
+    def delete_event_post(self, event):
+        try:
+            board = self.get_event_board()
+            post = board.posts.get(db_tags__db_key=event.tagkey,
+                                   db_tags__db_data=event.tagdata)
+            post.delete()
+        except Exception:
+            traceback.print_exc()
 
 
 

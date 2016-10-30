@@ -2972,21 +2972,25 @@ class RPEvent(models.Model):
             return ""
 
     @property
+    def tagkey(self):
+        return self.name.lower()
+
+    @property
+    def tagdata(self):
+        return str(self.id)
+
+    @property
     def comments(self):
         from evennia.comms.models import Msg
-        tagkey = self.name.lower()
-        tagdata = str(self.id)
-        return Msg.objects.filter(db_tags__db_key=tagkey,
-                                  db_tags__db_data=tagdata)
+        return Msg.objects.filter(db_tags__db_key=self.tagkey,
+                                  db_tags__db_data=self.tagdata)
 
     @property
     def main_host(self):
         from typeclasses.players import Player
-        tagkey = self.name.lower()
-        tagdata = str(self.id)
         try:
-            return Player.objects.get(db_tags__db_key=tagkey,
-                                      db_tags__db_data=tagdata)
+            return Player.objects.get(db_tags__db_key=self.tagkey,
+                                      db_tags__db_data=self.tagdata)
         except (Player.DoesNotExist, Player.MultipleObjectsReturned):
             try:
                 return self.hosts.first()
@@ -2994,9 +2998,17 @@ class RPEvent(models.Model):
                 return None
 
     def tag_obj(self, obj):
-        tagkey = self.name.lower()
-        tagdata = str(self.id)
-        obj.tags.add(tag=tagkey, data=tagdata)
+        category = "event"
+        try:
+            from evennia.typeclasses.tags import Tag
+
+            tag = Tag.objects.get(db_key=self.tagkey, db_category=category,
+                                  db_data=self.tagdata)
+        except Tag.DoesNotExist:
+            tag = Tag.objects.create(db_key=self.tagkey, db_category=category,
+                                     db_data=self.tagdata)
+        obj.db_tags.add(tag)
+        return obj
 
     @property
     def public_comments(self):

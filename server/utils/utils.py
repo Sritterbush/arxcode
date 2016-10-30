@@ -129,3 +129,9 @@ def sub_old_ansi(text):
     text = text.replace('%ch', '|h')
     text = text.replace('%cn', '|n')
     return text
+
+def broadcast(txt, format=True):
+    from evennia.server.sessionhandler import SESSION_HANDLER
+    if format:
+        txt = "{wServer Announcement{n: %s" % txt
+    SESSION_HANDLER.announce_all(txt)
