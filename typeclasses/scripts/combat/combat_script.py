@@ -173,20 +173,20 @@ class CombatManager(BaseScript):
         else:
             msg = "{rEntering combat mode.{n\n"
             msg += "\n\n" + fill(COMBAT_INTRO)
-        character.msg(msg, formatted=True)
+        character.msg(msg)
         return
     
     def phase_1_intro(self, character):
         """
         Displays info about phase 1 to character
         """
-        character.msg(PHASE1_INTRO, formatted=True)
+        character.msg(PHASE1_INTRO)
     
     def phase_2_intro(self, character):
         """
         Displays info about phase 2 to character
         """
-        character.msg(PHASE2_INTRO, formatted=True)
+        character.msg(PHASE2_INTRO)
 
     def display_phase_status(self, character, disp_intro=True):
         """
@@ -229,7 +229,7 @@ class CombatManager(BaseScript):
         for ob in msglist:
             self.display_phase_status(ob, disp_intro=intro)
     
-    def msg(self, message, exclude=None, roll=False):
+    def msg(self, message, exclude=None, options=None):
         """
         Sends a message to all objects in combat/observers except for
         individuals in the exclude list.
@@ -240,10 +240,7 @@ class CombatManager(BaseScript):
         msglist = [ob for ob in msglist if ob not in exclude]
         for ob in msglist:
             mymsg = message
-            if roll:
-                if ob.attributes.has("dice_string"):
-                    mymsg = "{w<" + ob.db.dice_string + "> {n" + message
-            ob.msg(mymsg, formatted=True)
+            ob.msg(mymsg, options)
     #------------------------------------------------------------------
 
 
@@ -288,7 +285,7 @@ class CombatManager(BaseScript):
         result = a_roll - d_roll
         # handle botches. One botch per -10
         if a_roll < 0 and result < -30 and allow_botch:
-            self.msg(message, roll=True)
+            self.msg(message, options={'roll':True})
             can_riposte = a_fite.can_be_parried and d_fite.can_riposte
             if target in self.ndb.incapacitated or awake != "awake":
                 can_riposte = False
@@ -371,7 +368,7 @@ class CombatManager(BaseScript):
             dmg = int(dmg * dmgmult)
         if dmg <= 0:
             message = "%s fails to inflict any harm on %s." % (a_fite, d_fite)
-            self.msg(message, roll=True)
+            self.msg(message, options={'roll':True})
             return
         # max hp is (stamina * 10) + 10
         max_hp = target.db.stamina or 0
@@ -391,7 +388,7 @@ class CombatManager(BaseScript):
         else:
             wound_desc = "extremely critical"
         message = "%s inflicts {r%s{n damage to %s." % (a_fite, wound_desc, d_fite)
-        self.obj.msg_contents(message, roll=True)
+        self.obj.msg_contents(message, options={'roll':True})
         current_dmg = target.db.damage or 0
         target.db.damage = current_dmg + dmg
         grace_period = False # one round delay between incapacitation and death for PCs
