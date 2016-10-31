@@ -6,6 +6,7 @@ from evennia.locks.lockhandler import LockHandler
 from django.db.models import Q, F
 from .managers import ArxRosterManager
 from datetime import datetime
+import random
 
 """
 This is the main model in the project. It holds a reference to cloudinary-stored
@@ -555,7 +556,9 @@ class Investigation(models.Model):
         skill = skill.lower()
         roll = do_dice_check(char, stat_list=[stat, "perception"], skill_list=[skill, "investigation"],
                              difficulty=diff, average_lists=True)
+        roll += random.randint(0, 20)
         # save the character's roll
+        print "roll is %s" % roll
         self.roll = roll
         return roll
 
@@ -734,7 +737,6 @@ class Investigation(models.Model):
                                          ~Q(characters=self.character)).order_by('rating')
             candidates = candidates | qs
         try:
-            import random
             candidates = [ob for ob in candidates if any(set(kwords) & set(ob.keywords))]
             choices = []
             for x in range(0, 3):
@@ -747,7 +749,6 @@ class Investigation(models.Model):
         """
         Finds a random keyword in a clue we don't have yet.
         """
-        import random
         candidates = Clue.objects.filter(~Q(characters=self.character)).order_by('rating')
         try:
             ob = random.choice(candidates)

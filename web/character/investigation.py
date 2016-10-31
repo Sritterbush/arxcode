@@ -297,7 +297,7 @@ class CmdAdminInvestigations(MuxPlayerCommand):
         @gminvest/roll <ID #>[=<roll mod>,<difficulty>]
         @gminvest/result <ID #>=<result string>
         @gminvest/cluemessage <ID #>=<message>
-        @gminvest/setclueprogress <ID #>=<amount>
+        @gminvest/setprogress <ID #>=<amount>
 
     Checks active investigations, and allows you to override their
     automatic results. You can /roll to see a result - base difficulty
@@ -318,8 +318,19 @@ class CmdAdminInvestigations(MuxPlayerCommand):
     def disp_active(self):
         table = EvTable("ID", "Char", "Topic", "Targeted Clue", "Roll", border="cells", width=78)
         for ob in self.qs:
-            table.add_row(ob.id, ob.character, str(ob.topic), str(ob.targeted_clue), ob.roll)
+            roll = "{r%s{n" % ob.roll if ob.roll < 1 else "{w%s{n" % ob.roll
+            table.add_row(ob.id, ob.character, str(ob.topic), str(ob.targeted_clue), roll)
         self.caller.msg(str(table))
+
+    def set_roll(self, ob, roll, mod=0, diff=None):
+        ob.roll = roll
+        self.msg("Recording their new roll as: %s." % roll)
+        check = ob.check_success(modifier=mod, diff=diff)
+        if check:
+            self.msg("They will {wsucceed{n the check to discover a clue this week.")
+        else:
+            self.msg("They will {rfail{n the check to discover a clue this week.")
+        
     
     def func(self):
         caller = self.caller
@@ -352,19 +363,17 @@ class CmdAdminInvestigations(MuxPlayerCommand):
                 except IndexError:
                     pass
                 roll = ob.do_roll(mod=mod, diff=diff)
-                ob.roll = roll
-                caller.msg("Recording their new roll as: %s." % roll)
-                check = ob.check_success(modifier=mod, diff=diff)
-                if check:
-                    caller.msg("They will succeed the check to discover a clue this week.")
-                else:
-                    caller.msg("They will fail the check to discover a clue this week.")
+                self.set_roll(ob, roll)
                 return
             if "result" in self.switches:
                 ob = self.qs.get(id=int(self.lhs))
                 ob.result = self.rhs
                 ob.save()
                 caller.msg("Result is now:\n%s" % ob.result)
+                return
+            if "setprogress" in self.switches:
+                ob = self.qs.get(id=int(self.lhs))
+                self.set_roll(ob, int(self.rhs))
                 return
         except (TypeError, ValueError):
             import traceback
