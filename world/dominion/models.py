@@ -2973,7 +2973,11 @@ class RPEvent(models.Model):
 
     @property
     def tagkey(self):
-        return self.name.lower()
+        """
+        Tagkey MUST be unique. So we have to incorporate the ID of the event
+        for the tagkey in case of duplicate event names.
+        """
+        return "%s_%s" % (self.name.lower(), self.id)
 
     @property
     def tagdata(self):
@@ -2982,15 +2986,14 @@ class RPEvent(models.Model):
     @property
     def comments(self):
         from evennia.comms.models import Msg
-        return Msg.objects.filter(db_tags__db_key=self.tagkey,
-                                  db_tags__db_data=self.tagdata)
+        return Msg.objects.filter(db_tags__db_data=self.tagdata,
+                                  db_tags__db_category="event")
 
     @property
     def main_host(self):
         from typeclasses.players import Player
         try:
-            return Player.objects.get(db_tags__db_key=self.tagkey,
-                                      db_tags__db_data=self.tagdata)
+            return Player.objects.get(db_tags__db_key=self.tagkey)
         except (Player.DoesNotExist, Player.MultipleObjectsReturned):
             try:
                 return self.hosts.first()
@@ -2998,15 +3001,12 @@ class RPEvent(models.Model):
                 return None
 
     def tag_obj(self, obj):
-        category = "event"
         try:
             from evennia.typeclasses.tags import Tag
-
-            tag = Tag.objects.get(db_key=self.tagkey, db_category=category,
-                                  db_data=self.tagdata)
+            tag = Tag.objects.get(db_key=self.tagkey)
         except Tag.DoesNotExist:
-            tag = Tag.objects.create(db_key=self.tagkey, db_category=category,
-                                     db_data=self.tagdata)
+            tag = Tag.objects.create(db_key=self.tagkey, db_data=self.tagdata,
+                                     db_category="event")
         obj.db_tags.add(tag)
         return obj
 
