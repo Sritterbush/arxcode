@@ -6,7 +6,7 @@ from evennia.locks.lockhandler import LockHandler
 from django.db.models import Q, F
 from .managers import ArxRosterManager
 from datetime import datetime
-import random
+import random, traceback
 
 """
 This is the main model in the project. It holds a reference to cloudinary-stored
@@ -495,6 +495,24 @@ class ClueForRevelation(models.Model):
     def __str__(self):
         return "Clue %s used for %s" % (self.clue, self.revelation)
 
+class InvestigationAssistant(models.Model):
+    currently_helping = models.BooleanField(default=True, help_text="Whether they're currently helping out")
+    investigation = models.ForeignKey('Investigation', related_name="assistants")
+    char = models.ForeignKey('objects.ObjectDB', related_name="assisted_investigations")
+    stat_used = models.CharField(blank=True, max_length=80, default="perception", help_text="The stat the player chose to use")
+    skill_used = models.CharField(blank=True, max_length=80, default="investigation", help_text="The skill the player chose to use")
+    actions = models.TextField(blank=True, help_text="The writeup the player submits of their actions, used for GMing.")
+    def __str__(self):
+        return "%s helping: %s" % (self.char, self.investigation)
+    def shared_discovery(self, clue):
+        self.currently_helping = False
+        self.save()
+        try:
+            clue.share(self.char.roster)
+        except AttributeError:
+            pass
+        
+
 class Investigation(models.Model):
     character = models.ForeignKey('RosterEntry', related_name="investigations")
     ongoing = models.BooleanField(default=True, help_text="Whether this investigation is finished or not")
@@ -525,6 +543,7 @@ class Investigation(models.Model):
         msg += "{wCurrent Progress{n: %s\n" % self.progress_str
         msg += "{wStat used{n: %s\n" % self.stat_used
         msg += "{wSkill used{n: %s\n" % self.skill_used
+        msg += "{wCurrent Assistants{n %s\n" % ", ".join(str(ob.char) for ob in self.active_assistants)
         return msg
 
     def gm_display(self):
@@ -542,6 +561,25 @@ class Investigation(models.Model):
     @property
     def char(self):
         return self.character.character
+
+    @property
+    def active_assistants(self):
+        return self.assistants.filter(currently_helping=True)
+
+    @staticmethod
+    def do_obj_roll(obj, diff):
+        """
+        Method that takes either an investigation or one of its
+        assistants and returns a dice roll based on its character,
+        and the stats/skills used by that investigation or assistant.
+        """
+        stat = obj.stat_used or "perception"
+        stat = stat.lower()
+        skill = obj.skill_used or "investigation"
+        skill = skill.lower()
+        roll = do_dice_check(objchar, stat_list=[stat, "perception"], skill_list=[skill, "investigation"],
+                             difficulty=diff, average_lists=True)
+        return roll
     
     def do_roll(self, mod=0, diff=None):
         """
@@ -550,13 +588,14 @@ class Investigation(models.Model):
         from world.stats_and_skills import do_dice_check
         char = self.char
         diff = (diff if diff != None else self.difficulty) + mod
-        stat = self.stat_used or "perception"
-        stat = stat.lower()
-        skill = self.skill_used or "investigation"
-        skill = skill.lower()
-        roll = do_dice_check(char, stat_list=[stat, "perception"], skill_list=[skill, "investigation"],
-                             difficulty=diff, average_lists=True)
+        roll = self.do_obj_roll(self, diff)
         roll += random.randint(0, 20)
+        for ass in self.active_assistants:
+            aroll = self.do_obj_roll(ass, diff)
+            if aroll < 0:
+                aroll = 0
+            aroll += random.randint(0, 5)
+            roll += aroll
         # save the character's roll
         print "roll is %s" % roll
         self.roll = roll
@@ -676,7 +715,12 @@ class Investigation(models.Model):
                 # we found a clue, so this investigation is done.
                 self.clue_target = None
                 self.active = False
-                self.ongoing = False          
+                self.ongoing = False
+                for ass in self.active_assistants:
+                    try:
+                        ass.shared_discovery(clue)
+                    except Exception:
+                        traceback.print_exc()
         else:
             # update results to indicate our failure
             self.results = "Your investigation failed to find anything."

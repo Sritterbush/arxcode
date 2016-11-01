@@ -11,7 +11,219 @@ from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from server.utils.utils import inform_staff
 
-class CmdInvestigate(MuxCommand):
+class InvestigationFormMixin(object):
+    form_verb = "Creating"
+    form_switches = ("topic", "story", "stat", "skill", "cancel", "finish")
+    
+    @property
+    def investigation_form(self):
+        return self.caller.db.investigation_form
+
+    @property
+    def related_manager(self):
+        return self.caller.roster.investigations
+    
+    def disp_investigation_form(self):
+        form = self.investigation_form
+        if not form:
+            return
+        target,story,stat,skill = form[0], form[1], form[2], form[3]
+        self.msg("%s an investigation:" % self.form_verb)
+        self.msg("{w%s{n: %s" % (self.target_type, target))
+        self.msg("{wStory{n: %s" % story)
+        self.msg("{wStat{n: %s" % stat)
+        self.msg("{wSkill{n: %s" % skill)
+
+    @property
+    def target_type(self):
+        return "Topic"
+                 
+    @property
+    def finished_form(self):
+        try:
+            form = self.investigation_form
+            topic,actions,stat,skill = form[0], form[1], form[2], form[3]
+            if not topic:
+                self.msg("You must have a topic defined.")
+                return
+            if not actions:
+                self.msg("You must have a story defined.")
+                return
+            return (topic, actions, stat, skill)
+        except Exception:
+            self.msg("Your investigation form is not yet filled out.")
+            return False
+
+    def pay_costs(self):
+        dompc = self.caller.db.player_ob.Dominion
+        amt = dompc.assets.social
+        amt -= self.start_cost
+        if amt < 0:
+            self.msg("It costs %s social resources to start a new investigation." % self.start_cost)
+            return False
+        self.msg("You spend %s social resources to start a new investigation." % self.start_cost)
+        dompc.assets.social = amt
+        dompc.assets.save()
+        return True
+
+    def mark_active(self, ob):
+        if not self.related_manager.filter(active=True):
+            ob.active = True
+            self.msg("New investigation created. This has been set as your active investigation " +
+                       "for the week, and you may add resources/silver to increase its chance of success.")
+        else:
+            self.msg("New investigation created. You already have an active investigation for this week, " +
+                       "but may still add resources/silver to increase its chance of success for when you next mark this as active.")
+        self.msg("You may only have one active investigation per week, and cannot change it once " +
+                   "it has received GM attention. Only the active investigation can progress.")
+        ob.save()
+        staffmsg = "%s has started an investigation on %s." % (self.caller, ob.topic)
+        if ob.targeted_clue:
+            staffmsg += " They will roll to find clue %s." % ob.targeted_clue
+        else:
+            staffmsg += " Their topic does not target a clue, and will automatically fail unless GM'd."
+        inform_staff(staffmsg)
+
+    def do_finish(self):
+        form = self.finished_form
+        if not form:
+            return
+        topic,actions,stat,skill = form[0], form[1], form[2], form[3]
+        if not self.pay_costs():
+            return
+        ob = self.related_manager.create(topic=topic, actions=actions)
+        if stat:
+            ob.stat_used = stat
+        if skill:
+            ob.skill_used = skill
+        self.mark_active(ob)       
+        caller.attributes.remove("investigation_form")
+
+    def create_form(self):
+        investigation = ['', '', '', '', self.caller]
+        self.caller.db.investigation_form = investigation
+        self.disp_investigation_form()
+
+    def get_target(self):
+        self.investigation_form[0] = self.args
+        self.disp_investigation_form()
+
+    def func(self):
+        investigation = self.investigation_form
+        if "new" in self.switches:
+            self.create_form()
+            return True
+        if set(self.switches) & set(self.form_switches):
+            if not investigation:
+                caller.msg("You need to create a form first with /new.")
+                return True
+            if "target" in self.switches or "topic" in self.switches:
+                self.get_target()
+                return True
+            if "story" in self.switches:
+                investigation[1] = self.args
+                self.disp_investigation_form()
+                return True
+            if "stat" in self.switches:
+                if not self.caller.attributes.get(self.args.lower()):
+                    self.msg("No stat by the name of %s." % self.args)
+                    return
+                investigation[2] = self.args
+                self.disp_investigation_form()
+                return True
+            if "skill" in self.switches:
+                if self.args.lower() not in self.caller.db.skills:
+                    self.msg("You have no skill by the name of %s." % self.args)
+                    return
+                investigation[3] = self.args
+                self.disp_investigation_form()
+                return True
+            if "cancel" in self.switches:
+                self.caller.attributes.remove("investigation_form")
+                self.msg("Investigation abandoned.")
+                return True
+            if "finish" in self.switches:
+                self.do_finish()
+                return True
+
+class CmdAssistInvestigation(InvestigationFormMixin, MuxCommand):
+    """
+    @helpinvestigate
+
+    Usage:
+        @helpinvestigate
+        @helpinvestigate/new
+        @helpinvestigate/target <investigation ID #>
+        @helpinvestigate/story <text of how you/your retainer help>
+        @helpinvestigate/stat <stat to use for the check>
+        @helpinvestigate/skill <additional skill besides investigation>
+        @helpinvestigate/cancel
+        @helpinvestigate/finish
+        @helpinvestigate/retainer <id #>=<retainer ID>
+        @helpinvestigate/stop <id #>
+        @helpinvestigate/resume <id #>
+        @helpinvestigate/retainerstop <id #>
+
+    Helps with an investigation, or orders a retainer to help
+    with the investigation. You may only help with one investigation
+    at a time, and only if you are not actively investigating something
+    yourself. You may stop helping an investigation with /stop, and
+    resume it with /resume.
+    """
+    key = "@investigate"
+    locks = "cmd:all()"
+    help_category = "Investigation"
+    form_verb = "Helping"
+    
+    def pay_costs(self):
+        return True
+
+    @property
+    def related_manager(self):
+        return self.helper.assisted_investigations
+
+    @property
+    def helper(self):
+        "Returns caller or their retainer who they are using in the investigation"
+        try:
+            return self.investigation_form[4] or self.caller
+        except IndexError:
+            return self.caller
+
+    def disp_investigation_form(self):
+        super(CmdAssistInvestigate, self).disp_investigation_form()
+        self.msg("{wAssisting Character:{n %s" % self.helper)
+
+    def check_eligibility(self, helper):
+        helping = helper.assisted_investigations.filter(currently_helping=True)
+        if helping:
+            self.msg("%s is already helping an investigation: %s" % (helper, ", ".join(str(ob.investigation.id) for ob in helping)))
+            return False
+        return True
+
+    def set_helper(self):
+        if not self.investigation_form:
+            self.msg("No form found. Use /new.")
+            return
+        try:
+            helper = self.caller.retainers.get(id=self.rhs)
+        except Exception:
+            helper = self.caller
+        if not self.check_eligibility(helper):
+            return
+        self.investigation_form[4] = helper
+        self.disp_investigation_form()
+    
+    def func(self):
+        finished = super(CmdAssistInvestigation, self).func()
+        if finished:
+            return
+        if "retainer" in self.switches:
+            self.set_actor()
+            return
+        
+
+class CmdInvestigate(InvestigationFormMixin, MuxCommand):
     """
     @investigate
     
@@ -57,40 +269,25 @@ class CmdInvestigate(MuxCommand):
     help_category = "Investigation"
     aliases = ["+investigate", "investigate"]
     base_cost = 25
-    form_switches = ("topic", "story", "stat", "skill", "cancel", "finish")
     model_switches = ("view", "active", "silver", "resource", "changetopic",
                       "changestory", "abandon", "resume")
-    def disp_investigation_form(self):
-        caller = self.caller
-        form = caller.db.investigation_form
-        if not form:
-            return
-        topic,story,stat,skill = form[0], form[1], form[2], form[3]
-        caller.msg("Creating an investigation:")
-        caller.msg("{wTopic{n: %s" % topic)
-        caller.msg("{wStory{n: %s" % story)
-        caller.msg("{wStat{n: %s" % stat)
-        caller.msg("{wSkill{n: %s" % skill)
+    
 
     def list_ongoing_investigations(self):
-        caller = self.caller
-        entry = caller.roster
-        qs = entry.investigations.filter(ongoing=True)
+        qs = self.related_manager.filter(ongoing=True)
         table = PrettyTable(["ID", "Topic", "Active?"])
         for ob in qs:
             table.add_row([ob.id, ob.topic, "{wX{n" if ob.active else ""])
-        caller.msg("Ongoing investigations:")
-        caller.msg(str(table))
+        self.msg("Ongoing investigations:")
+        self.msg(str(table))
 
     def list_old_investigations(self):
-        caller = self.caller
-        entry = caller.roster
-        qs = entry.investigations.filter(ongoing=False)
+        qs = self.related_manager.filter(ongoing=False)
         table = PrettyTable(["ID", "Topic"])
         for ob in qs:
             table.add_row([ob.id, ob.topic])
-        caller.msg("Old investigations")
-        caller.msg(str(table))
+        self.msg("Old investigations")
+        self.msg(str(table))
 
     @property
     def start_cost(self):
@@ -99,10 +296,13 @@ class CmdInvestigate(MuxCommand):
         return self.base_cost - (5 * skill)
         
     def func(self):
+        finished = super(CmdInvestigate, self).func()
+        if finished:
+            return
         caller = self.caller
         entry = caller.roster
         dompc = caller.db.player_ob.Dominion
-        investigation = caller.db.investigation_form
+        investigation = self.investigation_form
         if not self.args and not self.switches:
             if investigation:
                 self.disp_investigation_form()
@@ -111,85 +311,10 @@ class CmdInvestigate(MuxCommand):
         if "history" in self.switches:
             # display history
             self.list_old_investigations()
-            return
-        if "new" in self.switches:
-            investigation = ['', '', '', '']
-            caller.db.investigation_form = investigation
-            self.disp_investigation_form()
-            return
-        if set(self.switches) & set(self.form_switches):
-            if not investigation:
-                caller.msg("You need to create a form first with /new.")
-                return
-            if "topic" in self.switches:
-                investigation[0] = self.args
-                self.disp_investigation_form()
-                return
-            if "story" in self.switches:
-                investigation[1] = self.args
-                self.disp_investigation_form()
-                return
-            if "stat" in self.switches:
-                if not caller.attributes.get(self.args.lower()):
-                    self.msg("No stat by the name of %s." % self.args)
-                    return
-                investigation[2] = self.args
-                self.disp_investigation_form()
-                return
-            if "skill" in self.switches:
-                if self.args.lower() not in caller.db.skills:
-                    self.msg("You have no skill by the name of %s." % self.args)
-                    return
-                investigation[3] = self.args
-                self.disp_investigation_form()
-                return
-            if "cancel" in self.switches:
-                caller.attributes.remove("investigation_form")
-                caller.msg("Investigation abandoned.")
-                return
-            if "finish" in self.switches:
-                form = investigation
-                topic,actions,stat,skill = form[0], form[1], form[2], form[3]
-                if not topic:
-                    caller.msg("You must have a topic defined.")
-                    return
-                if not actions:
-                    caller.msg("You must have a story defined.")
-                    return
-                amt = dompc.assets.social
-                amt -= self.start_cost
-                if amt < 0:
-                    caller.msg("It costs %s social resources to start a new investigation." % self.start_cost)
-                    return
-                caller.msg("You spend %s social resources to start a new investigation." % self.start_cost)
-                dompc.assets.social = amt
-                dompc.assets.save()
-                ob = entry.investigations.create(topic=topic, actions=actions)
-                if stat:
-                    ob.stat_used = stat
-                if skill:
-                    ob.skill_used = skill
-                if not entry.investigations.filter(active=True):
-                    ob.active = True
-                    caller.msg("New investigation created. This has been set as your active investigation " +
-                               "for the week, and you may add resources/silver to increase its chance of success.")
-                else:
-                    caller.msg("New investigation created. You already have an active investigation for this week, " +
-                               "but may still add resources/silver to increase its chance of success for when you next mark this as active.")
-                caller.msg("You may only have one active investigation per week, and cannot change it once " +
-                           "it has received GM attention. Only the active investigation can progress.")
-                ob.save()
-                staffmsg = "%s has started an investigation on %s." % (caller, ob.topic)
-                if ob.targeted_clue:
-                    staffmsg += " They will roll to find clue %s." % ob.targeted_clue
-                else:
-                    staffmsg += " Their topic does not target a clue, and will automatically fail unless GM'd."
-                inform_staff(staffmsg)
-                caller.attributes.remove("investigation_form")
-                return
+            return   
         if set(self.switches) & set(self.model_switches):
             try:
-                ob = entry.investigations.get(id=int(self.lhs))
+                ob = self.related_manager.get(id=int(self.lhs))
             except (TypeError, ValueError):
                 caller.msg("Must give ID of investigation.")
                 return
@@ -197,7 +322,7 @@ class CmdInvestigate(MuxCommand):
                 caller.msg("Investigation not found.")
                 return
             if "resume" in self.switches:
-                ob.ongonig = True
+                ob.ongoing = True
                 ob.save()
                 caller.msg("Investigation has been marked to be ongoing.")
                 return
