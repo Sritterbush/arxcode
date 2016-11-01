@@ -446,6 +446,8 @@ class CmdCraft(MuxCommand):
             caller.msg("Additional materials: %s" % ", ".join("%s: %s" % (CraftingMaterialType.objects.get(id=mat).name,amt) for mat,amt in adorns.items()))
             return
         if "forgery" in self.switches:
+            self.msg("Temporarily disabled until I have time to revamp this.")
+            return
             if not (self.lhs and self.rhs):
                 caller.msg("Usage: craft/forgery <real>=<fake>")
                 return
