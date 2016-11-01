@@ -1176,7 +1176,7 @@ class CmdCalendar(MuxPlayerCommand):
             elif cel_tier == 2:
                 rating = 'refined'
             elif cel_tier == 3:
-                rating == 'grand'
+                rating = 'grand'
             elif cel_tier == 4:
                 rating = 'extravagant'
             elif cel_tier == 5:
