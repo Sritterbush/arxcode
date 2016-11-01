@@ -11,6 +11,7 @@ from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from server.utils.utils import inform_staff
 
+
 class InvestigationFormMixin(object):
     form_verb = "Creating"
     form_switches = ("topic", "story", "stat", "skill", "cancel", "finish")
@@ -44,7 +45,7 @@ class InvestigationFormMixin(object):
             form = self.investigation_form
             topic,actions,stat,skill = form[0], form[1], form[2], form[3]
             if not topic:
-                self.msg("You must have a topic defined.")
+                self.msg("You must have a %s defined." % self.target_type.lower())
                 return
             if not actions:
                 self.msg("You must have a story defined.")
@@ -53,6 +54,10 @@ class InvestigationFormMixin(object):
         except Exception:
             self.msg("Your investigation form is not yet filled out.")
             return False
+
+    @property
+    def start_cost(self):
+        return 0
 
     def pay_costs(self):
         dompc = self.caller.db.player_ob.Dominion
@@ -84,6 +89,9 @@ class InvestigationFormMixin(object):
             staffmsg += " Their topic does not target a clue, and will automatically fail unless GM'd."
         inform_staff(staffmsg)
 
+    def add_target_to_obj(self, ob, target):
+        ob.topic = target
+
     def do_finish(self):
         form = self.finished_form
         if not form:
@@ -91,13 +99,14 @@ class InvestigationFormMixin(object):
         topic,actions,stat,skill = form[0], form[1], form[2], form[3]
         if not self.pay_costs():
             return
-        ob = self.related_manager.create(topic=topic, actions=actions)
+        ob = self.related_manager.create(actions=actions)
+        self.add_target_to_obj(ob, topic)
         if stat:
             ob.stat_used = stat
         if skill:
             ob.skill_used = skill
         self.mark_active(ob)       
-        caller.attributes.remove("investigation_form")
+        self.caller.attributes.remove("investigation_form")
 
     def create_form(self):
         investigation = ['', '', '', '', self.caller]
@@ -115,7 +124,7 @@ class InvestigationFormMixin(object):
             return True
         if set(self.switches) & set(self.form_switches):
             if not investigation:
-                caller.msg("You need to create a form first with /new.")
+                self.msg("You need to create a form first with /new.")
                 return True
             if "target" in self.switches or "topic" in self.switches:
                 self.get_target()
@@ -145,6 +154,7 @@ class InvestigationFormMixin(object):
             if "finish" in self.switches:
                 self.do_finish()
                 return True
+
 
 class CmdAssistInvestigation(InvestigationFormMixin, MuxCommand):
     """
@@ -191,7 +201,7 @@ class CmdAssistInvestigation(InvestigationFormMixin, MuxCommand):
             return self.caller
 
     def disp_investigation_form(self):
-        super(CmdAssistInvestigate, self).disp_investigation_form()
+        super(CmdAssistInvestigation, self).disp_investigation_form()
         self.msg("{wAssisting Character:{n %s" % self.helper)
 
     def check_eligibility(self, helper):
@@ -213,13 +223,44 @@ class CmdAssistInvestigation(InvestigationFormMixin, MuxCommand):
             return
         self.investigation_form[4] = helper
         self.disp_investigation_form()
+
+    def disp_invites(self):
+        invites = self.caller.db.investigation_invitations or []
+        investigations = Investigation.objects.filter(id__in=invites, ongoing=True)
+        investigations = investigations | self.caller.entry.investigations.filter(ongoing=True)
+        self.msg("You are permitted to help the following investigations:\n%s" % \
+                 "\n".join("  %s (ID: %s)" % (str(ob), ob.id) for ob in investigations))
+    @property
+    def valid_targ_ids(self):
+        invites = self.caller.db.investigation_invitations or []
+        for ob in self.caller.entry.investigations.filter(ongoing=True):
+            invites.append(ob.id)
+        return invites
+
+    def get_target(self):
+        if not self.args:
+            self.disp_invites()
+            return
+        try:
+            targ = int(self.args)
+        except ValueError:
+            self.msg("You must supply the ID of an investigation.")
+            return
+        if targ not in self.valid_targ_ids:
+            self.msg("No investigation by that ID.")
+            return
+        # check that we can't do our own unless it's a retainer
+
+    def add_target_to_obj(self, ob, target):
+        invest = Investigation.objects.get(id=target)
+        ob.investigation = invest
     
     def func(self):
         finished = super(CmdAssistInvestigation, self).func()
         if finished:
             return
         if "retainer" in self.switches:
-            self.set_actor()
+            self.set_helper()
             return
         
 
