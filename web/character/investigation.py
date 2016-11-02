@@ -3,8 +3,6 @@ Commands for the 'Character' app that handles the roster,
 stories, the timeline, etc.
 """
 
-from django.conf import settings
-from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from .models import Investigation, Clue
 from server.utils.prettytable import PrettyTable
@@ -12,13 +10,20 @@ from evennia.utils.evtable import EvTable
 from server.utils.utils import inform_staff
 
 
-class InvestigationFormMixin(object):
+class InvestigationFormCommand(MuxCommand):
+    """
+    ABC for creating commands based on investigations that process a form.
+    """
     form_verb = "Creating"
-    form_switches = ("topic", "story", "stat", "skill", "cancel", "finish")
+    form_switches = ("topic", "target", "story", "stat", "skill", "cancel", "finish")
+
+    @property
+    def form_attr(self):
+        return "investigation_form"
     
     @property
     def investigation_form(self):
-        return self.caller.db.investigation_form
+        return getattr(self.caller.db, self.form_attr)
 
     @property
     def related_manager(self):
@@ -30,17 +35,18 @@ class InvestigationFormMixin(object):
             return
         target,story,stat,skill = form[0], form[1], form[2], form[3]
         self.msg("%s an investigation:" % self.form_verb)
-        self.msg("{w%s{n: %s" % (self.target_type, target))
+        self.msg("{w%s{n: %s" % (self.target_type.capitalize(), target))
         self.msg("{wStory{n: %s" % story)
         self.msg("{wStat{n: %s" % stat)
         self.msg("{wSkill{n: %s" % skill)
 
     @property
     def target_type(self):
-        return "Topic"
+        return "topic"
                  
     @property
     def finished_form(self):
+        """Property that validates the form that has been created."""
         try:
             form = self.investigation_form
             topic,actions,stat,skill = form[0], form[1], form[2], form[3]
@@ -72,52 +78,69 @@ class InvestigationFormMixin(object):
         return True
 
     def mark_active(self, ob):
-        if not self.related_manager.filter(active=True):
-            ob.active = True
-            self.msg("New investigation created. This has been set as your active investigation " +
-                       "for the week, and you may add resources/silver to increase its chance of success.")
-        else:
-            self.msg("New investigation created. You already have an active investigation for this week, " +
-                       "but may still add resources/silver to increase its chance of success for when you next mark this as active.")
-        self.msg("You may only have one active investigation per week, and cannot change it once " +
-                   "it has received GM attention. Only the active investigation can progress.")
-        ob.save()
-        staffmsg = "%s has started an investigation on %s." % (self.caller, ob.topic)
-        if ob.targeted_clue:
-            staffmsg += " They will roll to find clue %s." % ob.targeted_clue
-        else:
-            staffmsg += " Their topic does not target a clue, and will automatically fail unless GM'd."
-        inform_staff(staffmsg)
+        """
+        Finishes setting up the created object with any fields that need to be filled out,
+        and informs the caller of what was done, as well as announces to staff. Saves the
+        created object.
+        """
+        pass
 
-    def add_target_to_obj(self, ob, target):
-        ob.topic = target
+    def create_obj_from_form(self, form):
+        """
+        Create a new object from our related manager with the form we were given
+        from finished form, with appropriate kwargs
+        """
+        kwargs = {self.target_type: form[0], "actions": form[1], "stat_used": form[2], "skill_used": form[3]}
+        return self.related_manager.create(**kwargs)
+
 
     def do_finish(self):
+        """
+        the finished_form property checks if all
+        the fields are valid. Further checks on whether the fields can
+        be used are done by pay_costs. The object to be created is then
+        created using our related_manager property, and the target is
+        populated with add_target_to_obj. It's then setup with mark_active
+        """
         form = self.finished_form
         if not form:
             return
         topic,actions,stat,skill = form[0], form[1], form[2], form[3]
         if not self.pay_costs():
             return
-        ob = self.related_manager.create(actions=actions)
-        self.add_target_to_obj(ob, topic)
-        if stat:
-            ob.stat_used = stat
-        if skill:
-            ob.skill_used = skill
+        ob = self.create_obj_from_form(form)
         self.mark_active(ob)       
-        self.caller.attributes.remove("investigation_form")
+        self.caller.attributes.remove(self.form_attr)
 
     def create_form(self):
+        """
+        Initially populates the form we use. Other switches will populate
+        the fields, which will be used in do_finish()
+        """
         investigation = ['', '', '', '', self.caller]
-        self.caller.db.investigation_form = investigation
+        setattr(self.caller.db, self.form_attr, investigation)
         self.disp_investigation_form()
 
     def get_target(self):
+        """
+        Sets the target of the object we'll create. For an investigation,
+        this will be the topic. For an assisting investigation, it'll be the ID of the investigation.
+        """
         self.investigation_form[0] = self.args
         self.disp_investigation_form()
 
+    def check_skill(self):
+        if self.args.lower() not in self.caller.db.skills:
+            self.msg("You have no skill by the name of %s." % self.args)
+            return
+        return True
+
     def func(self):
+        """
+        Base version of the command that can be inherited. It allows for creation of the form with
+        the 'new' switch, is populated with 'target', 'story', 'stat', and 'skill', aborted with 'cancel',
+        and finished with 'finish'.
+        """
         investigation = self.investigation_form
         if "new" in self.switches:
             self.create_form()
@@ -141,14 +164,14 @@ class InvestigationFormMixin(object):
                 self.disp_investigation_form()
                 return True
             if "skill" in self.switches:
-                if self.args.lower() not in self.caller.db.skills:
-                    self.msg("You have no skill by the name of %s." % self.args)
+                if not self.check_skill():
                     return
+
                 investigation[3] = self.args
                 self.disp_investigation_form()
                 return True
             if "cancel" in self.switches:
-                self.caller.attributes.remove("investigation_form")
+                self.caller.attributes.remove(self.form_attr)
                 self.msg("Investigation abandoned.")
                 return True
             if "finish" in self.switches:
@@ -156,20 +179,20 @@ class InvestigationFormMixin(object):
                 return True
 
 
-class CmdAssistInvestigation(InvestigationFormMixin, MuxCommand):
+class CmdAssistInvestigation(InvestigationFormCommand):
     """
     @helpinvestigate
 
     Usage:
         @helpinvestigate
         @helpinvestigate/new
+        @helpinvestigate/retainer <retainer ID>
         @helpinvestigate/target <investigation ID #>
         @helpinvestigate/story <text of how you/your retainer help>
         @helpinvestigate/stat <stat to use for the check>
         @helpinvestigate/skill <additional skill besides investigation>
         @helpinvestigate/cancel
         @helpinvestigate/finish
-        @helpinvestigate/retainer <id #>=<retainer ID>
         @helpinvestigate/stop <id #>
         @helpinvestigate/resume <id #>
         @helpinvestigate/retainerstop <id #>
@@ -178,9 +201,12 @@ class CmdAssistInvestigation(InvestigationFormMixin, MuxCommand):
     with the investigation. You may only help with one investigation
     at a time, and only if you are not actively investigating something
     yourself. You may stop helping an investigation with /stop, and
-    resume it with /resume.
+    resume it with /resume. To set a retainer to help the investigation,
+    use the /retainer switch and supply their number. Entering an invalid
+    retainer ID will switch back to you as being the investigation's helper.
     """
-    key = "@investigate"
+    key = "@helpinvestigate"
+    alises = ["+helpinvestigate", "helpinvestigate"]
     locks = "cmd:all()"
     help_category = "Investigation"
     form_verb = "Helping"
@@ -191,6 +217,10 @@ class CmdAssistInvestigation(InvestigationFormMixin, MuxCommand):
     @property
     def related_manager(self):
         return self.helper.assisted_investigations
+
+    @property
+    def form_attr(self):
+        return "assist_investigation_form"
 
     @property
     def helper(self):
@@ -209,6 +239,17 @@ class CmdAssistInvestigation(InvestigationFormMixin, MuxCommand):
         if helping:
             self.msg("%s is already helping an investigation: %s" % (helper, ", ".join(str(ob.investigation.id) for ob in helping)))
             return False
+        if helper == self.caller:
+            try:
+                if self.caller.roster.investigations.filter(active=True):
+                    self.msg("You cannot assist an investigation while having an active investigation.")
+                    return False
+                formid = self.investigation_form[0]
+                if self.caller.roster.investigations.get(id=formid):
+                    self.msg("You cannot assist one of your own investigations. You must use a retainer.")
+                    return False
+            except Exception:
+                pass
         return True
 
     def set_helper(self):
@@ -216,8 +257,12 @@ class CmdAssistInvestigation(InvestigationFormMixin, MuxCommand):
             self.msg("No form found. Use /new.")
             return
         try:
-            helper = self.caller.retainers.get(id=self.rhs)
-        except Exception:
+            helper = self.caller.db.player_ob.retainers.get(id=self.args).dbobj
+            if not helper.db.abilities or helper.db.abilities.get("investigation_assistant", 0) < 1:
+                self.msg("%s is not able to assist investigations." % helper)
+                return
+        except ArithmeticError:
+            self.msg("No retainer by that number. Setting it to be you instead.")
             helper = self.caller
         if not self.check_eligibility(helper):
             return
@@ -227,14 +272,15 @@ class CmdAssistInvestigation(InvestigationFormMixin, MuxCommand):
     def disp_invites(self):
         invites = self.caller.db.investigation_invitations or []
         investigations = Investigation.objects.filter(id__in=invites, ongoing=True)
-        investigations = investigations | self.caller.entry.investigations.filter(ongoing=True)
+        investigations = investigations | self.caller.roster.investigations.filter(ongoing=True)
         self.msg("You are permitted to help the following investigations:\n%s" % \
                  "\n".join("  %s (ID: %s)" % (str(ob), ob.id) for ob in investigations))
     @property
     def valid_targ_ids(self):
         invites = self.caller.db.investigation_invitations or []
-        for ob in self.caller.entry.investigations.filter(ongoing=True):
-            invites.append(ob.id)
+        if self.helper != self.caller:
+            for ob in self.caller.roster.investigations.filter(ongoing=True):
+                invites.append(ob.id)
         return invites
 
     def get_target(self):
@@ -250,21 +296,76 @@ class CmdAssistInvestigation(InvestigationFormMixin, MuxCommand):
             self.msg("No investigation by that ID.")
             return
         # check that we can't do our own unless it's a retainer
+        if self.investigation_form[4] == self.caller:
+            if self.caller.roster.investigations.filter(ongoing=True, id=targ):
+                self.msg("You cannot assist your own investigation.")
+                return
+        self.investigation_form[0] = targ
+        self.disp_investigation_form()
 
-    def add_target_to_obj(self, ob, target):
-        invest = Investigation.objects.get(id=target)
-        ob.investigation = invest
+    def mark_active(self, ob):
+        try:
+            current = ob.assisted_investigations.get(currently_helping=True)
+            current.currently_helping = False
+            current.save()
+            self.msg("You were currently helping another investigation. Switching.")
+        except Exception:
+            pass
+        ob.currently_helping = True
+        ob.save()
+        self.msg("%s is now helping %s." % (self.helper, ob))
+        self.caller.attributes.remove(self.form_attr)
+
+    @property
+    def target_type(self):
+        return "investigation"
+
+    @property
+    def finished_form(self):
+        form = super(CmdAssistInvestigation, self).finished_form
+        if not form:
+            return
+        invest_id, actions, stat, skill = form
+        if invest_id not in self.valid_targ_ids:
+            self.msg("That is not a valid ID of an investigation for %s to assist." % self.helper)
+            self.msg("Valid IDs: %s" % ", ".join(self.valid_targ_ids))
+            return
+        try:
+            investigation = Investigation.objects.get(id=invest_id)
+        except Investigation.DoesNotExist:
+            self.msg("No investigation by that ID found.")
+            return
+        return (investigation, actions, stat, skill)
+
+    def disp_currently_helping(self, char):
+        self.msg("%s is helping the following investigations:" % char)
+        table = PrettyTable(["ID", "Investigation Owner", "Currently Helping"])
+        for ob in char.assisted_investigations.all():
+            table.add_row([str(ob.investigation.id), str(ob.investigation.char), str(ob.currently_helping)])
+        self.msg(table)
+
+    def check_skill(self):
+        if self.args.lower() not in self.helper.db.skills:
+            self.msg("%s has no skill by the name of %s." % (self.helper, self.args))
+            return
+        return True
     
     def func(self):
         finished = super(CmdAssistInvestigation, self).func()
         if finished:
+            return
+        if not self.args and not self.switches:
+            if self.investigation_form:
+                self.disp_investigation_form()
+            self.disp_invites()
+            self.disp_currently_helping(self.caller)
             return
         if "retainer" in self.switches:
             self.set_helper()
             return
         
 
-class CmdInvestigate(InvestigationFormMixin, MuxCommand):
+class CmdInvestigate(InvestigationFormCommand):
     """
     @investigate
     
@@ -279,6 +380,7 @@ class CmdInvestigate(InvestigationFormMixin, MuxCommand):
         @investigate/changestory <id #>=<new story>
         @investigate/abandon <id #>
         @investigate/resume <id #>
+        @investigate/requesthelp <id #>=<player>
         @investigate/new
         @investigate/topic <keyword to investigate>
         @investigate/story <text of how you do the investigation>
@@ -311,7 +413,7 @@ class CmdInvestigate(InvestigationFormMixin, MuxCommand):
     aliases = ["+investigate", "investigate"]
     base_cost = 25
     model_switches = ("view", "active", "silver", "resource", "changetopic",
-                      "changestory", "abandon", "resume")
+                      "changestory", "abandon", "resume", "requesthelp")
     
 
     def list_ongoing_investigations(self):
@@ -335,6 +437,29 @@ class CmdInvestigate(InvestigationFormMixin, MuxCommand):
         caller = self.caller
         skill = caller.db.skills.get("investigation", 0)
         return self.base_cost - (5 * skill)
+
+    def add_target_to_obj(self, ob, target):
+        ob.topic = target
+
+    def mark_active(self, ob):
+        if not (self.related_manager.filter(active=True) or
+                    self.caller.assisted_investigations.filter(currently_helping=True)):
+            ob.active = True
+            self.msg("New investigation created. This has been set as your active investigation " +
+                       "for the week, and you may add resources/silver to increase its chance of success.")
+        else:
+            self.msg("New investigation created. You already are participating in an active investigation " +
+                     "for this week, but may still add resources/silver to increase its chance of success " +
+                     "for when you next mark this as active.")
+        self.msg("You may only have one active investigation per week, and cannot change it once " +
+                   "it has received GM attention. Only the active investigation can progress.")
+        ob.save()
+        staffmsg = "%s has started an investigation on %s." % (self.caller, ob.topic)
+        if ob.targeted_clue:
+            staffmsg += " They will roll to find clue %s." % ob.targeted_clue
+        else:
+            staffmsg += " Their topic does not target a clue, and will automatically fail unless GM'd."
+        inform_staff(staffmsg)
         
     def func(self):
         finished = super(CmdInvestigate, self).func()
@@ -385,6 +510,9 @@ class CmdInvestigate(InvestigationFormMixin, MuxCommand):
                     if not current_active.automate_result:
                         caller.msg("You already have an active investigation " +
                                    "that has received GMing this week, and cannot be switched.")
+                        return
+                    if caller.assisted_investigations.filter(currently_helping=True):
+                        self.msg("You are currently assisting with an investigation.")
                         return
                     current_active.active = False
                     current_active.save()
@@ -448,6 +576,27 @@ class CmdInvestigate(InvestigationFormMixin, MuxCommand):
                 ob.actions = self.rhs
                 ob.save()
                 caller.msg("The new story of your investigation is:\n%s" % self.args)
+                return
+            if "requesthelp" in self.switches:
+                try:
+                    from typeclasses.characters import Character
+                    char = Character.objects.get(db_key__iexact=self.rhs, roster__roster__name="Active")
+                except Exception:
+                    self.msg("No active player found by that name.")
+                    return
+                if char == caller:
+                    self.msg("You cannot invite yourself.")
+                    return
+                if char.assisted_investigations.filter(investigation=ob):
+                    self.msg("They are already able to assist the investigation.")
+                    return
+                current = char.db.investigation_invitations or []
+                if ob.id in current:
+                    self.msg("They already have an invitation to assist this investigation.")
+                    return
+                self.msg("Asking %s to assist with %s." % (char, ob))
+                current.append(ob.id)
+                char.db.investigation_invitations = current
                 return
         caller.msg("Invalid switch.")
         return

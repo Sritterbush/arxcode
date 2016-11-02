@@ -6,7 +6,9 @@ from evennia.locks.lockhandler import LockHandler
 from django.db.models import Q, F
 from .managers import ArxRosterManager
 from datetime import datetime
-import random, traceback
+import random
+import traceback
+from world.stats_and_skills import do_dice_check
 
 """
 This is the main model in the project. It holds a reference to cloudinary-stored
@@ -577,7 +579,7 @@ class Investigation(models.Model):
         stat = stat.lower()
         skill = obj.skill_used or "investigation"
         skill = skill.lower()
-        roll = do_dice_check(objchar, stat_list=[stat, "perception"], skill_list=[skill, "investigation"],
+        roll = do_dice_check(obj.char, stat_list=[stat, "perception"], skill_list=[skill, "investigation"],
                              difficulty=diff, average_lists=True)
         return roll
     
@@ -585,19 +587,21 @@ class Investigation(models.Model):
         """
         Do a dice roll to return a result
         """
-        from world.stats_and_skills import do_dice_check
         char = self.char
         diff = (diff if diff != None else self.difficulty) + mod
         roll = self.do_obj_roll(self, diff)
-        roll += random.randint(0, 20)
         for ass in self.active_assistants:
             aroll = self.do_obj_roll(ass, diff)
             if aroll < 0:
                 aroll = 0
-            aroll += random.randint(0, 5)
+            try:
+                ability_level = ass.char.db.abilities['investigation_assistant']
+            except (AttributeError, ValueError, KeyError):
+                ability_level = 0
+            aroll += random.randint(0, 5) * ability_level
             roll += aroll
         # save the character's roll
-        print "roll is %s" % roll
+        print "final roll is %s" % roll
         self.roll = roll
         return roll
 

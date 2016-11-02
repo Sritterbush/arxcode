@@ -1265,20 +1265,20 @@ class DomainProject(models.Model):
         determine if the unit type we're training more of already exists in the army.
         If so, we add to the value, and if not, we create a new unit.
         """
-        if self.type == BUILD_HOUSING:
+        if self.type == self.BUILD_HOUSING:
             self.domain.num_housing += self.amount
-        if self.type == BUILD_FARMS:
+        if self.type == self.BUILD_FARMS:
             self.domain.num_farms += self.amount
-        if self.type == BUILD_MINES:
+        if self.type == self.BUILD_MINES:
             self.domain.num_mines += self.amount
-        if self.type == BUILD_MILLS:
+        if self.type == self.BUILD_MILLS:
             self.domain.num_mills += self.amount
-        if self.type < BUILD_DEFENSES:
+        if self.type < self.BUILD_DEFENSES:
             self.domain.save()
-        if self.type == BUILD_DEFENSES:
+        if self.type == self.BUILD_DEFENSES:
             self.castle.level += self.amount
             self.castle.save()
-        if self.type == MUSTER_TROOPS:
+        if self.type == self.MUSTER_TROOPS:
             existing_unit = self.military.find_unit(self.unit_type)
             if existing_unit:
                 existing_unit.adjust_readiness(self.amount)
@@ -1286,9 +1286,9 @@ class DomainProject(models.Model):
                 existing_unit.save()
             else:
                 self.military.units.create(unit_type=self.unit_type, quantity=self.amount)
-        if self.type == TRAIN_TROOPS:
+        if self.type == self.TRAIN_TROOPS:
             self.unit.train(self.amount)
-        if self.type == BUILD_TROOP_EQUIPMENT:
+        if self.type == self.BUILD_TROOP_EQUIPMENT:
             self.unit.equipment += self.amount
             self.unit.save()
         if report:
@@ -1651,23 +1651,29 @@ class Agent(models.Model):
     def _get_cost(self):
         return self.cost_per_guard * self.quantity
     cost = property(_get_cost)
+
     def _get_type_name(self):
         return self.npcs.get_type_name(self.type)
     typename = property(_get_type_name)
+
     # total of all agent obs + our reserve quantity
     def _get_total_num(self):
         return self.quantity + sum(self.agent_objects.values_list("quantity", flat=True))
     total = property(_get_total_num)
+
     def _get_active(self):
         return self.agent_objects.filter(quantity__gte=1)
     active = property(_get_active)
+
     def __unicode__(self):
         name = self.name or self.typename
         if self.unique or self.quantity == 1:
             return name
         return "%s %s" % (self.quantity, self.name)
+
     def __repr__(self):
         return "<Agent (#%s): %s>" % (self.id, self.name)
+
     def display(self, show_assignments=True):
         msg = "\n\n{wID{n: %s {wName{n: %s {wType:{n %s" % (
             self.id, self.name, self.typename)
@@ -1680,6 +1686,7 @@ class Agent(models.Model):
         for agent in self.agent_objects.all():
             msg += agent.display()
         return msg
+
     def assign(self, targ, num):
         """
         Assigns num agents to target character object.
@@ -1702,6 +1709,13 @@ class Agent(models.Model):
         agentob = self.agent_objects.get(dbobj__isnull=False)
         return agentob.dbobj
 
+    @property
+    def buyable_abilities(self):
+        try:
+            return self.dbobj.buyable_abilities
+        except AttributeError:
+            return []
+
     def __init__(self, *args, **kwargs):
         super(Agent, self).__init__(*args, **kwargs)
         self.npcs = AgentHandler(self)
@@ -1715,6 +1729,9 @@ class Agent(models.Model):
     def get_skill_cost(self, attr):
         return self.dbobj.get_skill_cost(attr)
 
+    def get_ability_cost(self, attr):
+        return self.dbobj.get_ability_cost(attr)
+
     def get_attr_maximum(self, attr, category):
         if category == "level":
             if self.typename in attr:
@@ -1727,14 +1744,18 @@ class Agent(models.Model):
             max = self.dbobj.get_stat_maximum(attr)
         elif category == "skill":
             max = self.dbobj.get_skill_maximum(attr)
+        elif category == "ability":
+            max = self.dbobj.get_ability_maximum(attr)
         elif category == "weapon":
             if attr == 'weapon_damage':
                 max = (self.quality + 2) * 2
             elif attr == 'difficulty_mod':
                 max = (self.quality + 1) * 2
+            else:
+                raise ValueError("Undefined weapon attribute")
+        else:
+            raise ValueError("Undefined category")
         return max
-
-
 
 
 class AgentMission(models.Model):
@@ -2042,13 +2063,12 @@ class Army(models.Model):
                 castellan = None
                 if self.commander:
                     castellan = self.commander.player
-                owner = player.assets
-                ruler_list = Ruler.objects.filter(house_id=owner_id)
+                ruler_list = Ruler.objects.filter(house_id=self.owner)
                 if ruler_list:
                     ruler = ruler_list[0]
                 else:
                     ruler = Ruler.objects.create(house=self.owner, castellan=castellan)
-        # determine if we have a bordering domain that can absorb this
+            # determine if we have a bordering domain that can absorb this
         else:
             ruler = self.domain.ruler
             if ruler:
@@ -2999,9 +3019,8 @@ class RPEvent(models.Model):
 
     def tag_obj(self, obj):
         category = "event"
+        from evennia.typeclasses.tags import Tag
         try:
-            from evennia.typeclasses.tags import Tag
-
             tag = Tag.objects.get(db_key=self.tagkey, db_category=category,
                                   db_data=self.tagdata)
         except Tag.DoesNotExist:
@@ -3023,18 +3042,23 @@ class InfluenceCategory(models.Model):
     orgs = models.ManyToManyField("Organization", through="SphereOfInfluence")
     players = models.ManyToManyField("PlayerOrNpc", through="Renown")
     tasks = models.ManyToManyField("Task", through="TaskRequirement")
+
     class Meta:
         "Define Django meta options"
         verbose_name_plural = "Influence Categories"
+
     def __str__(self):
         return self.name
+
 
 class Renown(models.Model):
     category = models.ForeignKey("InfluenceCategory")
     player = models.ForeignKey("PlayerOrNpc", related_name="renown")
     rating = models.IntegerField(blank=0, default=0)
+
     class Meta:
         verbose_name_plural = "Renown"
+
     def __str__(self):
         return "%s's rating in %s: %s" % (self.player, self.category, self.rating)
 
@@ -3053,14 +3077,18 @@ class Renown(models.Model):
             return 15 + (self.rating-4000)/1600
         return 20
 
+
 class SphereOfInfluence(models.Model):
     category = models.ForeignKey("InfluenceCategory")
     org = models.ForeignKey("Organization", related_name="spheres")
     rating = models.IntegerField(blank=0, default=0)
+
     class Meta:
         verbose_name_plural = "Spheres of Influence"
+
     def __str__(self):
         return "%s's rating in %s: %s" % (self.org, self.category, self.rating)
+
     # example idea for scaling
     @property
     def level(self):
@@ -3074,17 +3102,21 @@ class SphereOfInfluence(models.Model):
             return 35 + (self.rating-750)/80
         return 45 + (self.rating-1550)/100
 
+
 class TaskRequirement(models.Model):
     category = models.ForeignKey("InfluenceCategory")
     task = models.ForeignKey("Task", related_name="requirements")
     minimum_amount = models.PositiveSmallIntegerField(blank=0, default=0)
+
     def __str__(self):
         return "%s requirement: %s" % (self.task, self.category)
+
 
 class SupportUsed(models.Model):
     week = models.PositiveSmallIntegerField(default=0, blank=0)
     supporter = models.ForeignKey("TaskSupporter", related_name="allocation")
     sphere = models.ForeignKey("SphereOfInfluence", related_name="usage")
     rating = models.PositiveSmallIntegerField(blank=0, default=0)
+
     def __str__(self):
         return "%s using %s of %s" % (self.supporter, self.rating, self.sphere)

@@ -719,10 +719,8 @@ class CmdAdmAssets(MuxPlayerCommand):
             for obj in affected:
                 obj.msg("%s adjusted %s's prestige by %s for the following reason: %s" % (caller, owner, value, message))
             # post to a board about it
-            from game.gamesrc.commands.bboards import get_boards
-            boards = get_boards(caller)
-            boards = [ob for ob in boards if ob.key == "Prestige Changes"]
-            board = boards[0]
+            from typeclasses.bulletin_board.bboard import BBoard
+            board = BBoard.objects.get(db_key="Prestige Changes")
             msg = "{wName:{n %s\n" % str(owner)
             msg += "{wAdjustment:{n %s\n" % value
             msg  += "{wGM:{n %s\n" % caller.key.capitalize()
@@ -1994,6 +1992,9 @@ class CmdRetainers(MuxPlayerCommand):
         if category == "level" and not self.rhs:
             self.rhs = agent.typename
         if not self.rhs:
+            if category == "ability":
+                self.msg("Ability must be one of the following: %s" % ", ".join(agent.buyable_abilities))
+                return
             self.msg("You must provide the name of what you want to purchase.")
             return
         attr = self.rhs.lower()
@@ -2005,6 +2006,11 @@ class CmdRetainers(MuxPlayerCommand):
         if category == "skill":
             if attr not in _valid_skills_:
                 self.msg("When buying a skill, it must be one of the following: %s" % ", ".join(_valid_skills_))
+                return
+            return attr
+        if category == "ability":
+            if attr not in agent.buyable_abilities:
+                self.msg("Ability must be one of the following: %s" % ", ".join(agent.buyable_abilities))
                 return
             return attr
         if category == "level":
@@ -2051,7 +2057,8 @@ class CmdRetainers(MuxPlayerCommand):
             return False
         return True
 
-    def get_attr_current_value(self, agent, attr, category):
+    @staticmethod
+    def get_attr_current_value(agent, attr, category):
         if category == "level":
             current = agent.dbobj.attributes.get(attr) or 0
         elif category == "armor":
@@ -2062,8 +2069,13 @@ class CmdRetainers(MuxPlayerCommand):
             current = agent.dbobj.db.skills.get(attr, 0)
         elif category == "weapon":
             current = agent.dbobj.fakeweapon.get(attr, 0)
+        elif category == "ability":
+            if agent.dbobj.db.abilities is None:
+                agent.dbobj.db.abilities = {}
+            current = agent.dbobj.db.abilities.get(attr, 0)
+        else:
+            raise ValueError("Undefined category")
         return current
-        
 
     def get_attr_cost(self, agent, attrname, category, current=None):
         """
@@ -2074,7 +2086,7 @@ class CmdRetainers(MuxPlayerCommand):
         xpcost = 0
         rescost = 0
         restype = "military"
-        if current == None:
+        if current is None:
             current = self.get_attr_current_value(agent, attrname, category)
         newrating = current + 1
         if category == "level":
@@ -2092,6 +2104,8 @@ class CmdRetainers(MuxPlayerCommand):
             xpcost, rescost, restype = agent.get_skill_cost(attrname)
         if category == "stat":
             xpcost, rescost, restype = agent.get_stat_cost(attrname)
+        if category == "ability":
+            xpcost, rescost, restype = agent.get_ability_cost(attrname)
         if category == "armor":
             xpcost = newrating
             rescost = newrating
@@ -2111,7 +2125,18 @@ class CmdRetainers(MuxPlayerCommand):
         Buys a command/ability for a retainer. Available commands are limited
         by the levels we have in the different categories available.
         """
-        return
+        attr = self.get_attr_from_args(agent, category="ability")
+        if not attr:
+            return
+        if not self.check_max_for_attr(agent, attr, category="ability"):
+            return
+        current = agent.dbobj.db.abilities.get(attr, 0)
+        xp_cost, res_cost, res_type = self.get_attr_cost(agent, attr, "ability", current)
+        if not self.pay_xp_and_resources(agent, xp_cost, res_cost, res_type):
+            return
+        newval = current + 1
+        agent.dbobj.db.abilities[attr] = newval
+        self.msg("You have increased %s to %s." % (attr, newval))
 
     def buy_skill(self, agent):
         """
@@ -3456,7 +3481,7 @@ class DominionCmdSet(CmdSet):
         self.add(CmdAdmAssets())
         self.add(CmdAdmFamily())
         self.add(CmdAdmOrganization())
-        self.add(CmdTagBarracks())
+        #self.add(CmdTagBarracks())
         # player commands
         self.add(CmdDomain())
         self.add(CmdFamily())
