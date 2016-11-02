@@ -222,6 +222,7 @@ def generate_default_name_and_desc(type, quality, org):
     the type.
     """
     name = org.name
+    desc = "Some guy"
     if type == GUARD:
         tname = "guards"
     if type == THUG:
@@ -246,15 +247,31 @@ def generate_default_name_and_desc(type, quality, org):
         desc = "Highly skilled %s. Most probably would have name-recognition for their skill." % tname
     return (name, desc)
 
+
 def get_npc_stat_cap(atype, stat):
     if atype == SMALL_ANIMAL and stat in PHYSICAL_STATS:
         return 2
     return 5
+
 
 def check_passive_guard(atype):
     passives = (SMALL_ANIMAL, ASSISTANT)
     if atype in passives:
         return True
     return False
+
+INNATE_ABILITIES = {
+    ASSISTANT: ('investigation_assistant',),
+    SPY: ('investigation_assistant',),
+}
+
+ABILITY_COSTS = {
+    'investigation_assistant': (50, 'social')
+}
+
+def get_innate_abilities(a_type):
+    "Gets abilities that each atype has available to buy at level 0"
+    abilities = INNATE_ABILITIES.get(a_type, ())
+    return abilities
 
     

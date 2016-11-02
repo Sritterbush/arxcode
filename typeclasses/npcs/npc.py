@@ -24,9 +24,9 @@ from typeclasses.characters import Character
 from typeclasses.mixins import NameMixins
 from .npc_types import (get_npc_stats, get_npc_desc, get_npc_skills,
                         get_npc_singular_name, get_npc_plural_name, get_npc_weapon,
-                        get_armor_bonus, get_hp_bonus, primary_stats, guard_skills,
+                        get_armor_bonus, get_hp_bonus, primary_stats,
                         assistant_skills, spy_skills, get_npc_stat_cap, check_passive_guard,
-                        COMBAT_TYPES)
+                        COMBAT_TYPES, get_innate_abilities, ABILITY_COSTS)
 from world.stats_and_skills import (do_dice_check, get_stat_cost, get_skill_cost,
                                     PHYSICAL_STATS, MENTAL_STATS, SOCIAL_STATS)
 import time
@@ -65,6 +65,7 @@ class Npc(NameMixins, Character):
 
     def _get_passive(self):
         return self.db.passive_guard or False
+
     def _set_passive(self, val):
         if val:
             self.db.passive_guard = True
@@ -143,9 +144,8 @@ class Npc(NameMixins, Character):
             self.db.sleep_status = "asleep"
         if self.location:
             self.location.msg_contents("%s falls %s." % (self.name, self.db.sleep_status))
-        
 
-    def wake_up(self):
+    def wake_up(self, quiet=False):
         """
         Wakes up.
         """
@@ -216,7 +216,6 @@ class Npc(NameMixins, Character):
         """
         roll = do_dice_check(self, stat="perception", stat_keep=True, difficulty=difficulty)
         return roll
-
 
     def _get_npc_type(self):
         return self.db.npc_type or 0
@@ -347,8 +346,10 @@ class MultiNpc(Npc):
     def conscious(self):
         return self.quantity > 0
 
+
 class AgentMixin(object):
-    def setup_agent(self):
+    def setup_agent(self # type: Retainer or Agent
+                    ):
         """
         We'll set up our stats based on the type given by our agent class.
         """
@@ -361,7 +362,8 @@ class AgentMixin(object):
         self.setup_npc(ntype=atype, threat=quality, num=agent.quantity, desc=desc)
         self.db.passive_guard = check_passive_guard(atype)
         
-    def setup_locks(self):
+    def setup_locks(self # type: Retainer or Agent
+                    ):
         # base lock - the 'command' lock string
         lockfunc = ["command: %s", "desc: %s"]
         player_owner = None
@@ -387,7 +389,8 @@ class AgentMixin(object):
             # note that this will replace any currently defined 'command' lock
             self.locks.add(lock)
 
-    def assign(self, targ):
+    def assign(self,  # type: Retainer or Agent
+               targ):
         """
         When given a Character as targ, we add ourselves to their list of
         guards, saved as an Attribute in the character object.
@@ -409,7 +412,8 @@ class AgentMixin(object):
     def setup_name(self):
         self.name = self.agent.name
 
-    def unassign(self):
+    def unassign(self  # type: Retainer or Agent
+                 ):
         """
         When unassigned from the Character we were guarding, we remove
         ourselves from their guards list and then call unassign in our
@@ -426,17 +430,20 @@ class AgentMixin(object):
 
     def _get_npc_type(self):
         return self.agent.type
+
     def _get_quality(self):
         return self.agent.quality or 0
     npc_type = property(_get_npc_type)
     quality = property(_get_quality)
     
-    def stop_follow(self, unassigning=False):
+    def stop_follow(self,  # type: Retainer or Agent
+                    unassigning=False):
         super(AgentMixin, self).stop_follow()
         # if we're not being unassigned, we dock them. otherwise, they're gone
         self.dismiss(dock=not unassigning)
     
-    def summon(self, summoner=None):
+    def summon(self,  # type: Retainer or Agent
+               summoner=None):
         """
         Have these guards appear to defend the character. This should generally only be
         called in a location that permits it, such as their house barracks, or in a
@@ -452,7 +459,8 @@ class AgentMixin(object):
             docked_loc.db.docked_guards.remove(self)
         self.db.docked = None
 
-    def dismiss(self, dock=True):
+    def dismiss(self,  # type: Retainer or Agent
+                dock=True):
         """
         Dismisses our guards. If they're not being dismissed permanently, then
         we dock them at the location they last occupied, saving it as an attribute.
@@ -476,7 +484,8 @@ class AgentMixin(object):
         if self.ndb.combat_manager:
             self.ndb.combat_manager.remove_combatant(self)
 
-    def at_init(self):
+    def at_init(self  # type: Retainer or Agent
+                ):
         try:
             if self.location and self.db.guarding:
                 self.follow(self.db.guarding)
@@ -484,7 +493,8 @@ class AgentMixin(object):
             import traceback
             traceback.print_exc()
 
-    def get_stat_cost(self, attr):
+    def get_stat_cost(self,  # type: Retainer or Agent
+                      attr):
         """
         Get the cost of a stat based on our current
         rating and the type of agent we are.
@@ -503,7 +513,9 @@ class AgentMixin(object):
             restype = "economic"
         elif attr in SOCIAL_STATS:
             restype = "social"
-        else:
+        elif attr in PHYSICAL_STATS:
+            restype = "military"
+        else:  # special stats
             restype = "military"
         return xpcost, rescost, restype
     
@@ -557,7 +569,8 @@ class AgentMixin(object):
         return self.agent.quality - 1
 
     @property
-    def agent(self):
+    def agent(self # type: Retainer or Agent
+              ):
         """
         Returns the agent type that this object belongs to.
         """
@@ -580,7 +593,8 @@ class AgentMixin(object):
         self.owner.inform_owner(text, category="Agents")
 
     @property
-    def weaponized(self):
+    def weaponized(self # type: Retainer or Agent
+                   ):
         if self.npc_type in COMBAT_TYPES:
             return True
         if self.weapons_hidden:
@@ -590,6 +604,7 @@ class AgentMixin(object):
                 return True
         except (AttributeError, KeyError):
             return False
+
 
 class Retainer(AgentMixin, Npc):
     @property
@@ -621,6 +636,26 @@ class Retainer(AgentMixin, Npc):
         """
         pass
 
+    @property
+    def buyable_abilities(self):
+        """
+        Returns a list of ability names that are valid to buy for this agent
+        """
+        abilities = ()
+        innate = get_innate_abilities(self.agent.type)
+        abilities += innate
+        # to do - get abilities based on level and add em to the ones they get innately
+        return abilities
+
+    def get_ability_maximum(self, attr):
+        "Returns max for an ability that we can buy"
+        # to do - make it different based on off-classes
+        return self.agent.quality + 1
+
+    def get_ability_cost(self, attr):
+        cost, res_type = ABILITY_COSTS.get(attr)
+        return cost, cost, res_type
+
     def train_agent(self, trainer):
         """
         Gives xp to this agent if they haven't been trained yet this week.
@@ -650,16 +685,15 @@ class Agent(AgentMixin, MultiNpc):
     #-----------------------------------------------
     # AgentHandler Admin client methods
     #-----------------------------------------------
-        
 
     def setup_name(self):
-        type = self.agentob.agent_class.type
+        a_type = self.agentob.agent_class.type
         noun = self.agentob.agent_class.name
         if not noun:
             if self.db.num_living == 1:
-                noun = get_npc_singular_name(type)
+                noun = get_npc_singular_name(a_type)
             else:
-                noun = get_npc_plural_name(type)
+                noun = get_npc_plural_name(a_type)
         if self.db.num_living:
             self.key = "%s %s" % (self.db.num_living, noun)
         else:

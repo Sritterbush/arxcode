@@ -187,6 +187,7 @@ class MobileCmdSet(CmdSet):
         self.add(social.CmdFeel())
         self.add(social.CmdDonate())
         self.add(investigation.CmdInvestigate())
+        self.add(investigation.CmdAssistInvestigation())
         self.add(general.CmdUndress())
 
 class StaffCmdSet(CmdSet):
