@@ -249,7 +249,7 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
             self.cmdset.add(HOMECMD, permanent=True)
         try:
             # add our room owner as a homeowner if they're a player
-            from game.dominion.models import AssetOwner
+            from world.dominion.models import AssetOwner
             aowner = AssetOwner.objects.get(id=self.db.room_owner)
             char = aowner.player.player.db.char_ob
             if char not in owners:
@@ -400,7 +400,7 @@ class CmdStudyRawAnsi(default_cmds.MuxCommand):
     """
     prints raw ansi codes for a name
     Usage:
-        @study <obj>
+        @study <obj>[=<player to send it to>]
 
     Prints raw ansi.
     """
@@ -411,9 +411,17 @@ class CmdStudyRawAnsi(default_cmds.MuxCommand):
         ob = caller.search(self.lhs)
         if not ob:
             return
+        targ = caller.player
+        if self.rhs:
+            targ = targ.search(self.rhs)
+            if not targ:
+                return
         from evennia.utils.ansi import raw
-        caller.msg("Escaped name: %s" % raw(ob.name))
-        caller.msg("Escaped desc: %s" % raw(ob.return_appearance(caller, detailed=False)))
+        if targ != caller:
+            targ.msg("%s sent you this @study on %s: " % (caller,ob))
+            caller.msg("Sent to %s." % targ)
+        targ.msg("Escaped name: %s" % raw(ob.name))
+        targ.msg("Escaped desc: %s" % raw(ob.return_appearance(caller, detailed=False)))
 
 
 # Custom build commands for setting seasonal descriptions
