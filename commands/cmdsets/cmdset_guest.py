@@ -5,9 +5,10 @@ commandset, with unique commands for the tutorial.
 """
 
 from evennia.commands.cmdset import CmdSet
-from evennia.commands.default import help, comms, admin, system
+from evennia.commands.default import comms, admin, system
 from evennia.commands.default import building, player
 import sys, traceback
+from commands.commands import help
 
 
 class GuestCmdSet(CmdSet):
