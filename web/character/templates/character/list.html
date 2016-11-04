@@ -36,7 +36,7 @@
 		<td>{{char.db.fealty}}</td>
 		<td>{{char.db.social_rank}}</td>
 		{% if show_hidden %}
-		<td><ul class="list-inline">{% for alt in char.roster.alts %}<li>{{alt}}</li>{% endfor %}</ul></td>
+		<td>{% for alt in char.roster.alts %}<a href="{% url 'character:sheet' alt.character.id %}">{{alt}}</a>{% endfor %}</td>
 		{% endif %}
 	  </tr>
     {% empty %}
