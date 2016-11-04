@@ -19,7 +19,6 @@ AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit(
 DESC_COST = 0
 
 
-
 class HomeCmdSet(CmdSet):
     "CmdSet for a home spaces."    
     key = "HomeCmdSet"
@@ -369,6 +368,7 @@ class CmdBuildRoom(CmdDig):
             permits[assets.id] += cost_increase
             loc.db.permitted_builders = permits
 
+
 class CmdManageRoom(MuxCommand):
     """
     +manageroom
@@ -438,6 +438,7 @@ class CmdManageRoom(MuxCommand):
                 return
             exit.name = self.rhs
             exit.save()
+            exit.aliases.clear()
             for alias in aliases:
                 exit.aliases.add(alias)
             if exit.destination:
