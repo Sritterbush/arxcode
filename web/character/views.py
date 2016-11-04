@@ -73,7 +73,7 @@ def sheet(request, object_id):
             if user.db.char_ob.id != character.id:
                 can_comment = True
         # if we're logged in as a player without a character assigned somehow
-        except Exception:
+        except AttributeError:
             pass
     if not show_hidden and (hasattr(character, 'roster') and
                             character.roster.roster.name == "Unavailable"):
@@ -245,7 +245,7 @@ def select_portrait(request, object_id):
         portrait = Photo.objects.get(pk=request.POST['select_portrait'])
         height = request.POST['portrait_height']
         width = request.POST['portrait_width']
-    except Exception:
+    except (Photo.DoesNotExist, KeyError, AttributeError):
         portrait = None
         height = None
         width = None
@@ -254,7 +254,7 @@ def select_portrait(request, object_id):
     try:
         character.roster.profile_picture = portrait
         character.roster.save()
-    except Exception:
+    except AttributeError:
         pass
     return HttpResponseRedirect(reverse('character:gallery', args=(object_id,)))
                                                        
