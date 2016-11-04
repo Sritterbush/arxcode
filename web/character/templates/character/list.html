@@ -7,6 +7,8 @@
 	<li {% if roster_name == "Available" %}class="active"{% endif %}>
 		<a href="{% url 'character:available_roster' %}">Available</a></li>
 	{% if show_hidden %}
+	<li {% if roster_name == "Inactive" %}class="active"{% endif %}>
+		<a href="{% url 'character:inactive_roster' %}">Inactive</a></li>
 	<li {% if roster_name == "Unavailable" %}class="active"{% endif %}>
 		<a href="{% url 'character:unavailable_roster' %}">Unavailable</a></li>
 	<li {% if roster_name == "Incomplete" %}class="active"{% endif %}>
@@ -22,7 +24,7 @@
 		<td><a href="{% url 'help_topics:topic' 'fealty' %}">Fealty</a></td>
 		<td><a href="{% url 'help_topics:topic' 'social_rank' %}">Social Rank</a></td>
 		{% if show_hidden %}
-		<td>Email</td>
+		<td>Alts</td>
 		{% endif %}
 	</tr>
     {% for char in object_list %}
@@ -34,7 +36,7 @@
 		<td>{{char.db.fealty}}</td>
 		<td>{{char.db.social_rank}}</td>
 		{% if show_hidden %}
-		<td>{{char.db.player_ob.email}}</td>
+		<td><ul class="list-inline">{% for alt in char.roster.alts %}<li>{{alt}}</li>{% endfor %}</ul></td>
 		{% endif %}
 	  </tr>
     {% empty %}

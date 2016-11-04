@@ -129,8 +129,10 @@ class RosterListView(ListView):
     paginator_class = NamePaginator
     paginate_by = 20
     roster_name = "Active"
+
     def get_queryset(self):
         return ObjectDB.objects.filter(roster__roster__name=self.roster_name).order_by('db_key')
+
     def get_context_data(self, **kwargs):
         context = super(RosterListView, self).get_context_data(**kwargs)
         user = self.request.user
@@ -141,22 +143,31 @@ class RosterListView(ListView):
         context['roster_name'] = self.roster_name
         return context
 
+
 class ActiveRosterListView(RosterListView):
     pass
+
 
 class AvailableRosterListView(RosterListView):
     roster_name = "Available"
 
+
 class IncompleteRosterListView(RosterListView):
     roster_name = "Incomplete"
+
     def get_queryset(self):
         user = self.request.user
         if not (user.is_authenticated() and user.check_permstring("builders")):
             raise Http404("Not staff")
         return super(IncompleteRosterListView, self).get_queryset()
 
+
 class UnavailableRosterListView(IncompleteRosterListView):
     roster_name = "Unavailable"
+
+
+class InactiveRosterListView(IncompleteRosterListView):
+    roster_name = "Inactive"
 
 
 def gallery(request, object_id):
