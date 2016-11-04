@@ -37,6 +37,7 @@ class BBoard(Object):
         """
         post = Msg(db_message=msg, db_header=subject)
         post.save()
+        posted_by = "Unknown"
         if poster_obj:
             post.senders = poster_obj
             post.receivers = poster_obj
@@ -44,7 +45,7 @@ class BBoard(Object):
         if poster_name:
             post.db_sender_external = poster_name
             post.save()
-            poster_by = poster_name
+            posted_by = poster_name
         self.tag_obj(post)
         if event:
             event.tag_obj(post)
@@ -165,9 +166,7 @@ class BBoard(Object):
                 sender += ", "
             sender += ", ".join(str(ob).capitalize() for ob in post.db_sender_objects.all())
         if post.db_sender_external:
-            if sender:
-                sender += ", "
-            sender += post.db_sender_external
+            sender = post.db_sender_external
         if not sender:
             sender = "No One"
         return sender

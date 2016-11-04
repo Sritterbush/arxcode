@@ -445,6 +445,18 @@ class CmdAdminRoster(MuxPlayerCommand):
                 traceback.print_exc()
                 caller.msg("Error when setting new password. Logged.")
             inform_staff("%s has returned %s to the available roster." % (caller, self.lhs))
+            try:
+                from typeclasses.bulletin_board.bboard import BBoard
+            except ImportError:
+                self.msg("Couldn't post announcement")
+                return
+            try:
+                bb = BBoard.objects.get(db_key__iexact="Roster Announcements")
+                msg = "%s no longer has an active player and is now available for applications." % entry.character
+                subject = "%s now available" % entry.character
+                bb.bb_post(self.caller, msg, subject=subject, poster_name="Roster")
+            except BBoard.DoesNotExist:
+                self.msg("Board not found for posting announcement")
             return
         if 'view' in switches:
             try:

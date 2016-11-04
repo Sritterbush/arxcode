@@ -501,6 +501,18 @@ class CmdApp(MuxPlayerCommand):
                 except Exception:
                     # will throw an exception if Dominion already set up
                     pass
+                try:
+                    from typeclasses.bulletin_board.bboard import BBoard
+                except ImportError:
+                    self.msg("Couldn't post announcement")
+                    return
+                try:
+                    bb = BBoard.objects.get(db_key__iexact="Roster Announcements")
+                    msg = "%s now has a new player and is on the active roster." % app[1]
+                    subject="%s now active" % app[1]
+                    bb.bb_post(self.caller, msg, subject=subject, poster_name="Roster")
+                except BBoard.DoesNotExist:
+                    self.msg("Board not found for posting announcement")
                 return
             else:
                 caller.msg("Application closure failed.")
