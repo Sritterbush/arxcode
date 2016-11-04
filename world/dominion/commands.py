@@ -3351,7 +3351,7 @@ class CmdSupport(MuxCommand):
             self.disp_supportform()
             return
         if "value" in self.switches:
-            org = none
+            org = None
             try:
                 if not self.rhs:
                     """
