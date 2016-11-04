@@ -220,7 +220,7 @@ class CmdRosterList(MuxPlayerCommand):
         if not roster:
             return
         if not args:
-            #list all characters in active/available rosters
+            # list all characters in active/available rosters
             if 'all' in switches or 'active' in switches:
                 char_list = roster.get_all_active_characters()
                 list_characters(caller, char_list, "Active Characters", roster, False)
@@ -244,6 +244,20 @@ class CmdRosterList(MuxPlayerCommand):
             return
         if 'apply' in switches:
             # will call apps_manager.add_app(char_name, char_ob, email, app_string)
+            email = caller.email
+            if caller.is_guest():
+                # check for email
+                email = caller.ndb.email
+                if not email:
+                    char = caller.db.char
+                    if char: email = char.db.player_ob.email
+            if not email:
+                caller.msg("You have no defined email address, which is required to apply to play another character.")
+                if caller.is_guest():
+                    caller.msg("You can add an email address with {w@add/email <address>{n")
+                else:
+                    caller.msg("This account is not a guest, so contact a GM to fix your email.")
+                return
             char_name, app_string = self.lhs, self.rhs
             if not char_name or not app_string:
                 caller.msg("Usage: @roster/apply <character name>=<application>")
@@ -256,18 +270,6 @@ class CmdRosterList(MuxPlayerCommand):
             apps = get_apps_manager(caller)
             if not apps:
                 caller.msg("Application manager not found! Please inform the admins.")
-                return
-            email = caller.email
-            if caller.is_guest():
-                # check for email
-                email = caller.ndb.email
-                if not email:
-                    char = caller.db.char
-                    if char: email = char.db.player_ob.email
-            if not email:
-                caller.msg("You have no defined email address, which is required to apply to play another character.")
-                if caller.is_guest():
-                    caller.msg("You can add an email address with {w@add/email <address>{n")
                 return
             char_ob = roster.get_character(char_name)
             if not char_ob:
@@ -336,6 +338,17 @@ class CmdAdminRoster(MuxPlayerCommand):
     help_category = "Admin"
     locks = "cmd:perm(chroster) or perm(Wizards)"
 
+    @staticmethod
+    def award_alt_xp(alt, xp, history, current):
+        if xp > current.total_xp:
+            xp = current.total_xp
+        altchar = alt.entry.character
+        if xp > history.xp_earned:
+            xp = history.xp_earned
+        if not altchar.db.xp:
+            altchar.db.xp = 0
+        altchar.db.xp += xp
+
     def func(self):
         caller = self.caller
         args = self.args
@@ -382,18 +395,14 @@ class CmdAdminRoster(MuxPlayerCommand):
             entry.roster = avail
             current = entry.current_account 
             xp = entry.character.db.xp or 0
+            history = None
             try:
                 history = AccountHistory.objects.get(account=current, entry=entry)         
                 if xp < 0:
                     xp = 0
                 try:
                     alt = AccountHistory.objects.get(Q(account=current) & ~Q(entry=entry))
-                    altchar = alt.entry.character
-                    if xp > history.xp_earned:
-                        xp = history.xp_earned
-                    if not altchar.db.xp:
-                        altchar.db.xp = 0
-                    altchar.db.xp += xp    
+                    self.award_alt_xp(alt, xp, history, current)
                 except AccountHistory.DoesNotExist:
                     if xp > current.total_xp:
                         xp = current.total_xp
@@ -403,7 +412,9 @@ class CmdAdminRoster(MuxPlayerCommand):
                     current.gm_notes += "\n\nUnspent xp: %s" % xp
                     current.save()
                 except AccountHistory.MultipleObjectsReturned:
-                    caller.msg("ERROR: Found more than one account. No xp transferred.")
+                    caller.msg("ERROR: Found more than one account. Using the first.")
+                    alt = AccountHistory.objects.filter(Q(account=current) & ~Q(entry=entry)).first()
+                    self.award_alt_xp(alt, xp, history, current)
                 except Exception as err:
                     import traceback
                     print "{rEncountered this error when trying to transfer xp{n:\n%s" % err
@@ -412,10 +423,6 @@ class CmdAdminRoster(MuxPlayerCommand):
                 entry.character.db.total_xp = 0
             except AccountHistory.DoesNotExist:
                 history = AccountHistory.objects.create(account=current, entry=entry)
-            except Exception:
-                import traceback
-                caller.msg("Error encountered:")
-                caller.msg(traceback.print_exc())
             entry.current_account = None
             entry.save()
             date = datetime.now()
@@ -425,7 +432,7 @@ class CmdAdminRoster(MuxPlayerCommand):
             elif self.rhs:
                 history.gm_notes += self.rhs
             history.save()
-            #set up password
+            # set up password
             try:
                 import string
                 import random
@@ -453,7 +460,9 @@ class CmdAdminRoster(MuxPlayerCommand):
             caller.msg(line)
             line = "{wGM Notes:{n " + entry.gm_notes
             caller.msg(line)
-            caller.msg("{wCurrent Account:{n %s" % entry.current_account)
+            if entry.current_account:
+                caller.msg("{wCurrent Account:{n %s" % entry.current_account)
+                caller.msg("{wAlts:{n %s" % ", ".join(str(ob) for ob in entry.alts))
             return
         if 'email' in switches:
             lhs,rhs = self.lhs, self.rhs
@@ -476,7 +485,6 @@ class CmdAdminRoster(MuxPlayerCommand):
             inform_staff("%s added a note to %s in roster." % (caller, lhs))
             caller.msg("New note added.")
             return
-            
 
 
 def display_header(caller, character, show_hidden=False):
@@ -1052,12 +1060,12 @@ class CmdSheet(MuxPlayerCommand):
                     if not comments:
                         caller.msg("No comments left on that character.")
                         return
-                    #comments is a dict of character_name: comments_list
+                    # comments is a dict of character_name: comments_list
                     match = comments.get(rhs)
                     if not match:
                         caller.msg("No comments found by that character.")
                         return
-                    #comments_list is a dict of date: comments
+                    # comments_list is a dict of date: comments
                     caller.msg("{wComments on %s by %s:{n" % (lhs.capitalize(), rhs.capitalize()))
                     for entry in match:
                         date, comment = charob.messages.get_date_from_header(entry), entry.message
@@ -1099,7 +1107,7 @@ class CmdSheet(MuxPlayerCommand):
             caller.msg("Relationship notes you are permitted to read for {c%s{n in {c%s{n's %s:" % (targ, char, jname))
             msglist = [_msg for _msg in journal.get(targ.key.lower(), []) if _msg.access(caller, 'read')]
             if not msglist:
-                caller.msg("No entries for %s." % name)
+                caller.msg("No entries for %s." % targ)
                 return
             for msg in msglist:
                 caller.msg("\n" + char.messages.disp_entry(msg))

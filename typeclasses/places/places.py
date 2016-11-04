@@ -2,10 +2,10 @@
 Places for tabletalk
 """
 
-from django.conf import settings
 from typeclasses.objects import Object
 from cmdset_places import DefaultCmdSet, SittingCmdSet
 from evennia.utils.utils import make_iter
+
 
 class Place(Object):
     """
@@ -59,10 +59,10 @@ class Place(Object):
         exclude = make_iter(exclude)
         for ob in self.db.occupants:
             if ob not in exclude:
-                ob.msg(message, options={'is_pose':True})
+                ob.msg(message, options={'is_pose': True})
 
     def at_after_move(self, source_location):
-        "If new location is not our wearer, remove."
+        """If new location is not our wearer, remove."""
         location = self.location
         # first, remove ourself from the source location's places, if it exists
         if source_location and hasattr(source_location, 'is_room') and source_location.is_room:
@@ -77,7 +77,3 @@ class Place(Object):
         # if location not a room, remove cmdset
         else:
             self.cmdset.delete_default()
-
-    
-
-    
