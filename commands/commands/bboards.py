@@ -247,7 +247,7 @@ class CmdBBReadOrPost(MuxPlayerCommand):
                 caller.msg("You are not yet a subscriber to {0}".format(board.key))
                 caller.msg("Use {w@bbsub{n to subscribe to it.")
                 return    
-            list_messages(caller, board, int(args))
+            list_messages(caller, board, args)
             
         if not switches:
             arglist = args.split("/")
@@ -270,7 +270,6 @@ class CmdBBReadOrPost(MuxPlayerCommand):
         board = access_bboard(caller, arglist[0])
         if not board:
             return
-        
         
         if 'read' in switches:          
             if len(arglist) < 2:
@@ -340,7 +339,6 @@ class CmdBBReadOrPost(MuxPlayerCommand):
                 return
             board.bb_post(caller, self.rhs, subject)
 
-        
 
 class CmdBBSub(MuxPlayerCommand):
     """
