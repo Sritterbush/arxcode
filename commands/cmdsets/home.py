@@ -286,28 +286,32 @@ class CmdBuildRoom(CmdDig):
             MAX_ROOMS = 100
             try:
                 largs = self.lhs.split("/")
-                org = Organization.objects.get(Q(name__iexact=largs[0]) &
+                orgname = largs[0]
+                roomname = largs[1]
+            except IndexError:
+                caller.msg("Please specify orgname/roomname.")
+                return
+            try:
+
+                org = Organization.objects.get(Q(name__iexact=orgname) &
                                                Q(members__player=dompc) &
                                                Q(members__deguilded=False))
                 if not org.access(caller, 'build'):
                     caller.msg("You are not permitted to build for this org.")
                     return    
-                self.lhs = largs[1]
-                self.lhslist = [largs[1]]
+                self.lhs = roomname
+                self.lhslist = [roomname]
                 # fix args for CmdDig
                 self.parse()
                 assets = org.assets
                 cost = permits[assets.id]
-            except IndexError:
-                caller.msg("Please specify orgname/roomname.")
-                return
             except KeyError:
                 if "all" not in permits:
                     caller.msg("That org is not permitted to build here.")
                     return
                 cost = permits["all"]
             except Organization.DoesNotExist:
-                caller.msg("No org by that name.")
+                caller.msg("No org by that name: %s." % orgname)
                 return
         else:
             MAX_ROOMS = 3
