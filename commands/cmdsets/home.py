@@ -335,7 +335,10 @@ class CmdBuildRoom(CmdDig):
             caller.msg("The cost for you to build from this room is %s." % cost)
             return
         if cost > assets.economic:
-            caller.msg("It would cost you %s to build here, you only have %s." % (cost, assets.economic))
+            noun = "you" if dompc.assets == assets else str(assets)
+            caller.msg("It would cost %s %s to build here, but only have %s." % (noun, cost, assets.economic))
+            if noun != "you":
+                caller.msg("Deposit resources into the account of %s." % noun)
             return
         tagname = "%s_owned_room" % str(assets)
         if tagname not in loc.tags.all() and (ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_ROOM_TYPECLASS) &
