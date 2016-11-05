@@ -1576,13 +1576,15 @@ class Organization(models.Model):
                                                    ", ".join(str(char) if char in active
                                                              else "(R)%s" % char for char in chars))
             elif len(chars) > 0:
-                char = chars[0].player.player.db.char_ob
+                char = chars[0]
+                name = str(char) if char in active else "(R)%s" % char
+                char = char.player.player.db.char_ob
                 gender = char.db.gender or "Male"
                 if gender.lower() == "male":
                     title = male_title
                 else:
                     title = female_title
-                name = str(char) if char in active else "(R)%s" % char
+
                 msg += "{w%s{n (Rank %s): %s\n" % (title, rank, name)
         return msg
     
