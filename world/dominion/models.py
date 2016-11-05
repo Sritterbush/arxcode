@@ -210,6 +210,8 @@ class PlayerOrNpc(models.Model):
         second_cousins = self.second_cousins or ''
         if ggparents:
             ggparents = "{wGreatgrandparents{n: %s\n" % (", ".join(str(ggparent) for ggparent in ggparents))
+        else:
+            ggparents = ''
         if grandparents:
             grandparents = "{wGrandparents{n: %s\n" % (", ".join(str(gparent) for gparent in grandparents))
         else:
