@@ -1,6 +1,6 @@
 import copy
 from world.stats_and_skills import (PHYSICAL_STATS, MENTAL_STATS, SOCIAL_STATS,
-                                    _combat_skills_, _general_skills_, _social_skills_)
+                                    COMBAT_SKILLS, GENERAL_SKILLS, SOCIAL_SKILLS)
 
 GUARD = 0
 THUG = 1
@@ -74,11 +74,11 @@ primary_stats = {
     SMALL_ANIMAL: PHYSICAL_STATS,
     }
 
-guard_skills = dict([(key, 0) for key in _combat_skills_])
+guard_skills = dict([(key, 0) for key in COMBAT_SKILLS])
 guard_skills.update({"riding":0, "leadership":0, "war":0})
-spy_skills = dict([(key, 0) for key in _social_skills_])
+spy_skills = dict([(key, 0) for key in SOCIAL_SKILLS])
 spy_skills.update({"streetwise": 0, "investigation":0})
-assistant_skills = dict([(key, 0) for key in _general_skills_])
+assistant_skills = dict([(key, 0) for key in GENERAL_SKILLS])
 assistant_skills.update({"etiquette":0, "diplomacy":0})
 animal_skills = {"athletics":1, "brawl":1, "dodge":1, "stealth":0,
                  "survival":2, "legerdemain":0, "performance":0}

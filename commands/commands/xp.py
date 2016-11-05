@@ -51,38 +51,38 @@ class CmdUseXP(MuxCommand):
             # Just display our xp
             caller.msg("{wUnspent XP:{n %s" % caller.db.xp)
             caller.msg("{wLifetime Earned XP:{n %s" % caller.db.total_xp)
-            all_stats = ", ".join(stat for stat in stats_and_skills._valid_stats_)
+            all_stats = ", ".join(stat for stat in stats_and_skills.VALID_STATS)
             caller.msg("\n{wStat names:{n")
             caller.msg(all_stats)
             caller.msg("\n{wSkill names:{n")
-            caller.msg(", ".join(skill for skill in stats_and_skills._valid_skills_))
+            caller.msg(", ".join(skill for skill in stats_and_skills.VALID_SKILLS))
             caller.msg("\n{wDominion skill names:{n")
-            caller.msg(", ".join(skill for skill in stats_and_skills._domskills_))
+            caller.msg(", ".join(skill for skill in stats_and_skills.DOM_SKILLS))
             caller.msg("\n{wAbility names:{n")
-            crafting = stats_and_skills._crafting_abilities_
+            crafting = stats_and_skills.CRAFTING_ABILITIES
             abilities = caller.db.abilities or {}
             abilities = set(abilities.keys()) | set(crafting)
             if caller.check_permstring("builder"):
-                caller.msg(", ".join(ability for ability in stats_and_skills._valid_abilities_))
+                caller.msg(", ".join(ability for ability in stats_and_skills.VALID_ABILITIES))
             else:
                 caller.msg(", ".join(ability for ability in abilities))
             return
         args = self.args.lower()
         # get cost already factors in if we have a trainer, so no need to check
-        if args in stats_and_skills._valid_stats_:
+        if args in stats_and_skills.VALID_STATS:
             cost = stats_and_skills.get_stat_cost(caller, args)
             if caller.attributes.get(args) >= 5:
                 caller.msg("%s is already at its maximum." % args)
                 return
             stype = "stat"
-        elif args in stats_and_skills._valid_skills_:
+        elif args in stats_and_skills.VALID_SKILLS:
             if not caller.db.skills: caller.db.skills = {}
             if caller.db.skills.get(args, 0) >= 6:
                 caller.msg("%s is already at its maximum." % args)
                 return
             cost = stats_and_skills.get_skill_cost(caller, args)
             stype = "skill"
-        elif args in stats_and_skills._domskills_:
+        elif args in stats_and_skills.DOM_SKILLS:
             try:
                 dompc = caller.player.Dominion
                 current = getattr(dompc, args)
@@ -95,10 +95,10 @@ class CmdUseXP(MuxCommand):
             except Exception:
                 caller.msg("Dominion object not found.")
                 return
-        elif args in stats_and_skills._valid_abilities_:
+        elif args in stats_and_skills.VALID_ABILITIES:
             # if we don't have it, determine if we can learn it
             if not caller.db.abilities.get(args, 0):
-                if args in stats_and_skills._crafting_abilities_:
+                if args in stats_and_skills.CRAFTING_ABILITIES:
                     # check if we have valid skill:
                     if args == "tailor" and "sewing" not in caller.db.skills:
                         caller.msg("You must have sewing to be a tailor.")
@@ -128,7 +128,7 @@ class CmdUseXP(MuxCommand):
                 caller.msg("%s is already at its maximum." % args)
                 return
             set_specialization = False
-            if args in stats_and_skills._crafting_abilities_:
+            if args in stats_and_skills.CRAFTING_ABILITIES:
                 spec_warning = True
             if caller.db.abilities.get(args, 0) == 5:
                 if caller.db.crafting_profession:
@@ -262,7 +262,7 @@ class CmdTrain(MuxCommand):
             return
         if "stat" in switches:
             stat = self.rhs.lower()
-            if stat not in stats_and_skills._valid_stats_:
+            if stat not in stats_and_skills.VALID_STATS:
                 caller.msg("%s is not a valid stat." % self.rhs)
                 return
             if caller.attributes.get(stat) <= targ.attributes.get(stat) + 1:
@@ -270,7 +270,7 @@ class CmdTrain(MuxCommand):
                 return
         elif "skill" in switches:
             skill = self.rhs.lower()
-            if skill not in stats_and_skills._valid_skills_:
+            if skill not in stats_and_skills.VALID_SKILLS:
                 caller.msg("%s is not a valid skill." % self.rhs)
                 return
             if caller.db.skills.get(skill, 0) <= targ.db.skills.get(skill, 0) + 1:
@@ -384,7 +384,7 @@ class CmdAdjustSkill(MuxPlayerCommand):
                     except KeyError:
                         caller.msg("No such skill.")
                         return
-                    cost = stats_and_skills.cost_at_rank(char, self.rhs, current - 1, current)
+                    cost = stats_and_skills.cost_at_rank(self.rhs, current - 1, current)
                 if current <= 0:
                     caller.msg("That would give them a negative skill.")
                     return
@@ -404,7 +404,7 @@ class CmdAdjustSkill(MuxPlayerCommand):
                     except KeyError:
                         caller.msg("No such ability.")
                         return
-                    cost = stats_and_skills.cost_at_rank(char, self.rhs, current - 1, current)
+                    cost = stats_and_skills.cost_at_rank(self.rhs, current - 1, current)
                 if current <= 0:
                     caller.msg("That would give them a negative rating.")
                     return

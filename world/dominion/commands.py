@@ -2025,7 +2025,7 @@ class CmdRetainers(MuxPlayerCommand):
         Helper method that returns the attr that the player is buying
         or displays a failure message and returns None.
         """
-        from world.stats_and_skills import _valid_skills_, _valid_stats_
+        from world.stats_and_skills import VALID_SKILLS, VALID_STATS
         rhs = self.rhs
         if category == "level" and not rhs:
             rhs = agent.typename
@@ -2037,13 +2037,13 @@ class CmdRetainers(MuxPlayerCommand):
             return
         attr = rhs.lower()
         if category == "stat":
-            if attr not in _valid_stats_:
-                self.msg("When buying a stat, it must be one of the following: %s" % ", ".join(_valid_stats_))
+            if attr not in VALID_STATS:
+                self.msg("When buying a stat, it must be one of the following: %s" % ", ".join(VALID_STATS))
                 return
             return attr
         if category == "skill":
-            if attr not in _valid_skills_:
-                self.msg("When buying a skill, it must be one of the following: %s" % ", ".join(_valid_skills_))
+            if attr not in VALID_SKILLS:
+                self.msg("When buying a skill, it must be one of the following: %s" % ", ".join(VALID_SKILLS))
                 return
             return attr
         if category == "ability":

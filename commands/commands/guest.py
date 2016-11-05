@@ -18,8 +18,8 @@ from server.utils.utils import inform_staff
 from evennia.players.models import PlayerDB
 from evennia import syscmdkeys
 from world.stats_and_skills import (get_partial_match, get_skill_cost,
-                                                   _crafting_abilities_, _valid_skills_,
-                                                   _valid_stats_,)
+                                    CRAFTING_ABILITIES, VALID_SKILLS,
+                                    VALID_STATS, )
 import copy
 from unidecode import unidecode
 
@@ -105,13 +105,13 @@ def setup_voc(char, args):
     skills = _voc_start_skills_[args]
     stat_tup = _voc_start_stats_[args]
     x = 0
-    for stat in _valid_stats_:
+    for stat in VALID_STATS:
         char.attributes.add(stat, stat_tup[x])
         x += 1
     char.attributes.add("skills", copy.deepcopy(skills))
     char.db.abilities = {}
     # if their vocation is a crafter, give them a starting rank of 2
-    if args in _crafting_abilities_:
+    if args in CRAFTING_ABILITIES:
         char.db.abilities = {args: 3}
 
 STAT_POINTS = 12
@@ -381,7 +381,7 @@ class CmdGuestLook(MuxPlayerCommand):
                     stat_pts = 0
                 caller.msg("\nYou have {w%s{n stat points and {w%s{n skill points to spend." % (stat_pts, skill_pts))
                 stat_str = "{wCurrent stats:{n "
-                for stat in _valid_stats_:
+                for stat in VALID_STATS:
                     val = char.attributes.get(stat)
                     if not val:
                         val = 0
@@ -612,7 +612,7 @@ class CmdGuestAddInput(MuxPlayerCommand):
             char.db.unique_vocation = True
             #set up default stats/skills for a new vocation here
             remove_all_skills()
-            for stat in _valid_stats_:
+            for stat in VALID_STATS:
                 char.attributes.add(stat, 2)
             char.attributes.add("skill_points", SKILL_POINTS)
             char.attributes.add("stat_points", STAT_POINTS)
@@ -780,7 +780,7 @@ class CmdGuestAddInput(MuxPlayerCommand):
             if type == 'stat' and new_val == max:
                 # check how many stats we have at maximum. We only allow 2
                 num_max_stats = 0
-                for stat in _valid_stats_:
+                for stat in VALID_STATS:
                     if char.attributes.get(stat) == 5:
                         num_max_stats += 1
                 if num_max_stats >= 2:
@@ -800,7 +800,7 @@ class CmdGuestAddInput(MuxPlayerCommand):
             return True
         
         if "stat" in switches:
-            if lhs not in _valid_stats_:
+            if lhs not in VALID_STATS:
                 matches = get_partial_match(lhs, "stat")
                 if not matches:
                     caller.msg("No stat matches the value you entered. Please enter its name again.")
@@ -815,7 +815,7 @@ class CmdGuestAddInput(MuxPlayerCommand):
                 return
 
         if "skill" in switches:
-            if lhs not in _valid_skills_:
+            if lhs not in VALID_SKILLS:
                 matches = get_partial_match(lhs, "skill")
                 if not matches:
                     caller.msg("No skill matches the value you entered. Please enter its name again.")
