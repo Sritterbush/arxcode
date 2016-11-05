@@ -11,13 +11,13 @@ from evennia.utils import create
 from server.utils import prettytable
 from server.utils.utils import inform_staff
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from evennia.objects.models import ObjectDB
 from typeclasses.bulletin_board.bboard import BBoard
 
 # limit symbol import for API
-__all__ = ("CmdBBReadOrPost","CmdBBSub","CmdBBUnsub",
+__all__ = ("CmdBBReadOrPost", "CmdBBSub", "CmdBBUnsub",
            "CmdBBCreate")
 BOARD_TYPECLASS = "typeclasses.bulletin_board.bboard.BBoard"
+
 
 def get_boards(caller):
     """
@@ -27,6 +27,7 @@ def get_boards(caller):
     bb_list = [ob for ob in bb_list if ob.access(caller, 'read')]
     return bb_list
     
+
 def list_bboards(caller):
     """
     Helper function for listing all boards a player is subscribed
@@ -36,7 +37,7 @@ def list_bboards(caller):
     if not bb_list:
         return
     my_subs = [bb for bb in bb_list if bb.has_subscriber(caller)]
-     # just display the subscribed bboards with no extra info
+    # just display the subscribed bboards with no extra info
     bbtable = prettytable.PrettyTable(["{wbb #",
                                        "{wName",
                                        "{wUnread Posts",
@@ -50,10 +51,11 @@ def list_bboards(caller):
         bbtable.add_row([bb_number, bb_name,
                          "{0} unread postings".format(unread_num),
                          len(bboard.posts), subbed])
-    caller.msg("\n{w" + "="*60 + "{n\n%s"% bbtable)
+    caller.msg("\n{w" + "="*60 + "{n\n%s" % bbtable)
     pass
 
-def access_bboard(caller, args, request = "read"):
+
+def access_bboard(caller, args, request="read"):
     """
     Helper function for searching for a single bboard with
     some error handling.
@@ -76,8 +78,9 @@ def access_bboard(caller, args, request = "read"):
     if not board.access(caller, request):
         caller.msg("You do not have the required privileges to do that.")
         return
-    #passed all checks, so return board
+    # passed all checks, so return board
     return board
+
 
 def list_messages(caller, board, board_num):
     """
@@ -88,35 +91,33 @@ def list_messages(caller, board, board_num):
         caller.msg("No bulletin board found.")
         return
     caller.msg("{w" + "="*60 + "\n{n")
-    title = "{w**** %s ****{n"% board.key.capitalize()
+    title = "{w**** %s ****{n" % board.key.capitalize()
     title = "{:^80}".format(title)
     caller.msg(title)
     posts = board.get_all_posts()
     msgnum = 0
     msgtable = prettytable.PrettyTable(["{wbb/msg",
-                                       "{wSubject",
-                                       "{wPostDate",
-                                       "{wPosted By"])
+                                        "{wSubject",
+                                        "{wPostDate",
+                                        "{wPosted By"])
     read_posts = caller.receiver_player_set.all()
     for post in posts:
         unread = post not in read_posts
         msgnum += 1
         bbmsgnum = str(board_num) + "/" + str(msgnum)
-        #if unread message, make the message white-bold
+        # if unread message, make the message white-bold
         if unread:
             bbmsgnum = "{w" + "{0}".format(bbmsgnum)
         subject = post.db_header[:35]
         date = post.db_date_created.strftime("%x")
         poster = board.get_poster(post)[:10]
-        #turn off white-bold color if unread message
+        # turn off white-bold color if unread message
         if unread:
             poster = "{0}".format(poster) + "{n"
         msgtable.add_row([bbmsgnum, subject, date, poster])
     caller.msg(msgtable) 
     pass
 
-
-    
 
 def get_unread_posts(caller):
     bb_list = get_boards(caller)
@@ -156,7 +157,7 @@ class CmdBBNew(MuxPlayerCommand):
     locks = "cmd:not pperm(bboard_banned)"
 
     def func(self):
-        "Implement the command"
+        """Implement the command"""
         caller = self.caller
         args = self.lhs
         bb_list = get_boards(caller)
@@ -204,6 +205,7 @@ class CmdBBNew(MuxPlayerCommand):
             if noread:
                 self.msg("You have marked %s posts as read." % posts_on_board)
 
+
 class CmdBBReadOrPost(MuxPlayerCommand):
     """
     @bb - read or post to boards you are subscribed to
@@ -215,6 +217,7 @@ class CmdBBReadOrPost(MuxPlayerCommand):
        @bb <board # or name>/u - read all unread posts for board
        @bb/read <board # or name>/<post #> - read post on board
        @bb/del  <board # or name>/<post #> - delete post on board
+       @bb/edit <board # or name>/<post #>=<message> - edit
        @bb/post <board # or name>/<title>=<message> - make a post
        @bb/new - alias for the +bbnew command
 
@@ -231,23 +234,23 @@ class CmdBBReadOrPost(MuxPlayerCommand):
     locks = "cmd:not pperm(bboard_banned)"
 
     def func(self):
-        "Implement the command"
+        """Implement the command"""
         caller = self.caller
         args = self.args
         switches = self.switches
         if not args and 'new' not in switches:
             return list_bboards(caller)
 
-        #first, "@bb <board #>" use case
-        def board_check(caller, args):
-            board = access_bboard(caller, args)
-            if not board:
+        # first, "@bb <board #>" use case
+        def board_check(reader, arguments):
+            board_to_check = access_bboard(reader, arguments)
+            if not board_to_check:
                 return
-            if not board.has_subscriber(caller):
-                caller.msg("You are not yet a subscriber to {0}".format(board.key))
-                caller.msg("Use {w@bbsub{n to subscribe to it.")
+            if not board_to_check.has_subscriber(reader):
+                reader.msg("You are not yet a subscriber to {0}".format(board_to_check.key))
+                reader.msg("Use {w@bbsub{n to subscribe to it.")
                 return    
-            list_messages(caller, board, args)
+            list_messages(reader, board_to_check, arguments)
             
         if not switches:
             arglist = args.split("/")
@@ -264,7 +267,7 @@ class CmdBBReadOrPost(MuxPlayerCommand):
         if 'new' in switches:
             caller.execute_cmd("+bbnew"+args)
             return               
-        #both post/read share board #
+        # both post/read share board #
         arglist = args.split("/")
         
         board = access_bboard(caller, arglist[0])
@@ -294,9 +297,9 @@ class CmdBBReadOrPost(MuxPlayerCommand):
                         post = board.get_post(caller, int(post_num))
                         board.read_post(caller, post)
                         num_read += 1
-                    except Exception:
+                    except (TypeError, ValueError, AttributeError):
                         continue
-            except Exception:
+            except (TypeError, ValueError, IndexError):
                 caller.msg("Posts in the range must be numbers.")
                 return
             if not num_read:
@@ -314,16 +317,41 @@ class CmdBBReadOrPost(MuxPlayerCommand):
             post = board.get_post(caller, post_num)
             if not post:
                 return
-            if not caller in post.db_sender_players.all() and not board.access(caller, "edit"):
+            if caller not in post.db_sender_players.all() and not board.access(caller, "edit"):
                 caller.msg("You cannot delete someone else's post, only your own.")
                 return
-            if board.delete_post(post_num, caller) == True:
+            if board.delete_post(post_num):
                 caller.msg("Post deleted")
                 inform_staff("%s has deleted post %s on board %s." % (caller, post_num, board))
             else:
                 caller.msg("Post deletion failed for unknown reason.")
             return
-            
+        if 'edit' in switches:
+            lhs = self.lhs
+            arglist = lhs.split("/")
+            if len(arglist) < 2 or not self.rhs:
+                self.msg("Usage: @bb/edit <board #>/<post #>")
+                return
+            try:
+                post_num = int(arglist[1])
+            except ValueError:
+                self.msg("Invalid post number.")
+                return
+            board = access_bboard(caller, arglist[0], 'write')
+            if not board:
+                return
+            post = board.get_post(caller, post_num)
+            if not post:
+                return
+            if caller not in post.db_sender_players.all() and not board.access(caller, "edit"):
+                caller.msg("You cannot edit someone else's post, only your own.")
+                return
+            if board.edit_post(post, self.rhs):
+                self.msg("Post edited.")
+                inform_staff("%s has edited post %s on board %s." % (caller, post_num, board))
+            else:
+                self.msg("Post edit failed for unknown reason.")
+            return
         if 'post' in switches:        
             if not self.rhs:
                 caller.msg("Usage: @bb/post <board #>/<subject> = <post message>")
@@ -357,7 +385,7 @@ class CmdBBSub(MuxPlayerCommand):
     locks = "cmd:not pperm(bboard_banned)"
 
     def func(self):
-        "Implement the command"
+        """Implement the command"""
 
         caller = self.caller
         args = self.lhs
@@ -387,7 +415,7 @@ class CmdBBSub(MuxPlayerCommand):
             if 'quiet' not in self.switches:
                 caller.msg("%s is already subscribed to that board." % targ)
             return
-        caller.msg("Successfully subscribed %s to %s"% (targ, bboard.key.capitalize()))
+        caller.msg("Successfully subscribed %s to %s" % (targ, bboard.key.capitalize()))
 
 
 class CmdBBUnsub(MuxPlayerCommand):
@@ -407,7 +435,7 @@ class CmdBBUnsub(MuxPlayerCommand):
     locks = "cmd:not perm(bboard_banned)"
 
     def func(self):
-        "Implementing the command. "
+        """Implementing the command. """
 
         caller = self.caller
 
@@ -425,7 +453,7 @@ class CmdBBUnsub(MuxPlayerCommand):
             caller.msg("You are not subscribed to that board.")
             return
         bboard.unsubscribe_bboard(caller)
-        caller.msg("Unsubscribed from %s"% bboard.key)
+        caller.msg("Unsubscribed from %s" % bboard.key)
 
 
 class CmdBBCreate(MuxCommand):
@@ -444,7 +472,7 @@ class CmdBBCreate(MuxCommand):
     help_category = "Comms"
 
     def func(self):
-        "Implement the command"
+        """Implement the command"""
 
         caller = self.caller
 
@@ -463,7 +491,7 @@ class CmdBBCreate(MuxCommand):
 
         typeclass = BOARD_TYPECLASS
         new_board = create.create_object(typeclass, bboardname, location=caller,
-                                         home = "#4", permissions=None,
+                                         home="#4", permissions=None,
                                          locks=lockstring, aliases=None, destination=None,
                                          report_to=None, nohome=False)
         new_board.desc = description

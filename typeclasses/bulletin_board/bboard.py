@@ -3,10 +3,7 @@ Default Typeclass for Bulletin Boards, based loosely on bboards.
 
 See objects.objects for more information on Typeclassing.
 """
-#from src.comms import Msg, TempMsg, bboardDB
 from typeclasses.objects import Object
-from datetime import datetime
-from evennia.utils.utils import datetime_format
 from evennia.comms.models import Msg
 
 
@@ -15,13 +12,13 @@ class BBoard(Object):
     This is the base class for all Bulletin Boards. Inherit from this to create different
     types of communication bboards.
     """
-    def tag_obj(self, post):
-        "Tags an object to show it as being a bulletin board post"
+    @staticmethod
+    def tag_obj(post):
+        """Tags an object to show it as being a bulletin board post"""
         tagkey = "Board Post"
         category = "board"
+        from evennia.typeclasses.tags import Tag
         try:
-            from evennia.typeclasses.tags import Tag
-
             tag = Tag.objects.get(db_key=tagkey, db_category=category,
                                   db_model="msg")
         except Tag.DoesNotExist:
@@ -112,14 +109,7 @@ class BBoard(Object):
         else:
             return False
 
-    def is_bboard(self):
-        """
-        Identifier method. All typeclasses will have some variant
-        of this going forward for doublechecking in searches.
-        """
-        return True
-
-    def delete_post(self, post_num, pobj):
+    def delete_post(self, post_num):
         """
         Remove post if it's inside the bulletin board.
         """
@@ -127,6 +117,12 @@ class BBoard(Object):
         if post_num < 0 or post_num >= len(self.posts):
             return False
         self.posts[post_num].delete()
+        return True
+
+    @staticmethod
+    def edit_post(post, msg):
+        post.db_message = msg
+        post.save()
         return True
     
     @property
@@ -137,10 +133,10 @@ class BBoard(Object):
         """
         Helper function to read a single post.
         """
-        #format post
+        # format post
         sender = self.get_poster(post)
-        message  = "\n{w" + "-"*60 + "{n\n"
-        message += "{wPoster:{n %s\n"% sender
+        message = "\n{w" + "-"*60 + "{n\n"
+        message += "{wPoster:{n %s\n" % sender
         message += "{wSubject:{n %s\n" % post.db_header
         message += "{wDate:{n %s\n" % post.db_date_created.strftime("%x %X")
         message += "{w" + "-"*60 + "{n\n"
@@ -148,16 +144,15 @@ class BBoard(Object):
         caller.msg(message)
         if caller.is_guest():
             return
-        #mark it read
+        # mark it read
         self.mark_read(caller, post)
 
-    def mark_read(self, caller, post):
-        try:
-            post.db_receivers_players.add(caller)
-        except Exception:
-            pass
+    @staticmethod
+    def mark_read(caller, post):
+        post.db_receivers_players.add(caller)
 
-    def get_poster(self, post):
+    @staticmethod
+    def get_poster(post):
         sender = ""
         if post.db_sender_players.all():
             sender += ", ".join(str(ob).capitalize() for ob in post.db_sender_players.all())
@@ -171,37 +166,35 @@ class BBoard(Object):
             sender = "No One"
         return sender
 
-    def convert_posts(self):
-        """
-        Helper function to convert old-style posts stored in attribute to new posts
-        """
-        try:
-            from server.utils.utils import broadcast
-            broadcast("Converting posts of board %s." % self.key)
-        except Exception:
-            pass
-        for post in self.db.posts:
-            posted_by = post['Poster']
-            subject = post['Subject']
-            msg = post['Msg']
-            date = post['Date']
-            time = post['Time']
-            list_of_readers = post['Readers']
-            try:
-                from typeclasses.players import Player
-                pobj = Player.objects.get(username__iexact=posted_by)
-                poster_name=None
-            except Player.DoesNotExist:
-                pobj = None
-                poster_name=posted_by
-            post_obj = self.bb_post(poster_obj=pobj, msg=msg, subject=subject,
-                                    poster_name=poster_name, announce=False)
-            for reader in list_of_readers:
-                try:
-                    post_obj.db_receivers_players.add(reader)
-                except Exception:
-                    import traceback
-                    traceback.print_exc()
-        self.attributes.remove("posts")
-            
-
+    # def convert_posts(self):
+    #     """
+    #     Helper function to convert old-style posts stored in attribute to new posts
+    #     """
+    #     try:
+    #         from server.utils.utils import broadcast
+    #         broadcast("Converting posts of board %s." % self.key)
+    #     except Exception:
+    #         pass
+    #     for post in self.db.posts:
+    #         posted_by = post['Poster']
+    #         subject = post['Subject']
+    #         msg = post['Msg']
+    #         date = post['Date']
+    #         time = post['Time']
+    #         list_of_readers = post['Readers']
+    #         from typeclasses.players import Player
+    #         try:
+    #             pobj = Player.objects.get(username__iexact=posted_by)
+    #             poster_name=None
+    #         except Player.DoesNotExist:
+    #             pobj = None
+    #             poster_name=posted_by
+    #         post_obj = self.bb_post(poster_obj=pobj, msg=msg, subject=subject,
+    #                                 poster_name=poster_name, announce=False)
+    #         for reader in list_of_readers:
+    #             try:
+    #                 post_obj.db_receivers_players.add(reader)
+    #             except Exception:
+    #                 import traceback
+    #                 traceback.print_exc()
+    #     self.attributes.remove("posts")
