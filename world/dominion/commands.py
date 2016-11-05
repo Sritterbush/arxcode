@@ -91,7 +91,7 @@ class CmdAdmDomain(MuxPlayerCommand):
         if not self.args:
             pcdomains = ", ".join((repr(dom) for dom in Domain.objects.filter(ruler__castellan__isnull=False)))
             caller.msg("{wPlayer domains:{n %s" % pcdomains)
-            npcdomains =", ".join((repr(dom) for dom in Domain.objects.filter(ruler__castellan__player__isnull=True)))
+            npcdomains = ", ".join((repr(dom) for dom in Domain.objects.filter(ruler__castellan__player__isnull=True)))
             caller.msg("{wNPC domains:{n %s" % npcdomains)
             return
         if "create" in self.switches:
@@ -152,13 +152,13 @@ class CmdAdmDomain(MuxPlayerCommand):
                 try:
                     if region.name == "Lyceum":
                         house = Organization.objects.get(name__iexact="Velenosa")
-                    if region.name == "Oathlands":
+                    elif region.name == "Oathlands":
                         house = Organization.objects.get(name__iexact="Valardin")
-                    if region.name == "Mourning Isles":
+                    elif region.name == "Mourning Isles":
                         house = Organization.objects.get(name__iexact="Thrax")
-                    if region.name == "Northlands":
+                    elif region.name == "Northlands":
                         house = Organization.objects.get(name__iexact="Redrain")
-                    if region.name == "Crownlands":
+                    elif region.name == "Crownlands":
                         house = Organization.objects.get(name__iexact="Grayson")
                     else:
                         self.msg("House for that region not found.")
@@ -172,7 +172,7 @@ class CmdAdmDomain(MuxPlayerCommand):
             caller.msg("New Domain #%s created: %s in land square: %s" % (dom.id, str(dom), str(dom.land)))
             return
         if ("transferowner" in self.switches or "transferrule" in self.switches
-            or "replacevassal" in self.switches or "createvassal" in self.switches):
+                or "replacevassal" in self.switches or "createvassal" in self.switches):
             # usage: @admin_domain/transfer receiver=domain_id
             if not self.rhs or not self.lhs:
                 caller.msg("Usage: @admin_domain/transfer receiver=domain's id")
@@ -181,12 +181,12 @@ class CmdAdmDomain(MuxPlayerCommand):
             if not player:
                 caller.msg("No player by the name %s." % self.lhs)
             try:
-                id = int(self.rhslist[0])
+                d_id = int(self.rhslist[0])
                 if len(self.rhslist) > 1:
                     num_vassals = int(self.rhslist[1])
                 else:
                     num_vassals = 2
-                dom = Domain.objects.get(id=id)
+                dom = Domain.objects.get(id=d_id)
             except ValueError:
                 caller.msg("Domain's id must be a number.")
                 return
@@ -228,8 +228,6 @@ class CmdAdmDomain(MuxPlayerCommand):
                         ruler = Ruler.objects.create(house=owner, castellan=dompc)
                 except Organization.DoesNotExist:
                     ruler = setup_utils.setup_ruler(family, dompc)
-                    owner = ruler.house
-                    house = owner.organization_owner
                 dom.ruler = ruler
                 dom.save()
                 caller.msg("%s set to rule %s." % (ruler, dom))
@@ -245,8 +243,8 @@ class CmdAdmDomain(MuxPlayerCommand):
         if "list_land" in self.switches:
             x, y = None, None
             try:
-            # ast.literal_eval will parse a string into a tuple
-                x,y = literal_eval(self.lhs)
+                # ast.literal_eval will parse a string into a tuple
+                x, y = literal_eval(self.lhs)
                 land = Land.objects.get(x_coord=x, y_coord=y)
             # literal_eval gets SyntaxError if it gets no argument, not ValueError
             except (SyntaxError, ValueError):
@@ -255,12 +253,12 @@ class CmdAdmDomain(MuxPlayerCommand):
                 caller.msg("Valid land squares: %s" % valid_land)
                 return
             except Land.DoesNotExist:
-                caller.msg("No land square matches (%s,%s)." % (x,y))
+                caller.msg("No land square matches (%s,%s)." % (x, y))
                 valid_land = ", ".join(str(land) for land in Land.objects.all())
                 caller.msg("Valid land squares: %s" % valid_land)
                 return
             doms = ", ".join(str(dom) for dom in land.domains.all())
-            caller.msg("Domains at (%s, %s): %s" % (x,y,doms))
+            caller.msg("Domains at (%s, %s): %s" % (x, y, doms))
             return
         if "list_char" in self.switches:
             player = caller.search(self.args)
@@ -288,7 +286,8 @@ class CmdAdmDomain(MuxPlayerCommand):
             if hasattr(dompc, 'ruler'):
                 ruled = ", ".join(str(ob) for ob in Domain.objects.filter(ruler_id=dompc.ruler.id))
             if player.db.char_ob and player.db.char_ob.db.family:
-                owned = ", ".join(str(ob) for ob in Domain.objects.filter(ruler__house__organization_owner__name__iexact=family))
+                owned = ", ".join(str(ob) for ob in Domain.objects.filter(
+                    ruler__house__organization_owner__name__iexact=family))
             caller.msg("{wDomains ruled by {c%s{n: %s" % (dompc, ruled))
             caller.msg("{wDomains owned directly by {c%s {wfamily{n: %s" % (family, owned))
             return
@@ -321,7 +320,7 @@ class CmdAdmDomain(MuxPlayerCommand):
             x, y = None, None
             try:
                 dom = Domain.objects.get(id=int(self.lhs))
-                x,y = literal_eval(self.rhs)
+                x, y = literal_eval(self.rhs)
                 land = Land.objects.get(x_coord=x, y_coord=y)
             # Syntax for no self.rhs, Type for no lhs, Value for not for lhs/rhs not being digits
             except (SyntaxError, TypeError, ValueError):
@@ -332,7 +331,7 @@ class CmdAdmDomain(MuxPlayerCommand):
                 caller.msg("No domain with that id.")
                 return
             except Land.DoesNotExist:
-                caller.msg("No land with coords (%s,%s)." % (x,y))
+                caller.msg("No land with coords (%s,%s)." % (x, y))
                 return
             if land.free_area < dom.area:
                 caller.msg("%s only has %s free area, need %s." % (str(land), land.free_area, dom.area))
@@ -347,8 +346,8 @@ class CmdAdmDomain(MuxPlayerCommand):
             caller.msg("Must provide a domain number.")
             return
         try:
-            id = int(self.lhs)
-            dom = Domain.objects.get(id=id)
+            d_id = int(self.lhs)
+            dom = Domain.objects.get(id=d_id)
         except ValueError:
             caller.msg("Domain must be a number for the domain's ID.")
             return
@@ -385,7 +384,8 @@ class CmdAdmDomain(MuxPlayerCommand):
                          "lawlessness", "amount_plundered", "income_modifier")
         switches = [switch for switch in self.switches if switch in attr_switches]
         if not switches:
-            caller.msg("All switches must be in the following: %s. You passed %s." % (str(attr_switches), str(self.switches)))
+            caller.msg("All switches must be in the following: %s. You passed %s." % (str(attr_switches),
+                                                                                      str(self.switches)))
             return
         if not self.rhs:
             caller.msg("You must pass a value to change the domain field to.")
@@ -397,7 +397,7 @@ class CmdAdmDomain(MuxPlayerCommand):
             except ValueError:
                 caller.msg("Right hand side value must be a number.")
                 return
-        else: # switch is 'name', 'desc', or 'title', so val will be a string
+        else:  # switch is 'name', 'desc', or 'title', so val will be a string
             val = self.rhs
         for switch in switches:
             # get the attribute with the name given by switch
@@ -406,6 +406,7 @@ class CmdAdmDomain(MuxPlayerCommand):
             setattr(dom, switch, val)
             caller.msg("Domain field %s changed from %s to %s." % (switch, old, val))
         dom.save()
+
 
 class CmdAdmCastle(MuxPlayerCommand):
     """
@@ -423,6 +424,7 @@ class CmdAdmCastle(MuxPlayerCommand):
     locks = "cmd:perm(Wizards)"
     help_category = "Dominion"
     aliases = ["@admcastle", "@adm_castle"]
+
     def func(self):
         caller = self.caller
         if not self.args:
@@ -474,6 +476,7 @@ class CmdAdmCastle(MuxPlayerCommand):
             caller.msg("Castle's domain changed from %s to %s." % (str(old), str(dom)))
             return
 
+
 class CmdAdmArmy(MuxPlayerCommand):
     """
     @admin_army
@@ -492,7 +495,8 @@ class CmdAdmArmy(MuxPlayerCommand):
     key = "@admin_army"
     locks = "cmd:perm(Wizards)"
     help_category = "Dominion"
-    aliases=["@admarmy", "@adm_army"]
+    aliases = ["@admarmy", "@adm_army"]
+
     def func(self):
         caller = self.caller
         if not self.args:
@@ -542,11 +546,10 @@ class CmdAdmArmy(MuxPlayerCommand):
                 equip = int(self.rhslist[3])
             except IndexError:
                 caller.msg("Needs four arguments: type of unit, amount of troops, training level, equipment level.")
+                caller.msg("Example usage: @admdomain/unit 5=infantry,300,1,1")
                 return
             except (TypeError, ValueError):
                 caller.msg("Amount of troops, training level, and equipment level must all be numbers.")
-                return
-            except:
                 caller.msg("Example usage: @admdomain/unit 5=infantry,300,1,1")
                 return
             if utype not in u_types:
@@ -595,9 +598,9 @@ class CmdAdmArmy(MuxPlayerCommand):
             caller.msg("Army's domain set to %s." % str(dom))
             return
         if "move" in self.switches:
-            x,y = None, None
+            x, y = None, None
             try:
-                x,y = literal_eval(self.rhs)
+                x, y = literal_eval(self.rhs)
                 land = Land.objects.get(x_coord=x, y_coord=y)
             # Syntax for no self.rhs, Type for no lhs, Value for not for lhs/rhs not being digits
             except (SyntaxError, TypeError, ValueError):
@@ -629,8 +632,10 @@ class CmdAdmAssets(MuxPlayerCommand):
     key = "@admin_assets"
     locks = "cmd:perm(Wizards)"
     help_category = "Dominion"
-    aliases=["@admassets", "@admasset", "@adm_asset", "@adm_assets"]
-    def get_owner(self, args):
+    aliases = ["@admassets", "@admasset", "@adm_asset", "@adm_assets"]
+
+    @staticmethod
+    def get_owner(args):
         if args.isdigit():
             owner = AssetOwner.objects.get(id=int(args))
         else:
@@ -671,7 +676,7 @@ class CmdAdmAssets(MuxPlayerCommand):
             else:
                 noassets = True
             setup_utils.setup_dom_for_char(player.db.char_ob, nodom, noassets)
-            caller.msg("Dominion initialized for %s. No domain created." % (player))
+            caller.msg("Dominion initialized for %s. No domain created." % player)
             return
         try:
             owner = self.get_owner(self.lhs)
@@ -679,7 +684,7 @@ class CmdAdmAssets(MuxPlayerCommand):
             caller.msg("No assetowner found for %s." % self.lhs)
             return
         if not self.rhs:
-            caller.msg(owner.display(), options={'box':True})
+            caller.msg(owner.display(), options={'box': True})
             return
         if "money" in self.switches or not self.switches:
             try:
@@ -725,13 +730,14 @@ class CmdAdmAssets(MuxPlayerCommand):
             affected = owner.adjust_prestige(value)
             caller.msg("You have adjusted %s's prestige by %s." % (owner, value))
             for obj in affected:
-                obj.msg("%s adjusted %s's prestige by %s for the following reason: %s" % (caller, owner, value, message))
+                obj.msg("%s adjusted %s's prestige by %s for the following reason: %s" % (caller, owner,
+                                                                                          value, message))
             # post to a board about it
             from typeclasses.bulletin_board.bboard import BBoard
             board = BBoard.objects.get(db_key="Prestige Changes")
             msg = "{wName:{n %s\n" % str(owner)
             msg += "{wAdjustment:{n %s\n" % value
-            msg  += "{wGM:{n %s\n" % caller.key.capitalize()
+            msg += "{wGM:{n %s\n" % caller.key.capitalize()
             msg += "{wReason:{n %s\n" % message
             board.bb_post(poster_obj=caller, msg=msg, subject="Prestige Change for %s" % str(owner))
         
@@ -755,14 +761,16 @@ class CmdAdmOrganization(MuxPlayerCommand):
     key = "@admin_org"
     locks = "cmd:perm(Wizards)"
     help_category = "Dominion"
-    aliases=["@admorg", "@adm_org"]
+    aliases = ["@admorg", "@adm_org"]
+
     def func(self):
         caller = self.caller
         if not self.args:
             if 'all' in self.switches:
                 orgs = ", ".join(repr(org) for org in Organization.objects.all())
             else:
-                orgs = ", ".join(repr(org) for org in Organization.objects.all() if org.members.filter(player__player__isnull=False))
+                orgs = ", ".join(repr(org) for org in Organization.objects.all()
+                                 if org.members.filter(player__player__isnull=False))
             caller.msg("{wOrganizations:{n %s" % orgs)
             return
         try:
@@ -839,9 +847,9 @@ class CmdAdmOrganization(MuxPlayerCommand):
                 caller.msg("Could not add %s. May need to run @admin_assets/setup on them." % self.rhs)
                 return
         if 'title' in self.switches or 'femaletitle' in self.switches:
-            male = not 'femaletitle' in self.switches
+            male = 'femaletitle' not in self.switches
             try:
-                rank,name = int(self.rhslist[0]),self.rhslist[1]
+                rank, name = int(self.rhslist[0]), self.rhslist[1]
             except (ValueError, TypeError, IndexError):
                 caller.msg("Invalid usage.")
                 return
@@ -867,6 +875,7 @@ class CmdAdmOrganization(MuxPlayerCommand):
             except (ValueError, TypeError, AttributeError, KeyError):
                 caller.msg("Usage: @admorg/set_rank <org> = <player>, <1-10>")
                 return
+
 
 class CmdAdmFamily(MuxPlayerCommand):
     """
@@ -894,7 +903,7 @@ class CmdAdmFamily(MuxPlayerCommand):
     key = "@admin_family"
     locks = "cmd:perm(Wizards)"
     help_category = "Dominion"
-    aliases=["@admfamily", "@adm_family"]
+    aliases = ["@admfamily", "@adm_family"]
     
     def match_player(self, args):
         pcs = PlayerOrNpc.objects.filter(player__username__iexact=args)
@@ -926,15 +935,15 @@ class CmdAdmFamily(MuxPlayerCommand):
                 caller.msg("An npc with that name already exists.")
                 return
         if "createparent" in self.switches:
-            char.parents.create(npc_name = self.rhs)
+            char.parents.create(npc_name=self.rhs)
             caller.msg("Created a parent named %s for %s." % (self.rhs, char))
             return
         if "createchild" in self.switches:
-            char.children.create(npc_name = self.rhs)
+            char.children.create(npc_name=self.rhs)
             caller.msg("Created a child named %s for %s." % (self.rhs, char))
             return
         if "createspouse" in self.switches:
-            char.spouses.create(npc_name = self.rhs)
+            char.spouses.create(npc_name=self.rhs)
             caller.msg("Created a spouse named %s for %s." % (self.rhs, char))
             return
         if "replacenpc" in self.switches:
@@ -987,6 +996,7 @@ class CmdAdmFamily(MuxPlayerCommand):
             caller.msg("%s and %s are no longer married." % (char, tarchar))
             return
 
+
 class CmdSetRoom(MuxCommand):
     """
     @setroom
@@ -1017,9 +1027,10 @@ class CmdSetRoom(MuxCommand):
     BANKCMD = "commands.cmdsets.bank.BankCmdSet"
     RUMORCMD = "commands.cmdsets.rumor.RumorCmdSet"
     HOMECMD = "commands.cmdsets.home.HomeCmdSet"
+
     def func(self):
-        DEFAULT_HOME = ObjectDB.objects.get(id=13)
-        caller=self.caller
+        default_home = ObjectDB.objects.get(id=13)
+        caller = self.caller
         if not (set(self.switches) & set(self.allowed_switches)):
             caller.msg("Please select one of the following: %s" % str(self.allowed_switches))
             return
@@ -1093,8 +1104,7 @@ class CmdSetRoom(MuxCommand):
             loc.tags.add("bank")
             caller.msg("%s now has bank commands." % loc)
             return
-        if ("home" in self.switches or "homeaddowner" in self.switches or
-            "homermowner" in self.switches):
+        if "home" in self.switches or "homeaddowner" in self.switches or "homermowner" in self.switches:
             owners = loc.db.owners or []
             targs = []
             rmkeys = []
@@ -1121,7 +1131,7 @@ class CmdSetRoom(MuxCommand):
                     if char not in owners:
                         owners.append(char)
                     if "home" in self.switches:
-                        if not char.home or char.home == DEFAULT_HOME:
+                        if not char.home or char.home == default_home:
                             char.home = loc
                             char.save()
             for char in rmkeys:
@@ -1137,7 +1147,7 @@ class CmdSetRoom(MuxCommand):
                         home = ObjectDB.objects.get(id=13)
                         char.home = home
                         char.save()
-                    except Exception:
+                    except ObjectDB.DoesNotExist:
                         pass
             loc.tags.add("home")
             loc.db.owners = owners
@@ -1155,7 +1165,8 @@ class CmdSetRoom(MuxCommand):
             valid_entrances = list(ObjectDB.objects.filter(db_destination=loc))
             invalid = [ent for ent in entrances if ent not in valid_entrances]
             if invalid:
-                caller.msg("Some of the entrances do not connect to this room: %s" % ", ".join(str(ob) for ob in invalid))
+                caller.msg("Some of the entrances do not connect to this room: %s" % ", ".join(str(ob)
+                                                                                               for ob in invalid))
                 caller.msg("Valid entrances are: %s" % ", ".join(str(ob.id) for ob in valid_entrances))
                 return
             for ent in entrances:
@@ -1182,12 +1193,9 @@ class CmdSetRoom(MuxCommand):
                 return
             loc.cmdset.add(self.HOMECMD, permanent=True)
             caller.msg("%s now has home commands." % loc)
-        
-            
-                
+
 
 # Player/OOC commands for dominion---------------------
-
 class CmdDomain(MuxPlayerCommand):
     """
     @domain
@@ -1202,6 +1210,7 @@ class CmdDomain(MuxPlayerCommand):
     locks = "cmd:all()"
     help_category = "Dominion"
     aliases = ["@domains"]
+
     def func(self):
         caller = self.caller
         commanded_orgs = []
@@ -1249,6 +1258,7 @@ class CmdDomain(MuxPlayerCommand):
             caller.msg(dom.display())
             return
 
+
 class CmdArmy(MuxPlayerCommand):
     """
     @army
@@ -1268,6 +1278,7 @@ class CmdArmy(MuxPlayerCommand):
     key = "@army"
     locks = "cmd:all()"
     help_category = "Dominion"
+
     def func(self):
         caller = self.caller
         if not hasattr(caller, 'Dominion'):
@@ -1288,7 +1299,7 @@ class CmdArmy(MuxPlayerCommand):
                 army = armies.get(id=int(self.lhs))
             else:
                 army = armies.get(name__iexact=self.lhs)
-        except:
+        except (AttributeError, Army.DoesNotExist):
             caller.msg("No armies found by that name or number.")
             return
         if not self.switches:
@@ -1310,7 +1321,8 @@ class CmdArmy(MuxPlayerCommand):
                 caller.msg("%s must return to its home domain's square to explore.")
                 return
             if armies.filter(orders__complete=False, orders__type=Orders.EXPLORE):
-                caller.msg("An army under your command already has an exploration order. Only one army can explore per week.")
+                caller.msg("An army under your command already has an exploration order." +
+                           " Only one army can explore per week.")
                 return
             army.orders.create(type=Orders.EXPLORE)
         if 'march' in self.switches:
@@ -1356,7 +1368,8 @@ class CmdOrganization(MuxPlayerCommand):
     org_locks = ("edit", "boot", "withdraw", "setrank", "invite",
                  "setruler", "view", "guards", "build")
 
-    def get_org_and_member(self, caller, myorgs, args):
+    @staticmethod
+    def get_org_and_member(caller, myorgs, args):
         org = myorgs.get(name__iexact=args)
         member = caller.Dominion.memberships.get(organization=org)
         return org, member
@@ -1412,14 +1425,14 @@ class CmdOrganization(MuxPlayerCommand):
                     self.disp_org_locks(caller, myorgs[0])
                     return
                 member = caller.Dominion.memberships.get(organization=myorgs[0])
-                caller.msg(myorgs[0].display(member), options={'box':True})
+                caller.msg(myorgs[0].display(member), options={'box': True})
                 return
             caller.msg("Your organizations: %s" % ", ".join(org.name for org in myorgs))
             return
         if not self.switches:
             try:
                 org, member = self.get_org_and_member(caller, myorgs, self.lhs)
-                caller.msg(org.display(member), options={'box':True})
+                caller.msg(org.display(member), options={'box': True})
                 return
             except Organization.DoesNotExist:
                 caller.msg("You are not a member of any organization named %s." % self.lhs)
@@ -1435,17 +1448,19 @@ class CmdOrganization(MuxPlayerCommand):
                 return
             if len(myorgs) < 2:
                 # if they supplied the org even though they don't have to
+                rhs = self.rhs
                 if len(self.rhslist) > 1:
-                    self.rhs = self.rhslist[0]
+                    rhs = self.rhslist[0]
                 if not self.rhs.isdigit():
                     caller.msg("Rank must be a number.")
                     return
                 org = myorgs[0]
                 member = caller.Dominion.memberships.get(organization=org)
-                rank = int(self.rhs)
+                rank = int(rhs)
             else:
                 if len(self.rhslist) < 2:
-                    caller.msg("You belong to more than one organization, so must supply both rank number and the organization name.")
+                    caller.msg("You belong to more than one organization, so must supply both rank number and" +
+                               " the organization name.")
                     return
                 try:
                     org, member = self.get_org_and_member(caller, myorgs, self.rhslist[1])
@@ -1480,7 +1495,7 @@ class CmdOrganization(MuxPlayerCommand):
                 if len(self.rhslist) == 3:
                     if self.rhslist[2].lower() == "male":
                         maleonly = True
-                    elif self.rhslist[2].lower () == "female":
+                    elif self.rhslist[2].lower() == "female":
                         femaleonly = True
                 if not femaleonly:
                     setattr(org, "rank_%s_male" % rank, rankname)
@@ -1603,6 +1618,7 @@ class CmdOrganization(MuxPlayerCommand):
             caller.msg("%s has been placed in command of all of the armies and holdings of %s." % (player, org))
             return
 
+
 class CmdAgents(MuxPlayerCommand):
     """
     @agents
@@ -1646,22 +1662,26 @@ class CmdAgents(MuxPlayerCommand):
     locks = "cmd:all()"
     help_category = "Dominion"
     aliases = ["@agent"]
-    def find_barracks(self, owner):
-        "find rooms that are tagged as being barracks for that owner"
+
+    @staticmethod
+    def find_barracks(owner):
+        """"find rooms that are tagged as being barracks for that owner"""
         tagname = str(owner.owner) + "_barracks"
         rooms = ObjectDB.objects.filter(db_tags__db_key__iexact=tagname)
         return list(rooms)
 
-    def get_cost(self, lvl, amt):
-        cost = pow((lvl + 1),2) * 50
+    @staticmethod
+    def get_cost(lvl):
+        cost = pow((lvl + 1), 2) * 50
         return cost
 
-    def get_guard_cap(self, gtype, char):
+    @staticmethod
+    def get_guard_cap(char):
         return char.max_guards
 
-    def get_allowed_types_from_org(self, org):
-        if ("noble" in org.category or "social" in org.category or
-            "military" in org.category):
+    @staticmethod
+    def get_allowed_types_from_org(org):
+        if "noble" in org.category or "social" in org.category or "military" in org.category:
             return ["guards"]
         if "crime" in org.category:
             return ["thugs"]
@@ -1670,12 +1690,12 @@ class CmdAgents(MuxPlayerCommand):
         caller = self.caller
         personal = Agent.objects.filter(owner__player__player=caller)
         orgs = [org.assets for org in Organization.objects.filter(members__player=caller.Dominion)
-                    if org.access(caller, 'guards')]
+                if org.access(caller, 'guards')]
         house = Agent.objects.filter(owner__organization_owner__members__player__player=caller,
-                                         owner__organization_owner__in=[org.organization_owner for org in orgs])
+                                     owner__organization_owner__in=[org.organization_owner for org in orgs])
         agents = personal | house
         if not self.args:
-            caller.msg("{WYour agents:{n\n%s" % ", ".join(agent.display() for agent in agents), options={'box':True})
+            caller.msg("{WYour agents:{n\n%s" % ", ".join(agent.display() for agent in agents), options={'box': True})
             barracks = self.find_barracks(caller.Dominion.assets)
             for org in orgs:
                 barracks.extend(self.find_barracks(org))
@@ -1688,7 +1708,7 @@ class CmdAgents(MuxPlayerCommand):
             except Organization.DoesNotExist:
                 caller.msg("You are not a member of an organization named %s." % self.args)
                 return
-            caller.msg(", ".join(agent.display() for agent in org.assets.agents.all()), options={'box':True})
+            caller.msg(", ".join(agent.display() for agent in org.assets.agents.all()), options={'box': True})
             barracks = self.find_barracks(org.assets)
             caller.msg("{wBarracks locations:{n %s" % ", ".join(ob.key for ob in barracks))
             return       
@@ -1711,14 +1731,14 @@ class CmdAgents(MuxPlayerCommand):
             return
         if 'guard' in self.switches:
             try:
-                player,id,amt = self.lhslist
+                player, pid, amt = self.lhslist
                 amt = int(amt)
-                id = int(id)
+                pid = int(pid)
                 targ = caller.search(player)
                 if not targ:
                     caller.msg("Could not find player by name %s." % player)
                     return
-                avail_agent = Agent.objects.get(id=id, owner=owner)
+                avail_agent = Agent.objects.get(id=pid, owner=owner)
                 if avail_agent.quantity < amt:
                     caller.msg("You tried to assign %s, but only have %s available." % (amt, avail_agent.quantity))
                     return
@@ -1728,7 +1748,7 @@ class CmdAgents(MuxPlayerCommand):
                     if not targ:
                         caller.msg("They have no character to assign to.")
                         return
-                    cap = self.get_guard_cap(avail_agent.type, targ)
+                    cap = self.get_guard_cap(targ)
                     if targ.num_guards + amt > cap:
                         caller.msg("They can only have %s guards assigned to them." % cap)
                         return
@@ -1748,16 +1768,16 @@ class CmdAgents(MuxPlayerCommand):
                 return
         if 'recall' in self.switches:
             try:
-                pname,id,amt = self.lhslist
+                pname, pid, amt = self.lhslist
                 player = caller.search(pname)
                 if not player:
                     caller.msg("No player found by %s." % pname)
                     return
                 amt = int(amt)
-                id = int(id)
+                pid = int(pid)
                 if amt < 1:
                     raise ValueError
-                agent = Agent.objects.get(id=id, owner=owner)
+                agent = Agent.objects.get(id=pid, owner=owner)
                 # look through our agent actives for a dbobj assigned to player
                 agentob = agent.find_assigned(player)
                 if not agentob:
@@ -1776,11 +1796,11 @@ class CmdAgents(MuxPlayerCommand):
             try:
                 org = caller.Dominion.active_orgs.get(name__iexact=self.rhs)
                 owner = org.assets
-            except Exception:
+            except (AttributeError, Organization.DoesNotExist):
                 caller.msg("You are not in an organization by that name.")
                 return
             try:
-                gtype,level,amt = self.lhslist[0], int(self.lhslist[1]), int(self.lhslist[2])
+                gtype, level, amt = self.lhslist[0], int(self.lhslist[1]), int(self.lhslist[2])
             except (IndexError, TypeError, ValueError):
                 caller.msg("Please give the type, level, and amount of agents to buy.")
                 return
@@ -1792,8 +1812,12 @@ class CmdAgents(MuxPlayerCommand):
                 caller.msg("%s is not a type %s is allowed to hire." % (gtype, org))
                 caller.msg("You can buy: %s" % ", ".join(types))
                 return
+            if level < 0 or amt < 1:
+                self.msg("Level and amt must be positive.")
+                return
             gtype_num = get_npc_type(gtype)
-            cost = self.get_cost(level, amt)
+            cost = self.get_cost(level)
+            cost *= amt
             if owner.military < cost:
                 caller.msg("Not enough military resources. Cost was %s." % cost)
                 return
@@ -1805,13 +1829,12 @@ class CmdAgents(MuxPlayerCommand):
             except Agent.DoesNotExist:
                 gname, gdesc = generate_default_name_and_desc(gtype_num, level, org)
                 agent = owner.agents.create(quality=level, type=gtype_num, name=gname,
-                                            desc = gdesc)
+                                            desc=gdesc)
             agent.quantity += amt
             agent.save()
             caller.msg("You have bought %s %s." % (amt, agent))
             return
-        if ('desc' in self.switches or 'name' in self.switches
-            or 'transferowner' in self.switches):
+        if 'desc' in self.switches or 'name' in self.switches or 'transferowner' in self.switches:
             try:
                 agent = Agent.objects.get(id=int(self.lhslist[0]))
                 if not agent.access(caller, 'agents'):
@@ -1901,7 +1924,7 @@ class CmdRetainers(MuxPlayerCommand):
                     "skintone", "height")
 
     def get_agent_from_args(self):
-        "Get our retainer's Agent model from an ID number in args"
+        """Get our retainer's Agent model from an ID number in args"""
         return self.caller.retainers.get(id=self.lhs)
     
     def display_retainers(self):
@@ -1909,7 +1932,7 @@ class CmdRetainers(MuxPlayerCommand):
         Displays retainers the player owns
         """
         agents = self.caller.retainers
-        self.msg("{WYour retainers:{n\n%s" % "".join(agent.display() for agent in agents), options={'box':True})
+        self.msg("{WYour retainers:{n\n%s" % "".join(agent.display() for agent in agents), options={'box': True})
         return
 
     def view_stats(self, agent):
@@ -1968,7 +1991,7 @@ class CmdRetainers(MuxPlayerCommand):
         player = self.caller.search(self.lhs)
         try:
             targ = player.retainers.get(name__iexact=self.rhs).dbobj
-        except Exception:
+        except Agent.DoesNotExist:
             self.msg("Could not find a retainer by that name.")
             return
         targ.train_agent(self.caller.db.char_ob)
@@ -1995,7 +2018,7 @@ class CmdRetainers(MuxPlayerCommand):
         self.msg("%s now has %s xp to spend." % (agent, agent.xp))
         return
 
-    #------ Helper methods for performing pre-purchase checks -------------
+    # ------ Helper methods for performing pre-purchase checks -------------
     
     def get_attr_from_args(self, agent, category="stat"):
         """
@@ -2003,15 +2026,16 @@ class CmdRetainers(MuxPlayerCommand):
         or displays a failure message and returns None.
         """
         from world.stats_and_skills import _valid_skills_, _valid_stats_
-        if category == "level" and not self.rhs:
-            self.rhs = agent.typename
-        if not self.rhs:
+        rhs = self.rhs
+        if category == "level" and not rhs:
+            rhs = agent.typename
+        if not rhs:
             if category == "ability":
                 self.msg("Ability must be one of the following: %s" % ", ".join(agent.buyable_abilities))
                 return
             self.msg("You must provide the name of what you want to purchase.")
             return
-        attr = self.rhs.lower()
+        attr = rhs.lower()
         if category == "stat":
             if attr not in _valid_stats_:
                 self.msg("When buying a stat, it must be one of the following: %s" % ", ".join(_valid_stats_))
@@ -2064,10 +2088,10 @@ class CmdRetainers(MuxPlayerCommand):
         return True
 
     def check_max_for_attr(self, agent, attr, category):
-        max = agent.get_attr_maximum(attr, category)
+        a_max = agent.get_attr_maximum(attr, category)
         current = self.get_attr_current_value(agent, attr, category)
-        if current >= max:
-            self.msg("Their level in %s is currently %s, the maximum is %s." % (attr, current, max))
+        if current >= a_max:
+            self.msg("Their level in %s is currently %s, the maximum is %s." % (attr, current, a_max))
             return False
         return True
 
@@ -2104,15 +2128,15 @@ class CmdRetainers(MuxPlayerCommand):
             current = self.get_attr_current_value(agent, attrname, category)
         newrating = current + 1
         if category == "level":
-            base = ((newrating) * (newrating) * 5) + 25
+            base = (newrating * newrating * 5) + 25
             # increase the cost if not raising our primary type
             if atype not in attrname:
                 base *= 2
             xpcost = base
             rescost = base
-            if atype == self.retainer_types[1]: # assistant
+            if atype == self.retainer_types[1]:  # assistant
                 restype = "economic"
-            if atype == self.retainer_types[2]: # spy
+            if atype == self.retainer_types[2]:  # spy
                 restype = "social"
         if category == "skill":
             xpcost, rescost, restype = agent.get_skill_cost(attrname)
@@ -2132,7 +2156,7 @@ class CmdRetainers(MuxPlayerCommand):
                 rescost = newrating * 100
         return xpcost, rescost, restype
 
-    #----- Upgrade methods that use the purchase checks -------------------
+    # ----- Upgrade methods that use the purchase checks -------------------
     
     def buy_ability(self, agent):
         """
@@ -2274,7 +2298,7 @@ class CmdRetainers(MuxPlayerCommand):
 
     def customize(self, agent):
         try:
-            attr,val = self.rhslist[0], self.rhslist[1]
+            attr, val = self.rhslist[0], self.rhslist[1]
         except (TypeError, ValueError, IndexError):
             self.msg("Please provide an attribute and a value.")
             self.msg("Valid attributes: %s" % ", ".join(self.valid_traits))
@@ -2355,7 +2379,6 @@ class CmdRetainers(MuxPlayerCommand):
         caller.msg("Invalid switch.")
         
         
-
 class CmdFamily(MuxPlayerCommand):
     """
     @family
@@ -2370,6 +2393,7 @@ class CmdFamily(MuxPlayerCommand):
     key = "@family"
     locks = "cmd:all()"
     help_category = "Dominion"
+
     def func(self):
         caller = self.caller
         if not self.args:
@@ -2400,11 +2424,11 @@ class CmdFamily(MuxPlayerCommand):
                         details = fam_org.display_public()
                     caller.msg("%s family information:\n%s" % (family, details))
                     return
-                except Exception:
+                except Organization.DoesNotExist:
                     # display nothing
                     pass
             return
-        except Exception:
+        except PlayerOrNpc.DoesNotExist:
             caller.msg("No relatives found for {c%s{n." % self.args)
             return
 
@@ -2416,6 +2440,7 @@ max_proteges = {
     5: 3,
     6: 2,
     }
+
 
 class CmdPatronage(MuxPlayerCommand):
     """
@@ -2436,21 +2461,24 @@ class CmdPatronage(MuxPlayerCommand):
     key = "@patronage"
     locks = "cmd:all()"
     help_category = "Dominion"
-    def display_patronage(self, dompc):
+
+    @staticmethod
+    def display_patronage(dompc):
         patron = dompc.patron
         proteges = dompc.proteges.all()
         msg = "{wPatron and Proteges for {c%s{n:\n" % str(dompc)
         msg += "{wPatron:{n %s\n" % ("{c%s{n" % patron if patron else "None")
         msg += "{wProteges:{n %s" % ", ".join("{c%s{n" % str(ob) for ob in proteges)
         return msg
+
     def func(self):
         caller = self.caller
         try:
             dompc = self.caller.Dominion
-        except Exception:
+        except AttributeError:
             dompc = setup_utils.setup_dom_for_char(self.caller.db.char_ob)
         if not self.args and not self.switches:        
-            caller.msg(self.display_patronage(dompc), options={'box':True})
+            caller.msg(self.display_patronage(dompc), options={'box': True})
             return
         if self.args:
             player = caller.search(self.args)
@@ -2462,10 +2490,10 @@ class CmdPatronage(MuxPlayerCommand):
                 return
             try:
                 tdompc = player.Dominion
-            except Exception:
+            except AttributeError:
                 tdompc = setup_utils.setup_dom_for_char(char)
             if not self.switches:
-                caller.msg(self.display_patronage(tdompc), options={'box':True})
+                caller.msg(self.display_patronage(tdompc), options={'box': True})
                 return
             if "addprotege" in self.switches:
                 if not player.is_connected:
@@ -2477,8 +2505,8 @@ class CmdPatronage(MuxPlayerCommand):
                 num = dompc.proteges.all().count()
                 psrank = caller.db.char_ob.db.social_rank
                 tsrank = char.db.social_rank
-                max = max_proteges.get(psrank, 0)
-                if num >= max:
+                max_p = max_proteges.get(psrank, 0)
+                if num >= max_p:
                     caller.msg("You already have the maximum number of proteges for your social rank.")
                     return
                 # 'greater' social rank is worse. 1 is best, 10 is worst
@@ -2486,8 +2514,9 @@ class CmdPatronage(MuxPlayerCommand):
                     caller.msg("They must be a worse social rank than you to be your protege.")
                     return
                 player.ndb.pending_patron = caller
-                player.msg("{c%s {wwants to become your patron. Use @patronage/accept to accept" % caller.key.capitalize())
-                player.msg("{wthis offer, or @patronage/reject to reject it.{n")
+                msg = "{c%s {wwants to become your patron. " % caller.key.capitalize()
+                msg += " Use @patronage/accept to accept {wthis offer, or @patronage/reject to reject it.{n"
+                player.msg(msg)
                 caller.msg("{wYou have extended the offer of patronage to {c%s{n." % player.key.capitalize())
                 return
             if "dismiss" in self.switches:
@@ -2524,8 +2553,8 @@ class CmdPatronage(MuxPlayerCommand):
             if old:
                 dompc.patron = None
                 dompc.save()
-                old.player.msg("{c%s {rhas abandoned your patronage, and is no longer your protege.{n" % caller.key.capitalize())
-                caller.msg("{rYou have abandonded {c%s{r's patronage, and are no longer their protege.{n" % old)
+                old.player.msg("{c%s {rhas abandoned your patronage, and is no longer your protege.{n" % dompc)
+                caller.msg("{rYou have abandoned {c%s{r's patronage, and are no longer their protege.{n" % old)
             else:
                 caller.msg("You don't have a patron.")
             return
@@ -2533,6 +2562,7 @@ class CmdPatronage(MuxPlayerCommand):
         return
 
 # Character/IC commands------------------------------
+
 
 # command to summon/order guards we own
 class CmdGuards(MuxCommand):
@@ -2562,6 +2592,7 @@ class CmdGuards(MuxCommand):
     locks = "cmd:all()"
     help_category = "Dominion"
     aliases = ["@guards", "guards", "+guard", "@guard", "guard"]
+
     def func(self):
         caller = self.caller
         guards = caller.db.assigned_guards or []
@@ -2569,7 +2600,7 @@ class CmdGuards(MuxCommand):
             caller.msg("You have no guards assigned to you.")
             return
         if not self.args and not self.switches:
-            self.msg("{WYour guards:{n\n%s" % "".join(guard.agent.display() for guard in guards), options={'box':True})
+            self.msg("{WYour guards:{n\n%s" % "".join(guard.agent.display() for guard in guards), options={'box': True})
             return
         if self.args:
             guard = ObjectDB.objects.object_search(self.lhs, candidates=guards)
@@ -2594,9 +2625,9 @@ class CmdGuards(MuxCommand):
                 return
             # check maximum guards and how many we have
             current = caller.num_armed_guards + guard.num_armed_guards
-            max = caller.max_guards
-            if current >= max:
-                self.msg("You are only permitted to have %s guards, and summoning them would give you %s." % (max,
+            g_max = caller.max_guards
+            if current >= g_max:
+                self.msg("You are only permitted to have %s guards, and summoning them would give you %s." % (g_max,
                                                                                                               current))
                 return
             if caller.location.db.docked_guards and guard in caller.location.db.docked_guards:
@@ -2653,7 +2684,6 @@ class CmdGuards(MuxCommand):
             guard.follow(targ)
             caller.msg("You order %s to follow %s." % (guard.name, targ.name))
             return
-
 
 
 # command to generate money/resources for ourself/org
@@ -2718,7 +2748,8 @@ class CmdTask(MuxCommand):
     help_category = "Dominion"
     aliases = ["@task", "task", "+tasks", "@tasks", "tasks"]
 
-    def display_tasks(self, tasks, dompc):
+    @staticmethod
+    def display_tasks(tasks, dompc):
         """
         Returns a table of tasks
         """
@@ -2726,7 +2757,6 @@ class CmdTask(MuxCommand):
                              "{wOrganization{n", "{wTask Name{n", "{wRating{n"])
         already_displayed = []
         for task in tasks:
-            active = ""
             for org in task.org.filter(members__player=dompc, members__deguilded=False):
                 if task.assigned_tasks.filter(Q(member__organization=org)
                                               & Q(member__player=dompc)
@@ -2742,7 +2772,8 @@ class CmdTask(MuxCommand):
                               task.name, task.difficulty])
         return str(table)
 
-    def display_finished(self, tasks, dompc):
+    @staticmethod
+    def display_finished(tasks, dompc):
         """
         Returns a table of finished assignments
         """
@@ -2750,12 +2781,13 @@ class CmdTask(MuxCommand):
                              "{wOrganization{n", "{wTask Name{n", "{wSupport{n"])
         for task in tasks:
             for ass in task.assigned_tasks.filter(Q(member__player=dompc)
-                                                 & Q(finished=True)).distinct():
+                                                  & Q(finished=True)).distinct():
                 table.add_row([ass.id, ass.task.category, ass.member.organization.name,
                               ass.task.name, ass.total])
         return str(table)
 
-    def match_char_spheres_for_task(self, assignment, character):
+    @staticmethod
+    def match_char_spheres_for_task(assignment, character):
         """
         Returns the spheres that the character can use for a
         given task
@@ -2767,7 +2799,7 @@ class CmdTask(MuxCommand):
         caller = self.caller
         try:
             dompc = self.caller.player.Dominion
-        except Exception:
+        except AttributeError:
             dompc = setup_utils.setup_dom_for_char(self.caller)
         mytasks = Task.objects.filter(assigned_tasks__member__player=dompc).distinct()
         available = Task.objects.filter(org__members__player=dompc,
@@ -2795,7 +2827,7 @@ class CmdTask(MuxCommand):
                                                    Q(members__deguilded=False))
                     caller.msg(self.display_tasks(org.tasks.filter(active=True), dompc))
                     return
-                except Exception:
+                except Organization.DoesNotExist:
                     pass
                 caller.msg("Task ID must be a number.")
                 return
@@ -2811,10 +2843,6 @@ class CmdTask(MuxCommand):
                 caller.msg("Current echo: %s" % echo)
                 caller.msg("Current rumors (both yours and supporters): %s" % assign.story)
                 caller.msg("Current story: %s" % assign.notes)
-                org = assign.member.organization
-##                supporters = assign.supporters.all()
-##                if supporters:
-##                    caller.msg("{wSupport for %s:{n %s" % (org.name, ", ".join(str(sup) for sup in supporters)))
             return
         if "history" in self.switches or "setfinishedrumors" in self.switches:
             # display our completed tasks
@@ -2836,14 +2864,14 @@ class CmdTask(MuxCommand):
                                                   Q(member__player=dompc))
                 if "history" in self.switches:
                     caller.msg(ass.display())
-                else: # set finished rumors
+                else:  # set finished rumors
                     if ass.observer_text and ass.finished:
                         caller.msg("Once the task is finished, only a GM can change an existing rumor.")
                         return
                     ass.observer_text = self.rhs
                     ass.save()
                     caller.msg("Rumors changed to %s." % self.rhs)
-            except Exception:
+            except (Task.DoesNotExist, AssignedTask.DoesNotExist):
                 caller.msg("No task found by that ID number.")
             return
         if "work" in self.switches:
@@ -2923,12 +2951,12 @@ class CmdTask(MuxCommand):
             # refund support?
             return
         if ("update" in self.switches or "story" in self.switches
-            or "altecho" in self.switches or "announcement" in self.switches
-            or "supportme" in self.switches or "rumors" in self.switches):
+                or "altecho" in self.switches or "announcement" in self.switches
+                or "supportme" in self.switches or "rumors" in self.switches):
             # prompt the characters here to support me
             try:
                 task = Task.objects.filter(assigned_tasks__finished=False, id__in=mytasks).distinct().get(
-                                        id=int(self.lhslist[0]) )
+                                        id=int(self.lhslist[0]))
                 assignment = task.assigned_tasks.filter(member__player=dompc, finished=False)
                 if not assignment:
                     caller.msg("That task isn't active for you.")
@@ -2938,7 +2966,7 @@ class CmdTask(MuxCommand):
                 else:
                     try:
                         assignment = assignment.get(member__organization__name=self.lhslist[1])
-                    except Exception:
+                    except (IndexError, AssignedTask.DoesNotExist):
                         caller.msg("More than one task by that number active. You must specify the organization.")
                         return
             except Task.DoesNotExist:
@@ -2965,13 +2993,15 @@ class CmdTask(MuxCommand):
                 # if not assignment.observer_text:
                 #     caller.msg("You haven't written a {w+task/rumors{n for what everyone else will see "+
                 #                "when you finish this task. You can add it later with 'setfinishedrumors' "+
-                #                " to make it fit what your supporters enter. Please write some description that details "+
+                #                " to make it fit what your supporters enter. Please write some description " +
+                #                "that details "+
                 #                "what people might notice happening in the city when your task is "+
                 #                "finished - the details are up to you, as long as they can gain some "+
                 #                "general indication of what the npcs you influenced have been up to.")
                 success = []
                 warnmsg = "As a reminder, it is considered in bad form and is against the rules to "
-                warnmsg += "ask someone OOCly for support, such as trying to convince them to help in pages. No OOC pressure, please."
+                warnmsg += "ask someone OOCly for support, such as trying to convince them to help "
+                warnmsg += "in pages. No OOC pressure, please."
                 for pc in playerlist:
                     reminder = False
                     char = pc.db.char_ob
@@ -2988,8 +3018,7 @@ class CmdTask(MuxCommand):
                     except AttributeError:
                         continue
                     # check if they can support caller
-                    cooldowns = char.db.support_cooldown or {}
-                    week=get_week()
+                    week = get_week()
                     current = assignment.supporters.filter(allocation__week=week, player=dompc)
                     if current:
                         caller.msg("{c%s {ris already supporting you in this task.{n" % char.name)
@@ -3010,8 +3039,9 @@ class CmdTask(MuxCommand):
                     else:
                         highest = None
                     if highest in org.members.filter(Q(player=char.db.player_ob.Dominion)
-                                          & Q(deguilded=False)):
-                        caller.msg("You cannot gain support from a member whose highest rank is in the same organization as the task.")
+                                                     & Q(deguilded=False)):
+                        caller.msg("You cannot gain support from a member whose highest " +
+                                   "rank is in the same organization as the task.")
                         continue
                     if char not in asklist:
                         asklist.append(char)
@@ -3056,7 +3086,7 @@ class CmdTask(MuxCommand):
                     return
                 caller.msg("You ask for the support of %s." % ", ".join(char.name for char in success))
                 caller.msg(warnmsg)
-                #update asklist
+                # update asklist
                 asked_supporters[assignment.id] = asklist
                 caller.db.asked_supporters = asked_supporters
                 return      
@@ -3162,7 +3192,8 @@ class CmdSupport(MuxCommand):
                 caller.msg("Rumors:\n%s" % form[4])       
                 caller.msg("Once all fields are finished, use /finish to commit.")
             except (TypeError, KeyError, IndexError):
-                caller.msg("{rEncountered a supportform with invalid structure. Resetting the attribute. Please start over.{n")
+                caller.msg("{rEncountered a supportform with invalid structure. Resetting the attribute." +
+                           " Please start over.{n")
                 print "%s had an invalid supportform. Wiping the attribute." % caller
                 caller.attributes.remove("supportform")
                 return
@@ -3170,9 +3201,9 @@ class CmdSupport(MuxCommand):
     def get_support_table(self):
         caller = self.caller
         dompc = self.caller.db.player_ob.Dominion
-        week = get_week()
+        # week = get_week()
         supports = dompc.supported_tasks.filter(Q(task__finished=False)
-                                                #&  Q(allocation__week=week)
+                                                # &  Q(allocation__week=week)
                                                 ).distinct()
         if supports:
             caller.msg("Open tasks supported:")
@@ -3193,7 +3224,7 @@ class CmdSupport(MuxCommand):
         form = caller.db.supportform
         if not self.args and not self.switches:
             # display requests and cooldowns
-            chars = [ObjectDB.objects.get(id=id) for id in requests.keys()]
+            chars = [ObjectDB.objects.get(id=r_id) for r_id in requests.keys()]
             chars = [ob for ob in chars if ob]
             msg = "Pending requests: "
             for char in chars:
@@ -3212,18 +3243,19 @@ class CmdSupport(MuxCommand):
                 msg += "%s (valid categories: %s)\n" % (char, atask.task.reqs)
             caller.msg(msg)
             table = PrettyTable(["{wName{n", "{wMax Points Allowed{n"])
-            for id in cooldowns:
+            for c_id in cooldowns:
                 try:
-                    char = ObjectDB.objects.get(id=id)
-                except Exception:
+                    char = ObjectDB.objects.get(id=c_id)
+                except ObjectDB.DoesNotExist:
                     continue
-                table.add_row([char.key, cooldowns[id]])
+                table.add_row([char.key, cooldowns[c_id]])
             caller.msg(str(table))
             self.get_support_table()          
             caller.msg("{wSupport points remaining:{n %s" % remaining)
             for memb in dompc.memberships.filter(deguilded=False):
                 msg = "{wPool share for %s:{n %s" % (memb.organization, memb.pool_share)
-                msg += ", {wCategory ratings:{n %s" % ", ".join("%s: %s" % (ob.category, ob.rating) for ob in memb.organization.spheres.all())
+                msg += ", {wCategory ratings:{n %s" % ", ".join("%s: %s" % (ob.category, ob.rating)
+                                                                for ob in memb.organization.spheres.all())
                 caller.msg(msg)
             self.disp_supportform()
             return
@@ -3240,8 +3272,8 @@ class CmdSupport(MuxCommand):
             return
         if "view" in self.switches:
             try:
-                id = int(self.args)
-                sup = dompc.supported_tasks.get(id=id)
+                r_id = int(self.args)
+                sup = dompc.supported_tasks.get(id=r_id)
             except (TypeError, ValueError, TaskSupporter.DoesNotExist):
                 caller.msg("No support given by that ID.")
                 self.get_support_table()
@@ -3250,14 +3282,15 @@ class CmdSupport(MuxCommand):
             caller.msg("{wCharacter{n: %s" % sup.task.member)
             alloclist = sup.allocation.all()
             for alloc in alloclist:
-                caller.msg("{wOrganization{n: %s, Sphere: %s, Amount: %s" % (alloc.sphere.org, alloc.sphere.category, alloc.rating))
+                caller.msg("{wOrganization{n: %s, Sphere: %s, Amount: %s" % (alloc.sphere.org, alloc.sphere.category,
+                                                                             alloc.rating))
             return
         if "change" in self.switches:
             org, sphere, sup, targmember, val, member, category = None, None, None, None, None, None, None
             try:
-                id = self.lhslist[0]
+                r_id = self.lhslist[0]
                 category = self.lhslist[1]
-                sup = dompc.supported_tasks.filter(task__finished=False).get(id=id)
+                sup = dompc.supported_tasks.filter(task__finished=False).get(id=r_id)
                 if len(self.lhslist) > 2:
                     org = dompc.current_orgs.get(name__iexact=self.lhslist[2])
                 else:
@@ -3415,9 +3448,9 @@ class CmdSupport(MuxCommand):
             points_in_org = 0
             for sid in sdict:
                 try:
-                    org.spheres.get(sid)
+                    org.spheres.get(id=sid)
                     points_in_org += sdict[sid]
-                except Exception:
+                except SphereOfInfluence.DoesNotExist:
                     continue
             if (member.total_points_used + points_in_org) > poolshare:
                 caller.msg("You can only use a total of %s points in that organization." % poolshare)
@@ -3459,17 +3492,17 @@ class CmdSupport(MuxCommand):
             #                "about happenings in the city.")
             #     return
             if not fake and not sdict:
-                caller.msg("You must define categories your support is coming from with /value if you are "+
-                           "not faking your support with /fake (which will cause them to receive no points "+
-                           "whatsoever). Choose an organization and a sphere of influence for that organization "+
-                           "with /value, even if that value is 0. Even a value of 0 will cause them to receive 1 "+
+                caller.msg("You must define categories your support is coming from with /value if you are " +
+                           "not faking your support with /fake (which will cause them to receive no points " +
+                           "whatsoever). Choose an organization and a sphere of influence for that organization " +
+                           "with /value, even if that value is 0. Even a value of 0 will cause them to receive 1 " +
                            "free point, and an additional 5 if you have never supported them before.")
                 return
             sup = assignment.supporters.create(fake=fake, player=caller.player.Dominion, notes=notes, observer_text=announcement)
             for sid in sdict:
                 rating = sdict[sid]
                 sphere = SphereOfInfluence.objects.get(id=sid)
-                sused = SupportUsed.objects.create(week=week, supporter=sup, sphere=sphere, rating=rating)
+                SupportUsed.objects.create(week=week, supporter=sup, sphere=sphere, rating=rating)
                 points += rating
             charpoints = cooldowns.get(char.id, caller.max_support)
             charpoints -= points
@@ -3478,19 +3511,18 @@ class CmdSupport(MuxCommand):
                 caller.msg("You have pledged your support to %s in their task." % char.name)
             else:
                 caller.msg("You pretend to support %s in their task." % char.name)
-##            char.msg("{w%s has pledged their support to you in the task: %s" % (caller.name,
-##                                                                                assignment.task.name))
             caller.attributes.remove("supportform")
             del requests[char.id]
             return
         caller.msg("Invalid usage.")
         return
 
-# cmdset for all Dominion commands
 
+# cmdset for all Dominion commands
 class DominionCmdSet(CmdSet):
     key = "DominionDefault"
     duplicates = False
+
     def at_cmdset_creation(self):
         "Init the cmdset"
         self.add(CmdAdmDomain())
@@ -3499,7 +3531,7 @@ class DominionCmdSet(CmdSet):
         self.add(CmdAdmAssets())
         self.add(CmdAdmFamily())
         self.add(CmdAdmOrganization())
-        #self.add(CmdTagBarracks())
+        # self.add(CmdTagBarracks())
         # player commands
         self.add(CmdDomain())
         self.add(CmdFamily())

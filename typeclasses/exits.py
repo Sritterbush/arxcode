@@ -49,6 +49,8 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         """
         exitkey = exidbobj.db_key.strip().lower()
         exitaliases = list(exidbobj.aliases.all())
+
+
         class ExitCommand(command.Command):
             """
             This is a command that simply cause the caller
