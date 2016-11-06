@@ -684,7 +684,7 @@ class CmdMessenger(MuxCommand):
                 msg = msgtuple[0]
                 obj = msgtuple[1]
                 money = msgtuple[2]
-                messenger_name = msgtuple[3]
+                messenger_name = msgtuple[3] or "A messenger"
             except IndexError:
                 pass
             except TypeError:
