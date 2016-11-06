@@ -637,7 +637,7 @@ class CmdMessenger(MuxCommand):
                     self.msg("%s will now deliver messages to you discreetly if they are in the same room." % obj)
                 else:
                     self.msg("%s does not have the ability to deliver messages discreetly." % obj)
-            except Agent.DoesNotExist:
+            except (Agent.DoesNotExist, ValueError):
                 self.msg("No retainer by that ID.")
             except AttributeError:
                 self.msg("That agent cannot deliver messages.")
@@ -658,7 +658,7 @@ class CmdMessenger(MuxCommand):
                     self.msg("%s will now deliver messages for you." % obj)
                 else:
                     self.msg("%s does not have the ability to deliver messages for you." % obj)
-            except Agent.DoesNotExist:
+            except (Agent.DoesNotExist, ValueError):
                 self.msg("No retainer by that ID.")
             except AttributeError:
                 self.msg("That agent cannot deliver messages.")
