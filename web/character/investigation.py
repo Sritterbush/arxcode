@@ -33,7 +33,7 @@ class InvestigationFormCommand(MuxCommand):
         form = self.investigation_form
         if not form:
             return
-        target,story,stat,skill = form[0], form[1], form[2], form[3]
+        target, story, stat, skill = form[0], form[1], form[2], form[3]
         self.msg("%s an investigation:" % self.form_verb)
         self.msg("{w%s{n: %s" % (self.target_type.capitalize(), target))
         self.msg("{wStory{n: %s" % story)
@@ -49,14 +49,14 @@ class InvestigationFormCommand(MuxCommand):
         """Property that validates the form that has been created."""
         try:
             form = self.investigation_form
-            topic,actions,stat,skill = form[0], form[1], form[2], form[3]
+            topic, actions, stat, skill = form[0], form[1], form[2], form[3]
             if not topic:
                 self.msg("You must have a %s defined." % self.target_type.lower())
                 return
             if not actions:
                 self.msg("You must have a story defined.")
                 return
-            return (topic, actions, stat, skill)
+            return topic, actions, stat, skill
         except Exception:
             self.msg("Your investigation form is not yet filled out.")
             return False
@@ -77,7 +77,7 @@ class InvestigationFormCommand(MuxCommand):
         dompc.assets.save()
         return True
 
-    def mark_active(self, ob):
+    def mark_active(self, created_object):
         """
         Finishes setting up the created object with any fields that need to be filled out,
         and informs the caller of what was done, as well as announces to staff. Saves the
@@ -93,7 +93,6 @@ class InvestigationFormCommand(MuxCommand):
         kwargs = {self.target_type: form[0], "actions": form[1], "stat_used": form[2], "skill_used": form[3]}
         return self.related_manager.create(**kwargs)
 
-
     def do_finish(self):
         """
         the finished_form property checks if all
@@ -105,7 +104,7 @@ class InvestigationFormCommand(MuxCommand):
         form = self.finished_form
         if not form:
             return
-        topic,actions,stat,skill = form[0], form[1], form[2], form[3]
+        topic, actions, stat, skill = form[0], form[1], form[2], form[3]
         if not self.pay_costs():
             return
         ob = self.create_obj_from_form(form)
@@ -224,7 +223,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
 
     @property
     def helper(self):
-        "Returns caller or their retainer who they are using in the investigation"
+        """Returns caller or their retainer who they are using in the investigation"""
         try:
             return self.investigation_form[4] or self.caller
         except IndexError:
@@ -237,7 +236,8 @@ class CmdAssistInvestigation(InvestigationFormCommand):
     def check_eligibility(self, helper):
         helping = helper.assisted_investigations.filter(currently_helping=True)
         if helping:
-            self.msg("%s is already helping an investigation: %s" % (helper, ", ".join(str(ob.investigation.id) for ob in helping)))
+            self.msg("%s is already helping an investigation: %s" % (helper, ", ".join(str(ob.investigation.id)
+                                                                                       for ob in helping)))
             return False
         if helper == self.caller:
             try:
@@ -273,8 +273,9 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         invites = self.caller.db.investigation_invitations or []
         investigations = Investigation.objects.filter(id__in=invites, ongoing=True)
         investigations = investigations | self.caller.roster.investigations.filter(ongoing=True)
-        self.msg("You are permitted to help the following investigations:\n%s" % \
-                 "\n".join("  %s (ID: %s)" % (str(ob), ob.id) for ob in investigations))
+        self.msg("You are permitted to help the following investigations:\n%s" % "\n".join(
+            "  %s (ID: %s)" % (str(ob), ob.id) for ob in investigations))
+
     @property
     def valid_targ_ids(self):
         invites = self.caller.db.investigation_invitations or []
@@ -303,17 +304,18 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         self.investigation_form[0] = targ
         self.disp_investigation_form()
 
-    def mark_active(self, ob):
+    def mark_active(self, created_object):
         try:
-            current = ob.assisted_investigations.get(currently_helping=True)
+            current = self.helper.assisted_investigations.get(currently_helping=True)
             current.currently_helping = False
             current.save()
-            self.msg("You were currently helping another investigation. Switching.")
+            self.msg("%s was currently helping another investigation. Switching." % self.helper)
         except Exception:
             pass
-        ob.currently_helping = True
-        ob.save()
-        self.msg("%s is now helping %s." % (self.helper, ob))
+        created_object.currently_helping = True
+        created_object.save()
+        created_object.investigation.do_roll()
+        self.msg("%s is now helping %s." % (self.helper, created_object))
         self.caller.attributes.remove(self.form_attr)
 
     @property
@@ -335,7 +337,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         except Investigation.DoesNotExist:
             self.msg("No investigation by that ID found.")
             return
-        return (investigation, actions, stat, skill)
+        return investigation, actions, stat, skill
 
     def disp_currently_helping(self, char):
         self.msg("%s is helping the following investigations:" % char)
@@ -414,7 +416,6 @@ class CmdInvestigate(InvestigationFormCommand):
     base_cost = 25
     model_switches = ("view", "active", "silver", "resource", "changetopic",
                       "changestory", "abandon", "resume", "requesthelp")
-    
 
     def list_ongoing_investigations(self):
         qs = self.related_manager.filter(ongoing=True)
@@ -441,22 +442,22 @@ class CmdInvestigate(InvestigationFormCommand):
     def add_target_to_obj(self, ob, target):
         ob.topic = target
 
-    def mark_active(self, ob):
+    def mark_active(self, created_object):
         if not (self.related_manager.filter(active=True) or
-                    self.caller.assisted_investigations.filter(currently_helping=True)):
-            ob.active = True
+                self.caller.assisted_investigations.filter(currently_helping=True)):
+            created_object.active = True
             self.msg("New investigation created. This has been set as your active investigation " +
-                       "for the week, and you may add resources/silver to increase its chance of success.")
+                     "for the week, and you may add resources/silver to increase its chance of success.")
         else:
             self.msg("New investigation created. You already are participating in an active investigation " +
                      "for this week, but may still add resources/silver to increase its chance of success " +
                      "for when you next mark this as active.")
         self.msg("You may only have one active investigation per week, and cannot change it once " +
-                   "it has received GM attention. Only the active investigation can progress.")
-        ob.save()
-        staffmsg = "%s has started an investigation on %s." % (self.caller, ob.topic)
-        if ob.targeted_clue:
-            staffmsg += " They will roll to find clue %s." % ob.targeted_clue
+                 "it has received GM attention. Only the active investigation can progress.")
+        created_object.save()
+        staffmsg = "%s has started an investigation on %s." % (self.caller, created_object.topic)
+        if created_object.targeted_clue:
+            staffmsg += " They will roll to find clue %s." % created_object.targeted_clue
         else:
             staffmsg += " Their topic does not target a clue, and will automatically fail unless GM'd."
         inform_staff(staffmsg)
@@ -543,7 +544,7 @@ class CmdInvestigate(InvestigationFormCommand):
                 return
             if "resource" in self.switches or "resources" in self.switches:
                 try:
-                    rtype,val = self.rhslist[0].lower(), int(self.rhslist[1])
+                    rtype, val = self.rhslist[0].lower(), int(self.rhslist[1])
                     if val <= 0:
                         raise ValueError
                     oamt = getattr(ob, rtype)
@@ -597,10 +598,16 @@ class CmdInvestigate(InvestigationFormCommand):
                 self.msg("Asking %s to assist with %s." % (char, ob))
                 current.append(ob.id)
                 char.db.investigation_invitations = current
+                inform_msg = "%s has requested your help in their investigation, ID %s.\n" % (caller, ob.id)
+                inform_msg += "To assist them, use the @helpinvestigate command, creating a "
+                inform_msg += "form with @helpinvestigate/new, setting the target with "
+                inform_msg += "{w@helpinvestigate/target %s{n, and filling in the other fields." % ob.id
+                char.db.player_ob.inform(inform_msg, category="Investigation Request", append=False)
                 return
         caller.msg("Invalid switch.")
         return
-        
+
+
 class CmdAdminInvestigations(MuxPlayerCommand):
     """
     @gminvestigations
@@ -645,8 +652,7 @@ class CmdAdminInvestigations(MuxPlayerCommand):
             self.msg("They will {wsucceed{n the check to discover a clue this week.")
         else:
             self.msg("They will {rfail{n the check to discover a clue this week.")
-        
-    
+
     def func(self):
         caller = self.caller
         if not self.args:
@@ -701,6 +707,7 @@ class CmdAdminInvestigations(MuxPlayerCommand):
         caller.msg("Invalid switch.")
         return
 
+
 class CmdListClues(MuxPlayerCommand):
     """
     @clues
@@ -730,7 +737,8 @@ class CmdListClues(MuxPlayerCommand):
         for clue in clues:
             table.add_row([clue.id, clue.name])
         msg += str(table)
-        caller.msg(msg, options={'box':True})
+        caller.msg(msg, options={'box': True})
+
     def func(self):
         caller = self.caller
         clues = self.finished_clues
@@ -760,6 +768,7 @@ class CmdListClues(MuxPlayerCommand):
         caller.msg("Invalid switch")
         return
 
+
 class CmdListRevelations(MuxPlayerCommand):
     """
     @revelations
@@ -770,10 +779,12 @@ class CmdListRevelations(MuxPlayerCommand):
     key = "@revelations"
     locks = "cmd:all()"
     help_category = "Investigation"
+
     def func(self):
         caller = self.caller
         if not self.args:
             return
+
 
 class CmdListMysteries(MuxPlayerCommand):
     """
@@ -785,6 +796,7 @@ class CmdListMysteries(MuxPlayerCommand):
     key = "@mysteries"
     locks = "cmd:all()"
     help_category = "Investigation"
+
     def func(self):
         caller = self.caller
         if not self.args:
