@@ -3,19 +3,15 @@
 Admin commands
 
 """
-
-import time
-import re
 from django.conf import settings
-from django.contrib.auth.models import User
 from evennia.server.sessionhandler import SESSIONS
-from evennia.server.models import ServerConfig
-from evennia.utils import utils, search, evtable, create
+from evennia.utils import evtable
 from server.utils import prettytable
 from server.utils.utils import inform_staff
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
+from web.character.models import Story, Episode, StoryEmit
 
 PERMISSION_HIERARCHY = [p.lower() for p in settings.PERMISSION_HIERARCHY]
 
@@ -23,6 +19,7 @@ PERMISSION_HIERARCHY = [p.lower() for p in settings.PERMISSION_HIERARCHY]
 __all__ = ("CmdBoot", "CmdBan", "CmdUnban", "CmdDelPlayer",
            "CmdEmit", "CmdNewPassword", "CmdPerm", "CmdWall", "CmdGemit",
            "CmdHome")
+
 
 class CmdHome(MuxCommand):
     """
@@ -39,7 +36,7 @@ class CmdHome(MuxCommand):
     help_category = "Travel"
 
     def func(self):
-        "Implement the command"
+        """Implement the command"""
         caller = self.caller
         home = caller.home
         room = caller.location
@@ -65,6 +62,7 @@ class CmdHome(MuxCommand):
                 else:
                     guard.db.docked = home
 
+
 class CmdGemit(MuxPlayerCommand):
     """
     @gemit
@@ -83,7 +81,7 @@ class CmdGemit(MuxPlayerCommand):
     help_category = "Admin"
 
     def func(self):
-        "Implements command"
+        """Implements command"""
         caller = self.caller
         if not self.args:
             self.caller.msg("Usage: @gemit <message>")
@@ -92,7 +90,7 @@ class CmdGemit(MuxPlayerCommand):
             self.msg("Announcing to all connected players ...")
             SESSIONS.announce_all(self.args)
             return
-        from web.character.models import Story,Episode,Chapter,StoryEmit
+
         # current story
         story = Story.objects.latest('start_date')
         chapter = story.current_chapter
@@ -126,8 +124,6 @@ class CmdGemit(MuxPlayerCommand):
         bboard.bb_post(poster_obj=caller, msg=msg, subject=subject, poster_name="Story")
         
             
-
-
 class CmdWall(MuxCommand):
     """
     @wall
@@ -144,13 +140,14 @@ class CmdWall(MuxCommand):
     help_category = "Admin"
 
     def func(self):
-        "Implements command"
+        """Implements command"""
         if not self.args:
             self.caller.msg("Usage: @wall <message>")
             return
         message = "%s shouts \"%s\"" % (self.caller.name, self.args)
         self.msg("Announcing to all connected players ...")
         SESSIONS.announce_all(message)
+
 
 class CmdResurrect(MuxCommand):
     """
@@ -168,7 +165,7 @@ class CmdResurrect(MuxCommand):
     help_category = "Building"
 
     def func(self):
-        "Implements command"
+        """Implements command"""
         args = self.args
         caller = self.caller
         if not args:
@@ -205,7 +202,7 @@ class CmdKill(MuxCommand):
     help_category = "Building"
 
     def func(self):
-        "Implements command"
+        """Implements command"""
         args = self.args
         caller = self.caller
         if not args:
@@ -223,6 +220,7 @@ class CmdKill(MuxCommand):
             caller.msg("No character found by that name.")
         obj.death_process()
         caller.msg("%s has been murdered." % obj.key)
+
 
 class CmdForce(MuxCommand):
     """
@@ -242,7 +240,7 @@ class CmdForce(MuxCommand):
     help_category = "Admin"
 
     def func(self):
-        "Implements command"
+        """Implements command"""
         caller = self.caller
         if not self.lhs or not self.rhs:
             self.caller.msg("Usage: @force <character>=<command>")
@@ -282,11 +280,12 @@ class CmdRestore(MuxPlayerCommand):
     help_category = "Admin"
 
     def func(self):
-        "Implements command"
+        """Implements command"""
         caller = self.caller
         if not self.args:
             dplayers = [str(ob) for ob in PlayerDB.objects.filter(is_active=False) if not ob.is_guest()]
-            dobjs = ["%s (ID:%s)" % (ob.key, ob.id) for ob in ObjectDB.objects.filter(db_tags__db_key__iexact="deleted")]
+            dobjs = ["%s (ID:%s)" % (ob.key, ob.id) for ob in ObjectDB.objects.filter(
+                db_tags__db_key__iexact="deleted")]
             caller.msg("Deleted players: %s" % ", ".join(dplayers))
             caller.msg("Deleted objects: %s" % ", ".join(dobjs))
             return
@@ -323,6 +322,7 @@ class CmdRestore(MuxPlayerCommand):
             caller.msg("No object found for ID %s." % self.args)
             return
 
+
 class CmdPurgeJunk(MuxPlayerCommand):
     """
     @purgejunk
@@ -338,11 +338,12 @@ class CmdPurgeJunk(MuxPlayerCommand):
     help_category = "Admin"
 
     def func(self):
-        "Implements command"
+        """Implements command"""
         caller = self.caller
         if not self.args:
             dplayers = [str(ob) for ob in PlayerDB.objects.filter(is_active=False) if not ob.is_guest()]
-            dobjs = ["%s (ID:%s)" % (ob.key, ob.id) for ob in ObjectDB.objects.filter(db_tags__db_key__iexact="deleted")]
+            dobjs = ["%s (ID:%s)" % (ob.key, ob.id) for ob in ObjectDB.objects.filter(
+                db_tags__db_key__iexact="deleted")]
             caller.msg("Deleted players: %s" % ", ".join(dplayers))
             caller.msg("Deleted objects: %s" % ", ".join(dobjs))
             return
@@ -352,8 +353,9 @@ class CmdPurgeJunk(MuxPlayerCommand):
                 caller.msg("%s does not appear to be deleted." % targ)
                 return
             if (targ.typeclass_path == settings.BASE_CHARACTER_TYPECLASS or
-                targ.typeclass_path == settings.BASE_ROOM_TYPECLASS):
-                caller.msg("Rooms or characters cannot be deleted with this command. Must be removed via shell script for safety.")
+                    targ.typeclass_path == settings.BASE_ROOM_TYPECLASS):
+                caller.msg("Rooms or characters cannot be deleted with this command. " +
+                           "Must be removed via shell script for safety.")
                 return
             targ.delete(true_delete=True)
             inform_staff("%s purged item ID %s from the database" % (caller, self.args))
@@ -382,7 +384,7 @@ class CmdSendVision(MuxPlayerCommand):
     help_category = "Building"
 
     def func(self):
-        "Implements command"
+        """Implements command"""
         args = self.args
         caller = self.caller
         if not args:
@@ -414,6 +416,7 @@ class CmdSendVision(MuxPlayerCommand):
         targ.inform("Your character has experienced a vision. Use @sheet/visions to view it.")
         return
 
+
 class CmdAskStaff(MuxPlayerCommand):
     """
     @askstaff
@@ -432,7 +435,7 @@ class CmdAskStaff(MuxPlayerCommand):
     help_category = "Admin"
 
     def func(self):
-        "Implements command"
+        """Implements command"""
         args = self.args
         caller = self.caller
         if not args:
@@ -440,6 +443,7 @@ class CmdAskStaff(MuxPlayerCommand):
             return
         caller.msg("Asking: %s" % args)
         inform_staff("{c%s {wasking a question:{n %s" % (caller, args))
+
 
 class CmdListStaff(MuxPlayerCommand):
     """
@@ -456,11 +460,13 @@ class CmdListStaff(MuxPlayerCommand):
     help_category = "Admin"
 
     def func(self):
-        "Implements command"
-        args = self.args
+        """Implements command"""
         caller = self.caller
         staff = PlayerDB.objects.filter(db_is_connected=True, is_staff=True)
-        caller.msg("{wOnline staff:{n %s" % ", ".join(ob.key.capitalize() for ob in staff))
+        table = evtable.EvTable("{wName{n", "{wRole{n", width=78)
+        for ob in staff:
+            table.add_row(ob.key.capitalize(), ob.db.staff_role or "")
+        caller.msg("{wOnline staff:{n\n%s" % table)
             
             
 class CmdCcolor(MuxPlayerCommand):
@@ -478,7 +484,7 @@ class CmdCcolor(MuxPlayerCommand):
     locks = "cmd:perm(Builders)"
 
     def func(self):
-        "Gives channel color string"
+        """Gives channel color string"""
         caller = self.caller
 
         if not self.lhs or not self.rhs:
@@ -495,6 +501,3 @@ class CmdCcolor(MuxPlayerCommand):
         channel.db.colorstr = self.rhs
         caller.msg("Channel will now look like this: %s[%s]{n" % (channel.db.colorstr, channel.key))
         return
-
-        
-        
