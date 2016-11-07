@@ -84,7 +84,7 @@ class CmdWhere(MuxPlayerCommand):
             if not charlist:
                 continue
             name = room.name
-            if room.db.x_coord is None and room.db.y_coord is None:
+            if room.db.x_coord is not None and room.db.y_coord is not None:
                 pos = (room.db.x_coord, room.db.y_coord)
                 name = "%s %s" % (name, str(pos))
             msg = "%s: %s" % (name, charlist)
