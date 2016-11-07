@@ -168,7 +168,7 @@ class PlayerOrNpc(models.Model):
         return PlayerOrNpc.objects.filter((Q(parents__parents__in=self.grandparents) |
                                            Q(parents__parents__spouses__in=self.grandparents) |
                                            Q(parents__spouses__parents__in=self.grandparents)) & ~Q(id=self.id)
-                                          & ~Q(id__in=self.siblings)).distinct()
+                                          & ~Q(id__in=self.siblings) & ~Q(id__in=self.spouses.all())).distinct()
 
     cousins = property(_get_cousins)
     siblings = property(_get_siblings)
