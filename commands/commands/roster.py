@@ -687,6 +687,7 @@ def display_title(caller, title):
         """ % { 'title': title }
     caller.msg(disp)
 
+
 def display_skills(caller, character):
     """
     Display skills the character knows.
@@ -705,6 +706,8 @@ def display_skills(caller, character):
         skills = sorted(skills)
         skills_count = 0
         for skill,value in skills:
+            if value <= 0:
+                continue
             skills_count += 1           
             skillstr += format_skillstr(skill,value)
             #only have 4 skills per line for formatting
