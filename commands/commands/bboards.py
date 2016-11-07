@@ -124,13 +124,13 @@ def get_unread_posts(caller):
     if not bb_list:
         return
     my_subs = [bb for bb in bb_list if bb.has_subscriber(caller)]
-    msg = "{wNew posts on bulletin boards: "
+    msg = "{wNew posts on bulletin boards:{n "
     unread = []
     for bb in my_subs:
         post = bb.get_latest_post()
         if not post:
             continue
-        if caller not in post['Readers']:
+        if not post.db_sender_players.filter(id=caller.id):
             unread.append(bb)
     if unread:
         msg += ", ".join(bb.key.capitalize() for bb in unread)
