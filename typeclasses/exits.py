@@ -10,6 +10,7 @@ from evennia import DefaultExit
 from typeclasses.mixins import ObjectMixins, NameMixins, LockMixins
 from evennia.commands import command, cmdset
 
+
 class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
     """
     Exits are connectors between rooms. Exits are normal Objects except
@@ -50,7 +51,6 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         exitkey = exidbobj.db_key.strip().lower()
         exitaliases = list(exidbobj.aliases.all())
 
-
         class ExitCommand(command.Command):
             """
             This is a command that simply cause the caller
@@ -82,18 +82,17 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
                     self.caller.msg("You don't have a key to this exit.")
                     return
                 self.obj.at_traverse(self.caller, self.obj.destination)
- 
 
         # create an exit command. We give the properties here,
         # to always trigger metaclass preparations
         exitcmd = ExitCommand(key=exitkey,
-                          aliases=exitaliases,
-                          locks=str(exidbobj.locks),
-                          auto_help=False,
-                          destination=exidbobj.db_destination,
-                          arg_regex=r"$",
-                          is_exit=True,
-                          obj=exidbobj)
+                              aliases=exitaliases,
+                              locks=str(exidbobj.locks),
+                              auto_help=False,
+                              destination=exidbobj.db_destination,
+                              arg_regex=r"$",
+                              is_exit=True,
+                              obj=exidbobj)
         passaliases = ["pass %s" % alias for alias in exitaliases]
         passcmd = PassExit(key="pass %s" % exitkey, aliases = passaliases, is_exit=True, auto_help=False, obj=exidbobj)
         # create a cmdset
@@ -105,18 +104,6 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         exit_cmdset.add(exitcmd)
         exit_cmdset.add(passcmd)
         return exit_cmdset
-  
-    def at_init(self):
-        """
-        This is always called whenever this object is initiated --
-        that is, whenever it its typeclass is cached from memory. This
-        happens on-demand first time the object is used or activated
-        in some way after being created but also after each server
-        restart or reload.
-        """
-        self.is_room = False
-        self.is_exit = True
-        self.is_character = False
 
     def at_traverse(self, traversing_object, target_location, key_message=True, special_entrance=None):
         """
@@ -158,50 +145,6 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         (See also hooks at_before_traverse and at_after_traverse).
         """
         traversing_object.msg("That way is locked.")
-        
-        
-##    def msg(self, text=None, from_obj=None, options=None, **kwargs):
-##        """
-##        This allows the exit to pass along a message to its destination.dbref
-##        The echo list must be called with 'echo_list=[]' for each new call,
-##        since it will be saved and passed on to all calls of msg in exits
-##        until it is initialized again. This is intentional to prevent longer
-##        radius calls from overlapping rooms with one another, which is entirely
-##        possible even with a radius of 3. Higher radius calls are discouraged
-##        due to the amount of traversals causing significant lag and possibly
-##        running out of memory.
-##        """
-##        options = options or {}
-##        echo_list = options.get('echo_list', [])
-##        radius = options.get('radius', 0)
-##        origin_id = options.get('origin_id', None)
-##        origin_x = options.get('origin_x', None)
-##        origin_y = options.get('origin_y', None)
-##        if self.location.id not in echo_list:
-##            echo_list.append(self.location.id)
-##            options['echo_list'] = echo_list
-##        if self.check_propogation(radius, origin_x, origin_y, origin_id) and self.destination and self.destination.id not in echo_list:
-##            self.destination.msg_contents(text, exclude=None, from_obj=from_obj, options=options, **kwargs)
-##            
-##    def check_propogation(self, radius, x, y, origin_id):
-##        # always make it propogate once if we're on the initial square and we have a radius
-##        if self.location.id == origin_id and radius:
-##            return True
-##        # we have to do this or the identical coordinates may well crash the server
-##        if 'private' in self.location.tags.all():
-##            return False
-##        try:
-##            x_cur = self.location.db.x_coord
-##            y_cur = self.location.db.y_coord
-##            #x_ori = origin.db.x_coord
-##            #y_ori = origin.db.y_coord
-##            if abs(x - x_cur) > radius:
-##                return False
-##            if abs(y - y_cur) > radius:
-##                return False
-##            return True
-##        except Exception:
-##            return False
 
     def msg(self, text=None, from_obj=None, options=None, **kwargs):
         options = options or {}
