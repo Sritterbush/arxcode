@@ -7,6 +7,8 @@ from django.contrib import admin
 from .models import Inform
 from evennia.comms.models import Msg
 from evennia.typeclasses.admin import TagInline
+from evennia.objects.models import ObjectDB
+from evennia.objects.admin import ObjectDBAdmin
 
 
 class InformAdmin(admin.ModelAdmin):
@@ -80,5 +82,11 @@ class MsgAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         return super(MsgAdmin, self).get_queryset(request).filter(db_receivers_channels__isnull=True).distinct()
 admin.site.register(Msg, MsgAdmin)
+
+
+class ArxObjectDBAdmin(ObjectDBAdmin):
+    search_fields = ['db_key']
+admin.site.unregister(ObjectDB)
+admin.site.register(ObjectDB, ArxObjectDBAdmin)
 
 
