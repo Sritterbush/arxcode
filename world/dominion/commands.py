@@ -1382,6 +1382,9 @@ class CmdOrganization(MuxPlayerCommand):
                 olock = olock[1]
             table.add_row([lock, olock])
         caller.msg(table, options={'box': True})
+
+    def display_permtypes(self):
+        self.msg("Type must be one of the following: %s" % ", ".join(self.org_locks))
     
     def func(self):
         caller = self.caller
@@ -1444,6 +1447,9 @@ class CmdOrganization(MuxPlayerCommand):
                 return
         if 'setrank' in self.switches or 'perm' in self.switches or 'rankname' in self.switches:
             if not self.rhs:
+                if 'perm' in self.switches:
+                    self.display_permtypes()
+                    return
                 caller.msg("You must supply a rank number.")
                 return
             if len(myorgs) < 2:
@@ -1478,7 +1484,7 @@ class CmdOrganization(MuxPlayerCommand):
             if 'perm' in self.switches:
                 ltype = self.lhs.lower() if self.lhs else ""
                 if ltype not in self.org_locks:
-                    caller.msg("Type must be one of the following: %s" % ", ".join(self.org_locks))
+                    self.display_permtypes()
                     return
                 if not org.access(caller, 'edit'):
                     caller.msg("You do not have permission to edit permissions.")
