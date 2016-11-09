@@ -581,7 +581,7 @@ class CmdGuestAddInput(MuxPlayerCommand):
             caller.msg(string)
             return
         # strip excessive spaces in playername
-        if PlayerDB.objects.filter(username__iexact=playername):
+        if PlayerDB.objects.filter(username__iexact=playername).exclude(id=char.db.player_ob.id):
             # player already exists (we also ignore capitalization here)
             caller.msg("Sorry, there is already a player with the name '%s'." % playername)
             return
