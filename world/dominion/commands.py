@@ -1794,7 +1794,7 @@ class CmdAgents(MuxPlayerCommand):
                 return
         if 'hire' in self.switches:
             try:
-                org = caller.Dominion.active_orgs.get(name__iexact=self.rhs)
+                org = caller.Dominion.current_orgs.get(name__iexact=self.rhs)
                 owner = org.assets
             except (AttributeError, Organization.DoesNotExist):
                 caller.msg("You are not in an organization by that name.")
