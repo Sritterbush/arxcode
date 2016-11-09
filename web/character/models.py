@@ -812,6 +812,8 @@ class Investigation(models.Model):
                      "yet", "with", "in", "how", "if", "of"):
             if word in kwords:
                 kwords.remove(word)
+        if self.topic.lower() not in kwords:
+            kwords.append(self.topic.lower())
         return kwords
 
     def find_target_clue(self):

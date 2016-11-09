@@ -616,6 +616,7 @@ class CmdAdminInvestigations(MuxPlayerCommand):
         @gminvest
         @gminvest/view <ID #>
         @gminvest/target <ID #>=<Clue #>
+        @gminvest/randomtarget <ID #>
         @gminvest/roll <ID #>[=<roll mod>,<difficulty>]
         @gminvest/result <ID #>=<result string>
         @gminvest/cluemessage <ID #>=<message>
@@ -662,6 +663,11 @@ class CmdAdminInvestigations(MuxPlayerCommand):
             if "view" in self.switches or not self.switches:
                 ob = Investigation.objects.get(id=int(self.args))
                 caller.msg(ob.gm_display())
+                return
+            if "randomtarget" in self.switches:
+                ob = Investigation.objects.get(id=int(self.args))
+                ob.clue_target = None
+                self.msg("%s now targets %s" % (ob, ob.targeted_clue))
                 return
             if "target" in self.switches:
                 ob = self.qs.get(id=int(self.lhs))
