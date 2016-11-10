@@ -181,6 +181,7 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(staff_commands.CmdAskStaff())
             self.add(staff_commands.CmdListStaff())
             self.add(staff_commands.CmdPurgeJunk())
+            self.add(staff_commands.CmdAdjustReputation())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading staff_commands cmdset in Player: %s" % err)
         try:

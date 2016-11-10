@@ -15,6 +15,7 @@ from world.dominion.models import RPEvent, Agent
 from server.utils.arx_utils import inform_staff
 from evennia.scripts.models import ScriptDB
 from django.db.models import Q
+from world.dominion.models import AssetOwner, Renown, Reputation
 
 
 class CmdHangouts(MuxCommand):
@@ -1477,8 +1478,12 @@ class CmdSocialScore(MuxCommand):
         +score
         +score/orgs
         +score/personal
+        +score/renown [<category>]
+        +score/reputation [<organization>]
         
-    Checks the organizations and players who have the highest prestige.
+    Checks the organizations and players who have the highest prestige. Renown measures the influence
+    a character has built with different npc groups, while reputation is how a character is thought of
+    by the npcs within an organization.
     """
     key = "+score"
     locks = "cmd:all()"
@@ -1487,7 +1492,6 @@ class CmdSocialScore(MuxCommand):
     def func(self):
         """Execute command."""
         caller = self.caller
-        from world.dominion.models import AssetOwner
         if not self.switches:
             pcs = sorted(AssetOwner.objects.select_related('player__patron').filter(
                 player__player__isnull=False).prefetch_related('player__memberships'),
@@ -1496,6 +1500,28 @@ class CmdSocialScore(MuxCommand):
             for pc in pcs:
                 table.add_row([str(pc), pc.total_prestige])
             caller.msg(str(table))
+            return
+        if "renown" in self.switches:
+            renowned = Renown.objects.filter(player__player__isnull=False,
+                                             player__player__roster__roster__name="Active").order_by('-rating')
+            if self.args:
+                renowned = renowned.filter(category__name__iexact=self.args)
+            renowned = renowned[:20]
+            table = PrettyTable(["{wName{n", "{wCategory{n", "{wLevel{n", "{wRating{n"])
+            for ob in renowned:
+                table.add_row([str(ob.player), ob.category, ob.level, ob.rating])
+            self.msg(str(table))
+            return
+        if "reputation" in self.switches:
+            rep = Reputation.objects.filter(player__player__isnull=False, organization__secret=False,
+                                            player__player__roster__roster__name="Active").order_by('-respect')
+            if self.args:
+                rep = rep.filter(organization__name__iexact=self.args)
+            rep = rep[:20]
+            table = PrettyTable(["{wName{n", "{wOrganization{n", "{wAffection{n", "{wRespect{n"])
+            for ob in rep:
+                table.add_row([str(ob.player), str(ob.organization), ob.affection, ob.respect])
+            self.msg(str(table))
             return
         if "personal" in self.switches:
             assets = AssetOwner.objects.filter(player__player__isnull=False).order_by('-prestige')[:20]

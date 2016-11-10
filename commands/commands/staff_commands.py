@@ -12,6 +12,7 @@ from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
 from web.character.models import Story, Episode, StoryEmit
+from world.dominion.models import Organization
 
 PERMISSION_HIERARCHY = [p.lower() for p in settings.PERMISSION_HIERARCHY]
 
@@ -501,3 +502,39 @@ class CmdCcolor(MuxPlayerCommand):
         channel.db.colorstr = self.rhs
         caller.msg("Channel will now look like this: %s[%s]{n" % (channel.db.colorstr, channel.key))
         return
+
+
+class CmdAdjustReputation(MuxPlayerCommand):
+    """
+    @adjustreputation
+
+    Usage:
+        @adjustreputation player,org=affection,respect
+        @adjustreputation/silent player,org=affection,respect
+
+    Adjusts a player's affection/respect with a given org. If the silent flag
+    is not specified, then the player will be informed of the adjustment.
+    """
+    key = "@adjustreputation"
+    help_category = "Admin"
+    locks = "cmd:perm(Wizards)"
+
+    def func(self):
+        try:
+            player, org = self.lhslist[0], self.lhslist[1]
+            player = self.caller.search(player)
+            if not player:
+                return
+            org = Organization.objects.get(name__iexact=org)
+            affection, respect = int(self.rhslist[0]), int(self.rhslist[1])
+        except IndexError:
+            self.msg("Need both org and player on left side, and affection and respect on right side.")
+            return
+        except Organization.DoesNotExist:
+            self.msg("No org found by that name.")
+            return
+        player.Dominion.gain_reputation(org, affection, respect)
+        if "silent" not in self.switches:
+            msg = "You have gained %s affection and %s respect with %s." % (affection, respect, org)
+            player.inform(msg, category="Reputation")
+        self.msg("You have given %s %s affection and %s respect with %s." % (player, affection, respect, org))
