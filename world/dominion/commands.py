@@ -1932,6 +1932,7 @@ class CmdRetainers(MuxPlayerCommand):
     retainer_types = ("champion", "assistant", "spy", "animal", "small animal")
     valid_traits = ("species", "gender", "age", "haircolor", "eyecolor",
                     "skintone", "height")
+    valid_categories = ("skill", "stat", "ability", "level", "armor", "weapon")
 
     def get_agent_from_args(self):
         """Get our retainer's Agent model from an ID number in args"""
@@ -2029,6 +2030,12 @@ class CmdRetainers(MuxPlayerCommand):
         return
 
     # ------ Helper methods for performing pre-purchase checks -------------
+    def check_categories(self, category):
+        if category not in self.valid_categories:
+            self.msg("%s is not a valid choice. It must be one of the following: %s" %
+                     (category, ", ".join(self.valid_categories)))
+            return False
+        return True
     
     def get_attr_from_args(self, agent, category="stat"):
         """
@@ -2036,6 +2043,8 @@ class CmdRetainers(MuxPlayerCommand):
         or displays a failure message and returns None.
         """
         from world.stats_and_skills import VALID_SKILLS, VALID_STATS
+        if not self.check_categories(category):
+            return
         rhs = self.rhs
         if category == "level" and not rhs:
             rhs = agent.typename
@@ -2105,8 +2114,9 @@ class CmdRetainers(MuxPlayerCommand):
             return False
         return True
 
-    @staticmethod
-    def get_attr_current_value(agent, attr, category):
+    def get_attr_current_value(self, agent, attr, category):
+        if not self.check_categories(category):
+            return
         if category == "level":
             current = agent.dbobj.attributes.get(attr) or 0
         elif category == "armor":
@@ -2376,11 +2386,10 @@ class CmdRetainers(MuxPlayerCommand):
         if "cost" in self.switches:
             if len(self.rhslist) != 2:
                 self.msg("@retainers/cost <agent ID>=<attribute>,<category>")
+                self.check_categories("")
                 return
             category = self.rhslist[1]
-            cats = ("skill", "stat", "level", "armor", "weapon")
-            if category not in cats:
-                self.msg("Category must be one of the following: %s" % ", ".join(cats))
+            if not self.check_categories(category):
                 return
             self.rhs = self.rhslist[0]
             attr = self.get_attr_from_args(agent, category)
