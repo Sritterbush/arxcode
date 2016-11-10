@@ -1503,7 +1503,8 @@ class CmdSocialScore(MuxCommand):
             return
         if "renown" in self.switches:
             renowned = Renown.objects.filter(player__player__isnull=False,
-                                             player__player__roster__roster__name="Active").order_by('-rating')
+                                             player__player__roster__roster__name="Active").exclude(
+                                             category__name__icontains="mystery").order_by('-rating')
             if self.args:
                 renowned = renowned.filter(category__name__iexact=self.args)
             renowned = renowned[:20]
