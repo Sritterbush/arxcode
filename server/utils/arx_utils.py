@@ -153,6 +153,7 @@ def strip_ansi(text):
     text = text.replace('%cX', '').replace('%ch', '').replace('%cn', '')
     return text
 
+
 def broadcast(txt, format_announcement=True):
     from evennia.server.sessionhandler import SESSION_HANDLER
     if format_announcement:

@@ -37,9 +37,9 @@ class Npc(NameMixins, Character):
     NPC objects
 
     """    
-    #------------------------------------------------
+    # ------------------------------------------------
     # PC command methods
-    #------------------------------------------------        
+    # ------------------------------------------------
     def attack(self, targ, lethal=False):
         """
         Attack a given target. If lethal is False, we will not kill any
@@ -74,14 +74,14 @@ class Npc(NameMixins, Character):
             self.db.passive_guard = False
     passive = property(_get_passive, _set_passive)
 
-    #------------------------------------------------
+    # ------------------------------------------------
     # Inherited Character methods
-    #------------------------------------------------
+    # ------------------------------------------------
     def at_object_creation(self):
         """
         Called once, when this object is first created.
         """
-        #BriefMode is for toggling brief descriptions from rooms
+        # BriefMode is for toggling brief descriptions from rooms
         self.db.briefmode = False
         # identification attributes about our player
         self.db.player_ob = None
@@ -93,7 +93,6 @@ class Npc(NameMixins, Character):
         self.db.automate_combat = True
         self.db.damage = 0
         self.at_init()
-
 
     def return_appearance(self, pobject, detailed=False, format_desc=False):
         """
@@ -115,9 +114,6 @@ class Npc(NameMixins, Character):
         if self.db.use_alt_desc and self.db.desc:
             desc = self.db.desc
         if desc:
-            indent = 0
-            if len(desc) > 78:
-                indent = 4
             string += "\n\n%s" % desc
         if health_appearance:
             string += "\n\n%s" % health_appearance
@@ -131,7 +127,6 @@ class Npc(NameMixins, Character):
         self.db.health_status = "alive"
         if self.location:
             self.location.msg_contents("{w%s has returned to life.{n" % self.name)
-        
 
     def fall_asleep(self, uncon=False):
         """
@@ -175,7 +170,7 @@ class Npc(NameMixins, Character):
             msg = "%s is seriously wounded." % name
         elif 0.5 < wound <= 0.75:
             msg = "%s is very seriously wounded." % name
-        elif  0.75 < wound <= 2.0:
+        elif 0.75 < wound <= 2.0:
             msg = "%s is critically wounded." % name
         else:
             msg = "%s is very critically wounded, possibly dying." % name
@@ -201,9 +196,10 @@ class Npc(NameMixins, Character):
             self.msg("You feel better.")
         else:
             self.msg("You feel worse.")
-        apply = self.dmg - roll # how much dmg character has after the roll
-        if apply < 0: apply = 0 # no remaining damage
-        self.db.damage = apply
+        applied_damage = self.dmg - roll  # how much dmg character has after the roll
+        if applied_damage < 0:
+            applied_damage = 0  # no remaining damage
+        self.db.damage = applied_damage
         if not free:
             self.db.last_recovery_test = time.time()
         return roll
@@ -247,7 +243,7 @@ class Npc(NameMixins, Character):
 
     def setup_stats(self, ntype, threat):
         self.db.npc_quality = threat
-        for stat,value in get_npc_stats(ntype).items():
+        for stat, value in get_npc_stats(ntype).items():
             self.attributes.add(stat, value)
         skills = get_npc_skills(ntype)
         for skill in skills:
@@ -263,10 +259,12 @@ class Npc(NameMixins, Character):
             return self.quantity
         return 0
 
+
 class MultiNpc(Npc):
     def multideath(self, num, death=False):
         living = self.db.num_living or 0       
-        if num > living: num = living
+        if num > living:
+            num = living
         self.db.num_living = living - num
         if death:
             dead = self.db.num_dead or 0            
@@ -303,14 +301,14 @@ class MultiNpc(Npc):
         # don't reset damage here since it's used for death check. Reset in combat process
 
     def setup_name(self):
-        type = self.db.npc_type
+        npc_type = self.db.npc_type
         if self.db.num_living == 1 and not self.db.num_dead:
-            self.key = self.db.singular_name or get_npc_singular_name(type)
+            self.key = self.db.singular_name or get_npc_singular_name(npc_type)
         else:
             if self.db.num_living == 1:
-                noun = self.db.singular_name or get_npc_singular_name(type)
+                noun = self.db.singular_name or get_npc_singular_name(npc_type)
             else:
-                noun = self.db.plural_name or get_npc_plural_name(type)
+                noun = self.db.plural_name or get_npc_plural_name(npc_type)
             if not self.db.num_living and self.db.num_dead:
                 noun = "dead %s" % noun
                 self.key = "%s %s" % (self.db.num_dead, noun)
@@ -348,7 +346,7 @@ class MultiNpc(Npc):
 
 
 class AgentMixin(object):
-    def setup_agent(self # type: Retainer or Agent
+    def setup_agent(self  # type: Retainer or Agent
                     ):
         """
         We'll set up our stats based on the type given by our agent class.
@@ -362,12 +360,11 @@ class AgentMixin(object):
         self.setup_npc(ntype=atype, threat=quality, num=agent.quantity, desc=desc)
         self.db.passive_guard = check_passive_guard(atype)
         
-    def setup_locks(self # type: Retainer or Agent
+    def setup_locks(self  # type: Retainer or Agent
                     ):
         # base lock - the 'command' lock string
         lockfunc = ["command: %s", "desc: %s"]
         player_owner = None
-        org_owner = None
         assigned_char = self.db.guarding
         owner = self.agentob.agent_class.owner
         if owner.player:
@@ -377,12 +374,12 @@ class AgentMixin(object):
             if assigned_char:
                 perm = "rank(2, %s) or id(%s)" % (org_owner.name, assigned_char.id)
             else:
-                perm = "rank(2, %s)" % (org_owner.name)
+                perm = "rank(2, %s)" % org_owner.name
         else:
             if assigned_char:
                 perm = "pid(%s) or id(%s)" % (player_owner.id, assigned_char.id)
             else:
-                perm = "pid(%s)" % (player_owner.id)
+                perm = "pid(%s)" % player_owner.id
         for lock in lockfunc:
             # add the permission to the lock function from above
             lock = lock % perm
@@ -489,7 +486,7 @@ class AgentMixin(object):
         try:
             if self.location and self.db.guarding:
                 self.follow(self.db.guarding)
-        except Exception:
+        except AttributeError:
             import traceback
             traceback.print_exc()
 
@@ -499,11 +496,8 @@ class AgentMixin(object):
         Get the cost of a stat based on our current
         rating and the type of agent we are.
         """
-        xpcost = 0
-        rescost = 0
         atype = self.agent.type
         stats = primary_stats.get(atype, [])
-        current = self.attributes.get(attr)
         base = get_stat_cost(self, attr)
         if attr not in stats:
             base *= 2
@@ -524,8 +518,6 @@ class AgentMixin(object):
         Get the cost of a skill based on our current rating and the
         type of agent that we are.
         """
-        xpcost = 0
-        rescost = 0
         restype = "military"
         atype = self.agent.type
         primary_skills = get_npc_skills(atype)
@@ -569,7 +561,7 @@ class AgentMixin(object):
         return self.agent.quality - 1
 
     @property
-    def agent(self # type: Retainer or Agent
+    def agent(self  # type: Retainer or Agent
               ):
         """
         Returns the agent type that this object belongs to.
@@ -589,11 +581,11 @@ class AgentMixin(object):
         return self.agent.owner
     
     def inform_owner(self, text):
-        "Passes along an inform to our owner."
+        """Passes along an inform to our owner."""
         self.owner.inform_owner(text, category="Agents")
 
     @property
-    def weaponized(self # type: Retainer or Agent
+    def weaponized(self  # type: Retainer or Agent
                    ):
         if self.npc_type in COMBAT_TYPES:
             return True
@@ -648,7 +640,7 @@ class Retainer(AgentMixin, Npc):
         return abilities
 
     def get_ability_maximum(self, attr):
-        "Returns max for an ability that we can buy"
+        """Returns max for an ability that we can buy"""
         # to do - make it different based on off-classes
         return self.agent.quality + 1
 
@@ -681,10 +673,11 @@ class Retainer(AgentMixin, Npc):
         msg = "%s has trained %s, giving them %s xp." % (trainer, self, roll)
         self.inform_owner(msg)
     
+
 class Agent(AgentMixin, MultiNpc):
-    #-----------------------------------------------
+    # -----------------------------------------------
     # AgentHandler Admin client methods
-    #-----------------------------------------------
+    # -----------------------------------------------
 
     def setup_name(self):
         a_type = self.agentob.agent_class.type
@@ -734,8 +727,3 @@ class Agent(AgentMixin, MultiNpc):
             self.location.msg_contents("{r%s has died.{n" % get_npc_singular_name(self._get_npc_type()))
         self.lose_agents(num=1, death=True)
         self.db.damage = 0
-
-    
-
-
-        
