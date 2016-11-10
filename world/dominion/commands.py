@@ -1637,7 +1637,7 @@ class CmdAgents(MuxPlayerCommand):
         @agents/hire <type>,<level>,<amount>=<organization>
         @agents/desc <ID #>,<desc>
         @agents/name <ID #>,name
-        @agents/transferownership <ID #>,<new owner>
+        @agents/transferowner <ID #>,<new owner>
 
     Hires guards, assassins, spies, or any other form of NPC that has a
     presence in-game and can act on player orders. Agents are owned by an
@@ -3371,6 +3371,8 @@ class CmdSupport(MuxCommand):
             assignment = assignment[0]
             if assignment.supporters.filter(player=caller.player.Dominion):
                 caller.msg("You have already pledged your support to this task.")
+                self.msg("Use the /change switch to support them again if you have in previous weeks, " +
+                         "or to change existing support if you already have this week.")
                 return
             caller.msg("{wExisting rumor for task:{n\n%s" % assignment.observer_text)
             form = [char, False, {}, "", ""]
