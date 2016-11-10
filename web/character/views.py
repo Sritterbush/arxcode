@@ -5,10 +5,7 @@ from django.http import Http404
 from django.shortcuts import render
 from django.http import HttpResponseRedirect, HttpResponse
 from django.core.urlresolvers import reverse
-from django.conf import settings
-
-from evennia.utils.search import object_search
-from evennia.utils.utils import inherits_from
+from typeclasses.characters import Character
 from evennia.objects.models import ObjectDB
 from world.dominion.models import Organization
 from commands.commands import roster
@@ -28,15 +25,12 @@ from django.views.generic import ListView
 
 def get_character_from_ob(object_id):
     """Helper function to get a character, run checks, return character + error messages"""
-    object_id = '#' + object_id
     character = None
     err_message = None
     try:
-        character = object_search(object_id)[0]
-    except IndexError:
+        character = Character.objects.get(id=object_id)
+    except Character.DoesNotExist:
         err_message = "I couldn't find a character with that ID."
-    if not inherits_from(character, settings.BASE_CHARACTER_TYPECLASS):
-        err_message = "No character with that ID. Found something else instead."
     return character, err_message
 
 
