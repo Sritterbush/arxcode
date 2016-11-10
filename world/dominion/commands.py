@@ -2601,6 +2601,9 @@ class CmdGuards(MuxCommand):
         +guards/stop <guard>
         +guards/follow <guard>=<person to follow>
         +guards/passive <guard>
+        +guard/get <guard>=<object>
+        +guard/give <guard>=<object> to <receiver>
+        +guard/inventory <guard>
 
     Controls summoned guards or retainers. Guards that belong to a
     player may be summoned from their home, while guards belonging
@@ -2691,6 +2694,16 @@ class CmdGuards(MuxCommand):
                 return
             guard.passive = True
             self.msg("%s will no longer actively protect you." % guard.name)
+            return
+        if 'inventory' in self.switches:
+            objects = guard.contents
+            self.msg("{c%s's {winventory:{n %s" % (guard, ", ".join(ob.name for ob in objects)))
+            return
+        if "give" in self.switches:
+            guard.execute_cmd("give %s" % self.rhs)
+            return
+        if 'get' in self.switches:
+            guard.execute_cmd("get %s" % self.rhs)
             return
         targ = caller.search(self.rhs)
         if not targ:
