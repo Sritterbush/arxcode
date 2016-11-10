@@ -8,7 +8,7 @@ from world.dominion.setup_utils import setup_dom_for_char
 from world.stats_and_skills import do_dice_check
 from evennia.utils.create import create_object
 from server.utils.prettytable import PrettyTable
-from server.utils.utils import validate_name
+from server.utils.arx_utils import validate_name
 from evennia.utils import utils
 from evennia.utils.utils import make_iter
 

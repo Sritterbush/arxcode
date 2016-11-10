@@ -5,7 +5,7 @@ Commands for rumormills.
 from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand
 from evennia.utils import evtable
-from server.utils.utils import get_week, tnow
+from server.utils.arx_utils import get_week, tnow
 from evennia.utils.create import create_message
 from django.conf import settings
 from world.stats_and_skills import do_dice_check

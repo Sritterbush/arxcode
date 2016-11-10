@@ -12,7 +12,7 @@ from world.dominion.models import AssetOwner, Organization, CraftingRecipe
 from commands.commands.crafting import CmdCraft
 from commands.commands.overrides import CmdDig
 from server.utils.prettytable import PrettyTable
-from server.utils.utils import inform_staff
+from server.utils.arx_utils import inform_staff
 from evennia.utils import utils
 import re
 # error return function, needed by Extended Look command

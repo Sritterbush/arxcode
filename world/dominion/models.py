@@ -59,7 +59,7 @@ from .reports import WeeklyReport
 from .explore import Exploration
 from .battle import Battle
 from .agenthandler import AgentHandler
-from server.utils.utils import get_week
+from server.utils.arx_utils import get_week
 from evennia.locks.lockhandler import LockHandler
 import traceback
 from django.core.urlresolvers import reverse

@@ -19,7 +19,7 @@ from evennia.objects.objects import _AT_SEARCH_RESULT
 from .unit_types import type_from_str
 from typeclasses.npcs.npc_types import get_npc_type, generate_default_name_and_desc
 from server.utils.prettytable import PrettyTable
-from server.utils.utils import get_week
+from server.utils.arx_utils import get_week, validate_name, strip_ansi
 from django.db.models import Q
 
 # Constants for Dominion projects
@@ -1850,8 +1850,12 @@ class CmdAgents(MuxPlayerCommand):
                     attr = 'desc'
                     agent.desc = self.lhslist[1]
                 elif 'name' in self.switches:
+                    name = self.lhslist[1]
+                    if not validate_name(name):
+                        self.msg("That is not a valid name.")
+                        return
                     attr = 'name'
-                    agent.name = self.lhslist[1]
+                    agent.name = name
                 elif 'transferowner' in self.switches:
                     attr = 'owner'
                     try:
@@ -2296,8 +2300,12 @@ class CmdRetainers(MuxPlayerCommand):
 
     def change_name(self, agent):
         old = agent.name
-        agent.name = self.rhs
-        agent.dbobj.name = self.rhs
+        name = self.rhs
+        if not validate_name(name, formatting=True):
+            self.msg("That is not a valid name.")
+            return
+        agent.name = strip_ansi(name)
+        agent.dbobj.name = name
         agent.save()
         self.caller.msg("Name changed from %s to %s." % (old, self.rhs))
         return
@@ -3506,7 +3514,8 @@ class CmdSupport(MuxCommand):
                            "with /value, even if that value is 0. Even a value of 0 will cause them to receive 1 " +
                            "free point, and an additional 5 if you have never supported them before.")
                 return
-            sup = assignment.supporters.create(fake=fake, player=caller.player.Dominion, notes=notes, observer_text=announcement)
+            sup = assignment.supporters.create(fake=fake, player=caller.player.Dominion, notes=notes,
+                                               observer_text=announcement)
             for sid in sdict:
                 rating = sdict[sid]
                 sphere = SphereOfInfluence.objects.get(id=sid)
@@ -3532,7 +3541,7 @@ class DominionCmdSet(CmdSet):
     duplicates = False
 
     def at_cmdset_creation(self):
-        "Init the cmdset"
+        """Init the cmdset"""
         self.add(CmdAdmDomain())
         self.add(CmdAdmArmy())
         self.add(CmdAdmCastle())
@@ -3546,5 +3555,3 @@ class DominionCmdSet(CmdSet):
         self.add(CmdOrganization())
         self.add(CmdAgents())
         self.add(CmdGuards())
-
-

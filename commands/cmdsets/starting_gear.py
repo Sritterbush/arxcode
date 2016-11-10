@@ -16,7 +16,7 @@ creative process.
 from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from server.utils import prettytable
-from server.utils import utils
+from server.utils import arx_utils
 from evennia.utils.create import create_object
 from django.conf import settings
 from world.dominion.models import (CraftingMaterialType, PlayerOrNpc,
@@ -185,7 +185,7 @@ class CmdStartingGear(MuxCommand):
             if not self.lhs:
                 caller.msg("Name it what?")
                 return
-            if not utils.validate_name(self.lhs):
+            if not arx_utils.validate_name(self.lhs):
                 caller.msg("That is not a valid name.")
                 return
             proj[1] = self.lhs

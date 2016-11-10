@@ -17,7 +17,7 @@ from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand
 from evennia.utils import create, evtable
 from evennia.utils.utils import inherits_from
-from server.utils.utils import inform_staff
+from server.utils.arx_utils import inform_staff
 from django.conf import settings
 from typeclasses.scripts.combat import combat_settings
 from evennia.objects.models import ObjectDB

@@ -12,7 +12,7 @@ import time
 from datetime import datetime
 from world.dominion import setup_utils
 from world.dominion.models import RPEvent, Agent
-from server.utils.utils import inform_staff
+from server.utils.arx_utils import inform_staff
 from evennia.scripts.models import ScriptDB
 from django.db.models import Q
 

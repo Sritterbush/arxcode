@@ -14,7 +14,7 @@ jumping around to them.
 from django.conf import settings
 from evennia.commands.default.muxcommand import MuxPlayerCommand
 from evennia.utils import utils, create, search
-from server.utils.utils import inform_staff
+from server.utils.arx_utils import inform_staff
 from evennia.players.models import PlayerDB
 from evennia import syscmdkeys
 from world.stats_and_skills import (get_partial_match, get_skill_cost,

@@ -6,21 +6,26 @@ be of use when designing your own game.
 
 """
 import re
-import traceback
 from django.conf import settings
 from datetime import datetime
 
 
-
-
-def validate_name(name, formatting=True):
+def validate_name(name, formatting=True, not_player=True):
     """
     Checks if a name has only letters or apostrophes, or
     ansi formatting if flag is set
     """
+    if not not_player:
+        player_conflict = False
+    else:
+        from evennia.players.models import PlayerDB
+        player_conflict = PlayerDB.objects.filter(username__iexact=name)
+    if player_conflict:
+        return None
     if formatting:
-        return re.findall('^[\-\w\'\{\[\,\|\% ]+$', name)
+        return re.findall('^[\-\w\'{\[,|% ]+$', name)
     return re.findall('^[\w\']+$', name)
+
 
 def inform_staff(message):
     """
@@ -34,6 +39,7 @@ def inform_staff(message):
     except Exception as err:
         print("ERROR when attempting utils.inform_staff() : %s" % err)
 
+
 def setup_log(logfile):
     import logging
     fileh = logging.FileHandler(logfile, 'a')
@@ -45,6 +51,7 @@ def setup_log(logfile):
     log.addHandler(fileh)
     log.setLevel(logging.DEBUG)
     return log
+
 
 def get_date():
     """
@@ -58,11 +65,13 @@ def get_date():
     date = ("%s/%s/%s AR" % (month, day, year))
     return date
 
+
 def get_week():
-    "Gets the current week for dominion."
+    """Gets the current week for dominion."""
     from evennia.scripts.models import ScriptDB
     weekly = ScriptDB.objects.get(db_key="Weekly Update")
     return weekly.db.week
+
 
 def tnow(aware=False):
     if aware:
@@ -71,12 +80,14 @@ def tnow(aware=False):
     # naive datetime
     return datetime.now()
 
+
 def tdiff(date):
     try:
         diff = date - tnow()
-    except Exception:
+    except (TypeError, ValueError):
         diff = date - tnow(aware=True)
     return diff
+
 
 def datetime_format(dtobj):
     """
@@ -104,6 +115,7 @@ def datetime_format(dtobj):
         timestring = "%02i:%02i:%02i" % (hour, minute, second)
     return timestring
 
+
 def sub_old_ansi(text):
     text = text.replace('%r', '|/')
     text = text.replace('%R', '|/')
@@ -130,8 +142,19 @@ def sub_old_ansi(text):
     text = text.replace('%cn', '|n')
     return text
 
-def broadcast(txt, format=True):
+
+def strip_ansi(text):
+    from evennia.utils.ansi import strip_ansi
+    text = strip_ansi(text)
+    text = text.replace('%r', '').replace('%R', '').replace('%t', '').replace('%T', '').replace('%b', '')
+    text = text.replace('%cr', '').replace('%cR', '').replace('%cg', '').replace('%cG', '').replace('%cy', '')
+    text = text.replace('%cY', '').replace('%cb', '').replace('%cB', '').replace('%cm', '').replace('%cM', '')
+    text = text.replace('%cc', '').replace('%cC', '').replace('%cw', '').replace('%cW', '').replace('%cx', '')
+    text = text.replace('%cX', '').replace('%ch', '').replace('%cn', '')
+    return text
+
+def broadcast(txt, format_announcement=True):
     from evennia.server.sessionhandler import SESSION_HANDLER
-    if format:
+    if format_announcement:
         txt = "{wServer Announcement{n: %s" % txt
     SESSION_HANDLER.announce_all(txt)

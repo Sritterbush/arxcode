@@ -2,7 +2,7 @@
 General Character commands usually availabe to all characters
 """
 from django.conf import settings
-from server.utils import utils, prettytable
+from server.utils import arx_utils, prettytable
 from evennia.utils.utils import make_iter, crop, time_format, variable_from_module, inherits_from
 from evennia.commands.cmdhandler import get_and_merge_cmdsets
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
@@ -921,7 +921,7 @@ class CmdSetAttribute(ObjManipCommand):
         # send feedback
         caller.msg(string.strip('\n'))
         if obj != caller and not caller.check_permstring("immortals"):
-            utils.inform_staff("Building command by %s: %s" % (caller, string))
+            arx_utils.inform_staff("Building command by %s: %s" % (caller, string))
 
 from evennia.utils import create
 class CmdDig(ObjManipCommand):
@@ -1128,7 +1128,7 @@ class CmdTeleport(MuxCommand):
             obj_to_teleport.location=None
             if obj_to_teleport != caller and not caller.check_permstring("immortals"):
                 string = "%s teleported to None-location." % obj_to_teleport
-                utils.inform_staff("Building command by %s: %s" % (caller, string))
+                arx_utils.inform_staff("Building command by %s: %s" % (caller, string))
             return
 
         # not teleporting to None location
@@ -1182,7 +1182,7 @@ class CmdTeleport(MuxCommand):
                 string = "Teleported %s -> %s." % (obj_to_teleport,
                                                      destination)
                 caller.msg(string)
-                utils.inform_staff("Building command by %s: %s" % (caller, string))
+                arx_utils.inform_staff("Building command by %s: %s" % (caller, string))
 
 
 

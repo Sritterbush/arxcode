@@ -170,7 +170,7 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
                 self.cmdset.add(cmds, permanent=True)
         except Exception as err:
             print "<<ERROR>>: Error when importing death cmdset: %s" % err
-        from server.utils.utils import inform_staff
+        from server.utils.arx_utils import inform_staff
         if not self.db.npc:
             inform_staff("{rDeath{n: Character {c%s{n has died." % self.key)
         

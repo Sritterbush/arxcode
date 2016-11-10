@@ -8,7 +8,7 @@ from time import time
 from django.conf import settings
 from .scripts import Script
 from evennia.utils.create import create_script
-from server.utils.utils import inform_staff
+from server.utils.arx_utils import inform_staff
 from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
 from world.dominion.models import PlayerOrNpc, AssetOwner, Army, AssignedTask

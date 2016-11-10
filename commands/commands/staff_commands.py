@@ -7,7 +7,7 @@ from django.conf import settings
 from evennia.server.sessionhandler import SESSIONS
 from evennia.utils import evtable
 from server.utils import prettytable
-from server.utils.utils import inform_staff
+from server.utils.arx_utils import inform_staff
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB

@@ -9,7 +9,7 @@ for easy handling.
 """
 from evennia.utils import create
 from server.utils import prettytable
-from server.utils.utils import inform_staff
+from server.utils.arx_utils import inform_staff
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from typeclasses.bulletin_board.bboard import BBoard
 

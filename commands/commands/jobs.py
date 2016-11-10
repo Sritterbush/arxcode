@@ -11,7 +11,7 @@ database migration to add in their functionality.
 from django.conf import settings
 from server.utils import prettytable, helpdesk_api
 from web.helpdesk.models import Ticket, Queue
-from server.utils.utils import inform_staff
+from server.utils.arx_utils import inform_staff
 from evennia.commands.default.muxcommand import MuxPlayerCommand
 from evennia.objects.models import ObjectDB
 import traceback

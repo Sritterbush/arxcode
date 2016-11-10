@@ -623,5 +623,5 @@ class CmdGameTime(default_cmds.MuxCommand):
             self.caller.msg("It's %s %s day, in the %s." % (prep, season.capitalize(), timeslot))
             time = gametime.gametime(format=True)
             hour, minute = time[4], time[5]
-            from server.utils.utils import get_date
+            from server.utils.arx_utils import get_date
             self.caller.msg("Today's date: %s. Current time: %s:%02d" % (get_date(), hour, minute))

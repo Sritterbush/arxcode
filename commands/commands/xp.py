@@ -12,7 +12,7 @@ other players xp awards for good roleplay.
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from django.conf import settings
 from world import stats_and_skills
-from server.utils.utils import inform_staff
+from server.utils.arx_utils import inform_staff
 from evennia.utils.utils import list_to_string
 from evennia.players.models import PlayerDB
 
