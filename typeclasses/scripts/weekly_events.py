@@ -4,10 +4,7 @@ on a weekly basis. Things we'll be updating are counting votes
 for players, and processes for Dominion.
 """
 
-from time import time
-from django.conf import settings
 from .scripts import Script
-from evennia.utils.create import create_script
 from server.utils.arx_utils import inform_staff
 from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
@@ -84,7 +81,7 @@ class WeeklyEvents(Script):
         from django.db.models import Q
         for owner in AssetOwner.objects.filter((Q(organization_owner__isnull=False) &
                                                 Q(organization_owner__members__player__player__roster__roster__name="Active") &
-                                                Q(organization_owner__members__player__player__roster__frozen=False))|
+                                                Q(organization_owner__members__player__player__roster__frozen=False)) |
                                                Q(player__player__roster__roster__name="Active")).distinct():
             try:
                 owner.do_weekly_adjustment(self.db.week)
@@ -130,7 +127,6 @@ class WeeklyEvents(Script):
         except Exception as err:
             traceback.print_exc()
             print "Error in cleanup: %s" % err
-            
 
     def do_events_per_player(self, reset=True):
         """
@@ -187,6 +183,7 @@ class WeeklyEvents(Script):
                 except KeyError:
                     pass
         pass
+
     def check_freeze(self, player):
         try:
             date = datetime.now()
@@ -348,7 +345,7 @@ class WeeklyEvents(Script):
                     xp += 2
                 # 3 to 8 votes is 6 to 11 xp
                 max_range = votes if votes <= 8 else 8
-                for n in range(2,max_range):
+                for n in range(2, max_range):
                     xp += 1
                 # 1 more xp for each 2 between 9 to 12
                 if votes > 8:
@@ -357,19 +354,19 @@ class WeeklyEvents(Script):
                         bonusvotes = 12
                     bonus = bonusvotes - 8
                     bonus /= 2
-                    if not bonus: bonus = 1
+                    if not bonus:
+                        bonus = 1
                     xp += bonus
                 # 1 more xp for each 3 votes after 12
                 if votes > 12:
                     bonus = votes - 12
                     bonus /= 3
-                    if not bonus: bonus = 1
+                    if not bonus:
+                        bonus = 1
                     xp += bonus               
                 if votes and xp:
                     msg = "You received %s votes this week, earning %s xp." % (votes, xp)
                     self.award_xp(char, xp, player, msg, xptype="votes")
-                    
-                    
 
     def award_xp(self, char, xp, player=None, msg=None, xptype="all"):
         try:
@@ -388,7 +385,6 @@ class WeeklyEvents(Script):
             print "Award XP encountered ERROR: %s" % err
         if player and msg:
             player.inform(msg, "XP", week=self.db.week, append=True)
-
 
     def award_prestige(self):
         for name in self.db.praises:
@@ -453,7 +449,7 @@ class WeeklyEvents(Script):
         boards = get_boards(self)
         boards = [ob for ob in boards if ob.key == PRESTIGE_BOARD_NAME]
         board = boards[0]
-        sorted_praises = sorted(self.db.praises.items(), key=lambda x:x[1][1], reverse=True)
+        sorted_praises = sorted(self.db.praises.items(), key=lambda x: x[1][1], reverse=True)
         sorted_praises = sorted_praises[:20]
         table = EvTable("{wName{n", "{w#{n", "{wMsg{n", border="cells", width=78)
         for tup in sorted_praises:
@@ -464,9 +460,9 @@ class WeeklyEvents(Script):
         table.reformat_column(2, width=55)
         pmsg = "{wMost Praised this week{n".center(72)
         pmsg = "%s\n%s" % (pmsg, str(table).lstrip())
-        pmsg +="\n\n"
+        pmsg += "\n\n"
         pmsg += "{wMost Condemned this week{n".center(72)
-        sorted_condemns = sorted(self.db.condemns.items(), key=lambda x:x[1][1], reverse=True)
+        sorted_condemns = sorted(self.db.condemns.items(), key=lambda x: x[1][1], reverse=True)
         sorted_condemns = sorted_condemns[:20]
         table = EvTable("{wName{n", "{w#{n", "{wMsg{n", border="cells", width=78)
         for tup in sorted_condemns:
@@ -477,7 +473,7 @@ class WeeklyEvents(Script):
         table.reformat_column(2, width=55)
         pmsg = "%s\n%s" % (pmsg, str(table).lstrip())
         try:      
-            sorted_changes = sorted(self.db.prestige_changes.items(), key=lambda x:abs(x[1][0]), reverse=True)
+            sorted_changes = sorted(self.db.prestige_changes.items(), key=lambda x: abs(x[1][0]), reverse=True)
             sorted_changes = sorted_changes[:20]
             table = EvTable("{wName{n", "{wPrestige Change Amount{n", "{wPrestige Rank{n", border="cells", width=78)
             qs = AssetOwner.objects.filter(player__player__isnull=False)
@@ -497,4 +493,3 @@ class WeeklyEvents(Script):
             traceback.print_exc()
         board.bb_post(poster_obj=self, msg=pmsg, subject="Weekly Praises/Condemns", poster_name="Prestige")
         inform_staff("Praises/condemns tally complete. Posted on %s." % board)
-        

@@ -238,6 +238,7 @@ class CmdJob(MuxPlayerCommand):
                 ticket = Ticket.objects.get(id=self.lhs)
             except Ticket.DoesNotExist:
                 self.msg("Invalid ticket number.")
+                return
             ticket.queue = queue
             ticket.save()
             self.msg("Ticket %s is now in queue %s." % (ticket.id, queue))
@@ -507,7 +508,7 @@ class CmdApp(MuxPlayerCommand):
                     self.msg("Couldn't post announcement")
                     return
                 try:
-                    bb = BBoard.objects.get(db_key__iexact="Roster Announcements")
+                    bb = BBoard.objects.get(db_key__iexact="Roster Changes")
                     msg = "%s now has a new player and is on the active roster." % app[1]
                     subject="%s now active" % app[1]
                     bb.bb_post(self.caller, msg, subject=subject, poster_name="Roster")
@@ -517,7 +518,6 @@ class CmdApp(MuxPlayerCommand):
             else:
                 caller.msg("Application closure failed.")
                 return
-            return
         if 'delete' in switches:
             try:
                 apps.delete_app(caller, int(self.args))
@@ -541,7 +541,6 @@ class CmdApp(MuxPlayerCommand):
             else:
                 caller.msg("Application closure failed.")
                 return
-            return
         if 'old' in switches:
             # List all non-pending applications
             all_apps = apps.view_all_apps()
