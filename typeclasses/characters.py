@@ -59,6 +59,7 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         self.at_init()
         self.locks.add("delete:perm(Immortals);tell:all()")
 
+
     @property
     def is_character(self):
         return True

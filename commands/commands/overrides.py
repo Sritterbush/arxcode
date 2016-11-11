@@ -180,7 +180,7 @@ class CmdGet(MuxCommand):
             if not fromobj:
                 return
             loc = fromobj
-            if not fromobj.db.container:
+            if not (fromobj.db.container or fromobj.dead):
                 caller.msg("That is not a container.")
                 return
             if fromobj.db.locked and not caller.check_permstring("builders"):
