@@ -9,13 +9,15 @@ from commands.commands.roster import format_header
 from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from world.dominion import setup_utils
 from world.dominion.models import RPEvent, Agent
 from server.utils.arx_utils import inform_staff
 from evennia.scripts.models import ScriptDB
 from django.db.models import Q
 from world.dominion.models import AssetOwner, Renown, Reputation
+from typeclasses.characters import Character
+import random
 
 
 class CmdHangouts(MuxCommand):
@@ -1619,3 +1621,122 @@ class CmdDonate(MuxCommand):
         except (TypeError, ValueError):
             caller.msg("Must give a number.")
             return
+
+
+class CmdRandomScene(MuxCommand):
+    """
+    @randomscene
+
+    Usage:
+        @randomscene
+        @randomscene/claim <player>=<summary of the scene>
+        @randomscene/validate <player>
+        @randomscene/viewrequests
+
+    Generates three characters who you can receive bonus xp for this week
+    by having an RP scene with them. Executing the command generates the
+    names, and then once you meet with the player and have a scene with
+    them, using @randomscene/claim will send a request to that player to
+    validate the scene you both had. If they agree, during the weekly script
+    you'll both receive xp. Requests that aren't answered are wiped in
+    weekly maintenance.
+    """
+    key = "@randomscene"
+    locks = "cmd:all()"
+    help_category = "Social"
+
+    @property
+    def scenelist(self):
+        return self.caller.db.player_ob.db.random_scenelist
+
+    @property
+    def claimlist(self):
+        return self.caller.db.player_ob.db.claimed_scenelist or []
+
+    @property
+    def valid_choices(self):
+        last_week = datetime.now() - timedelta(days=7)
+        return Character.objects.filter(Q(roster__roster__name="Active") &
+                                        ~Q(roster__current_account=self.caller.roster.current_account) &
+                                        Q(roster__player__last_login__isnull=False) &
+                                        Q(roster__player__last_login__gte=last_week) &
+                                        Q(roster__player__is_staff=False))
+
+    def display_lists(self):
+        if not self.scenelist and not self.claimlist:
+            self.generate_lists()
+        scenelist = self.scenelist
+        claimlist = self.claimlist
+        self.msg("{wRandomly generated RP partners for this week:{n %s" % ", ".join(str(ob) for ob in scenelist))
+        if claimlist:
+            self.msg("{wThose you have already RP'd with this week:{n %s" % ", ".join(str(ob) for ob in claimlist))
+
+    def generate_lists(self):
+        scenelist = []
+        choices = list(self.valid_choices)
+        max_iter = 0
+        while len(scenelist) < 3:
+            max_iter += 1
+            if max_iter > 10000:
+                raise RuntimeError("Max Recursion Depth Exceeded.")
+            choice = random.choice(choices)
+            if choice not in scenelist:
+                scenelist.append(choice)
+        self.caller.db.player_ob.db.random_scenelist = scenelist
+
+    def claim_scene(self):
+        targ = self.caller.search(self.lhs)
+        if not targ:
+            return
+        if targ not in self.scenelist:
+            self.msg("%s is not in your list of random scene partners this week: %s" % (targ, ", ".join(
+                str(ob) for ob in self.scenelist)))
+            return
+        if not self.rhs:
+            self.msg("You must include some summary of the scene. It may be quite short.")
+            return
+        requests = targ.db.scene_requests or {}
+        tup = (self.caller, self.rhs)
+        name = self.caller.name
+        requests[name.lower()] = tup
+        targ.db.scene_requests = requests
+        msg = "%s has requested that you validate their RP scene with you, which will grant you both xp." % name
+        msg += "\n\nTheir summary of the scene was the following: %s\n" % self.rhs
+        msg += "If you ignore this request, it will be wiped in weekly maintenance."
+        targ.db.player_ob.inform(msg, category="Validate")
+        inform_staff("%s has completed a random scene with %s. Summary: %s" % (self.caller, targ, self.rhs))
+        self.msg("You have sent a request to %s to validate your scene." % targ)
+
+    def validate_scene(self):
+        targ = self.caller.db.scene_requests.pop(self.args.lower(), (None, ""))[0]
+        if not targ:
+            self.msg("No character by that name has sent you a request.")
+            self.view_requests()
+            return
+        claimed = targ.db.player_ob.db.claimed_scenelist or []
+        claimed.append(self.caller)
+        targ.db.player_ob.db.random_scenelist.remove(self.caller)
+        targ.db.player_ob.db.claimed_scenelist = claimed
+        self.msg("Validating their scene. Both of you will receive xp for it later.")
+
+    def view_requests(self):
+        requests = self.caller.db.scene_requests
+        table = EvTable("{wName{n", "{wSummary{n", width=78, border="cells")
+        for tup in requests.values():
+            table.add_row(tup[0], tup[1])
+        self.msg(str(table))
+
+    def func(self):
+        if not self.switches:
+            self.display_lists()
+            return
+        if "claim" in self.switches:
+            self.claim_scene()
+            return
+        if "validate" in self.switches:
+            self.validate_scene()
+            return
+        if "viewrequests" in self.switches:
+            self.view_requests()
+            return
+        self.msg("Invalid switch.")

@@ -65,6 +65,7 @@ class WeeklyEvents(Script):
         # processing for each player
         self.do_events_per_player(reset)
         # awarding votes we counted
+        self.award_scene_xp()
         self.award_vote_xp()
         self.post_top_rpers()
         # prestige adjustments
@@ -79,10 +80,11 @@ class WeeklyEvents(Script):
 
     def do_dominion_events(self):
         from django.db.models import Q
-        for owner in AssetOwner.objects.filter((Q(organization_owner__isnull=False) &
-                                                Q(organization_owner__members__player__player__roster__roster__name="Active") &
-                                                Q(organization_owner__members__player__player__roster__frozen=False)) |
-                                               Q(player__player__roster__roster__name="Active")).distinct():
+        for owner in AssetOwner.objects.filter(
+                        (Q(organization_owner__isnull=False) &
+                         Q(organization_owner__members__player__player__roster__roster__name="Active") &
+                         Q(organization_owner__members__player__player__roster__frozen=False)) |
+                        Q(player__player__roster__roster__name="Active")).distinct():
             try:
                 owner.do_weekly_adjustment(self.db.week)
             except Exception as err:
@@ -105,7 +107,8 @@ class WeeklyEvents(Script):
                 traceback.print_exc()
                 print "Error in task completion: %s" % err
 
-    def do_investigations(self):
+    @staticmethod
+    def do_investigations():
         from web.character.models import Investigation
         for investigation in Investigation.objects.filter(active=True, ongoing=True,
                                                           character__roster__name="Active"):
@@ -115,7 +118,8 @@ class WeeklyEvents(Script):
                 traceback.print_exc()
                 print "Error in investigation: %s" % err
 
-    def do_cleanup(self):
+    @staticmethod
+    def do_cleanup():
         try:
             from world.msgs.models import Inform
             date = datetime.now()
@@ -148,6 +152,7 @@ class WeeklyEvents(Script):
             self.db.prestige_changes = {}
             self.db.xptypes = {}
             self.db.requested_support = {}
+            self.db.scenes = {}
         players = [ob for ob in PlayerDB.objects.filter(Q(Q(roster__roster__name="Active") &
                                                         Q(roster__frozen=False)) |
                                                         Q(is_staff=True)) if ob.db.char_ob]
@@ -157,6 +162,7 @@ class WeeklyEvents(Script):
             self.count_praises_and_condemns(player)
             # journal XP
             self.process_journals(player)
+            self.count_scenes(player)
             # niche XP?
             # first-time RP XP?
             # losing gracefully
@@ -174,6 +180,8 @@ class WeeklyEvents(Script):
             # reset list of people we were training
             char.db.currently_training = []
             char.db.trainer = None
+            # wipe stale requests
+            char.db.scene_requests = {}
             try:
                 old = player.Dominion.assets.prestige
                 self.db.prestige_changes[player.key] = old
@@ -184,7 +192,8 @@ class WeeklyEvents(Script):
                     pass
         pass
 
-    def check_freeze(self, player):
+    @staticmethod
+    def check_freeze(player):
         try:
             date = datetime.now()
             if not player.last_login:
@@ -280,16 +289,32 @@ class WeeklyEvents(Script):
             self.db.vote_history[player.id] = votes
         player.db.votes = []
 
+    def count_scenes(self, player):
+        """
+        Counts the @randomscenes for each player. Each player can generate up to 3
+        random scenes in a week, and each scene that they participated in gives them
+        2 xp.
+        """
+        scenes = player.db.claimed_scenelist or []
+        for ob in scenes:
+            if ob.id in self.db.scenes:
+                self.db.scenes[ob.id] += 1
+            else:
+                self.db.scenes[ob.id] = 1
+        # reset their claimed scenes, and what's used to generate those
+        player.db.claimed_scenelist = []
+        player.db.random_scenelist = []
+
     def count_praises_and_condemns(self, player):
         # praises/condemns are {name: [times, msg]}
         praises = player.db.praises or {}
         condemns = player.db.condemns or {}
-        BASE_CONDEMN = 0
+        base_condemn = 0
         try:
             # our base prestige is our total * .05%
             dompc = PlayerOrNpc.objects.get(player=player)
             assets = dompc.assets
-            BASE_CONDEMN = int(assets.total_prestige * 0.0005)
+            base_condemn = int(assets.total_prestige * 0.0005)
         except PlayerOrNpc.DoesNotExist:
             from world.dominion.setup_utils import setup_dom_for_char
             char = player.db.char_ob
@@ -297,18 +322,17 @@ class WeeklyEvents(Script):
                 return
             try:
                 if char.roster.roster.name == "Active":
-                    dompc = setup_dom_for_char(char)
-            except Exception:
-                BASE_CONDEMN = 0
-            prest = 0
+                    setup_dom_for_char(char)
+            except (AttributeError, TypeError, ValueError):
+                base_condemn = 0
         # praises are a flat value, condemns scale with the prestige of the condemner
-        BASE_PRAISE = 1000
-        prest = BASE_PRAISE + BASE_CONDEMN
+        base_praise = 1000
+        prest = base_praise + base_condemn
         for name in praises:
             num = praises[name][0]
             msg = praises[name][1]
             existing = self.db.praises.get(name, [0, 0, []])
-            existing[0] += BASE_PRAISE
+            existing[0] += base_praise
             existing[1] += num
             existing[2].append(msg)
             self.db.praises[name] = existing
@@ -323,47 +347,66 @@ class WeeklyEvents(Script):
         # reset their praises/condemns for next week after recording
         player.db.praises = {}
         player.db.condemns = {}
-  
+
+    def award_scene_xp(self):
+        for char_id in self.db.scenes:
+            try:
+                char = ObjectDB.objects.get(id=char_id)
+            except ObjectDB.DoesNotExist:
+                continue
+            player = char.db.player_ob
+            if char and player:
+                scenes = self.db.scenes[char_id]
+                xp = self.scale_xp(scenes * 2)
+                if scenes and xp:
+                    msg = "You were in %s random scenes this week, earning %s xp." % (scenes, xp)
+                    self.award_xp(char, xp, player, msg, xptype="scenes")
+
+    @staticmethod
+    def scale_xp(votes):
+        xp = 0
+        # 1 vote is 3 xp
+        if votes > 0:
+            xp = 3
+        # 2 votes is 5 xp
+        if votes > 1:
+            xp += 2
+        # 3 to 8 votes is 6 to 11 xp
+        max_range = votes if votes <= 8 else 8
+        for n in range(2, max_range):
+            xp += 1
+        # 1 more xp for each 2 between 9 to 12
+        if votes > 8:
+            bonusvotes = votes
+            if bonusvotes > 12:
+                bonusvotes = 12
+            bonus = bonusvotes - 8
+            bonus /= 2
+            if not bonus:
+                bonus = 1
+            xp += bonus
+        # 1 more xp for each 3 votes after 12
+        if votes > 12:
+            bonus = votes - 12
+            bonus /= 3
+            if not bonus:
+                bonus = 1
+            xp += bonus
+        return xp
+
     def award_vote_xp(self):
         """
         Go through all of our votes and award xp to the corresponding character
         object of each player we've recorded votes for.
         """
         # go through each key in our votes dict, get player, award xp to their character
-        for id in self.db.votes:
-            player = PlayerDB.objects.get(id=id)
+        for player_id in self.db.votes:
+            player = PlayerDB.objects.get(id=player_id)
             # important - get their character, not the player object
             char = player.db.char_ob
             if char:
-                votes = self.db.votes[id]
-                xp = 0
-                # 1 vote is 3 xp
-                if votes > 0:
-                    xp = 3
-                # 2 votes is 5 xp
-                if votes > 1:
-                    xp += 2
-                # 3 to 8 votes is 6 to 11 xp
-                max_range = votes if votes <= 8 else 8
-                for n in range(2, max_range):
-                    xp += 1
-                # 1 more xp for each 2 between 9 to 12
-                if votes > 8:
-                    bonusvotes = votes
-                    if bonusvotes > 12:
-                        bonusvotes = 12
-                    bonus = bonusvotes - 8
-                    bonus /= 2
-                    if not bonus:
-                        bonus = 1
-                    xp += bonus
-                # 1 more xp for each 3 votes after 12
-                if votes > 12:
-                    bonus = votes - 12
-                    bonus /= 3
-                    if not bonus:
-                        bonus = 1
-                    xp += bonus               
+                votes = self.db.votes[player_id]
+                xp = self.scale_xp(votes)
                 if votes and xp:
                     msg = "You received %s votes this week, earning %s xp." % (votes, xp)
                     self.award_xp(char, xp, player, msg, xptype="votes")
@@ -412,7 +455,7 @@ class WeeklyEvents(Script):
             except AttributeError:
                 try:
                     self.db.prestige_changes[name] = (0, 0)
-                except Exception:
+                except (AttributeError, KeyError):
                     continue
     
     def post_top_rpers(self):
@@ -432,7 +475,6 @@ class WeeklyEvents(Script):
             num += 1
             try:
                 char = ObjectDB.objects.get(id=tup[0])
-                player = char.db.player_ob
                 votes = tup[1]
                 name = char.db.longname or char.key
                 string += "{w%s){n %-35s {wXP{n: %s\n" % (num, name, votes)
@@ -488,7 +530,7 @@ class WeeklyEvents(Script):
             pmsg += "\n\n"
             pmsg += "{wTop Prestige Changes{n".center(72)
             pmsg = "%s\n%s" % (pmsg, str(table).lstrip())
-        except Exception:
+        except (AttributeError, ValueError, TypeError):
             import traceback
             traceback.print_exc()
         board.bb_post(poster_obj=self, msg=pmsg, subject="Weekly Praises/Condemns", poster_name="Prestige")
