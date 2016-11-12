@@ -1720,7 +1720,7 @@ class CmdRandomScene(MuxCommand):
         self.msg("Validating their scene. Both of you will receive xp for it later.")
 
     def view_requests(self):
-        requests = self.caller.db.scene_requests
+        requests = self.caller.db.scene_requests or {}
         table = EvTable("{wName{n", "{wSummary{n", width=78, border="cells")
         for tup in requests.values():
             table.add_row(tup[0], tup[1])
