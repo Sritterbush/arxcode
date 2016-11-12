@@ -12,30 +12,27 @@ telling. It's simply too disruptive, and often creates
 situations that are damaging to immersion and the
 creative process.
 """
-
+from world.dominion.setup_utils import setup_dom_for_char
 from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from server.utils import prettytable
 from server.utils import arx_utils
-from evennia.utils.create import create_object
-from django.conf import settings
 from world.dominion.models import (CraftingMaterialType, PlayerOrNpc,
-                                  CraftingRecipe, AssetOwner, CraftingMaterials)
-from world.dominion import setup_utils
+                                   CraftingRecipe, AssetOwner)
 from commands.commands.crafting import (create_decorative_weapon, create_wearable, create_weapon,
-                                            create_place, create_book, create_container,
-                                            create_wearable_container, create_generic)
+                                        create_place, create_book, create_container,
+                                        create_wearable_container, create_generic)
 
 CASH = 6000
 
 
 class StartingGearCmdSet(CmdSet):
-    "CmdSet for a market."    
+    """CmdSet for a market."""
     key = "StartingGearCmdSet"
     priority = 20
     duplicates = False
     no_exits = False
     no_objs = False
+
     def at_cmdset_creation(self):
         """
         This is the only method defined in a cmdset, called during
@@ -47,7 +44,6 @@ class StartingGearCmdSet(CmdSet):
         replaced as needed.
         """
         self.add(CmdStartingGear())
-
 
 
 class CmdStartingGear(MuxCommand):
@@ -79,36 +75,35 @@ class CmdStartingGear(MuxCommand):
     key = "startgear"
     locks = "cmd:all()"
     help_category = "Progression"
-    
 
-    def display_project(self, proj):
+    @staticmethod
+    def display_project(proj):
         """
         Project is a list of data related to what a character
         is crafting. (recipeid, name, desc, adorns, forgerydict)
         """
         recipe = CraftingRecipe.objects.get(id=proj[0])
-        msg = "{wRecipe:{n %s\n" % (recipe.name)
+        msg = "{wRecipe:{n %s\n" % recipe.name
         msg += "{wName:{n %s\n" % proj[1]
         msg += "{wDesc:{n %s\n" % proj[2]
         adorns = proj[3]
         if adorns:
-            msg += "{wAdornments:{n %s\n" % ", ".join("%s: %s" % (CraftingMaterialType.objects.get(id=mat).name,amt) for mat,amt in adorns.items())
+            msg += "{wAdornments:{n %s\n" % ", ".join("%s: %s" % (CraftingMaterialType.objects.get(id=mat).name, amt)
+                                                      for mat, amt in adorns.items())
         return msg
 
     def func(self):
-        "Implement the command"
+        """Implement the command"""
         caller = self.caller
         try:
             dompc = PlayerOrNpc.objects.get(player=caller.player)
-            assets = AssetOwner.objects.get(player=dompc)
+            AssetOwner.objects.get(player=dompc)
         except PlayerOrNpc.DoesNotExist:
             # dominion not set up on player
-            dompc = setup_dom_for_char(caller)
-            assets = dompc.assets
+            setup_dom_for_char(caller)
         except AssetOwner.DoesNotExist:
             # assets not initialized on player
-            dompc = setup_dom_for_char(caller, create_dompc=False)
-            assets = dompc.assets
+            setup_dom_for_char(caller, create_dompc=False)
 
         if not self.args and not self.switches:
             project = caller.db.startgear_project
@@ -179,7 +174,9 @@ class CmdStartingGear(MuxCommand):
                 return
             proj[3] = adorns
             caller.db.crafting_project = proj
-            caller.msg("Additional materials: %s" % ", ".join("%s: %s" % (CraftingMaterialType.objects.get(id=mat).name,amt) for mat,amt in adorns.items()))
+            caller.msg("Additional materials: %s" % ", ".join("%s: %s" %
+                                                              (CraftingMaterialType.objects.get(id=mat).name, amt)
+                                                              for mat, amt in adorns.items()))
             return
         if "name" in self.switches:
             if not self.lhs:
@@ -190,7 +187,7 @@ class CmdStartingGear(MuxCommand):
                 return
             proj[1] = self.lhs
             caller.db.startgear_project = proj
-            caller.msg("Name set to %s." %  (self.lhs))
+            caller.msg("Name set to %s." % self.lhs)
             return
         if "desc" in self.switches:
             if not self.args:
@@ -198,7 +195,7 @@ class CmdStartingGear(MuxCommand):
                 return
             proj[2] = self.args
             caller.db.startgear_project = proj
-            caller.msg("Desc set to:\n%s" % (self.args))
+            caller.msg("Desc set to:\n%s" % self.args)
             return
         if "abandon" in self.switches or "abort" in self.switches:
             caller.msg("You have abandoned this crafting project. You may now start another.")
@@ -223,7 +220,8 @@ class CmdStartingGear(MuxCommand):
                 mat = CraftingMaterialType.objects.get(id=adorn)
                 cost += mat.value * proj[3][adorn]
             if caller.db.startgear_val < cost:
-                caller.msg("You need %s silver to finish the recipe, and have only %s." % (cost, caller.db.startgear_val))
+                caller.msg("You need %s silver to finish the recipe, and have only %s." % (cost,
+                                                                                           caller.db.startgear_val))
                 return
             caller.db.startgear_val -= cost
             # quality will always be average
@@ -232,21 +230,21 @@ class CmdStartingGear(MuxCommand):
             otype = recipe.type
             # create object
             if otype == "wieldable":
-                obj,quality = create_weapon(recipe, roll, mats, proj, caller)
+                obj, quality = create_weapon(recipe, roll, proj, caller)
             elif otype == "wearable":
-                obj,quality = create_wearable(recipe, roll, mats, proj, caller)
+                obj, quality = create_wearable(recipe, roll, proj, caller)
             elif otype == "place":
-                obj,quality = create_place(recipe, roll, mats, proj, caller)
+                obj, quality = create_place(recipe, roll, proj, caller)
             elif otype == "book":
-                obj,quality = create_book(recipe, roll, mats, proj, caller)
+                obj, quality = create_book(recipe, roll, proj, caller)
             elif otype == "container":
-                obj,quality = create_container(recipe, roll, mats, proj, caller)
+                obj, quality = create_container(recipe, roll, proj, caller)
             elif otype == "decorative_weapon":
-                obj,quality = create_decorative_weapon(recipe, roll, mats, proj, caller)
+                obj, quality = create_decorative_weapon(recipe, roll, proj, caller)
             elif otype == "wearable_container":
-                obj,quality = create_wearable_container(recipe, roll, mats, proj, caller)
+                obj, quality = create_wearable_container(recipe, roll, proj, caller)
             else:
-                obj,quality = create_generic(recipe, roll, mats, proj, caller)
+                obj, quality = create_generic(recipe, roll, proj, caller)
             # finish stuff universal to all crafted objects
             obj.desc = proj[2]
             obj.save()
@@ -268,6 +266,7 @@ class CmdStartingGear(MuxCommand):
             caller.cmdset.delete(StartingGearCmdSet)
             return
         caller.msg("Invalid switch.")
+
 
 def setup_gear_for_char(character, money=CASH, reset=False):
     if not reset and character.db.given_starting_gear:
@@ -295,8 +294,9 @@ class CmdSetupGear(MuxPlayerCommand):
     key = "@setupgear"
     locks = "cmd:perm(Immortals)"
     help_category = "Progression"
+
     def func(self):
-        "Implement the command"
+        """Implement the command"""
         caller = self.caller
         targ = caller.search(self.lhs)
         if not targ:
@@ -311,12 +311,3 @@ class CmdSetupGear(MuxPlayerCommand):
             setup_gear_for_char(char, reset=True)
         caller.msg("Starting money for gear granted to %s." % char)
         return
-
-def setup_gear_for_all():
-    from evennia.web.character.models import RosterEntry
-    from django.db.models import Q
-    entries = RosterEntry.objects.filter(Q(roster__name__iexact="active") |
-                                         Q(roster__name__iexact="available"))
-    for entry in entries:
-        setup_gear_for_char(entry.character)
-        
