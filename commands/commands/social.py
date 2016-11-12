@@ -1644,10 +1644,12 @@ class CmdRandomScene(MuxCommand):
     key = "@randomscene"
     locks = "cmd:all()"
     help_category = "Social"
+    NUM_SCENES = 3
+    NUM_DAYS = 3
 
     @property
     def scenelist(self):
-        return self.caller.db.player_ob.db.random_scenelist
+        return self.caller.db.player_ob.db.random_scenelist or []
 
     @property
     def claimlist(self):
@@ -1655,7 +1657,7 @@ class CmdRandomScene(MuxCommand):
 
     @property
     def valid_choices(self):
-        last_week = datetime.now() - timedelta(days=7)
+        last_week = datetime.now() - timedelta(days=self.NUM_DAYS)
         return Character.objects.filter(Q(roster__roster__name="Active") &
                                         ~Q(roster__current_account=self.caller.roster.current_account) &
                                         Q(roster__player__last_login__isnull=False) &
@@ -1663,7 +1665,7 @@ class CmdRandomScene(MuxCommand):
                                         Q(roster__player__is_staff=False))
 
     def display_lists(self):
-        if not self.scenelist and not self.claimlist:
+        if len(self.scenelist) + len(self.claimlist) < self.NUM_SCENES:
             self.generate_lists()
         scenelist = self.scenelist
         claimlist = self.claimlist
@@ -1672,16 +1674,18 @@ class CmdRandomScene(MuxCommand):
             self.msg("{wThose you have already RP'd with this week:{n %s" % ", ".join(str(ob) for ob in claimlist))
 
     def generate_lists(self):
-        scenelist = []
+        scenelist = self.scenelist
+        claimlist = self.claimlist
         choices = list(self.valid_choices)
         max_iter = 0
-        while len(scenelist) < 3:
+        while len(scenelist) < (self.NUM_SCENES - len(claimlist)):
             max_iter += 1
             if max_iter > 10000:
                 raise RuntimeError("Max Recursion Depth Exceeded.")
             choice = random.choice(choices)
             if choice not in scenelist:
                 scenelist.append(choice)
+        scenelist = sorted(scenelist, key=lambda x: x.key.capitalize())
         self.caller.db.player_ob.db.random_scenelist = scenelist
 
     def claim_scene(self):
