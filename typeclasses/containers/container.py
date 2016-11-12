@@ -5,10 +5,11 @@ Container objects. Bags, chests, etc.
 """
 from typeclasses.objects import Object as DefaultObject
 from evennia.commands.default.muxcommand import MuxCommand
-from evennia.commands import command, cmdset
+from evennia.commands import cmdset
 from typeclasses.mixins import LockMixins
 
 
+# noinspection PyTypeChecker
 class Container(LockMixins, DefaultObject):
     """
     Containers - bags, chests, etc. Players can have keys and can
@@ -26,9 +27,7 @@ class Container(LockMixins, DefaultObject):
         for handling reloads and avoid tracebacks if this is called while
         the typeclass system is rebooting.
         """
-        containerkey = contdbobj.db_key.strip().lower()
-        containeraliases = list(contdbobj.aliases.all())
-
+        # noinspection PyUnresolvedReferences
         class CmdChestKey(MuxCommand):
             """
             Grants a key to this chest to a player
@@ -39,11 +38,16 @@ class Container(LockMixins, DefaultObject):
             key = "@chestkey"
             locks = "cmd:all()"
             help_category = "containers"
+
             def func(self):
+                """
+                self.obj  #  type: Container
+                :return:
+                """
                 caller = self.caller
                 chestkeys = caller.db.chestkeylist or []
                 if (caller != self.obj.db.crafted_by and not caller.check_permstring("builders")
-                    and self.obj not in chestkeys):
+                        and self.obj not in chestkeys):
                     caller.msg("You cannot grant keys to %s." % self)
                     return
                 if not self.args:
@@ -90,14 +94,14 @@ class Container(LockMixins, DefaultObject):
             self.ndb.container_reset = False
 
     def at_object_creation(self):
-        "Called once, when object is first created (after basetype_setup)."
+        """Called once, when object is first created (after basetype_setup)."""
         self.locks.add("usekey: chestkey(%s)" % self.id)
         self.db.container = True
         self.db.max_volume = 1
         self.at_init()
 
     def grantkey(self, char):
-        "Grants a key to this chest for char."
+        """Grants a key to this chest for char."""
         chestkeys = char.db.chestkeylist or []
         if self in chestkeys:
             return False
@@ -106,12 +110,10 @@ class Container(LockMixins, DefaultObject):
         return True
 
     def rmkey(self, char):
-        "Removes a key to this chest from char."
+        """Removes a key to this chest from char."""
         chestkeys = char.db.chestkeylist or []
         if self not in chestkeys:
             return
         chestkeys.remove(self)
         char.db.chestkeylist = chestkeys
         return True
-
-    

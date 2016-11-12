@@ -16,6 +16,8 @@ from evennia.commands.default.muxcommand import MuxPlayerCommand
 from evennia.objects.models import ObjectDB
 import traceback
 from web.character.models import Roster, RosterEntry, PlayerAccount, AccountHistory
+from typeclasses.bulletin_board.bboard import BBoard
+
 
 def get_jobs_manager(caller):
     """
@@ -29,6 +31,7 @@ def get_jobs_manager(caller):
     if len(jobs_manager) > 1:
         caller.msg("Warning. More than one Jobs Manager object found.")
     return jobs_manager[0]
+
 
 def get_apps_manager(caller):
     """
@@ -101,12 +104,12 @@ class CmdJob(MuxPlayerCommand):
         self.msg("{wOpen Tickets:{n\n%s" % table)
 
     def func(self):
-        "Implement the command"
+        """Implement the command"""
         caller = self.caller
         args = self.args
         switches = self.switches
         if not args and not switches:
-            #list all open tickets 
+            # list all open tickets
             self.display_open_tickets()
             return
         if args and (not switches or 'old' in switches):
@@ -147,26 +150,27 @@ class CmdJob(MuxPlayerCommand):
         if 'old' in switches and not args:
             # list closed tickets
             # closed & resolved tickets, assigned to current user
-            tickets_closed_resolved =  list(Ticket.objects.select_related('queue').filter(
-                                        status__in = [Ticket.CLOSED_STATUS, Ticket.RESOLVED_STATUS]))
+            tickets_closed_resolved = list(Ticket.objects.select_related('queue').filter(
+                                        status__in=[Ticket.CLOSED_STATUS, Ticket.RESOLVED_STATUS]))
             joblist = tickets_closed_resolved
             if not joblist:
                 caller.msg("No closed tickets.")
                 return
-            #get 20 most recent
+            # get 20 most recent
             joblist = joblist[-20:]
             table = prettytable.PrettyTable(["{w#",
                                              "{wPlayer",
                                              "{wRequest",
                                              "{wGM"])
             for ticket in joblist:
-                table.add_row([str(ticket.id), str(ticket.submitting_player.key), str(ticket.title), str(ticket.assigned_to.key)])
+                table.add_row([str(ticket.id), str(ticket.submitting_player.key), str(ticket.title),
+                               str(ticket.assigned_to.key)])
             caller.msg("{wClosed Tickets:{n\n%s" % table)
             return
         if 'moreold' in switches:
             # list closed tickets
-            tickets_closed_resolved =  list(Ticket.objects.select_related('queue').filter(
-                                        status__in = [Ticket.CLOSED_STATUS, Ticket.RESOLVED_STATUS]))
+            tickets_closed_resolved = list(Ticket.objects.select_related('queue').filter(
+                                        status__in=[Ticket.CLOSED_STATUS, Ticket.RESOLVED_STATUS]))
             joblist = tickets_closed_resolved
             if not joblist:
                 caller.msg("No closed tickets.")
@@ -176,14 +180,15 @@ class CmdJob(MuxPlayerCommand):
             except ValueError:
                 caller.msg("Must give a number for # of closed tickets to display.")
                 return
-            #get 20 most recent
+            # get 20 most recent
             joblist = joblist[-numjobs:]
             table = prettytable.PrettyTable(["{w#",
                                              "{wPlayer",
                                              "{wRequest",
                                              "{wGM"])
             for ticket in joblist:
-                table.add_row([str(ticket.id), str(ticket.submitting_player), str(ticket.title), str(ticket.assigned_to)])
+                table.add_row([str(ticket.id), str(ticket.submitting_player), str(ticket.title),
+                               str(ticket.assigned_to)])
             caller.msg("{wClosed Tickets:{n\n%s" % table)
             return
         if 'close' in switches:
@@ -217,7 +222,7 @@ class CmdJob(MuxPlayerCommand):
                 return
             try:
                 ticket = Ticket.objects.get(id=int(lhs))
-            except Exception:
+            except Ticket.DoesNotExist:
                 caller.msg("No ticket found for that number.")
                 return
             if helpdesk_api.add_followup(caller, ticket, rhs):
@@ -288,13 +293,13 @@ class CmdRequest(MuxPlayerCommand):
     """
 
     key = "+request"
-    aliases = ["@request","+requests","@requests", "+911", "+ineedanadult",
+    aliases = ["@request", "+requests", "@requests", "+911", "+ineedanadult",
                "bug", "typo", "feedback"]
     help_category = "Admin"
     locks = "cmd:perm(request) or perm(Players)"
 
     def func(self):
-        "Implement the command"
+        """Implement the command"""
         caller = self.caller
         args = self.args
         priority = 5
@@ -309,11 +314,12 @@ class CmdRequest(MuxPlayerCommand):
                 helpdesk_api.add_followup(caller, ticket, self.rhs, mail_player=False)
                 caller.msg("Followup added.")
                 return
-            except Exception:
+            except Ticket.DoesNotExist:
                 caller.msg("No ticket found by that number.")
                 return
         cmdstr = self.cmdstring.lower()
-        if cmdstr == '+911': priority = 1
+        if cmdstr == '+911':
+            priority = 1
         if not self.lhs:
             open_tickets = caller.tickets.filter(status=Ticket.OPEN_STATUS)
             if not open_tickets:
@@ -346,13 +352,15 @@ class CmdRequest(MuxPlayerCommand):
             queue = Queue.objects.get(slug="Code").id
         else:
             queue = settings.REQUEST_QUEUE_ID
-        if helpdesk_api.create_ticket(caller, args, priority, queue=queue, send_email=email, optional_title=optional_title):
+        if helpdesk_api.create_ticket(caller, args, priority, queue=queue, send_email=email,
+                                      optional_title=optional_title):
             caller.msg("Thank you for submitting a request to the GM staff. Your ticket has been added "
-                   "to the queue.")
+                       "to the queue.")
             return
         else:
             caller.msg("Ticket submission has failed for unknown reason. Please inform the administrators.")
             return
+
 
 class CmdApp(MuxPlayerCommand):
     """
@@ -381,7 +389,7 @@ class CmdApp(MuxPlayerCommand):
     locks = "cmd:perm(request) or perm(Builders)"
 
     def func(self):
-        "Implement the command"
+        """Implement the command"""
 
         caller = self.caller
         args = self.args
@@ -397,25 +405,26 @@ class CmdApp(MuxPlayerCommand):
             if not all_apps:
                 caller.msg("No applications found.")
                 return
-            #application[9] field is 'True' if pending/open
+            # application[9] field is 'True' if pending/open
             pend_list = [app for app in all_apps.values() if app[9]]
             if not pend_list:
                 caller.msg("No pending applications found.")
                 return
-            # app = [app_num, char_ob, email, date_submit, application_string, gm_ob, date_answer, gm_notes, approval, pending]
+            # app = [app_num, char_ob, email, date_submit, application_string,
+            # gm_ob, date_answer, gm_notes, approval, pending]
             table = prettytable.PrettyTable(["{w#",
                                              "{wCharacter",
                                              "{wEmail",
                                              "{wDate"])
             for app in pend_list:
-                table.add_row( [app[0], app[1].key.capitalize(), app[2], app[3]] )
+                table.add_row([app[0], app[1].key.capitalize(), app[2], app[3]])
             caller.msg("{wApplications for Characters pending approval:\n%s" % table)
             caller.msg("To view a particular application, @app <app number>")
             caller.msg("To view closed applications, use @app/old")
             return
         if args and not switches and not args.isdigit():
             # '@app <character>'
-            #List all pending apps for a particular character
+            # List all pending apps for a particular character
             apps_for_char = apps.view_all_apps_for_char(args)
             if not apps_for_char:
                 caller.msg("No applications found.")
@@ -424,19 +433,20 @@ class CmdApp(MuxPlayerCommand):
             if not pend_list:
                 caller.msg("No pending applications found.")
                 return
-            # app = [app_num, char_ob, email, date_submit, application_string, gm_ob, date_answer, gm_notes, approval, pending]
+            # app = [app_num, char_ob, email, date_submit, application_string, gm_ob,
+            # date_answer, gm_notes, approval, pending]
             table = prettytable.PrettyTable(["{w#",
                                              "{wCharacter",
                                              "{wEmail",
                                              "{wDate"])
             for app in pend_list:
-                table.add_row( [app[0], app[1].key.capitalize(), app[2], app[3]] )
+                table.add_row([app[0], app[1].key.capitalize(), app[2], app[3]])
             caller.msg("{wPending applications for %s:\n%s" % (args, table))
             caller.msg("To view a specific application, @app <app number>")
             return
         if args and args.isdigit() and (not switches or 'old' in switches):
             # '@app <#>
-            #List a given ticket by
+            # List a given ticket by
             app = apps.view_app(int(args))
             if not app:
                 caller.msg("No application by that number for that character.")
@@ -465,8 +475,8 @@ class CmdApp(MuxPlayerCommand):
             if apps.close_app(int(self.lhs), caller, self.rhs, True):
                 caller.msg("Application successfully approved.") 
                 if app and app[1]:
-                    inform_staff("{w%s has approved %s's application.{n" %
-                                    (caller.key.capitalize(), app[1].key.capitalize()))
+                    inform_staff("{w%s has approved %s's application.{n" % (caller.key.capitalize(),
+                                                                            app[1].key.capitalize()))
                 try:
                     
                     entry = RosterEntry.objects.get(character__id=app[1].id,
@@ -475,7 +485,7 @@ class CmdApp(MuxPlayerCommand):
                     entry.roster = active_roster
                     try:
                         account = PlayerAccount.objects.get(email=app[2])
-                    except Exception:
+                    except PlayerAccount.DoesNotExist:
                         account = PlayerAccount.objects.create(email=app[2])
                     entry.current_account = account
                     entry.save()
@@ -491,26 +501,22 @@ class CmdApp(MuxPlayerCommand):
                         if not entry.character:
                             raise ValueError("No character found for setup gear")
                         setup_gear_for_char(entry.character)
-                    except Exception:
+                    except ValueError:
                         traceback.print_exc()                   
-                except Exception:
+                except (RosterEntry.DoesNotExist, RosterEntry.MultipleObjectsReturned, Roster.DoesNotExist,
+                        Roster.MultipleObjectsReturned, AttributeError, ValueError, TypeError):
                     print "Error when attempting to mark closed application as active."
                     traceback.print_exc()
                 try:
                     from world.dominion.setup_utils import setup_dom_for_char
                     setup_dom_for_char(app[1])
-                except Exception:
+                except (ValueError, TypeError):
                     # will throw an exception if Dominion already set up
                     pass
                 try:
-                    from typeclasses.bulletin_board.bboard import BBoard
-                except ImportError:
-                    self.msg("Couldn't post announcement")
-                    return
-                try:
                     bb = BBoard.objects.get(db_key__iexact="Roster Changes")
                     msg = "%s now has a new player and is on the active roster." % app[1]
-                    subject="%s now active" % app[1]
+                    subject = "%s now active" % app[1]
                     bb.bb_post(self.caller, msg, subject=subject, poster_name="Roster")
                 except BBoard.DoesNotExist:
                     self.msg("Board not found for posting announcement")
@@ -536,7 +542,7 @@ class CmdApp(MuxPlayerCommand):
                 app = apps.view_app(int(self.lhs))
                 if app and app[1]:
                     inform_staff("{w%s has declined %s's application.{n" %
-                                    (caller.key.capitalize(), app[1].key.capitalize()))                 
+                                 (caller.key.capitalize(), app[1].key.capitalize()))
                 return
             else:
                 caller.msg("Application closure failed.")
@@ -547,9 +553,9 @@ class CmdApp(MuxPlayerCommand):
             if not all_apps:
                 caller.msg("No applications found.")
                 return
-            #application[9] field is 'True' if pending/open
+            # application[9] field is 'True' if pending/open
             pend_list = [_app for _app in all_apps.values() if not _app[9]]
-            pend_list.sort(key=lambda app: app[0])
+            pend_list.sort(key=lambda appl: appl[0])
             if not pend_list:
                 caller.msg("No closed applications found.")
                 return
@@ -561,14 +567,15 @@ class CmdApp(MuxPlayerCommand):
                 except (TypeError, ValueError):
                     caller.msg("Could not display entries for that range.")
                     return
-            # app = [app_num, char_ob, email, date_submit, application_string, gm_ob, date_answer, gm_notes, approval, pending]
+            # app = [app_num, char_ob, email, date_submit, application_string, gm_ob,
+            #  date_answer, gm_notes, approval, pending]
             table = prettytable.PrettyTable(["{w#",
                                              "{wCharacter",
                                              "{wEmail",
                                              "{wDate",
                                              "{wApproved"])
             for app in pend_list:
-                table.add_row( [app[0], app[1].key.capitalize(), app[2], app[3][:9], str(app[8])] )
+                table.add_row([app[0], app[1].key.capitalize(), app[2], app[3][:9], str(app[8])])
             caller.msg("{wOld/Closed applications for characters:\n%s" % table)
             caller.msg("To view a particular application, @app <app number>")
             return
@@ -582,7 +589,8 @@ class CmdApp(MuxPlayerCommand):
             if not pend_list:
                 caller.msg("No closed applications found.")
                 return
-            # app = [app_num, char_ob, email, date_submit, application_string, gm_ob, date_answer, gm_notes, approval, pending]
+            # app = [app_num, char_ob, email, date_submit, application_string, gm_ob,
+            # date_answer, gm_notes, approval, pending]
             table = prettytable.PrettyTable(["{w#",
                                              "{wCharacter",
                                              "{wEmail",
@@ -590,7 +598,7 @@ class CmdApp(MuxPlayerCommand):
                                              "{wGM",
                                              "{wApproved"])
             for app in pend_list:
-                table.add_row( [app[0], app[1].key.capitalize(), app[2], app[3][:9], app[5].key, str(app[8])] )
+                table.add_row([app[0], app[1].key.capitalize(), app[2], app[3][:9], app[5].key, str(app[8])])
             caller.msg("{wOld/Closed applications for %s:\n%s" % (args, table))
             caller.msg("To view a particular application, @app <app number>")
             return
@@ -604,7 +612,7 @@ class CmdApp(MuxPlayerCommand):
                                              "{wEmail",
                                              "{wDate"])
             for app in apps_for_email:
-                table.add_row( [app[0], app[1].key.capitalize(), app[2], app[3]] )
+                table.add_row([app[0], app[1].key.capitalize(), app[2], app[3]])
             caller.msg("{wApplications for %s:\n%s" % (args, table))
             caller.msg("To view a particular application, @app <app number>")
             return
@@ -624,4 +632,3 @@ class CmdApp(MuxPlayerCommand):
                 caller.msg("Must provide a valid app #.")
                 return
         caller.msg("Invalid switch for @app.")
-

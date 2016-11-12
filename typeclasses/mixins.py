@@ -161,19 +161,16 @@ class AppearanceMixins(object):
                 try:
                     from evennia.utils.ansi import parse_ansi
                     object_key = parse_ansi(object_key, strip_ansi=True)
-                except Exception:
+                except (AttributeError, TypeError, ValueError):
                     pass
             return object_key
         string = ""
         # get and identify all objects
         visible = (con for con in self.contents if con != pobject and con.access(pobject, "view"))
         exits, users, things, worn, sheathed, wielded, places = [], [], [], [], [], [], []
-        currency = self.return_currency(pobject)
-        try:
-            from typeclasses.places.places import Place
-            qs = Place.objects.filter(db_location=self)
-        except Exception:
-            qs = []
+        currency = self.return_currency()
+        from typeclasses.places.places import Place
+        qs = list(Place.objects.filter(db_location=self))
         for con in visible:
             key = get_key(con)
             if con in qs and show_places:
@@ -246,10 +243,9 @@ class AppearanceMixins(object):
             receiver.db.currency += amount
         return True
     
-    def return_currency(self, pobject):
+    def return_currency(self):
         """
         :type self: ObjectDB
-        :param pobject: None
         """
         currency = self.db.currency
         if not currency:
@@ -287,7 +283,7 @@ class AppearanceMixins(object):
             try:
                 from evennia.utils.ansi import parse_ansi
                 desc = parse_ansi(desc, strip_ansi=True)
-            except Exception:
+            except (AttributeError, ValueError, TypeError):
                 pass
         if desc and not self.db.recipe and not self.db.do_not_format_desc and "player_made_room" not in self.tags.all():
             if format_desc:
@@ -299,13 +295,12 @@ class AppearanceMixins(object):
             string += "\n%s{n" % desc
         if contents and show_contents:
             string += contents
-        string += self.return_crafting_desc(pobject)   
+        string += self.return_crafting_desc()
         return string
 
-    def return_crafting_desc(self, looker=None):
+    def return_crafting_desc(self):
         """
         :type self: ObjectDB
-        :param looker: ObjectDB
         """
         string = ""
         adorns = self.db.adorns or {}
@@ -357,8 +352,6 @@ class ObjectMixins(DescMixins, AppearanceMixins):
         return False
 
 
-
-
 class MsgMixins(object):
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):
         """
@@ -373,7 +366,7 @@ class MsgMixins(object):
         options.update(kwargs.get('options', {}))
         try:
             text = str(text)
-        except Exception:
+        except (TypeError, UnicodeDecodeError, ValueError):
             pass
         text = sub_old_ansi(text)
         if options.get('is_pose', False):
@@ -415,7 +408,6 @@ class LockMixins(object):
 
     def unlock(self, caller=None):
         """
-
         :type self: ObjectDB:
         :param caller: ObjectDB
         :return:
@@ -439,14 +431,15 @@ class LockMixins(object):
     def return_appearance(self, pobject, detailed=False, format_desc=False,
                           show_contents=True):
         """
-        :type self: ObjectDB
+        :type self: AppearanceMixins, Container
         :param pobject: ObjectDB
         :param detailed: bool
         :param format_desc: bool
         :param show_contents: bool
         :return: str
         """
-        show_contents = not self.db.locked
+        currently_open = not self.db.locked
+        show_contents = currently_open and show_contents
         base = super(LockMixins, self).return_appearance(pobject, detailed=detailed,
-                                                         format_desc=False, show_contents=show_contents)
+                                                         format_desc=format_desc, show_contents=show_contents)
         return base + "\nIt is currently %s." % ("locked" if self.db.locked else "unlocked")

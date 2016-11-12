@@ -6,17 +6,14 @@ to define the cmdset separately, picking and choosing from
 among the available commands as to what should be included in the
 cmdset - this way you can often re-use the commands too.
 """
-
-import random
-from django.conf import settings
 from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand
 
 
-
-#------------------------------------------------------------
+# ------------------------------------------------------------
 # Commands defined for wearable
-#------------------------------------------------------------
+# ------------------------------------------------------------
+
 
 class CmdHugPoro(MuxCommand):
     """
@@ -30,14 +27,14 @@ class CmdHugPoro(MuxCommand):
     key = "hug poro"
     locks = "cmd:all()"
     help_category = "Poro-based commands"
+
     def func(self):
-        "Implements command"
+        """Implements command"""
         caller = self.caller
         caller.location.msg_contents("%s hugs the poro, and it squeaks adorably." % caller)
         return
 
         
-
 class PoroCmdSet(CmdSet):
     """
     The default cmdset always sits
@@ -55,11 +52,5 @@ class PoroCmdSet(CmdSet):
     duplicates = False
 
     def at_cmdset_creation(self):
-        "Init the cmdset"
+        """Init the cmdset"""
         self.add(CmdHugPoro())
-
-        
-
-
-
-  
