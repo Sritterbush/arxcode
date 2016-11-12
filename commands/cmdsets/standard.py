@@ -68,6 +68,11 @@ except Exception as err:
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading dominion commands: %s" % err)
 try:
+    from world.dominion import agent_commands
+except Exception as err:
+    traceback.print_exc()
+    print("<<ERROR>>: Error encountered in loading agent commands: %s" % err)
+try:
     from commands.commands import crafting
 except Exception as err:
     traceback.print_exc()
@@ -94,9 +99,11 @@ except Exception as err:
     print("<<ERROR>>: Error encountered in overriding help: %s" % err)
 from evennia.commands.cmdset import CmdSet
 
+
 class OOCCmdSet(CmdSet):
-    "Character-specific OOC commands. Most OOC commands defined in player."    
+    """Character-specific OOC commands. Most OOC commands defined in player."""
     key = "OOCCmdSet"
+
     def at_cmdset_creation(self):
         """
         This is the only method defined in a cmdset, called during
@@ -122,6 +129,7 @@ class OOCCmdSet(CmdSet):
         self.add(arxhelp.CmdHelp())
         self.add(social.CmdSocialScore())
 
+
 class StateIndependentCmdSet(CmdSet):
     """
     Character commands that will always exist, regardless of character state.
@@ -129,9 +137,10 @@ class StateIndependentCmdSet(CmdSet):
     dead, because they might be posing something about the corpse, etc.
     """  
     key = "StateIndependentCmdSet"   
+
     def at_cmdset_creation(self):
         self.add(overrides.CmdPose())
-        #emit was originally an admin command. Replaced those with gemit
+        # emit was originally an admin command. Replaced those with gemit
         self.add(overrides.CmdEmit())
         self.add(general.CmdOOCSay())
         self.add(general.CmdDirections())
@@ -148,6 +157,7 @@ class StateIndependentCmdSet(CmdSet):
         self.add(social.CmdRoomHistory())
         self.add(maps.CmdMap())
 
+
 class MobileCmdSet(CmdSet):
     """
     Commands that should only be allowed if the character is able to move.
@@ -156,6 +166,7 @@ class MobileCmdSet(CmdSet):
     unable to move. The sets are just equal.
     """
     key = "MobileCmdSet"
+
     def at_cmdset_creation(self):
         self.add(overrides.CmdGet())
         self.add(overrides.CmdDrop())
@@ -175,7 +186,7 @@ class MobileCmdSet(CmdSet):
         self.add(combat.CmdAutoattack())
         self.add(combat.CmdCombatStats())
         self.add(combat.CmdHeal())
-        self.add(domcommands.CmdGuards())
+        self.add(agent_commands.CmdGuards())
         self.add(domcommands.CmdTask())
         self.add(domcommands.CmdSupport())
         self.add(crafting.CmdCraft())
@@ -190,9 +201,11 @@ class MobileCmdSet(CmdSet):
         self.add(investigation.CmdAssistInvestigation())
         self.add(general.CmdUndress())
 
+
 class StaffCmdSet(CmdSet):
-    "OOC staff and building commands. Character-based due to interacting with game world."   
+    """OOC staff and building commands. Character-based due to interacting with game world."""
     key = "StaffCmdSet"   
+
     def at_cmdset_creation(self):
         # The help system       
         self.add(help.CmdSetHelp())
