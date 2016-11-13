@@ -69,7 +69,7 @@ BASE_WORKER_COST = 0.10
 SILVER_PER_BUILDING = 225.00
 FOOD_PER_FARM = 100.00
 # each point in a dominion skill is a 5% bonus
-BONUS_PER_SKILL_POINT = 0.05
+BONUS_PER_SKILL_POINT = 0.10
 # number of workers for a building to be at full production
 SERFS_PER_BUILDING = 20.0
 # population cap for housing
@@ -922,6 +922,14 @@ class Domain(models.Model):
     def _get_mill_income(self):
         base = self.get_resource_income(self.num_mills, self.mill_serfs)
         return base
+
+    def get_bonus(self, attr):
+        try:
+            skill_value = self.ruler.ruler_skill(attr)
+            skill_value *= BONUS_PER_SKILL_POINT
+            return skill_value
+        except AttributeError:
+            return 0.0
     
     def _get_total_income(self):
         """
@@ -936,7 +944,7 @@ class Domain(models.Model):
         amount += self.mill_income
         amount = (amount * self.income_modifier)/100.0
         if self.ruler and self.ruler.castellan:
-            bonus = (self.ruler.castellan.income * BONUS_PER_SKILL_POINT) * amount
+            bonus = self.get_bonus('income') * amount
             amount += bonus
         self.cached_total_income = int(amount)
         # we'll dump the remainder
@@ -960,9 +968,9 @@ class Domain(models.Model):
         cost = BASE_WORKER_COST * number
         cost *= (100 - self.slave_labor_percentage)/100
         if self.ruler and self.ruler.castellan:
-            # every point in upkeep skill is 5% discount to costs
-            reduction = (self.ruler.castellan.upkeep * BONUS_PER_SKILL_POINT) * cost
-            cost -= reduction
+            # every point in upkeep skill reduces cost
+            reduction = 1.00 + self.get_bonus('upkeep')
+            cost /= reduction
         return int(cost)
         
     def _get_costs(self):
@@ -992,7 +1000,7 @@ class Domain(models.Model):
         mod = self.required_worker_mod(self.num_farms, self.farming_serfs)
         amount = (self.num_farms * FOOD_PER_FARM) * mod
         if self.ruler and self.ruler.castellan:
-            bonus = (self.ruler.castellan.farming * BONUS_PER_SKILL_POINT) * amount
+            bonus = self.get_bonus('farming') * amount
             amount += bonus
         return int(amount)
     
@@ -1136,7 +1144,7 @@ class Domain(models.Model):
             # bonus for having a lot of room to grow
             bonus = float(self.max_pop)/self.total_serfs
             if self.ruler and self.ruler.castellan:
-                bonus += bonus * (self.ruler.castellan.population * BONUS_PER_SKILL_POINT)
+                bonus += bonus * self.get_bonus('population')
             bonus = int(bonus) + 1
             base_growth += bonus
         if self.lawlessness > 0:
@@ -1205,14 +1213,18 @@ class Domain(models.Model):
     def display(self):
         castellan = None
         liege = "Crownsworn"
+        ministers = []
         if self.ruler:
             castellan = self.ruler.castellan
             liege = self.ruler.liege
+            ministers = self.ruler.ministers.all()
         mssg = "{wDomain{n: %s\n" % self.name
         mssg += "{wLand{n: %s\n" % self.land
         mssg += "{wHouse{n: %s\n" % str(self.ruler)
         mssg += "{wLiege{n: %s\n" % str(liege)
         mssg += "{wRuler{n: %s\n" % castellan
+        for minister in ministers:
+            mssg += "{wMinister of %s{n: %s\n" % (minister.get_category_display(), minister.player)
         mssg += "{wDesc{n: %s\n" % self.desc
         mssg += "{wArea{n: %s {wFarms{n: %s {wHousing{n: %s " % (self.area, self.num_farms, self.num_housing)
         mssg += "{wMines{n: %s {wLumber{n: %s {wMills{n: %s\n" % (self.num_mines, self.num_lumber_yards, self.num_mills)
@@ -1445,6 +1457,45 @@ class Ruler(models.Model):
         else:
             owner = self.castellan
         return "<Ruler (#%s): %s>" % (self.id, owner)
+
+    def minister_skill(self, attr):
+        """
+        Given attr, which must be one of the dominion skills defined in PlayerOrNpc, returns an integer which is
+        the value of the Minister which corresponds to that category. If there is no Minister or more than 1,
+        both of which are errors, we return 0.
+        :param attr: str
+        :return: int
+        """
+        try:
+            if attr == "population":
+                category = Minister.POP
+            elif attr == "warfare":
+                category = Minister.WARFARE
+            elif attr == "farming":
+                category = Minister.FARMING
+            elif attr == "income":
+                category = Minister.INCOME
+            elif attr == "loyalty":
+                category = Minister.LOYALTY
+            elif attr == "upkeep":
+                category = Minister.UPKEEP
+            else:
+                category = Minister.PRODUCTIVITY
+            minister = self.ministers.get(category=category)
+            return getattr(minister.player, attr)
+        except (Minister.DoesNotExist, Minister.MultipleObjectsReturned, AttributeError):
+            return 0
+
+    def ruler_skill(self, attr):
+        """
+        Returns the DomSkill value of the castellan + his ministers
+        :param attr: str
+        :return: int
+        """
+        try:
+            return getattr(self.castellan, attr) + self.minister_skill(attr)
+        except AttributeError:
+            return 0
 
 
 class Crisis(models.Model):

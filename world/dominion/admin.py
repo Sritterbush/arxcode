@@ -1,25 +1,17 @@
 from django.contrib import admin
 from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb,
-                                  AssetOwner, Region, Land, DomainProject, Castle,
-                                  Ruler, Army, Orders, MilitaryUnit, Member, Task,
-                                  CraftingRecipe, CraftingMaterialType, CraftingMaterials,
-                                  RPEvent, AccountTransaction, AssignedTask, Crisis,
-                                  OrgRelationship, Reputation, TaskSupporter, InfluenceCategory,
-                                  Renown, SphereOfInfluence, TaskRequirement)
-from django.db.models import Sum
+                     AssetOwner, Region, Land, DomainProject, Castle,
+                     Ruler, Army, Orders, MilitaryUnit, Member, Task,
+                     CraftingRecipe, CraftingMaterialType, CraftingMaterials,
+                     RPEvent, AccountTransaction, AssignedTask, Crisis,
+                     OrgRelationship, Reputation, TaskSupporter, InfluenceCategory,
+                     Renown, SphereOfInfluence, TaskRequirement)
+
 
 class DomAdmin(admin.ModelAdmin):
-##    def get_actions(self, request):
-##        #Disable delete
-##        actions = super(DomAdmin, self).get_actions(request)
-##        del actions['delete_selected']
-##        return actions
-##
-##    def has_delete_permission(self, request, obj=None):
-##        #Disable delete
-##        return False
     list_select_related = True
     save_as = True
+
 
 class PCAdmin(DomAdmin):
     search_fields = ['player__username', 'npc_name']
@@ -29,57 +21,70 @@ class PCAdmin(DomAdmin):
         'player',
     )
 
+
 class MemberInline(admin.StackedInline):
     model = Member
     extra = 0
     raw_id_fields = ('commanding_officer',)
-    exclude = ('object','pc_exists', 'salary')
+    exclude = ('object', 'pc_exists', 'salary')
     readonly_fields = ('work_this_week', 'work_total')
 
+
 class OrgListFilter(admin.SimpleListFilter):
-    title = ('PC or NPC')
+    title = 'PC or NPC'
     parameter_name = 'played'
+
     def lookups(self, request, model_admin):
         return (
-            ('pc', ('Has Players')),
-            ('npc', ('NPCs Only')),
+            ('pc', 'Has Players'),
+            ('npc', 'NPCs Only'),
             )
+
     def queryset(self, request, queryset):
         if self.value() == 'pc':
             return queryset.filter(members__player__player__isnull=False).distinct()
         if self.value() == 'npc':
             return queryset.filter(members__player__player__isnull=True).distinct()
 
+
 class OrgAdmin(DomAdmin):
     list_display = ('name', 'membership')
     ordering = ['name']
     search_fields = ['name']
     list_filter = (OrgListFilter,)
-    def membership(self, obj):
+
+    @staticmethod
+    def membership(obj):
         return ", ".join([str(p) for p in obj.members.filter(deguilded=False)])
     inlines = [MemberInline]
 
     
-
 class Assignments(admin.StackedInline):
     model = AssignedTask
     extra = 0
 
+
 class Supporters(admin.TabularInline):
     model = TaskSupporter
     extra = 0
-    readonly_fields = ('rating','week',)
+    readonly_fields = ('rating', 'week',)
+
 
 class AssignedTaskAdmin(DomAdmin):
     list_display = ('member', 'org', 'task', 'finished', 'week', 'support_total')
     search_fields = ('member__player__player__username', 'task__name')
     inlines = [Supporters]
-    def support_total(self, obj):
+
+    @staticmethod
+    def support_total(obj):
         return obj.total
-    def org(self, obj):
+
+    @staticmethod
+    def org(obj):
         return obj.member.organization.name
     list_filter = ('finished',)
     list_select_related = ('member__player__player', 'member__organization', 'task')
+
 
 class MemberAdmin(DomAdmin):
     list_display = ('player', 'organization', 'rank')
@@ -95,26 +100,33 @@ class UnitAdmin(DomAdmin):
     list_display = ('typename', 'army', 'quantity')
     ordering = ['army']
     search_fields = ['army__name']
-    def typename(self, obj):
+
+    @staticmethod
+    def typename(obj):
         return obj.type
     list_filter = ('army',)
 
+
 class RulerAdmin(DomAdmin):
-    list_display = ('house', 'liege', 'castellan')
+    list_display = ('id', 'house', 'liege', 'castellan')
     ordering = ['house']
     search_fields = ['house__organization_owner__name']
-    raw_id_fields = ('castellan',)
+    raw_id_fields = ('castellan', 'house')
+
 
 class DomainAdmin(DomAdmin):
-    list_display = ('name', 'ruler', 'land')
+    list_display = ('id', 'name', 'ruler', 'land')
     ordering = ['name']
     search_fields = ['name']
+    raw_id_fields = ('ruler',)
+
 
 class MaterialTypeAdmin(DomAdmin):
     list_display = ('id', 'name', 'desc', 'value', 'category')
     ordering = ['value']
     search_fields = ['name', 'desc', 'category']
     list_filter = ('category',)
+
 
 class RecipeAdmin(DomAdmin):
     list_display = ('id', 'name', 'result', 'skill', 'ability', 'level', 'difficulty')
@@ -123,11 +135,13 @@ class RecipeAdmin(DomAdmin):
     list_filter = ('ability',)
     filter_horizontal = ['known_by', 'primary_materials', 'secondary_materials', 'tertiary_materials']
 
+
 class MaterialsAdmin(DomAdmin):
     list_display = ('owner', 'type', 'amount')
     ordering = ['owner']
     search_fields = ['owner__player__player__username', 'type__name']
     list_filter = ('type',)
+
 
 class EventAdmin(DomAdmin):
     list_display = ('id', 'name', 'date')
@@ -135,75 +149,98 @@ class EventAdmin(DomAdmin):
     raw_id_fields = ('location',)
     filter_horizontal = ['hosts', 'participants', 'gms']
 
+
 class TransactionInline(admin.TabularInline):
     model = AccountTransaction
     fk_name = 'sender'
     extra = 0
     raw_id_fields = ('receiver',)
 
+
 class AssetAdmin(DomAdmin):
-    list_display = ('ownername', 'vault', 'prestige', 'economic', 'military', 'social')
+    list_display = ('id', 'ownername', 'vault', 'prestige', 'economic', 'military', 'social')
     search_fields = ['player__npc_name', 'player__player__username', 'organization_owner__name']
     inlines = [TransactionInline]
-    raw_id_fields = ('player',)
-    def ownername(self, obj):
+    raw_id_fields = ('player', 'organization_owner')
+
+    @staticmethod
+    def ownername(obj):
         return obj.owner
+
 
 class AgentObAdmin(DomAdmin):
     list_display = ('agent_class', 'dbobj', 'quantity', 'guarding')
     raw_id_fields = ('dbobj',)
-    def guarding(self, obj):
+
+    @staticmethod
+    def guarding(obj):
         if not obj.dbobj:
             return None
         return obj.dbobj.db.guarding
+
 
 class TaskRequirementsInline(admin.TabularInline):
     model = TaskRequirement
     extra = 0
 
+
 class TaskAdmin(DomAdmin):
     list_display = ('id', 'name', 'orgs', 'category', 'active', 'difficulty')
     search_fields = ('name', 'org__name')
     inlines = [TaskRequirementsInline]
-    def orgs(self, obj):
+
+    @staticmethod
+    def orgs(obj):
         return ", ".join([p.name for p in obj.org.all()])
     filter_horizontal = ['org']
-    def formfield_for_manytomany(self, db_field, request, **kwargs):
+
+    def formfield_for_manytomany(self, db_field, request=None, **kwargs):
         if db_field.name == "org":
-            kwargs["queryset"] = Organization.objects.filter(members__player__player__isnull=False).distinct().order_by('name')
+            kwargs["queryset"] = Organization.objects.filter(members__player__player__isnull=False
+                                                             ).distinct().order_by('name')
         return super(TaskAdmin, self).formfield_for_manytomany(db_field, request, **kwargs)
+
 
 class CrisisAdmin(DomAdmin):
     filter_horizontal = ['orgs']
 
+
 class OrgRelationshipAdmin(DomAdmin):
     filter_horizontal = ['orgs']
 
+
 class ReputationAdmin(DomAdmin):
     list_display = ('player', 'organization', 'affection', 'respect')
-    raw_id_fields = ('player',)
+    raw_id_fields = ('player', 'organization')
+
 
 class SpheresInline(admin.TabularInline):
     model = SphereOfInfluence
     extra = 0
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+
+    def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         if db_field.name == "org":
-            kwargs["queryset"] = Organization.objects.filter(members__player__player__isnull=False).distinct().order_by('name')
+            kwargs["queryset"] = Organization.objects.filter(members__player__player__isnull=False
+                                                             ).distinct().order_by('name')
         return super(SpheresInline, self).formfield_for_foreignkey(db_field, request, **kwargs)
+
 
 class RenownInline(admin.TabularInline):
     model = Renown
     extra = 0
 
 
-
 class InfluenceCategoryAdmin(DomAdmin):
-    list_display = ('name', 'Orgs', 'Tasks')
+    list_display = ('name', 'organizations', 'task_requirements')
     ordering = ['name']
     search_fields = ['name', 'orgs__name', 'tasks__name']
-    def Orgs(self, obj):
+
+    @staticmethod
+    def organizations(obj):
         return ", ".join([p.name for p in obj.orgs.all().order_by('name')])
-    def Tasks(self, obj):
+
+    @staticmethod
+    def task_requirements(obj):
         return ", ".join([p.name for p in obj.tasks.all().order_by('name')])
     inlines = [SpheresInline, TaskRequirementsInline, RenownInline]
   

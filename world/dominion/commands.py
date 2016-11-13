@@ -14,11 +14,12 @@ from evennia.objects.models import ObjectDB
 from evennia.players.models import PlayerDB
 from server.utils.arx_utils import get_week
 from server.utils.prettytable import PrettyTable
+from evennia.utils.evtable import EvTable
 from . import setup_utils
 from .models import (Region, Domain, Land, PlayerOrNpc, Army,
                      Castle, AssetOwner, Task,
                      Ruler, Organization, Member, Orders, SphereOfInfluence, SupportUsed, AssignedTask,
-                     TaskSupporter, InfluenceCategory)
+                     TaskSupporter, InfluenceCategory, Minister)
 from .unit_types import type_from_str
 
 # Constants for Dominion projects
@@ -1200,6 +1201,8 @@ class CmdDomain(MuxPlayerCommand):
     @domain
     Usage:
         @domain
+        @domain/castellan <domain ID>=<player>
+        @domain/minister <domain ID>=<player>,<category>
 
     Commands to view and control your domain.
 
@@ -1209,52 +1212,110 @@ class CmdDomain(MuxPlayerCommand):
     locks = "cmd:all()"
     help_category = "Dominion"
     aliases = ["@domains"]
+    valid_categories = ("farming", "income", "loyalty", "population", "productivity", "upkeep", "warfare")
+    minister_dict = dict((key.lower(), value) for (value, key) in Minister.MINISTER_TYPES)
+
+    @property
+    def orgs(self):
+        return [org for org in self.caller.Dominion.current_orgs if org.access(self.caller, "command")]
+
+    @property
+    def org_domains(self):
+        return Domain.objects.filter(ruler__house__organization_owner__in=self.orgs)
+
+    @property
+    def ruled_domains(self):
+        return Domain.objects.filter(ruler__castellan=self.caller.Dominion)
+
+    @property
+    def ministered_domains(self):
+        return Domain.objects.filter(ruler__ministers__player=self.caller.Dominion)
+
+    @property
+    def domains(self):
+        org_owned = self.org_domains
+        ruled = self.ruled_domains
+        minister = self.ministered_domains
+        return (org_owned | ruled | minister).distinct()
+
+    def list_domains(self):
+        table = EvTable("ID", "Domain", "House", "Castellan", "Ministers", width=78)
+        for domain in self.domains:
+            table.add_row(domain.id, domain.name, domain.ruler.house, domain.ruler.castellan,
+                          ", ".join(str(ob.player) for ob in domain.ruler.ministers.all()))
+        self.msg(str(table))
+
+    def check_member(self, domain, player):
+        if domain.ruler.house.organization_owner not in player.current_orgs:
+            self.msg("%s is not a member of %s." % (player, domain.ruler.house))
+            self.msg("current orgs: %s" % ", ".join(ob.name for ob in player.current_orgs))
+            return False
+        return True
+
+    def busy_check(self, dompc):
+        if dompc.appointments.all() or getattr(dompc, 'ruler', None):
+            self.msg("They are already holding an office, and cannot hold another.")
+            return True
+        return False
 
     def func(self):
-        caller = self.caller
-        commanded_orgs = []
-        if not hasattr(caller, 'Dominion'):
-            caller.msg("You don't have access to any domains.")
+        if not self.args and not self.switches:
+            self.list_domains()
             return
-        dompc = caller.Dominion
-        if not hasattr(dompc.assets, 'estate'):
-            owned = []
-        else:
-            owned = dompc.assets.estate.holdings.all()
-        ruled = Domain.objects.filter(ruler__castellan=dompc)
-        orgs = dompc.current_orgs
-        for org in orgs:
-            if org.access(caller, 'command'):
-                if hasattr(org.assets, 'estate'):
-                    commanded_orgs.extend(org.assets.estate.holdings.all())
-        ruled = set(ruled) | set(commanded_orgs)
-        doms = set(owned) | set(ruled)
-        if not doms:
-            caller.msg("No domains found.")
-            return
-        if not self.args:
-            ruledlist = ", ".join(str(ob) for ob in ruled if ob not in owned)
-            ownlist = ", ".join(str(ob) for ob in owned)
-            caller.msg("Your domains:")
-            if ownlist:
-                caller.msg("Domains owned by you: %s" % ownlist)
-            if ruledlist:
-                caller.msg("Domains you can command: %s" % ruledlist)
-            return
+        # for other switches, get our domain from lhs
         try:
-            doms = [ob.id for ob in doms]
-            doms = Domain.objects.filter(id__in=doms)
-            if self.lhs.startswith('#'):
-                self.lhs.lstrip('#')
-            if self.lhs.isdigit():
-                dom = doms.get(id=int(self.lhs))
-            else:
-                dom = doms.get(name__iexact=self.lhs)
+            dom = self.domains.get(id=self.lhs)
         except Domain.DoesNotExist:
-            caller.msg("No domain found.")
+            self.list_domains()
+            self.msg("No domain found by that ID.")
             return
         if not self.switches:
-            caller.msg(dom.display())
+            self.msg(dom.display())
+            return
+        if "castellan" in self.switches:
+            if dom not in (self.org_domains | self.ruled_domains).distinct():
+                self.msg("You do not have the authority to set a ruler.")
+                return
+            targ = self.caller.search(self.rhs)
+            if not targ:
+                return
+            dompc = targ.Dominion
+            if not self.check_member(dom, dompc):
+                return
+            if self.busy_check(dompc):
+                return
+            dom.ruler.castellan = dompc
+            dom.ruler.save()
+            self.msg("Castellan set to %s." % dompc)
+            return
+        if "minister" in self.switches:
+            if len(self.rhslist) != 2:
+                self.msg("Specify both a player and a category.")
+                self.msg("Valid categories: %s" % ", ".join(self.valid_categories))
+                return
+            targ = self.caller.search(self.rhslist[0])
+            if not targ:
+                return
+            if dom not in (self.org_domains | self.ruled_domains).distinct():
+                self.msg("You do not have the authority to set a minister.")
+                return
+            dompc = targ.Dominion
+            try:
+                category = self.minister_dict[self.rhslist[1]]
+            except KeyError:
+                self.msg("Valid categories: %s" % ", ".join(self.valid_categories))
+                return
+            if not self.check_member(dom, dompc):
+                return
+            if self.busy_check(dompc):
+                return
+            try:
+                minister = dom.ruler.ministers.get(category=category)
+                minister.player = dompc
+                minister.save()
+            except Minister.DoesNotExist:
+                dom.ruler.ministers.create(player=dompc, category=category)
+            self.msg("%s's Minister of %s set to be %s." % (dom, self.rhslist[1], dompc))
             return
 
 
@@ -2331,9 +2392,10 @@ class CmdSupport(MuxCommand):
                                                 ).distinct()
         if supports:
             caller.msg("Open tasks supported:")
-            table = PrettyTable(["{wID{n", "{wTask Name{n", "PC", "{wAmt{n"])
+            table = PrettyTable(["{wID{n",  # "{wTask Name{n",
+                                 "PC", "{wAmt{n"])
             for sup in supports:
-                table.add_row([sup.id, sup.task.task.name,
+                table.add_row([sup.id,  # sup.task.task.name,
                                str(sup.task.member), sup.rating])
             caller.msg(str(table))
     
