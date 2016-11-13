@@ -1264,10 +1264,13 @@ class CmdDomain(MuxPlayerCommand):
             return
         # for other switches, get our domain from lhs
         try:
-            dom = self.domains.get(id=self.lhs)
+            if self.lhs.isdigit():
+                dom = self.domains.get(id=self.lhs)
+            else:
+                dom = self.domains.get(name__iexact=self.lhs)
         except Domain.DoesNotExist:
             self.list_domains()
-            self.msg("No domain found by that ID.")
+            self.msg("No domain found by that name or ID.")
             return
         if not self.switches:
             self.msg(dom.display())
