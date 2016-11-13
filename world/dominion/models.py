@@ -352,6 +352,12 @@ class PlayerOrNpc(models.Model):
             return 0
         return max_support - points_spent
 
+    def get_absolute_url(self):
+        try:
+            return self.player.db.char_ob.get_absolute_url()
+        except AttributeError:
+            pass
+
 
 class AssetOwner(models.Model):
     """

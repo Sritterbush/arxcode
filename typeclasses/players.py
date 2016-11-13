@@ -251,6 +251,12 @@ class Player(MsgMixins, DefaultPlayer):
         except AttributeError:
             return []
 
+    def get_absolute_url(self):
+        try:
+            return self.db.char_ob.get_absolute_url()
+        except AttributeError:
+            pass
+
 
 
 
