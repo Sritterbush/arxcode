@@ -1639,7 +1639,7 @@ class CmdRandomScene(MuxCommand):
     them, using @randomscene/claim will send a request to that player to
     validate the scene you both had. If they agree, during the weekly script
     you'll both receive xp. Requests that aren't answered are wiped in
-    weekly maintenance.
+    weekly maintenance. /claim requires that both of you be in the same room.
     """
     key = "@randomscene"
     locks = "cmd:all()"
