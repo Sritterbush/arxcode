@@ -903,6 +903,9 @@ class CmdBuyFromShop(CmdCraft):
             try:
                 num = int(self.args)
                 obj = ObjectDB.objects.get(id=num, id__in=loc.db.item_prices.keys())
+            except (TypeError, ValueError):
+                self.msg("Please provide a number of an item.")
+                return
             except ObjectDB.DoesNotExist:
                 caller.msg("No item found by that number.")
                 return
