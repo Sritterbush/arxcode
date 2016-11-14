@@ -371,7 +371,7 @@ class CmdGive(MuxCommand):
                 caller.msg("Invalid syntax.")
                 return
             if rtype not in rtypes:
-                caller.msg("Type must be in %s." % rtypes)
+                caller.msg("Type must be in %s." % ", ".join(rtypes))
                 return
             cres = getattr(caller.db.player_ob.Dominion.assets, rtype)
             if cres < amount:
