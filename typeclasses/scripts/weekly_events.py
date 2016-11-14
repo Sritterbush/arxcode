@@ -296,11 +296,19 @@ class WeeklyEvents(Script):
         2 xp.
         """
         scenes = player.db.claimed_scenelist or []
+        charob = player.db.char_ob
         for ob in scenes:
+            # give credit to the character the player had a scene with
             if ob.id in self.db.scenes:
                 self.db.scenes[ob.id] += 1
             else:
                 self.db.scenes[ob.id] = 1
+            # give credit to the player's character, once per scene
+            if charob:
+                if charob.id in self.db.scenes:
+                    self.db.scenes[charob.id] += 1
+                else:
+                    self.db.scenes[charob.id] = 1
         # reset their claimed scenes, and what's used to generate those
         player.db.claimed_scenelist = []
         player.db.random_scenelist = []
