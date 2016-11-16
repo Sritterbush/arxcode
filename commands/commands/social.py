@@ -1662,7 +1662,8 @@ class CmdRandomScene(MuxCommand):
                                         ~Q(roster__current_account=self.caller.roster.current_account) &
                                         Q(roster__player__last_login__isnull=False) &
                                         Q(roster__player__last_login__gte=last_week) &
-                                        Q(roster__player__is_staff=False))
+                                        Q(roster__player__is_staff=False) &
+                                        ~Q(roster__player__db_tags__db_key="staff_npc"))
 
     def display_lists(self):
         if len(self.scenelist) + len(self.claimlist) < self.NUM_SCENES:
