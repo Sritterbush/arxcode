@@ -12,9 +12,10 @@ to be modified.
 
 """
 
-from evennia import DefaultChannel
+from evennia import DefaultChannel, logger
 from evennia.comms.models import Msg, TempMsg
 from evennia.utils.utils import make_iter
+
 
 class Channel(DefaultChannel):
     """
@@ -125,7 +126,7 @@ class Channel(DefaultChannel):
                 continue
             try:
                 entity.msg(msg.message, from_obj=msg.senders,
-                           options={"from_channel":self.id})
+                           options={"from_channel": self.id})
             except AttributeError as e:
                 logger.log_trace("%s\nCannot send msg to %s" % (e, entity))
 
@@ -229,6 +230,3 @@ class Channel(DefaultChannel):
         should only happen by intent.
         """
         self.msg(message, senders=senders, header=header, persistent=False)
-
-
-
