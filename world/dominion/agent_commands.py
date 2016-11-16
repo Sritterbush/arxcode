@@ -61,7 +61,7 @@ class CmdAgents(MuxPlayerCommand):
 
     @staticmethod
     def get_cost(lvl):
-        cost = pow((lvl + 1), 2) * 50
+        cost = pow((lvl + 1), 5)
         return cost
 
     @staticmethod
