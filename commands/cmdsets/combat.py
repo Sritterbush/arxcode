@@ -16,9 +16,7 @@ creative process.
 from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand
 from evennia.utils import create, evtable
-from evennia.utils.utils import inherits_from
 from server.utils.arx_utils import inform_staff
-from django.conf import settings
 from typeclasses.scripts.combat import combat_settings
 from evennia.objects.models import ObjectDB
 import random
@@ -899,6 +897,7 @@ class CmdCreateAntagonist(MuxCommand):
         caller.msg("Invalid switch.")
         return
 
+
 class CmdHeal(MuxCommand):
     """
     Administers medical care to a character.
@@ -942,7 +941,7 @@ class CmdHeal(MuxCommand):
         aid_given[targ.id] = time.time()
         caller.db.administered_aid = aid_given
         # give healin'
-        from game.gamesrc.objects.stats_and_skills import do_dice_check
+        from world.stats_and_skills import do_dice_check
         blessed = caller.db.blessed_by_lagoma
         if blessed:
             try:
@@ -959,6 +958,7 @@ class CmdHeal(MuxCommand):
         targ.recovery_test(diff_mod=-heal_roll)
         if heal_roll > 0 and targ.db.sleep_status != "awake":
             targ.wake_up()
+
 
 class CmdStandYoAssUp(MuxCommand):
     """
@@ -980,5 +980,5 @@ class CmdStandYoAssUp(MuxCommand):
         targ.db.damage = 0
         targ.wake_up()
         targ.msg("You have been healed.")
-        caller.msg("You heal %s because they're a sissy mortal who need everything done for them." % char)
+        caller.msg("You heal %s because they're a sissy mortal who need everything done for them." % targ)
         return

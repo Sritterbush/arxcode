@@ -2,6 +2,7 @@ from random import randint, choice
 import combat_settings
 from world.stats_and_skills import do_dice_check
 
+
 class QueuedAction(object):
     """
     An action that a player queues in when it is not their turn,
@@ -16,6 +17,7 @@ class QueuedAction(object):
 
     def __str__(self):
         return self.qtype or "None"
+
 
 class CharacterCombatData(object):
     """
@@ -73,7 +75,7 @@ class CharacterCombatData(object):
             self.autoattack = character.db.autoattack or False
             self.base_name = character.name
             self.plural_name = character.name
-        self.rank = 1 # combat rank/position. 1 is 'front line'
+        self.rank = 1  # combat rank/position. 1 is 'front line'
         self.shield = character.db.shield
         if hasattr(character, 'weapondata'):
             print "Found weapondata for %s" % self.char
@@ -81,10 +83,10 @@ class CharacterCombatData(object):
             print "weapon = %s" % self.weapon
         else:
             self.setup_weapon()     
-        self.defenders = character.db.defenders or [] # can be guarded by many
+        self.defenders = character.db.defenders or []  # can be guarded by many
         if self.defenders:
             self.rank += 1
-        self.guarding = character.db.guarding # can only guard 1 character
+        self.guarding = character.db.guarding  # can only guard 1 character
         if self.guarding:
             self.rank -= 1
         self.initiative = 0
@@ -103,34 +105,35 @@ class CharacterCombatData(object):
         # list of valid foes for us to make into targets
         self.foelist = []
         self.friendlist = []
-        self._ready = False # ready to move on from phase 1
-        self.stance = character.db.combat_stance # defensive, aggressive, etc
-        if self.stance not in combat_settings._COMBAT_STANCES_: self.stance = "balanced"
-        self.last_defense_method = None # how we avoided the last attack we stopped
+        self._ready = False  # ready to move on from phase 1
+        self.stance = character.db.combat_stance  # defensive, aggressive, etc
+        if self.stance not in combat_settings._COMBAT_STANCES_:
+            self.stance = "balanced"
+        self.last_defense_method = None  # how we avoided the last attack we stopped
         
         self.status = "active"
         # eventually may have a grid system, but won't use it yet
-        #self.position = (0,0,0)
-        #self.direction = 0 # facing forward
+        # self.position = (0,0,0)
+        # self.direction = 0 # facing forward
         self.afk_timer = None
-        self.votes_to_kick = [] # if we're AFK
-        self.lost_turn_counter = 0 # lose a turn whenever it's > 0
-        self.block_flee = None # Anyone we stop from fleeing
-        self.blocker_list = [] # Anyone stopping us from fleeing
-        self.covering_targs = [] # Covering their retreat
-        self.covered_by = [] # Having your retreat covered
+        self.votes_to_kick = []  # if we're AFK
+        self.lost_turn_counter = 0  # lose a turn whenever it's > 0
+        self.block_flee = None  # Anyone we stop from fleeing
+        self.blocker_list = []  # Anyone stopping us from fleeing
+        self.covering_targs = []  # Covering their retreat
+        self.covered_by = []  # Having your retreat covered
         self.formation = None
         self.flee_exit = None
         self.wants_to_end = False
         self.times_attacked = 0
         self._fatigue_penalty = 0
         self.fatigue_gained_this_turn = 0
-        self.num_actions = 0 # used for fatigue calculation
+        self.num_actions = 0  # used for fatigue calculation
         self.changed_stance = False
 
     def setup_weapon(self, weapon=None):
         self.weapon = weapon
-        if weapon: #various optional weapon fields w/default values
+        if weapon:  # various optional weapon fields w/default values
             self.combat_style = self.char.db.combat_style or "melee"
             self.attack_skill = self.weapon.get('attack_skill', 'brawl')
             self.attack_stat = self.weapon.get('attack_stat', 'dexterity')
@@ -149,9 +152,9 @@ class CharacterCombatData(object):
                 self.can_block = False
             self.can_dodge = True
             self.flat_damage_bonus = self.weapon.get('flat_damage', 0)
-            #self.reach = self.weapon.get('reach', 1)
-            #self.minimum_range = self.weapon.get('minimum_range', 0)
-        else: #unarmed combat
+            # self.reach = self.weapon.get('reach', 1)
+            # self.minimum_range = self.weapon.get('minimum_range', 0)
+        else:  # unarmed combat
             self.combat_style = self.char.db.combat_style or "brawling"
             self.attack_skill = "brawl"
             self.attack_stat = "dexterity"
@@ -166,8 +169,8 @@ class CharacterCombatData(object):
             self.can_block = False
             self.can_dodge = True
             # possibly use these in future
-            #self.reach = 1 #number of ranks away from them they can hit
-            #self.minimum_range = 0 #minimum ranks away to attack
+            # self.reach = 1 #number of ranks away from them they can hit
+            # self.minimum_range = 0 #minimum ranks away to attack
             self.difficulty_mod = 0
             self.flat_damage_bonus = 0
 
@@ -194,7 +197,7 @@ class CharacterCombatData(object):
 {wCombat Stance:{n %(stance)-25s
 {wPenalty to rolls from wounds:{n %(wound)s
            """ % {'hp': hp, 'fatigue': self.fatigue_penalty, 'fdiff': fdiff,
-                      'status': self.status, 'stance':self.stance,
+                  'status': self.status, 'stance': self.stance,
                   'wound': self.wound_penalty,
                   }
         omsg = \
@@ -209,10 +212,10 @@ class CharacterCombatData(object):
 {wCan Be Blocked:{n %(bblocked)-16s {wCan Be Dodged:{n %(bdodged)-20s
 {wAttack Roll Penalties:{n %(atkpen)-20s
            """ % {'weapon': weapon, 'weapon_damage': self.weapon_damage, 'astat': self.attack_stat,
-                      'dstat': self.damage_stat, 'askill':self.attack_skill, 'atype': self.attack_type,
-                      'dmod': self.difficulty_mod, 'bparried': self.can_be_parried,
-                      'bblocked': self.can_be_blocked, 'bdodged': self.can_be_dodged,
-                      'flat': self.flat_damage_bonus, 'atkpen': self.atk_penalties
+                  'dstat': self.damage_stat, 'askill':self.attack_skill, 'atype': self.attack_type,
+                  'dmod': self.difficulty_mod, 'bparried': self.can_be_parried,
+                  'bblocked': self.can_be_blocked, 'bdodged': self.can_be_dodged,
+                  'flat': self.flat_damage_bonus, 'atkpen': self.atk_penalties
                   }
         try:
             armor = self.char.armor
@@ -225,17 +228,17 @@ class CharacterCombatData(object):
 {wMitigation:{n %(mit)-20s {wPenalty to Fatigue Rolls:{n %(apen)s
 {wCan Parry:{n %(cparry)-21s {wCan Riposte:{n %(criposte)s
 {wCan Block:{n %(cblock)-21s {wCan Dodge:{n %(cdodge)s
-{wDefense Roll Penalties:{n %(defpen)-8s {wSoak Rating:{n %(soak)s""" % {'mit': armor, 'defpen': self.def_penalties,
-                      'apen': armor_penalty, 'cparry': self.can_parry,
-                      'criposte':self.can_riposte, 'cblock':self.can_block,
-                      'cdodge': self.can_dodge, 'soak':self.soak}
+{wDefense Roll Penalties:{n %(defpen)-8s {wSoak Rating:{n %(soak)s""" % {
+            'mit': armor, 'defpen': self.def_penalties,
+            'apen': armor_penalty, 'cparry': self.can_parry,
+            'criposte': self.can_riposte, 'cblock': self.can_block,
+            'cdodge': self.can_dodge, 'soak': self.soak}
         if self.can_parry:
             dmsg += "\n{wParry Skill:{n %-19s {wParry Stat:{n %s" % (self.attack_skill, self.attack_stat)
         if self.can_dodge:
             dmsg += "\n{wDodge Skill:{n %-19s {wDodge Stat:{n %s" % (self.char.db.skills.get("dodge"), "dexterity")
         msg = smsg + omsg + dmsg
         return msg
-            
 
     def __str__(self):
         if self.multiple:
@@ -308,7 +311,7 @@ class CharacterCombatData(object):
             # if we order them to stand down, they do nothing
             if self.wants_to_end:
                 self.combat.vote_to_end(self.char)
-                self.queued_action = self.set_queued_action("pass")
+                self.set_queued_action("pass")
                 return
         self.remaining_attacks = self.num_attacks
         self.validate_targets()
@@ -330,7 +333,7 @@ class CharacterCombatData(object):
             else:
                 if self.automated:
                     self.wants_to_end = True
-                self.queued_action = self.set_queued_action("pass", do_ready=False)
+                self.set_queued_action("pass")
 
     def validate_targets(self, lethal=False):
         """
@@ -480,7 +483,7 @@ class CharacterCombatData(object):
         pass
         
     def roll_initiative(self):
-        "Rolls and stores initiative for the character."
+        """Rolls and stores initiative for the character."""
         self.initiative = do_dice_check(self.char, stat_list=["dexterity", "composure"], stat_keep=True, difficulty=0)
         self.tiebreaker = randint(1, 1000000000)
 
@@ -489,7 +492,7 @@ class CharacterCombatData(object):
         Returns our roll to hit with an attack. Targ is not a charater
         object, but CombatData object. Half of our roll is randomized.
         """
-        diff = 5 # base difficulty before mods
+        diff = 2  # base difficulty before mods
         self.roll_fatigue()
         penalty += self.atk_penalties
         diff += penalty       
@@ -506,7 +509,7 @@ class CharacterCombatData(object):
         and dodge. Half of our roll is then randomized.
         """
         # making defense easier than attack to slightly lower combat lethality
-        diff = -5 # base difficulty before mods
+        diff = -2  # base difficulty before mods
         self.roll_fatigue()
         penalty += self.def_penalties
         diff += penalty
@@ -519,7 +522,8 @@ class CharacterCombatData(object):
             if parry_roll > 1:
                 parry_roll = (parry_roll/2) + randint(0, (parry_roll/2))
             total = parry_roll
-        else: parry_roll = -1000
+        else:
+            parry_roll = -1000
         if att.can_be_blocked and self.can_block:
             try:
                 block_diff = diff + self.char.armor_penalties
@@ -534,7 +538,8 @@ class CharacterCombatData(object):
                 total += block_roll
             elif block_roll > total:
                 total = (total + block_roll)/2
-        else: block_roll = -1000
+        else:
+            block_roll = -1000
         if att.can_be_dodged and self.can_dodge:
             try:
                 dodge_diff = diff + self.char.armor_penalties
@@ -549,8 +554,9 @@ class CharacterCombatData(object):
                 total += dodge_roll
             elif dodge_roll > total:
                 total = (total + dodge_roll)/2
-        else: dodge_roll = -1000
-        if total == None:
+        else:
+            dodge_roll = -1000
+        if total is None:
             total = -1000
         # return our highest defense roll
         if parry_roll > block_roll and parry_roll > dodge_roll:
@@ -562,9 +568,8 @@ class CharacterCombatData(object):
         self.last_defense_method = "dodges"
         return total
 
-    
     def roll_damage(self, targ, penalty=0, dmgmult=1.0):
-        "Returns our roll for damage against target."
+        """Returns our roll for damage against target."""
         keep_dice = self.weapon_damage + 1
         try:
             keep_dice += self.char.attributes.get(self.damage_stat)/2
@@ -572,7 +577,7 @@ class CharacterCombatData(object):
             pass
         if keep_dice < 3:
             keep_dice = 3       
-        diff = 0 # base difficulty before mods
+        diff = 0  # base difficulty before mods
         diff += penalty
         roll = do_dice_check(self.char, stat=self.damage_stat, stat_keep=True,
                              difficulty=diff, bonus_dice=self.weapon_damage, keep_override=keep_dice)
@@ -594,8 +599,9 @@ class CharacterCombatData(object):
             armor = self.char.db.armor_class or 0      
         # our soak is sta+willpower+survival
         armor += randint(0, (self.soak * 2)+1)
-        roll -= 15 # minimum amount to pierce armor
-        if roll > 0: armor -= roll
+        roll -= 15  # minimum amount to pierce armor
+        if roll > 0:
+            armor -= roll
         if armor <= 0:
             return 0
         if armor < 2:
@@ -672,8 +678,9 @@ class CharacterCombatData(object):
         """
         Returns the dice roll of our attempt to detect an ambusher.
         """
-        diff = 0 # base difficulty
-        if sneaking: diff += 15
+        diff = 0  # base difficulty
+        if sneaking:
+            diff += 15
         sense = self.char.sensing_check(difficulty=0, invis=invis)
         stealth = do_dice_check(attacker, stat="dexterity", skill="stealth")
         return sense - stealth
