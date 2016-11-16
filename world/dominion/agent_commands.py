@@ -244,6 +244,13 @@ class CmdAgents(MuxPlayerCommand):
                     try:
                         agent.owner = AssetOwner.objects.get(Q(player__player__username__iexact=self.lhslist[1]) |
                                                              Q(organization_owner__name__iexact=self.lhslist[1]))
+                        if agent.unique:
+                            agent.dbobj.unassign()
+                            try:
+                                char = agent.owner.player.player.db.char_ob
+                                agent.assign(char, 1)
+                            except AttributeError:
+                                pass
                     except AssetOwner.DoesNotExist:
                         self.msg("No owner found by that name to transfer to.")
                         return
