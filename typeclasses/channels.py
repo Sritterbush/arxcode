@@ -98,6 +98,9 @@ class Channel(DefaultChannel):
             mutelist.remove(subscriber)
             self.db.mute_list = mutelist
             return True
+
+    def clear_mute(self):
+        self.db.mute_list = []
         
     def delete_chan_message(self, message):
         """

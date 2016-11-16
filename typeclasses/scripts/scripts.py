@@ -98,7 +98,7 @@ class CheckSessions(Script):
     def at_script_creation(self):
         "Setup the script"
         self.key = "sys_session_check"
-        self.desc = _("Checks sessions so they are live.")
+        self.desc = "Checks sessions so they are live."
         self.interval = 60  # repeat every 60 seconds
         self.persistent = True
 
@@ -117,7 +117,7 @@ class ValidateScripts(Script):
     def at_script_creation(self):
         "Setup the script"
         self.key = "sys_scripts_validate"
-        self.desc = _("Validates all scripts regularly.")
+        self.desc = "Validates all scripts regularly."
         self.interval = 3600  # validate every hour.
         self.persistent = True
 
@@ -131,7 +131,7 @@ class ValidateChannelHandler(Script):
     def at_script_creation(self):
         "Setup the script"
         self.key = "sys_channels_validate"
-        self.desc = _("Updates the channel handler")
+        self.desc = "Updates the channel handler"
         self.interval = 3700  # validate a little later than ValidateScripts
         self.persistent = True
 

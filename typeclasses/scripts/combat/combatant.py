@@ -625,11 +625,7 @@ class CharacterCombatData(object):
         penalty = armor_penalty
         self.num_actions += 1 + (0.08 * armor_penalty)
         penalty += self.num_actions + 20
-        keep = max(self.char.db.willpower or 0, self.char.db.stamina or 0) + 2
-        try:
-            keep += self.char.db.skills.get("athletics", 0)
-        except Exception:
-            pass
+        keep = self.fatigue_soak + 2
         myroll = do_dice_check(self.char, stat_list=["strength", "stamina", "dexterity", "willpower"],
                                skill="athletics", keep_override=keep, difficulty=int(penalty), divisor=2)
         myroll += randint(0, 25)
@@ -638,9 +634,18 @@ class CharacterCombatData(object):
             self.fatigue_gained_this_turn += 1
 
     @property
+    def fatigue_soak(self):
+        soak = max(self.char.db.willpower or 0, self.char.db.stamina or 0)
+        try:
+            soak += self.char.db.skills.get("athletics", 0)
+        except (AttributeError, TypeError, ValueError):
+            pass
+        return soak
+
+    @property
     def fatigue_penalty(self):
         fat = self._fatigue_penalty
-        soak = self.char.db.stamina
+        soak = self.fatigue_soak
         fat -= soak
         if fat < 0:
             return 0
