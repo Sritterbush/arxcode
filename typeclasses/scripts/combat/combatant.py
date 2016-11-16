@@ -123,7 +123,7 @@ class CharacterCombatData(object):
         self.flee_exit = None
         self.wants_to_end = False
         self.times_attacked = 0
-        self.fatigue_penalty = 0
+        self._fatigue_penalty = 0
         self.fatigue_gained_this_turn = 0
         self.num_actions = 0 # used for fatigue calculation
         self.changed_stance = False
@@ -630,6 +630,19 @@ class CharacterCombatData(object):
         if myroll < 0 and self.fatigue_gained_this_turn < 2:
             self.fatigue_penalty += 1
             self.fatigue_gained_this_turn += 1
+
+    @property
+    def fatigue_penalty(self):
+        fat = self._fatigue_penalty
+        soak = self.char.db.stamina
+        fat -= soak
+        if fat < 0:
+            return 0
+        return fat
+
+    @fatigue_penalty.setter
+    def fatigue_penalty(self, value):
+        self._fatigue_penalty = value
 
     def fatigue_atk_penalty(self):
         fat = self.fatigue_penalty/2
