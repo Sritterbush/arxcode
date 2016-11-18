@@ -25,7 +25,7 @@ class PCAdmin(DomAdmin):
 class MemberInline(admin.StackedInline):
     model = Member
     extra = 0
-    raw_id_fields = ('commanding_officer',)
+    raw_id_fields = ('commanding_officer', 'player')
     exclude = ('object', 'pc_exists', 'salary')
     readonly_fields = ('work_this_week', 'work_total')
 

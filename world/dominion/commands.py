@@ -1203,6 +1203,8 @@ class CmdDomain(MuxPlayerCommand):
         @domain
         @domain/castellan <domain ID>=<player>
         @domain/minister <domain ID>=<player>,<category>
+        @domain/resign <domain ID>
+        @domain/strip <domain ID>=<player>
 
     Commands to view and control your domain.
 
@@ -1246,6 +1248,7 @@ class CmdDomain(MuxPlayerCommand):
         self.msg(str(table))
 
     def check_member(self, domain, player):
+        player.refresh_from_db()
         if domain.ruler.house.organization_owner not in player.current_orgs:
             self.msg("%s is not a member of %s." % (player, domain.ruler.house))
             self.msg("current orgs: %s" % ", ".join(ob.name for ob in player.current_orgs))
@@ -1320,6 +1323,40 @@ class CmdDomain(MuxPlayerCommand):
                 dom.ruler.ministers.create(player=dompc, category=category)
             self.msg("%s's Minister of %s set to be %s." % (dom, self.rhslist[1], dompc))
             return
+        if "resign" in self.switches:
+            if dom in self.ruled_domains:
+                dom.ruler.castellan = None
+                dom.ruler.save()
+                self.msg("You resign as ruler of %s." % dom)
+                return
+            if dom in self.ministered_domains:
+                minister = dom.ruler.ministers.get(player=self.caller.Dominion)
+                minister.delete()
+                self.msg("You resign as minister of %s." % dom)
+                return
+            self.msg("You are not a ruler or minister of %s." % dom)
+            return
+        if "strip" in self.switches:
+            if dom not in (self.org_domains | self.ruled_domains).distinct():
+                self.msg("You do not have the authority to strip someone of their position.")
+                return
+            targ = self.caller.search(self.rhs)
+            if not targ:
+                return
+            dompc = targ.Dominion
+            if dom.ruler.castellan == dompc:
+                self.msg("Removing %s as castellan.")
+                dom.ruler.castellan = None
+                dom.ruler.save()
+                return
+            try:
+                minister = dom.ruler.ministers.get(player=dompc)
+                minister.delete()
+                self.msg("You have removed %s as a minister." % dompc)
+            except Minister.DoesNotExist:
+                self.msg("They are neither a minister nor castellan for that domain.")
+            return
+        self.msg("Invalid switch.")
 
 
 class CmdArmy(MuxPlayerCommand):
@@ -1632,7 +1669,7 @@ class CmdOrganization(MuxPlayerCommand):
             caller.msg("You have invited %s to %s." % (char, org.name))
             msg = "You have been invited by %s to join %s.\n" % (caller, org.name)
             msg += "To accept, type {w@org/accept %s{n. To decline, type {worg/decline %s{n." % (org.name, org.name)
-            player.msg(msg)
+            player.inform(msg, category="Invitation")
             return
         try:
             tarmember = player.Dominion.memberships.get(organization=org)
