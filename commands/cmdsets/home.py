@@ -396,6 +396,7 @@ class CmdManageRoom(MuxCommand):
         +manageroom/confirmshop <owner>
         +manageroom/rmshop <owner>
         +manageroom/toggleprivate
+        +manageroom/setbarracks
 
     Flags your current room as permitting characters to build there.
     Cost is 100 economic resources unless specified otherwise.
@@ -509,6 +510,14 @@ class CmdManageRoom(MuxCommand):
             loc.tags.add("private")
             caller.msg("Room is now private.")
             return
+        if "setbarracks" in self.switches:
+            tagname = str(owner) + "_barracks"
+            other_barracks = ObjectDB.objects.filter(db_tags__db_key=tagname)
+            for obj in other_barracks:
+                obj.tags.remove(tagname)
+            loc.tags.add(tagname)
+            self.msg("%s set to %s's barracks." % (loc, owner))
+            return
         player = caller.player.search(self.args)
         if not player:
             return
@@ -538,6 +547,7 @@ class CmdManageRoom(MuxCommand):
             loc.del_shop()
             player.send_or_queue_msg("Your shop at %s has been removed." % loc)
             return
+
         
 
 class CmdManageShop(MuxCommand):

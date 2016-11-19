@@ -103,8 +103,9 @@ class CmdAgents(MuxPlayerCommand):
             return
         try:
             loc = caller.character.location
-            if loc.db.barracks_owner:
-                owner = AssetOwner.objects.get(id=loc.db.barracks_owner)
+            owner = loc.db.barracks_owner or loc.db.room_owner
+            if owner:
+                owner = AssetOwner.objects.get(id=owner)
                 if owner != caller.Dominion.assets and not owner.organization_owner.access(caller, 'guards'):
                     caller.msg("You do not have access to guards here.")
             else:
@@ -208,7 +209,7 @@ class CmdAgents(MuxPlayerCommand):
             cost = self.get_cost(level)
             cost *= amt
             if owner.military < cost:
-                caller.msg("Not enough military resources. Cost was %s." % cost)
+                caller.msg("%s does not enough military resources. Cost was %s." % (owner, cost))
                 return
             owner.military -= cost
             owner.save()
@@ -221,7 +222,7 @@ class CmdAgents(MuxPlayerCommand):
                                             desc=gdesc)
             agent.quantity += amt
             agent.save()
-            caller.msg("You have bought %s %s." % (amt, agent))
+            caller.msg("You bought %s, and now have %s." % (amt, agent))
             return
         if 'desc' in self.switches or 'name' in self.switches or 'transferowner' in self.switches:
             try:
