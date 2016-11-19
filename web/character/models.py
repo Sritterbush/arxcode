@@ -584,12 +584,13 @@ class Investigation(models.Model):
     def display(self):
         msg = "{wCharacter{n: %s\n" % self.character
         msg += "{wTopic{n: %s\n" % self.topic
-        msg += "{wActions{n:\n%s\n" % self.actions
+        msg += "{wActions{n: %s\n" % self.actions
         msg += "{wModified Difficulty{n: %s\n" % self.difficulty
         msg += "{wCurrent Progress{n: %s\n" % self.progress_str
         msg += "{wStat used{n: %s\n" % self.stat_used
         msg += "{wSkill used{n: %s\n" % self.skill_used
-        msg += "{wCurrent Assistants{n %s\n" % ", ".join(str(ob.char) for ob in self.active_assistants)
+        for assistant in self.active_assistants:
+            msg += "{wAssistant:{n %s {wActions:{n %s\n" % (assistant.char, assistant.actions)
         return msg
 
     def gm_display(self):

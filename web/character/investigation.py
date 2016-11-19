@@ -4,7 +4,7 @@ stories, the timeline, etc.
 """
 
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from .models import Investigation, Clue
+from .models import Investigation, Clue, InvestigationAssistant
 from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from server.utils.arx_utils import inform_staff
@@ -351,6 +351,15 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             self.msg("%s has no skill by the name of %s." % (self.helper, self.args))
             return
         return True
+
+    def view_investigation(self):
+        try:
+            ob = self.caller.assisted_investigations.get(investigation_id=self.args).investigation
+        except (InvestigationAssistant.DoesNotExist, TypeError, ValueError):
+            self.msg("Could not find an investigation you're helping by that number.")
+            self.disp_currently_helping(self.caller)
+            return
+        self.msg(ob.display())
     
     def func(self):
         finished = super(CmdAssistInvestigation, self).func()
@@ -365,6 +374,10 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         if "retainer" in self.switches:
             self.set_helper()
             return
+        if "view" in self.switches or not self.switches:
+            self.view_investigation()
+            return
+        self.msg("Unrecognized switch.")
         
 
 class CmdInvestigate(InvestigationFormCommand):
@@ -479,7 +492,7 @@ class CmdInvestigate(InvestigationFormCommand):
             # display history
             self.list_old_investigations()
             return   
-        if set(self.switches) & set(self.model_switches):
+        if (set(self.switches) & set(self.model_switches)) or not self.switches:
             try:
                 ob = self.related_manager.get(id=int(self.lhs))
             except (TypeError, ValueError):
@@ -499,7 +512,7 @@ class CmdInvestigate(InvestigationFormCommand):
                 ob.save()
                 caller.msg("Investigation has been marked to no longer be ongoing.")
                 return
-            if "view" in self.switches:
+            if "view" in self.switches or not self.switches:
                 caller.msg(ob.display())
                 return
             if "active" in self.switches:
@@ -599,10 +612,11 @@ class CmdInvestigate(InvestigationFormCommand):
                 current.append(ob.id)
                 char.db.investigation_invitations = current
                 inform_msg = "%s has requested your help in their investigation, ID %s.\n" % (caller, ob.id)
-                inform_msg += "To assist them, use the @helpinvestigate command, creating a "
-                inform_msg += "form with @helpinvestigate/new, setting the target with "
+                inform_msg += "To assist them, use the {w@helpinvestigate{n command, creating a "
+                inform_msg += "form with {w@helpinvestigate/new{n, setting the target with "
                 inform_msg += "{w@helpinvestigate/target %s{n, and filling in the other fields." % ob.id
-                char.db.player_ob.inform(inform_msg, category="Investigation Request", append=False)
+                char.db.player_ob.inform(inform_msg, category="Investigation Request From %s" % self.caller,
+                                         append=False)
                 return
         caller.msg("Invalid switch.")
         return

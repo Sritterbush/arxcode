@@ -1247,7 +1247,7 @@ class CmdInform(MuxPlayerCommand):
             for info in informs:
                 x += 1
                 def highlight(ob):
-                    if info.is_unread:
+                    if not info.is_unread:
                         return ob
                     return "{w%s{n" % ob
                 num = highlight(x)
