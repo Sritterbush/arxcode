@@ -935,6 +935,7 @@ class CmdGuards(MuxCommand):
             caller.msg("You order %s to kill %s." % (guard.name, targ.name))
             return
         if 'follow' in self.switches:
+            guard.stop_follow(dismiss=False)
             guard.follow(targ)
             caller.msg("You order %s to follow %s." % (guard.name, targ.name))
             return

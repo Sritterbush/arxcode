@@ -445,10 +445,11 @@ class AgentMixin(object):
     quality = property(_get_quality)
     
     def stop_follow(self,  # type: Retainer or Agent
-                    unassigning=False):
+                    dismiss=True, unassigning=False):
         super(AgentMixin, self).stop_follow()
         # if we're not being unassigned, we dock them. otherwise, they're gone
-        self.dismiss(dock=not unassigning)
+        if dismiss:
+            self.dismiss(dock=not unassigning)
     
     def summon(self,  # type: Retainer or Agent
                summoner=None):
