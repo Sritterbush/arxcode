@@ -808,6 +808,7 @@ class CmdGuards(MuxCommand):
         +guard/get <guard>=<object>
         +guard/give <guard>=<object> to <receiver>
         +guard/inventory <guard>
+        +guard/discreet <guard>
 
     Controls summoned guards or retainers. Guards that belong to a
     player may be summoned from their home, while guards belonging
@@ -816,7 +817,10 @@ class CmdGuards(MuxCommand):
     resummoned from close to that location. Guards will automatically
     attempt to protect their owner unless they are marked as passive,
     which may be toggled with the /passive switch. Some types of agents,
-    such as small animals or assistants, are passive by default.
+    such as small animals or assistants, are passive by default. Guards
+    that are docked in your room from being dismissed or having logged
+    out in that location will be automatically resummoned upon login
+    unless the /discreet flag is set.
     """
     key = "+guards"
     locks = "cmd:all()"
@@ -898,6 +902,15 @@ class CmdGuards(MuxCommand):
                 return
             guard.passive = True
             self.msg("%s will no longer actively protect you." % guard.name)
+            return
+        if 'discreet' in self.switches:
+            current = guard.discreet
+            if current:
+                guard.discreet = False
+                self.msg("%s will now be automatically summoned upon login if they are in your space." % guard.name)
+                return
+            guard.discreet = True
+            self.msg("%s will no longer be automatically summoned upon login if they are in your space." % guard.name)
             return
         if 'inventory' in self.switches:
             objects = guard.contents

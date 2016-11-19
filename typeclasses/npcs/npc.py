@@ -74,6 +74,17 @@ class Npc(NameMixins, Character):
             self.db.passive_guard = False
     passive = property(_get_passive, _set_passive)
 
+    @property
+    def discreet(self):
+        return self.db.discreet_guard or False
+
+    @discreet.setter
+    def discreet(self, val):
+        if val:
+            self.db.discreet_guard = True
+        else:
+            self.db.discreet_guard = False
+
     # ------------------------------------------------
     # Inherited Character methods
     # ------------------------------------------------

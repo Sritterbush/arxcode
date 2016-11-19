@@ -593,8 +593,10 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         if self.db.player_ob and not self.db.player_ob.db.hide_from_watch:
             for watcher in watched_by:
                 watcher.msg("{wA player you are watching, {c%s{w, has entered the game.{n" % self.key)
-        guards = self.db.assigned_guards or []
+        guards = self.guards
         for guard in guards:
+            if guard.discreet:
+                continue
             docked_location = guard.db.docked
             if docked_location and docked_location == self.location:
                 guard.summon()
