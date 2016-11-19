@@ -189,9 +189,12 @@ class CmdBBNew(MuxPlayerCommand):
         noread = "markread" in self.switches
         for bb in my_subs:
             posts = bb.get_all_posts()
-            caller.msg("{wBoard %s:{n" % bb.key)
+            posts = posts.exclude(db_receivers_players=caller)
+            if not posts:
+                continue
+            caller.msg("{wBoard {c%s{n:" % bb.key)
             posts_on_board = 0
-            for post in posts.exclude(db_receivers_players=caller):
+            for post in posts:
                 if noread:
                     bb.mark_read(caller, post)
                 else:
@@ -200,10 +203,10 @@ class CmdBBNew(MuxPlayerCommand):
                 posts_on_board += 1
                 if found_posts >= num_posts:
                     return
-            if not posts_on_board:
-                caller.msg("No unread posts found.")
             if noread:
                 self.msg("You have marked %s posts as read." % posts_on_board)
+        if not found_posts:
+            self.msg("No new posts found on boards: %s." % ", ".join(str(sub) for sub in my_subs))
 
 
 class CmdBBReadOrPost(MuxPlayerCommand):

@@ -1907,10 +1907,8 @@ class CmdPatronage(MuxPlayerCommand):
         caller.msg("Unrecognized switch.")
         return
 
+
 # Character/IC commands------------------------------
-
-
-# command to summon/order guards we own
 # command to generate money/resources for ourself/org
 class CmdTask(MuxCommand):
     """

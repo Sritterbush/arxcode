@@ -373,7 +373,7 @@ class MsgMixins(object):
             if self.db.posebreak:
                 text = "\n" + text
         if options.get('box', False):
-            boxchars = '\n{w' + '*' * 60 + '{n\n'
+            boxchars = '\n{w' + '*' * 70 + '{n\n'
             text = boxchars + text + boxchars
         if options.get('roll', False):
             if self.attributes.has("dice_string"):
