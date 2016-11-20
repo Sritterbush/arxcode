@@ -150,12 +150,15 @@ class EntryAdmin(NoDeleteAdmin):
 
 
 class InvestigationAdmin(BaseCharAdmin):
-    list_display = ('id', 'character', 'topic', 'clue_target', 'clue_progress', 'active', 'ongoing', 'automate_result')
+    list_display = ('id', 'character', 'topic', 'clue_target', 'clue_progress', 'current_assistants', 'active', 'ongoing', 'automate_result')
     list_filter = ('active', 'ongoing', 'automate_result')
     inlines = [MystDiscoInline, RevDiscoInline, ClueDiscoInline]
 
     def clue_progress(self, obj):
         return obj.progress
+
+    def current_assistants(self, obj):
+        return ", ".join(str(ob.char) for ob in obj.active_assistants)
 
 
 # Register your models here.
