@@ -160,6 +160,7 @@ def broadcast(txt, format_announcement=True):
         txt = "{wServer Announcement{n: %s" % txt
     SESSION_HANDLER.announce_all(txt)
 
+
 def raw(text):
     from evennia.utils.ansi import raw
     text = sub_old_ansi(text)
