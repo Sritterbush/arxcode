@@ -79,7 +79,7 @@ class CmdGemit(MuxPlayerCommand):
     """
     key = "@gemit"
     locks = "cmd:perm(gemit) or perm(Wizards)"
-    help_category = "Admin"
+    help_category = "GMing"
 
     def func(self):
         """Implements command"""
@@ -163,7 +163,7 @@ class CmdResurrect(MuxCommand):
     """
     key = "@resurrect"
     locks = "cmd:perm(resurrect) or perm(Wizards)"
-    help_category = "Building"
+    help_category = "GMing"
 
     def func(self):
         """Implements command"""
@@ -200,7 +200,7 @@ class CmdKill(MuxCommand):
     """
     key = "@kill"
     locks = "cmd:perm(kill) or perm(Wizards)"
-    help_category = "Building"
+    help_category = "GMing"
 
     def func(self):
         """Implements command"""
@@ -238,7 +238,7 @@ class CmdForce(MuxCommand):
     """
     key = "@force"
     locks = "cmd:perm(force) or perm(Immortals)"
-    help_category = "Admin"
+    help_category = "GMing"
 
     def func(self):
         """Implements command"""
@@ -382,7 +382,7 @@ class CmdSendVision(MuxPlayerCommand):
     key = "@sendvision"
     aliases = ["@sendvisions"]
     locks = "cmd:perm(sendvision) or perm(Wizards)"
-    help_category = "Building"
+    help_category = "GMing"
 
     def func(self):
         """Implements command"""
@@ -516,7 +516,7 @@ class CmdAdjustReputation(MuxPlayerCommand):
     is not specified, then the player will be informed of the adjustment.
     """
     key = "@adjustreputation"
-    help_category = "Admin"
+    help_category = "GMing"
     locks = "cmd:perm(Wizards)"
 
     def func(self):
