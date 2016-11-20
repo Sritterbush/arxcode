@@ -162,6 +162,7 @@ def broadcast(txt, format_announcement=True):
 
 def raw(text):
     from evennia.utils.ansi import raw
+    text = sub_old_ansi(text)
     text = text.replace('\n', '|/')
     text = raw(text)
     text = text.replace('|', '||')
