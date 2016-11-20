@@ -416,7 +416,7 @@ class CmdStudyRawAnsi(default_cmds.MuxCommand):
             targ = targ.search(self.rhs)
             if not targ:
                 return
-        from evennia.utils.ansi import raw
+        from server.utils.arx_utils import raw
         if targ != caller:
             targ.msg("%s sent you this @study on %s: " % (caller,ob))
             caller.msg("Sent to %s." % targ)

@@ -159,3 +159,10 @@ def broadcast(txt, format_announcement=True):
     if format_announcement:
         txt = "{wServer Announcement{n: %s" % txt
     SESSION_HANDLER.announce_all(txt)
+
+def raw(text):
+    from evennia.utils.ansi import raw
+    text = text.replace('\n', '|/')
+    text = raw(text)
+    text = text.replace('|', '||')
+    return text
