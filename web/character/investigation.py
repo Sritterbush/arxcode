@@ -4,7 +4,7 @@ stories, the timeline, etc.
 """
 
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from .models import Investigation, Clue, InvestigationAssistant
+from .models import Investigation, Clue, InvestigationAssistant, ClueDiscovery
 from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from server.utils.arx_utils import inform_staff
@@ -57,7 +57,7 @@ class InvestigationFormCommand(MuxCommand):
                 self.msg("You must have a story defined.")
                 return
             return topic, actions, stat, skill
-        except Exception:
+        except (TypeError, ValueError, IndexError, AttributeError):
             self.msg("Your investigation form is not yet filled out.")
             return False
 
@@ -104,7 +104,6 @@ class InvestigationFormCommand(MuxCommand):
         form = self.finished_form
         if not form:
             return
-        topic, actions, stat, skill = form[0], form[1], form[2], form[3]
         if not self.pay_costs():
             return
         ob = self.create_obj_from_form(form)
@@ -248,7 +247,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                 if self.caller.roster.investigations.get(id=formid):
                     self.msg("You cannot assist one of your own investigations. You must use a retainer.")
                     return False
-            except Exception:
+            except (TypeError, ValueError, AttributeError, Investigation.DoesNotExist):
                 pass
         return True
 
@@ -310,7 +309,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             current.currently_helping = False
             current.save()
             self.msg("%s was currently helping another investigation. Switching." % self.helper)
-        except Exception:
+        except InvestigationAssistant.DoesNotExist:
             pass
         created_object.currently_helping = True
         created_object.save()
@@ -452,15 +451,16 @@ class CmdInvestigate(InvestigationFormCommand):
         skill = caller.db.skills.get("investigation", 0)
         return self.base_cost - (5 * skill)
 
-    def add_target_to_obj(self, ob, target):
-        ob.topic = target
-
     def mark_active(self, created_object):
         if not (self.related_manager.filter(active=True) or
                 self.caller.assisted_investigations.filter(currently_helping=True)):
-            created_object.active = True
-            self.msg("New investigation created. This has been set as your active investigation " +
-                     "for the week, and you may add resources/silver to increase its chance of success.")
+            if not self.caller.assisted_investigations.filter(currently_helping=True):
+                created_object.active = True
+                self.msg("New investigation created. This has been set as your active investigation " +
+                         "for the week, and you may add resources/silver to increase its chance of success.")
+            else:
+                self.msg("New investigation created. This investigation is not active because you are " +
+                         "currently assisting an investigation already.")
         else:
             self.msg("New investigation created. You already are participating in an active investigation " +
                      "for this week, but may still add resources/silver to increase its chance of success " +
@@ -592,10 +592,10 @@ class CmdInvestigate(InvestigationFormCommand):
                 caller.msg("The new story of your investigation is:\n%s" % self.args)
                 return
             if "requesthelp" in self.switches:
+                from typeclasses.characters import Character
                 try:
-                    from typeclasses.characters import Character
                     char = Character.objects.get(db_key__iexact=self.rhs, roster__roster__name="Active")
-                except Exception:
+                except Character.DoesNotExist:
                     self.msg("No active player found by that name.")
                     return
                 if char == caller:
@@ -747,7 +747,7 @@ class CmdListClues(MuxPlayerCommand):
     def finished_clues(self):
         try:
             return self.caller.roster.finished_clues
-        except Exception:
+        except AttributeError:
             return []
     
     def disp_clue_table(self):
@@ -772,7 +772,7 @@ class CmdListClues(MuxPlayerCommand):
         # get clue for display or sharing
         try:
             clue = clues.get(id=self.lhs)  
-        except Exception:
+        except (ClueDiscovery.DoesNotExist, ValueError, TypeError):
             caller.msg("No clue found by that ID.")
             self.disp_clue_table()
             return
@@ -802,7 +802,6 @@ class CmdListRevelations(MuxPlayerCommand):
     help_category = "Investigation"
 
     def func(self):
-        caller = self.caller
         if not self.args:
             return
 
@@ -819,6 +818,5 @@ class CmdListMysteries(MuxPlayerCommand):
     help_category = "Investigation"
 
     def func(self):
-        caller = self.caller
         if not self.args:
             return
