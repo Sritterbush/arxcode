@@ -396,25 +396,28 @@ class CmdSendVision(MuxPlayerCommand):
             caller.msg("{wCharacters who have the 'visions' @tag:{n")
             caller.msg(str(table))
             return
-        targ = caller.search(self.lhs)
-        if not targ:
+        targlist = [caller.search(arg) for arg in self.lhslist if caller.search(arg)]
+        if not targlist:
             return
-        char = targ.db.char_ob
-        if not char:
-            caller.msg("No valid character.")
-            return
-        visions = char.messages.visions
-        if not self.rhs: 
-            table = evtable.EvTable("{wVisions{n", width=78)
-            for vision in visions:
-                table.add_row(char.messages.disp_entry(vision))
-            caller.msg(str(table))
-            return
-        char.messages.add_vision(self.rhs, caller)
-        caller.msg("Vision added to %s: %s" % (char, self.rhs))
-        msg = "{rYou have experienced a vision!{n\n%s" % self.rhs
-        targ.send_or_queue_msg(msg)
-        targ.inform("Your character has experienced a vision. Use @sheet/visions to view it.")
+        vision_object = None
+        for targ in targlist:
+            char = targ.db.char_ob
+            if not char:
+                caller.msg("No valid character.")
+                return
+            visions = char.messages.visions
+            if not self.rhs:
+                table = evtable.EvTable("{wVisions{n", width=78)
+                for vision in visions:
+                    table.add_row(char.messages.disp_entry(vision))
+                caller.msg(str(table))
+                return
+            # use the same vision object for all of them once it's created
+            vision_object = char.messages.add_vision(self.rhs, caller, vision_object)
+            caller.msg("Vision added to %s: %s" % (char, self.rhs))
+            msg = "{rYou have experienced a vision!{n\n%s" % self.rhs
+            targ.send_or_queue_msg(msg)
+            targ.inform("Your character has experienced a vision. Use @sheet/visions to view it.", category="Vision")
         return
 
 

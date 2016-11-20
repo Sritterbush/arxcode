@@ -367,14 +367,17 @@ class MessageHandler(object):
         self.obj.db.num_rel_updates = num_rels
         return msg
 
-    def add_vision(self, msg, sender):
+    def add_vision(self, msg, sender, vision_obj=None):
         "adds a vision sent by a god or whatever"
         date = get_date()
         header = "type:visions;date:%s" % date
-        msg = create_message(sender, msg, receivers=self.obj, header=header)
-        if msg not in self.visions:
-            self.visions.append(msg)
-        return msg
+        if not vision_obj:
+            vision_obj = create_message(sender, msg, receivers=self.obj, header=header)
+        else:
+            self.obj.receiver_object_set.add(vision_obj)
+        if vision_obj not in self.visions:
+            self.visions.append(vision_obj)
+        return vision_obj
 
     def receive_messenger(self, msg):
         "marks us as having received the message"
