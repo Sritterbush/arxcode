@@ -810,7 +810,7 @@ class CmdCreateAntagonist(MuxCommand):
     """
     key = "@spawn"
     locks = "cmd:perm(spawn) or perm(Builders)"
-    help_category = "Building"
+    help_category = "GMing"
     def func(self):
         "Execute command."
         caller = self.caller
@@ -897,6 +897,35 @@ class CmdCreateAntagonist(MuxCommand):
         caller.msg("Invalid switch.")
         return
 
+class CmdHarm(MuxCommand):
+    """
+    Harms characters and sends them a message
+
+    Usage:
+        @harm <character1, character2, etc>=amount,<message>
+    """
+    key = "@harm"
+    locks = "cmd:perm(Wizards)"
+    help_category = "GMing"
+
+    def func(self):
+        if not self.lhslist:
+            self.msg("Must provide one or more character names.")
+            return
+        message = "You feel worse."
+        try:
+            amt = int(self.rhslist[0])
+            message = self.rhslist[1]
+        except (TypeError, ValueError):
+            self.msg("Must provide a number amount.")
+        except IndexError:
+            pass
+        charlist = [self.caller.search(arg) for arg in self.lhslist if self.caller.search(arg)]
+        for obj in charlist:
+            obj.msg(message)
+            obj.dmg += amt
+        self.msg("You inflicted %s damage on %s" % (amt, ", ".join(str(obj) for obj in charlist)))
+
 
 class CmdHeal(MuxCommand):
     """
@@ -970,7 +999,7 @@ class CmdStandYoAssUp(MuxCommand):
     """
     key = "+standyoassup"
     locks = "cmd:perm(wizards)"
-    help_category = "Combat"
+    help_category = "GMing"
     def func(self):
         "Execute command."
         caller = self.caller

@@ -360,6 +360,13 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         """Returns how much damage we've taken."""
         dmg = self.db.damage or 0
         return dmg
+
+    def _set_current_damage(self, val):
+        dmg = self.db.damage or 0
+        dmg += val
+        if dmg < 0:
+            dmg = 0
+        self.db.damage = dmg
         
     @property
     def name(self):
@@ -374,7 +381,7 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
     
     max_hp = property(_get_maxhp)
     
-    dmg = property(_get_current_damage)
+    dmg = property(_get_current_damage, _set_current_damage)
 
     def adjust_xp(self, value):
         """
@@ -665,3 +672,5 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         display_skills(viewer, self)
         if combat:
             viewer.msg(self.combat_data.display_stats())
+
+

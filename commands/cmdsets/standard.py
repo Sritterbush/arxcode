@@ -187,6 +187,7 @@ class MobileCmdSet(CmdSet):
         self.add(combat.CmdAutoattack())
         self.add(combat.CmdCombatStats())
         self.add(combat.CmdHeal())
+        self.add(combat.CmdHarm())
         self.add(agent_commands.CmdGuards())
         self.add(domcommands.CmdTask())
         self.add(domcommands.CmdSupport())
