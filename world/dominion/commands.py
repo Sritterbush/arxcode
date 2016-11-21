@@ -2455,10 +2455,8 @@ class CmdSupport(MuxCommand):
                 if not char:
                     continue
                 try:
-                    atask = AssignedTask.objects.get(id=requests[char.id])
+                    atask = AssignedTask.objects.get(id=requests[char.id], finished=False)
                 except AssignedTask.DoesNotExist:
-                    import traceback
-                    traceback.print_exc()
                     caller.msg("Error: Could not find a task for request from %s." % char)
                     caller.msg("Removing them from this list. Please run +support again.")
                     del requests[char.id]
@@ -2590,11 +2588,12 @@ class CmdSupport(MuxCommand):
             if char.id not in requests:
                 caller.msg("%s has not asked you for support in a task recently enough.")
                 return
-            assignment = AssignedTask.objects.filter(id=requests[char.id])
-            if not assignment:
-                caller.msg("No task found. They must have abandoned it already.")
+            try:
+                assignment = AssignedTask.objects.get(id=requests[char.id], finished=False)
+            except AssignedTask.DoesNotExist:
+                caller.msg("No task found. It was abandoned or finished already.")
+                del requests[char.id]
                 return
-            assignment = assignment[0]
             if assignment.supporters.filter(player=caller.player.Dominion):
                 caller.msg("You have already pledged your support to this task.")
                 self.msg("Use the /change switch to support them again if you have in previous weeks, " +
