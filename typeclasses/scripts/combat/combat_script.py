@@ -101,6 +101,8 @@ class CombatManager(BaseScript):
     self.remove_combatant(character)
     self.move_to_observer(character)
     """
+
+    # noinspection PyAttributeOutsideInit
     def at_script_creation(self):
         """
         Setup the script
@@ -321,7 +323,8 @@ class CombatManager(BaseScript):
             a_fite.remaining_attacks -= 1
             if a_fite.remaining_attacks <= 0:
                 self.next_character_turn()
-    
+
+    # noinspection PyUnusedLocal
     def handle_botch(self, botcher, roll, can_riposte=True, target=None,
                      attack_penalty=0, defense_penalty=0, dmg_penalty=0, free_attack=False):
         """

@@ -294,15 +294,17 @@ class CmdBuildRoom(CmdDig):
             except IndexError:
                 caller.msg("Please specify orgname/roomname.")
                 return
-            try:
 
+            try:
                 org = Organization.objects.get(Q(name__iexact=orgname) &
                                                Q(members__player=dompc) &
                                                Q(members__deguilded=False))
                 if not org.access(caller, 'build'):
                     caller.msg("You are not permitted to build for this org.")
-                    return    
+                    return
+                # noinspection PyAttributeOutsideInit
                 self.lhs = roomname
+                # noinspection PyAttributeOutsideInit
                 self.lhslist = [roomname]
                 # fix args for CmdDig
                 self.parse()
@@ -549,7 +551,6 @@ class CmdManageRoom(MuxCommand):
             return
 
         
-
 class CmdManageShop(MuxCommand):
     """
     +manageshop

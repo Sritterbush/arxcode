@@ -4,6 +4,7 @@ from evennia.commands.default.muxcommand import MuxPlayerCommand, MuxCommand
 from .models import Agent, Organization, AssetOwner
 from typeclasses.npcs.npc_types import get_npc_type, generate_default_name_and_desc
 from evennia.objects.models import ObjectDB
+# noinspection PyProtectedMember
 from evennia.objects.objects import _AT_SEARCH_RESULT
 from server.utils.arx_utils import validate_name, strip_ansi
 
@@ -782,6 +783,7 @@ class CmdRetainers(MuxPlayerCommand):
             category = self.rhslist[1]
             if not self.check_categories(category):
                 return
+            # noinspection PyAttributeOutsideInit
             self.rhs = self.rhslist[0]
             attr = self.get_attr_from_args(agent, category)
             if not attr:
