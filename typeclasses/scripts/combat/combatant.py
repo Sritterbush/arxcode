@@ -75,6 +75,9 @@ class CharacterCombatData(object):
             self.autoattack = character.db.autoattack or False
             self.base_name = character.name
             self.plural_name = character.name
+        if not character.player:
+            self.automated = True
+            self.autoattack = True
         self.rank = 1  # combat rank/position. 1 is 'front line'
         self.shield = character.db.shield
         if hasattr(character, 'weapondata'):
@@ -107,7 +110,7 @@ class CharacterCombatData(object):
         self.friendlist = []
         self._ready = False  # ready to move on from phase 1
         self.stance = character.db.combat_stance  # defensive, aggressive, etc
-        if self.stance not in combat_settings._COMBAT_STANCES_:
+        if self.stance not in combat_settings.COMBAT_STANCES:
             self.stance = "balanced"
         self.last_defense_method = None  # how we avoided the last attack we stopped
         
@@ -331,9 +334,11 @@ class CharacterCombatData(object):
                 else:
                     self.set_queued_action("attack", targ, mssg, do_ready=False)
             else:
+                ready = False
                 if self.automated:
                     self.wants_to_end = True
-                self.set_queued_action("pass")
+                    ready = True
+                self.set_queued_action("pass", do_ready=ready)
 
     def validate_targets(self, lethal=False):
         """

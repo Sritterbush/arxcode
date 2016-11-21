@@ -568,9 +568,9 @@ class CmdCombatStance(MuxCommand):
         if fighter.changed_stance:
             caller.msg("You've already changed your stance this turn.")
             return
-        if self.args not in combat_settings._COMBAT_STANCES_:
+        if self.args not in combat_settings.COMBAT_STANCES:
             message = "Your stance must be one of the following: "
-            message += "{w%s{n" % str(combat_settings._COMBAT_STANCES_)
+            message += "{w%s{n" % str(combat_settings.COMBAT_STANCES)
             caller.msg(message)
             return
         caller.db.combat_stance = self.args
@@ -1000,13 +1000,14 @@ class CmdStandYoAssUp(MuxCommand):
     key = "+standyoassup"
     locks = "cmd:perm(wizards)"
     help_category = "GMing"
+
     def func(self):
         "Execute command."
         caller = self.caller
         targ = caller.search(self.args)
         if not targ:
             return
-        targ.db.damage = 0
+        targ.dmg = 0
         targ.wake_up()
         targ.msg("You have been healed.")
         caller.msg("You heal %s because they're a sissy mortal who need everything done for them." % targ)

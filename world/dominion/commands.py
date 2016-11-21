@@ -2548,6 +2548,7 @@ class CmdSupport(MuxCommand):
             except SupportUsed.DoesNotExist:
                 # create the supused for them
                 supused = SupportUsed(week=week, sphere=sphere, rating=0, supporter=sup)
+            # target character we're supporting
             char = targmember.player.player.db.char_ob
             diff = val - sup.rating
             if diff > remaining:
@@ -2563,12 +2564,19 @@ class CmdSupport(MuxCommand):
                 return
             supused.rating = val
             supused.save()
+            # update our support cooldowns for target character
             points_remaining_for_char = dompc.support_cooldowns.get(char.id, max_points)
             points_remaining_for_char -= diff
             dompc.support_cooldowns[char.id] = points_remaining_for_char
             if points_remaining_for_char >= max_points:
                 del dompc.support_cooldowns[char.id]
             caller.msg("New rating is now %s and you have %s points remaining." % (val, dompc.remaining_points))
+            # remove any pending request that matched this
+            try:
+                if requests[char.id] == self.lhslist[0]:
+                    del requests[char.id]
+            except KeyError:
+                pass
             return
         if not requests:
             caller.msg("No one has requested you to support them on a task recently enough.")

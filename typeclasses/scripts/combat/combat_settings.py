@@ -1,8 +1,8 @@
-_COMBAT_STYLES_ = ("melee", "close", "brawling", "archery", "magic")
-_COMBAT_STATUS_ = ("active", "subdued", "incapacitated")
-_COMBAT_STANCES_ = ("defensive", "guarded", "balanced", "aggressive", "reckless")
-_STANCE_ATK_MOD_ = { "defensive": 15, "guarded": 10, "balanced": 0, "aggressive":-10, "reckless":-20}
-_STANCE_DEF_MOD_ = { "defensive": -10, "guarded": -5, "balanced": 0, "aggressive":5, "reckless":10}
+COMBAT_STYLES = ("melee", "close", "brawling", "archery", "magic")
+COMBAT_STATUS = ("active", "subdued", "incapacitated")
+COMBAT_STANCES = ("defensive", "guarded", "balanced", "aggressive", "reckless")
+STANCE_ATK_MOD = {"defensive": 15, "guarded": 10, "balanced": 0, "aggressive": -10, "reckless": -20}
+STANCE_DEF_MOD = {"defensive": -10, "guarded": -5, "balanced": 0, "aggressive": 5, "reckless": 10}
 
 COMBAT_INTRO = """
 Combat makes commands available to you, which you can see by
@@ -46,6 +46,7 @@ appropriately to actions with poses as needed.
 
 MAX_AFK = 120
 ROUND_DELAY = 300
+
 
 class CombatError(Exception):
     pass

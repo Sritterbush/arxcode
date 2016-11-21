@@ -361,12 +361,24 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         dmg = self.db.damage or 0
         return dmg
 
-    def _set_current_damage(self, val):
-        dmg = self.db.damage or 0
-        dmg += val
-        if dmg < 0:
+    def _set_current_damage(self, dmg):
+        if dmg < 1:
             dmg = 0
         self.db.damage = dmg
+        self.start_recovery_script()
+
+
+    def start_recovery_script(self):
+        # start the script if we have damage
+        start_script = self.dmg > 0
+        scripts = [ob for ob in self.scripts.all() if ob.key == "Recovery"]
+        if scripts:
+            if start_script:
+                scripts[0].start()
+            else:
+                scripts[0].stop()
+        elif start_script:
+            self.scripts.add("typeclasses.scripts.recovery.Recovery")
         
     @property
     def name(self):
