@@ -559,7 +559,7 @@ class CmdManageShop(MuxCommand):
         +manageshop/sellitem <object>=<price>
         +manageshop/rmitem <object id>
         +manageshop/all <markup percentage>
-        +managehsop/refinecost <percentage>
+        +manageshop/refinecost <percentage>
         +manageshop/addrecipe <recipe name>=<markup percentage>
         +manageshop/rmrecipe <recipe name>
         +manageshop/addblacklist <player or org name>
