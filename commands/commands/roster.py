@@ -38,7 +38,7 @@ def format_header(title):
 
 
 def list_characters(caller, character_list, roster_type="Active Characters", roster=None,
-                    titles=False, hidden_chars=None, display_afk=False):
+                    titles=False, hidden_chars=None, display_afk=False, use_keys=True):
     """
     Formats lists of characters. If we're given a list of 'hidden_chars', we compare
     the list of names in character_list to that, and if any match, we use the data
@@ -68,7 +68,10 @@ def list_characters(caller, character_list, roster_type="Active Characters", ros
                                              "{wSR{n"])
         for char in character_list:
             try:
-                name = char.name
+                if use_keys:
+                    name = char.key
+                else:
+                    name = char.name
                 charob = char
                 char = str(char)
             except AttributeError:
@@ -92,7 +95,7 @@ def list_characters(caller, character_list, roster_type="Active Characters", ros
                     charob = match_list[0]
                     hide = True
             if charob:
-                if charob.name and name != charob.name and caller.check_permstring("Builders"):
+                if not use_keys and charob.name and name != charob.name and caller.check_permstring("Builders"):
                     name += "{w(%s){n" % charob.name
                 if titles:
                     title = charob.db.longname
@@ -1497,7 +1500,8 @@ class CmdHere(MuxCommand):
             disp_titles = True
         vis_list = caller.location.get_visible_characters(caller)
         rname = caller.location.name
-        list_characters(caller, vis_list, rname, roster, disp_titles, hidden_chars=vis_list, display_afk=True)
+        list_characters(caller, vis_list, rname, roster, disp_titles, hidden_chars=vis_list, display_afk=True,
+                        use_keys=False)
         if caller.check_permstring("Builders"):
             masks = [char for char in vis_list if hasattr(char, "is_disguised") and char.is_disguised]
             char_list = []

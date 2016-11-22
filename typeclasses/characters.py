@@ -367,7 +367,6 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         self.db.damage = dmg
         self.start_recovery_script()
 
-
     def start_recovery_script(self):
         # start the script if we have damage
         start_script = self.dmg > 0
@@ -380,9 +379,9 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         elif start_script:
             self.scripts.add("typeclasses.scripts.recovery.Recovery")
         
-    @property
-    def name(self):
-        return self.get_fancy_name(short=True)
+    # @property
+    # def name(self):
+    #     return self.get_fancy_name(short=True)
     
     # note - setter properties do not work with the typeclass system
     armor = property(_get_armor)
@@ -684,5 +683,3 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         display_skills(viewer, self)
         if combat:
             viewer.msg(self.combat_data.display_stats())
-
-
