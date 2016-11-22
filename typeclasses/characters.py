@@ -313,7 +313,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             return self.db.false_name
         if not short and self.db.longname:
             return self.db.longname
-        return self.key
+        return self.db.colored_name or self.key
     
     def _get_worn(self):
         """Returns list of items in inventory currently being worn."""
