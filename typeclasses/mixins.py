@@ -114,11 +114,31 @@ class DescMixins(object):
 
 
 class NameMixins(object):
+    @property
+    def fakename(self):
+        return self.db.false_name
+
+    @fakename.setter
+    def fakename(self, val):
+        old = self.db.false_name
+        self.db.false_name = val
+        if val not in self.aliases.all():
+            self.aliases.add(val.lower())
+        if old in self.aliases.all():
+            self.alises.remove(old)
+
+    @fakename.deleter
+    def fakename(self):
+        old = self.db.false_name
+        if old in self.aliases.all():
+            self.aliases.remove(old)
+        self.attributes.remove("false_name")
+
     def __name_get(self):
         """
         :type self: ObjectDB
         """
-        return self.db.colored_name or self.key
+        return self.fakename or self.db.colored_name or self.key
 
     def __name_set(self, val):
         """

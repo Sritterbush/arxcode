@@ -8,14 +8,14 @@ creation commands.
 
 """
 from evennia import DefaultCharacter
-from typeclasses.mixins import MsgMixins, ObjectMixins
+from typeclasses.mixins import MsgMixins, ObjectMixins, NameMixins
 from world.msgs.messagehandler import MessageHandler
 from evennia.utils.utils import lazy_property
 import time
 from world.stats_and_skills import do_dice_check
 
 
-class Character(MsgMixins, ObjectMixins, DefaultCharacter):
+class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     """
     The Character defaults to reimplementing some of base Object's hook methods with the
     following functionality:
