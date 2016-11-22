@@ -81,9 +81,10 @@ def list_characters(caller, character_list, roster_type="Active Characters", ros
             concept = "-"
             srank = "-"
             afk = "-"
-            
             # check if the name matches anything in the hidden characters list
             hide = False
+            if charob and hasattr(charob, 'is_disguised') and charob.is_disguised:
+                hide = True
             if not charob and hidden_chars:
                 # convert both to lower case for case-insensitive matching
                 match_list = [ob for ob in hidden_chars if ob.name.lower() == char.lower()]
@@ -1496,7 +1497,7 @@ class CmdHere(MuxCommand):
         rname = caller.location.name
         list_characters(caller, vis_list, rname, roster, disp_titles, hidden_chars=vis_list, display_afk=True)
         if caller.check_permstring("Builders"):
-            masks = [char for char in caller.location.get_visible_characters(caller) if char.key != char.name]
+            masks = [char for char in vis_list if hasattr(char, "is_disguised") and char.is_disguised]
             char_list = []
             rname = "{mMasked/Illusioned Characters{n"
             for char in masks:

@@ -116,6 +116,10 @@ class DescMixins(object):
 class NameMixins(object):
 
     @property
+    def is_disguised(self):
+        return bool(self.fakename)
+
+    @property
     def fakename(self):
         """
         :type self: ObjectDB
