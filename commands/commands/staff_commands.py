@@ -541,3 +541,33 @@ class CmdAdjustReputation(MuxPlayerCommand):
             msg = "You have gained %s affection and %s respect with %s." % (affection, respect, org)
             player.inform(msg, category="Reputation")
         self.msg("You have given %s %s affection and %s respect with %s." % (player, affection, respect, org))
+
+
+class CmdGMDisguise(MuxCommand):
+    """
+    Disguises an object
+        Usage:
+            @disguise <object>
+            @disguise <object>=<new name>
+            @disguise/remove <object>
+    """
+    key = "@disguise"
+    help_category = "GMing"
+    locks = "cmd:perm(Wizards)"
+
+    def func(self):
+        targ = self.caller.search(self.lhs)
+        if not targ:
+            return
+        if not self.switches and not self.rhs:
+            self.msg("%s real name is %s" % (targ.name, targ.key))
+            return
+        if "remove" in self.switches:
+            del targ.fakename
+            self.msg("Removed any disguise for %s." % targ)
+            return
+        if not self.rhs:
+            self.msg("Must provide a new name.")
+            return
+        targ.fakename = self.rhs
+        self.msg("%s will now appear as %s." % (targ.key, targ.name))
