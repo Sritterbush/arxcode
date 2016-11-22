@@ -451,6 +451,7 @@ class CmdAdminRoster(MuxPlayerCommand):
                 history.gm_notes += self.rhs
             history.save()
             # set up password
+            # noinspection PyBroadException
             try:
                 import string
                 import random
@@ -866,6 +867,7 @@ def display_visions(caller, character):
         vision.receivers = caller
 
 
+# noinspection PyUnusedLocal
 def display_timeline(caller, character):
     """
     Display character timeline
