@@ -32,7 +32,7 @@ from world.stats_and_skills import (do_dice_check, get_stat_cost, get_skill_cost
 import time
 
 
-class Npc(NameMixins, Character):
+class Npc(Character):
     """
     NPC objects
 
