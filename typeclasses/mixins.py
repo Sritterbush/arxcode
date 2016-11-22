@@ -54,12 +54,22 @@ class DescMixins(object):
         """
         :type self: ObjectDB
         """
+        # Make sure we're not using db.desc as our permanent desc before wiping it
+        if not self.db.raw_desc:
+            self.db.raw_desc = self.db.desc
+        if not self.db.general_desc:
+            self.db.desc = self.db.desc
         self.db.desc = val
 
     def __temp_desc_del(self):
         """
         :type self: ObjectDB
         """
+        # Make sure we're not using db.desc as our permanent desc before wiping it
+        if not self.db.raw_desc:
+            self.db.raw_desc = self.db.desc
+        if not self.db.general_desc:
+            self.db.desc = self.db.desc
         self.db.desc = ""
     temp_desc = property(__temp_desc_get, __temp_desc_set, __temp_desc_del)
 
@@ -144,7 +154,8 @@ class NameMixins(object):
         :type self: ObjectDB
         """
         old = self.db.false_name
-        self.aliases.remove(old)
+        if old:
+            self.aliases.remove(old)
         self.attributes.remove("false_name")
 
     def __name_get(self):

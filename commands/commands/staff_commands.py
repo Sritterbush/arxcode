@@ -549,6 +549,7 @@ class CmdGMDisguise(MuxCommand):
         Usage:
             @disguise <object>
             @disguise <object>=<new name>
+            @disguise/desc object=<temp desc>
             @disguise/remove <object>
     """
     key = "@disguise"
@@ -564,10 +565,15 @@ class CmdGMDisguise(MuxCommand):
             return
         if "remove" in self.switches:
             del targ.fakename
+            del targ.temp_desc
             self.msg("Removed any disguise for %s." % targ)
             return
         if not self.rhs:
-            self.msg("Must provide a new name.")
+            self.msg("Must provide a new name or desc.")
+            return
+        if "desc" in self.switches:
+            targ.temp_desc = self.rhs
+            self.msg("Temporary desc is now:\n%s" % self.rhs)
             return
         targ.fakename = self.rhs
         self.msg("%s will now appear as %s." % (targ.key, targ.name))
