@@ -118,26 +118,7 @@ def journals(request, object_id):
                                                        'white_journal': white_journal,
                                                        'black_journal': black_journal,
                                                        })
-
-|Title=Duke
-|Full Name=Leo Fidante
-|Social Rank=3
-|Fealty=Velenosa
-|House=Fidante
-|Father=Marcus Fidante
-|Mother=Giancinta Fidante
-|Siblings=Calista Fidante,
-|Uncle Aunt=Teonia Fidante,
-|Cousins=Dante Fidante, Juliet Fidante,
-|Gender=Male
-|Age=33
-|Religion=Pantheon
-|Vocation=Knight
-|Height=5'11"
-|Hair Color=Black
-|Eye Color=Light Green
-|Skintone=Deeply Bronzed
-
+                                                       
 def character_list(request):
     def get_relations(char):
         relations = {}
