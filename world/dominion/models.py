@@ -302,6 +302,7 @@ class PlayerOrNpc(models.Model):
         """Calculates support used in last three weeks, builds a dictionary"""
         self.cached_support_cooldowns = {}
         cdowns = self.cached_support_cooldowns
+        # noinspection PyBroadException
         try:
             week = get_week()
         except Exception:
@@ -2059,6 +2060,7 @@ class Army(models.Model):
         for unit in self.units.all():
             unit.decimate()
 
+    # noinspection PyMethodMayBeStatic
     def countermand(self):
         """
         Erases our orders, refunds the value to our domain.
@@ -2118,6 +2120,7 @@ class Army(models.Model):
         Returns True iff attackers win, False if defenders
         win or if there was a stalemate/tie.
         """
+        # noinspection PyBroadException
         try:
             e_armies = tdomain.armies.filter(land_id=tdomain.land.id)
             if not e_armies:
@@ -2134,7 +2137,7 @@ class Army(models.Model):
             result = battle.begin_combat()
             # returns True if result shows ATK_WIN, False otherwise
             return result == Battle.ATK_WIN
-        except (Exception):
+        except Exception:
             print "ERROR: Could not generate battle on domain."
             traceback.print_exc()
 
@@ -2210,6 +2213,7 @@ class Army(models.Model):
             self.domain = target
             self.save()
 
+    # noinspection PyUnusedLocal
     def do_weekly_adjustment(self, week, report=None):
         """
         Weekly maintenance for the army. Consume food.
@@ -2352,6 +2356,7 @@ class MilitaryUnit(models.Model):
             self.xp -= cost
         self.save()
 
+    # noinspection PyMethodMayBeStatic
     def adjust_readiness(self, troops, training=0, equip=0):
         """
         Degrades the existing training and equipment level of our troops

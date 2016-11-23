@@ -27,6 +27,8 @@ class WeeklyEvents(Script):
     This script repeatedly saves server times so
     it can be retrieved after server downtime.
     """
+
+    # noinspection PyAttributeOutsideInit
     def at_script_creation(self):
         """
         Setup the script
@@ -177,7 +179,7 @@ class WeeklyEvents(Script):
                     cooldown[cid] -= 1
             char.db.support_cooldown = cooldown
             char.db.support_points_spent = 0
-            # reset list of people we were training
+            # reset training
             char.db.currently_training = []
             char.db.trainer = None
             # wipe stale requests

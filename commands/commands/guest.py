@@ -501,6 +501,7 @@ class CmdGuestCharCreate(MuxPlayerCommand):
                 # only allow creator (and immortals) to puppet this char
                 new_character.locks.add("puppet:id(%i) or pid(%i) or perm(Immortals) or pperm(Immortals)" %
                                         (new_character.id, new_player.id))
+                # noinspection PyProtectedMember
                 new_player.db._playable_characters.append(new_character)
                 new_player.db._last_puppet = new_character
                 new_player.db.char_ob = new_character

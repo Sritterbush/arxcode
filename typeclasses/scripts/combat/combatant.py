@@ -134,6 +134,7 @@ class CharacterCombatData(object):
         self.num_actions = 0  # used for fatigue calculation
         self.changed_stance = False
 
+    # noinspection PyAttributeOutsideInit
     def setup_weapon(self, weapon=None):
         self.weapon = weapon
         if weapon:  # various optional weapon fields w/default values
@@ -168,7 +169,7 @@ class CharacterCombatData(object):
             self.can_be_blocked = True
             self.can_be_dodged = True
             self.can_parry = False
-            self.can_riposte = True # can't block swords with hands, but can punch someone
+            self.can_riposte = True  # can't block swords with hands, but can punch someone
             self.can_block = False
             self.can_dodge = True
             # possibly use these in future
@@ -192,7 +193,7 @@ class CharacterCombatData(object):
             armor_penalty = 0
         fdiff += armor_penalty
         smsg = \
-        """
+            """
                     {wStatus{n
 {w==================================================================={n
 {wHealth:{n %(hp)-25s {wFatigue Level:{n %(fatigue)-20s
@@ -204,7 +205,7 @@ class CharacterCombatData(object):
                   'wound': self.wound_penalty,
                   }
         omsg = \
-        """
+            """
                     {wOffensive stats{n
 {w==================================================================={n
 {wWeapon:{n %(weapon)-20s
@@ -215,7 +216,7 @@ class CharacterCombatData(object):
 {wCan Be Blocked:{n %(bblocked)-16s {wCan Be Dodged:{n %(bdodged)-20s
 {wAttack Roll Penalties:{n %(atkpen)-20s
            """ % {'weapon': weapon, 'weapon_damage': self.weapon_damage, 'astat': self.attack_stat,
-                  'dstat': self.damage_stat, 'askill':self.attack_skill, 'atype': self.attack_type,
+                  'dstat': self.damage_stat, 'askill': self.attack_skill, 'atype': self.attack_type,
                   'dmod': self.difficulty_mod, 'bparried': self.can_be_parried,
                   'bblocked': self.can_be_blocked, 'bdodged': self.can_be_dodged,
                   'flat': self.flat_damage_bonus, 'atkpen': self.atk_penalties
@@ -225,17 +226,17 @@ class CharacterCombatData(object):
         except AttributeError:
             armor = self.char.db.armor or 0
         dmsg = \
-        """
+            """
                     {wDefensive stats{n
 {w==================================================================={n
 {wMitigation:{n %(mit)-20s {wPenalty to Fatigue Rolls:{n %(apen)s
 {wCan Parry:{n %(cparry)-21s {wCan Riposte:{n %(criposte)s
 {wCan Block:{n %(cblock)-21s {wCan Dodge:{n %(cdodge)s
 {wDefense Roll Penalties:{n %(defpen)-8s {wSoak Rating:{n %(soak)s""" % {
-            'mit': armor, 'defpen': self.def_penalties,
-            'apen': armor_penalty, 'cparry': self.can_parry,
-            'criposte': self.can_riposte, 'cblock': self.can_block,
-            'cdodge': self.can_dodge, 'soak': self.soak}
+                'mit': armor, 'defpen': self.def_penalties,
+                'apen': armor_penalty, 'cparry': self.can_parry,
+                'criposte': self.can_riposte, 'cblock': self.can_block,
+                'cdodge': self.can_dodge, 'soak': self.soak}
         if self.can_parry:
             dmsg += "\n{wParry Skill:{n %-19s {wParry Stat:{n %s" % (self.attack_skill, self.attack_stat)
         if self.can_dodge:
@@ -280,6 +281,7 @@ class CharacterCombatData(object):
         # if we're a multi-npc, only the damaged one gets wound penalties
         if self.multiple and self.remaining_attacks != self.num_attacks:
             return 0
+        # noinspection PyBroadException
         try:
             dmg = self.char.db.damage or 0
             return int((dmg * 100.0) / (self.char.max_hp * 10.0))
@@ -474,12 +476,14 @@ class CharacterCombatData(object):
                 self.combat.next_character_turn()
             return True
 
+    # noinspection PyMethodMayBeStatic
     def setup_defenders(self):
         """
         Determine list of CharacterCombatData objects of our defenders.
         """
         pass
-    
+
+    # noinspection PyMethodMayBeStatic
     def join_formation(self, newformation):
         """
         Leave our old formation and join new one, while taking with us all
@@ -492,6 +496,7 @@ class CharacterCombatData(object):
         self.initiative = do_dice_check(self.char, stat_list=["dexterity", "composure"], stat_keep=True, difficulty=0)
         self.tiebreaker = randint(1, 1000000000)
 
+    # noinspection PyUnusedLocal
     def roll_attack(self, targ, penalty=0):
         """
         Returns our roll to hit with an attack. Targ is not a charater
@@ -506,10 +511,11 @@ class CharacterCombatData(object):
         if roll < 2:
             return roll
         return (roll/2) + randint(0, (roll/2))
-    
+
+    # noinspection PyUnusedLocal
     def roll_defense(self, att, weapon=None, penalty=0, a_roll=None):
         """
-        Returns our roll to avoid being hit. Att is not charater, but
+        Returns our roll to avoid being hit. Att is not character, but
         CombatData object. We use the highest roll out of parry, block,
         and dodge. Half of our roll is then randomized.
         """
@@ -573,12 +579,13 @@ class CharacterCombatData(object):
         self.last_defense_method = "dodges"
         return total
 
+    # noinspection PyUnusedLocal
     def roll_damage(self, targ, penalty=0, dmgmult=1.0):
         """Returns our roll for damage against target."""
         keep_dice = self.weapon_damage + 1
         try:
             keep_dice += self.char.attributes.get(self.damage_stat)/2
-        except Exception:
+        except (TypeError, AttributeError, ValueError):
             pass
         if keep_dice < 3:
             keep_dice = 3       
@@ -592,7 +599,8 @@ class CharacterCombatData(object):
             roll = 1
         # 3/4ths of our damage is purely random
         return roll/4 + randint(0, ((roll * 3)/4)+1)
-    
+
+    # noinspection PyUnusedLocal
     def roll_mitigation(self, att, weapon=None, roll=0):
         """
         Returns our damage reduction against attacker. If the roll is

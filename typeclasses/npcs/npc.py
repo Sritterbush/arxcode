@@ -21,7 +21,6 @@ command, it then summons guards for that player character.
 
 """
 from typeclasses.characters import Character
-from typeclasses.mixins import NameMixins
 from .npc_types import (get_npc_stats, get_npc_desc, get_npc_skills,
                         get_npc_singular_name, get_npc_plural_name, get_npc_weapon,
                         get_armor_bonus, get_hp_bonus, primary_stats,
@@ -104,32 +103,6 @@ class Npc(Character):
         self.db.automate_combat = True
         self.db.damage = 0
         self.at_init()
-
-    def return_appearance(self, pobject, detailed=False, format_desc=False):
-        """
-        This is a convenient hook for a 'look'
-        command to call.
-        """
-        if not pobject:
-            return
-        # get and identify all objects
-        if pobject is self or pobject.check_permstring("builders"):
-            detailed = True
-        string = "{c%s{n" % self.get_fancy_name()
-        # Health appearance will also determine whether we
-        # use an alternate appearance if we are dead.
-        health_appearance = self.get_health_appearance()
-        # desc used to be db.desc. May use db.desc for temporary values,
-        # such as illusions, masks, etc
-        desc = self.desc
-        if self.db.use_alt_desc and self.db.desc:
-            desc = self.db.desc
-        if desc:
-            string += "\n\n%s" % desc
-        if health_appearance:
-            string += "\n\n%s" % health_appearance
-        string += self.return_contents(pobject, detailed)
-        return string
     
     def resurrect(self, *args, **kwargs):
         """
@@ -311,6 +284,7 @@ class MultiNpc(Npc):
         self.multideath(num=1, death=False)
         # don't reset damage here since it's used for death check. Reset in combat process
 
+    # noinspection PyAttributeOutsideInit
     def setup_name(self):
         npc_type = self.db.npc_type
         if self.db.num_living == 1 and not self.db.num_dead:
@@ -343,6 +317,7 @@ class MultiNpc(Npc):
         self.setup_stats(ntype, threat)     
         self.setup_name()
 
+    # noinspection PyAttributeOutsideInit
     def dismiss(self):
         self.location = None
         self.save()
@@ -393,6 +368,7 @@ class AgentMixin(object):
                 perm = "pid(%s)" % player_owner.id
         for lock in lockfunc:
             # add the permission to the lock function from above
+            # noinspection PyAugmentAssignment
             lock = lock % perm
             # note that this will replace any currently defined 'command' lock
             self.locks.add(lock)
@@ -417,6 +393,7 @@ class AgentMixin(object):
     def gain_agents(self, num):
         self.setup_name()
 
+    # noinspection PyAttributeOutsideInit
     def setup_name(self):
         self.name = self.agent.name
 
@@ -489,6 +466,7 @@ class AgentMixin(object):
                 docked.append(self)
             loc.db.docked_guards = docked
         loc.msg_contents("%s have been dismissed." % self.name)
+        # noinspection PyAttributeOutsideInit
         self.location = None
         if self.ndb.combat_manager:
             self.ndb.combat_manager.remove_combatant(self)
@@ -621,24 +599,13 @@ class Retainer(AgentMixin, Npc):
         msg += "{wLocation:{n %s\n" % (self.location or self.db.docked or "Home Barracks")
         return msg
 
+    # noinspection PyUnusedLocal
     def setup_npc(self, ntype=None, threat=None, num=None, desc=None, keepold=False):
         self.db.damage = 0
         self.db.health_status = "alive"
         self.db.sleep_status = "awake"
         self.setup_stats(ntype, threat)
         self.name = self.agentob.agent_class.name
-
-    def upgrade_weapon(self, *args, **kwargs):
-        """
-        Upgrades the 'fake_weapon' dict for this retainer.
-        """
-        pass
-
-    def upgrade_armor(self, *args, **kwargs):
-        """
-        Upgrades the armor for this retainer.
-        """
-        pass
 
     @property
     def buyable_abilities(self):
@@ -651,11 +618,13 @@ class Retainer(AgentMixin, Npc):
         # to do - get abilities based on level and add em to the ones they get innately
         return abilities
 
+    # noinspection PyUnusedLocal
     def get_ability_maximum(self, attr):
         """Returns max for an ability that we can buy"""
         # to do - make it different based on off-classes
         return self.agent.quality + 1
 
+    # noinspection PyMethodMayBeStatic
     def get_ability_cost(self, attr):
         cost, res_type = ABILITY_COSTS.get(attr)
         return cost, cost, res_type
@@ -671,8 +640,13 @@ class Retainer(AgentMixin, Npc):
             trainer.msg("You must have %s skill to train them." % self.training_skill)
             return False
         if self.db.trainer:
-            trainer.msg("They have already been trained by %s this week." % self.db.trainer)
-            return False
+            current = self.db.trainer.db.currently_training or []
+            # if our trainer doesn't have us in current, it's stale, remove our trainer
+            if self not in current:
+                self.db.trainer = None
+            else:
+                trainer.msg("They have already been trained by %s this week." % self.db.trainer)
+                return False
         # do training roll
         roll = do_dice_check(trainer, stat="command", skill=skill, difficulty=0)
         self.agent.xp += roll
@@ -691,6 +665,7 @@ class Agent(AgentMixin, MultiNpc):
     # AgentHandler Admin client methods
     # -----------------------------------------------
 
+    # noinspection PyAttributeOutsideInit
     def setup_name(self):
         a_type = self.agentob.agent_class.type
         noun = self.agentob.agent_class.name
@@ -733,7 +708,7 @@ class Agent(AgentMixin, MultiNpc):
     def death_process(self, *args, **kwargs):
         """
         This object dying. Set its state to dead, send out
-        death message to location. Add death commandset.
+        death message to location.
         """
         if self.location:
             self.location.msg_contents("{r%s has died.{n" % get_npc_singular_name(self._get_npc_type()))
