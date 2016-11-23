@@ -2303,7 +2303,7 @@ class CmdTask(MuxCommand):
                         mailmsg += "\nIf you decide to give them support, you finalize your choices with "
                         mailmsg += "'{wsupport/finish{n' once you have finished the form."
                         mailmsg += "\n\n" + warnmsg
-                    pc.inform(mailmsg, category="Support Request", append=False)
+                    pc.inform(mailmsg, category="Support Request from %s" % caller, append=False)
                     success.append(char)
                 if not success:
                     return
