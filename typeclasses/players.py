@@ -218,6 +218,45 @@ class Player(MsgMixins, DefaultPlayer):
     def get_all_sessions(self):
         return self.sessions.all()
 
+    @property
+    def public_orgs(self):
+        """
+        Return public organizations we're in.
+        """
+        try:
+            return self.Dominion.current_orgs.filter(secret=False)
+        except AttributeError:
+            return []
+
+    def pay_resources(self, rtype, amt):
+        """
+        Attempt to pay resources. If we don't have enough,
+        return False.
+        """
+        try:
+            assets = self.Dominion.assets
+            current = getattr(assets, rtype)
+            if current < amt:
+                return False
+            setattr(assets, rtype, current - amt)
+            assets.save()
+            return True
+        except AttributeError:
+            return False
+
+    @property
+    def retainers(self):
+        try:
+            return self.Dominion.assets.agents.filter(unique=True)
+        except AttributeError:
+            return []
+
+    def get_absolute_url(self):
+        try:
+            return self.db.char_ob.get_absolute_url()
+        except AttributeError:
+            pass
+
 
 
 

@@ -18,6 +18,7 @@ from evennia.utils.create import create_object
 from typeclasses.npcs import npc_types
 
 npc_typeclass = "typeclasses.npcs.npc.Agent"
+retainer_typeclass = "typeclasses.npcs.npc.Retainer"
 
 
 class AgentHandler(object):
@@ -37,32 +38,47 @@ class AgentHandler(object):
                 return agent
 
     def get_or_create_agentob(self, num):
-        if self.unassigned:
-            agent_ob = self.unassigned[0]
-            agent_ob.quantity = num
+        assert (self.agent.quantity >= num), "Not enough agents to assign."
+        if self.agent.unique:
+            # ensure we can only ever have one agent object
+            agent_obs = self.agent.agent_objects.all()
+            if agent_obs:
+                agent_ob = agent_obs[0]
+            else:
+                agent_ob = self.agent.agent_objects.create(quantity=1)
         else:
-            agent_ob = self.agent.agent_objects.create(quantity=num)
+            if self.unassigned:
+                agent_ob = self.unassigned[0]
+                agent_ob.quantity = num
+            else:
+                agent_ob = self.agent.agent_objects.create(quantity=num)
         self.agent.quantity -= num
         self.agent.save()
         if not agent_ob.dbobj:
-            ob = create_object(typeclass=npc_typeclass)
-            agent_ob.dbobj = ob.dbobj
+            if self.agent.unique:
+                ntype = retainer_typeclass
+            else:
+                ntype = npc_typeclass
+            ob = create_object(typeclass=ntype, key=self.agent.name or "Unnamed Agent")
+            agent_ob.dbobj = ob
             agent_ob.save()
         agent_ob.dbobj.setup_agent()
-        return agent_ob
+        return agent_ob      
 
     def assign(self, targ, num):
-        agent_ob = self.find_agentob_by_character(targ)
-        if agent_ob:
-            self.agent.quantity -= num
-            self.agent.save()
-            agent_ob.reinforce(num)
-            targ.msg("Your number of guards has been increased by %s." % num)
-            return
+        if not self.agent.unique:    
+            agent_ob = self.find_agentob_by_character(targ)
+            if agent_ob:
+                self.agent.quantity -= num
+                self.agent.save()
+                agent_ob.reinforce(num)
+                targ.msg("Your number of guards has been increased by %s." % num)
+                return
         agent_ob = self.get_or_create_agentob(num)
         agent_ob.dbobj.assign(targ)
         agent_ob.save()
-        targ.msg("%s have been assigned to you." % agent_ob.dbobj.name)
+        targ.msg("%s %s been assigned to you." % (agent_ob.dbobj.name,
+                                                  "has" if self.agent.unique else "have"))
 
     def room_summon(self, room, num=1):
         agent_ob = self.get_or_create_agentob(num)

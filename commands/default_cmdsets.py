@@ -13,9 +13,11 @@ to add/remove commands from the default lineup. You can create your
 own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
 
 """
-
+from world.dominion import agent_commands
 from evennia import default_cmds
 from .cmdsets import standard
+from typeclasses.wearable import cmdset_wearable
+
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
     """
@@ -29,7 +31,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         """
         Populates the cmdset
         """
-        #super(CharacterCmdSet, self).at_cmdset_creation()
+        # super(CharacterCmdSet, self).at_cmdset_creation()
         #
         # any commands you add below will overload the default ones.
         #
@@ -38,10 +40,10 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
             self.add(standard.MobileCmdSet)
             self.add(standard.OOCCmdSet)
             self.add(standard.StaffCmdSet)
+            self.add(cmdset_wearable.WearCmdSet)
         except Exception:
             import traceback
             traceback.print_exc()
-
 
 
 class PlayerCmdSet(default_cmds.PlayerCmdSet):
@@ -83,15 +85,9 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
         # Comm commands
         self.add(comms.CmdAddCom())
         self.add(comms.CmdDelCom())
-        self.add(comms.CmdAllCom())
         self.add(comms.CmdChannels())
-        self.add(comms.CmdCdestroy())
-        self.add(comms.CmdChannelCreate())
-        self.add(comms.CmdClock())
-        self.add(comms.CmdCBoot())
         self.add(comms.CmdCemit())
         self.add(comms.CmdCWho())
-        self.add(comms.CmdCdesc())
         self.add(comms.CmdIRC2Chan())
         self.add(comms.CmdRSS2Chan())
                  
@@ -107,6 +103,12 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             from .commands import overrides
             self.add(overrides.CmdWho())
             self.add(overrides.CmdSetAttribute())
+            self.add(overrides.CmdArxCdestroy())
+            self.add(overrides.CmdArxChannelCreate())
+            self.add(overrides.CmdArxClock())
+            self.add(overrides.CmdArxCBoot())
+            self.add(overrides.CmdArxCdesc())
+            self.add(overrides.CmdArxAllCom())
         except Exception as err:
             print("<<ERROR>>: Error in overrides: %s." % err)
         try:
@@ -157,8 +159,9 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(domcommands.CmdDomain())
             self.add(domcommands.CmdFamily())
             self.add(domcommands.CmdOrganization())
-            self.add(domcommands.CmdAgents())
+            self.add(agent_commands.CmdAgents())
             self.add(domcommands.CmdPatronage())
+            self.add(agent_commands.CmdRetainers())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading Dominion cmdset in Player: %s" % err)
         try:
@@ -178,6 +181,7 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(staff_commands.CmdAskStaff())
             self.add(staff_commands.CmdListStaff())
             self.add(staff_commands.CmdPurgeJunk())
+            self.add(staff_commands.CmdAdjustReputation())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading staff_commands cmdset in Player: %s" % err)
         try:
@@ -204,7 +208,7 @@ class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):
         """
         Populates the cmdset
         """
-        #super(UnloggedinCmdSet, self).at_cmdset_creation()
+        # super(UnloggedinCmdSet, self).at_cmdset_creation()
         #
         # any commands you add below will overload the default ones.
         #
@@ -221,6 +225,7 @@ class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):
             self.add(unloggedin.CmdUnconnectedHelp())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading Unlogged cmdset: %s" % err)
+
 
 class SessionCmdSet(default_cmds.SessionCmdSet):
     """
@@ -241,4 +246,3 @@ class SessionCmdSet(default_cmds.SessionCmdSet):
         #
         # any commands you add below will overload the default ones.
         #
-

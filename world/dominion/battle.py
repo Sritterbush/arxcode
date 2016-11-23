@@ -13,7 +13,7 @@ from .combat_grid import CombatGrid
 from .reports import BattleReport
 import operator
 import traceback
-from server.utils.utils import setup_log
+from server.utils.arx_utils import setup_log
 
 
 XP_PER_BATTLE = 5

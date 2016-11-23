@@ -70,7 +70,7 @@ Installation/testing:
 import re
 from django.conf import settings
 from evennia.contrib.extended_room import ExtendedRoom
-from evennia import gametime
+from typeclasses.scripts import gametime
 from evennia import default_cmds
 from evennia import utils
 from evennia.utils.utils import lazy_property
@@ -97,6 +97,40 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
     time. It also allows for "details", together with a slightly modified
     look command.
     """
+    def get_time_and_season(self):
+        """
+        Calculate the current time and season ids.
+        """
+        # get the current time as parts of year and parts of day
+        # returns a tuple (years,months,weeks,days,hours,minutes,sec)
+        MONTHS_PER_YEAR = settings.TIME_MONTH_PER_YEAR
+        SEASONAL_BOUNDARIES = (3 / 12.0, 6 / 12.0, 9 / 12.0)
+        HOURS_PER_DAY = settings.TIME_HOUR_PER_DAY
+        DAY_BOUNDARIES = (0, 6 / 24.0, 12 / 24.0, 18 / 24.0)
+        time = gametime.gametime(format=True)
+        month, hour = time[1], time[4]
+        season = float(month) / MONTHS_PER_YEAR
+        timeslot = float(hour) / HOURS_PER_DAY
+
+        # figure out which slots these represent
+        if SEASONAL_BOUNDARIES[0] <= season < SEASONAL_BOUNDARIES[1]:
+            curr_season = "spring"
+        elif SEASONAL_BOUNDARIES[1] <= season < SEASONAL_BOUNDARIES[2]:
+            curr_season = "summer"
+        elif SEASONAL_BOUNDARIES[2] <= season < 1.0 + SEASONAL_BOUNDARIES[0]:
+            curr_season = "autumn"
+        else:
+            curr_season = "winter"
+
+        if DAY_BOUNDARIES[0] <= timeslot < DAY_BOUNDARIES[1]:
+            curr_timeslot = "night"
+        elif DAY_BOUNDARIES[1] <= timeslot < DAY_BOUNDARIES[2]:
+            curr_timeslot = "morning"
+        elif DAY_BOUNDARIES[2] <= timeslot < DAY_BOUNDARIES[3]:
+            curr_timeslot = "afternoon"
+        else:
+            curr_timeslot = "evening"
+        return curr_season, curr_timeslot
 
     @property
     def is_room(self):
@@ -114,7 +148,7 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
         
     def get_visible_characters(self, pobject):
         "Returns a list of visible characters in a room."
-        char_list = [ob for ob in self.contents if ob.is_character and ob.player]
+        char_list = [ob for ob in self.contents if hasattr(ob, "is_character") and ob.is_character and ob.player]
         return [char for char in char_list if char.access(pobject, "view")]
 
     def return_appearance(self, looker, detailed=False, format_desc=True):
@@ -215,7 +249,7 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
             self.cmdset.add(HOMECMD, permanent=True)
         try:
             # add our room owner as a homeowner if they're a player
-            from game.dominion.models import AssetOwner
+            from world.dominion.models import AssetOwner
             aowner = AssetOwner.objects.get(id=self.db.room_owner)
             char = aowner.player.player.db.char_ob
             if char not in owners:
@@ -351,7 +385,14 @@ class CmdExtendedLook(default_cmds.CmdLook):
             caller.msg("Could not find '%s'." % args)
             return
         # get object's appearance
-        caller.msg(looking_at_obj.return_appearance(caller, detailed=False))
+        desc = looking_at_obj.return_appearance(caller, detailed=False)
+        # if it's a written object, we'll paginate the description
+        if looking_at_obj.db.written:
+            from evennia.utils import evmore
+            desc = desc.replace('%r', '\n')
+            evmore.msg(caller, desc)
+        else:
+            caller.msg(desc)
         # the object's at_desc() method.
         looking_at_obj.at_desc(looker=caller)
 
@@ -359,7 +400,7 @@ class CmdStudyRawAnsi(default_cmds.MuxCommand):
     """
     prints raw ansi codes for a name
     Usage:
-        @study <obj>
+        @study <obj>[=<player to send it to>]
 
     Prints raw ansi.
     """
@@ -370,9 +411,17 @@ class CmdStudyRawAnsi(default_cmds.MuxCommand):
         ob = caller.search(self.lhs)
         if not ob:
             return
-        from evennia.utils.ansi import raw
-        caller.msg("Escaped name: %s" % raw(ob.name))
-        caller.msg("Escaped desc: %s" % raw(ob.return_appearance(caller, detailed=False)))
+        targ = caller.player
+        if self.rhs:
+            targ = targ.search(self.rhs)
+            if not targ:
+                return
+        from server.utils.arx_utils import raw
+        if targ != caller:
+            targ.msg("%s sent you this @study on %s: " % (caller,ob))
+            caller.msg("Sent to %s." % targ)
+        targ.msg("Escaped name: %s" % raw(ob.name))
+        targ.msg("Escaped desc: %s" % raw(ob.return_appearance(caller, detailed=False)))
 
 
 # Custom build commands for setting seasonal descriptions
@@ -574,5 +623,5 @@ class CmdGameTime(default_cmds.MuxCommand):
             self.caller.msg("It's %s %s day, in the %s." % (prep, season.capitalize(), timeslot))
             time = gametime.gametime(format=True)
             hour, minute = time[4], time[5]
-            from server.utils.utils import get_date
+            from server.utils.arx_utils import get_date
             self.caller.msg("Today's date: %s. Current time: %s:%02d" % (get_date(), hour, minute))

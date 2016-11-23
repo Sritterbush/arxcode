@@ -10,10 +10,11 @@ semicolons.
 """
 
 from evennia.utils.create import create_message
-from server.utils.utils import get_date
-from twisted.internet import reactor
+from server.utils.arx_utils import get_date
+
 
 _GA = object.__getattribute__
+
 
 class MessageHandler(object):
     def __init__(self, obj):
@@ -38,7 +39,6 @@ class MessageHandler(object):
         self._rumors = []
         self._gossip = []
         self._visions = []
-
 
     @property
     def comments(self):
@@ -105,6 +105,7 @@ class MessageHandler(object):
         if not self._rumors:
             self.build_rumorslist()
         return self._rumors
+
     @property
     def gossip(self):
         if not self._gossip:
@@ -117,13 +118,12 @@ class MessageHandler(object):
             self.build_visionslist()
         return self._visions
 
-
-    #-----------------------------------------------------------------
+    # -----------------------------------------------------------------
     # A number of static methods, used for processing. They could be
     # helper functions in the module, but I'd rather not pollute the
     # namespace with a whole bunch of different functions that need
     # to be inherited when you want to parse a message.
-    #-----------------------------------------------------------------
+    # -----------------------------------------------------------------
     @staticmethod
     def parse_header(msg):
         """
@@ -135,11 +135,12 @@ class MessageHandler(object):
             return {}
         hlist = header.split(";")
         keyvalpairs = [pair.split(":") for pair in hlist]
-        keydict = {pair[0].strip():pair[1].strip() for pair in keyvalpairs if len(pair) == 2}
+        keydict = {pair[0].strip(): pair[1].strip() for pair in keyvalpairs if len(pair) == 2}
         return keydict
     
     @staticmethod
     def get_date_from_header(msg):
+        # type: (msg) -> str
         header = MessageHandler.parse_header(msg)
         return header.get('date', None)
     
@@ -161,9 +162,9 @@ class MessageHandler(object):
     def create_messenger_header(icdate):
         return "type:messenger;date:%s" % icdate
 
-    #---------------------------------------------------------
+    # ---------------------------------------------------------
     # Setup/building methods
-    #---------------------------------------------------------
+    # ---------------------------------------------------------
 
     def build_commentdict(self):
         """
@@ -207,7 +208,8 @@ class MessageHandler(object):
         """
         Returns a list of all rumor entries which we've heard (marked as a receiver for)
         """
-        self._rumors = list(_GA(self.obj, 'receiver_object_set').filter(db_header__icontains="rumor").order_by('-db_date_created'))
+        self._rumors = list(_GA(self.obj, 'receiver_object_set').filter(db_header__icontains="rumor"
+                                                                        ).order_by('-db_date_created'))
         return self._rumors
     
     def build_gossiplist(self):
@@ -215,52 +217,60 @@ class MessageHandler(object):
         Returns a list of all gossip entries we've heard (marked as a receiver for)
         """
         if self.obj.db.player_ob:
-            self._gossip = list(self.obj.db.player_ob.receiver_player_set.filter(db_header__icontains="gossip").order_by('-db_date_created'))
+            self._gossip = list(self.obj.db.player_ob.receiver_player_set.filter(db_header__icontains="gossip"
+                                                                                 ).order_by('-db_date_created'))
         else:
-            self._gossip = list(_GA(self.obj, 'receiver_object_set').filter(db_header__icontains="gossip").order_by('-db_date_created'))
+            self._gossip = list(_GA(self.obj, 'receiver_object_set').filter(db_header__icontains="gossip"
+                                                                            ).order_by('-db_date_created'))
 
     def build_visionslist(self):
         """
         Returns a list of all messengers this character has received. Does not include pending.
         """
-        self._visions = list(_GA(self.obj, 'receiver_object_set').filter(db_header__icontains="visions").order_by('-db_date_created'))
+        self._visions = list(_GA(self.obj, 'receiver_object_set').filter(db_header__icontains="visions"
+                                                                         ).order_by('-db_date_created'))
         return self._visions
-        
-    
+
     def build_whitejournal(self):
         """
         Returns a list of all 'white journal' entries our character has written.
         """
-        self._white_journal = list(_GA(self.obj,'sender_object_set').filter(db_header__icontains="white_journal").order_by('-db_date_created'))
+        self._white_journal = list(_GA(self.obj, 'sender_object_set').filter(db_header__icontains="white_journal"
+                                                                             ).order_by('-db_date_created'))
         return self._white_journal
 
     def build_blackjournal(self):
         """
         Returns a list of all 'black journal' entries our character has written.
         """
-        self._black_journal = list(_GA(self.obj, 'sender_object_set').filter(db_header__icontains="black_journal").order_by('-db_date_created'))
+        self._black_journal = list(_GA(self.obj, 'sender_object_set').filter(db_header__icontains="black_journal"
+                                                                             ).order_by('-db_date_created'))
         return self._black_journal
 
     def build_messenger_history(self):
         """
         Returns a list of all messengers this character has received. Does not include pending.
         """
-        self._messenger_history = list(_GA(self.obj, 'receiver_object_set').filter(db_header__icontains="messenger").order_by('-db_date_created'))
+        self._messenger_history = list(_GA(self.obj, 'receiver_object_set').filter(db_header__icontains="messenger"
+                                                                                   ).order_by('-db_date_created'))
         return self._messenger_history
 
-    def get_event(self, msg):
+    @staticmethod
+    def get_event(msg):
         from world.dominion.models import RPEvent
+        from evennia.typeclasses.tags import Tag
         try:
             tag = msg.db_tags.get(db_key__isnull=False,
                                   db_data__isnull=False,
                                   db_category="event")
-            return RPEvent.objects.get(name__iexact=tag.db_key)
-        except Exception:
+            return RPEvent.objects.get(id=tag.db_data)
+        except (Tag.DoesNotExist, Tag.MultipleObjectsReturned, AttributeError,
+                TypeError, ValueError, RPEvent.DoesNotExist):
             return None
 
-    #--------------------------------------------------------------
+    # --------------------------------------------------------------
     # API/access methods
-    #--------------------------------------------------------------
+    # --------------------------------------------------------------
 
     def get_comments_by_sender(self, sender):
         """
@@ -300,11 +310,11 @@ class MessageHandler(object):
         commenter.db.num_comments = num_comments
 
     def add_to_journals(self, msg, white=True):
-        "adds message to our journal"
+        """adds message to our journal"""
         if not white:
             try:
-                id = self.obj.db.player_ob.id
-                blacklock = "read: perm(Builders) or pid(%s)." % id
+                p_id = self.obj.db.player_ob.id
+                blacklock = "read: perm(Builders) or pid(%s)." % p_id
             except AttributeError:
                 blacklock = "read: perm(Builders)"
             msg.locks.add(blacklock)
@@ -316,7 +326,7 @@ class MessageHandler(object):
         return msg
 
     def add_journal(self, msg, white=True, date=""):
-        "creates a new journal message and returns it"
+        """creates a new journal message and returns it"""
         if not date:
             date = get_date()
         header = self.create_journal_header(date, white)
@@ -330,14 +340,13 @@ class MessageHandler(object):
         return msg
 
     def add_event_journal(self, event, msg, white=True, date=""):
-        "Creates a new journal about event and returns it"
+        """Creates a new journal about event and returns it"""
         msg = self.add_journal(msg, white, date)
         tagkey = event.name.lower()
         category = "event"
         data = str(event.id)
+        from evennia.typeclasses.tags import Tag
         try:
-            from evennia.typeclasses.tags import Tag
-
             tag = Tag.objects.get(db_key=tagkey, db_category=category,
                                   db_data=data, db_model="msg")
         except Tag.DoesNotExist:
@@ -348,7 +357,7 @@ class MessageHandler(object):
         return msg
 
     def add_relationship(self, msg, targ, white=True, date=""):
-        "creates a relationship and adds relationship to our journal"
+        """creates a relationship and adds relationship to our journal"""
         if not date:
             date = get_date()
         header = self.create_relationship_header(date, white)
@@ -367,25 +376,31 @@ class MessageHandler(object):
         self.obj.db.num_rel_updates = num_rels
         return msg
 
-    def add_vision(self, msg, sender):
-        "adds a vision sent by a god or whatever"
+    def add_vision(self, msg, sender, vision_obj=None):
+        """adds a vision sent by a god or whatever"""
         date = get_date()
         header = "type:visions;date:%s" % date
-        msg = create_message(sender, msg, receivers=self.obj, header=header)
-        if msg not in self.visions:
-            self.visions.append(msg)
-        return msg
+        if not vision_obj:
+            vision_obj = create_message(sender, msg, receivers=self.obj, header=header)
+        else:
+            self.obj.receiver_object_set.add(vision_obj)
+        if vision_obj not in self.visions:
+            self.visions.append(vision_obj)
+        return vision_obj
 
     def receive_messenger(self, msg):
-        "marks us as having received the message"
+        """marks us as having received the message"""
         from django.db.models import Q
+        if not msg or not msg.pk:
+            self.obj.msg("This messenger appears to have been deleted.")
+            return
         self.obj.receiver_object_set.add(msg)
         if msg not in self.messenger_history:
             self.messenger_history.insert(0, msg)
         qs = self.obj.receiver_object_set.filter(Q(db_header__icontains="messenger")
                                                  & ~Q(db_header__icontains="preserve")).order_by('db_date_created')
         if qs.count() > 30:
-           self.del_messenger(qs.first()) 
+            self.del_messenger(qs.first())
         return msg
 
     def send_messenger(self, msg, date=""):
@@ -407,16 +422,15 @@ class MessageHandler(object):
         # only delete the messenger if no one else has a copy
         if not msg.db_receivers_objects.all():
             msg.delete()
-            
-    
-    #---------------------------------------------------------------------
+
+    # ---------------------------------------------------------------------
     # Display methods
-    #---------------------------------------------------------------------
+    # ---------------------------------------------------------------------
     
     def disp_entry(self, entry):
         date = self.get_date_from_header(entry)
         msg = "{wDate:{n %s\n" % date
-        event = self.get_event(msg)
+        event = self.get_event(entry)
         if event:
             msg += "{wEvent:{n %s\n" % entry.event
         msg += "{wOOC Date:{n %s\n\n" % entry.db_date_created.strftime("%x %X")
@@ -424,9 +438,9 @@ class MessageHandler(object):
         try:
             ob = self.obj.db.player_ob
             # don't bother to mark player receivers for a messenger
-            if ob not in entry.receivers and "messenger" not in msg.db_header:
+            if ob not in entry.receivers and "messenger" not in entry.db_header:
                 entry.receivers = ob
-        except Exception:
+        except (AttributeError, TypeError):
             pass
         return msg
         
@@ -443,6 +457,7 @@ class MessageHandler(object):
         if caller and not white:
             if not entry.access(caller, 'read'):
                 return False
+        # noinspection PyBroadException
         try:
             subjects = entry.db_receivers_objects.all()
             if subjects:
@@ -453,7 +468,7 @@ class MessageHandler(object):
                 if caller.db.player_ob:
                     caller = caller.db.player_ob
                 entry.receivers = caller
-        except Exception:
+        except Exception:  # Catch possible database errors, or bad formatting, etc
             import traceback
             traceback.print_exc()
             msg = "Error in retrieving journal. It may have been deleted and the server has not yet synchronized."
@@ -477,9 +492,3 @@ class MessageHandler(object):
             return len(self.white_journal)
         else:
             return len(self.black_journal)
-
-    
-
-
-
-

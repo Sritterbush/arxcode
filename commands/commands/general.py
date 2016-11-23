@@ -6,11 +6,13 @@ from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.comms.models import TempMsg
 from evennia.utils import utils, evtable
 from server.utils import prettytable
-from evennia.utils.utils import make_iter
+from evennia.utils.utils import make_iter, variable_from_module
 from world import stats_and_skills
 from evennia.objects.models import ObjectDB
-from evennia.objects.objects import _AT_SEARCH_RESULT
 from evennia.utils.ansi import raw
+
+AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
+
 
 class CmdBriefMode(MuxCommand):
     """
@@ -27,13 +29,14 @@ class CmdBriefMode(MuxCommand):
     help_category = "Settings"
     
     def func(self):
-        " Handles the toggle "
+        """ Handles the toggle """
         caller = self.caller
         caller.db.briefmode = not caller.db.briefmode
         if not caller.db.briefmode:
             caller.msg("Brief mode is now off.")
         else:
             caller.msg("Brief mode is now on.")
+
 
 class CmdGameSettings(MuxPlayerCommand):
     """
@@ -72,24 +75,26 @@ class CmdGameSettings(MuxPlayerCommand):
         if not char:
             caller.msg("Settings have no effect without a character object.")
             return
+        switches = self.switches
         if self.cmdstring == "lrp":
-            self.switches = ["lrp"]
-        if "brief" in self.switches:
+            switches = ["lrp"]
+        if "brief" in switches:
             self.togglesetting(char, "briefmode")
             return
-        if "posebreak" in self.switches:
+        if "posebreak" in switches:
             self.togglesetting(char, "posebreak")
             return
-        if "stripansinames" in self.switches:
+        if "stripansinames" in switches:
             self.togglesetting(char, "stripansinames")
             return
-        if "lrp" in self.switches:
+        if "lrp" in switches:
             self.togglesetting(caller, "lookingforrp")
             return
-        if "afk" in self.switches:
+        if "afk" in switches:
             caller.execute_cmd("afk %s" % self.args)
             return
         caller.msg("Invalid switch.")
+
 
 class CmdGlance(MuxCommand):
     """
@@ -104,6 +109,7 @@ class CmdGlance(MuxCommand):
     key = "glance"
     locks = "cmd:all()"
     help_category = "Social"
+
     def func(self):
         caller = self.caller
         char = caller.search(self.args)
@@ -117,6 +123,7 @@ class CmdGlance(MuxCommand):
         except AttributeError:
             caller.msg("You cannot glance at that.")
             return
+
 
 class CmdShout(MuxCommand):
     """
@@ -135,22 +142,22 @@ class CmdShout(MuxCommand):
     help_category = "Social"
     
     def func(self):
-        " Handles the toggle "
+        """ Handles the toggle """
         caller = self.caller
         args = self.args
         switches = self.switches
-        radius = 1
+        loudly = False
         if not args:
             caller.msg("Shout what?")
             return
         if switches and "loudly" in switches:
-            radius = 2
+            loudly = True
+        loudstr = "loudly " if loudly else ""
+        from_dir = "from nearby"
         caller.msg('You shout, "%s"' % args)
-        txt = '{c%s{n shouts from elsewhere, "%s"' % (caller.name, args)
-        caller.location.msg_contents(txt, exclude=caller, options={'radius':radius,
-                                                                   'origin_id': caller.location.id,
-                                                                   'origin_x':caller.location.db.x_coord,
-                                                                   'origin_y':caller.location.db.y_coord})
+        txt = '{c%s{n shouts %s%s, "%s"' % (caller.name, loudstr, from_dir, args)
+        caller.location.msg_contents(txt, exclude=caller, options={'shout': True,
+                                                                   'from_dir': from_dir})
 
 
 class CmdFollow(MuxCommand):
@@ -171,7 +178,7 @@ class CmdFollow(MuxCommand):
     help_category = "Travel"
 
     def func(self):
-        " Handles followin' "
+        """ Handles followin' """
         caller = self.caller
         args = self.args
         f_targ = caller.ndb.following
@@ -186,6 +193,7 @@ class CmdFollow(MuxCommand):
             caller.msg("No one to follow.")
             return
         caller.follow(f_targ)
+
 
 class CmdDitch(MuxCommand):
     """
@@ -204,7 +212,7 @@ class CmdDitch(MuxCommand):
     help_category = "Travel"
 
     def func(self):
-        " Handles followin' "
+        """ Handles followin' """
         caller = self.caller
         args = self.args
         followers = caller.ndb.followers
@@ -218,7 +226,7 @@ class CmdDitch(MuxCommand):
                 if obj:
                     matches.append(obj[0])
                 else:
-                    _AT_SEARCH_RESULT(obj, caller, arg)
+                    AT_SEARCH_RESULT(obj, caller, arg)
             for match in matches:
                 match.stop_follow()
             return
@@ -244,11 +252,12 @@ class CmdDiceString(MuxCommand):
     locks = "cmd:all()"
     
     def func(self):
-        " Handles the toggle "
+        """ Handles the toggle """
         caller = self.caller
         args = self.args
         dicest = caller.db.dice_string
-        if not dicest: dicest = "None."
+        if not dicest:
+            dicest = "None."
         if not args:
             caller.msg("Your current dicestring is: {w%s" % dicest)
             caller.msg("To change your dicestring: {w@dicestring <word or phrase>")
@@ -257,7 +266,8 @@ class CmdDiceString(MuxCommand):
         caller.msg("Your dice string is now: %s" % args)
         return
       
-#Note that if extended_room's Extended Look is defined, this is probably not used
+
+# Note that if extended_room's Extended Look is defined, this is probably not used
 class CmdLook(MuxCommand):
     """
     look
@@ -337,24 +347,23 @@ class CmdWhisper(MuxCommand):
     help_category = "Social"
 
     def func(self):
-        "Implement function using the Msg methods"
+        """Implement function using the Msg methods"""
 
         # this is a MuxCommand, which means caller will be a Character.
         caller = self.caller
-        receivers = []
-
         # get the messages we've sent (not to channels)
-        if not caller.ndb.whispers_sent: caller.ndb.whispers_sent = []
+        if not caller.ndb.whispers_sent:
+            caller.ndb.whispers_sent = []
         pages_we_sent = caller.ndb.whispers_sent
         # get last messages we've got
-        if not caller.ndb.whispers_received: caller.ndb.whispers_received = []
+        if not caller.ndb.whispers_received:
+            caller.ndb.whispers_received = []
         pages_we_got = caller.ndb.whispers_received
 
         if 'last' in self.switches:
             if pages_we_sent:
                 recv = ",".join(obj.key for obj in pages_we_sent[-1].receivers)
-                self.msg("You last whispered {c%s{n:%s" % (recv,
-                                                    pages_we_sent[-1].message))
+                self.msg("You last whispered {c%s{n:%s" % (recv, pages_we_sent[-1].message))
                 return
             else:
                 self.msg("You haven't whispered anyone yet.")
@@ -390,6 +399,9 @@ class CmdWhisper(MuxCommand):
             self.msg(string)
             return
         # We are sending. Build a list of targets
+        lhs = self.lhs
+        rhs = self.rhs
+        lhslist = self.lhslist
         if not self.rhs:
             # MMO-type whisper. 'whisper <name> <target>'
             arglist = self.args.lstrip().split(' ', 1)
@@ -397,11 +409,11 @@ class CmdWhisper(MuxCommand):
                 caller.msg("The MMO-style whisper format requires both a name and a message.")
                 caller.msg("To send a message to your last whispered character, use {wwhisper =<message>")
                 return
-            self.lhs = arglist[0]
-            self.rhs = arglist[1]
-            self.lhslist = set(arglist[0].split(","))
+            lhs = arglist[0]
+            rhs = arglist[1]
+            lhslist = set(arglist[0].split(","))
             
-        if not self.lhs and self.rhs:
+        if not lhs and rhs:
             # If there are no targets, then set the targets
             # to the last person we paged.
             if pages_we_sent:
@@ -410,7 +422,7 @@ class CmdWhisper(MuxCommand):
                 self.msg("Who do you want to whisper?")
                 return
         else:
-            receivers = self.lhslist
+            receivers = lhslist
 
         recobjs = []
         for receiver in set(receivers):
@@ -434,16 +446,16 @@ class CmdWhisper(MuxCommand):
             self.msg("No one found to whisper.")
             return
         header = "{c%s{n whispers," % caller.key.capitalize()
-        message = self.rhs
+        message = rhs
         # if message begins with a :, we assume it is a 'whisper-pose'
         if message.startswith(":"):
             message = "%s %s %s" % ("Discreetly,", caller.name, message.strip(':').strip())
-            isaWhisperPose = True
+            is_a_whisper_pose = True
         elif message.startswith(";"):
             message = "%s %s%s" % ("Discreetly,", caller.name, message.lstrip(';').strip())
-            isaWhisperPose = True
+            is_a_whisper_pose = True
         else:
-            isaWhisperPose = False
+            is_a_whisper_pose = False
             message = "'" + message + "'"
         # create the temporary message object
         temp_message = TempMsg(senders=caller, receivers=recobjs, message=message)
@@ -458,7 +470,7 @@ class CmdWhisper(MuxCommand):
             if not pobj.access(caller, 'tell'):
                 rstrings.append("You are not allowed to page %s." % pobj)
                 continue
-            if isaWhisperPose:
+            if is_a_whisper_pose:
                 omessage = message
                 if otherobs:
                     omessage = "(Also sent to %s.) %s" % (", ".join(ob.name for ob in otherobs), message)
@@ -469,11 +481,13 @@ class CmdWhisper(MuxCommand):
                 else:
                     myheader = header
                 pobj.msg("%s %s" % (myheader, message))
-            if not pobj.ndb.whispers_received: pobj.ndb.whispers_received = []
+            if not pobj.ndb.whispers_received:
+                pobj.ndb.whispers_received = []
             pobj.ndb.whispers_received.append(temp_message)
             if hasattr(pobj, 'has_player') and not pobj.has_player:
                 received.append("{C%s{n" % pobj.name)
-                rstrings.append("%s is offline. They will see your message if they list their pages later." % received[-1])
+                rstrings.append("%s is offline. They will see your message if they list their pages later." %
+                                received[-1])
             else:
                 received.append("{c%s{n" % pobj.name)
             afk = pobj.db.player_ob and pobj.db.player_ob.db.afk
@@ -483,10 +497,11 @@ class CmdWhisper(MuxCommand):
         if rstrings:
             self.msg("\n".join(rstrings))
         if received:
-            if isaWhisperPose:
+            if is_a_whisper_pose:
                 self.msg("You posed to %s: %s" % (", ".join(received), message))
             else:
                 self.msg("You whispered to %s, %s" % (", ".join(received), message))
+
 
 class CmdPage(MuxPlayerCommand):
     """
@@ -519,23 +534,24 @@ class CmdPage(MuxPlayerCommand):
     arg_regex = r'\/|\s|$'
 
     def func(self):
-        "Implement function using the Msg methods"
+        """Implement function using the Msg methods"""
 
         # this is a MuxPlayerCommand, which means caller will be a Player.
         caller = self.caller
 
         # get the messages we've sent (not to channels)
-        if not caller.ndb.pages_sent: caller.ndb.pages_sent = []
+        if not caller.ndb.pages_sent:
+            caller.ndb.pages_sent = []
         pages_we_sent = caller.ndb.pages_sent
         # get last messages we've got
-        if not caller.ndb.pages_received: caller.ndb.pages_received = []
+        if not caller.ndb.pages_received:
+            caller.ndb.pages_received = []
         pages_we_got = caller.ndb.pages_received
 
         if 'last' in self.switches:
             if pages_we_sent:
                 recv = ",".join(obj.key for obj in pages_we_sent[-1].receivers)
-                self.msg("You last paged {c%s{n:%s" % (recv,
-                                                    pages_we_sent[-1].message))
+                self.msg("You last paged {c%s{n:%s" % (recv, pages_we_sent[-1].message))
                 return
             else:
                 self.msg("You haven't paged anyone yet.")
@@ -571,46 +587,49 @@ class CmdPage(MuxPlayerCommand):
             return
         # if this is a 'tell' rather than a page, we use different syntax
         cmdstr = self.cmdstring.lower()
+        lhs = self.lhs
+        rhs = self.rhs
+        lhslist = self.lhslist
         if cmdstr.startswith('tell'):
             arglist = self.args.lstrip().split(' ', 1)
             if len(arglist) < 2:
                 caller.msg("The tell format requires both a name and a message.")
                 return
-            self.lhs = arglist[0]
-            self.rhs = arglist[1]
-            self.lhslist = set(arglist[0].split(","))
+            lhs = arglist[0]
+            rhs = arglist[1]
+            lhslist = set(arglist[0].split(","))
         # go through our comma separated list, also separate them by spaces
-        elif self.lhs and self.rhs:
+        elif lhs and rhs:
             tarlist = []
-            for ob in self.lhslist:
+            for ob in lhslist:
                 for word in ob.split():
                     tarlist.append(word)
-            self.lhslist = tarlist
+            lhslist = tarlist
 
         # We are sending. Build a list of targets
 
-        if (not self.lhs and self.rhs) or (self.args and not self.rhs) or cmdstr == 'ttell':
+        if (not lhs and rhs) or (self.args and not rhs) or cmdstr == 'ttell':
             # If there are no targets, then set the targets
             # to the last person we paged.
             # also take format of p <message> for last receiver
             if pages_we_sent:
                 receivers = pages_we_sent[-1].receivers
                 # if it's a 'tt' command, they can have '=' in a message body
-                if not self.rhs or cmdstr == 'ttell':
-                  self.rhs = self.args
+                if not rhs or cmdstr == 'ttell':
+                    rhs = self.args
             else:
                 self.msg("Who do you want to page?")
                 return
         else:
-            receivers = self.lhslist
+            receivers = lhslist
 
         if "noeval" in self.switches:
-            self.rhs = raw(self.rhs)
+            rhs = raw(rhs)
 
         recobjs = []
         for receiver in set(receivers):
-              #originally this section had this check, which always was true
-              #Not entirely sure what he was trying to check for
+            # originally this section had this check, which always was true
+            # Not entirely sure what he was trying to check for
             if isinstance(receiver, basestring):
                 findpobj = caller.search(receiver)
             else:
@@ -619,27 +638,25 @@ class CmdPage(MuxPlayerCommand):
             if findpobj:
                 # Make certain this is a player object, not a character
                 if hasattr(findpobj, 'character'):
-                    #players should always have is_connected, but just in case
+                    # players should always have is_connected, but just in case
                     if not hasattr(findpobj, 'is_connected'):
-                        #only allow online tells
-                        self.msg("%s is not online."% findpobj.key)
+                        # only allow online tells
+                        self.msg("%s is not online." % findpobj.key)
                         continue
                     elif findpobj.character:
-                        #player is online, and @ic, so redirect to their character
-                        #one more online check on character level
-                         if hasattr(findpobj.character, 'player') and not findpobj.character.player:
-                             self.msg("%s is not online."% findpobj.key)
-                         else:
-                             pobj = findpobj.character
+                        if hasattr(findpobj.character, 'player') and not findpobj.character.player:
+                            self.msg("%s is not online." % findpobj.key)
+                        else:
+                            pobj = findpobj.character
                     elif not findpobj.character:
-                        #player is either OOC or offline. Find out which
-                          if hasattr(findpobj, 'is_connected') and findpobj.is_connected:
-                             pobj = findpobj
-                          else:
-                             self.msg("%s is not online."% findpobj.key.capitalize())
+                        # player is either OOC or offline. Find out which
+                        if hasattr(findpobj, 'is_connected') and findpobj.is_connected:
+                            pobj = findpobj
+                        else:
+                            self.msg("%s is not online." % findpobj.key.capitalize())
                 else:
-                    #Offline players do not have the character attribute
-                    self.msg("%s is not online."% findpobj.key)
+                    # Offline players do not have the character attribute
+                    self.msg("%s is not online." % findpobj.key)
                     continue
             else:
                 continue
@@ -652,18 +669,18 @@ class CmdPage(MuxPlayerCommand):
             self.msg("No one found to page.")
             return
         if len(recobjs) > 1:
-            recnames = ", ".join("{c%s{n" % ob.key.capitalize() for ob in recobjs)
+            rec_names = ", ".join("{c%s{n" % ob.key.capitalize() for ob in recobjs)
         else:
-            recnames = "{cyou{n"
-        header = "{wPlayer{n {c%s{n {wpages %s:{n" % (caller.key.capitalize(), recnames)
-        message = self.rhs
+            rec_names = "{cyou{n"
+        header = "{wPlayer{n {c%s{n {wpages %s:{n" % (caller.key.capitalize(), rec_names)
+        message = rhs
         pagepose = False
         # if message begins with a :, we assume it is a 'page-pose'
         if message.startswith(":") or message.startswith(";"):
             pagepose = True
             header = "From afar,"
             if len(recobjs) > 1:
-                header = "From afar to %s:" % recnames
+                header = "From afar to %s:" % rec_names
             if message.startswith(":"):
                 message = "{c%s{n %s" % (caller.key.capitalize(), message.strip(':').strip())
             else:
@@ -675,31 +692,33 @@ class CmdPage(MuxPlayerCommand):
 
         # tell the players they got a message.
         received = []
-        rstrings = []
+        r_strings = []
         for pobj in recobjs:
             if not pobj.access(caller, 'msg'):
-                rstrings.append("You are not allowed to page %s." % pobj)
+                r_strings.append("You are not allowed to page %s." % pobj)
                 continue
             pobj.msg("%s %s" % (header, message))
-            if not pobj.ndb.pages_received: pobj.ndb.pages_received = []
+            if not pobj.ndb.pages_received:
+                pobj.ndb.pages_received = []
             pobj.ndb.pages_received.append(temp_message)
             if hasattr(pobj, 'has_player') and not pobj.has_player:
                 received.append("{C%s{n" % pobj.name)
-                rstrings.append("%s is offline. They will see your message if they list their pages later." % received[-1])
+                r_strings.append("%s is offline. They will see your message if they list their pages later." %
+                                 received[-1])
             else:
                 received.append("{c%s{n" % pobj.name.capitalize())
             afk = pobj.db.afk
             if afk:
                 pobj.msg("{wYou inform {c%s{w that you are AFK:{n %s" % (caller, afk))
-                rstrings.append("{c%s{n is AFK: %s" % (pobj.name, afk))
-        if rstrings:
-            self.msg("\n".join(rstrings))
+                r_strings.append("{c%s{n is AFK: %s" % (pobj.name, afk))
+        if r_strings:
+            self.msg("\n".join(r_strings))
         if received:
             if pagepose:          
                 self.msg("Long distance to %s: %s" % (", ".join(received), message))
-                message = header + " " + message
             else:
                 self.msg("You paged %s with: '%s'." % (", ".join(received), message))
+
 
 class CmdOOCSay(MuxCommand):
     """
@@ -717,7 +736,7 @@ class CmdOOCSay(MuxCommand):
     help_category = "Comms"
 
     def func(self):
-        "Run the OOCsay command"
+        """Run the OOCsay command"""
 
         caller = self.caller
 
@@ -730,7 +749,8 @@ class CmdOOCSay(MuxCommand):
         nospace = False
         if speech.startswith(";") or speech.startswith(":"):
             oocpose = True
-            if speech.startswith(";"): nospace = True
+            if speech.startswith(";"):
+                nospace = True
             speech = speech[1:]
 
         # calling the speech hook on the location
@@ -742,8 +762,7 @@ class CmdOOCSay(MuxCommand):
             caller.msg('{y(OOC){n You say: %s{n' % speech)
 
             # Build the string to emit to neighbors.
-            emit_string = '{y(OOC){n {c%s{n says: %s{n' % (caller.name,
-                                                   speech)
+            emit_string = '{y(OOC){n {c%s{n says: %s{n' % (caller.name, speech)
             caller.location.msg_contents(emit_string,
                                          exclude=caller, options=options)
         else:
@@ -752,6 +771,7 @@ class CmdOOCSay(MuxCommand):
             else:
                 emit_string = '{y(OOC){n {c%s{n %s' % (caller.name, speech)
             caller.location.msg_contents(emit_string, exclude=None, options=options)
+
 
 class CmdDiceCheck(MuxCommand):
     """
@@ -781,11 +801,11 @@ class CmdDiceCheck(MuxCommand):
     locks = "cmd:all()"
     
     def func(self):
-        "Run the OOCsay command"
+        """Run the OOCsay command"""
 
         caller = self.caller
         skill = None
-        DIFF_MAX = 100
+        maximum_difference = 100
 
         if not self.args:
             caller.msg("Usage: @check <stat>[+<skill>][ at <difficulty number>][=receiver1,receiver2,etc]")
@@ -796,8 +816,8 @@ class CmdDiceCheck(MuxCommand):
         diff_list = args.split(' at ')
         difficulty = stats_and_skills.DIFF_DEFAULT
         if len(diff_list) > 1:
-            if not diff_list[1].isdigit() or not 0 < int(diff_list[1]) < DIFF_MAX:
-                caller.msg("Difficulty must be a number between 1 and %s." % DIFF_MAX)
+            if not diff_list[1].isdigit() or not 0 < int(diff_list[1]) < maximum_difference:
+                caller.msg("Difficulty must be a number between 1 and %s." % maximum_difference)
                 return
             difficulty = int(diff_list[1])
         args = diff_list[0]
@@ -815,7 +835,7 @@ class CmdDiceCheck(MuxCommand):
         if skill:
             matches = stats_and_skills.get_partial_match(skill, "skill")
             if not matches:
-                #check for a skill not in the normal valid list
+                # check for a skill not in the normal valid list
                 if skill in caller.db.skills:
                     matches = [skill]
                 else:
@@ -851,11 +871,13 @@ class CmdDiceCheck(MuxCommand):
                     rec_ob.msg("Private roll sent to: %s" % ", ".join(namelist))
             # GMs always get to see rolls.
             staff_list = [x for x in caller.location.contents if x.check_permstring("Builders")]
-            for GM in staff_list: GM.msg("{w(Private roll){n" + roll_msg)
+            for GM in staff_list:
+                GM.msg("{w(Private roll){n" + roll_msg)
             return
         # not a private roll, tell everyone who is here
-        caller.location.msg_contents(roll_msg, exclude=caller, options={'roll':True})
+        caller.location.msg_contents(roll_msg, exclude=caller, options={'roll': True})
         
+
 # implement CmdMail. player.db.Mails is List of Mail
 # each Mail is tuple of 3 strings - sender, subject, message        
 class CmdMail(MuxPlayerCommand):
@@ -885,36 +907,33 @@ class CmdMail(MuxPlayerCommand):
     help_category = "Comms"
 
     def func(self):
-        "Access mail"
+        """Access mail"""
 
         caller = self.caller
         switches = self.switches
 
-        #mailbox is combined from Player object and his characters
+        # mailbox is combined from Player object and his characters
         mails = caller.db.mails
         
-        #error message for invalid argument
+        # error message for invalid argument
         nomatch = "You must supply a number matching a mail message."
-        
-        for char in caller.db._playable_characters:
-            mails += char.db.mails
 
         if not switches:
-            #if no argument and no switches, list all mail
-            caller.db.newmail = False #mark mail as read
+            # if no argument and no switches, list all mail
+            caller.db.newmail = False  # mark mail as read
             if not self.args or not self.lhs:
                 table = prettytable.PrettyTable(["{wMail #",
                                                  "{wSender",
                                                  "{wSubject"])
                 mail_number = 0
                 for mail in mails:
-                    #list the mail
-                    #mail is a tuple of (sender,subject,message)
+                    # list the mail
+                    # mail is a tuple of (sender,subject,message)
                     sender = mail[0]
                     subject = mail[1]
                     mail_number += 1
                     this_number = str(mail_number)
-                    if not mail in caller.db.readmails:
+                    if mail not in caller.db.readmails:
                         col = "{w"
                     else:
                         col = "{n"
@@ -923,7 +942,7 @@ class CmdMail(MuxPlayerCommand):
                 caller.msg(string)
                 return
             else:
-                #get mail number, then display the message
+                # get mail number, then display the message
                 try:
                     mail_number = int(self.args)
                 except ValueError:
@@ -938,17 +957,17 @@ class CmdMail(MuxPlayerCommand):
                 message = mail[2]
                 sentdate = mail[3]
                 cclist = mail[4]
-                string = "{wMessage:{n %s"% mail_number + "\n"
-                string +="{wSent:{n %s"% str(sentdate) + "\n"
-                string +="{wTo:{n %s"% cclist + "\n"
-                string +="{wSender:{n %s"% sender + "\n"
-                string +="{wSubject:{n %s"% subject + "\n"
-                string +="{w"+20*"-"+"{n\n"
+                string = "{wMessage:{n %s" % mail_number + "\n"
+                string += "{wSent:{n %s" % str(sentdate) + "\n"
+                string += "{wTo:{n %s" % cclist + "\n"
+                string += "{wSender:{n %s" % sender + "\n"
+                string += "{wSubject:{n %s" % subject + "\n"
+                string += "{w"+20*"-"+"{n\n"
                 
                 string += raw(message)
-                string +="\n{w"+20*"-"+"{n\n"
+                string += "\n{w"+20*"-"+"{n\n"
                 caller.msg(string)
-                if not mail in caller.db.readmails:
+                if mail not in caller.db.readmails:
                     caller.db.readmails.add(mail)
                 return
         if not self.args or not self.lhs:
@@ -964,17 +983,8 @@ class CmdMail(MuxPlayerCommand):
                 caller.msg(nomatch)
                 return
             mail = mails[mail_number - 1]
-            #if the mail isn't found in the player, look in characters
-            try:
-                caller.db.mails.remove(mail)
-                caller.db.readmails.discard(mail)
-            except ValueError:
-                for char in caller.db._playable_characters:
-                    try:
-                        char.db.mails.remove(mail)
-                        caller.db.readmails.discard(mail)
-                    except ValueError:
-                        pass
+            caller.db.mails.remove(mail)
+            caller.db.readmails.discard(mail)         
             caller.msg("Message deleted.")
             return
         if 'quick' in switches:
@@ -983,7 +993,7 @@ class CmdMail(MuxPlayerCommand):
                 return
             recobjs = []
             message = self.rhs
-            #separate it into receivers, subject. May not have a subject
+            # separate it into receivers, subject. May not have a subject
             if not self.lhs:
                 caller.msg("You must have a receiver set.")
                 return
@@ -1009,10 +1019,10 @@ class CmdMail(MuxPlayerCommand):
                 caller.msg("No players found.")
                 return
             receivers = ", ".join(received_list)
-            mail = (message, subject, sender, receivers)
             for pobj in recobjs:
                 pobj.mail(message, subject, sender, receivers)
-            caller.msg("Mail successfully sent to %s"% receivers)
+            caller.msg("Mail successfully sent to %s" % receivers)
+
 
 class CmdDirections(MuxCommand):
     """
@@ -1033,7 +1043,7 @@ class CmdDirections(MuxCommand):
     locks = "cmd:all()"
     
     def func(self):
-        " Handles the toggle "
+        """ Handles the toggle """
         caller = self.caller
         if "off" in self.switches or not self.args:
             if caller.ndb.waypoint:
@@ -1042,8 +1052,7 @@ class CmdDirections(MuxCommand):
             else:
                 caller.msg("You must give the name of a room.")
             return
-        room = ObjectDB.objects.filter(db_typeclass_path=settings.BASE_ROOM_TYPECLASS,
-                                        db_key__icontains=self.args)[:10]
+        room = ObjectDB.objects.filter(db_typeclass_path=settings.BASE_ROOM_TYPECLASS, db_key__icontains=self.args)[:10]
         if len(room) > 1:
             exact = [ob for ob in room if self.args in ob.aliases.all()]
             if len(exact) == 1:
@@ -1061,12 +1070,14 @@ class CmdDirections(MuxCommand):
                    " Please use {w@map{n if the directions don't have a direct exit there.")
         directions = caller.get_directions(room)
         if not directions:
-            caller.msg("You can't figure out how to get there from here. You may have to go someplace closer, like the City Center.")
+            caller.msg("You can't figure out how to get there from here. "
+                       "You may have to go someplace closer, like the City Center.")
             caller.ndb.waypoint = None
             return
         caller.msg("Your destination is through the %s." % directions)
         caller.ndb.waypoint = room
         return
+
 
 class CmdPut(MuxCommand):
     """
@@ -1079,6 +1090,7 @@ class CmdPut(MuxCommand):
     """
     key = "put"
     locks = "cmd:all()"
+
     def func(self):
         caller = self.caller
         args = self.args.split(" in ")
@@ -1087,11 +1099,11 @@ class CmdPut(MuxCommand):
             return
         dest = caller.search(args[1], use_nicks=True, quiet=True)
         if not dest:
-            return _AT_SEARCH_RESULT(dest, caller, args[1])
+            return AT_SEARCH_RESULT(dest, caller, args[1])
         dest = make_iter(dest)[0]
         obj = caller.search(args[0], location=caller, use_nicks=True, quiet=True)
         if not obj:
-            return _AT_SEARCH_RESULT(obj, caller, args[0])
+            return AT_SEARCH_RESULT(obj, caller, args[0])
         obj = make_iter(obj)[0]
         if obj == dest:
             caller.msg("You can't put an object inside itself.")
@@ -1102,12 +1114,12 @@ class CmdPut(MuxCommand):
         if dest.db.locked:
             caller.msg("%s is locked. Unlock it first." % dest.name)
             return
-        if obj.contents:
-            caller.msg("You can't place a container holding objects in another container.")
+        if dest in obj.contents:
+            caller.msg("You can't place an object in something it contains.")
             return
-        max = dest.db.max_volume or 0
+        max_volume = dest.db.max_volume or 0
         volume = obj.db.volume or 0
-        if dest.volume + volume > max:
+        if dest.volume + volume > max_volume:
             caller.msg("That won't fit in there.")
             return
         if not obj.access(caller, 'get'):
@@ -1118,6 +1130,7 @@ class CmdPut(MuxCommand):
         caller.location.msg_contents("%s puts %s in %s." % (caller.name, obj.name, dest.name), exclude=caller)
         from time import time
         obj.db.put_time = time()
+
 
 class CmdGradient(MuxPlayerCommand):
     """
@@ -1134,23 +1147,26 @@ class CmdGradient(MuxPlayerCommand):
     key = "@gradient"
     locks = "cmd: all()"
 
-    def get_step(self, length, diff):
+    @staticmethod
+    def get_step(length, diff):
         if diff == 0:
             return 0
         return length/diff
+
     def color_string(self, start, end, text):
         
         current = start
         output = ""
         for x in range(len(text)):
-            r,g,b = current[0],current[1],current[2]
+            r, g, b = current[0], current[1], current[2]
             if x == 0:
                 tag = "{{%s%s%s" % (str(r), str(g), str(b))
                 output += "%s%s" % (tag, text[x])
                 continue
             diff = (end[0]-current[0], end[1]-current[1], end[2]-current[2])
             previous = current        
-            step = (self.get_step(len(text), diff[0]), self.get_step(len(text), diff[1]), self.get_step(len(text), diff[2]))
+            step = (self.get_step(len(text), diff[0]), self.get_step(len(text), diff[1]), self.get_step(len(text),
+                                                                                                        diff[2]))
             if step[0] and x % step[0] == 0:
                 if diff[0] > 1:
                     r += 1
@@ -1166,7 +1182,7 @@ class CmdGradient(MuxPlayerCommand):
                     b += 1
                 elif diff[2] < 1:
                     b -= 1
-            current = (r,g,b)
+            current = (r, g, b)
             if current != previous:
                 # we add a tag
                 tag = "{{%s%s%s" % (str(r), str(g), str(b))
@@ -1178,9 +1194,9 @@ class CmdGradient(MuxPlayerCommand):
     def func(self):
         caller = self.caller
         try:
-            start,end = self.lhslist[0], self.lhslist[1]
-            start = (int(start[0]),int(start[1]),int(start[2]))
-            end = (int(end[0]),int(end[1]),int(end[2]))
+            start, end = self.lhslist[0], self.lhslist[1]
+            start = (int(start[0]), int(start[1]), int(start[2]))
+            end = (int(end[0]), int(end[1]), int(end[2]))
             text = self.rhs or "Example Text"
         except IndexError:
             caller.msg("Must specify both a start and an end, ex: @gradient 050,132")
@@ -1194,6 +1210,7 @@ class CmdGradient(MuxPlayerCommand):
             return
         caller.msg(self.color_string(start, end, text[:len(text)/2]))
         caller.msg(self.color_string(end, start, text[len(text)/2:]))
+
 
 class CmdInform(MuxPlayerCommand):
     """
@@ -1209,8 +1226,11 @@ class CmdInform(MuxPlayerCommand):
     aliases = ["@informs"]
     locks = "cmd: all()"
 
-    def read_inform(self, caller, inform):
-        caller.msg(inform.message, options={'box':True})
+    @staticmethod
+    def read_inform(caller, inform):
+        msg = "\n{wCategory:{n %s\n" % inform.category
+        msg += "{w" + "-"*70 + "{n\n\n%s\n" % inform.message
+        caller.msg(msg, options={'box': True})
         if inform.is_unread:
             inform.is_unread = False
             inform.save()
@@ -1222,11 +1242,21 @@ class CmdInform(MuxPlayerCommand):
             caller.msg("You have no messages from the game waiting for you.")
             return
         if not self.args:
-            table = evtable.EvTable("{w#{n", "{wCategory{n", "{wDate{n", "{wUnread{n", width=78)
+            table = evtable.EvTable("{w#{n", "{wCategory{n", "{wDate{n", width=78)
             x = 0
             for info in informs:
                 x += 1
-                table.add_row(x, info.category, info.date_sent.strftime("%x %X"), info.is_unread)
+                def highlight(ob):
+                    if not info.is_unread:
+                        return ob
+                    return "{w%s{n" % ob
+                num = highlight(x)
+                cat = highlight(info.category)
+                date = highlight(info.date_sent.strftime("%x %X"))
+                table.add_row(num, cat, date)
+            table.reformat_column(index=0, kwargs={'width': 9})
+            table.reformat_column(index=1, kwargs={'width': 49})
+            table.reformat_column(index=2, kwargs={'width': 20})
             caller.msg(table)
             return
         try:
@@ -1247,6 +1277,7 @@ class CmdInform(MuxPlayerCommand):
         caller.msg("Invalid switch.")
         return
 
+
 class CmdKeyring(MuxCommand):
     """
     Checks keys
@@ -1257,13 +1288,23 @@ class CmdKeyring(MuxCommand):
     """
     key = "+keyring"
     locks = "cmd:all()"
+
     def func(self):
         caller = self.caller
         roomkeys = caller.db.keylist or []
+        # remove any deleted objects
+        if None in roomkeys:
+            roomkeys = [ob for ob in roomkeys if ob is not None]
+            caller.db.keylist = roomkeys
         chestkeys = caller.db.chestkeylist or []
+        # remove any deleted objects
+        if None in chestkeys:
+            chestkeys = [ob for ob in chestkeys if ob is not None]
+            caller.db.chestkeylist = chestkeys
         keylist = list(roomkeys) + list(chestkeys)
-        caller.msg("Keys: %s" % ", ".join(ob.key for ob in keylist))
+        caller.msg("Keys: %s" % ", ".join(ob.key for ob in keylist if ob))
         return
+
 
 class CmdUndress(MuxCommand):
     """
@@ -1311,6 +1352,74 @@ class CmdUndress(MuxCommand):
                 obj.at_post_remove(caller)
 
         # Throw a simple message to the caller only. We don't need to alert the room unless this design decision changes
-        caller.msg("You undress.");
-
+        caller.msg("You undress.")
         return
+
+
+class CmdLockObject(MuxCommand):
+    """
+    Locks or unlocks an exit or container
+
+    Usage:
+        lock <object>
+        unlock <object>
+
+    Locks or unlocks an object for which you have a key.
+    """
+    key = "+lock"
+    aliases = ["lock", "unlock", "+unlock"]
+    locks = "cmd:all()"
+
+    def func(self):
+        caller = self.caller
+        verb = self.cmdstring.lstrip("+")
+        obj = caller.search(self.args)
+        if not obj:
+            return
+        try:
+            lock_method = getattr(obj, verb)
+            lock_method(caller)
+        except AttributeError:
+            self.msg("You cannot %s %s." % (verb, obj))
+            return
+
+
+class CmdTidyUp(MuxCommand):
+    """
+    Removes idle characters from the room
+
+    Usage:
+        +tidy
+
+    This removes any character who has been idle for at least
+    one hour in your current room, provided that the room is
+    public.
+    """
+    key = "+tidy"
+    locks = "cmd:all()"
+
+    def func(self):
+        caller = self.caller
+        loc = caller.location
+        if "private" in loc.tags.all():
+            self.msg("This is a private room.")
+            return
+        from typeclasses.characters import Character
+        # can only boot Player Characters
+        chars = Character.objects.filter(db_location=loc, roster__roster__name="Active")
+        found = []
+        for char in chars:
+            time = char.idle_time
+            player = char.player
+            # no sessions connected, character that somehow became headless, such as server crash
+            if not player:
+                char.at_post_unpuppet(player)
+                found.append(char)
+                continue
+            if time > 3600:
+                player.execute_cmd("@ooc")
+                found.append(char)
+        if not found:
+            self.msg("No characters were found to be idle.")
+        else:
+            self.msg("The following characters were removed: %s" % ", ".join(ob.name for ob in found))

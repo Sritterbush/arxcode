@@ -13,10 +13,14 @@
 		<div id="unreadjournals" class="tab-pane fade{% if not read_is_active %} in active{% endif %}">
 		
 		{% for obj in object_list %}
-			<h2> Written By {{obj.senders.0}}{% if "black_journal" in obj.db_header %} in Black Journal{% endif %}</h2>
+			<h2> Written By {% if obj.senders.0.get_absolute_url %}
+            <a href="{{ obj.senders.0.get_absolute_url }}">{{ obj.senders.0 }}</a>
+                {% else %}{{ obj.senders.0 }}{% endif %}{% if "black_journal" in obj.db_header %} in Black Journal{% endif %}</h2>
 			<p class="newsDate">{{obj.db_date_created}}</p>
 			{% if obj.db_receivers_objects.all.0 %}
-				<h2> Relationship Note on {{ obj.db_receivers_objects.all.0 }}</h2>
+				<h2> Relationship Note on {% if obj.db_receivers_objects.all.0.get_absolute_url %}
+            <a href="{{ obj.db_receivers_objects.all.0.get_absolute_url }}">{{ obj.db_receivers_objects.all.0 }}</a>
+                {% else %}{{ obj.db_receivers_objects.all.0 }}{% endif %}</h2>
 			{% endif %}
 			<div class="well">{{obj.db_message|mush_to_html}}</div>
 			{% if user.is_authenticated and user.db.char_ob %}
@@ -36,10 +40,25 @@
 				{% if page_obj.has_previous %}
 					<li><a href="?page={{ page_obj.previous_page_number }}">previous</a></li>
 				{% endif %}
+                {% for pnum in page_obj_begin %}
+                     <li class="{% if page_obj.number == pnum  %}active{% endif %}"><a href="?page={{ pnum }}">{{ pnum }}</a></li> 
+                {% endfor %}
+                {% if page_obj_middle %}
+                    <li><strong>...</strong></li>
 
-				{% for page in page_obj.paginator.page_range %}
-					<li class="{% if page_obj.number == page  %}active{% endif %}"><a href="?page={{page }}">{{ page }}</a></li>
-				{% endfor %}
+                    {% for pnum in page_obj_middle %}
+                       <li class="{% if page_obj.number == pnum  %}active{% endif %}"><a href="?page={{ pnum }}">{{ pnum }}</a></li>  
+                    {% endfor %}
+                {% endif %}
+
+                {% if page_obj_end %}
+                    <li><strong>...</strong></li>
+
+                    {% for pnum in page_obj_end %}
+                        <li class="{% if page_obj.number == pnum  %}active{% endif %}"><a href="?page={{ pnum }}">{{ pnum }}</a></li> 
+                    {% endfor %}
+                {% endif %}
+				
 
 				{% if page_obj.has_next %}
 					<li><a href="?page={{ page_obj.next_page_number }}">next</a></li>
@@ -63,10 +82,14 @@
 		{% if user.is_authenticated and user.db.char_ob %}
 		<div id="readjournals" class="tab-pane fade{% if read_is_active %} in active{% endif %}">
 		{% for obj in read_journals %}
-			<h2> Written By {{obj.senders.0}}</h2>
+			<h2> Written By {% if obj.senders.0.get_absolute_url %}
+            <a href="{{ obj.senders.0.get_absolute_url }}">{{ obj.senders.0 }}</a>
+                {% else %}{{ obj.senders.0 }}{% endif %}{% if "black_journal" in obj.db_header %} in Black Journal{% endif %}</h2>
 			<p class="newsDate">{{obj.db_date_created}}</p>
 			{% if obj.db_receivers_objects.all.0 %}
-				<h2> Relationship Note on {{ obj.db_receivers_objects.all.0 }}</h2>
+				<h2> Relationship Note on {% if obj.db_receivers_objects.all.0.get_absolute_url %}
+            <a href="{{ obj.db_receivers_objects.all.0.get_absolute_url }}">{{ obj.db_receivers_objects.all.0 }}</a>
+                {% else %}{{ obj.db_receivers_objects.all.0 }}{% endif %}</h2>
 			{% endif %}
 			<div class="well">{{obj.db_message|mush_to_html}}</div>
 			<hr />
@@ -79,9 +102,24 @@
 					<li><a href="?read_page={{ read_journals.previous_page_number }}">previous</a></li>
 				{% endif %}
 
-				{% for page in read_journals.paginator.page_range %}
-					<li class="{% if read_journals.number == page  %}active{% endif %}"><a href="?read_page={{page }}">{{ page }}</a></li>
-				{% endfor %}
+				{% for pnum in read_journals_begin %}
+                     <li class="{% if read_journals.number == pnum  %}active{% endif %}"><a href="?read_page={{ pnum }}">{{ pnum }}</a></li> 
+                {% endfor %}
+                {% if read_journals_middle %}
+                    <li><strong>...</strong></li>
+
+                    {% for pnum in read_journals_middle %}
+                       <li class="{% if read_journals.number == pnum  %}active{% endif %}"><a href="?read_page={{ pnum }}">{{ pnum }}</a></li>  
+                    {% endfor %}
+                {% endif %}
+
+                {% if read_journals_end %}
+                    <li><strong>...</strong></li>
+
+                    {% for pnum in read_journals_end %}
+                        <li class="{% if read_journals.number == pnum  %}active{% endif %}"><a href="?read_page={{ pnum }}">{{ pnum }}</a></li> 
+                    {% endfor %}
+                {% endif %}
 
 				{% if read_journals.has_next %}
 					<li><a href="?read_page={{ read_journals.next_page_number }}">next</a></li>

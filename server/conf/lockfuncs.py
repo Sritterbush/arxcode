@@ -148,8 +148,8 @@ def skill(accessing_obj, accessed_obj, *args, **kwargs):
         name = args[0]
         val = int(args[1])
     if name == "all":
-        from world.stats_and_skills import _crafting_skills_
-        skill_list = _crafting_skills_
+        from world.stats_and_skills import CRAFTING_SKILLS
+        skill_list = CRAFTING_SKILLS
     else:
         skill_list = name.split(",")
     for skill in skill_list:

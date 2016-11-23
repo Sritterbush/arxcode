@@ -5,12 +5,13 @@ Commands for rumormills.
 from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand
 from evennia.utils import evtable
-from server.utils.utils import get_week, tnow
+from server.utils.arx_utils import get_week, tnow
 from evennia.utils.create import create_message
 from django.conf import settings
 from world.stats_and_skills import do_dice_check
 from evennia.comms.models import Msg
 from world.dominion.models import AssignedTask
+from evennia.utils import evmore
 
 RUMOR_LIFETIME = 30
 
@@ -73,7 +74,8 @@ class CmdGossip(MuxCommand):
         return False
 
     def disp_rumors(self, caller, rumors, add_heard=True):
-        table = evtable.EvTable("{w#{n", "{w%s{n" % self.key.capitalize(), border="cells", width=78)
+        table = evtable.EvTable("{w#{n", "{w%s{n" % self.key.capitalize(),
+                                border="cells", width=78, align="l", justify=True)
         x = 0
         heard_rumors = caller.ndb.heard_rumors or []
         week = get_week()
@@ -99,7 +101,7 @@ class CmdGossip(MuxCommand):
             for story in stories:
                 table.add_row(story.id, story.week)
             msg += str(table)
-        return msg
+        return evmore.msg(caller, msg, justify_kwargs=False)
     
     def get_room_rumors(self):
         loc = self.caller.location
@@ -220,7 +222,8 @@ class CmdRumor(CmdGossip):
     help_category = "Rumormill"
 
     def disp_rumors(self, caller, rumors, add_heard=True):
-        table = evtable.EvTable("{w#{n", "{wTopic{n", "{w%s{n" % self.key.capitalize(), border="cells", width=78)
+        table = evtable.EvTable("{w#{n", "{wTopic{n", "{w%s{n" % self.key.capitalize(),
+                                border="cells", width=78, align="l", justify=True)
         x = 0
         week = get_week()
         heard_rumors = caller.ndb.heard_rumors or []
@@ -250,7 +253,7 @@ class CmdRumor(CmdGossip):
             for story in stories:
                 table.add_row(story.id, story.week)
             msg += str(table)
-        return msg
+        return evmore.msg(caller, msg, justify_kwargs=False)
     
     def func(self):
         caller = self.caller

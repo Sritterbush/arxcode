@@ -16,9 +16,7 @@ creative process.
 from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand
 from evennia.utils import create, evtable
-from evennia.utils.utils import inherits_from
-from server.utils.utils import inform_staff
-from django.conf import settings
+from server.utils.arx_utils import inform_staff
 from typeclasses.scripts.combat import combat_settings
 from evennia.objects.models import ObjectDB
 import random
@@ -570,9 +568,9 @@ class CmdCombatStance(MuxCommand):
         if fighter.changed_stance:
             caller.msg("You've already changed your stance this turn.")
             return
-        if self.args not in combat_settings._COMBAT_STANCES_:
+        if self.args not in combat_settings.COMBAT_STANCES:
             message = "Your stance must be one of the following: "
-            message += "{w%s{n" % str(combat_settings._COMBAT_STANCES_)
+            message += "{w%s{n" % str(combat_settings.COMBAT_STANCES)
             caller.msg(message)
             return
         caller.db.combat_stance = self.args
@@ -812,7 +810,7 @@ class CmdCreateAntagonist(MuxCommand):
     """
     key = "@spawn"
     locks = "cmd:perm(spawn) or perm(Builders)"
-    help_category = "Building"
+    help_category = "GMing"
     def func(self):
         "Execute command."
         caller = self.caller
@@ -899,6 +897,36 @@ class CmdCreateAntagonist(MuxCommand):
         caller.msg("Invalid switch.")
         return
 
+class CmdHarm(MuxCommand):
+    """
+    Harms characters and sends them a message
+
+    Usage:
+        @harm <character1, character2, etc>=amount,<message>
+    """
+    key = "@harm"
+    locks = "cmd:perm(Wizards)"
+    help_category = "GMing"
+
+    def func(self):
+        if not self.lhslist:
+            self.msg("Must provide one or more character names.")
+            return
+        message = "You feel worse."
+        try:
+            amt = int(self.rhslist[0])
+            message = self.rhslist[1]
+        except (TypeError, ValueError):
+            self.msg("Must provide a number amount.")
+        except IndexError:
+            pass
+        charlist = [self.caller.search(arg) for arg in self.lhslist if self.caller.search(arg)]
+        for obj in charlist:
+            obj.msg(message)
+            obj.dmg += amt
+        self.msg("You inflicted %s damage on %s" % (amt, ", ".join(str(obj) for obj in charlist)))
+
+
 class CmdHeal(MuxCommand):
     """
     Administers medical care to a character.
@@ -942,7 +970,7 @@ class CmdHeal(MuxCommand):
         aid_given[targ.id] = time.time()
         caller.db.administered_aid = aid_given
         # give healin'
-        from game.gamesrc.objects.stats_and_skills import do_dice_check
+        from world.stats_and_skills import do_dice_check
         blessed = caller.db.blessed_by_lagoma
         if blessed:
             try:
@@ -960,6 +988,7 @@ class CmdHeal(MuxCommand):
         if heal_roll > 0 and targ.db.sleep_status != "awake":
             targ.wake_up()
 
+
 class CmdStandYoAssUp(MuxCommand):
     """
     Heals up a player character
@@ -970,15 +999,16 @@ class CmdStandYoAssUp(MuxCommand):
     """
     key = "+standyoassup"
     locks = "cmd:perm(wizards)"
-    help_category = "Combat"
+    help_category = "GMing"
+
     def func(self):
         "Execute command."
         caller = self.caller
         targ = caller.search(self.args)
         if not targ:
             return
-        targ.db.damage = 0
+        targ.dmg = 0
         targ.wake_up()
         targ.msg("You have been healed.")
-        caller.msg("You heal %s because they're a sissy mortal who need everything done for them." % char)
+        caller.msg("You heal %s because they're a sissy mortal who need everything done for them." % targ)
         return

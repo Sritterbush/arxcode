@@ -30,7 +30,7 @@ class Readable(Object):
             self.setup_multiname()
         location = self.location
         # first, remove ourself from the source location's places, if it exists
-        if source_location.is_room:
+        if source_location and source_location.is_room:
             if source_location.db.places and self in source_location.db.places:
                 source_location.db.places.remove(self)
         # if location is a room, add cmdset
@@ -53,10 +53,9 @@ class Readable(Object):
         if self.db.num_instances > 1:
             self.key = "%s books" % self.db.num_instances
             self.save()
-            self.aliases.add("books")
         else:
             self.key = "a book"
-            self.aliases.add("book")
+            
 
     def set_num(self, value):
         self.db.num_instances = value
@@ -157,9 +156,9 @@ class CmdWrite(MuxCommand):
                 caller.msg("Still needs a description set.")
                 return
             if obj.db.num_instances > 1:
-                from src.utils.create import create_object
+                from evennia.utils.create import create_object
                 remain = obj.db.num_instances - 1
-                newobj = create_object(typeclass="game.gamesrc.objects.readable.readable.Readable",
+                newobj = create_object(typeclass="typeclasses.readable.readable.Readable",
                                        key='book', location=caller, home=caller)
                 newobj.set_num(remain)
             obj.db.num_instances = 1

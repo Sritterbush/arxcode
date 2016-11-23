@@ -105,9 +105,15 @@ class CmdRemove(MuxCommand):
             obj.at_post_remove(caller)
             return
         pass
-        
 
 class DefaultCmdSet(CmdSet):
+    """
+    Legacy commandset that doesn't do anything, but required so that
+    old wearables don't throw errors due to a nonexistent pathname
+    """
+    key = "OldWearableDefault"
+
+class WearCmdSet(CmdSet):
     """
     The default cmdset always sits
     on the button object and whereas other

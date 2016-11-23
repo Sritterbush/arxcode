@@ -7,13 +7,15 @@ from django.http import Http404
 from django.core.urlresolvers import reverse
 from django.shortcuts import get_object_or_404, render
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from server.utils.view_mixins import LimitPageMixin
 
 # Create your views here.
 
-class JournalListView(ListView):
+class JournalListView(LimitPageMixin, ListView):
     model = Msg
     template_name = 'msgs/journal_list.html'
     paginate_by = 20
+    additional_pages = {'read_journals': ('get_read_journals', 'read_page')}
     def get_read_journals(self):
         user = self.request.user
         if not user or not user.is_authenticated():
@@ -41,20 +43,20 @@ class JournalListView(ListView):
     def get_context_data(self, **kwargs):
         context = super(JournalListView, self).get_context_data(**kwargs)
         # paginating our read journals as well as unread
-        read_journals = self.get_read_journals()
-        paged_read = Paginator(read_journals, 20)
+##        read_journals = self.get_read_journals()
+##        paged_read = Paginator(read_journals, 20)
         read_page = self.request.GET.get('read_page')
         if read_page:
             context['read_is_active'] = True
         else:
             context['read_is_active'] = False
-        try:
-            read_journals = paged_read.page(read_page)
-        except PageNotAnInteger:
-            read_journals = paged_read.page(1)
-        except EmptyPage:
-            read_journals = paged_read.page(paged_read.num_pages)
-        context['read_journals'] = read_journals
+##        try:
+##            read_journals = paged_read.page(read_page)
+##        except PageNotAnInteger:
+##            read_journals = paged_read.page(1)
+##        except EmptyPage:
+##            read_journals = paged_read.page(paged_read.num_pages)
+##        context['read_journals'] = read_journals
         context['write_journal_form'] = JournalWriteForm()
         return context
 

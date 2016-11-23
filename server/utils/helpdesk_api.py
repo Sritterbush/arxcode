@@ -6,7 +6,7 @@ work, I'm just going to build and change the fucking models by hand
 here.
 """
 from django.conf import settings
-from .utils import inform_staff
+from .arx_utils import inform_staff
 from datetime import datetime
 from web.helpdesk.models import Ticket, Queue, FollowUp
 
@@ -23,12 +23,17 @@ def create_ticket(caller, message, priority=5, queue=settings.REQUEST_QUEUE_ID,
         if send_email and caller.email != "dummy@dummy.com":
             email = caller.email
         if not optional_title:
-            optional_title = "<No title>"
+            optional_title = message if len(message) < 15 else "%s..." % message[:12]
+        try:
+            room = caller.db.char_ob.location
+        except AttributeError:
+            room = None
         ticket = Ticket(title=optional_title,
                         queue=q,
                         created=datetime.now(),
                         submitter_email=email,
                         submitting_player=caller,
+                        submitting_room=room,
                         description=message,
                         priority=priority,)
     except Exception as err:

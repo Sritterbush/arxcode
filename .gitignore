@@ -32,7 +32,7 @@ __pycache__
 server/conf/settings.py
 server/logs/*.log.*
 server/logs/*
-web/static/*
+# web/static/*
 web/media/*
 
 # Installer logs
@@ -53,3 +53,6 @@ nosetests.xml
 
 # PyCharm config
 .idea
+
+# nano .save files
+*.save

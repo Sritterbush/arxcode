@@ -68,6 +68,11 @@ except Exception as err:
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in loading dominion commands: %s" % err)
 try:
+    from world.dominion import agent_commands
+except Exception as err:
+    traceback.print_exc()
+    print("<<ERROR>>: Error encountered in loading agent commands: %s" % err)
+try:
     from commands.commands import crafting
 except Exception as err:
     traceback.print_exc()
@@ -94,9 +99,11 @@ except Exception as err:
     print("<<ERROR>>: Error encountered in overriding help: %s" % err)
 from evennia.commands.cmdset import CmdSet
 
+
 class OOCCmdSet(CmdSet):
-    "Character-specific OOC commands. Most OOC commands defined in player."    
+    """Character-specific OOC commands. Most OOC commands defined in player."""
     key = "OOCCmdSet"
+
     def at_cmdset_creation(self):
         """
         This is the only method defined in a cmdset, called during
@@ -114,12 +121,14 @@ class OOCCmdSet(CmdSet):
         self.add(general.CmdDiceCheck())
         self.add(general.CmdPage())
         self.add(general.CmdBriefMode())
+        self.add(general.CmdTidyUp())
         self.add(extended_room.CmdGameTime())
         self.add(extended_room.CmdStudyRawAnsi())
         self.add(xp.CmdVoteXP())
         self.add(social.CmdPosebreak())
         self.add(arxhelp.CmdHelp())
         self.add(social.CmdSocialScore())
+
 
 class StateIndependentCmdSet(CmdSet):
     """
@@ -128,9 +137,10 @@ class StateIndependentCmdSet(CmdSet):
     dead, because they might be posing something about the corpse, etc.
     """  
     key = "StateIndependentCmdSet"   
+
     def at_cmdset_creation(self):
         self.add(overrides.CmdPose())
-        #emit was originally an admin command. Replaced those with gemit
+        # emit was originally an admin command. Replaced those with gemit
         self.add(overrides.CmdEmit())
         self.add(general.CmdOOCSay())
         self.add(general.CmdDirections())
@@ -145,7 +155,9 @@ class StateIndependentCmdSet(CmdSet):
         self.add(social.CmdJournal())
         self.add(social.CmdMessenger())
         self.add(social.CmdRoomHistory())
+        self.add(social.CmdRandomScene())
         self.add(maps.CmdMap())
+
 
 class MobileCmdSet(CmdSet):
     """
@@ -155,6 +167,7 @@ class MobileCmdSet(CmdSet):
     unable to move. The sets are just equal.
     """
     key = "MobileCmdSet"
+
     def at_cmdset_creation(self):
         self.add(overrides.CmdGet())
         self.add(overrides.CmdDrop())
@@ -165,6 +178,7 @@ class MobileCmdSet(CmdSet):
         self.add(general.CmdDitch())
         self.add(general.CmdShout())
         self.add(general.CmdPut())
+        self.add(general.CmdLockObject())
         self.add(xp.CmdTrain())
         self.add(xp.CmdUseXP())
         self.add(cmdset_places.CmdListPlaces())
@@ -173,7 +187,8 @@ class MobileCmdSet(CmdSet):
         self.add(combat.CmdAutoattack())
         self.add(combat.CmdCombatStats())
         self.add(combat.CmdHeal())
-        self.add(domcommands.CmdGuards())
+        self.add(combat.CmdHarm())
+        self.add(agent_commands.CmdGuards())
         self.add(domcommands.CmdTask())
         self.add(domcommands.CmdSupport())
         self.add(crafting.CmdCraft())
@@ -185,11 +200,14 @@ class MobileCmdSet(CmdSet):
         self.add(social.CmdFeel())
         self.add(social.CmdDonate())
         self.add(investigation.CmdInvestigate())
+        self.add(investigation.CmdAssistInvestigation())
         self.add(general.CmdUndress())
 
+
 class StaffCmdSet(CmdSet):
-    "OOC staff and building commands. Character-based due to interacting with game world."   
+    """OOC staff and building commands. Character-based due to interacting with game world."""
     key = "StaffCmdSet"   
+
     def at_cmdset_creation(self):
         # The help system       
         self.add(help.CmdSetHelp())
@@ -224,9 +242,9 @@ class StaffCmdSet(CmdSet):
         self.add(overrides.CmdDig())
         self.add(building.CmdTunnel())
         self.add(building.CmdDestroy())
-        self.add(building.CmdExamine())
+        self.add(overrides.CmdArxExamine())
         self.add(building.CmdTypeclass())
-        self.add(building.CmdLock())
+        self.add(overrides.CmdArxLock())
         self.add(building.CmdScript())
         self.add(building.CmdSetHome())
         self.add(building.CmdTag())
@@ -241,6 +259,7 @@ class StaffCmdSet(CmdSet):
         self.add(staff_commands.CmdKill())
         self.add(staff_commands.CmdForce())
         self.add(staff_commands.CmdCcolor())
+        self.add(staff_commands.CmdGMDisguise())
         self.add(extended_room.CmdExtendedDesc())
         self.add(xp.CmdAdjustSkill())
         self.add(xp.CmdAwardXP())

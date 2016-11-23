@@ -5,19 +5,18 @@ Commands for banking.
 from evennia.commands.cmdset import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand
 from evennia.utils import evtable
-from django.conf import settings
 from world.dominion import setup_utils
 from world.dominion.models import CraftingMaterials, AccountTransaction, AssetOwner
 
 
-
 class BankCmdSet(CmdSet):
-    "CmdSet for a market."    
+    """CmdSet for a market."""
     key = "BankCmdSet"
     priority = 20
     duplicates = False
     no_exits = False
     no_objs = False
+
     def at_cmdset_creation(self):
         """
         This is the only method defined in a cmdset, called during
@@ -29,7 +28,6 @@ class BankCmdSet(CmdSet):
         replaced as needed.
         """
         self.add(CmdBank())
-
 
 
 class CmdBank(MuxCommand):
@@ -58,17 +56,20 @@ class CmdBank(MuxCommand):
     aliases = ["+bank"]
     locks = "cmd:all()"
     help_category = "Bank"
+
     def match_account(self, all_accounts, matchstr=None):
-        "Get the account matching self.rhs"
+        """Get the account matching self.rhs"""
         name = matchstr or self.rhs or ""
         name = name.lower()
         matches = [ob for ob in all_accounts if str(ob.owner).lower() == name]
         if not matches:
-            self.caller.msg("No matches. Choose one of the following: %s" % ", ".join(str(ob.owner) for ob in all_accounts))
+            self.caller.msg("No matches. Choose one of the following: %s" % ", ".join(str(ob.owner) for ob in
+                                                                                      all_accounts))
             return
         return matches[0]
 
-    def get_debt_table(self, debts):
+    @staticmethod
+    def get_debt_table(debts):
         x = 0
         table = evtable.EvTable("{w#{n", "{wReceiver{n", "{wAmount{n", "{wTime Remaining{n", width=60)
         for debt in debts:
@@ -77,7 +78,8 @@ class CmdBank(MuxCommand):
             table.add_row(debt.id, debt.receiver, debt.weekly_amount, time)
         return table
 
-    def check_money(self, account, amt):
+    @staticmethod
+    def check_money(account, amt):
         debits = 0
         for debt in account.debts.all():
             debits += debt.weekly_amount
@@ -85,7 +87,7 @@ class CmdBank(MuxCommand):
         return account.vault - debits
         
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         try:
             dompc = caller.player.Dominion
@@ -93,14 +95,14 @@ class CmdBank(MuxCommand):
             dompc = setup_utils.setup_dom_for_char(caller)
         org_accounts = [member.organization.assets for member in dompc.memberships.filter(deguilded=False)]
         all_accounts = [dompc.assets] + org_accounts
-        if ("payments" in self.switches or "endpayment" in self.switches or
-            "adjustpayment" in self.switches or "payment" in self.switches):
+        if ("payments" in self.switches or "endpayment" in self.switches or "adjustpayment" in self.switches
+                or "payment" in self.switches):
             debts = list(dompc.assets.debts.all())
             for acc in org_accounts:
                 if acc.organization_owner.access(caller, 'withdraw') and acc.debts.all():
                     debts += list(acc.debts.all())
             if not self.args:                
-                caller.msg(str(self.get_debt_table(debts)), options={'box':True})
+                caller.msg(str(self.get_debt_table(debts)), options={'box': True})
                 return
             if "endpayment" in self.switches or "adjustpayment" in self.switches:
                 try:
@@ -112,7 +114,7 @@ class CmdBank(MuxCommand):
                     return
                 except AccountTransaction.DoesNotExist:
                     caller.msg("Invalid number. Select one of the following:")
-                    caller.msg(str(self.get_debt_table(debts)), options={'box':True})
+                    caller.msg(str(self.get_debt_table(debts)), options={'box': True})
                     return
                 if "endpayment" in self.switches:
                     debt.delete()
@@ -200,13 +202,16 @@ class CmdBank(MuxCommand):
                     msg += str(self.get_debt_table(debts))
                     msg += "\n"
             msg += str(actable)
-            caller.msg(msg, options={'box':True})
+            caller.msg(msg, options={'box': True})
             return       
         if ("depositmats" in self.switches or "withdrawmats" in self.switches
-            or "depositres" in self.switches or "withdrawres" in self.switches):
+                or "depositres" in self.switches or "withdrawres" in self.switches):
             account = self.match_account(all_accounts)
+            if not account:
+                return
             if account == dompc.assets:
-                caller.msg("Characters always have access to their own materials as an abstraction, so withdraws and deposits " +
+                caller.msg("Characters always have access to their own materials as an "
+                           "abstraction, so withdraws and deposits " +
                            "are only between organizations and characters.")
                 return
             usingmats = "depositmats" in self.switches or "withdrawmats" in self.switches
@@ -223,11 +228,9 @@ class CmdBank(MuxCommand):
                 sender = account
                 verb = "withdraw"
             try:
-                matname,val = self.lhslist[0], int(self.lhslist[1])
+                matname, val = self.lhslist[0], int(self.lhslist[1])
                 source = sender
                 targ = receiver
-                samt = 0
-                tamt = 0
                 if val <= 0:
                     caller.msg("You must specify a positive number.")
                     return
@@ -253,7 +256,7 @@ class CmdBank(MuxCommand):
                         return
                     sresamt = getattr(sender, matname)
                     if sresamt < val:
-                        matname = matname + " resources"
+                        matname += " resources"
                         caller.msg("You tried to %s %s %s, but only %s available." % (
                             verb, val, matname, sresamt))
                         return
@@ -262,14 +265,15 @@ class CmdBank(MuxCommand):
                     tamt = tresamt + val
                     setattr(sender, matname, samt)
                     setattr(receiver, matname, tamt)
-                    matname = matname + " resources"
+                    matname += " resources"
                 source.save()    
                 targ.save()
                 caller.msg("You have transferred %s %s from %s to %s." % (
                     val, matname, sender, receiver))
                 caller.msg("Sender now has %s, receiver has %s." % (samt, tamt))
             except CraftingMaterials.DoesNotExist:
-                caller.msg("No match for that material. Valid materials: %s" % ", ".join(str(mat) for mat in sender.materials.all()))
+                caller.msg("No match for that material. Valid materials: %s" % ", ".join(
+                    str(mat) for mat in sender.materials.all()))
                 return
             except (ValueError, IndexError):
                 caller.msg("Invalid usage.")
@@ -310,7 +314,8 @@ class CmdBank(MuxCommand):
             check = self.check_money(account, amount)
             if check < 0:
                 caller.msg("You cannot withdraw more than the balance minus an account's debt obligations.")
-                caller.msg("You want to withdraw %s but only %s is available after debt obligations." % (amount, check+amount))
+                caller.msg("You want to withdraw %s but only %s is available after debt obligations." % (amount,
+                                                                                                         check+amount))
                 if account.debts.all():
                     caller.msg("Cancelling payments would increase the amount available.")
                     return
@@ -323,4 +328,3 @@ class CmdBank(MuxCommand):
         else:
             caller.msg("Unrecognized switch.")
             return
-        

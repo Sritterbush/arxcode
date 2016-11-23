@@ -12,9 +12,10 @@ to be modified.
 
 """
 
-from evennia import DefaultChannel
+from evennia import DefaultChannel, logger
 from evennia.comms.models import Msg, TempMsg
 from evennia.utils.utils import make_iter
+
 
 class Channel(DefaultChannel):
     """
@@ -59,6 +60,48 @@ class Channel(DefaultChannel):
         post_send_message(msg) - called just after message was sent to channel
 
     """
+    @property
+    def mutelist(self):
+        return self.db.mute_list or []
+
+    @property
+    def wholist(self):
+        subs = self.db_subscriptions.all()
+        listening = [ob for ob in subs if ob.is_connected and ob not in self.mutelist]
+        if listening:
+            listening = sorted(listening, key=lambda x: x.key.capitalize())
+            string = ", ".join([player.key.capitalize() for player in listening])
+        else:
+            string = "<None>"
+        return string
+
+    def mute(self, subscriber):
+        """
+        Adds an entity to the list of muted subscribers.
+        A muted subscriber will no longer see channel messages,
+        but may use channel commands.
+        """
+        mutelist = self.mutelist
+        if subscriber not in mutelist:
+            mutelist.append(subscriber)
+            self.db.mute_list = mutelist
+            return True
+
+    def unmute(self, subscriber):
+        """
+        Removes an entity to the list of muted subscribers.
+        A muted subscriber will no longer see channel messages,
+        but may use channel commands.
+        """
+        mutelist = self.mutelist
+        if subscriber in mutelist:
+            mutelist.remove(subscriber)
+            self.db.mute_list = mutelist
+            return True
+
+    def clear_mute(self):
+        self.db.mute_list = []
+        
     def delete_chan_message(self, message):
         """
         When given a message object, if the message has other
@@ -82,9 +125,11 @@ class Channel(DefaultChannel):
         """
         # get all players connected to this channel and send to them
         for entity in self.subscriptions.all():
+            if entity in self.mutelist:
+                continue
             try:
                 entity.msg(msg.message, from_obj=msg.senders,
-                           options={"from_channel":self.id})
+                           options={"from_channel": self.id})
             except AttributeError as e:
                 logger.log_trace("%s\nCannot send msg to %s" % (e, entity))
 
@@ -188,6 +233,3 @@ class Channel(DefaultChannel):
         should only happen by intent.
         """
         self.msg(message, senders=senders, header=header, persistent=False)
-
-
-

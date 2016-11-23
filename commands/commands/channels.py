@@ -9,7 +9,8 @@ accustomed to.
 
 from evennia.commands import command
 from evennia.comms.models import ChannelDB, Msg
-from server.utils.utils import datetime_format
+from server.utils.arx_utils import datetime_format
+
 
 class ArxChannelCommand(command.Command):
     """
@@ -72,7 +73,11 @@ class ArxChannelCommand(command.Command):
             self.msg("Channel '%s' not found." % channelkey)
             return
         if msg == "on":
-            if player: caller = player
+            if player:
+                caller = player
+            if channel.unmute(caller):
+                self.msg("You unmute channel %s." % channel)
+                return
             caller.execute_cmd("addcom %s" % channelkey)
             return
         if not channel.has_connection(caller):
@@ -87,8 +92,7 @@ class ArxChannelCommand(command.Command):
             caller.msg("Channel messages may not contain newline characters.")
             return
         if msg == "who" or msg == "?" or msg == "all" or msg == "list":
-            if player: caller = player
-            caller.execute_cmd("@cwho %s" % channelkey)
+            self.msg("{w%s:{n\n %s" % (channel, channel.wholist))
             return
         if msg == 'last' or msg.startswith("last "):
             msglist = msg.split()
@@ -96,7 +100,8 @@ class ArxChannelCommand(command.Command):
             # eg: 'last week we blah blah'
             if len(msglist) == 1 or (len(msglist) == 2 and msglist[1].isdigit()):
                 self.num_messages = 20
-                if len(msglist) == 2: self.num_messages = int(msglist[1])
+                if len(msglist) == 2:
+                    self.num_messages = int(msglist[1])
                 self.display_history = True
         if self.display_history:
             chan_messages = list(Msg.objects.get_messages_by_channel(channel.id))
@@ -114,14 +119,18 @@ class ArxChannelCommand(command.Command):
                 caller.msg("{w%s{n %s" % (datetime_format(msg.date_created), msg.message))
             return
         if msg == "off":
-            if player: caller = player
-            disconnect = channel.disconnect(player)
-            if disconnect:
+            if player:
+                caller = player
+            muted = channel.mute(caller)
+            if muted:
                 caller.msg("You stop listening to channel '%s'." % channel.key)
             else:
-                caller.msg("You cannot disconnect from channel '%s'." % channel.key)
+                caller.msg("You already muted channel '%s'." % channel.key)
             return
-        channel.msg(msg, senders=self.caller, persistent=True, online=True)
+        if player in channel.mutelist or caller in channel.mutelist:
+            self.msg("You have that channel muted.")
+            return
+        channel.msg(msg, senders=caller.db.char_ob or caller, persistent=True, online=True)
         if Msg.objects.get_messages_by_channel(channel.id).count() > 200:
             earliest = Msg.objects.get_messages_by_channel(channel.id).earliest('db_date_created')
             channel.delete_chan_message(earliest)

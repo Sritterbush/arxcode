@@ -3,19 +3,16 @@
 Admin commands
 
 """
-
-import time
-import re
 from django.conf import settings
-from django.contrib.auth.models import User
 from evennia.server.sessionhandler import SESSIONS
-from evennia.server.models import ServerConfig
-from evennia.utils import utils, search, evtable, create
+from evennia.utils import evtable
 from server.utils import prettytable
-from server.utils.utils import inform_staff
+from server.utils.arx_utils import inform_staff
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
+from web.character.models import Story, Episode, StoryEmit
+from world.dominion.models import Organization
 
 PERMISSION_HIERARCHY = [p.lower() for p in settings.PERMISSION_HIERARCHY]
 
@@ -23,6 +20,7 @@ PERMISSION_HIERARCHY = [p.lower() for p in settings.PERMISSION_HIERARCHY]
 __all__ = ("CmdBoot", "CmdBan", "CmdUnban", "CmdDelPlayer",
            "CmdEmit", "CmdNewPassword", "CmdPerm", "CmdWall", "CmdGemit",
            "CmdHome")
+
 
 class CmdHome(MuxCommand):
     """
@@ -39,7 +37,7 @@ class CmdHome(MuxCommand):
     help_category = "Travel"
 
     def func(self):
-        "Implement the command"
+        """Implement the command"""
         caller = self.caller
         home = caller.home
         room = caller.location
@@ -60,7 +58,11 @@ class CmdHome(MuxCommand):
             caller.move_to(home)
             caller.msg("There's no place like home ...")
             for guard in guards:
-                guard.summon()
+                if guard.location:
+                    guard.summon()
+                else:
+                    guard.db.docked = home
+
 
 class CmdGemit(MuxPlayerCommand):
     """
@@ -77,10 +79,10 @@ class CmdGemit(MuxPlayerCommand):
     """
     key = "@gemit"
     locks = "cmd:perm(gemit) or perm(Wizards)"
-    help_category = "Admin"
+    help_category = "GMing"
 
     def func(self):
-        "Implements command"
+        """Implements command"""
         caller = self.caller
         if not self.args:
             self.caller.msg("Usage: @gemit <message>")
@@ -89,7 +91,7 @@ class CmdGemit(MuxPlayerCommand):
             self.msg("Announcing to all connected players ...")
             SESSIONS.announce_all(self.args)
             return
-        from src.web.character.models import Story,Episode,Chapter,StoryEmit
+
         # current story
         story = Story.objects.latest('start_date')
         chapter = story.current_chapter
@@ -113,9 +115,8 @@ class CmdGemit(MuxPlayerCommand):
         self.msg("Announcing to all connected players ...")
         SESSIONS.announce_all(msg)
         # get board and post
-        BOARDS = "game.gamesrc.objects.bulletin_board.bboard.BBoard"
-        bboard = ObjectDB.objects.get(db_typeclass_path=BOARDS,
-                                      db_key="story updates")
+        from typeclasses.bulletin_board.bboard import BBoard
+        bboard = BBoard.objects.get(db_key="story updates")
         subject = "Story Update"
         if episode:
             subject = "Episode: %s" % episode.name
@@ -124,8 +125,6 @@ class CmdGemit(MuxPlayerCommand):
         bboard.bb_post(poster_obj=caller, msg=msg, subject=subject, poster_name="Story")
         
             
-
-
 class CmdWall(MuxCommand):
     """
     @wall
@@ -142,13 +141,14 @@ class CmdWall(MuxCommand):
     help_category = "Admin"
 
     def func(self):
-        "Implements command"
+        """Implements command"""
         if not self.args:
             self.caller.msg("Usage: @wall <message>")
             return
         message = "%s shouts \"%s\"" % (self.caller.name, self.args)
         self.msg("Announcing to all connected players ...")
         SESSIONS.announce_all(message)
+
 
 class CmdResurrect(MuxCommand):
     """
@@ -163,10 +163,10 @@ class CmdResurrect(MuxCommand):
     """
     key = "@resurrect"
     locks = "cmd:perm(resurrect) or perm(Wizards)"
-    help_category = "Building"
+    help_category = "GMing"
 
     def func(self):
-        "Implements command"
+        """Implements command"""
         args = self.args
         caller = self.caller
         if not args:
@@ -200,10 +200,10 @@ class CmdKill(MuxCommand):
     """
     key = "@kill"
     locks = "cmd:perm(kill) or perm(Wizards)"
-    help_category = "Building"
+    help_category = "GMing"
 
     def func(self):
-        "Implements command"
+        """Implements command"""
         args = self.args
         caller = self.caller
         if not args:
@@ -222,6 +222,7 @@ class CmdKill(MuxCommand):
         obj.death_process()
         caller.msg("%s has been murdered." % obj.key)
 
+
 class CmdForce(MuxCommand):
     """
     @force
@@ -237,10 +238,10 @@ class CmdForce(MuxCommand):
     """
     key = "@force"
     locks = "cmd:perm(force) or perm(Immortals)"
-    help_category = "Admin"
+    help_category = "GMing"
 
     def func(self):
-        "Implements command"
+        """Implements command"""
         caller = self.caller
         if not self.lhs or not self.rhs:
             self.caller.msg("Usage: @force <character>=<command>")
@@ -280,11 +281,12 @@ class CmdRestore(MuxPlayerCommand):
     help_category = "Admin"
 
     def func(self):
-        "Implements command"
+        """Implements command"""
         caller = self.caller
         if not self.args:
             dplayers = [str(ob) for ob in PlayerDB.objects.filter(is_active=False) if not ob.is_guest()]
-            dobjs = ["%s (ID:%s)" % (ob.key, ob.id) for ob in ObjectDB.objects.filter(db_tags__db_key__iexact="deleted")]
+            dobjs = ["%s (ID:%s)" % (ob.key, ob.id) for ob in ObjectDB.objects.filter(
+                db_tags__db_key__iexact="deleted")]
             caller.msg("Deleted players: %s" % ", ".join(dplayers))
             caller.msg("Deleted objects: %s" % ", ".join(dobjs))
             return
@@ -321,6 +323,7 @@ class CmdRestore(MuxPlayerCommand):
             caller.msg("No object found for ID %s." % self.args)
             return
 
+
 class CmdPurgeJunk(MuxPlayerCommand):
     """
     @purgejunk
@@ -336,11 +339,12 @@ class CmdPurgeJunk(MuxPlayerCommand):
     help_category = "Admin"
 
     def func(self):
-        "Implements command"
+        """Implements command"""
         caller = self.caller
         if not self.args:
             dplayers = [str(ob) for ob in PlayerDB.objects.filter(is_active=False) if not ob.is_guest()]
-            dobjs = ["%s (ID:%s)" % (ob.key, ob.id) for ob in ObjectDB.objects.filter(db_tags__db_key__iexact="deleted")]
+            dobjs = ["%s (ID:%s)" % (ob.key, ob.id) for ob in ObjectDB.objects.filter(
+                db_tags__db_key__iexact="deleted")]
             caller.msg("Deleted players: %s" % ", ".join(dplayers))
             caller.msg("Deleted objects: %s" % ", ".join(dobjs))
             return
@@ -350,8 +354,9 @@ class CmdPurgeJunk(MuxPlayerCommand):
                 caller.msg("%s does not appear to be deleted." % targ)
                 return
             if (targ.typeclass_path == settings.BASE_CHARACTER_TYPECLASS or
-                targ.typeclass_path == settings.BASE_ROOM_TYPECLASS):
-                caller.msg("Rooms or characters cannot be deleted with this command. Must be removed via shell script for safety.")
+                    targ.typeclass_path == settings.BASE_ROOM_TYPECLASS):
+                caller.msg("Rooms or characters cannot be deleted with this command. " +
+                           "Must be removed via shell script for safety.")
                 return
             targ.delete(true_delete=True)
             inform_staff("%s purged item ID %s from the database" % (caller, self.args))
@@ -377,10 +382,10 @@ class CmdSendVision(MuxPlayerCommand):
     key = "@sendvision"
     aliases = ["@sendvisions"]
     locks = "cmd:perm(sendvision) or perm(Wizards)"
-    help_category = "Building"
+    help_category = "GMing"
 
     def func(self):
-        "Implements command"
+        """Implements command"""
         args = self.args
         caller = self.caller
         if not args:
@@ -391,26 +396,30 @@ class CmdSendVision(MuxPlayerCommand):
             caller.msg("{wCharacters who have the 'visions' @tag:{n")
             caller.msg(str(table))
             return
-        targ = caller.search(self.lhs)
-        if not targ:
+        targlist = [caller.search(arg) for arg in self.lhslist if caller.search(arg)]
+        if not targlist:
             return
-        char = targ.db.char_ob
-        if not char:
-            caller.msg("No valid character.")
-            return
-        visions = char.messages.visions
-        if not self.rhs: 
-            table = evtable.EvTable("{wVisions{n", width=78)
-            for vision in visions:
-                table.add_row(char.messages.disp_entry(vision))
-            caller.msg(str(table))
-            return
-        char.messages.add_vision(self.rhs, caller)
-        caller.msg("Vision added to %s: %s" % (char, self.rhs))
-        msg = "{rYou have experienced a vision!{n\n%s" % self.rhs
-        targ.send_or_queue_msg(msg)
-        targ.inform("Your character has experienced a vision. Use @sheet/visions to view it.")
+        vision_object = None
+        for targ in targlist:
+            char = targ.db.char_ob
+            if not char:
+                caller.msg("No valid character.")
+                return
+            visions = char.messages.visions
+            if not self.rhs:
+                table = evtable.EvTable("{wVisions{n", width=78)
+                for vision in visions:
+                    table.add_row(char.messages.disp_entry(vision))
+                caller.msg(str(table))
+                return
+            # use the same vision object for all of them once it's created
+            vision_object = char.messages.add_vision(self.rhs, caller, vision_object)
+            caller.msg("Vision added to %s: %s" % (char, self.rhs))
+            msg = "{rYou have experienced a vision!{n\n%s" % self.rhs
+            targ.send_or_queue_msg(msg)
+            targ.inform("Your character has experienced a vision. Use @sheet/visions to view it.", category="Vision")
         return
+
 
 class CmdAskStaff(MuxPlayerCommand):
     """
@@ -430,7 +439,7 @@ class CmdAskStaff(MuxPlayerCommand):
     help_category = "Admin"
 
     def func(self):
-        "Implements command"
+        """Implements command"""
         args = self.args
         caller = self.caller
         if not args:
@@ -438,6 +447,7 @@ class CmdAskStaff(MuxPlayerCommand):
             return
         caller.msg("Asking: %s" % args)
         inform_staff("{c%s {wasking a question:{n %s" % (caller, args))
+
 
 class CmdListStaff(MuxPlayerCommand):
     """
@@ -454,11 +464,13 @@ class CmdListStaff(MuxPlayerCommand):
     help_category = "Admin"
 
     def func(self):
-        "Implements command"
-        args = self.args
+        """Implements command"""
         caller = self.caller
         staff = PlayerDB.objects.filter(db_is_connected=True, is_staff=True)
-        caller.msg("{wOnline staff:{n %s" % ", ".join(ob.key.capitalize() for ob in staff))
+        table = evtable.EvTable("{wName{n", "{wRole{n", width=78)
+        for ob in staff:
+            table.add_row(ob.key.capitalize(), ob.db.staff_role or "")
+        caller.msg("{wOnline staff:{n\n%s" % table)
             
             
 class CmdCcolor(MuxPlayerCommand):
@@ -476,7 +488,7 @@ class CmdCcolor(MuxPlayerCommand):
     locks = "cmd:perm(Builders)"
 
     def func(self):
-        "Gives channel color string"
+        """Gives channel color string"""
         caller = self.caller
 
         if not self.lhs or not self.rhs:
@@ -494,5 +506,74 @@ class CmdCcolor(MuxPlayerCommand):
         caller.msg("Channel will now look like this: %s[%s]{n" % (channel.db.colorstr, channel.key))
         return
 
-        
-        
+
+class CmdAdjustReputation(MuxPlayerCommand):
+    """
+    @adjustreputation
+
+    Usage:
+        @adjustreputation player,org=affection,respect
+        @adjustreputation/silent player,org=affection,respect
+
+    Adjusts a player's affection/respect with a given org. If the silent flag
+    is not specified, then the player will be informed of the adjustment.
+    """
+    key = "@adjustreputation"
+    help_category = "GMing"
+    locks = "cmd:perm(Wizards)"
+
+    def func(self):
+        try:
+            player, org = self.lhslist[0], self.lhslist[1]
+            player = self.caller.search(player)
+            if not player:
+                return
+            org = Organization.objects.get(name__iexact=org)
+            affection, respect = int(self.rhslist[0]), int(self.rhslist[1])
+        except IndexError:
+            self.msg("Need both org and player on left side, and affection and respect on right side.")
+            return
+        except Organization.DoesNotExist:
+            self.msg("No org found by that name.")
+            return
+        player.Dominion.gain_reputation(org, affection, respect)
+        if "silent" not in self.switches:
+            msg = "You have gained %s affection and %s respect with %s." % (affection, respect, org)
+            player.inform(msg, category="Reputation")
+        self.msg("You have given %s %s affection and %s respect with %s." % (player, affection, respect, org))
+
+
+class CmdGMDisguise(MuxCommand):
+    """
+    Disguises an object
+        Usage:
+            @disguise <object>
+            @disguise <object>=<new name>
+            @disguise/desc object=<temp desc>
+            @disguise/remove <object>
+    """
+    key = "@disguise"
+    help_category = "GMing"
+    locks = "cmd:perm(Wizards)"
+
+    def func(self):
+        targ = self.caller.search(self.lhs)
+        if not targ:
+            return
+        if not self.switches and not self.rhs:
+            self.msg("%s real name is %s" % (targ.name, targ.key))
+            return
+        if "remove" in self.switches:
+            del targ.fakename
+            del targ.temp_desc
+            self.msg("Removed any disguise for %s." % targ)
+            return
+        if not self.rhs:
+            self.msg("Must provide a new name or desc.")
+            return
+        if "desc" in self.switches:
+            targ.temp_desc = self.rhs
+            self.msg("Temporary desc is now:\n%s" % self.rhs)
+            return
+        targ.fakename = self.rhs
+        self.msg("%s will now appear as %s." % (targ.key, targ.name))
