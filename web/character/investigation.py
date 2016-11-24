@@ -736,7 +736,7 @@ class CmdListClues(MuxPlayerCommand):
     Usage:
         @clues
         @clues <clue #>
-        @clues/share <clue #>=<target>
+        @clues/share <clue #>=<target>[,<target2><target3>,...]
     """
     key = "@clues"
     locks = "cmd:all()"
@@ -780,11 +780,12 @@ class CmdListClues(MuxPlayerCommand):
             caller.msg(clue.display())
             return
         if "share" in self.switches:
-            pc = caller.search(self.rhs)
-            if not pc:
-                return
-            clue.share(pc.roster)
-            caller.msg("You have shared the clue '%s' with %s." % (clue, pc.roster))
+            for arg in self.rhslist:
+                pc = caller.search(arg)
+                if not pc:
+                    continue
+                clue.share(pc.roster)
+                caller.msg("You have shared the clue '%s' with %s." % (clue, pc.roster))
             return
         caller.msg("Invalid switch")
         return
