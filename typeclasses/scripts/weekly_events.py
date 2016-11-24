@@ -27,6 +27,7 @@ class WeeklyEvents(Script):
     This script repeatedly saves server times so
     it can be retrieved after server downtime.
     """
+    XP_TYPES_FOR_RESOURCES = ("votes", "scenes")
 
     # noinspection PyAttributeOutsideInit
     def at_script_creation(self):
@@ -417,6 +418,7 @@ class WeeklyEvents(Script):
             if char:
                 votes = self.db.votes[player_id]
                 xp = self.scale_xp(votes)
+
                 if votes and xp:
                     msg = "You received %s votes this week, earning %s xp." % (votes, xp)
                     self.award_xp(char, xp, player, msg, xptype="votes")
@@ -438,6 +440,22 @@ class WeeklyEvents(Script):
             print "Award XP encountered ERROR: %s" % err
         if player and msg:
             player.inform(msg, "XP", week=self.db.week, append=True)
+            self.award_resources(player, xp, xptype)
+
+    def award_resources(self, player, xp, xptype="all"):
+        if xptype not in self.XP_TYPES_FOR_RESOURCES:
+            return
+        resource_msg = ""
+        amt = 0
+        try:
+            for r_type in ("military", "economic", "social"):
+                amt = player.gain_resources(r_type, xp)
+            if amt:
+                resource_msg = "Based on your number of %s, you have gained %s resources of each type." % (xptype, amt)
+        except AttributeError:
+            pass
+        if resource_msg:
+            player.inform(resource_msg, "Resources", week=self.db.week, append=True)
 
     def award_prestige(self):
         for name in self.db.praises:

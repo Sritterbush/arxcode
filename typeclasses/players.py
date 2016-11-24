@@ -25,6 +25,7 @@ several more options for customizing the Guest account system.
 from evennia import DefaultPlayer
 from typeclasses.mixins import MsgMixins
 
+
 class Player(MsgMixins, DefaultPlayer):
     """
     This class describes the actual OOC player (i.e. the user connecting
@@ -43,7 +44,8 @@ class Player(MsgMixins, DefaultPlayer):
 
      key (string) - name of player
      name (string)- wrapper for user.username
-     aliases (list of strings) - aliases to the object. Will be saved to database as AliasDB entries but returned as strings.
+     aliases (list of strings) - aliases to the object. Will be saved to database as AliasDB entries
+     but returned as strings.
      dbref (int, read-only) - unique #id-number. Also "id" can be used.
      date_created (string) - time stamp of object creation
      permissions (list of strings) - list of permission strings
@@ -67,7 +69,8 @@ class Player(MsgMixins, DefaultPlayer):
      msg(text=None, **kwargs)
      swap_character(new_character, delete_old_character=False)
      execute_cmd(raw_string, session=None)
-     search(ostring, global_search=False, attribute_name=None, use_nicks=False, location=None, ignore_errors=False, player=False)
+     search(ostring, global_search=False, attribute_name=None, use_nicks=False, location=None, ignore_errors=False,
+     player=False)
      is_typeclass(typeclass, exact=False)
      swap_typeclass(new_typeclass, clean_attributes=False, no_default=True)
      access(accessing_obj, access_type='read', default=False)
@@ -94,6 +97,7 @@ class Player(MsgMixins, DefaultPlayer):
     """
     def __str__(self):
         return self.name
+
     def __unicode__(self):
         return self.name
     
@@ -115,11 +119,14 @@ class Player(MsgMixins, DefaultPlayer):
         self.db.player_email = ""
         self.nicks.add('pub', 'public', category="channel")
 
+    # noinspection PyBroadException
     def at_post_login(self, session=None):
         """
         Called at the end of the login process, just before letting
         them loose. This is called before an eventual Character's
         at_post_login hook.
+        :type self: PlayerDB
+        :type session: Session
         """
         self.db._last_puppet = self.db.char_ob or self.db._last_puppet
         super(Player, self).at_post_login(session)
@@ -153,7 +160,6 @@ class Player(MsgMixins, DefaultPlayer):
                 self.roster.save()
         except AttributeError:
             pass
-        
 
     def is_guest(self):
         """
@@ -188,6 +194,8 @@ class Player(MsgMixins, DefaultPlayer):
 
     def get_fancy_name(self):
         return self.key.capitalize()
+
+    # noinspection PyAttributeOutsideInit
     def set_name(self, value):
         self.key = value
     name = property(get_fancy_name, set_name)
@@ -244,6 +252,15 @@ class Player(MsgMixins, DefaultPlayer):
         except AttributeError:
             return False
 
+    def gain_resources(self, rtype, amt):
+        """
+        Attempt to gain resources. If something goes wrong, we return 0. We call pay_resources with a negative
+        amount, and if returns true, we return the amount to show what we gained.
+        """
+        if self.pay_resources(rtype, -amt):
+            return amt
+        return 0
+
     @property
     def retainers(self):
         try:
@@ -256,10 +273,3 @@ class Player(MsgMixins, DefaultPlayer):
             return self.db.char_ob.get_absolute_url()
         except AttributeError:
             pass
-
-
-
-
-# previously Guest was here, inheriting from DefaultGuest
-# removed it in order to resolve namespace conflicts for typeclasses app
-
