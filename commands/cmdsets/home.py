@@ -269,6 +269,7 @@ class CmdBuildRoom(CmdDig):
     locks = "cmd:all()"
     help_category = "Home"
 
+    # noinspection PyAttributeOutsideInit
     def func(self):
         """Do the digging. Inherits variables from ObjManipCommand.parse()"""
 
@@ -285,6 +286,7 @@ class CmdBuildRoom(CmdDig):
         assets = None
         # base cost = 1000
         dompc = caller.db.player_ob.Dominion
+
         if "org" in self.switches:
             max_rooms = 100
             try:
@@ -302,10 +304,9 @@ class CmdBuildRoom(CmdDig):
                 if not org.access(caller, 'build'):
                     caller.msg("You are not permitted to build for this org.")
                     return
-                # noinspection PyAttributeOutsideInit
                 self.lhs = roomname
-                # noinspection PyAttributeOutsideInit
                 self.lhslist = [roomname]
+                self.args = "%s=%s" % (self.lhs, self.rhs)
                 # fix args for CmdDig
                 self.parse()
                 assets = org.assets
