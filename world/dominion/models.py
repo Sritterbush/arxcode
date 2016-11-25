@@ -178,36 +178,30 @@ class PlayerOrNpc(models.Model):
         grandparents = []
         parents = self.all_parents
         unc_or_aunts = []
-        if parents:
-            for parent in parents:
-                grandparents += list(parent.all_parents)
-                for sibling in parent.siblings:
-                    unc_or_aunts.append(sibling)
-                    for spouse in sibling.spouses.all():
-                        unc_or_aunts.append(spouse)
-            unc_or_aunts = set(unc_or_aunts)
-            grandparents = set(grandparents)
-        else:
-            parents = ''
-        spouses = self.spouses.all() or ''
+        for parent in parents:
+            grandparents += list(parent.all_parents)
+            for sibling in parent.siblings:
+                unc_or_aunts.append(sibling)
+                for spouse in sibling.spouses.all():
+                    unc_or_aunts.append(spouse)
+        unc_or_aunts = set(unc_or_aunts)
+        grandparents = set(grandparents)
+        spouses = self.spouses.all()
         siblings = self.siblings
         neph_or_nieces = []
-        if siblings:
-            for sib in siblings:
+        for sib in siblings:
+            neph_or_nieces += list(sib.children.all())
+        for spouse in self.spouses.all():
+            for sib in spouse.siblings:
                 neph_or_nieces += list(sib.children.all())
             neph_or_nieces = set(neph_or_nieces)
-        else:
-            siblings = ''
         children = self.children.all()
         grandchildren = []
-        if children:
-            for child in children:
-                grandchildren += list(child.children.all())
-            grandchildren = set(grandchildren)
-        else:
-            children = ''
-        cousins = self.cousins or ''
-        second_cousins = self.second_cousins or ''
+        for child in children:
+            grandchildren += list(child.children.all())
+        grandchildren = set(grandchildren)
+        cousins = self.cousins
+        second_cousins = self.second_cousins
         if ggparents:
             ggparents = "{wGreatgrandparents{n: %s\n" % (", ".join(str(ggparent) for ggparent in ggparents))
         else:
@@ -218,28 +212,40 @@ class PlayerOrNpc(models.Model):
             grandparents = ''
         if parents:
             parents = "{wParents{n: %s\n" % (", ".join(str(parent) for parent in parents))
+        else:
+            parents = ''
         if spouses:
             spouses = "{wSpouses{n: %s\n" % (", ".join(str(spouse) for spouse in spouses))
+        else:
+            spouses = ''
         if unc_or_aunts:
             unc_or_aunts = "{wUncles/Aunts{n: %s\n" % (", ".join(str(unc) for unc in unc_or_aunts))
         else:
             unc_or_aunts = ''
         if siblings:
             siblings = "{wSiblings{n: %s\n" % (", ".join(str(sib) for sib in siblings))
+        else:
+            siblings = ''
         if neph_or_nieces:
             neph_or_nieces = "{wNephews/Nieces{n: %s\n" % (", ".join(str(neph) for neph in neph_or_nieces))
         else:
             neph_or_nieces = ''
         if children:
             children = "{wChildren{n: %s\n" % (", ".join(str(child) for child in children))
+        else:
+            children = ''
         if grandchildren:
             grandchildren = "{wGrandchildren{n: %s\n" % (", ".join(str(gchild) for gchild in grandchildren))
         else:
             grandchildren = ''
         if cousins:
             cousins = "{wCousins{n: %s\n" % (", ".join(str(cousin) for cousin in cousins))
+        else:
+            cousins = ''
         if second_cousins:
             second_cousins = "{wSecond Cousins{n: %s\n" % (", ".join(str(seco) for seco in second_cousins))
+        else:
+            second_cousins = ''
         return (ggparents + grandparents + parents + unc_or_aunts + spouses + siblings
                 + children + neph_or_nieces + cousins + second_cousins + grandchildren)
 
