@@ -863,7 +863,7 @@ class CmdGuards(MuxCommand):
             # check maximum guards and how many we have
             current = caller.num_armed_guards + guard.num_armed_guards
             g_max = caller.max_guards
-            if current >= g_max:
+            if current > g_max:
                 self.msg("You are only permitted to have %s guards, and summoning them would give you %s." % (g_max,
                                                                                                               current))
                 return
