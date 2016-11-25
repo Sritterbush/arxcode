@@ -765,6 +765,7 @@ class Investigation(models.Model):
                 self.active = False
                 self.ongoing = False
                 for ass in self.active_assistants:
+                    # noinspection PyBroadException
                     try:
                         ass.shared_discovery(clue)
                     except Exception:
@@ -812,7 +813,7 @@ class Investigation(models.Model):
         for word in ("a", "or", "an", "the", "and", "but", "not",
                      "yet", "with", "in", "how", "if", "of"):
             if word in kwords:
-                kwords.remove(word)
+                kwords.remove(unicode(word))
         if self.topic.lower() not in kwords:
             kwords.append(self.topic.lower())
         return kwords
@@ -843,6 +844,7 @@ class Investigation(models.Model):
         Finds a random keyword in a clue we don't have yet.
         """
         candidates = Clue.objects.filter(~Q(characters=self.character)).order_by('rating')
+        # noinspection PyBroadException
         try:
             ob = random.choice(candidates)
             kw = random.choice(ob.keywords)
@@ -894,4 +896,3 @@ class Investigation(models.Model):
         if prog <= 75:
             return "You feel like you're getting close to finding something."
         return "You feel like you're on the verge of a breakthrough. You just need more time."
-

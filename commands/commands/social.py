@@ -1646,6 +1646,7 @@ class CmdRandomScene(MuxCommand):
     help_category = "Social"
     NUM_SCENES = 3
     NUM_DAYS = 3
+    DAYS_FOR_NEWBIE_CHECK = 14
 
     @property
     def scenelist(self):
@@ -1654,6 +1655,15 @@ class CmdRandomScene(MuxCommand):
     @property
     def claimlist(self):
         return self.caller.db.player_ob.db.claimed_scenelist or []
+
+    @property
+    def newbies(self):
+        """
+        A list of new players we want to encourage people to RP with
+        """
+        newness = datetime.now() - timedelta(days=self.DAYS_FOR_NEWBIE_CHECK)
+        return self.valid_choices.filter(Q(roster__accounthistory__start_date__gte=newness) &
+                                         Q(roster__accounthistory__end_date__isnull=True))
 
     @property
     def valid_choices(self):
@@ -1671,14 +1681,22 @@ class CmdRandomScene(MuxCommand):
         scenelist = self.scenelist
         claimlist = self.claimlist
         self.msg("{wRandomly generated RP partners for this week:{n %s" % ", ".join(str(ob) for ob in scenelist))
+        self.msg("{wNew players who can be also RP'd with for credit:{n %s" % ", ".join(str(ob) for ob in self.newbies))
         if claimlist:
             self.msg("{wThose you have already RP'd with this week:{n %s" % ", ".join(str(ob) for ob in claimlist))
 
     def generate_lists(self):
         scenelist = self.scenelist
         claimlist = self.claimlist
-        choices = list(self.valid_choices)
+        newbies = [ob.id for ob in self.newbies]
+        choices = self.valid_choices
+        print "Choices is %s" % ", ".join(str(ob) for ob in self.valid_choices)
+        print "Newbies is %s" % ", ".join(str(ob) for ob in self.newbies)
+        if newbies:
+            choices = choices.exclude(id__in=newbies)
+        choices = list(choices)
         max_iter = 0
+        print "Choices is %s" % ", ".join(str(ob) for ob in choices)
         while len(scenelist) < (self.NUM_SCENES - len(claimlist)):
             max_iter += 1
             if max_iter > 10000:
@@ -1693,9 +1711,13 @@ class CmdRandomScene(MuxCommand):
         targ = self.caller.search(self.lhs)
         if not targ:
             return
-        if targ not in self.scenelist:
+        if targ not in self.scenelist and targ not in self.newbies:
             self.msg("%s is not in your list of random scene partners this week: %s" % (targ, ", ".join(
                 str(ob) for ob in self.scenelist)))
+            self.msg("New players who can be RP'd with for credit: %s" % ", ".join(str(ob) for ob in self.newbies))
+            return
+        if targ in self.claimlist:
+            self.msg("You have already claimed a scene with %s this week." % targ)
             return
         if not self.rhs:
             self.msg("You must include some summary of the scene. It may be quite short.")
@@ -1720,7 +1742,8 @@ class CmdRandomScene(MuxCommand):
             return
         claimed = targ.db.player_ob.db.claimed_scenelist or []
         claimed.append(self.caller)
-        targ.db.player_ob.db.random_scenelist.remove(self.caller)
+        if self.caller in targ.db.player_ob.db.random_scenelist:
+            targ.db.player_ob.db.random_scenelist.remove(self.caller)
         targ.db.player_ob.db.claimed_scenelist = claimed
         self.msg("Validating their scene. Both of you will receive xp for it later.")
 
