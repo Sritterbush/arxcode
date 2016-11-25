@@ -392,6 +392,8 @@ class CmdRetainers(MuxPlayerCommand):
             self.msg("You must provide both an owner and the name of their retainer to train.")
             return
         player = self.caller.search(self.lhs)
+        if not player:
+            return
         try:
             targ = player.retainers.get(name__iexact=self.rhs).dbobj
         except Agent.DoesNotExist:
