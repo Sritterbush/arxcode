@@ -201,8 +201,9 @@ class Player(MsgMixins, DefaultPlayer):
     name = property(get_fancy_name, set_name)
 
     def inform(self, message, category=None, week=0, append=True):
+        inform = None
         if not append:
-            self.informs.create(message=message, category=category)
+            inform = self.informs.create(message=message, category=category)
         else:
             informs = self.informs.filter(category=category, week=week,
                                           is_unread=True)
@@ -211,9 +212,10 @@ class Player(MsgMixins, DefaultPlayer):
                 inform.message += "\n\n" + message
                 inform.save()
             else:
-                self.informs.create(message=message, category=category,
+                inform = self.informs.create(message=message, category=category,
                                     week=week)
-        self.msg("{yYou have new informs. Use {w@inform {yto read them.{n")
+        index = list(self.informs.all()).index(inform) + 1
+        self.msg("{yYou have new informs. Use {w@inform %s{y to read them.{n" % index)
 
     def send_or_queue_msg(self, message):
         if self.is_connected:
