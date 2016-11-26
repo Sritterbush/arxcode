@@ -10,11 +10,11 @@ other players xp awards for good roleplay.
 """
 
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from django.conf import settings
 from world import stats_and_skills
 from server.utils.arx_utils import inform_staff
 from evennia.utils.utils import list_to_string
 from evennia.players.models import PlayerDB
+
 
 class CmdUseXP(MuxCommand):
     """
@@ -39,12 +39,18 @@ class CmdUseXP(MuxCommand):
     aliases = ["+xp", "experience", "learn"]
     locks = "cmd:all()"
     help_category = "Progression"
+
+    # noinspection PyUnresolvedReferences
     def func(self):
         """
         Allows the character to check their xp, and spend it if they use
         the /spend switch and meet the requirements.
         """
         caller = self.caller
+        dompc = None
+        resource = None
+        set_specialization = False
+        spec_warning = False
         if self.cmdstring == "learn":
             self.switches.append("spend")
         if not self.args:
@@ -76,7 +82,8 @@ class CmdUseXP(MuxCommand):
                 return
             stype = "stat"
         elif args in stats_and_skills.VALID_SKILLS:
-            if not caller.db.skills: caller.db.skills = {}
+            if not caller.db.skills:
+                caller.db.skills = {}
             if caller.db.skills.get(args, 0) >= 6:
                 caller.msg("%s is already at its maximum." % args)
                 return
@@ -87,12 +94,12 @@ class CmdUseXP(MuxCommand):
                 dompc = caller.player.Dominion
                 current = getattr(dompc, args)
                 resource = stats_and_skills.get_dom_resource(args)
-                if getattr(dompc, args) >= 10:
+                if current >= 10:
                     caller.msg("%s is already at its maximum." % args)
                     return
                 cost = stats_and_skills.get_dom_cost(caller, args)
                 stype = "dom"
-            except Exception:
+            except AttributeError:
                 caller.msg("Dominion object not found.")
                 return
         elif args in stats_and_skills.VALID_ABILITIES:
@@ -127,7 +134,7 @@ class CmdUseXP(MuxCommand):
             if caller.db.abilities.get(args, 0) >= 6:
                 caller.msg("%s is already at its maximum." % args)
                 return
-            set_specialization = False
+
             if args in stats_and_skills.CRAFTING_ABILITIES:
                 spec_warning = True
             if caller.db.abilities.get(args, 0) == 5:
@@ -190,12 +197,14 @@ class CmdUseXP(MuxCommand):
                 # charge them influence
                 setattr(dompc.assets, resource, getattr(dompc.assets, resource) - cost)
                 stats_and_skills.adjust_dom(caller, args)
-                caller.msg("You have increased your %s influence for a cost of %s %s resources." % (args, resource, cost))
+                caller.msg("You have increased your %s influence for a cost of %s %s resources." % (args, resource,
+                                                                                                    cost))
                 dompc.assets.save()
                 return
             return
         # invalid or no switch + arguments
         caller.msg("Usage: xp/spend <stat, ability or skill>")
+
 
 class CmdTrain(MuxCommand):
     """
@@ -217,10 +226,25 @@ class CmdTrain(MuxCommand):
     aliases = ["+train", "teach", "+teach"]
     locks = "cmd:all()"
     help_category = "Progression"
-    MAX_TRAINEES = 1
+
+    @property
+    def max_trainees(self):
+        skills_to_check = ("animal ken", "teaching")
+        max_skill = 0
+        for skill in skills_to_check:
+            val = self.caller.db.skills.get(skill, 0)
+            if val > max_skill:
+                max_skill = val
+        if max_skill < 3:
+            return 1
+        if max_skill < 5:
+            return 2
+        if max_skill < 6:
+            return 3
+        return 13
 
     def post_training(self, targ):
-        "Set attributes after training checks."
+        """Set attributes after training checks."""
         caller = self.caller
         currently_training = self.currently_training
         targ.db.trainer = caller
@@ -232,13 +256,13 @@ class CmdTrain(MuxCommand):
         return self.caller.db.currently_training or []
 
     def check_max_train(self):
-        if len(self.currently_training) >= self.MAX_TRAINEES:
+        if len(self.currently_training) >= self.max_trainees:
             self.msg("You are training as many people as you can handle.")
             return False
         return True
         
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         switches = self.switches
         if not self.lhs or not self.rhs or not self.switches:
@@ -248,9 +272,10 @@ class CmdTrain(MuxCommand):
             return
         if "retainer" in self.switches:
             player = caller.player.search(self.lhs)
+            from dominion.models import Agent
             try:
                 targ = player.retainers.get(name__iexact=self.rhs).dbobj
-            except Exception:
+            except (Agent.DoesNotExist, AttributeError):
                 self.msg("Could not find %s's retainer named %s." % (player, self.rhs))
                 return
             targ.train_agent(caller)
@@ -286,7 +311,6 @@ class CmdTrain(MuxCommand):
         return
          
         
-
 class CmdAwardXP(MuxPlayerCommand):
     """
     @awardxp
@@ -299,8 +323,9 @@ class CmdAwardXP(MuxPlayerCommand):
     key = "@awardxp"
     locks = "cmd:perm(Wizards)"
     help_category = "Progression"
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         targ = caller.search(self.lhs)
         val = self.rhs
@@ -318,6 +343,7 @@ class CmdAwardXP(MuxPlayerCommand):
         caller.msg("Giving %s xp to %s." % (val, char))
         if not caller.check_permstring("immortals"):
             inform_staff("%s has adjusted %s's xp by %s." % (caller, char, val))
+
 
 class CmdAdjustSkill(MuxPlayerCommand):
     """
@@ -343,10 +369,14 @@ class CmdAdjustSkill(MuxPlayerCommand):
     locks = "cmd:perm(Wizards)"
     help_category = "Progression"
     aliases = ["@adjustskills", "@adjustability", "@adjustabilities"]
+
+    # noinspection PyUnresolvedReferences
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
-        ability = "ability" in self.switches or self.cmdstring == "@adjustability" or self.cmdstring == "@adjustabilities"
+        ability = "ability" in self.switches or self.cmdstring == "@adjustability" \
+                  or self.cmdstring == "@adjustabilities"
+        char = None
         if "reset" in self.switches or "refund" in self.switches:
             try:
                 char = caller.search(self.lhs).db.char_ob
@@ -364,7 +394,7 @@ class CmdAdjustSkill(MuxPlayerCommand):
                     xp = XP_BONUS_BY_SRANK[char.db.social_rank]
                     xp += total_xp
                     char.db.xp = xp
-                    caller.msg("%s has had their skills and stats set up as a %s." % (char,rhs))
+                    caller.msg("%s has had their skills and stats set up as a %s." % (char, rhs))
                     return
                 except (AttributeError, ValueError, TypeError, KeyError):
                     caller.msg("Could not set %s to %s vocation." % (char, self.rhs))
@@ -410,7 +440,7 @@ class CmdAdjustSkill(MuxPlayerCommand):
                     return
                 char.db.abilities[self.rhs] -= 1
                 char.db.xp += cost
-            caller.msg("%s had %s reduced by 1 and was refunded %s xp." %(char, self.rhs, cost))
+            caller.msg("%s had %s reduced by 1 and was refunded %s xp." % (char, self.rhs, cost))
             return
         try:
             player, skill = self.lhs.strip().split("/")
@@ -469,15 +499,17 @@ class CmdVoteXP(MuxPlayerCommand):
     @property
     def caller_alts(self):
         return PlayerDB.objects.filter(roster__current_account__isnull=False,
-                                roster__roster__name="Active",
-                                roster__current_account=self.caller.roster.current_account)
+                                       roster__roster__name="Active",
+                                       roster__current_account=self.caller.roster.current_account)
+
     def count_votes(self):
         num_votes = 0
         for player in self.caller_alts:
             votes = player.db.votes or []
             num_votes += len(votes)
         return num_votes
-    
+
+    # noinspection PyUnresolvedReferences
     def func(self):
         """
         Stores a vote for the player in the caller's player object, to allow
