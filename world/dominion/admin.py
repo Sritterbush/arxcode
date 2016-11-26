@@ -242,7 +242,7 @@ class InfluenceCategoryAdmin(DomAdmin):
     @staticmethod
     def task_requirements(obj):
         return ", ".join([p.name for p in obj.tasks.all().order_by('name')])
-    inlines = [SpheresInline, TaskRequirementsInline, RenownInline]
+    inlines = [SpheresInline, TaskRequirementsInline]
   
 # Register your models here.
 admin.site.register(PlayerOrNpc, PCAdmin)
