@@ -1690,13 +1690,10 @@ class CmdRandomScene(MuxCommand):
         claimlist = self.claimlist
         newbies = [ob.id for ob in self.newbies]
         choices = self.valid_choices
-        print "Choices is %s" % ", ".join(str(ob) for ob in self.valid_choices)
-        print "Newbies is %s" % ", ".join(str(ob) for ob in self.newbies)
         if newbies:
             choices = choices.exclude(id__in=newbies)
         choices = list(choices)
         max_iter = 0
-        print "Choices is %s" % ", ".join(str(ob) for ob in choices)
         while len(scenelist) < (self.NUM_SCENES - len(claimlist)):
             max_iter += 1
             if max_iter > 10000:
