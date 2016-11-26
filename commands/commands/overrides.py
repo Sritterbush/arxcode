@@ -12,6 +12,7 @@ from evennia.commands.default.comms import (CmdCdestroy, CmdChannelCreate,
                                             CmdClock, CmdCBoot, CmdCdesc, CmdAllCom)
 from evennia.commands.default.building import CmdExamine, CmdLock
 from world.dominion.models import CraftingMaterials
+# noinspection PyProtectedMember
 from evennia.commands.default.building import _LITERAL_EVAL, ObjManipCommand
 from evennia.utils.utils import to_str
 from evennia.utils import create
@@ -171,7 +172,6 @@ class CmdGet(MuxCommand):
 
     def func(self):
         """implements the command."""
-
         caller = self.caller
 
         if not self.args:
@@ -184,6 +184,7 @@ class CmdGet(MuxCommand):
         args = self.args.split(" from ")
         if len(args) == 2:
             fromobj = caller.search(args[1])
+            # noinspection PyAttributeOutsideInit
             self.args = args[0]
             if not fromobj:
                 return
@@ -316,11 +317,13 @@ class CmdGive(MuxCommand):
       give/resource <type>,<amount> to <target>
 
     Gives an items from your inventory to another character,
-    placing it in their inventory.
+    placing it in their inventory. give/resource does not require
+    you to be in the same room.
     """
     key = "give"
     locks = "cmd:all()"
 
+    # noinspection PyAttributeOutsideInit
     def func(self):
         """Implement give"""
 
@@ -335,7 +338,13 @@ class CmdGive(MuxCommand):
                 caller.msg("Usage: give <inventory object> to <target>")
                 return
             self.lhs, self.rhs = arglist[0], arglist[1]
-        target = caller.search(self.rhs)
+        if "resource" in self.switches:
+            player = caller.player.search(self.rhs)
+            if not player:
+                return
+            target = player.db.char_ob
+        else:
+            target = caller.search(self.rhs)
         if not target:
             return
         if target == caller:
@@ -575,6 +584,7 @@ class CmdPose(MuxCommand):
     locks = "cmd:all()"
     help_category = "Social"
 
+    # noinspection PyAttributeOutsideInit
     def parse(self):
         """
         Custom parse the cases where the emote
@@ -657,12 +667,12 @@ class CmdWho(MuxPlayerCommand):
         return base.lower().startswith(self.args.lower())
 
     @staticmethod
-    def get_idlestr(time):
-        if time < 1200:
+    def get_idlestr(idle_time):
+        if idle_time < 1200:
             return "No"
-        if time < 3600:
+        if idle_time < 3600:
             return "Idle-"
-        if time < 86400:
+        if idle_time < 86400:
             return "Idle"
         return "Idle+"
 

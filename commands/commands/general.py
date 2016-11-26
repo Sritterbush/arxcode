@@ -887,7 +887,7 @@ class CmdMail(MuxPlayerCommand):
     Usage:
       @mail          - lists all mail in player's mailbox
       @mail #        - read mail by the given number
-      @mail/quick [<recipient>/<subject>=<message>]
+      @mail/quick [<player>[,<player2,...]/<subject>=<message>]
       @mail/delete # - deletes mail by given number
 
     Switches:
@@ -1246,6 +1246,7 @@ class CmdInform(MuxPlayerCommand):
             x = 0
             for info in informs:
                 x += 1
+
                 def highlight(ob):
                     if not info.is_unread:
                         return ob
