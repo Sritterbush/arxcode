@@ -564,7 +564,18 @@ class AgentMixin(object):
     
     @property
     def training_skill(self):
+        if "animal" in self.agent.typename:
+            return "animal ken"
         return "teaching"
+
+    @property
+    def species(self  # type: Retainer or Agent
+                ):
+        if "animal" in self.agent.typename:
+            default = "animal"
+        else:
+            default = "human"
+        return self.db.species or default
     
     @property
     def owner(self):

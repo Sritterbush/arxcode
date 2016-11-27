@@ -131,6 +131,10 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         string += self.return_contents(pobject, detailed, strip_ansi=strip_ansi)
         return string
 
+    @property
+    def species(self):
+        return self.db.species or "Human"
+
     def return_extras(self, pobject):
         """
         Return a string from glancing at us
@@ -144,7 +148,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         skin = self.db.skintone or ""
         skin = skin.capitalize()
         height = self.db.height or ""
-        species = self.db.species or "Human"
+        species = self.species
         gender = self.db.gender or ""
         gender = gender.capitalize()
         age = self.db.age
