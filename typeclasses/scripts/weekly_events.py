@@ -386,23 +386,29 @@ class WeeklyEvents(Script):
         max_range = votes if votes <= 8 else 8
         for n in range(2, max_range):
             xp += 1
+
+        def calc_xp(num_votes, start, stop, div):
+            bonus_votes = num_votes
+            if stop and (bonus_votes > stop):
+                bonus_votes = stop
+            bonus_xp = bonus_votes - start
+            bonus_xp /= div
+            if not bonus_xp:
+                bonus_xp = 1
+            return bonus_xp
+
         # 1 more xp for each 2 between 9 to 12
         if votes > 8:
-            bonusvotes = votes
-            if bonusvotes > 12:
-                bonusvotes = 12
-            bonus = bonusvotes - 8
-            bonus /= 2
-            if not bonus:
-                bonus = 1
-            xp += bonus
+            xp += calc_xp(votes, 8, 12, 2)
         # 1 more xp for each 3 votes after 12
         if votes > 12:
-            bonus = votes - 12
-            bonus /= 3
-            if not bonus:
-                bonus = 1
-            xp += bonus
+            xp += calc_xp(votes, 12, 21, 3)
+        # 1 more xp for each 5 votes after 21
+        if votes > 21:
+            xp += calc_xp(votes, 21, 36, 5)
+        # 1 more xp for each 10 votes after 36
+        if votes > 36:
+            xp += calc_xp(votes, 36, None, 10)
         return xp
 
     def award_vote_xp(self):
