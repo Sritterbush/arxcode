@@ -15,7 +15,7 @@ from datetime import datetime
 from commands.commands.jobs import get_apps_manager
 from django.db.models import Q
 from web.character.models import Roster
-from evennia.utils import evmore
+from server.utils import arx_more
 from typeclasses.bulletin_board.bboard import BBoard
 
 
@@ -129,7 +129,7 @@ def list_characters(caller, character_list, roster_type="Active Characters", ros
                 table.add_row([name, sex, age, house, concept[:30], srank])
         message += "\n%s" % table                
     message += "\n"
-    evmore.msg(caller, message, justify_kwargs=False)
+    arx_more.msg(caller, message, justify_kwargs=False)
 
 
 def change_email(player, email, caller=None):

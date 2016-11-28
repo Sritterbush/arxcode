@@ -35,6 +35,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         #
         # any commands you add below will overload the default ones.
         #
+        # noinspection PyBroadException
         try:
             self.add(standard.StateIndependentCmdSet)
             self.add(standard.MobileCmdSet)
