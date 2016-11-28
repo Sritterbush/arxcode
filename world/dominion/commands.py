@@ -2553,6 +2553,7 @@ class CmdSupport(MuxCommand):
                 caller.msg("You want to spend %s but only have %s available." % (diff, remaining))
                 return
             diff = val - supused.rating
+            member.refresh_from_db()  # try to catch possible sync errors here
             poolshare = member.pool_share
             if (member.total_points_used + diff) > poolshare:
                 caller.msg("You can only use a total of %s points in that organization." % poolshare)

@@ -2574,14 +2574,18 @@ class Member(models.Model):
                                        Q(supporter__fake=False) &
                                        Q(week=week)).values_list('rating', flat=True))
 
-    @property
-    def total_points_used(self):
-        week = get_week()
+    def get_total_points_used(self, week):
         total = 0
         for sphere in self.organization.spheres.all():
             total += sum(sphere.usage.filter(Q(supporter__player=self.player) &
                                              Q(supporter__fake=False) &
                                              Q(week=week)).values_list('rating', flat=True))
+        return total
+
+    @property
+    def total_points_used(self):
+        week = get_week()
+        total = self.get_total_points_used(week)
         return total
 
     @property
