@@ -580,8 +580,11 @@ class CmdMessenger(MuxCommand):
         unread.insert(0, (msg, delivery, money, m_name))
         targ.db.pending_messengers = unread
         targ.messenger_notification(2)
-        caller.msg("You dispatch %s to {c%s{n with the following message:\n\n'%s'\n" % (
-            m_name or "a messenger", targ, msg.db_message))
+        if caller.db.player_ob.db.nomessengerpreview:
+            caller.msg("You dispatch %s to {c%s{n." % (m_name or "a messenger", targ))
+        else:
+            caller.msg("You dispatch %s to {c%s{n with the following message:\n\n'%s'\n" % (
+                m_name or "a messenger", targ, msg.db_message))
         deliver_str = m_name or "Your messenger"
         if delivery:
             caller.msg("%s will also deliver %s." % (deliver_str, delivery))

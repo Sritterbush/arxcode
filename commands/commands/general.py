@@ -49,6 +49,7 @@ class CmdGameSettings(MuxPlayerCommand):
         @settings/stripansinames
         @settings/lrp
         @settings/afk <message>
+        @settings/nomessengerpreview
 
     Toggles different settings. Brief surpresses room descs when
     moving through rooms. Posebreak adds a newline between poses
@@ -89,6 +90,9 @@ class CmdGameSettings(MuxPlayerCommand):
             return
         if "lrp" in switches:
             self.togglesetting(caller, "lookingforrp")
+            return
+        if "nomessengerpreview" in switches:
+            self.togglesetting(caller, "nomessengerpreview")
             return
         if "afk" in switches:
             caller.execute_cmd("afk %s" % self.args)

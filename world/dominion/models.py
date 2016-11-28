@@ -2584,6 +2584,10 @@ class Member(models.Model):
                                              Q(week=week)).values_list('rating', flat=True))
         return total
 
+    @property
+    def current_points(self):
+        return self.pool_share - self.total_points_used
+
     def display(self):
         poolshare = self.pool_share
         used = self.total_points_used
