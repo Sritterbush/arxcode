@@ -201,7 +201,6 @@ class Player(MsgMixins, DefaultPlayer):
     name = property(get_fancy_name, set_name)
 
     def inform(self, message, category=None, week=0, append=True):
-        inform = None
         if not append:
             inform = self.informs.create(message=message, category=category)
         else:
@@ -213,7 +212,7 @@ class Player(MsgMixins, DefaultPlayer):
                 inform.save()
             else:
                 inform = self.informs.create(message=message, category=category,
-                                    week=week)
+                                             week=week)
         index = list(self.informs.all()).index(inform) + 1
         self.msg("{yYou have new informs. Use {w@inform %s{y to read them.{n" % index)
 
@@ -275,3 +274,11 @@ class Player(MsgMixins, DefaultPlayer):
             return self.db.char_ob.get_absolute_url()
         except AttributeError:
             pass
+
+    def at_post_disconnect(self):
+        watched_by = self.db.char_ob and self.db.char_ob.db.watched_by or []
+        if not watched_by:
+            return
+        if not self.db.hide_from_watch:
+            for watcher in watched_by:
+                watcher.msg("{wA player you are watching, {c%s{w, has disconnected.{n" % self.key.capitalize())

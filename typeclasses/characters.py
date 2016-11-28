@@ -634,10 +634,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         :type session: Session
         """
         super(Character, self).at_post_unpuppet(player, session)
-        watched_by = self.db.watched_by or []
-        if self.db.player_ob and not self.db.player_ob.db.hide_from_watch:
-            for watcher in watched_by:
-                watcher.msg("{wA player you are watching, {c%s{w, has left the game.{n" % self.key)
+
         table = self.db.sitting_at_table
         if table:
             table.leave(self)
