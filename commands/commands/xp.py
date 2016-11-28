@@ -509,6 +509,20 @@ class CmdVoteXP(MuxPlayerCommand):
             num_votes += len(votes)
         return num_votes
 
+    @property
+    def max_votes(self):
+        import datetime
+        base = 10
+        # only get events after the previous Sunday
+        diff = 7 - datetime.datetime.now().isoweekday()
+        recent_date = datetime.datetime.now() - datetime.timedelta(days=7-diff)
+        for alt in self.caller_alts:
+            try:
+                base += alt.Dominion.events_attended.filter(finished=True, date__gte=recent_date).count()
+            except AttributeError:
+                continue
+        return base
+
     # noinspection PyUnresolvedReferences
     def func(self):
         """
@@ -524,7 +538,7 @@ class CmdVoteXP(MuxPlayerCommand):
         if not self.args:
             votes = caller.db.votes or []
             voted_for = list_to_string(votes) or "no one"        
-            remaining = 10 - self.count_votes()
+            remaining = self.max_votes - self.count_votes()
             caller.msg("You have voted for %s, and have %s votes remaining." % (voted_for, remaining))
             return
         targ = caller.search(self.args)
@@ -554,7 +568,7 @@ class CmdVoteXP(MuxPlayerCommand):
                 caller.msg("You are not currently voting for %s." % targ)
                 return
         num_votes = self.count_votes()
-        if num_votes >= 10:
+        if num_votes >= self.max_votes:
             caller.msg("You have voted %s times, which is the maximum." % num_votes)
             return  
         votes.append(targ)
