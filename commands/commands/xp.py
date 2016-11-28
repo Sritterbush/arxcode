@@ -511,16 +511,16 @@ class CmdVoteXP(MuxPlayerCommand):
 
     @property
     def max_votes(self):
-        import datetime
+        # import datetime
         base = 10
-        # only get events after the previous Sunday
-        diff = 7 - datetime.datetime.now().isoweekday()
-        recent_date = datetime.datetime.now() - datetime.timedelta(days=7-diff)
-        for alt in self.caller_alts:
-            try:
-                base += alt.Dominion.events_attended.filter(finished=True, date__gte=recent_date).count()
-            except AttributeError:
-                continue
+        # # only get events after the previous Sunday
+        # diff = 7 - datetime.datetime.now().isoweekday()
+        # recent_date = datetime.datetime.now() - datetime.timedelta(days=7-diff)
+        # for alt in self.caller_alts:
+        #     try:
+        #         base += alt.Dominion.events_attended.filter(finished=True, date__gte=recent_date).count()
+        #     except AttributeError:
+        #         continue
         return base
 
     # noinspection PyUnresolvedReferences
