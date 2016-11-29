@@ -145,6 +145,8 @@ def character_list(request):
             return {}
 
     def get_dict(char):
+        if char.db.player_ob.is_staff or char.db.npc:
+            return {}
         return {
             'name': char.key,
             'social_rank': char.db.social_rank,
