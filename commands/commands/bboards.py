@@ -222,13 +222,15 @@ class CmdBBReadOrPost(MuxPlayerCommand):
        @bb/del  <board # or name>/<post #> - delete post on board
        @bb/edit <board # or name>/<post #>=<message> - edit
        @bb/post <board # or name>/<title>=<message> - make a post
+       @bb/catchup - alias for +bbnew/markread command
        @bb/new - alias for the +bbnew command
 
     Bulletin Boards are intended to be OOC discussion groups divided
     by topic for news announcements, requests for participants in
     stories, and more.
 
-    To subscribe to a board, use '@bbsub'.
+    To subscribe to a board, use '@bbsub'. To read the newest post on
+    a board, use @bbnew.
     """
 
     key = "@bb"
@@ -241,7 +243,7 @@ class CmdBBReadOrPost(MuxPlayerCommand):
         caller = self.caller
         args = self.args
         switches = self.switches
-        if not args and 'new' not in switches:
+        if not args and not ('new' in switches or 'catchup' in switches):
             return list_bboards(caller)
 
         # first, "@bb <board #>" use case
@@ -267,7 +269,10 @@ class CmdBBReadOrPost(MuxPlayerCommand):
                     args = " all=%s" % arglist[0]
                 else:
                     switches.append('read')              
-        if 'new' in switches:
+        if 'new' in switches or 'catchup' in switches:
+            if 'catchup' in switches:
+                caller.execute_cmd("+bbnew/markread" + args)
+                return
             caller.execute_cmd("+bbnew"+args)
             return               
         # both post/read share board #
