@@ -432,7 +432,7 @@ class MessageHandler(object):
         msg = "{wDate:{n %s\n" % date
         event = self.get_event(entry)
         if event:
-            msg += "{wEvent:{n %s\n" % entry.event
+            msg += "{wEvent:{n %s\n" % event.name
         msg += "{wOOC Date:{n %s\n\n" % entry.db_date_created.strftime("%x %X")
         msg += entry.db_message
         try:
