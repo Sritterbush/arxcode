@@ -146,7 +146,7 @@ def character_list(request):
 
     def get_dict(char):
         return {
-            'name': char.db.key,
+            'name': char.key,
             'social_rank': char.db.social_rank,
             'fealty': char.db.fealty,
             'house': char.db.family,
