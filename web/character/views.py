@@ -1,6 +1,6 @@
 # Views for our character app
 # __init__.py for character configures cloudinary
-
+from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import render
 from django.http import HttpResponseRedirect, HttpResponse
@@ -119,25 +119,25 @@ def journals(request, object_id):
                                                        'black_journal': black_journal,
                                                        })
 
+
 def character_list(request):
     def get_relations(char):
         try:
-            relations = {}
             dom = char.db.player_ob.Dominion
             parents = []
             uncles_aunts = []
             for parent in dom.all_parents:
                 parents.append(parent)
                 for sibling in parent.siblings:
-                    unc_or_aunts.append(sibling)
+                    uncles_aunts.append(sibling)
                     for spouse in sibling.spouses.all():
-                        unc_or_aunts.append(spouse)
+                        uncles_aunts.append(spouse)
 
-            unc_or_aunts = set(unc_or_aunts)
+            unc_or_aunts = set(uncles_aunts)
             relations = {
                 'parents': parents,
                 'siblings': dom.siblings,
-                'uncles_aunts': uncles_aunts,
+                'uncles_aunts': unc_or_aunts,
                 'cousins': dom.cousins
             }
             return relations
@@ -164,8 +164,10 @@ def character_list(request):
             'background': char.db.background
         }
 
-    ret = map(get_dict, Character.objects.filter(Q(roster__roster__name="Active") | Q(roster__roster__name="Available")))
+    ret = map(get_dict, Character.objects.filter(Q(roster__roster__name="Active") |
+                                                 Q(roster__roster__name="Available")))
     return HttpResponse(json.dumps(ret), content_type='application/json')
+
 
 class RosterListView(ListView):
     model = ObjectDB
