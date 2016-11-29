@@ -127,7 +127,7 @@ def character_list(request):
         def parse_name(relation):
             if relation.player:
                 char = relation.player.db.char_ob
-                return "%s %s" % char.key, char.db.family
+                return "%s %s" % (char.key, char.db.family)
             else:
                 return relation.name
         try:
@@ -153,7 +153,7 @@ def character_list(request):
             return {}
 
     def get_dict(char):
-        charater = {}
+        character = {}
         if char.db.player_ob.is_staff or char.db.npc:
             return character
         character = {
