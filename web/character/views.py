@@ -118,12 +118,12 @@ def journals(request, object_id):
                                                        'white_journal': white_journal,
                                                        'black_journal': black_journal,
                                                        })
-                                                       
+
 def character_list(request):
     def get_relations(char):
-        relations = {}
-        if char.Dominion:
-            dom = char.Dominion
+        try:
+            relations = {}
+            dom = char.db.player_ob.Dominion
             parents = []
             uncles_aunts = []
             for parent in dom.all_parents:
@@ -140,27 +140,31 @@ def character_list(request):
                 'uncles_aunts': uncles_aunts,
                 'cousins': dom.cousins
             }
-        return relations
+            return relations
+        except AttributeError:
+            return {}
 
     def get_dict(char):
-        if char.roster.name in ['Active', 'Available']:
-            return {
-                'name': char.db.key,
-                'social_rank': char.db.social_rank,
-                'fealty': char.db.fealty,
-                'house': char.db.family,
-                'relations': get_relations(char),
-                'gender': char.db.gender,
-                'age': char.db.age,
-                'religion': char.db.religion,
-                'vocation': char.db.vocation,
-                'height': char.db.height,
-                'hair_color': char.db.haircolor,
-                'eye_color': char.db.eyecolor,
-                'skintone': char.db.skintone
-            }
+        return {
+            'name': char.db.key,
+            'social_rank': char.db.social_rank,
+            'fealty': char.db.fealty,
+            'house': char.db.family,
+            'relations': get_relations(char),
+            'gender': char.db.gender,
+            'age': char.db.age,
+            'religion': char.db.religion,
+            'vocation': char.db.vocation,
+            'height': char.db.height,
+            'hair_color': char.db.haircolor,
+            'eye_color': char.db.eyecolor,
+            'skintone': char.db.skintone,
+            'description': char.desc,
+            'personality': char.db.personality,
+            'background': char.db.background
+        }
 
-    ret = map(get_dict, Character.objects.order_by('db_key'))
+    ret = map(get_dict, Character.objects.filter(Q(roster__roster__name="Active") | Q(roster__roster__name="Available")))
     return HttpResponse(json.dumps(ret), content_type='application/json')
 
 class RosterListView(ListView):
