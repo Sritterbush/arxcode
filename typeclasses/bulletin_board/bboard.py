@@ -150,6 +150,12 @@ class BBoard(Object):
     @staticmethod
     def mark_read(caller, post):
         post.db_receivers_players.add(caller)
+        if caller.db.bbaltread:
+            try:
+                for alt in (ob.player for ob in caller.roster.alts):
+                    post.db_receivers_players.add(alt)
+            except AttributeError:
+                pass
 
     @staticmethod
     def get_poster(post):

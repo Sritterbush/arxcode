@@ -50,12 +50,15 @@ class CmdGameSettings(MuxPlayerCommand):
         @settings/lrp
         @settings/afk <message>
         @settings/nomessengerpreview
+        @settings/bbaltread
 
     Toggles different settings. Brief surpresses room descs when
     moving through rooms. Posebreak adds a newline between poses
     fro mcharacters. lrp flags your name in the who list
     as looking for scenes. afk sets that you are away from the
-    keyboard, with an optional message.
+    keyboard, with an optional message. nomessengerpreview removes
+    the echo of messengers that you send. bbaltread causes you to
+    read @bb messages on your alts as well.
     """
     key = "@settings"
     locks = "cmd:all()"
@@ -93,6 +96,9 @@ class CmdGameSettings(MuxPlayerCommand):
             return
         if "nomessengerpreview" in switches:
             self.togglesetting(caller, "nomessengerpreview")
+            return
+        if "bbaltread" in switches:
+            self.togglesetting(caller, "bbaltread")
             return
         if "afk" in switches:
             caller.execute_cmd("afk %s" % self.args)
