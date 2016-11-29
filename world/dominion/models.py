@@ -2685,6 +2685,8 @@ class AssignedTask(models.Model):
         base = self.task.difficulty * mod
         oflow = self.overflow
         if oflow > 0:
+            if mod > 2:
+                mod = 2
             base += (mod * oflow)/2
         return base
     
