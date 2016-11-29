@@ -165,7 +165,9 @@ def character_list(request):
             'skintone': char.db.skintone,
             'description': char.desc,
             'personality': char.db.personality,
-            'background': char.db.background
+            'background': char.db.background,
+            'status': char.roster.roster.name,
+            'longname': char.db.longname
         }
     global API_CACHE
     if not API_CACHE:
