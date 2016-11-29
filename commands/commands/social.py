@@ -1757,10 +1757,10 @@ class CmdRandomScene(MuxCommand):
         self.msg(str(table))
 
     def func(self):
-        if not self.switches:
+        if not self.switches and not self.args:
             self.display_lists()
             return
-        if "claim" in self.switches:
+        if "claim" in self.switches or (not self.switches and self.args):
             self.claim_scene()
             return
         if "validate" in self.switches:

@@ -2457,11 +2457,11 @@ class CmdSupport(MuxCommand):
                 try:
                     atask = AssignedTask.objects.get(id=requests[char.id], finished=False)
                 except AssignedTask.DoesNotExist:
-                    caller.msg("Error: Could not find a task for request from %s." % char)
-                    caller.msg("Removing them from this list. Please run +support again.")
+                    # caller.msg("Error: Could not find a task for request from %s." % char)
+                    # caller.msg("Removing them from this list. Please run +support again.")
                     del requests[char.id]
                     caller.db.requested_support = requests
-                    return
+                    continue
                 msg += "%s (valid categories: %s)\n" % (char, atask.task.reqs)
             caller.msg(msg)
             table = PrettyTable(["{wName{n", "{wMax Points Allowed{n"])

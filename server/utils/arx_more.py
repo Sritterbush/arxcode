@@ -174,6 +174,8 @@ class EvMore(object):
         page = _DISPLAY.format(text=text,
                                pageno=pos + 1,
                                pagemax=self._npages)
+        if not page or not text:
+            self.page_quit()
         self._caller.msg(text=page, session=self._session, **self._kwargs)
 
     def page_top(self):
