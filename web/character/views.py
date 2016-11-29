@@ -135,10 +135,10 @@ def character_list(request):
 
             unc_or_aunts = set(uncles_aunts)
             relations = {
-                'parents': parents,
-                'siblings': dom.siblings,
-                'uncles_aunts': unc_or_aunts,
-                'cousins': dom.cousins
+                'parents': [str(ob) for ob in parents],
+                'siblings': list(str(ob) for ob in dom.siblings),
+                'uncles_aunts': list(str(ob) for ob in unc_or_aunts),
+                'cousins': list(str(ob) for ob in dom.cousins)
             }
             return relations
         except AttributeError:
