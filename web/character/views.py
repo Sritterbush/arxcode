@@ -124,6 +124,12 @@ API_CACHE = None
 
 def character_list(request):
     def get_relations(char):
+        def parse_name(relation):
+            if relation.player:
+                char = relation.player.db.char_ob
+                return "%s %s" % char.key, char.db.family
+            else:
+                return relation.name
         try:
             dom = char.db.player_ob.Dominion
             parents = []
@@ -137,19 +143,20 @@ def character_list(request):
 
             unc_or_aunts = set(uncles_aunts)
             relations = {
-                'parents': [str(ob) for ob in parents],
-                'siblings': list(str(ob) for ob in dom.siblings),
-                'uncles_aunts': list(str(ob) for ob in unc_or_aunts),
-                'cousins': list(str(ob) for ob in dom.cousins)
+                'parents': [parse_name(ob) for ob in parents],
+                'siblings': list(parse_name(ob) for ob in dom.siblings),
+                'uncles_aunts': list(parse_name(ob) for ob in unc_or_aunts),
+                'cousins': list(parse_name(ob) for ob in dom.cousins)
             }
             return relations
         except AttributeError:
             return {}
 
     def get_dict(char):
+        charater = {}
         if char.db.player_ob.is_staff or char.db.npc:
-            return {}
-        return {
+            return character
+        character = {
             'name': char.key,
             'social_rank': char.db.social_rank,
             'fealty': char.db.fealty,
@@ -169,6 +176,9 @@ def character_list(request):
             'status': char.roster.roster.name,
             'longname': char.db.longname
         }
+        if char.portrait:
+            character['image'] = char.portrait.image.url
+        return character
     global API_CACHE
     if not API_CACHE:
         ret = map(get_dict, Character.objects.filter(Q(roster__roster__name="Active") |
