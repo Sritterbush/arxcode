@@ -86,7 +86,7 @@ class GameTime(Script):
             if SERVER_RUNTIME < 1000:
                 self.at_start()
         except Exception:
-            from src.utils import logger
+            from evennia.utils import logger
             logger.log_trace()
         
 

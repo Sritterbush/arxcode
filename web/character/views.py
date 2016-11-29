@@ -119,6 +119,8 @@ def journals(request, object_id):
                                                        'black_journal': black_journal,
                                                        })
 
+API_CACHE = None
+
 
 def character_list(request):
     def get_relations(char):
@@ -165,10 +167,12 @@ def character_list(request):
             'personality': char.db.personality,
             'background': char.db.background
         }
-
-    ret = map(get_dict, Character.objects.filter(Q(roster__roster__name="Active") |
-                                                 Q(roster__roster__name="Available")))
-    return HttpResponse(json.dumps(ret), content_type='application/json')
+    global API_CACHE
+    if not API_CACHE:
+        ret = map(get_dict, Character.objects.filter(Q(roster__roster__name="Active") |
+                                                     Q(roster__roster__name="Available")))
+        API_CACHE = json.dumps(ret)
+    return HttpResponse(API_CACHE, content_type='application/json')
 
 
 class RosterListView(ListView):
