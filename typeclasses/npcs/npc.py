@@ -659,7 +659,7 @@ class Retainer(AgentMixin, Npc):
                 trainer.msg("They have already been trained by %s this week." % self.db.trainer)
                 return False
         # do training roll
-        roll = do_dice_check(trainer, stat="command", skill=skill, difficulty=0)
+        roll = do_dice_check(trainer, stat="command", skill=self.training_skill, difficulty=0)
         self.agent.xp += roll
         self.agent.save()
         self.db.trainer = trainer
