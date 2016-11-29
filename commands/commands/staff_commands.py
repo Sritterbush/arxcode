@@ -467,9 +467,12 @@ class CmdListStaff(MuxPlayerCommand):
         """Implements command"""
         caller = self.caller
         staff = PlayerDB.objects.filter(db_is_connected=True, is_staff=True)
-        table = evtable.EvTable("{wName{n", "{wRole{n", width=78)
+        table = evtable.EvTable("{wName{n", "{wRole{n", "{wIdle{n", width=78)
         for ob in staff:
-            table.add_row(ob.key.capitalize(), ob.db.staff_role or "")
+            from .overrides import CmdWho
+            timestr = CmdWho.get_idlestr(ob.idle_time)
+            obname = CmdWho.format_pname(ob)
+            table.add_row(obname, ob.db.staff_role or "", timestr)
         caller.msg("{wOnline staff:{n\n%s" % table)
             
             
