@@ -50,7 +50,7 @@ def comment(request, object_id):
 def sheet(request, object_id):
     """
     Displays a character sheet, and is used as the primary
-    'wiki' page for a character. 
+    'wiki' page for a character.
     """
     character, err = get_character_from_ob(object_id)
     if not character:
@@ -119,6 +119,53 @@ def journals(request, object_id):
                                                        'black_journal': black_journal,
                                                        })
 
+def character_list(request):
+    def get_relations(char):
+        try:
+            relations = {}
+            dom = char.db.player_ob.Dominion
+            parents = []
+            uncles_aunts = []
+            for parent in dom.all_parents:
+                parents.append(parent)
+                for sibling in parent.siblings:
+                    unc_or_aunts.append(sibling)
+                    for spouse in sibling.spouses.all():
+                        unc_or_aunts.append(spouse)
+
+            unc_or_aunts = set(unc_or_aunts)
+            relations = {
+                'parents': parents,
+                'siblings': dom.siblings,
+                'uncles_aunts': uncles_aunts,
+                'cousins': dom.cousins
+            }
+            return relations
+        except AttributeError:
+            return {}
+
+    def get_dict(char):
+        return {
+            'name': char.db.key,
+            'social_rank': char.db.social_rank,
+            'fealty': char.db.fealty,
+            'house': char.db.family,
+            'relations': get_relations(char),
+            'gender': char.db.gender,
+            'age': char.db.age,
+            'religion': char.db.religion,
+            'vocation': char.db.vocation,
+            'height': char.db.height,
+            'hair_color': char.db.haircolor,
+            'eye_color': char.db.eyecolor,
+            'skintone': char.db.skintone,
+            'description': char.desc,
+            'personality': char.db.personality,
+            'background': char.db.background
+        }
+
+    ret = map(get_dict, Character.objects.filter(Q(roster__roster__name="Active") | Q(roster__roster__name="Available")))
+    return HttpResponse(json.dumps(ret), content_type='application/json')
 
 class RosterListView(ListView):
     model = ObjectDB
@@ -251,7 +298,7 @@ def select_portrait(request, object_id):
     except AttributeError:
         pass
     return HttpResponseRedirect(reverse('character:gallery', args=(object_id,)))
-                                                       
+
 
 def upload(request, object_id):
     user = request.user
@@ -261,7 +308,7 @@ def upload(request, object_id):
     if not user.is_authenticated() or (user.db.char_ob != character and not user.is_staff):
         raise Http404("You are not permitted to upload to this gallery.")
     unsigned = request.GET.get("unsigned") == "true"
-    
+
     if unsigned:
         # For the sake of simplicity of the sample site, we generate the preset on the fly.
         #  It only needs to be created once, in advance.
@@ -270,7 +317,7 @@ def upload(request, object_id):
         except api.NotFound:
             api.create_upload_preset(name=PhotoUnsignedDirectForm.upload_preset_name, unsigned=True,
                                      folder="preset_folder")
-            
+
     direct_form = PhotoUnsignedDirectForm() if unsigned else PhotoDirectForm()
     context = dict(
         # Form demonstrating backend upload
