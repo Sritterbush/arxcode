@@ -113,8 +113,6 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         # desc used to be db.desc. May use db.desc for temporary values,
         # such as illusions, masks, etc
         desc = self.desc     
-        if self.db.use_alt_desc and self.db.desc:
-            desc = self.db.desc
         if strip_ansi:
             try:
                 from evennia.utils.ansi import parse_ansi
@@ -664,9 +662,10 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
 
     @property
     def portrait(self):
+        from web.character.models import Photo
         try:
             return self.roster.profile_picture
-        except AttributeError:
+        except (AttributeError, Photo.DoesNotExist):
             return None
 
     def get_absolute_url(self):
