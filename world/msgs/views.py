@@ -92,8 +92,19 @@ class JournalListView(LimitPageMixin, ListView):
 
 API_CACHE = None
 
-
 def journal_list_json(request):
+    def get_fullname(char):
+        commoner_names = {
+            'Velenosa': 'Masque',
+            'Valardin': 'Honor',
+            'Crownsworn': 'Crown',
+            'Redrain': 'Frost',
+            'Grayson': 'Crucible',
+            'Thrax': 'Waters'
+        }
+        last = commoner_names[char.db.fealty] if char.db.family == "None" else char.db.family
+        return "{0} {1}".format(char.key, last)
+
     def get_response(entry):
         try:
             sender = entry.senders[0]
@@ -107,8 +118,8 @@ def journal_list_json(request):
         ic_date = MessageHandler.get_date_from_header(entry)
         return {
             'id': entry.id,
-            'sender': "{0} {1}".format(sender.key, sender.db.family) if sender else "",
-            'target': "{0} {1}".format(target.key, target.db.family) if target else "",
+            'sender': get_fullname(sender) if sender else "",
+            'target': get_fullname(target) if target else "",
             'message': entry.db_message,
             'ic_date': ic_date
         }
