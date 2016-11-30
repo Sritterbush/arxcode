@@ -69,7 +69,7 @@ class DescMixins(object):
         if not self.db.raw_desc:
             self.db.raw_desc = self.db.desc
         if not self.db.general_desc:
-            self.db.desc = self.db.desc
+            self.db.general_desc = self.db.desc
         self.db.desc = ""
     temp_desc = property(__temp_desc_get, __temp_desc_set, __temp_desc_del)
 
