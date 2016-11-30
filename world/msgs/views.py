@@ -86,7 +86,24 @@ class JournalListView(LimitPageMixin, ListView):
             else:
                 raise Http404(form.errors)
         return HttpResponseRedirect(reverse('msgs:list_journals'))
-                
-        
 
+API_CACHE = None
 
+def journal_list_json(request):
+    def get_response(entry):
+        sender = entry.senders.0
+        target = entry.db_receivers_objects.all.0
+        return {
+            'id': entry.db.id,
+            'sender': "{0} {1}".format(sender.key, sender.db.family),
+            'target': "{0} {1}".format(target.key, target.db.family),
+            'message': entry.db_message
+        }
+
+    global API_CACHE
+    if not API_CACHE:
+        timestamp = request.timestamp if request.timestamp else 0
+        ret = map(get_response, Msg.objects.filter(Q(db_date_created__gt=timestamp) &
+                                                   Q(db_header__icontains="white_journal")).order_by('-db_date_created'))
+        API_CACHE = json.dumps(ret)
+    return HttpResponse(API_CACHE, content_type='application/json')

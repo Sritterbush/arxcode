@@ -12,4 +12,5 @@ from . import views
 
 urlpatterns = [
     url(r'^journals/list/$', views.JournalListView.as_view(), name="list_journals"),
+    url(r'^journals/list/api/$', views.journal_list_json, name="journal_list_json")
 ]
