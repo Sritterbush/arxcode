@@ -176,8 +176,11 @@ def character_list(request):
             'status': char.roster.roster.name,
             'longname': char.db.longname
         }
-        if char.portrait:
-            character['image'] = char.portrait.image.url
+        try:
+            if char.portrait:
+                character['image'] = char.portrait.image.url
+        except (Photo.DoesNotExist, AttributeError):
+            pass
         return character
     global API_CACHE
     if not API_CACHE:

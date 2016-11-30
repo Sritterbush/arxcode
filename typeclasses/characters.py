@@ -664,9 +664,10 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
 
     @property
     def portrait(self):
+        from web.character.models import Photo
         try:
             return self.roster.profile_picture
-        except AttributeError:
+        except (AttributeError, Photo.DoesNotExist):
             return None
 
     def get_absolute_url(self):
