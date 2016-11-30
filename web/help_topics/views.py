@@ -74,6 +74,7 @@ def list_recipes(request):
 def display_org(request, object_id):
     user = request.user
     rank_display = 0
+    show_secret = 0
     try:
         org = Organization.objects.get(id=object_id)
     except IndexError:
@@ -86,18 +87,25 @@ def display_org(request, object_id):
             if not user.is_staff:
                 try:
                     rank_display = user.Dominion.memberships.get(organization=org).rank
-                except Exception:
+                except (Member.DoesNotExist, AttributeError):
                     rank_display = 11
+                show_secret = rank_display
         except Exception:
             raise Http404("You cannot view this page.")
+    elif not user.is_staff:
+        try:
+            show_secret = user.Dominion.memberships.get(organization=org).rank
+        except (Member.DoesNotExist, AttributeError):
+            show_secret = 11
     try:
         holdings = org.assets.estate.holdings.all()
     except Exception:
         holdings = []
-    
+    print "show secret is %s" % show_secret
     return render(request, 'help_topics/org.html', {'org': org,
                                                     'holdings': holdings,
                                                     'rank_display': rank_display,
+                                                    'show_secret': show_secret
                                                     })
 
 def list_commands(request):
