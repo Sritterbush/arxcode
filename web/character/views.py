@@ -129,7 +129,7 @@ def character_list(request):
                 char = relation.player.db.char_ob
                 return "%s %s" % (char.key, char.db.family)
             else:
-                return relation.name
+                return str(relation)
         try:
             dom = char.db.player_ob.Dominion
             parents = []
