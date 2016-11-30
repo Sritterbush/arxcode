@@ -902,7 +902,8 @@ class CombatManager(BaseScript):
         """
         self.stop_covering(character)
         c_fite = self.get_fighter_data(character.id)
-        self.ndb.combatants.remove(character)
+        if character in self.ndb.combatants:
+            self.ndb.combatants.remove(character)
         if character in self.ndb.fleeing:
             self.ndb.fleeing.remove(character)
         if character in self.ndb.afk_check:

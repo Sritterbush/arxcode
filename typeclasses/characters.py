@@ -110,11 +110,9 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         # Health appearance will also determine whether we
         # use an alternate appearance if we are dead.
         health_appearance = self.get_health_appearance()
-        # desc used to be db.desc. May use db.desc for temporary values,
-        # such as illusions, masks, etc
-        desc = self.desc     
-        if self.db.use_alt_desc and self.db.desc:
-            desc = self.db.desc
+        # desc is our current appearance, can be fake. self.perm_desc is 'true' form
+        desc = self.desc
+        # to do: check to see through disguises
         if strip_ansi:
             try:
                 from evennia.utils.ansi import parse_ansi
@@ -171,7 +169,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         This object dying. Set its state to dead, send out
         death message to location. Add death commandset.
         """
-        if self.db.health_status and self.db.health_status == "dead":
+        if self.db.health_status == "dead":
             return
         self.db.health_status = "dead"
         self.db.container = True
@@ -664,9 +662,10 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
 
     @property
     def portrait(self):
+        from web.character.models import Photo
         try:
             return self.roster.profile_picture
-        except AttributeError:
+        except (AttributeError, Photo.DoesNotExist):
             return None
 
     def get_absolute_url(self):

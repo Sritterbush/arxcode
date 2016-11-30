@@ -1,3 +1,6 @@
+import json
+
+from django.http import HttpResponse
 from django.views.generic import ListView, DetailView, FormView
 from evennia.comms.models import Msg
 from .forms import JournalMarkAllReadForm, JournalWriteForm, JournalMarkOneReadForm
@@ -86,7 +89,44 @@ class JournalListView(LimitPageMixin, ListView):
             else:
                 raise Http404(form.errors)
         return HttpResponseRedirect(reverse('msgs:list_journals'))
-                
-        
+
+API_CACHE = None
 
 
+def journal_list_json(request):
+    def get_response(entry):
+        try:
+            sender = entry.senders[0]
+        except IndexError:
+            sender = None
+        try:
+            target = entry.db_receivers_objects.all()[0]
+        except IndexError:
+            target = None
+        from world.msgs.messagehandler import MessageHandler
+        ic_date = MessageHandler.get_date_from_header(entry)
+        return {
+            'id': entry.id,
+            'sender': "{0} {1}".format(sender.key, sender.db.family) if sender else "",
+            'target': "{0} {1}".format(target.key, target.db.family) if target else "",
+            'message': entry.db_message,
+            'ic_date': ic_date
+        }
+
+    try:
+        timestamp = request.GET.get('timestamp', 0)
+        import datetime
+        timestamp = datetime.datetime.fromtimestamp(float(timestamp))
+    except (AttributeError, ValueError, TypeError):
+        timestamp = None
+    global API_CACHE
+    if timestamp:
+        ret = map(get_response, Msg.objects.filter(Q(db_date_created__gt=timestamp) &
+                                                   Q(db_header__icontains="white_journal")
+                                                   ).order_by('-db_date_created'))
+        return HttpResponse(json.dumps(ret), content_type='application/json')
+    if not API_CACHE:  # cache the list of all of them
+        ret = map(get_response, Msg.objects.filter(db_header__icontains="white_journal"
+                                                   ).order_by('-db_date_created'))
+        API_CACHE = json.dumps(ret)
+    return HttpResponse(API_CACHE, content_type='application/json')
