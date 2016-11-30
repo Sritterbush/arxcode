@@ -103,11 +103,14 @@ def journal_list_json(request):
             target = entry.db_receivers_objects.all()[0]
         except IndexError:
             target = None
+        from world.msgs.messagehandler import MessageHandler
+        ic_date = MessageHandler.get_date_from_header(entry)
         return {
             'id': entry.id,
             'sender': "{0} {1}".format(sender.key, sender.db.family) if sender else "",
             'target': "{0} {1}".format(target.key, target.db.family) if target else "",
-            'message': entry.db_message
+            'message': entry.db_message,
+            'ic_date': ic_date
         }
 
     try:

@@ -422,6 +422,8 @@ class MsgMixins(object):
         if options.get('roll', False):
             if self.attributes.has("dice_string"):
                 text = "{w<" + self.db.dice_string + "> {n" + text
+        if from_obj and isinstance(from_obj, dict):
+            print "DEBUG in MsgMixins: from_obj is %s" % from_obj
         super(MsgMixins, self).msg(text, from_obj, session, options, **kwargs)
 
 
