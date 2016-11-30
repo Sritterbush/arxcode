@@ -169,7 +169,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         This object dying. Set its state to dead, send out
         death message to location. Add death commandset.
         """
-        if self.db.health_status and self.db.health_status == "dead":
+        if self.db.health_status == "dead":
             return
         self.db.health_status = "dead"
         self.db.container = True
