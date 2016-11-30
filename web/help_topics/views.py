@@ -101,7 +101,6 @@ def display_org(request, object_id):
         holdings = org.assets.estate.holdings.all()
     except Exception:
         holdings = []
-    print "show secret is %s" % show_secret
     return render(request, 'help_topics/org.html', {'org': org,
                                                     'holdings': holdings,
                                                     'rank_display': rank_display,
