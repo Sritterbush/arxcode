@@ -102,7 +102,7 @@ def journal_list_json(request):
             'Grayson': 'Crucible',
             'Thrax': 'Waters'
         }
-        last = commoner_names[char.db.fealty] if char.db.family == "None" else char.db.family
+        last = commoner_names.get(char.db.fealty, "") if char.db.family == "None" else char.db.family
         return "{0} {1}".format(char.key, last)
 
     def get_response(entry):
