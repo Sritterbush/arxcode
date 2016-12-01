@@ -227,7 +227,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         """
         Wakes up.
         """
-        woke = self.conscious
+        woke = not self.conscious and self.db.health_status != "dead"
+        self.db.sleep_status = "awake"
         if self.location:
             if not quiet and woke:
                 self.location.msg_contents("%s wakes up." % self.name)
