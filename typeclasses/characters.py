@@ -285,14 +285,22 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         """
         diff = 0 + diff_mod
         roll = do_dice_check(self, stat_list=["willpower", "stamina"], difficulty=diff)
-        if roll > 0:
-            self.msg("You feel better.")
+        wound = float(abs(roll))/float(self.max_hp)
+        if wound <= 0:
+            wound_str = "no "
+        elif wound <= 0.25:
+            wound_str = "a little "
+        elif wound <= 0.5:
+            wound_str = "somewhat "
+        elif wound <= 0.75:
+            wound_str = "a lot "
         else:
-            self.msg("You feel worse.")
-        damage_to_apply = self.dmg - roll  # how much dmg character has after the roll
-        if damage_to_apply < 0:
-            damage_to_apply = 0  # no remaining damage
-        self.db.damage = damage_to_apply
+            wound_str = "incredibly "
+        if roll > 0:
+            self.msg("You feel %sbetter." % wound_str)
+        else:
+            self.msg("You feel %sworse." % wound_str)
+        self.dmg -= roll
         if not free:
             self.db.last_recovery_test = time.time()
         return roll
