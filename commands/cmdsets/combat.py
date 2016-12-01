@@ -341,13 +341,11 @@ class CmdAttack(MuxCommand):
     The /critical switch allows you to raise the difficulty of your attack
     in order to attempt to do more damage. The default value is 15.
     """
-    def __init__(self, **kwargs):
-        super(CmdAttack, self).__init__(**kwargs)
-        self.can_kill = False
-        self.can_bypass = True
     key = "attack"
     locks = "cmd:all()"
     help_category = "Combat"
+    can_kill = False
+    can_bypass = True
 
     def func(self):
         """Execute command."""
@@ -360,6 +358,9 @@ class CmdAttack(MuxCommand):
         if not check_targ(caller, targ):
             return
         assert caller in combat.ndb.combatants, "Error: caller not in combat."
+        if not caller.conscious:
+            self.msg("You are not conscious.")
+            return
         if combat.ndb.phase != 2 or combat.ndb.active_character != caller:
             create_queued = True
         # we only allow +coupdegrace to kill unless they're an npc
@@ -426,11 +427,8 @@ class CmdSlay(CmdAttack):
     key = "+coupdegrace"
     locks = "cmd:all()"
     help_category = "Combat"
-
-    def __init__(self, **kwargs):
-        super(CmdSlay, self).__init__(**kwargs)
-        self.can_kill = True
-        self.can_bypass = False
+    can_kill = True
+    can_bypass = False
 
 
 class CmdPassTurn(MuxCommand):
