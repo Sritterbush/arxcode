@@ -123,6 +123,8 @@ def do_dice_check(caller, stat=None, skill=None, difficulty=DIFF_DEFAULT, stat_l
     if stat_keep:
         keep_dice += statval
     if skill_keep:
+        if stat and statval:
+            keep_dice = 1 + (statval / 2)
         keep_dice += skillval
     if keep_override:
         keep_dice = keep_override
