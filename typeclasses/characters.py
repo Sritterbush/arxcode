@@ -326,11 +326,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     
     def _get_worn(self):
         """Returns list of items in inventory currently being worn."""
-        worn_list = []
-        for ob in self.contents:
-            if ob.db.worn_by == self:
-                worn_list.append(ob)
-        return worn_list
+        return [ob for ob in self.contents if ob.db.worn_by == self]
     
     def _get_armor(self):
         """
