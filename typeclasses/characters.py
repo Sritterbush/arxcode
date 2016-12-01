@@ -217,7 +217,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             if cmds.key not in [ob.key for ob in self.cmdset.all()]:
                 self.cmdset.add(cmds, permanent=True)
         except Exception as err:
-            print "<<ERROR>>: Error when importing death cmdset: %s" % err
+            print "<<ERROR>>: Error when importing sleep cmdset: %s" % err
 
     @property
     def conscious(self):
