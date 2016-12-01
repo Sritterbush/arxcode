@@ -199,8 +199,10 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             self.cmdset.delete(death.DeathCmdSet)
         except Exception as err:
             print "<<ERROR>>: Error when importing mobile cmdset: %s" % err
+        # we'll also be asleep when we're dead, so that we're resurrected unconscious if we're brought back
+        self.fall_asleep(uncon=True, quiet=True)
 
-    def fall_asleep(self, uncon=False):
+    def fall_asleep(self, uncon=False, quiet=False):
         """
         Falls asleep. Uncon flag determines if this is regular sleep,
         or unconsciousness.
@@ -209,7 +211,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             self.db.sleep_status = "unconscious"
         else:
             self.db.sleep_status = "asleep"
-        if self.location:
+        if self.location and not quiet:
             self.location.msg_contents("%s falls %s." % (self.name, self.db.sleep_status))
         try:
             from commands.cmdsets import sleep
@@ -227,10 +229,10 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         """
         Wakes up.
         """
-        woke = not self.conscious and self.db.health_status != "dead"
-        self.db.sleep_status = "awake"
+        if self.db.health_status == "dead":
+            return
         if self.location:
-            if not quiet and woke:
+            if not quiet and not self.conscious:
                 self.location.msg_contents("%s wakes up." % self.name)
             combat = self.location.ndb.combat_manager
             if combat and self in combat.ndb.combatants:
@@ -240,6 +242,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             self.cmdset.delete(sleep.SleepCmdSet)
         except Exception as err:
             print "<<ERROR>>: Error when importing mobile cmdset: %s" % err
+        self.db.sleep_status = "awake"
         return
 
     def get_health_appearance(self):

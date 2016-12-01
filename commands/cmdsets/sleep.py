@@ -16,19 +16,20 @@ this is on them, they are dead.
 from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand
 import time
-from random import randint
 
 # one hour between recovery tests
 MIN_TIME = 3600 
 
+
 class SleepCmdSet(CmdSet):
-    "CmdSet for players who are currently sleeping."    
+    """CmdSet for players who are currently sleeping. Lower priority than death cmdset, so it's overriden."""
     key = "SleepCmdSet"
-    key_mergetype = {"DefaultCharacter" :"Replace"}
-    priority = 20
+    key_mergetype = {"DefaultCharacter": "Replace"}
+    priority = 120
     duplicates = False
     no_exits = True
     no_objs = True
+
     def at_cmdset_creation(self):
         """
         This is the only method defined in a cmdset, called during
@@ -64,14 +65,17 @@ class SleepCommand(MuxCommand):
     key = "sleep"
     
     locks = "cmd:all()"
+
     def func(self):
-        "Let the player know they can't do anything."
+        """Let the player know they can't do anything."""
         self.caller.msg("You can't do that while sleeping. To wake up, use the {wwake{n command.")
         return
+
 
 class CmdMoveOverride(SleepCommand):
     key = "north"
     aliases = ["n", "s", "w", "e"]
+
 
 class CmdWake(MuxCommand):
     """
@@ -79,8 +83,9 @@ class CmdWake(MuxCommand):
     """
     key = "wake"
     locks = "cmd:all()"
+
     def func(self):
-        "Try to wake."
+        """Try to wake."""
         caller = self.caller
         if not hasattr(caller, 'wake_up'):
             caller.cmdset.delete(SleepCmdSet)
@@ -107,11 +112,13 @@ class CmdWake(MuxCommand):
         caller.msg("You are still too injured to wake up.")
         return
             
+
 class CmdGet(SleepCommand):
     """
     You are sleeping. Many character commands will no longer function.
     """
     key = "get"
+
 
 class CmdDrop(SleepCommand):
     """
@@ -119,11 +126,13 @@ class CmdDrop(SleepCommand):
     """    
     key = "drop"
 
+
 class CmdGive(SleepCommand):
     """
     You are sleeping. Many character commands will no longer function.
     """    
     key = "give"
+
 
 class CmdSay(SleepCommand):
     """
@@ -131,11 +140,13 @@ class CmdSay(SleepCommand):
     """   
     key = "say"
 
+
 class CmdWhisper(SleepCommand):
     """
     You are sleeping. Many character commands will no longer function.
     """
     key = "whisper"
+
 
 class CmdFollow(SleepCommand):
     """
@@ -143,15 +154,16 @@ class CmdFollow(SleepCommand):
     """
     key = "follow"
 
+
 class CmdDitch(SleepCommand):
     """
     You are sleeping. Many character commands will no longer function.
     """
     key = "ditch"
 
+
 class CmdShout(SleepCommand):
     """
     You are sleeping. Many character commands will no longer function.
     """
     key = "shout"
- 
