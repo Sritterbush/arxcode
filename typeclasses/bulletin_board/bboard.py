@@ -141,6 +141,7 @@ class BBoard(Object):
         message += "{wDate:{n %s\n" % post.db_date_created.strftime("%x %X")
         message += "{w" + "-"*60 + "{n\n"
         message += post.db_message
+        message += "\n{w" + "-" * 60 + "{n\n"
         caller.msg(message)
         if caller.is_guest():
             return
