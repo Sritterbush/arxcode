@@ -1493,7 +1493,7 @@ class CmdSocialScore(MuxCommand):
     """
     key = "+score"
     locks = "cmd:all()"
-    help_category = "Social"
+    help_category = "Information"
             
     def func(self):
         """Execute command."""
@@ -1770,3 +1770,23 @@ class CmdRandomScene(MuxCommand):
             self.view_requests()
             return
         self.msg("Invalid switch.")
+
+
+class CmdCensus(MuxPlayerCommand):
+    """
+    Displays population of active players by fealty
+
+    Usage:
+        +census
+    """
+    key = "+census"
+    locks = "cmd:all()"
+    category = "Information"
+
+    def func(self):
+        from .guest import census_of_fealty
+        fealties = census_of_fealty()
+        table = PrettyTable(["{wFealty{n", "{w#{n"])
+        for fealty in fealties:
+            table.add_row([fealty, fealties[fealty]])
+        self.msg(table)

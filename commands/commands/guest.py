@@ -127,6 +127,32 @@ XP_BONUS_BY_SRANK = {2: 0,
                      9: 200,
                      }
 
+XP_BONUS_BY_POP = 1
+
+
+def census_of_fealty():
+    """Returns dict of fealty name to number of active players"""
+    fealties = {"Valardin": 0, "Velenosa": 0, "Grayson": 0, "Crownsworn": 0, "Thrax": 0, "Redrain": 0}
+    from typeclasses.characters import Character
+    for char in Character.objects.filter(roster__roster__name="Active"):
+        fealty = (char.db.fealty or "").capitalize()
+        if fealty in fealties:
+            fealties[fealty] += 1
+    from collections import OrderedDict
+    # return an OrderedDict of lowest to highest population of fealites
+    return OrderedDict(sorted(fealties.items(), key=lambda k: k[1]))
+
+
+def award_bonus_by_fealty(fealty):
+    census = census_of_fealty()
+    max_pop = census[census.keys()[-1]]
+    try:
+        fealty = fealty.capitalize()
+        bonus = XP_BONUS_BY_POP * (max_pop - census[fealty])
+    except (KeyError, AttributeError):
+        bonus = 0
+    return bonus
+
 STAGE0 = \
        """
 Welcome to {cArx{n, a text based fantasy roleplaying game, similar in design
@@ -691,6 +717,10 @@ class CmdGuestAddInput(MuxPlayerCommand):
                 caller.msg("The argument for fealty must be one of the following: {w%s{n"
                            % fealties)
                 return
+            bonus = award_bonus_by_fealty(args)
+            msg = "For having the fealty of %s, you will receive %s " % (args, bonus)
+            msg += "bonus xp after character creation."
+            caller.msg(msg)
         if 'secrets' in switches:
             # secrets is a list
             args = [args]
@@ -883,7 +913,15 @@ class CmdGuestAddInput(MuxPlayerCommand):
         char.db.player_ob.attributes.remove("tutorial_stage")
         # set initial starting xp based on social rank
         srank = char.db.social_rank or 0
-        char.db.xp = XP_BONUS_BY_SRANK.get(srank, 0)
+        # noinspection PyBroadException
+        try:
+            xp_bonus = XP_BONUS_BY_SRANK.get(srank, 0)
+            xp_bonus += award_bonus_by_fealty(char.db.fealty)
+            char.db.xp = xp_bonus
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            caller.msg("Something went wrong when awarding starting xp. Logging error.")
         xp_msg = "Based on your character's social rank of %s, you will " % srank
         xp_msg += "enter the game with %s xp. You will be able to spend them " % char.db.xp
         xp_msg += "with the {wxp/spend{n command."

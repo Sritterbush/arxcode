@@ -60,6 +60,7 @@ class GuestCmdSet(CmdSet):
             from commands.commands import social
             self.add(social.CmdWhere())
             self.add(social.CmdFinger())
+            self.add(social.CmdCensus())
         except Exception as err:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             traceback.print_tb(exc_traceback, limit=5, file=sys.stdout)
