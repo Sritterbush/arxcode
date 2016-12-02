@@ -922,7 +922,7 @@ class CmdGuestAddInput(MuxPlayerCommand):
             import traceback
             traceback.print_exc()
             caller.msg("Something went wrong when awarding starting xp. Logging error.")
-        xp_msg = "Based on your character's social rank of %s, you will " % srank
+        xp_msg = "Based on your character's social rank of %s and their fealty, you will " % srank
         xp_msg += "enter the game with %s xp. You will be able to spend them " % char.db.xp
         xp_msg += "with the {wxp/spend{n command."
         caller.msg(xp_msg)

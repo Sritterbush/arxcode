@@ -952,7 +952,7 @@ class CmdCalendar(MuxPlayerCommand):
     event is public or private (defaults to public). To spend extravagant
     amounts of money in hosting an event for prestige, set the /largesse
     level. To see the valid largesse types with their costs and prestige
-    values, do '@cal/largesse'.
+    values, do '@cal/largesse'. All times are in EST.
     """
     key = "@cal"
     locks = "cmd:all()"
