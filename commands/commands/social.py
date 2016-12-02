@@ -1778,6 +1778,9 @@ class CmdCensus(MuxPlayerCommand):
 
     Usage:
         +census
+
+    Lists the number of active characters in each fealty. New characters
+    created receive an xp bonus for being in a less populated fealty.
     """
     key = "+census"
     locks = "cmd:all()"
