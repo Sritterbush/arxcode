@@ -148,6 +148,19 @@ class RosterEntry(models.Model):
             return self.current_account.characters.exclude(id=self.id)
         return []
 
+    def discover_clue(self, clue):
+        try:
+            disco = self.clues.get(clue=clue)
+        except ClueDiscovery.DoesNotExist:
+            disco = self.clues.create(clue=clue)
+        except ClueDiscovery.MultipleObjectsReturned:
+            disco = self.clues.filter(clue=clue)[0]
+        disco.roll = disco.clue.rating
+        disco.date = datetime.now()
+        disco.discovery_method = "Prior Knowledge"
+        disco.save()
+        return disco
+
 
 class Story(models.Model):
     current_chapter = models.OneToOneField('Chapter', related_name='current_chapter_story',

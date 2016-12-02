@@ -11,7 +11,7 @@ from server.utils.arx_utils import inform_staff
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
-from web.character.models import Story, Episode, StoryEmit
+from web.character.models import Story, Episode, StoryEmit, Clue
 from world.dominion.models import Organization
 
 PERMISSION_HIERARCHY = [p.lower() for p in settings.PERMISSION_HIERARCHY]
@@ -374,13 +374,14 @@ class CmdSendVision(MuxPlayerCommand):
         @sendvision
         @sendvision <character>
         @sendvision <character>=<What they see>
+        @sendclue <character>,<character2, etc>=<clue ID>/<message>
 
     With no args, list characters who have have the visions tag, or display
     all visions for a given character. Otherwise, send a vision with the
     appropriate text to a given character.
     """
     key = "@sendvision"
-    aliases = ["@sendvisions"]
+    aliases = ["@sendvisions", "@sendclue"]
     locks = "cmd:perm(sendvision) or perm(Wizards)"
     help_category = "GMing"
 
@@ -398,6 +399,30 @@ class CmdSendVision(MuxPlayerCommand):
             return
         targlist = [caller.search(arg) for arg in self.lhslist if caller.search(arg)]
         if not targlist:
+            return
+        if self.cmdstring == "@sendclue":
+            try:
+                rhs = self.rhs.split("/")
+                clue = Clue.objects.get(id=rhs[0])
+                if len(rhs) > 1:
+                    msg = rhs[1]
+                else:
+                    msg = ""
+            except Clue.DoesNotExist:
+                self.msg("No clue found by that ID.")
+                return
+            except (ValueError, TypeError, IndexError):
+                self.msg("Must provide a clue and a message.")
+                return
+            for targ in targlist:
+                try:
+                    disco = targ.roster.discover_clue(clue)
+                    disco.message = msg
+                    disco.save()
+                    targ.inform("A new clue has been sent to you. Use @clues to view it.", category="Clue Discovery")
+                except AttributeError:
+                    continue
+            self.msg("Clues sent to: %s" % ", ".join(str(ob) for ob in targlist))
             return
         vision_object = None
         for targ in targlist:
