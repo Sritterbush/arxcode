@@ -67,7 +67,7 @@ Installation/testing:
 
 """
 
-import re
+
 from django.conf import settings
 from evennia.contrib.extended_room import ExtendedRoom
 from typeclasses.scripts import gametime
@@ -321,7 +321,6 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
         super(ArxRoom, self).msg_contents(text, exclude=exclude,
                                 from_obj=from_obj, **kwargs)
 
-        
 
 class CmdExtendedLook(default_cmds.CmdLook):
     """
@@ -336,6 +335,17 @@ class CmdExtendedLook(default_cmds.CmdLook):
     Observes your location, details at your location or objects in your vicinity.
     """
     arg_regex = r'\/|\s|$'
+
+    def check_detail(self):
+        caller = self.caller
+        location = caller.location
+        if location and hasattr(location, "return_detail") and callable(location.return_detail):
+            detail = location.return_detail(self.args)
+            if detail:
+                # we found a detail instead. Show that.
+                caller.msg(detail)
+                return True
+
     def func(self):
         """
         Handle the looking - add fallback to details.
@@ -356,13 +366,8 @@ class CmdExtendedLook(default_cmds.CmdLook):
             if not looking_at_obj:
                 # no object found. Check if there is a matching
                 # detail at location.
-                location = caller.location
-                if location and hasattr(location, "return_detail") and callable(location.return_detail):
-                    detail = location.return_detail(args)
-                    if detail:
-                        # we found a detail instead. Show that.
-                        caller.msg(detail)
-                        return
+                if self.check_detail():
+                    return
                 # no detail found. Trigger delayed error messages
                 _AT_SEARCH_RESULT(looking_at_obj, caller, args, False)
                 return
@@ -370,6 +375,7 @@ class CmdExtendedLook(default_cmds.CmdLook):
                 # we need to extract the match manually.
                 if len(utils.make_iter(looking_at_obj)) > 1:
                     _AT_SEARCH_RESULT(looking_at_obj, caller, args, False)
+                    self.check_detail()
                     return
                 looking_at_obj = utils.make_iter(looking_at_obj)[0]
         else:
@@ -383,6 +389,7 @@ class CmdExtendedLook(default_cmds.CmdLook):
             looking_at_obj = looking_at_obj.character
         if not looking_at_obj.access(caller, "view"):
             caller.msg("Could not find '%s'." % args)
+            self.check_detail()
             return
         # get object's appearance
         desc = looking_at_obj.return_appearance(caller, detailed=False)
@@ -395,6 +402,7 @@ class CmdExtendedLook(default_cmds.CmdLook):
             caller.msg(desc)
         # the object's at_desc() method.
         looking_at_obj.at_desc(looker=caller)
+        self.check_detail()
 
 class CmdStudyRawAnsi(default_cmds.MuxCommand):
     """
