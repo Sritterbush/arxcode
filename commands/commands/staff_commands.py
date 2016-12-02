@@ -417,8 +417,9 @@ class CmdSendVision(MuxPlayerCommand):
             for targ in targlist:
                 try:
                     disco = targ.roster.discover_clue(clue)
-                    disco.message = msg
-                    disco.save()
+                    if msg:
+                        disco.message = msg
+                        disco.save()
                     targ.inform("A new clue has been sent to you. Use @clues to view it.", category="Clue Discovery")
                 except AttributeError:
                     continue
