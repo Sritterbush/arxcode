@@ -614,7 +614,7 @@ class CmdGuestAddInput(MuxPlayerCommand):
             return
         # everything's fine, username is unique and valid
         char.db.player_ob.key = playername
-        char.key = playername.capitalize()
+        char.name = playername.capitalize()
         if caller.db.tutorial_stage == 1:
             caller.db.tutorial_stage += 1
             char.db.player_ob.db.tutorial_stage = caller.db.tutorial_stage
