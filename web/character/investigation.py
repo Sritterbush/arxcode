@@ -784,6 +784,12 @@ class CmdListClues(MuxPlayerCommand):
                 pc = caller.search(arg)
                 if not pc:
                     continue
+                tarchar = pc.db.char_ob
+                calchar = caller.db.char_ob
+                if not tarchar.location or tarchar.location != calchar.location:
+                    self.msg("You can only share clues with someone in the same room. Please don't share clues without "
+                             "at least some RP talking about it.")
+                    return
                 clue.share(pc.roster)
                 caller.msg("You have shared the clue '%s' with %s." % (clue, pc.roster))
             return
