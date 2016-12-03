@@ -200,6 +200,8 @@ class CmdUseXP(MuxCommand):
                 caller.msg("You have increased your %s influence for a cost of %s %s resources." % (args, resource,
                                                                                                     cost))
                 dompc.assets.save()
+                dompc.save()
+                caller.refresh_from_db()
                 return
             return
         # invalid or no switch + arguments
