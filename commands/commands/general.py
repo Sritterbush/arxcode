@@ -1252,22 +1252,25 @@ class CmdInform(MuxPlayerCommand):
             caller.msg("You have no messages from the game waiting for you.")
             return
         if not self.args:
-            table = evtable.EvTable("{w#{n", "{wCategory{n", "{wDate{n", width=78)
+            table = evtable.EvTable("{w#{n", "{wCategory{n", "{wDate{n", width=78, pad_width=0)
             x = 0
             for info in informs:
                 x += 1
 
-                def highlight(ob):
+                def highlight(ob, add_star=False):
                     if not info.is_unread:
                         return ob
-                    return "{w%s{n" % ob
-                num = highlight(x)
+                    if add_star:
+                        return "{w*%s{n" % ob
+                    else:
+                        return "{w%s{n" % ob
+                num = highlight(x, add_star=True)
                 cat = highlight(info.category)
                 date = highlight(info.date_sent.strftime("%x %X"))
                 table.add_row(num, cat, date)
-            table.reformat_column(index=0, kwargs={'width': 9})
-            table.reformat_column(index=1, kwargs={'width': 49})
-            table.reformat_column(index=2, kwargs={'width': 20})
+            table.reformat_column(index=0, width=7)
+            table.reformat_column(index=1, width=52)
+            table.reformat_column(index=2, width=19)
             caller.msg(table)
             return
         try:
