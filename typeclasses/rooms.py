@@ -335,6 +335,8 @@ class CmdExtendedLook(default_cmds.CmdLook):
     Observes your location, details at your location or objects in your vicinity.
     """
     arg_regex = r'\/|\s|$'
+    # remove 'ls' alias because it just causes collisions with exit aliases
+    aliases = ["l"]
 
     def check_detail(self):
         caller = self.caller
