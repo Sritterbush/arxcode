@@ -607,7 +607,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         super(Character, self).at_post_puppet()
         try:
             if self.db.pending_messengers:
-                self.messenger_notification(2)
+                self.messenger_notification(2, login=True)
         except (AttributeError, ValueError, TypeError):
             import traceback
             traceback.print_exc()
@@ -645,7 +645,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             except AttributeError:
                 continue
 
-    def messenger_notification(self, num_times=1):
+    def messenger_notification(self, num_times=1, login=False):
         from twisted.internet import reactor
         num_times -= 1
         if self.db.pending_messengers:
@@ -653,7 +653,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             player = self.db.player_ob
             if not player or not player.is_connected:
                 return
-            if not player.db.ignore_messenger_notifications:
+            if not player.db.ignore_messenger_notifications or login:
                 player.msg("{mYou have %s messengers waiting.{n" % len(self.db.pending_messengers))
                 self.msg("(To receive a messenger, type 'receive messenger')")
                 if num_times > 0:
