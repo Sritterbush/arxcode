@@ -391,9 +391,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     # note - setter properties do not work with the typeclass system
     armor = property(_get_armor)
     
-    @property
-    def worn(self):
-        return self._get_worn()
+    worn = property(_get_worn)
     
     max_hp = property(_get_maxhp)
     

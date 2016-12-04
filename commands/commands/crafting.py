@@ -150,8 +150,8 @@ def get_ability_val(char, recipe):
     return ability
     
 
-def do_crafting_roll(char, recipe, diffmod=0):
-    diff = recipe.difficulty - diffmod
+def do_crafting_roll(char, recipe, diffmod=0, diffmult=1.0):
+    diff = int(recipe.difficulty * diffmult) - diffmod
     # limit on spending money - can only take difficulty to 0
     if diff < 0:
         diff = 0
@@ -408,7 +408,7 @@ class CmdCraft(MuxCommand):
             self.pay_owner(price, "%s has refined '%s', a %s, at your shop and you earn %s silver." % (caller, targ,
                                                                                                        recipe.name,
                                                                                                        price))
-            roll = do_crafting_roll(crafter, recipe, diffmod)
+            roll = do_crafting_roll(crafter, recipe, diffmod, diffmult=0.75)
             quality = get_quality_lvl(roll, recipe.difficulty)
             old = targ.db.quality_level or 0
             if quality <= old:
