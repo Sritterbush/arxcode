@@ -723,8 +723,9 @@ class CmdMessenger(MuxCommand):
                 caller.db.currency = currency
                 caller.msg("{wYou receive %s silver coins.{n" % money)
             if not discreet:
+                ignore = [ob for ob in caller.location.contents if ob.db.ignore_messenger_deliveries and ob != caller]
                 caller.location.msg_contents("%s arrives, delivering a message to {c%s{n before departing." % (
-                    messenger_name, caller.name))
+                    messenger_name, caller.name), exclude=ignore)
             return
         # display an old message
         if ("old" in self.switches or 'delete' in self.switches or 'oldindex' in self.switches

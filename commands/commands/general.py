@@ -51,6 +51,8 @@ class CmdGameSettings(MuxPlayerCommand):
         @settings/afk <message>
         @settings/nomessengerpreview
         @settings/bbaltread
+        @settings/ignore_messenger_notifications
+        @settings/ignore_messenger_deliveries
 
     Toggles different settings. Brief surpresses room descs when
     moving through rooms. Posebreak adds a newline between poses
@@ -58,7 +60,10 @@ class CmdGameSettings(MuxPlayerCommand):
     as looking for scenes. afk sets that you are away from the
     keyboard, with an optional message. nomessengerpreview removes
     the echo of messengers that you send. bbaltread causes you to
-    read @bb messages on your alts as well.
+    read @bb messages on your alts as well. ignore_messenger_notifications
+    will suppress any notifications that you have unread messengers.
+    ignore_messenger_deliveries will suppress messages of a messenger
+    visiting someone else in a room.
     """
     key = "@settings"
     locks = "cmd:all()"
@@ -102,6 +107,12 @@ class CmdGameSettings(MuxPlayerCommand):
             return
         if "afk" in switches:
             caller.execute_cmd("afk %s" % self.args)
+            return
+        if "ignore_messenger_notifications" in switches:
+            self.togglesetting(caller, "ignore_messenger_notifications")
+            return
+        if "ignore_messenger_deliveries" in switches:
+            self.togglesetting(char, "ignore_messenger_deliveries")
             return
         caller.msg("Invalid switch.")
 

@@ -653,13 +653,14 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             player = self.db.player_ob
             if not player or not player.is_connected:
                 return
-            player.msg("{mYou have %s messengers waiting.{n" % len(self.db.pending_messengers))
-            self.msg("(To receive a messenger, type 'receive messenger')")
-            if num_times > 0:
-                reactor.callLater(600, self.messenger_notification, num_times)
-            else:
-                # after the first one, we only tell them once an hour
-                reactor.callLater(3600, self.messenger_notification, num_times)
+            if not player.db.ignore_messenger_notifications:
+                player.msg("{mYou have %s messengers waiting.{n" % len(self.db.pending_messengers))
+                self.msg("(To receive a messenger, type 'receive messenger')")
+                if num_times > 0:
+                    reactor.callLater(600, self.messenger_notification, num_times)
+                else:
+                    # after the first one, we only tell them once an hour
+                    reactor.callLater(3600, self.messenger_notification, num_times)
 
     @property
     def portrait(self):
