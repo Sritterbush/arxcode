@@ -233,7 +233,14 @@ class Player(MsgMixins, DefaultPlayer):
         Return public organizations we're in.
         """
         try:
-            return self.Dominion.current_orgs.filter(secret=False)
+            return self.Dominion.public_orgs
+        except AttributeError:
+            return []
+
+    @property
+    def current_orgs(self):
+        try:
+            return self.Dominion.current_orgs
         except AttributeError:
             return []
 

@@ -223,7 +223,10 @@ class CmdFinger(MuxPlayerCommand):
             msg += "{wQuote:{n %s\n" % quote
         webpage = pageroot + char.get_absolute_url()
         msg += "{wCharacter page:{n %s\n" % webpage
-        orgs = player.public_orgs
+        if show_hidden:
+            orgs = player.current_orgs
+        else:
+            orgs = player.public_orgs
         if orgs:       
             org_str = ""
             apply_buffer = False
