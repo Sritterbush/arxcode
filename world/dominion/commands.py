@@ -2269,6 +2269,8 @@ class CmdTask(MuxCommand):
                         continue
                     if char not in asklist:
                         asklist.append(char)
+                    # make sure assignment is current
+                    assignment.refresh_from_db()
                     matches = self.match_char_spheres_for_task(assignment, char)
                     requests[caller.id] = assignment.id
                     char.db.requested_support = requests
