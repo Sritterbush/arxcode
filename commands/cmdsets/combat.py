@@ -1009,14 +1009,25 @@ class CmdHeal(MuxCommand):
         # give healin'
         from world.stats_and_skills import do_dice_check
         blessed = caller.db.blessed_by_lagoma
+        antimagic_aura = random.randint(0, 5)
+        try:
+            antimagic_aura += int(caller.location.db.antimagic_aura or 0)
+        except (TypeError, ValueError):
+            pass
+        # if they have Lagoma's favor, we see if the Despite of Fable stops it
         if blessed:
             try:
                 blessed = random.randint(0, blessed + 1)
             except (TypeError, ValueError):
                 blessed = 0
+            blessed -= antimagic_aura
+            if blessed > 0:
+                caller.msg("{cYou feel Lagoma's favor upon you.{n")
+            else:
+                blessed = 0
             keep = blessed + caller.db.skills.get("medicine", 0) + 2
             heal_roll = do_dice_check(caller, stat_list=["mana", "intellect"], skill="medicine",
-                                      difficulty=15-blessed, keep_override=keep)
+                                      difficulty=15-(5*blessed), keep_override=keep)
         else:
             heal_roll = do_dice_check(caller, stat="intellect", skill="medicine", difficulty=15)
         caller.msg("You rolled a %s on your heal roll." % heal_roll)
