@@ -215,7 +215,7 @@ class CmdTrain(MuxCommand):
     Usage:
         train/stat  <trainee>=<stat>
         train/skill <trainee>=<skill>
-        train/retainer <owner>=<npc>
+        train/retainer <owner>=<npc name or ID number>
 
     Allows you to flag a character as being trained with you, imparting a
     temporary xp cost reduction to the appropriate stat or skill. This bonus
@@ -276,7 +276,10 @@ class CmdTrain(MuxCommand):
             player = caller.player.search(self.lhs)
             from world.dominion.models import Agent
             try:
-                targ = player.retainers.get(name__iexact=self.rhs).dbobj
+                if self.rhs.isdigit():
+                    targ = player.retainers.get(id=self.rhs)
+                else:
+                    targ = player.retainers.get(name__iexact=self.rhs).dbobj
             except (Agent.DoesNotExist, AttributeError):
                 self.msg("Could not find %s's retainer named %s." % (player, self.rhs))
                 return

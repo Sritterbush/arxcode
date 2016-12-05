@@ -102,7 +102,9 @@ class Wearable(Object):
         base = int(recipe.resultsdict.get("baseval", 0))
         scaling = float(recipe.resultsdict.get("scaling", (base/10.0) or 0.2))
         penalty = float(recipe.resultsdict.get("penalty", 0.0))
-        if not base and not scaling:
+        if quality >= 10:
+            base += 1
+        if not base:
             self.ndb.cached_armor_value = 0
             self.ndb.cached_penalty_value = penalty
             return self.ndb.cached_armor_value, self.ndb.cached_penalty_value
