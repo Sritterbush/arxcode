@@ -274,7 +274,7 @@ class CmdTrain(MuxCommand):
             return
         if "retainer" in self.switches:
             player = caller.player.search(self.lhs)
-            from dominion.models import Agent
+            from world.dominion.models import Agent
             try:
                 targ = player.retainers.get(name__iexact=self.rhs).dbobj
             except (Agent.DoesNotExist, AttributeError):
