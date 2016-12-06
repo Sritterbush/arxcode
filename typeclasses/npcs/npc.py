@@ -112,7 +112,7 @@ class Npc(Character):
         if self.location:
             self.location.msg_contents("{w%s has returned to life.{n" % self.name)
 
-    def fall_asleep(self, uncon=False):
+    def fall_asleep(self, uncon=False, quiet=False):
         """
         Falls asleep. Uncon flag determines if this is regular sleep,
         or unconsciousness.
@@ -273,7 +273,7 @@ class MultiNpc(Npc):
         self.multideath(num=1, death=True)
         self.db.damage = 0
 
-    def fall_asleep(self, uncon=False):
+    def fall_asleep(self, uncon=False, quiet=False):
         """
         Falls asleep. Uncon flag determines if this is regular sleep,
         or unconsciousness.
@@ -474,7 +474,7 @@ class AgentMixin(object):
     def at_init(self  # type: Retainer or Agent
                 ):
         try:
-            if self.location and self.db.guarding:
+            if self.location and self.db.guarding and self.db.guarding.location == self.location:
                 self.follow(self.db.guarding)
         except AttributeError:
             import traceback
