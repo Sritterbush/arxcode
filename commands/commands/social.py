@@ -1748,8 +1748,10 @@ class CmdRandomScene(MuxCommand):
             return
         claimed = targ.db.player_ob.db.claimed_scenelist or []
         claimed.append(self.caller)
-        if self.caller in targ.db.player_ob.db.random_scenelist:
-            targ.db.player_ob.db.random_scenelist.remove(self.caller)
+        targ_scenelist = targ.db.player_ob.db.random_scenelist or []
+        if self.caller in targ_scenelist:
+            targ_scenelist.remove(self.caller)
+            targ.db.player_ob.db.random_scenelist = targ_scenelist
         targ.db.player_ob.db.claimed_scenelist = claimed
         self.msg("Validating their scene. Both of you will receive xp for it later.")
 
