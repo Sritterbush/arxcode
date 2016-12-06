@@ -1,4 +1,4 @@
-from django.views.generic import ListView, DetailView, FormView
+from django.views.generic import ListView, DetailView
 from .models import RPEvent, AssignedTask
 from .forms import RPEventCommentForm
 from django.http import HttpResponseRedirect
@@ -9,6 +9,7 @@ from django.db.models import Q
 
 # Create your views here.
 
+
 class RPEventListView(ListView):
     model = RPEvent
     template_name = 'dominion/cal_list.html'
@@ -18,11 +19,11 @@ class RPEventListView(ListView):
         user = self.request.user
         try:
             if user.is_staff:
-                return RPEvent.objects.filter(finished=False).order_by('-date')
-        except Exception:
+                return RPEvent.objects.filter(finished=False).distinct().order_by('-date')
+        except AttributeError:
             pass
         if not user:
-            return RPEvent.objects.filter(finished=False, public_event=True).order_by('-date')
+            return RPEvent.objects.filter(finished=False, public_event=True).distinct().order_by('-date')
         else:
             return RPEvent.objects.filter(Q(finished=False) &
                                           (Q(public_event=True) |
@@ -33,11 +34,12 @@ class RPEventListView(ListView):
         user = self.request.user
         try:
             if user.is_staff:
-                return RPEvent.objects.filter(finished=True).order_by('-date')
-        except Exception:
+                return RPEvent.objects.filter(finished=True, participants__isnull=False).distinct().order_by('-date')
+        except AttributeError:
             pass
         if not user:
-            return RPEvent.objects.filter(finished=True, public_event=True).order_by('-date')
+            return RPEvent.objects.filter(finished=True, participants__isnull=False,
+                                          public_event=True).distinct().order_by('-date')
         else:
             return RPEvent.objects.filter(Q(finished=True) &
                                           (Q(public_event=True) |
@@ -48,6 +50,7 @@ class RPEventListView(ListView):
 class RPEventDetailView(DetailView):
     model = RPEvent
     template_name = 'dominion/cal_view.html'
+
     def get_context_data(self, **kwargs):
         context = super(RPEventDetailView, self).get_context_data(**kwargs)
         context['form'] = RPEventCommentForm
@@ -62,18 +65,21 @@ class RPEventDetailView(DetailView):
                     dompc = user.Dominion
                     if dompc in ob.hosts.all() or dompc in ob.participants.all():
                         can_view = True
-                except Exception:
+                except AttributeError:
                     pass
         # this will determine if we can read/write about private events, won't be used for public
         context['can_view'] = can_view
         return context
 
+
 class AssignedTaskListView(ListView):
     model = AssignedTask
     template_name = 'dominion/task_list.html'
     paginate_by = 5
+
     def get_queryset(self):
-        return AssignedTask.objects.filter(finished=True, observer_text__isnull=False).order_by('-week')
+        return AssignedTask.objects.filter(finished=True, observer_text__isnull=False).distinct().order_by('-week')
+
 
 def event_comment(request, pk):
     """

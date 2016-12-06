@@ -341,13 +341,11 @@ class CmdAttack(MuxCommand):
     The /critical switch allows you to raise the difficulty of your attack
     in order to attempt to do more damage. The default value is 15.
     """
-    def __init__(self, **kwargs):
-        super(CmdAttack, self).__init__(**kwargs)
-        self.can_kill = False
-        self.can_bypass = True
     key = "attack"
     locks = "cmd:all()"
     help_category = "Combat"
+    can_kill = False
+    can_bypass = True
 
     def func(self):
         """Execute command."""
@@ -360,6 +358,9 @@ class CmdAttack(MuxCommand):
         if not check_targ(caller, targ):
             return
         assert caller in combat.ndb.combatants, "Error: caller not in combat."
+        if not caller.conscious:
+            self.msg("You are not conscious.")
+            return
         if combat.ndb.phase != 2 or combat.ndb.active_character != caller:
             create_queued = True
         # we only allow +coupdegrace to kill unless they're an npc
@@ -426,11 +427,8 @@ class CmdSlay(CmdAttack):
     key = "+coupdegrace"
     locks = "cmd:all()"
     help_category = "Combat"
-
-    def __init__(self, **kwargs):
-        super(CmdSlay, self).__init__(**kwargs)
-        self.can_kill = True
-        self.can_bypass = False
+    can_kill = True
+    can_bypass = False
 
 
 class CmdPassTurn(MuxCommand):
@@ -1011,14 +1009,25 @@ class CmdHeal(MuxCommand):
         # give healin'
         from world.stats_and_skills import do_dice_check
         blessed = caller.db.blessed_by_lagoma
+        antimagic_aura = random.randint(0, 5)
+        try:
+            antimagic_aura += int(caller.location.db.antimagic_aura or 0)
+        except (TypeError, ValueError):
+            pass
+        # if they have Lagoma's favor, we see if the Despite of Fable stops it
         if blessed:
             try:
                 blessed = random.randint(0, blessed + 1)
             except (TypeError, ValueError):
                 blessed = 0
+            blessed -= antimagic_aura
+            if blessed > 0:
+                caller.msg("{cYou feel Lagoma's favor upon you.{n")
+            else:
+                blessed = 0
             keep = blessed + caller.db.skills.get("medicine", 0) + 2
             heal_roll = do_dice_check(caller, stat_list=["mana", "intellect"], skill="medicine",
-                                      difficulty=15-blessed, keep_override=keep)
+                                      difficulty=15-(5*blessed), keep_override=keep)
         else:
             heal_roll = do_dice_check(caller, stat="intellect", skill="medicine", difficulty=15)
         caller.msg("You rolled a %s on your heal roll." % heal_roll)

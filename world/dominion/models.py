@@ -266,6 +266,11 @@ class PlayerOrNpc(models.Model):
         org_ids = self.memberships.filter(deguilded=False).values_list('organization', flat=True)
         return Organization.objects.filter(id__in=org_ids)
 
+    @property
+    def public_orgs(self):
+        org_ids = self.memberships.filter(deguilded=False, secret=False).values_list('organization', flat=True)
+        return Organization.objects.filter(id__in=org_ids, secret=False)
+
     def pay_lifestyle(self, report=None):
         try:
             assets = self.assets

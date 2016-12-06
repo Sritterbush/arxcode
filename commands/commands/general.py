@@ -51,6 +51,9 @@ class CmdGameSettings(MuxPlayerCommand):
         @settings/afk <message>
         @settings/nomessengerpreview
         @settings/bbaltread
+        @settings/ignore_messenger_notifications
+        @settings/ignore_messenger_deliveries
+        @settings/newline_on_messages
 
     Toggles different settings. Brief surpresses room descs when
     moving through rooms. Posebreak adds a newline between poses
@@ -58,15 +61,26 @@ class CmdGameSettings(MuxPlayerCommand):
     as looking for scenes. afk sets that you are away from the
     keyboard, with an optional message. nomessengerpreview removes
     the echo of messengers that you send. bbaltread causes you to
-    read @bb messages on your alts as well.
+    read @bb messages on your alts as well. ignore_messenger_notifications
+    will suppress any notifications that you have unread messengers.
+    ignore_messenger_deliveries will suppress messages of a messenger
+    visiting someone else in a room.
     """
     key = "@settings"
     locks = "cmd:all()"
     help_category = "Settings"
     aliases = ["lrp"]
 
-    def togglesetting(self, char, attr):
+    def togglesetting(self, char, attr, tag=False):
         caller = self.caller
+        if tag:
+            if not char.tags.get(attr):
+                self.msg("%s is now on." % attr)
+                char.tags.add(attr)
+            else:
+                self.msg("%s is now off." % attr)
+                char.tags.remove(attr)
+            return
         char.attributes.add(attr, not char.attributes.get(attr))
         if not char.attributes.get(attr):
             caller.msg("%s is now off." % attr)
@@ -103,6 +117,16 @@ class CmdGameSettings(MuxPlayerCommand):
         if "afk" in switches:
             caller.execute_cmd("afk %s" % self.args)
             return
+        if "ignore_messenger_notifications" in switches:
+            self.togglesetting(caller, "ignore_messenger_notifications")
+            return
+        if "ignore_messenger_deliveries" in switches:
+            self.togglesetting(char, "ignore_messenger_deliveries")
+            return
+        if "newline_on_messages" in switches:
+            self.togglesetting(caller, "newline_on_messages", tag=True)
+            return
+
         caller.msg("Invalid switch.")
 
 
@@ -1252,22 +1276,25 @@ class CmdInform(MuxPlayerCommand):
             caller.msg("You have no messages from the game waiting for you.")
             return
         if not self.args:
-            table = evtable.EvTable("{w#{n", "{wCategory{n", "{wDate{n", width=78)
+            table = evtable.EvTable("{w#{n", "{wCategory{n", "{wDate{n", width=78, pad_width=0)
             x = 0
             for info in informs:
                 x += 1
 
-                def highlight(ob):
+                def highlight(ob, add_star=False):
                     if not info.is_unread:
                         return ob
-                    return "{w%s{n" % ob
-                num = highlight(x)
+                    if add_star:
+                        return "{w*%s{n" % ob
+                    else:
+                        return "{w%s{n" % ob
+                num = highlight(x, add_star=True)
                 cat = highlight(info.category)
                 date = highlight(info.date_sent.strftime("%x %X"))
                 table.add_row(num, cat, date)
-            table.reformat_column(index=0, kwargs={'width': 9})
-            table.reformat_column(index=1, kwargs={'width': 49})
-            table.reformat_column(index=2, kwargs={'width': 20})
+            table.reformat_column(index=0, width=7)
+            table.reformat_column(index=1, width=52)
+            table.reformat_column(index=2, width=19)
             caller.msg(table)
             return
         try:

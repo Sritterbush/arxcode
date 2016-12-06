@@ -707,7 +707,7 @@ class CmdManageShop(MuxCommand):
                 return
         if "addblacklist" in self.switches or "rmblacklist" in self.switches:
             try:
-                targ = caller.player.search(self.args)
+                targ = caller.player.search(self.args, nofound_string="No player by that name. Checking organizations.")
                 org = False
                 if not targ:
                     org = True

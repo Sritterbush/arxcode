@@ -94,6 +94,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             else:
                 self.msg("You've lost track of how to get to your destination.")
                 self.ndb.waypoint = None
+        if self.ndb.following and self.ndb.following.location != self.location:
+            self.stop_follow()
 
     def return_appearance(self, pobject, detailed=False, format_desc=False, show_contents=False):
         """
@@ -199,8 +201,10 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             self.cmdset.delete(death.DeathCmdSet)
         except Exception as err:
             print "<<ERROR>>: Error when importing mobile cmdset: %s" % err
+        # we'll also be asleep when we're dead, so that we're resurrected unconscious if we're brought back
+        self.fall_asleep(uncon=True, quiet=True)
 
-    def fall_asleep(self, uncon=False):
+    def fall_asleep(self, uncon=False, quiet=False):
         """
         Falls asleep. Uncon flag determines if this is regular sleep,
         or unconsciousness.
@@ -209,7 +213,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             self.db.sleep_status = "unconscious"
         else:
             self.db.sleep_status = "asleep"
-        if self.location:
+        if self.location and not quiet:
             self.location.msg_contents("%s falls %s." % (self.name, self.db.sleep_status))
         try:
             from commands.cmdsets import sleep
@@ -217,7 +221,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             if cmds.key not in [ob.key for ob in self.cmdset.all()]:
                 self.cmdset.add(cmds, permanent=True)
         except Exception as err:
-            print "<<ERROR>>: Error when importing death cmdset: %s" % err
+            print "<<ERROR>>: Error when importing sleep cmdset: %s" % err
 
     @property
     def conscious(self):
@@ -227,14 +231,10 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         """
         Wakes up.
         """
-        woke = False
-        if self.db.sleep_status != "awake":
-            self.db.sleep_status = "awake"
-            woke = True
         if self.db.health_status == "dead":
-            woke = False
+            return
         if self.location:
-            if not quiet and woke:
+            if not quiet and not self.conscious:
                 self.location.msg_contents("%s wakes up." % self.name)
             combat = self.location.ndb.combat_manager
             if combat and self in combat.ndb.combatants:
@@ -244,6 +244,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             self.cmdset.delete(sleep.SleepCmdSet)
         except Exception as err:
             print "<<ERROR>>: Error when importing mobile cmdset: %s" % err
+        self.db.sleep_status = "awake"
         return
 
     def get_health_appearance(self):
@@ -286,14 +287,22 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         """
         diff = 0 + diff_mod
         roll = do_dice_check(self, stat_list=["willpower", "stamina"], difficulty=diff)
-        if roll > 0:
-            self.msg("You feel better.")
+        wound = float(abs(roll))/float(self.max_hp)
+        if wound <= 0:
+            wound_str = "no "
+        elif wound <= 0.25:
+            wound_str = "a little "
+        elif wound <= 0.5:
+            wound_str = "somewhat "
+        elif wound <= 0.75:
+            wound_str = "a lot "
         else:
-            self.msg("You feel worse.")
-        damage_to_apply = self.dmg - roll  # how much dmg character has after the roll
-        if damage_to_apply < 0:
-            damage_to_apply = 0  # no remaining damage
-        self.db.damage = damage_to_apply
+            wound_str = "incredibly "
+        if roll > 0:
+            self.msg("You feel %sbetter." % wound_str)
+        else:
+            self.msg("You feel %sworse." % wound_str)
+        self.dmg -= roll
         if not free:
             self.db.last_recovery_test = time.time()
         return roll
@@ -319,11 +328,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     
     def _get_worn(self):
         """Returns list of items in inventory currently being worn."""
-        worn_list = []
-        for ob in self.contents:
-            if ob.db.worn_by == self:
-                worn_list.append(ob)
-        return worn_list
+        return [ob for ob in self.contents if ob.db.worn_by == self]
     
     def _get_armor(self):
         """
@@ -388,9 +393,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     # note - setter properties do not work with the typeclass system
     armor = property(_get_armor)
     
-    @property
-    def worn(self):
-        return self._get_worn()
+    worn = property(_get_worn)
     
     max_hp = property(_get_maxhp)
     
@@ -606,7 +609,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         super(Character, self).at_post_puppet()
         try:
             if self.db.pending_messengers:
-                self.messenger_notification(2)
+                self.messenger_notification(2, login=True)
         except (AttributeError, ValueError, TypeError):
             import traceback
             traceback.print_exc()
@@ -644,7 +647,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             except AttributeError:
                 continue
 
-    def messenger_notification(self, num_times=1):
+    def messenger_notification(self, num_times=1, login=False):
         from twisted.internet import reactor
         num_times -= 1
         if self.db.pending_messengers:
@@ -652,13 +655,14 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             player = self.db.player_ob
             if not player or not player.is_connected:
                 return
-            player.msg("{mYou have %s messengers waiting.{n" % len(self.db.pending_messengers))
-            self.msg("(To receive a messenger, type 'receive messenger')")
-            if num_times > 0:
-                reactor.callLater(600, self.messenger_notification, num_times)
-            else:
-                # after the first one, we only tell them once an hour
-                reactor.callLater(3600, self.messenger_notification, num_times)
+            if not player.db.ignore_messenger_notifications or login:
+                player.msg("{mYou have %s messengers waiting.{n" % len(self.db.pending_messengers))
+                self.msg("(To receive a messenger, type 'receive messenger')")
+                if num_times > 0:
+                    reactor.callLater(600, self.messenger_notification, num_times)
+                else:
+                    # after the first one, we only tell them once an hour
+                    reactor.callLater(3600, self.messenger_notification, num_times)
 
     @property
     def portrait(self):

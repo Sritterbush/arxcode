@@ -223,7 +223,10 @@ class CmdFinger(MuxPlayerCommand):
             msg += "{wQuote:{n %s\n" % quote
         webpage = pageroot + char.get_absolute_url()
         msg += "{wCharacter page:{n %s\n" % webpage
-        orgs = player.public_orgs
+        if show_hidden:
+            orgs = player.current_orgs
+        else:
+            orgs = player.public_orgs
         if orgs:       
             org_str = ""
             apply_buffer = False
@@ -723,8 +726,9 @@ class CmdMessenger(MuxCommand):
                 caller.db.currency = currency
                 caller.msg("{wYou receive %s silver coins.{n" % money)
             if not discreet:
+                ignore = [ob for ob in caller.location.contents if ob.db.ignore_messenger_deliveries and ob != caller]
                 caller.location.msg_contents("%s arrives, delivering a message to {c%s{n before departing." % (
-                    messenger_name, caller.name))
+                    messenger_name, caller.name), exclude=ignore)
             return
         # display an old message
         if ("old" in self.switches or 'delete' in self.switches or 'oldindex' in self.switches
@@ -952,7 +956,7 @@ class CmdCalendar(MuxPlayerCommand):
     event is public or private (defaults to public). To spend extravagant
     amounts of money in hosting an event for prestige, set the /largesse
     level. To see the valid largesse types with their costs and prestige
-    values, do '@cal/largesse'.
+    values, do '@cal/largesse'. All times are in EST.
     """
     key = "@cal"
     locks = "cmd:all()"
@@ -1493,7 +1497,7 @@ class CmdSocialScore(MuxCommand):
     """
     key = "+score"
     locks = "cmd:all()"
-    help_category = "Social"
+    help_category = "Information"
             
     def func(self):
         """Execute command."""
@@ -1744,8 +1748,10 @@ class CmdRandomScene(MuxCommand):
             return
         claimed = targ.db.player_ob.db.claimed_scenelist or []
         claimed.append(self.caller)
-        if self.caller in targ.db.player_ob.db.random_scenelist:
-            targ.db.player_ob.db.random_scenelist.remove(self.caller)
+        targ_scenelist = targ.db.player_ob.db.random_scenelist or []
+        if self.caller in targ_scenelist:
+            targ_scenelist.remove(self.caller)
+            targ.db.player_ob.db.random_scenelist = targ_scenelist
         targ.db.player_ob.db.claimed_scenelist = claimed
         self.msg("Validating their scene. Both of you will receive xp for it later.")
 
@@ -1770,3 +1776,26 @@ class CmdRandomScene(MuxCommand):
             self.view_requests()
             return
         self.msg("Invalid switch.")
+
+
+class CmdCensus(MuxPlayerCommand):
+    """
+    Displays population of active players by fealty
+
+    Usage:
+        +census
+
+    Lists the number of active characters in each fealty. New characters
+    created receive an xp bonus for being in a less populated fealty.
+    """
+    key = "+census"
+    locks = "cmd:all()"
+    category = "Information"
+
+    def func(self):
+        from .guest import census_of_fealty
+        fealties = census_of_fealty()
+        table = PrettyTable(["{wFealty{n", "{w#{n"])
+        for fealty in fealties:
+            table.add_row([fealty, fealties[fealty]])
+        self.msg(table)

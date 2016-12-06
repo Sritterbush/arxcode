@@ -1251,7 +1251,8 @@ class CmdDomain(MuxPlayerCommand):
         player.refresh_from_db()
         if domain.ruler.house.organization_owner not in player.current_orgs:
             self.msg("%s is not a member of %s." % (player, domain.ruler.house))
-            self.msg("current orgs: %s" % ", ".join(ob.name for ob in player.current_orgs))
+            self.msg("current orgs: %s" % ", ".join(ob.name for ob in player.current_orgs
+                                                    if self.caller == player.player))
             return False
         return True
 
@@ -1311,8 +1312,8 @@ class CmdDomain(MuxPlayerCommand):
             except KeyError:
                 self.msg("Valid categories: %s" % ", ".join(self.valid_categories))
                 return
-            if not self.check_member(dom, dompc):
-                return
+            # if not self.check_member(dom, dompc):
+            #     return
             if self.busy_check(dompc):
                 return
             try:
@@ -2268,6 +2269,8 @@ class CmdTask(MuxCommand):
                         continue
                     if char not in asklist:
                         asklist.append(char)
+                    # make sure assignment is current
+                    assignment.refresh_from_db()
                     matches = self.match_char_spheres_for_task(assignment, char)
                     requests[caller.id] = assignment.id
                     char.db.requested_support = requests
