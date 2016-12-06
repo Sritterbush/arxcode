@@ -40,6 +40,7 @@ class Guest(Player):
         self.email = "dummy@dummy.com"
         self.db.player_email = None
         self.db.char = None
+        self.db._saved_protocol_flags = {}
         # In theory ndb values should not need to be initalized, but was
         # seeing them persistent on reconnect cases
         self.ndb.email = None
