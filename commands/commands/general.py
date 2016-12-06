@@ -53,6 +53,7 @@ class CmdGameSettings(MuxPlayerCommand):
         @settings/bbaltread
         @settings/ignore_messenger_notifications
         @settings/ignore_messenger_deliveries
+        @settings/newline_on_messages
 
     Toggles different settings. Brief surpresses room descs when
     moving through rooms. Posebreak adds a newline between poses
@@ -70,8 +71,16 @@ class CmdGameSettings(MuxPlayerCommand):
     help_category = "Settings"
     aliases = ["lrp"]
 
-    def togglesetting(self, char, attr):
+    def togglesetting(self, char, attr, tag=False):
         caller = self.caller
+        if tag:
+            if not char.tags.get(attr):
+                self.msg("%s is now on." % attr)
+                char.tags.add(attr)
+            else:
+                self.msg("%s is now off." % attr)
+                char.tags.remove(attr)
+            return
         char.attributes.add(attr, not char.attributes.get(attr))
         if not char.attributes.get(attr):
             caller.msg("%s is now off." % attr)
@@ -114,6 +123,10 @@ class CmdGameSettings(MuxPlayerCommand):
         if "ignore_messenger_deliveries" in switches:
             self.togglesetting(char, "ignore_messenger_deliveries")
             return
+        if "newline_on_messages" in switches:
+            self.togglesetting(caller, "newline_on_messages", tag=True)
+            return
+
         caller.msg("Invalid switch.")
 
 

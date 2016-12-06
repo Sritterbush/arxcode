@@ -416,6 +416,11 @@ class MsgMixins(object):
         if options.get('is_pose', False):
             if self.db.posebreak:
                 text = "\n" + text
+            quote_color = self.db.pose_quote_color
+            # colorize people's quotes with the given text
+            if quote_color:
+                import re
+
         if options.get('box', False):
             boxchars = '\n{w' + '*' * 70 + '{n\n'
             text = boxchars + text + boxchars
@@ -424,6 +429,18 @@ class MsgMixins(object):
                 text = "{w<" + self.db.dice_string + "> {n" + text
         if from_obj and isinstance(from_obj, dict):
             print "DEBUG in MsgMixins: from_obj is %s" % from_obj
+        try:
+            if self.db.char_ob:
+                msg_sep = self.tags.get("newline_on_messages")
+            else:
+                msg_sep = self.db.player_ob.tags.get("newline_on_messages")
+        except AttributeError:
+            msg_sep = None
+        try:
+            if msg_sep:
+                text += "\n"
+        except (TypeError, ValueError):
+            pass
         super(MsgMixins, self).msg(text, from_obj, session, options, **kwargs)
 
 
