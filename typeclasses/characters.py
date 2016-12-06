@@ -94,6 +94,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             else:
                 self.msg("You've lost track of how to get to your destination.")
                 self.ndb.waypoint = None
+        if self.ndb.following and self.ndb.following.location != self.location:
+            self.stop_follow()
 
     def return_appearance(self, pobject, detailed=False, format_desc=False, show_contents=False):
         """

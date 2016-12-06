@@ -119,14 +119,34 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
             self.at_after_traverse(traversing_object, source_location)
             # move followers
             if traversing_object and traversing_object.ndb.followers:
+                invalid_followers = []
                 for follower in traversing_object.ndb.followers:
+                    # only move followers who are conscious
+                    if not follower.conscious:
+                        invalid_followers.append(follower)
+                        continue
                     # only move followers who were in same square
                     if follower.location == source_location:
                         fname = follower.ndb.following
-                        if fname:
+                        if follower.ndb.followers and fname in follower.ndb.followers:
+                            # this would be an infinite loop
+                            invalid_followers.append(follower)
+                            continue
+                        if fname == traversing_object:
                             follower.msg("You follow %s." % fname.name)
+                        else:  # not marked as following us
+                            invalid_followers.append(follower)
+                            continue
                         # followers won't see the message about the door being locked
                         self.at_traverse(follower, self.destination, key_message=False)
+                    else:
+                        invalid_followers.append(follower)
+                # make all characters who could not follow stop following us
+                for invalid in invalid_followers:
+                    if invalid.ndb.following == traversing_object:
+                        invalid.stop_follow()
+                    else:
+                        traversing_object.ndb.followers.remove(invalid)
         else:
             if self.db.err_traverse:
                 # if exit has a better error message, let's use it.
