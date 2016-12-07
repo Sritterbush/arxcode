@@ -96,6 +96,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
                 self.ndb.waypoint = None
         if self.ndb.following and self.ndb.following.location != self.location:
             self.stop_follow()
+        if self.db.room_title:
+            self.attributes.remove("room_title")
 
     def return_appearance(self, pobject, detailed=False, format_desc=False, show_contents=False):
         """
