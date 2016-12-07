@@ -613,11 +613,11 @@ def display_header(caller, character, show_hidden=False):
     return
 
 
-def display_attributes(caller, character):
+def display_stats(caller, character):
     """
     Display character attributes. Str, int, etc.
     """
-    title = "Attributes"
+    title = "Stats"
     title = title.center(60)
     # It might make more sense to have a 3 character variable for
     # strength named 'str', but rather not be identical to str cast
@@ -675,7 +675,7 @@ def display_attributes(caller, character):
     will = character.db.willpower
     if not will:
         will = 0
-    title = "Special Attributes"
+    title = "Special Stats"
     title = title.center(60)
     disp = \
         """
@@ -944,7 +944,7 @@ class CmdSheet(MuxPlayerCommand):
                 return
             display_header(caller, charob, show_hidden)
             if show_hidden:
-                display_attributes(caller, charob)
+                display_stats(caller, charob)
                 display_skills(caller, charob)
                 display_abilities(caller, charob)            
                 display_secrets(caller, charob)
@@ -979,7 +979,7 @@ class CmdSheet(MuxPlayerCommand):
             if 'stats' not in switches:
                 display_header(caller, charob, show_hidden)
             if show_hidden and 'desc' not in switches:
-                display_attributes(caller, charob)
+                display_stats(caller, charob)
                 display_skills(caller, charob)
                 display_abilities(caller, charob)                                
             return
