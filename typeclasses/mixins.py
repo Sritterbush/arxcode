@@ -236,6 +236,8 @@ class AppearanceMixins(object):
             elif con.has_player:
                 # we might have either a title or a fake name
                 lname = con.name
+                if con.db.room_title:
+                    lname += "{w(%s){n" % con.db.room_title
                 if con.key in lname and not con.db.false_name:
                     lname = lname.replace(key, "{c%s{n" % key)
                     users.append(lname)
@@ -419,7 +421,7 @@ class MsgMixins(object):
             quote_color = self.db.pose_quote_color
             # colorize people's quotes with the given text
             if quote_color:
-                import re
+                pass  # to do later
 
         if options.get('box', False):
             boxchars = '\n{w' + '*' * 70 + '{n\n'

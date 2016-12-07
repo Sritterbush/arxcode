@@ -156,6 +156,7 @@ class StateIndependentCmdSet(CmdSet):
         self.add(social.CmdMessenger())
         self.add(social.CmdRoomHistory())
         self.add(social.CmdRandomScene())
+        self.add(social.CmdRoomTitle())
         self.add(maps.CmdMap())
 
 

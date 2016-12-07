@@ -1799,3 +1799,26 @@ class CmdCensus(MuxPlayerCommand):
         for fealty in fealties:
             table.add_row([fealty, fealties[fealty]])
         self.msg(table)
+
+class CmdRoomTitle(MuxCommand):
+    """
+    Displays what your character is currently doing in the room
+
+    Usage:
+        +roomtitle <description>
+
+    Appends a short blurb to your character's name when they are displayed
+    to the room in parentheses.
+    """
+    key = "+roomtitle"
+    locks = "cmd:all()"
+    category = "Social"
+
+    def func(self):
+        if not self.args:
+            self.msg("Roomtitle cleared.")
+            self.caller.attributes.remove("room_title")
+            return
+        self.caller.db.room_title = self.args
+        self.msg("Your roomtitle set to %s {w({n%s{w){n" % (self.caller, self.args))
+        return
