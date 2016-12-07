@@ -517,7 +517,7 @@ class CombatManager(BaseScript):
                     return False
                 if not character.conscious:
                     return False
-            return True
+                return True
         except KeyError:
             return False
 
