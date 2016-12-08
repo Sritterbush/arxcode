@@ -889,7 +889,7 @@ class CmdMessenger(MuxCommand):
                 caller.msg("Money must be a number.")
                 return
         # normal messenger
-        else:
+        elif "draft" in self.switches or not self.switches:
             money = 0
             targs = []
             for arg in self.lhslist:
@@ -897,6 +897,9 @@ class CmdMessenger(MuxCommand):
                 if targ:
                     targs.append(targ)
             delivery = None
+        else:  # invalid switch
+            self.msg("Unrecognized switch.")
+            return
         if not targs:
             return
         # get character objects of each match
