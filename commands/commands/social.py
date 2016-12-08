@@ -1567,10 +1567,12 @@ class CmdThink(MuxCommand):
     Usage:
         +think <message>
         
-    Sends a message to yourself about your thoughts. Can possibly
-    be used by mind-readers.
+    Sends a message to yourself about your thoughts. At present, this
+    is really mostly for your own use in logs and the like. Eventually,
+    characters with mind-reading powers may be able to see these.
     """
     key = "+think"
+    aliases = ["think"]
     locks = "cmd:all()"
     help_category = "Social"
             
@@ -1591,6 +1593,7 @@ class CmdFeel(MuxCommand):
     be seen by very sensitive people.
     """
     key = "+feel"
+    aliases = ["feel"]
     locks = "cmd:all()"
     help_category = "Social"
             
