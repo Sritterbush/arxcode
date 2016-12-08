@@ -126,7 +126,9 @@ class CmdGameSettings(MuxPlayerCommand):
         if "newline_on_messages" in switches:
             self.togglesetting(caller, "newline_on_messages", tag=True)
             return
-
+        if "verbose_where" in switches:
+            self.togglesetting(caller, "verbose_where", tag=True)
+            return
         caller.msg("Invalid switch.")
 
 

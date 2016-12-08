@@ -81,8 +81,18 @@ class CmdWhere(MuxPlayerCommand):
             caller.msg("No visible characters found.")
             return
         caller.msg("{wLocations of players:\n")
+        verbose_where = False
+        if caller.tags.get("verbose_where"):
+            verbose_where = True
         for room in rooms:
-            charlist = ", ".join(str(char) for char in room.get_visible_characters(caller) if char.player
+            def char_name(ob):
+                cname = ob.name
+                if not verbose_where:
+                    return cname
+                if ob.db.room_title:
+                    cname += "{w(%s){n" % ob.db.room_title
+                return cname
+            charlist = ", ".join(char_name(char) for char in room.get_visible_characters(caller) if char.player
                                  and (not char.player.db.hide_from_watch or caller.check_permstring("builders")))
             if not charlist:
                 continue
@@ -1799,6 +1809,7 @@ class CmdCensus(MuxPlayerCommand):
         for fealty in fealties:
             table.add_row([fealty, fealties[fealty]])
         self.msg(table)
+
 
 class CmdRoomTitle(MuxCommand):
     """
