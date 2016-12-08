@@ -157,7 +157,7 @@ def do_crafting_roll(char, recipe, diffmod=0, diffmult=1.0):
         diff = 0
     ability = get_ability_val(char, recipe)
     skill = recipe.skill
-    stat = "luck"
+    stat = "luck" if char.db.luck > char.db.dexterity else "dexterity"
     return do_dice_check(char, stat=stat, difficulty=diff, skill=skill, bonus_dice=ability)
 
 
