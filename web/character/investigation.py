@@ -165,7 +165,6 @@ class InvestigationFormCommand(MuxCommand):
             if "skill" in self.switches:
                 if not self.check_skill():
                     return
-
                 investigation[3] = self.args
                 self.disp_investigation_form()
                 return True
@@ -572,6 +571,9 @@ class CmdInvestigate(InvestigationFormCommand):
                 ob.ongoing = False
                 ob.active = False
                 ob.save()
+                for ass in ob.active_assistants:
+                    ass.currently_helping = False
+                    ass.save()
                 caller.msg("Investigation has been marked to no longer be ongoing.")
                 return
             if "view" in self.switches or not self.switches:
