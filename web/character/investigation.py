@@ -8,6 +8,7 @@ from .models import Investigation, Clue, InvestigationAssistant, ClueDiscovery
 from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from server.utils.arx_utils import inform_staff
+from world.dominion.models import Agent
 
 
 class InvestigationFormCommand(MuxCommand):
@@ -191,9 +192,10 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         @helpinvestigate/skill <additional skill besides investigation>
         @helpinvestigate/cancel
         @helpinvestigate/finish
-        @helpinvestigate/stop <id #>
+        @helpinvestigate/stop
         @helpinvestigate/resume <id #>
-        @helpinvestigate/retainerstop <id #>
+        @helpinvestigate/retainerstop <retainer ID>
+        @helpinvestigate/retaineresume <id #>=<retainer ID>
 
     Helps with an investigation, or orders a retainer to help
     with the investigation. You may only help with one investigation
@@ -304,17 +306,27 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         self.disp_investigation_form()
 
     def mark_active(self, created_object):
-        try:
-            current = self.helper.assisted_investigations.get(currently_helping=True)
-            current.currently_helping = False
-            current.save()
+        current_qs = self.helper.assisted_investigations.filter(currently_helping=True)
+        if current_qs:
+            for current in current_qs:
+                current.currently_helping = False
+                current.save()
             self.msg("%s was currently helping another investigation. Switching." % self.helper)
-        except InvestigationAssistant.DoesNotExist:
-            pass
-        created_object.currently_helping = True
-        created_object.save()
-        created_object.investigation.do_roll()
-        self.msg("%s is now helping %s." % (self.helper, created_object))
+        try:
+            if self.helper.roster.investigations.filter(active=True):
+                already_investigating = True
+            else:
+                already_investigating = False
+        except AttributeError:
+            already_investigating = False
+        if not already_investigating:
+            created_object.currently_helping = True
+            created_object.save()
+            created_object.investigation.do_roll()
+            self.msg("%s is now helping %s." % (self.helper, created_object))
+        else:
+            self.msg("You already have an active investigation. That must stop before you help another.\n"
+                     "Once that investigation is no longer active, you may resume helping this investigation.")
         self.caller.attributes.remove(self.form_attr)
 
     @property
@@ -375,6 +387,56 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             return
         if "view" in self.switches or not self.switches:
             self.view_investigation()
+            return
+        if "stop" in self.switches or "retainerstop" in self.switches:
+            if "retainerstop" in self.switches:
+                try:
+                    if self.args.isdigit():
+                        char = self.caller.player.retainers.get(id=self.args).dbobj
+                    else:
+                        char = self.caller.player.retainers.get(name=self.args).dbobj
+                except (ValueError, TypeError, Agent.DoesNotExist):
+                    self.msg("Retainer not found by that name or number.")
+                    return
+            else:
+                char = self.caller
+            for ob in char.assisted_investigations.filter(currently_helping=True):
+                ob.currently_helping = False
+                ob.save()
+            self.msg("%s stopped assisting investigations." % char)
+            return
+        if "resume" in self.switches or "retainerresume" in self.switches:
+            if "retainerresume" in self.switches:
+
+                try:
+                    if self.rhs.isdigit():
+                        char = self.caller.player.retainers.get(id=self.rhs).dbobj
+                    else:
+                        char = self.caller.player.retainers.get(name=self.rhs).dbobj
+                except Agent.DoesNotExist:
+                    self.msg("No retainer found by that ID or number.")
+                    return
+            else:  # not a retainer, just the caller. So check if they have an active investigation
+                char = self.caller
+                if self.caller.roster.investigations.filter(active=True):
+                    self.msg("You currently have an active investigation, and cannot assist an investigation.")
+                    return
+            # check if they already are assisting something
+            if char.assisted_investigations.filter(currently_helping=True):
+                self.msg("%s is already assisting an investigation." % char)
+                return
+            # all checks passed, mark it as currently being helped if the investigation exists
+            try:
+                ob = char.assisted_investigations.get(investigation__id=self.lhs)
+                ob.currently_helping = True
+                ob.save()
+                self.msg("Now helping %s." % ob.investigation)
+            except (ValueError, TypeError, InvestigationAssistant.DoesNotExist):
+                self.msg("Not helping an investigation by that number.")
+            except InvestigationAssistant.MultipleObjectsReturned:
+                self.msg("Well, this is awkward. You are assisting that investigation multiple times. This shouldn't "
+                         "be able to happen, but here we are.")
+                inform_staff("BUG: %s is assisting investigation %s multiple times." % (char, self.lhs))
             return
         self.msg("Unrecognized switch.")
         
