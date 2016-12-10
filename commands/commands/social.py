@@ -327,8 +327,8 @@ class CmdJournal(MuxCommand):
         from evennia.comms.models import Msg
         caller = self.caller
         all_msgs = Msg.objects.filter(Q(db_header__contains="white_journal") &
-                                      ~Q(db_receivers_players=caller.db.player_ob) &
-                                      ~Q(db_sender_objects__roster__current_account=caller.roster.current_account)
+                                      ~Q(db_receivers_players=caller.db.player_ob)
+                                      # & ~Q(db_sender_objects__roster__current_account=caller.roster.current_account)
                                       ).distinct()
         for msg in all_msgs:
             msg.db_receivers_players.add(caller.db.player_ob)
