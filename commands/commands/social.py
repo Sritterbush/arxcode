@@ -84,9 +84,12 @@ class CmdWhere(MuxPlayerCommand):
         verbose_where = False
         if caller.tags.get("verbose_where"):
             verbose_where = True
+        self.msg("Players who are currently LRP have a |R+|n by their name.")
         for room in rooms:
             def char_name(ob):
                 cname = ob.name
+                if ob.db.player_ob and ob.db.player_ob.db.lookingforrp:
+                    cname += "|R+|n"
                 if not verbose_where:
                     return cname
                 if ob.db.room_title:
