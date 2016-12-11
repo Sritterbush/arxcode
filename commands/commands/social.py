@@ -607,6 +607,7 @@ class CmdMessenger(MuxCommand):
             caller.msg("%s will also deliver %s." % (deliver_str, delivery))
         if money:
             caller.msg("%s will also deliver %s silver." % (deliver_str, money))
+        caller.posecount += 1
 
     @staticmethod
     def disp_messenger(caller, msg):

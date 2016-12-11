@@ -79,6 +79,10 @@ class WeeklyEvents(Script):
         self.do_investigations()
         self.do_cleanup()
         self.post_inactives()
+        self.db.pose_counter = (self.db.pose_counter or 0) + 1
+        if self.db.pose_counter % 4 == 0:
+            self.db.pose_counter = 0
+            self.count_poses()
         self.db.week += 1
 
     def do_dominion_events(self):
@@ -224,6 +228,21 @@ class WeeklyEvents(Script):
             table.add_row(ob.key.capitalize(), ob.last_login.strftime("%x"))
         board.bb_post(poster_obj=self, msg=str(table), subject="Inactive List", poster_name="Inactives")
         inform_staff("List of Inactive Characters posted.")
+
+    def count_poses(self):
+        from typeclasses.bulletin_board.bboard import BBoard
+        qs = ObjectDB.objects.filter(roster__roster__name="Active")
+        min_poses = 20
+        low_activity = []
+        for ob in qs:
+            if ob.posecount < min_poses:
+                low_activity.append(ob)
+            ob.posecount = 0
+        board = BBoard.objects.get(db_key="staff")
+        table = EvTable("{wName{n", "{wNum Poses{n", border="cells", width=78)
+        for ob in low_activity:
+            table.add_row(ob.key, ob.posecount)
+        board.bb_post(poster_obj=self, msg=str(table), subject="Inactive by Poses List")
         
     # Various 'Beats' -------------------------------------------------
 

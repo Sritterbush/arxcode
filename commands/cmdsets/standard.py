@@ -173,7 +173,7 @@ class MobileCmdSet(CmdSet):
         self.add(overrides.CmdGet())
         self.add(overrides.CmdDrop())
         self.add(overrides.CmdGive())
-        self.add(default_general.CmdSay())
+        self.add(overrides.CmdArxSay())
         self.add(general.CmdWhisper())
         self.add(general.CmdFollow())
         self.add(general.CmdDitch())

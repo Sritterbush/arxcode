@@ -689,3 +689,11 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         display_skills(viewer, self)
         if combat:
             viewer.msg(self.combat_data.display_stats())
+
+    @property
+    def posecount(self):
+        return self.db.pose_count or 0
+
+    @posecount.setter
+    def posecount(self, val):
+        self.db.pose_count = val
