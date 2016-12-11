@@ -54,6 +54,7 @@ class JournalListView(LimitPageMixin, ListView):
         else:
             context['read_is_active'] = False
         context['write_journal_form'] = JournalWriteForm()
+        context['page_title'] = 'Journals'
         return context
 
     # noinspection PyUnusedLocal

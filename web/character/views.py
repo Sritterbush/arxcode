@@ -89,7 +89,8 @@ def sheet(request, object_id):
                                                     'pheight': pheight,
                                                     'pwidth': pwidth,
                                                     'fealty_org_id': fealty_org_id,
-                                                    'family_org_id': family_org_id, })
+                                                    'family_org_id': family_org_id,
+                                                    'page_title': character.key})
 
 
 def journals(request, object_id):
@@ -117,6 +118,7 @@ def journals(request, object_id):
                                                        'show_hidden': show_hidden,
                                                        'white_journal': white_journal,
                                                        'black_journal': black_journal,
+                                                       'page_title': '%s Journals' % character.key
                                                        })
 
 API_CACHE = None
@@ -126,8 +128,8 @@ def character_list(request):
     def get_relations(char):
         def parse_name(relation):
             if relation.player:
-                char = relation.player.db.char_ob
-                return "%s %s" % (char.key, char.db.family)
+                char_ob = relation.player.db.char_ob
+                return "%s %s" % (char_ob.key, char_ob.db.family)
             else:
                 return str(relation)
         try:
@@ -208,6 +210,7 @@ class RosterListView(ListView):
             show_hidden = True
         context['show_hidden'] = show_hidden
         context['roster_name'] = self.roster_name
+        context['page_title'] = "%s Roster" % self.roster_name
         return context
 
 
@@ -256,6 +259,7 @@ def gallery(request, object_id):
                                                       'can_upload': can_upload, 'portrait_form': portrait_form,
                                                       'edit_form': edit_form, 'delete_form': delete_form,
                                                       'pheight': pheight, 'pwidth': pwidth,
+                                                      'page_title': 'Gallery: %s' % character.key
                                                       })
 
 
@@ -354,6 +358,7 @@ def upload(request, object_id):
     # form's callback url
     cl_init_js_callbacks(context['direct_form'], request)
     context['character'] = character
+    context['page_title'] = 'Upload'
     if request.method == 'POST':
         # Only backend upload should be posting here
         owner_char = Photo(owner=character)
@@ -389,7 +394,8 @@ def direct_upload_complete(request, object_id):
 def current_story(request):
     story = Story.objects.latest('start_date')
     chapters = story.previous_chapters.order_by('-start_date')
-    return render(request, 'character/story.html', {'story': story, 'chapters': chapters})
+    return render(request, 'character/story.html', {'story': story, 'chapters': chapters,
+                                                    'page_title': str(story)})
 
 
 def episode(request, ep_id):
@@ -397,4 +403,5 @@ def episode(request, ep_id):
         new_episode = Episode.objects.get(id=ep_id)
     except Episode.DoesNotExist:
         raise Http404
-    return render(request, 'character/episode.html', {'episode': new_episode})
+    return render(request, 'character/episode.html', {'episode': new_episode,
+                                                      'page_title': str(new_episode)})
