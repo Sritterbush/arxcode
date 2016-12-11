@@ -501,9 +501,8 @@ class ClueDiscovery(models.Model):
         except ClueDiscovery.DoesNotExist:
             targ_clue = entry.clues.create(clue=self.clue)
         if targ_clue in entry.finished_clues:
-            entry.player.inform("%s tried to share the clue %s with you, but you already know that." % (self.character,
-                                                                                                        self.name),
-                                category="Investigations")
+            entry.player.send_or_queue_msg("%s tried to share the clue %s with you, but you already know that." % (
+                self.character, self.name))
             return
         targ_clue.roll += self.roll
         targ_clue.discovery_method = "Sharing"

@@ -844,6 +844,7 @@ class CmdListClues(MuxPlayerCommand):
             caller.msg(clue.display())
             return
         if "share" in self.switches:
+            shared_names = []
             for arg in self.rhslist:
                 pc = caller.search(arg)
                 if not pc:
@@ -855,7 +856,8 @@ class CmdListClues(MuxPlayerCommand):
                              "at least some RP talking about it.")
                     return
                 clue.share(pc.roster)
-                caller.msg("You have shared the clue '%s' with %s." % (clue, pc.roster))
+                shared_names.append(str(pc.roster))
+            caller.msg("You have shared the clue '%s' with %s." % (clue, ", ".join(shared_names)))
             return
         caller.msg("Invalid switch")
         return

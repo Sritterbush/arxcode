@@ -143,7 +143,7 @@ class Player(MsgMixins, DefaultPlayer):
             pass
         pending = self.db.pending_messages or []
         for msg in pending:
-            self.msg(msg, box=True)
+            self.msg(msg, options={'box': True})
         self.db.pending_messages = []
         # in this mode we should have only one character available. We
         # try to auto-connect to it by calling the @ic command
@@ -218,7 +218,7 @@ class Player(MsgMixins, DefaultPlayer):
 
     def send_or_queue_msg(self, message):
         if self.is_connected:
-            self.msg(message, box=True)
+            self.msg(message, options={'box': True})
             return
         pending = self.db.pending_messages or []
         pending.append(message)

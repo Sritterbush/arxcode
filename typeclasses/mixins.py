@@ -415,6 +415,15 @@ class MsgMixins(object):
         except (TypeError, UnicodeDecodeError, ValueError):
             pass
         text = sub_old_ansi(text)
+        if from_obj and isinstance(from_obj, dict):
+            # somehow our from_obj had a dict passed to it. Fix it up.
+            # noinspection PyBroadException
+            try:
+                options.update(from_obj)
+                from_obj = None
+            except Exception:
+                import traceback
+                traceback.print_exc()
         if options.get('is_pose', False):
             if self.db.posebreak:
                 text = "\n" + text
@@ -422,15 +431,12 @@ class MsgMixins(object):
             # colorize people's quotes with the given text
             if quote_color:
                 pass  # to do later
-
         if options.get('box', False):
             boxchars = '\n{w' + '*' * 70 + '{n\n'
             text = boxchars + text + boxchars
         if options.get('roll', False):
             if self.attributes.has("dice_string"):
                 text = "{w<" + self.db.dice_string + "> {n" + text
-        if from_obj and isinstance(from_obj, dict):
-            print "DEBUG in MsgMixins: from_obj is %s" % from_obj
         try:
             if self.db.char_ob:
                 msg_sep = self.tags.get("newline_on_messages")
