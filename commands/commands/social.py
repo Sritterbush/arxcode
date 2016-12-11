@@ -1692,7 +1692,7 @@ class CmdRandomScene(MuxCommand):
         """
         newness = datetime.now() - timedelta(days=self.DAYS_FOR_NEWBIE_CHECK)
         return self.valid_choices.filter(Q(roster__accounthistory__start_date__gte=newness) &
-                                         Q(roster__accounthistory__end_date__isnull=True))
+                                         Q(roster__accounthistory__end_date__isnull=True)).order_by('db_key')
 
     @property
     def valid_choices(self):
