@@ -95,15 +95,16 @@ class CmdWhere(MuxPlayerCommand):
                 if ob.db.room_title:
                     cname += "{w(%s){n" % ob.db.room_title
                 return cname
-            charlist = ", ".join(char_name(char) for char in room.get_visible_characters(caller) if char.player
-                                 and (not char.player.db.hide_from_watch or caller.check_permstring("builders")))
-            if not charlist:
+            charlist = sorted(room.get_visible_characters(caller), key=lambda x: x.name)
+            char_names = ", ".join(char_name(char) for char in charlist if char.player
+                                   and (not char.player.db.hide_from_watch or caller.check_permstring("builders")))
+            if not char_names:
                 continue
             name = room.name
             if room.db.x_coord is not None and room.db.y_coord is not None:
                 pos = (room.db.x_coord, room.db.y_coord)
                 name = "%s %s" % (name, str(pos))
-            msg = "%s: %s" % (name, charlist)
+            msg = "%s: %s" % (name, char_names)
             caller.msg(msg)
 
 
