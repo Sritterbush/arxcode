@@ -413,7 +413,7 @@ class CmdAdjustSkill(MuxPlayerCommand):
                     cost = skill_list.pop()
                     skill_history[self.rhs] = skill_list
                     char.db.skill_history = skill_history
-                except (KeyError, IndexError):
+                except (KeyError, IndexError, TypeError):
                     try:
                         current = char.db.skills[self.rhs]
                     except KeyError:
@@ -433,10 +433,10 @@ class CmdAdjustSkill(MuxPlayerCommand):
                     cost = ability_list.pop()
                     ability_history[self.rhs] = ability_list
                     char.db.ability_history = ability_history
-                except (KeyError, IndexError):
+                except (KeyError, IndexError, TypeError):
                     try:
                         current = char.db.abilities[self.rhs]
-                    except KeyError:
+                    except (KeyError, TypeError):
                         caller.msg("No such ability.")
                         return
                     cost = stats_and_skills.cost_at_rank(self.rhs, current - 1, current)
