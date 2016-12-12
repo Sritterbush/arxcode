@@ -103,6 +103,8 @@ class CmdUseXP(MuxCommand):
                 caller.msg("Dominion object not found.")
                 return
         elif args in stats_and_skills.VALID_ABILITIES:
+            if not caller.db.abilities:
+                caller.db.abilities = {}
             # if we don't have it, determine if we can learn it
             if not caller.db.abilities.get(args, 0):
                 if args in stats_and_skills.CRAFTING_ABILITIES:
