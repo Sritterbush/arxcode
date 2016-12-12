@@ -2404,9 +2404,9 @@ class CmdSupport(MuxCommand):
     aliases = ["support"]
 
     def get_assign_from_char(self, char):
-        requests = self.caller.db.support_requests or {}
+        requests = self.caller.db.requested_support or {}
         if char.id not in requests:
-            self.msg("%s has not asked you for support in a task recently enough.")
+            self.msg("%s has not asked you for support in a task recently enough." % char)
             return
         try:
             assignment = AssignedTask.objects.get(id=requests[char.id], finished=False)
