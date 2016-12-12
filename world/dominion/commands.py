@@ -2403,12 +2403,29 @@ class CmdSupport(MuxCommand):
     help_category = "Dominion"
     aliases = ["support"]
 
+    def get_assign_from_char(self, char):
+        requests = self.caller.db.support_requests or {}
+        if char.id not in requests:
+            self.msg("%s has not asked you for support in a task recently enough.")
+            return
+        try:
+            assignment = AssignedTask.objects.get(id=requests[char.id], finished=False)
+        except AssignedTask.DoesNotExist:
+            self.msg("No task found. It was abandoned or finished already.")
+            del requests[char.id]
+            return
+        return assignment
+
     def disp_supportform(self):
         caller = self.caller
         form = caller.db.supportform
         if form:
             try:
                 caller.msg("Building support for a task for %s." % form[0])
+                assign = self.get_assign_from_char(form[0])
+                if not assign:
+                    return
+                self.msg("{wCurrent echo for task:{n %s" % assign.current_alt_echo)
                 caller.msg("Fake: %s" % form[1])
                 for s_id in form[2]:
                     sphere = SphereOfInfluence.objects.get(id=s_id)
@@ -2589,14 +2606,8 @@ class CmdSupport(MuxCommand):
             if not char:
                 return
             char = char.db.char_ob
-            if char.id not in requests:
-                caller.msg("%s has not asked you for support in a task recently enough.")
-                return
-            try:
-                assignment = AssignedTask.objects.get(id=requests[char.id], finished=False)
-            except AssignedTask.DoesNotExist:
-                caller.msg("No task found. It was abandoned or finished already.")
-                del requests[char.id]
+            assignment = self.get_assign_from_char(char)
+            if not assignment:
                 return
             if assignment.supporters.filter(player=caller.player.Dominion):
                 caller.msg("You have already pledged your support to this task.")
