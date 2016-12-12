@@ -2095,7 +2095,7 @@ class CmdTask(MuxCommand):
                     ass.observer_text = self.rhs
                     ass.save()
                     caller.msg("Rumors changed to %s." % self.rhs)
-            except (Task.DoesNotExist, AssignedTask.DoesNotExist):
+            except (Task.DoesNotExist, AssignedTask.DoesNotExist, ValueError):
                 caller.msg("No task found by that ID number.")
             return
         if "work" in self.switches:
