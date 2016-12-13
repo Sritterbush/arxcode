@@ -344,7 +344,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             except AttributeError:
                 ob_armor = 0
             armor += ob_armor
-        return armor
+        return int(round(armor))
 
     def _get_armor_penalties(self):
         penalty = 0

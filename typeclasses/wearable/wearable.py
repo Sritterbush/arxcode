@@ -99,7 +99,7 @@ class Wearable(Object):
             recipe = CraftingRecipe.objects.get(id=recipe_id)
         except CraftingRecipe.DoesNotExist:
             return self.db.armor_class or 0, self.db.penalty or 0
-        base = int(recipe.resultsdict.get("baseval", 0))
+        base = float(recipe.resultsdict.get("baseval", 0.0))
         scaling = float(recipe.resultsdict.get("scaling", (base/10.0) or 0.2))
         penalty = float(recipe.resultsdict.get("penalty", 0.0))
         if quality >= 10:
@@ -109,7 +109,7 @@ class Wearable(Object):
             self.ndb.cached_penalty_value = penalty
             return self.ndb.cached_armor_value, self.ndb.cached_penalty_value
         try:
-            armor = base + int(round(scaling * quality))
+            armor = base + (scaling * quality)
         except (TypeError, ValueError):
             armor = 0
         self.ndb.purported_value = armor
