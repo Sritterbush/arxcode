@@ -241,6 +241,7 @@ class CharacterCombatData(object):
             dmsg += "\n{wParry Skill:{n %-19s {wParry Stat:{n %s" % (self.attack_skill, self.attack_stat)
         if self.can_dodge:
             dmsg += "\n{wDodge Skill:{n %-19s {wDodge Stat:{n %s" % (self.char.db.skills.get("dodge"), "dexterity")
+            dmsg += "\n{wDodge Penalty:{n %s" % self.dodge_penalty
         msg = smsg + omsg + dmsg
         return msg
 
@@ -295,6 +296,10 @@ class CharacterCombatData(object):
     @property
     def def_penalties(self):
         return self.wound_penalty + self.fatigue_def_penalty()
+
+    @property
+    def dodge_penalty(self):
+        return int(self.char.armor_penalties * 1.25)
 
     @property
     def soak(self):
@@ -537,7 +542,7 @@ class CharacterCombatData(object):
             parry_roll = -1000
         if att.can_be_blocked and self.can_block:
             try:
-                block_diff = diff + self.char.armor_penalties
+                block_diff = diff + self.dodge_penalty
             except (AttributeError, TypeError, ValueError):
                 block_diff = diff
             block_roll = int(do_dice_check(self.char, stat="dexterity", skill="dodge", difficulty=block_diff))
@@ -553,7 +558,7 @@ class CharacterCombatData(object):
             block_roll = -1000
         if att.can_be_dodged and self.can_dodge:
             try:
-                dodge_diff = diff + self.char.armor_penalties
+                dodge_diff = diff + self.dodge_penalty
             except (AttributeError, TypeError, ValueError):
                 dodge_diff = diff
             dodge_roll = int(do_dice_check(self.char, stat="dexterity", skill="dodge", difficulty=dodge_diff))
