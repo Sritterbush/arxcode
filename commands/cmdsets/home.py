@@ -833,7 +833,7 @@ class CmdBuyFromShop(CmdCraft):
         prices = loc.db.crafting_prices or {}
         msg = "{wCrafting Prices{n\n"
         table = PrettyTable(["{wName{n", "{wCraft Price{n", "{wRefine Price{n"])
-        recipes = loc.db.shopowner.db.player_ob.Dominion.assets.recipes.all()
+        recipes = loc.db.shopowner.db.player_ob.Dominion.assets.recipes.all().order_by('name')
         removed = prices.get("removed", [])
         for recipe in recipes:
             if recipe.id in removed:
