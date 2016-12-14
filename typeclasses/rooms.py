@@ -292,7 +292,7 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
         self.attributes.remove("blacklist")
         self.attributes.remove("shopowner")
 
-    def msg_contents(self, text=None, exclude=None, from_obj=None, **kwargs):
+    def msg_contents(self, message, exclude=None, from_obj=None, mapping=None, **kwargs):
         """
         Emits something to all objects inside an object.
 
@@ -312,14 +312,13 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
                 event_script = ScriptDB.objects.get(db_key="Event Manager")
                 ooc = options.get('ooc_note', False)
                 if gm_only or ooc:
-                    event_script.add_gmnote(eventid, text)
+                    event_script.add_gmnote(eventid, message)
                 else:
-                    event_script.add_msg(eventid, text, from_obj)
+                    event_script.add_msg(eventid, message, from_obj)
             except ScriptDB.DoesNotExist:
                 if from_obj:
                     from_obj.msg("Error: Event Manager not found.")
-        super(ArxRoom, self).msg_contents(text, exclude=exclude,
-                                from_obj=from_obj, **kwargs)
+        super(ArxRoom, self).msg_contents(message, exclude=exclude, from_obj=from_obj, mapping=mapping, **kwargs)
 
 
 class CmdExtendedLook(default_cmds.CmdLook):

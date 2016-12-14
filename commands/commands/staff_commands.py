@@ -607,3 +607,74 @@ class CmdGMDisguise(MuxCommand):
             return
         targ.fakename = self.rhs
         self.msg("%s will now appear as %s." % (targ.key, targ.name))
+
+
+class CmdViewLog(MuxPlayerCommand):
+    """
+    Views a log
+        Usage:
+            @view_log
+            @view_log/previous
+            @view_log/current
+            @view_log/report <player>
+
+    Views a log of messages sent to you from other players. @view_log with no
+    arguments lists the log that will be seen by staff if you've submitted a /report.
+    To view the log of recent messages, use /current. For your last session, use
+    /previous. /report <player> will go through your logs for messages from the
+    player and report it to staff. Using /report again will overwrist your existing
+    flagged log. If you do not want to log messages sent by others, then you may
+    use @settings/private_mode. GMs cannot read any messages sent to you if that mode
+    is enabled, so note that they will be unable to assist you if you report harassment.
+    """
+    key = "@view_log"
+    help_category = "Admin"
+    locks = "cmd:all()"
+
+    def view_log(self, log):
+        msg = ""
+        for line in log:
+            def get_name(ob):
+                if self.caller.check_permstring("builder"):
+                    return ob.key
+                return ob.name
+            msg += "{wFrom: {c%s {wMsg:{n %s\n" % (get_name(line[0]), line[1])
+        self.msg(msg)
+
+    def view_flagged_log(self, player):
+        self.msg("Viewing %s's flagged log" % player)
+        self.view_log(player.flagged_log)
+
+    def view_previous_log(self, player):
+        self.msg("Viewing %s's previous log" % player)
+        self.view_log(player.previous_log)
+
+    def view_current_log(self, player):
+        self.msg("Viewing %s's current log" % player)
+        self.view_log(player.current_log)
+
+    def func(self):
+        if "report" in self.switches:
+            targ = self.caller.search(self.args)
+            if not targ:
+                return
+            self.caller.report_player(targ)
+            self.msg("Flagging that log for review.")
+            inform_staff("%s has reported %s for bad behavior. Please use @view_log to check it out." % (
+                self.caller, targ))
+            return
+        if self.caller.check_permstring("immortals"):
+            targ = self.caller.search(self.args)
+        else:
+            targ = self.caller
+        if not targ:
+            return
+        if not self.switches:
+            self.view_flagged_log(targ)
+            return
+        if "previous" in self.switches:
+            self.view_previous_log(targ)
+            return
+        if "current" in self.switches:
+            self.view_current_log(targ)
+            return

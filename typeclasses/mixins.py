@@ -440,14 +440,22 @@ class MsgMixins(object):
         try:
             if self.db.char_ob:
                 msg_sep = self.tags.get("newline_on_messages")
+                player_ob = self
             else:
                 msg_sep = self.db.player_ob.tags.get("newline_on_messages")
+                player_ob = self.db.player_ob
         except AttributeError:
             msg_sep = None
+            player_ob = self
         try:
             if msg_sep:
                 text += "\n"
         except (TypeError, ValueError):
+            pass
+        try:
+            if from_obj:
+                player_ob.log_message(from_obj, text)
+        except AttributeError:
             pass
         super(MsgMixins, self).msg(text, from_obj, session, options, **kwargs)
 

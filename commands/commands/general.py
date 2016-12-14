@@ -54,6 +54,7 @@ class CmdGameSettings(MuxPlayerCommand):
         @settings/ignore_messenger_notifications
         @settings/ignore_messenger_deliveries
         @settings/newline_on_messages
+        @settings/private_mode
 
     Toggles different settings. Brief surpresses room descs when
     moving through rooms. Posebreak adds a newline between poses
@@ -128,6 +129,9 @@ class CmdGameSettings(MuxPlayerCommand):
             return
         if "verbose_where" in switches:
             self.togglesetting(caller, "verbose_where", tag=True)
+            return
+        if "private_mode" in switches:
+            self.togglesetting(caller, "private_mode", tag=True)
             return
         caller.msg("Invalid switch.")
 
@@ -481,7 +485,7 @@ class CmdWhisper(MuxCommand):
         if not recobjs:
             self.msg("No one found to whisper.")
             return
-        header = "{c%s{n whispers," % caller.key.capitalize()
+        header = "{c%s{n whispers," % caller.name
         message = rhs
         # if message begins with a :, we assume it is a 'whisper-pose'
         if message.startswith(":"):
@@ -510,13 +514,13 @@ class CmdWhisper(MuxCommand):
                 omessage = message
                 if otherobs:
                     omessage = "(Also sent to %s.) %s" % (", ".join(ob.name for ob in otherobs), message)
-                pobj.msg(omessage)
+                pobj.msg(omessage, from_obj=caller)
             else:
                 if otherobs:
                     myheader = header + " to {cyou{n and %s," % ", ".join("{c%s{n" % ob.name for ob in otherobs)
                 else:
                     myheader = header
-                pobj.msg("%s %s" % (myheader, message))
+                pobj.msg("%s %s" % (myheader, message), from_obj=caller)
             if not pobj.ndb.whispers_received:
                 pobj.ndb.whispers_received = []
             pobj.ndb.whispers_received.append(temp_message)
@@ -733,7 +737,7 @@ class CmdPage(MuxPlayerCommand):
             if not pobj.access(caller, 'msg'):
                 r_strings.append("You are not allowed to page %s." % pobj)
                 continue
-            pobj.msg("%s %s" % (header, message))
+            pobj.msg("%s %s" % (header, message), from_obj=caller)
             if not pobj.ndb.pages_received:
                 pobj.ndb.pages_received = []
             pobj.ndb.pages_received.append(temp_message)
@@ -799,14 +803,14 @@ class CmdOOCSay(MuxCommand):
 
             # Build the string to emit to neighbors.
             emit_string = '{y(OOC){n {c%s{n says: %s{n' % (caller.name, speech)
-            caller.location.msg_contents(emit_string,
+            caller.location.msg_contents(emit_string, from_obj=caller,
                                          exclude=caller, options=options)
         else:
             if nospace:
                 emit_string = '{y(OOC){n {c%s{n%s' % (caller.name, speech)
             else:
                 emit_string = '{y(OOC){n {c%s{n %s' % (caller.name, speech)
-            caller.location.msg_contents(emit_string, exclude=None, options=options)
+            caller.location.msg_contents(emit_string, exclude=None, options=options, from_obj=caller)
 
 
 class CmdDiceCheck(MuxCommand):

@@ -530,6 +530,7 @@ class CmdEmit(MuxCommand):
         if normal_emit:
             gms = [ob for ob in caller.location.contents if ob.check_permstring('builders')]
             caller.location.msg_contents("{w[Emit by: {c%s{w]{n %s" % (caller.name, message),
+                                         from_obj=caller,
                                          options={'is_pose': True}, gm_msg=True)
             caller.location.msg_contents(message, exclude=gms, from_obj=caller, options={'is_pose': True})
             return

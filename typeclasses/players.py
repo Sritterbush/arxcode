@@ -160,6 +160,8 @@ class Player(MsgMixins, DefaultPlayer):
                 self.roster.save()
         except AttributeError:
             pass
+        self.previous_log = self.current_log
+        self.current_log = []
 
     def is_guest(self):
         """
@@ -289,3 +291,48 @@ class Player(MsgMixins, DefaultPlayer):
         if not self.db.hide_from_watch:
             for watcher in watched_by:
                 watcher.msg("{wA player you are watching, {c%s{w, has disconnected.{n" % self.key.capitalize())
+
+    def log_message(self, from_obj, text):
+        if not self.tags.get("private_mode"):
+            text = text.strip()
+            tup = (from_obj, text)
+            if tup not in self.current_log and from_obj != self and from_obj != self.db.char_ob:
+                self.current_log.append((from_obj, text))
+
+    @property
+    def current_log(self):
+        if self.db.current_log is None:
+            self.db.current_log = []
+        return self.db.current_log
+
+    @current_log.setter
+    def current_log(self, val):
+        self.db.current_log = val
+
+    @property
+    def previous_log(self):
+        if self.db.previous_log is None:
+            self.db.previous_log = []
+        return self.db.previous_log
+
+    @previous_log.setter
+    def previous_log(self, val):
+        self.db.previous_log = val
+
+    @property
+    def flagged_log(self):
+        if self.db.flagged_log is None:
+            self.db.flagged_log = []
+        return self.db.flagged_log
+
+    @flagged_log.setter
+    def flagged_log(self, val):
+        self.db.flagged_log = val
+
+    def report_player(self, player):
+        charob = player.db.char_ob
+        log = []
+        for line in (list(self.previous_log) + list(self.current_log)):
+            if line[0] == charob or line[0] == player:
+                log.append(line)
+        self.flagged_log = log
