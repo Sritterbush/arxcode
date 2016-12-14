@@ -525,13 +525,13 @@ class CmdWhisper(MuxCommand):
                 omessage = message
                 if otherobs:
                     omessage = "(Also sent to %s.) %s" % (", ".join(ob.name for ob in otherobs), message)
-                pobj.msg(omessage, from_obj=caller)
+                pobj.msg(omessage, from_obj=caller, options={'is_pose': True})
             else:
                 if otherobs:
                     myheader = header + " to {cyou{n and %s," % ", ".join("{c%s{n" % ob.name for ob in otherobs)
                 else:
                     myheader = header
-                pobj.msg("%s %s" % (myheader, message), from_obj=caller)
+                pobj.msg("%s %s" % (myheader, message), from_obj=caller, options={'is_pose':True})
             if not pobj.ndb.whispers_received:
                 pobj.ndb.whispers_received = []
             pobj.ndb.whispers_received.append(temp_message)
@@ -748,7 +748,7 @@ class CmdPage(MuxPlayerCommand):
             if not pobj.access(caller, 'msg'):
                 r_strings.append("You are not allowed to page %s." % pobj)
                 continue
-            pobj.msg("%s %s" % (header, message), from_obj=caller)
+            pobj.msg("%s %s" % (header, message), from_obj=caller, options={'log_msg': True})
             if not pobj.ndb.pages_received:
                 pobj.ndb.pages_received = []
             pobj.ndb.pages_received.append(temp_message)
@@ -806,7 +806,7 @@ class CmdOOCSay(MuxCommand):
 
         # calling the speech hook on the location
         speech = caller.location.at_say(caller, speech)
-        options = {"ooc_note": True}
+        options = {"ooc_note": True, "log_msg": True}
 
         # Feedback for the object doing the talking.
         if not oocpose:

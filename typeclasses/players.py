@@ -160,8 +160,7 @@ class Player(MsgMixins, DefaultPlayer):
                 self.roster.save()
         except AttributeError:
             pass
-        self.previous_log = self.current_log
-        self.current_log = []
+
 
     def is_guest(self):
         """
@@ -291,6 +290,8 @@ class Player(MsgMixins, DefaultPlayer):
         if not self.db.hide_from_watch:
             for watcher in watched_by:
                 watcher.msg("{wA player you are watching, {c%s{w, has disconnected.{n" % self.key.capitalize())
+        self.previous_log = self.current_log
+        self.current_log = []
 
     def log_message(self, from_obj, text):
         from evennia.utils.utils import make_iter
@@ -303,13 +304,13 @@ class Player(MsgMixins, DefaultPlayer):
 
     @property
     def current_log(self):
-        if self.db.current_log is None:
-            self.db.current_log = []
-        return self.db.current_log
+        if self.ndb.current_log is None:
+            self.ndb.current_log = []
+        return self.ndb.current_log
 
     @current_log.setter
     def current_log(self, val):
-        self.db.current_log = val
+        self.ndb.current_log = val
 
     @property
     def previous_log(self):

@@ -616,7 +616,18 @@ class CmdArxSay(CmdSay):
     __doc__ = CmdSay.__doc__
 
     def func(self):
-        super(CmdArxSay, self).func()
+        if not self.args:
+            self.msg("Say what?")
+            return
+        speech = self.args
+        # calling the speech hook on the location
+        speech = self.caller.location.at_say(self.caller, speech)
+        # Feedback for the object doing the talking.
+        self.caller.msg('You say, "%s{n"' % speech)
+        # Build the string to emit to neighbors.
+        emit_string = '%s says, "%s{n"' % (self.caller.name, speech)
+        self.caller.location.msg_contents(emit_string, from_obj=self.caller,
+                                          exclude=self.caller, options={'is_pose': True})
         self.caller.posecount += 1
 
 
