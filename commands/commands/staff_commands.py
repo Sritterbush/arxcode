@@ -617,6 +617,7 @@ class CmdViewLog(MuxPlayerCommand):
             @view_log/previous
             @view_log/current
             @view_log/report <player>
+            @view_log/purge
 
     Views a log of messages sent to you from other players. @view_log with no
     arguments lists the log that will be seen by staff if you've submitted a /report.
@@ -626,6 +627,9 @@ class CmdViewLog(MuxPlayerCommand):
     flagged log. If you do not want to log messages sent by others, then you may
     use @settings/private_mode. GMs cannot read any messages sent to you if that mode
     is enabled, so note that they will be unable to assist you if you report harassment.
+
+    If you wish to wipe all current logs stored on your character, you can use the
+    /purge command.
     """
     key = "@view_log"
     help_category = "Admin"
@@ -639,7 +643,8 @@ class CmdViewLog(MuxPlayerCommand):
                     return ob.key
                 return ob.name
             msg += "{wFrom: {c%s {wMsg:{n %s\n" % (get_name(line[0]), line[1])
-        self.msg(msg)
+        from server.utils import arx_more
+        arx_more.msg(self.caller, msg)
 
     def view_flagged_log(self, player):
         self.msg("Viewing %s's flagged log" % player)
@@ -678,3 +683,10 @@ class CmdViewLog(MuxPlayerCommand):
         if "current" in self.switches:
             self.view_current_log(targ)
             return
+        if "purge" in self.switches:
+            targ.current_log = []
+            targ.previous_log = []
+            targ.flagged_log = []
+            self.msg("All logs for %s cleared." % targ)
+            return
+        self.msg("Invalid switch.")
