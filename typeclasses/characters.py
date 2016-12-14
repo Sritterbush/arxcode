@@ -697,3 +697,40 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     @posecount.setter
     def posecount(self, val):
         self.db.pose_count = val
+
+    def announce_move_from(self, destination):
+        """
+        Called if the move is to be announced. This is
+        called while we are still standing in the old
+        location.
+        Args:
+            destination (Object): The place we are going to.
+        """
+        if not self.location:
+            return
+        string = "%s is leaving, heading for %s."
+        for obj in self.location.contents:
+            if obj != self:
+                obj.msg(string % (self.get_display_name(obj),
+                                  destination.get_display_name(obj)))
+
+    def announce_move_to(self, source_location):
+        """
+        Called after the move if the move was not quiet. At this point
+        we are standing in the new location.
+        Args:
+            source_location (Object): The place we came from
+        """
+
+        if not source_location and self.location.has_player:
+            # This was created from nowhere and added to a player's
+            # inventory; it's probably the result of a create command.
+            string = "You now have %s in your possession." % self.get_display_name(self.location)
+            self.location.msg(string)
+            return
+
+        string = "%s arrives%s."
+        for obj in self.location.contents:
+            if obj != self:
+                obj.msg(string % (self.get_display_name(obj),
+                                  " from %s" % source_location.get_display_name(obj) if source_location else ""))

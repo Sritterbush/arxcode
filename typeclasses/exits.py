@@ -105,13 +105,13 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         exit_cmdset.add(passcmd)
         return exit_cmdset
 
-    def at_traverse(self, traversing_object, target_location, key_message=True, special_entrance=None):
+    def at_traverse(self, traversing_object, target_location, key_message=True, special_entrance=None, quiet=False):
         """
         This implements the actual traversal. The traverse lock has already been
         checked (in the Exit command) at this point.
         """
         source_location = traversing_object.location
-        if traversing_object.move_to(target_location):
+        if traversing_object.move_to(target_location, quiet=quiet):
             # if the door was locked, send a message about it unless we were following
             if key_message and self.db.locked:
                 msg = special_entrance or self.db.success_traverse or "You unlock the locked door, then close and lock it behind you."
@@ -120,6 +120,8 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
             # move followers
             if traversing_object and traversing_object.ndb.followers:
                 invalid_followers = []
+                valid_followers = []
+                leader = None
                 for follower in traversing_object.ndb.followers:
                     # only move followers who are conscious
                     if not follower.conscious:
@@ -138,7 +140,9 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
                             invalid_followers.append(follower)
                             continue
                         # followers won't see the message about the door being locked
-                        self.at_traverse(follower, self.destination, key_message=False)
+                        self.at_traverse(follower, self.destination, key_message=False, quiet=True)
+                        valid_followers.append(follower.name)
+                        leader = fname
                     else:
                         invalid_followers.append(follower)
                 # make all characters who could not follow stop following us
@@ -147,6 +151,12 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
                         invalid.stop_follow()
                     else:
                         traversing_object.ndb.followers.remove(invalid)
+                if valid_followers:
+                    verb = "arrive" if len(valid_followers) > 1 else "arrives"
+                    fol_msg = "%s %s, following %s." % (", ".join(valid_followers), verb, leader.name)
+                    leave_msg = fol_msg.replace("arrive", "leave")
+                    self.destination.msg_contents(fol_msg)
+                    self.location.msg_contents(leave_msg)
         else:
             if self.db.err_traverse:
                 # if exit has a better error message, let's use it.
