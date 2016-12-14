@@ -150,19 +150,30 @@ class CmdGlance(MuxCommand):
     locks = "cmd:all()"
     help_category = "Social"
 
+    def send_glance_str(self, char):
+        string = "\n{c%s{n\n%s\n%s" % (char.get_fancy_name(),
+                                       char.return_extras(self.caller),
+                                       char.get_health_appearance())
+        self.msg(string)
+
     def func(self):
         caller = self.caller
-        char = caller.search(self.args)
-        if not char:
+        if not self.args:
+            charlist = [ob for ob in caller.location.contents if ob != caller and hasattr(ob, 'return_extras')]
+        else:
+            char = caller.search(self.args)
+            if not char:
+                return
+            charlist = [char]
+        if not charlist:
+            self.msg("No one to glance at.")
             return
-        try:
-            string = "\n{c%s{n\n%s\n%s" % (char.get_fancy_name(),
-                                           char.return_extras(caller),
-                                           char.get_health_appearance())
-            caller.msg(string)
-        except AttributeError:
-            caller.msg("You cannot glance at that.")
-            return
+        for ob in charlist:
+            try:
+                self.send_glance_str(ob)
+            except AttributeError:
+                caller.msg("You cannot glance at that.")
+                continue
 
 
 class CmdShout(MuxCommand):
