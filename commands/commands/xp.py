@@ -269,6 +269,9 @@ class CmdTrain(MuxCommand):
         """Execute command."""
         caller = self.caller
         switches = self.switches
+        if not self.args:
+            self.msg("Currently training: %s" % ", ".join(str(ob) for ob in self.currently_training))
+            return
         if not self.lhs or not self.rhs or not self.switches:
             caller.msg("Usage: train/[stat or skill] <character to train>=<name of stat or skill to train>")
             return
