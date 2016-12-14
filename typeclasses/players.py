@@ -293,8 +293,10 @@ class Player(MsgMixins, DefaultPlayer):
                 watcher.msg("{wA player you are watching, {c%s{w, has disconnected.{n" % self.key.capitalize())
 
     def log_message(self, from_obj, text):
+        from evennia.utils.utils import make_iter
         if not self.tags.get("private_mode"):
             text = text.strip()
+            from_obj = make_iter(from_obj)[0]
             tup = (from_obj, text)
             if tup not in self.current_log and from_obj != self and from_obj != self.db.char_ob:
                 self.current_log.append((from_obj, text))
