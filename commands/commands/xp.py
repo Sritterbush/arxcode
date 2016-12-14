@@ -29,8 +29,8 @@ class CmdUseXP(MuxCommand):
     and allows you to spend xp to increase stats or skills with the
     /spend switch. Costs can be reduced by finding a teacher who is willing
     to use the '{wtrain{n' command on you, and has a skill or stat of the
-    appropriate rank you're trying to achieve. Any training bonus is lost
-    after the first time xp is spent in a week.
+    appropriate rank you're trying to achieve. The training bonus vanishes
+    when xp is spent.
 
     Dominion influence is bought with 'resources' rather than xp. The
     'learn' command is the same as 'xp/spend'.
@@ -55,6 +55,7 @@ class CmdUseXP(MuxCommand):
             self.switches.append("spend")
         if not self.args:
             # Just display our xp
+            caller.msg("{wCurrent Teacher:{n %s" % caller.db.trainer)
             caller.msg("{wUnspent XP:{n %s" % caller.db.xp)
             caller.msg("{wLifetime Earned XP:{n %s" % caller.db.total_xp)
             all_stats = ", ".join(stat for stat in stats_and_skills.VALID_STATS)
