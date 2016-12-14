@@ -453,7 +453,7 @@ class MsgMixins(object):
         except (TypeError, ValueError):
             pass
         try:
-            if from_obj:
+            if from_obj and (options.get('is_pose', False) or options.get('log_msg', False)):
                 player_ob.log_message(from_obj, text)
         except AttributeError:
             pass
