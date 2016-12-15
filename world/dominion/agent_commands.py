@@ -228,14 +228,17 @@ class CmdAgents(MuxPlayerCommand):
         if 'desc' in self.switches or 'name' in self.switches or 'transferowner' in self.switches:
             try:
                 agent = Agent.objects.get(id=int(self.lhslist[0]))
+                strval = ""
                 if not agent.access(caller, 'agents'):
                     caller.msg("No access.")
                     return
                 if 'desc' in self.switches:
                     attr = 'desc'
-                    agent.desc = self.lhslist[1]
+                    strval = ", ".join(self.lhslist[1:])
+                    agent.desc = strval
                 elif 'name' in self.switches:
-                    name = self.lhslist[1]
+                    strval = ", ".join(self.lhslist[1:])
+                    name = strval
                     if not validate_name(name):
                         self.msg("That is not a valid name.")
                         return
@@ -261,7 +264,7 @@ class CmdAgents(MuxPlayerCommand):
                     return
                 agent.save()
                 # do we need to do any refresh_from_db calls here to prevent sync errors with stale foreignkeys?
-                caller.msg("Changed %s to %s." % (attr, self.lhslist[1]))
+                caller.msg("Changed %s to %s." % (attr, strval))
                 if attr == 'owner':
                     agent.owner.inform_owner("You have been transferred ownership of %s from %s." % (agent, caller),
                                              category="agents")

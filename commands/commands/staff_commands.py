@@ -627,6 +627,8 @@ class CmdViewLog(MuxPlayerCommand):
     flagged log. If you do not want to log messages sent by others, then you may
     use @settings/private_mode. GMs cannot read any messages sent to you if that mode
     is enabled, so note that they will be unable to assist you if you report harassment.
+    Current logs will not survive through server restarts, though they are saved as
+    your previous log after logging out.
 
     If you wish to wipe all current logs stored on your character, you can use the
     /purge command.
