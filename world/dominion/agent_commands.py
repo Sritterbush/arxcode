@@ -234,10 +234,10 @@ class CmdAgents(MuxPlayerCommand):
                     return
                 if 'desc' in self.switches:
                     attr = 'desc'
-                    strval = ", ".join(self.lhslist[1:])
+                    strval = self.rhs or ", ".join(self.lhslist[1:])
                     agent.desc = strval
                 elif 'name' in self.switches:
-                    strval = ", ".join(self.lhslist[1:])
+                    strval = self.rhs or ", ".join(self.lhslist[1:])
                     name = strval
                     if not validate_name(name):
                         self.msg("That is not a valid name.")
