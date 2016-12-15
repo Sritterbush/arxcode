@@ -454,7 +454,12 @@ class MsgMixins(object):
             pass
         try:
             if from_obj and (options.get('is_pose', False) or options.get('log_msg', False)):
-                player_ob.log_message(from_obj, text)
+                private_msg = False
+                if hasattr(self, 'location') and hasattr(from_obj, 'location') and self.location == from_obj.location:
+                    if self.location.tags.get("private"):
+                        private_msg = True
+                if not private_msg:
+                    player_ob.log_message(from_obj, text)
         except AttributeError:
             pass
         super(MsgMixins, self).msg(text, from_obj, session, options, **kwargs)

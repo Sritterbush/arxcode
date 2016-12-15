@@ -628,7 +628,8 @@ class CmdViewLog(MuxPlayerCommand):
     use @settings/private_mode. GMs cannot read any messages sent to you if that mode
     is enabled, so note that they will be unable to assist you if you report harassment.
     Current logs will not survive through server restarts, though they are saved as
-    your previous log after logging out.
+    your previous log after logging out. Messages between two players in the same
+    private room are never logged under any circumstances.
 
     If you wish to wipe all current logs stored on your character, you can use the
     /purge command.
@@ -676,7 +677,8 @@ class CmdViewLog(MuxPlayerCommand):
             targ = self.caller
         if not targ:
             return
-        if not self.switches:
+        # staff are only permitted to view the flagged log
+        if not self.switches or targ != self.caller:
             self.view_flagged_log(targ)
             return
         if "previous" in self.switches:
