@@ -611,6 +611,10 @@ class CmdMessenger(MuxCommand):
 
     @staticmethod
     def disp_messenger(caller, msg):
+        if not msg:
+            caller.msg("It appears this messenger was deleted already. If this appears to be an error, "
+                       "inform staff please.")
+            return
         senders = msg.senders
         if senders:
             sender = senders[0]
