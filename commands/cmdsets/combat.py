@@ -80,6 +80,8 @@ class CmdStartCombat(MuxCommand):
     present in the room if one exists. While in combat, a number of combat-
     specific commands will be made available to you. Combat continues
     while two or more characters are active combatants.
+
+    To end combat, use +end_fight.
     """
     key = "+fight"
     aliases = ["fight"]
