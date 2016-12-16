@@ -736,6 +736,8 @@ class CmdPage(MuxPlayerCommand):
                     # Offline players do not have the character attribute
                     self.msg("%s is not online." % findpobj.key)
                     continue
+                # renew tags cache. This is temporarily necessary until I write a PR to fix
+                findpobj.tags.all()
                 if findpobj.tags.get("ic_only") and not caller.check_permstring("builders"):
                     if caller not in findpobj.allow_list:
                         self.msg("%s is IC only and can not be sent pages." % findpobj)
