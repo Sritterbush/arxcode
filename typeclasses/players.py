@@ -339,3 +339,9 @@ class Player(MsgMixins, DefaultPlayer):
             if line[0] == charob or line[0] == player:
                 log.append(line)
         self.flagged_log = log
+
+    @property
+    def allow_list(self):
+        if not self.db.allow_list:
+            self.db.allow_list = []
+        return self.db.allow_list

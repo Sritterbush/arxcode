@@ -55,6 +55,7 @@ class CmdGameSettings(MuxPlayerCommand):
         @settings/ignore_messenger_deliveries
         @settings/newline_on_messages
         @settings/private_mode
+        @settings/ic_only
 
     Toggles different settings. Brief surpresses room descs when
     moving through rooms. Posebreak adds a newline between poses
@@ -65,7 +66,9 @@ class CmdGameSettings(MuxPlayerCommand):
     read @bb messages on your alts as well. ignore_messenger_notifications
     will suppress any notifications that you have unread messengers.
     ignore_messenger_deliveries will suppress messages of a messenger
-    visiting someone else in a room.
+    visiting someone else in a room. Private mode prevents logging any
+    messages that are sent to you. ic_only prevents you from receiving
+    pages.
     """
     key = "@settings"
     locks = "cmd:all()"
@@ -132,6 +135,9 @@ class CmdGameSettings(MuxPlayerCommand):
             return
         if "private_mode" in switches:
             self.togglesetting(caller, "private_mode", tag=True)
+            return
+        if "ic_only" in switches:
+            self.togglesetting(caller, "IC_Only", tag=True)
             return
         caller.msg("Invalid switch.")
 
@@ -531,7 +537,7 @@ class CmdWhisper(MuxCommand):
                     myheader = header + " to {cyou{n and %s," % ", ".join("{c%s{n" % ob.name for ob in otherobs)
                 else:
                     myheader = header
-                pobj.msg("%s %s" % (myheader, message), from_obj=caller, options={'is_pose':True})
+                pobj.msg("%s %s" % (myheader, message), from_obj=caller, options={'is_pose': True})
             if not pobj.ndb.whispers_received:
                 pobj.ndb.whispers_received = []
             pobj.ndb.whispers_received.append(temp_message)
@@ -566,6 +572,8 @@ class CmdPage(MuxPlayerCommand):
       ttell [<message to last paged player>]
       page/list <number>
       page/noeval
+      page/allow <name>
+      page/unallow <name>
 
     Switch:
       last - shows who you last messaged
@@ -575,7 +583,9 @@ class CmdPage(MuxPlayerCommand):
     paged if no player is given. If no argument is given, you will
     get a list of your latest messages. Note that pages are only
     saved for your current session. Sending pages to multiple receivers
-    accepts the names either separated by commas or whitespaces. 
+    accepts the names either separated by commas or whitespaces.
+
+    /allow and /unallow sets who may page you when you use @settings/ic_only.
     """
 
     key = "page"
@@ -584,12 +594,29 @@ class CmdPage(MuxPlayerCommand):
     help_category = "Comms"
     arg_regex = r'\/|\s|$'
 
+    def disp_allow(self):
+        self.msg("People on allow list: %s" % ", ".join(ob.key for ob in self.caller.allow_list))
+
     def func(self):
         """Implement function using the Msg methods"""
 
         # this is a MuxPlayerCommand, which means caller will be a Player.
         caller = self.caller
-
+        if "allow" in self.switches or "unallow" in self.switches:
+            if not self.args:
+                self.disp_allow()
+                return
+            targ = caller.search(self.args)
+            if not targ:
+                return
+            if "allow" in self.switches:
+                if targ not in caller.allow_list:
+                    caller.allow_list.append(targ)
+            if "unallow" in self.switches:
+                if targ in caller.allow_list:
+                    caller.allow_list.remove(targ)
+            self.disp_allow()
+            return
         # get the messages we've sent (not to channels)
         if not caller.ndb.pages_sent:
             caller.ndb.pages_sent = []
@@ -709,6 +736,10 @@ class CmdPage(MuxPlayerCommand):
                     # Offline players do not have the character attribute
                     self.msg("%s is not online." % findpobj.key)
                     continue
+                if findpobj.tags.get("ic_only") and not caller.check_permstring("builders"):
+                    if caller not in findpobj.allow_list:
+                        self.msg("%s is IC only and can not be sent pages." % findpobj)
+                        continue
             else:
                 continue
             if pobj:
