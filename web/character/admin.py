@@ -45,11 +45,11 @@ class AccountHistoryInline(admin.TabularInline):
 
 
 class AccountAdmin(BaseCharAdmin):
-    list_display = ('id', 'email', 'Characters')
+    list_display = ('id', 'email', 'player_characters')
     search_fields = ('email', 'characters__character__db_key')
     inlines = [AccountHistoryInline]
 
-    def Characters(self, obj):
+    def player_characters(self, obj):
         return ", ".join([str(ob) for ob in obj.characters.all()])
 
 
@@ -114,7 +114,7 @@ class ClueDiscoInline(admin.TabularInline):
 
 class ClueAdmin(BaseCharAdmin):
     list_display = ('id', 'name', 'known_by', 'used_for')
-    inlines = [ClueDiscoInline]
+    # inlines = [ClueDiscoInline]
     search_fields = ('id', 'name', 'characters__character__db_key', 'revelations__name')
 
     def known_by(self, obj):
