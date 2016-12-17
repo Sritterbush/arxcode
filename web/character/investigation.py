@@ -4,7 +4,7 @@ stories, the timeline, etc.
 """
 
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from .models import Investigation, Clue, InvestigationAssistant, ClueDiscovery
+from .models import Investigation, Clue, InvestigationAssistant, ClueDiscovery, Theory
 from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from server.utils.arx_utils import inform_staff
@@ -893,3 +893,120 @@ class CmdListMysteries(MuxPlayerCommand):
     def func(self):
         if not self.args:
             return
+
+
+class CmdTheories(MuxPlayerCommand):
+    """
+    @theories
+
+    Usage:
+        @theories
+        @theories <theory ID #>
+        @theories/share <theory ID #>=<player>
+        @theories/create <topic>=<description>
+        @theories/addclue <theory ID #>=<clue ID #>
+        @theories/rmclue <theory ID #>=<clue ID #>
+        @theories/addrelatedtheory <your theory ID #>=<other's theory ID #>
+        @theories/delete <theory ID #>
+        @theories/editdesc <theory ID #>=<desc>
+        @theoies/edittopic <theory ID #>=<topic>
+
+    Allows you to create and share theories your character comes up with,
+    and associate them with clues and other theories. You may only create
+    associations for theories that you created.
+    """
+    key = "@theories"
+    locks = "cmd:all()"
+    help_category = "Investigation"
+
+    def display_theories(self):
+        table = EvTable("{wID #{n", "{wTopic{n")
+        for theory in self.caller.known_theories.all():
+            table.add_row(theory.id, theory.topic)
+        self.msg(table)
+
+    def view_theory(self):
+        try:
+            theory = self.caller.known_theories.get(id=self.args)
+        except (Theory.DoesNotExist, ValueError, TypeError):
+            self.msg("No theory by that ID.")
+            return
+        self.msg(theory.display())
+        known_clues = [ob.clue for ob in self.caller.roster.finished_clues]
+        disp_clues = theory.related_clues.filter(id__in=known_clues)
+        self.msg("{wRelated Clues:{n %s" % ", ".join(ob.name for ob in disp_clues))
+
+    def func(self):
+        if not self.args:
+            self.display_theories()
+            return
+        if not self.switches or "view" in self.switches:
+            self.view_theory()
+            return
+        if "create" in self.switches:
+            theory = self.caller.created_theories.create(topic=self.lhs, desc=self.rhs)
+            self.caller.known_theories.add(theory)
+            self.msg("You have created a new theory.")
+            return
+        if "share" in self.switches:
+            try:
+                theory = self.caller.known_theories.get(id=self.lhs)
+            except (Theory.DoesNotExist, ValueError):
+                self.msg("No theory found by that ID.")
+                return
+            targ = self.caller.search(self.rhs)
+            if not targ:
+                return
+            if theory in targ.known_theories.all():
+                self.msg("They already know that theory.")
+                return
+            targ.known_theories.add(theory)
+            self.msg("Theory %s added to %s." % (self.lhs, targ))
+            targ.inform("%s has shared a theory with you." % self.caller, category="Theories")
+            return
+        try:
+            theory = self.caller.created_theories.get(id=self.lhs)
+        except Theory.DoesNotExist:
+            self.msg("No theory by that ID.")
+            return
+        if "delete" in self.switches:
+            theory.delete()
+            self.msg("Theory deleted.")
+            return
+        if "editdesc" in self.switches:
+            theory.desc = self.rhs
+            theory.save()
+            self.msg("New desc is: %s" % theory.desc)
+            return
+        if "edittopic" in self.switches:
+            theory.topic = self.rhs
+            theory.save()
+            self.msg("New topic is: %s" % theory.topic)
+            return
+        if "addrelatedtheory" in self.switches or "rmrelatedtheory" in self.switches:
+            try:
+                other_theory = self.caller.known_theories.get(id=self.rhs)
+            except Theory.DoesNotExist:
+                self.msg("You do not know a theory by that id.")
+                return
+            if "addrelatedtheory" in self.switches:
+                theory.related_theories.add(other_theory)
+                self.msg("Theory added.")
+            else:
+                theory.related_theories.remove(other_theory)
+                self.msg("Theory removed.")
+            return
+        if "addclue" in self.switches or "rmclue" in self.switches:
+            try:
+                clue = self.caller.roster.finished_clues.get(id=self.rhs)
+            except (ClueDiscovery.DoesNotExist, ValueError, TypeError, AttributeError):
+                self.msg("No clue by that ID.")
+                return
+            if "addclue" in self.switches:
+                theory.related_clues.add(clue.clue)
+                self.msg("Added clue %s to theory." % clue.name)
+            else:
+                theory.related_clues.remove(clue.clue)
+                self.msg("Removed clue %s from theory." % clue.name)
+            return
+

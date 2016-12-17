@@ -6,7 +6,7 @@ from .models import (Roster, RosterEntry, Photo,
                      PlayerAccount, AccountHistory,
                      Mystery, Revelation, Clue, Investigation,
                      MysteryDiscovery, RevelationDiscovery, ClueDiscovery,
-                     RevelationForMystery, ClueForRevelation,
+                     RevelationForMystery, ClueForRevelation, Theory,
                      )
 
 
@@ -161,6 +161,15 @@ class InvestigationAdmin(BaseCharAdmin):
         return ", ".join(str(ob.char) for ob in obj.active_assistants)
 
 
+class TheoryAdmin(BaseCharAdmin):
+    list_display = ('id', 'creator', 'topic', 'desc', 'shared_with')
+    filter_horizontal = ('known_by', 'related_clues', 'related_theories')
+
+    @staticmethod
+    def shared_with(obj):
+        return ", ".join(str(ob) for ob in obj.known_by.all())
+
+
 # Register your models here.
 admin.site.register(Roster, BaseCharAdmin)
 admin.site.register(RosterEntry, EntryAdmin)
@@ -177,4 +186,5 @@ admin.site.register(Mystery, MysteryAdmin)
 admin.site.register(Revelation, RevelationAdmin)
 admin.site.register(Clue, ClueAdmin)
 admin.site.register(Investigation, InvestigationAdmin)
+admin.site.register(Theory, TheoryAdmin)
 
