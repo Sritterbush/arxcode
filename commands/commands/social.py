@@ -1502,6 +1502,35 @@ class CmdRoomHistory(MuxCommand):
         return
 
 
+class CmdRoomMood(MuxCommand):
+    """
+    Adds a historical note to a room
+
+    Usage:
+        +room_mood <message>
+
+    Changes the current 'mood' of the room, which is a few lines that can be
+    set to describe things which recently happened and shows up under look.
+    Lasts for 24 hours.
+    """
+    key = "+room_mood"
+    locks = "cmd:all()"
+    help_category = "Social"
+
+    def func(self):
+        """Execute command."""
+        caller = self.caller
+        mood = caller.location.db.room_mood or (None, 0, "")
+        self.msg("Old mood was: %s" % mood[2])
+        if not self.args:
+            caller.location.attributes.remove("room_mood")
+            self.msg("Mood erased.")
+            return
+        mood = (caller, time.time(), self.args)
+        caller.location.db.room_mood = mood
+        self.msg("New mood is: %s" % mood[2])
+
+
 class CmdSocialScore(MuxCommand):
     """
     The who's-who of Arx
