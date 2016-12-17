@@ -1190,6 +1190,8 @@ class CmdRelationship(MuxPlayerCommand):
     aliases = ["+relationship", "@relationships", "+relationships"]
     help_category = "Social"
     locks = "cmd:all()"
+    typelist = ['parent', 'sibling', 'friend', 'enemy', 'frenemy', 'family', 'client', 'patron', 'protege',
+                'acquaintance', 'secret', 'rival', 'ally', 'spouse']
 
     def func(self):
         caller = self.caller
@@ -1304,12 +1306,10 @@ class CmdRelationship(MuxPlayerCommand):
             if white:
                 charob.msg_watchlist("A character you are watching, {c%s{n, has updated their white journal." % caller)
             return
-        typelist = ['parent', 'sibling', 'friend', 'enemy', 'family',
-                    'acquaintance', 'secret', 'rival']
         if 'short' in switches:
             rhslist = self.rhslist          
-            if lhs not in typelist:
-                caller.msg("The type of relationship must be in %s." % str(typelist))
+            if lhs not in self.typelist:
+                caller.msg("The type of relationship must be in: %s." % ", ".join(self.typelist))
                 return
             if len(rhslist) < 2:
                 caller.msg("Usage: @relationship/short <type>=<name>,<desc>")
@@ -1344,8 +1344,8 @@ class CmdRelationship(MuxPlayerCommand):
                 caller.msg("No relationships in tree to change - use /short to add instead.")
                 return         
             oldtype, newtype = lhslist[0].lower(), lhslist[1].lower()
-            if newtype not in typelist:
-                caller.msg("Relationship must be one of the following: %s" % ", ".join(typelist))
+            if newtype not in self.typelist:
+                caller.msg("Relationship must be one of the following: %s" % ", ".join(self.typelist))
                 return
             name = rhslist[0].lower()
             desc = ", ".join(rhslist[1:])
