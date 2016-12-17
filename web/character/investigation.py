@@ -932,7 +932,7 @@ class CmdTheories(MuxPlayerCommand):
             self.msg("No theory by that ID.")
             return
         self.msg(theory.display())
-        known_clues = [ob.clue for ob in self.caller.roster.finished_clues]
+        known_clues = [ob.clue.id for ob in self.caller.roster.finished_clues]
         disp_clues = theory.related_clues.filter(id__in=known_clues)
         self.msg("{wRelated Clues:{n %s" % ", ".join(ob.name for ob in disp_clues))
 
