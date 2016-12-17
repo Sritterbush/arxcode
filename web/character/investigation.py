@@ -966,7 +966,7 @@ class CmdTheories(MuxPlayerCommand):
             return
         try:
             theory = self.caller.created_theories.get(id=self.lhs)
-        except Theory.DoesNotExist:
+        except (Theory.DoesNotExist, ValueError):
             self.msg("No theory by that ID.")
             return
         if "delete" in self.switches:
@@ -986,7 +986,7 @@ class CmdTheories(MuxPlayerCommand):
         if "addrelatedtheory" in self.switches or "rmrelatedtheory" in self.switches:
             try:
                 other_theory = self.caller.known_theories.get(id=self.rhs)
-            except Theory.DoesNotExist:
+            except (Theory.DoesNotExist, ValueError):
                 self.msg("You do not know a theory by that id.")
                 return
             if "addrelatedtheory" in self.switches:
