@@ -105,11 +105,11 @@ class Wieldable(Object):
     def at_after_move(self, source_location):
         """If new location is not our wielder, remove."""
         location = self.location
-        wielder = self.db.wielded_by
+        wielder = self.db.wielded_by or self.db.sheathed_by
         if not location:
             self.remove(wielder)
             return
-        if self.db.currently_wielded and wielder and location != wielder:
+        if wielder and location != wielder:
             self.remove(wielder)
 
     def at_pre_wield(self, wielder):
