@@ -386,8 +386,13 @@ class AgentMixin(object):
         self.db.guarding = targ
         self.setup_locks()
         self.setup_name()
+        if self.agentob.quantity < 1:
+            self.agentob.quantity = 1
+            self.agentob.save()
 
     def lose_agents(self, num, death=False):
+        if num < 1:
+            return 0
         self.unassign()
 
     def gain_agents(self, num):
@@ -412,6 +417,7 @@ class AgentMixin(object):
         self.stop_follow(unassigning=True)
         self.agentob.unassign()
         self.locks.add("command: false()")
+        self.db.guarding = None
 
     def _get_npc_type(self):
         return self.agent.type

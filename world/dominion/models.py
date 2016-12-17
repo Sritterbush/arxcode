@@ -1910,7 +1910,7 @@ class AgentOb(models.Model):
         have enough, it returns the number it was able to get. It also calls
         unassign if it runs out of troops.
         """
-        num = self.dbobj.lose_agents(num)
+        num = self.dbobj.lose_agents(num) or 0
         self.agent_class.quantity += num
         self.agent_class.save()
         return num

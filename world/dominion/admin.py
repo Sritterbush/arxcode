@@ -9,8 +9,13 @@ from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb,
 
 
 class DomAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name')
     list_select_related = True
     save_as = True
+
+    @staticmethod
+    def name(obj):
+        return str(obj)
 
 
 class PCAdmin(DomAdmin):
