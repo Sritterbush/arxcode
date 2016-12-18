@@ -276,6 +276,8 @@ class CmdAgents(MuxPlayerCommand):
                                              category="agents")
                 return
             except (Agent.DoesNotExist, TypeError, ValueError, IndexError):
+                import traceback
+                traceback.print_exc()
                 caller.msg("User error.")
                 return
         self.msg("Unrecognized switch.")

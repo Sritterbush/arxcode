@@ -314,7 +314,7 @@ class CmdRequest(MuxPlayerCommand):
                 helpdesk_api.add_followup(caller, ticket, self.rhs, mail_player=False)
                 caller.msg("Followup added.")
                 return
-            except Ticket.DoesNotExist:
+            except (Ticket.DoesNotExist, ValueError):
                 caller.msg("No ticket found by that number.")
                 return
         cmdstr = self.cmdstring.lower()
