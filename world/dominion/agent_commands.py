@@ -105,11 +105,11 @@ class CmdAgents(MuxPlayerCommand):
         try:
             loc = caller.character.location
             if loc == caller.character.home:
-                owner = caller.Dominion.assets
+                owner = caller.Dominion.assets.id
             else:
                 owner = loc.db.barracks_owner or loc.db.room_owner
             if owner:
-                owner = AssetOwner.objects.get(id=owner.id)
+                owner = AssetOwner.objects.get(id=owner)
                 if owner != caller.Dominion.assets and not owner.organization_owner.access(caller, 'guards'):
                     caller.msg("You do not have access to guards here.")
             else:
