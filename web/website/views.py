@@ -54,7 +54,7 @@ def page_index(request):
         events = []
 
     pagevars = {
-        "page_title": "Front Page",
+        "page_title": "After the Reckoning",
         "news_entries": news_entries,
         "players_connected_recent": recent_users,
         "num_players_connected": nsess or "noone",

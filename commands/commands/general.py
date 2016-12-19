@@ -54,6 +54,8 @@ class CmdGameSettings(MuxPlayerCommand):
         @settings/ignore_messenger_notifications
         @settings/ignore_messenger_deliveries
         @settings/newline_on_messages
+        @settings/private_mode
+        @settings/ic_only
 
     Toggles different settings. Brief surpresses room descs when
     moving through rooms. Posebreak adds a newline between poses
@@ -64,7 +66,9 @@ class CmdGameSettings(MuxPlayerCommand):
     read @bb messages on your alts as well. ignore_messenger_notifications
     will suppress any notifications that you have unread messengers.
     ignore_messenger_deliveries will suppress messages of a messenger
-    visiting someone else in a room.
+    visiting someone else in a room. Private mode prevents logging any
+    messages that are sent to you. ic_only prevents you from receiving
+    pages.
     """
     key = "@settings"
     locks = "cmd:all()"
@@ -80,6 +84,7 @@ class CmdGameSettings(MuxPlayerCommand):
             else:
                 self.msg("%s is now off." % attr)
                 char.tags.remove(attr)
+                char.tags.all()  # update cache until there's a fix for that
             return
         char.attributes.add(attr, not char.attributes.get(attr))
         if not char.attributes.get(attr):
@@ -126,7 +131,15 @@ class CmdGameSettings(MuxPlayerCommand):
         if "newline_on_messages" in switches:
             self.togglesetting(caller, "newline_on_messages", tag=True)
             return
-
+        if "verbose_where" in switches:
+            self.togglesetting(caller, "verbose_where", tag=True)
+            return
+        if "private_mode" in switches:
+            self.togglesetting(caller, "private_mode", tag=True)
+            return
+        if "ic_only" in switches:
+            self.togglesetting(caller, "IC_Only", tag=True)
+            return
         caller.msg("Invalid switch.")
 
 
@@ -144,19 +157,30 @@ class CmdGlance(MuxCommand):
     locks = "cmd:all()"
     help_category = "Social"
 
+    def send_glance_str(self, char):
+        string = "\n{c%s{n\n%s\n%s" % (char.get_fancy_name(),
+                                       char.return_extras(self.caller),
+                                       char.get_health_appearance())
+        self.msg(string)
+
     def func(self):
         caller = self.caller
-        char = caller.search(self.args)
-        if not char:
+        if not self.args:
+            charlist = [ob for ob in caller.location.contents if ob != caller and hasattr(ob, 'return_extras')]
+        else:
+            char = caller.search(self.args)
+            if not char:
+                return
+            charlist = [char]
+        if not charlist:
+            self.msg("No one to glance at.")
             return
-        try:
-            string = "\n{c%s{n\n%s\n%s" % (char.get_fancy_name(),
-                                           char.return_extras(caller),
-                                           char.get_health_appearance())
-            caller.msg(string)
-        except AttributeError:
-            caller.msg("You cannot glance at that.")
-            return
+        for ob in charlist:
+            try:
+                self.send_glance_str(ob)
+            except AttributeError:
+                caller.msg("You cannot glance at that.")
+                continue
 
 
 class CmdShout(MuxCommand):
@@ -479,7 +503,7 @@ class CmdWhisper(MuxCommand):
         if not recobjs:
             self.msg("No one found to whisper.")
             return
-        header = "{c%s{n whispers," % caller.key.capitalize()
+        header = "{c%s{n whispers," % caller.name
         message = rhs
         # if message begins with a :, we assume it is a 'whisper-pose'
         if message.startswith(":"):
@@ -508,13 +532,13 @@ class CmdWhisper(MuxCommand):
                 omessage = message
                 if otherobs:
                     omessage = "(Also sent to %s.) %s" % (", ".join(ob.name for ob in otherobs), message)
-                pobj.msg(omessage)
+                pobj.msg(omessage, from_obj=caller, options={'is_pose': True})
             else:
                 if otherobs:
                     myheader = header + " to {cyou{n and %s," % ", ".join("{c%s{n" % ob.name for ob in otherobs)
                 else:
                     myheader = header
-                pobj.msg("%s %s" % (myheader, message))
+                pobj.msg("%s %s" % (myheader, message), from_obj=caller, options={'is_pose': True})
             if not pobj.ndb.whispers_received:
                 pobj.ndb.whispers_received = []
             pobj.ndb.whispers_received.append(temp_message)
@@ -549,6 +573,8 @@ class CmdPage(MuxPlayerCommand):
       ttell [<message to last paged player>]
       page/list <number>
       page/noeval
+      page/allow <name>
+      page/unallow <name>
 
     Switch:
       last - shows who you last messaged
@@ -558,7 +584,9 @@ class CmdPage(MuxPlayerCommand):
     paged if no player is given. If no argument is given, you will
     get a list of your latest messages. Note that pages are only
     saved for your current session. Sending pages to multiple receivers
-    accepts the names either separated by commas or whitespaces. 
+    accepts the names either separated by commas or whitespaces.
+
+    /allow and /unallow sets who may page you when you use @settings/ic_only.
     """
 
     key = "page"
@@ -567,12 +595,29 @@ class CmdPage(MuxPlayerCommand):
     help_category = "Comms"
     arg_regex = r'\/|\s|$'
 
+    def disp_allow(self):
+        self.msg("People on allow list: %s" % ", ".join(ob.key for ob in self.caller.allow_list))
+
     def func(self):
         """Implement function using the Msg methods"""
 
         # this is a MuxPlayerCommand, which means caller will be a Player.
         caller = self.caller
-
+        if "allow" in self.switches or "unallow" in self.switches:
+            if not self.args:
+                self.disp_allow()
+                return
+            targ = caller.search(self.args)
+            if not targ:
+                return
+            if "allow" in self.switches:
+                if targ not in caller.allow_list:
+                    caller.allow_list.append(targ)
+            if "unallow" in self.switches:
+                if targ in caller.allow_list:
+                    caller.allow_list.remove(targ)
+            self.disp_allow()
+            return
         # get the messages we've sent (not to channels)
         if not caller.ndb.pages_sent:
             caller.ndb.pages_sent = []
@@ -692,6 +737,10 @@ class CmdPage(MuxPlayerCommand):
                     # Offline players do not have the character attribute
                     self.msg("%s is not online." % findpobj.key)
                     continue
+                if findpobj.tags.get("ic_only") and not caller.check_permstring("builders"):
+                    if caller not in findpobj.allow_list:
+                        self.msg("%s is IC only and can not be sent pages." % findpobj)
+                        continue
             else:
                 continue
             if pobj:
@@ -731,7 +780,7 @@ class CmdPage(MuxPlayerCommand):
             if not pobj.access(caller, 'msg'):
                 r_strings.append("You are not allowed to page %s." % pobj)
                 continue
-            pobj.msg("%s %s" % (header, message))
+            pobj.msg("%s %s" % (header, message), from_obj=caller, options={'log_msg': True})
             if not pobj.ndb.pages_received:
                 pobj.ndb.pages_received = []
             pobj.ndb.pages_received.append(temp_message)
@@ -789,7 +838,7 @@ class CmdOOCSay(MuxCommand):
 
         # calling the speech hook on the location
         speech = caller.location.at_say(caller, speech)
-        options = {"ooc_note": True}
+        options = {"ooc_note": True, "log_msg": True}
 
         # Feedback for the object doing the talking.
         if not oocpose:
@@ -797,14 +846,14 @@ class CmdOOCSay(MuxCommand):
 
             # Build the string to emit to neighbors.
             emit_string = '{y(OOC){n {c%s{n says: %s{n' % (caller.name, speech)
-            caller.location.msg_contents(emit_string,
+            caller.location.msg_contents(emit_string, from_obj=caller,
                                          exclude=caller, options=options)
         else:
             if nospace:
                 emit_string = '{y(OOC){n {c%s{n%s' % (caller.name, speech)
             else:
                 emit_string = '{y(OOC){n {c%s{n %s' % (caller.name, speech)
-            caller.location.msg_contents(emit_string, exclude=None, options=options)
+            caller.location.msg_contents(emit_string, exclude=None, options=options, from_obj=caller)
 
 
 class CmdDiceCheck(MuxCommand):

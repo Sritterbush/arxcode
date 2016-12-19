@@ -46,6 +46,11 @@ class RPEventListView(ListView):
                                           (Q(participants__player_id=user.id) |
                                            Q(hosts__player_id=user.id)))).distinct().order_by('-date')
 
+    def get_context_data(self, **kwargs):
+        context = super(RPEventListView, self).get_context_data(**kwargs)
+        context['page_title'] = 'Events'
+        return context
+
 
 class RPEventDetailView(DetailView):
     model = RPEvent
@@ -69,6 +74,7 @@ class RPEventDetailView(DetailView):
                     pass
         # this will determine if we can read/write about private events, won't be used for public
         context['can_view'] = can_view
+        context['page_title'] = str(self.get_object())
         return context
 
 
@@ -79,6 +85,11 @@ class AssignedTaskListView(ListView):
 
     def get_queryset(self):
         return AssignedTask.objects.filter(finished=True, observer_text__isnull=False).distinct().order_by('-week')
+
+    def get_context_data(self, **kwargs):
+        context = super(AssignedTaskListView, self).get_context_data(**kwargs)
+        context['page_title'] = 'Rumors'
+        return context
 
 
 def event_comment(request, pk):

@@ -511,7 +511,13 @@ class CombatManager(BaseScript):
         """
         try:
             g_fite = self.ndb.fighter_data[character.id]
-            return g_fite.status == "active"
+            if g_fite.status == "active":
+                if character.location != self.obj:
+                    del self.ndb.fighter_data[character.id]
+                    return False
+                if not character.conscious:
+                    return False
+                return True
         except KeyError:
             return False
 
@@ -615,6 +621,8 @@ class CombatManager(BaseScript):
         if protected.location != self.ndb.combat_location or guard.location != self.ndb.combat_location:
             return
         if guard.db.passive_guard:
+            return
+        if not guard.conscious:
             return
         if guard not in self.ndb.combatants:
             self.add_combatant(guard)

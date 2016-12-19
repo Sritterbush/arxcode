@@ -2,26 +2,22 @@
 
 from django.http import Http404
 from django.shortcuts import render
-from django.conf import settings
-
-from evennia.utils.search import object_search
-from evennia.utils.utils import inherits_from
-from evennia.objects.models import ObjectDB
-
 from evennia.help.models import HelpEntry
 from world.dominion.models import (CraftingRecipe, CraftingMaterialType,
-                                  Organization, Member)
+                                   Organization, Member)
 from commands.default_cmdsets import PlayerCmdSet, CharacterCmdSet
 from commands.cmdsets.situational import SituationalCmdSet
+
 
 def topic(request, object_key):
     object_key = object_key.lower()
     try:
-        topic = list(HelpEntry.objects.find_topicmatch(object_key, exact=True))[0]
+        topic_ob = list(HelpEntry.objects.find_topicmatch(object_key, exact=True))[0]
     except IndexError:
         raise Http404("I couldn't find a character with that ID.")
     
-    return render(request, 'help_topics/topic.html', {'topic': topic})
+    return render(request, 'help_topics/topic.html', {'topic': topic_ob, 'page_title': object_key})
+
 
 def command_help(request, cmd_key):
     user = request.user
@@ -29,14 +25,15 @@ def command_help(request, cmd_key):
     matches = [ob for ob in PlayerCmdSet() if ob.key.lower() == cmd_key and ob.access(user, 'cmd')]
     matches += [ob for ob in CharacterCmdSet() if ob.key.lower() == cmd_key and ob.access(user, 'cmd')]
     matches += [ob for ob in SituationalCmdSet() if ob.key.lower() == cmd_key and ob.access(user, 'cmd')]
-    return render(request, 'help_topics/command_help.html', {'matches': matches})
+    return render(request, 'help_topics/command_help.html', {'matches': matches, 'page_title': cmd_key})
+
 
 def list_topics(request):
     user = request.user
     try:
-        all_topics = [topic for topic in HelpEntry.objects.all() if topic.access(user, 'view', default=True)]
-        all_topics = sorted(all_topics, key = lambda entry: entry.key.lower())
-        all_categories = list(set([topic.help_category.capitalize() for topic in all_topics]))
+        all_topics = [topic_ob for topic_ob in HelpEntry.objects.all() if topic_ob.access(user, 'view', default=True)]
+        all_topics = sorted(all_topics, key=lambda entry: entry.key.lower())
+        all_categories = list(set([topic_ob.help_category.capitalize() for topic_ob in all_topics]))
         all_categories = sorted(all_categories)
     except IndexError:
         raise Http404("Error in compiling topic list.")
@@ -45,6 +42,7 @@ def list_topics(request):
     all_orgs = Organization.objects.filter(Q(secret=False) & Q(members__deguilded=False) &
                                            Q(members__player__player__isnull=False)).distinct().order_by('name')
     secret_orgs = []
+    # noinspection PyBroadException
     try:
         if user.is_staff:
             secret_orgs = Organization.objects.filter(secret=True)
@@ -56,7 +54,9 @@ def list_topics(request):
     return render(request, 'help_topics/list.html', {'all_topics': all_topics,
                                                      'all_categories': all_categories,
                                                      'all_orgs': all_orgs,
-                                                     'secret_orgs':secret_orgs,})
+                                                     'secret_orgs': secret_orgs,
+                                                     'page_title': 'topics'})
+
 
 def list_recipes(request):
     user = request.user
@@ -65,11 +65,13 @@ def list_recipes(request):
     materials = CraftingMaterialType.objects.all().order_by('value')
     try:
         known_recipes = user.Dominion.assets.recipes.all()
-    except Exception:
+    except AttributeError:
         pass
     return render(request, 'help_topics/recipes.html', {'all_recipes': all_recipes,
                                                         'materials': materials,
-                                                     'known_recipes': known_recipes})
+                                                        'known_recipes': known_recipes,
+                                                        'page_title': 'recipes'})
+
 
 def display_org(request, object_id):
     user = request.user
@@ -99,13 +101,15 @@ def display_org(request, object_id):
             show_secret = 11
     try:
         holdings = org.assets.estate.holdings.all()
-    except Exception:
+    except AttributeError:
         holdings = []
     return render(request, 'help_topics/org.html', {'org': org,
                                                     'holdings': holdings,
                                                     'rank_display': rank_display,
-                                                    'show_secret': show_secret
+                                                    'show_secret': show_secret,
+                                                    'page_title': org
                                                     })
+
 
 def list_commands(request):
     user = request.user
@@ -113,5 +117,6 @@ def list_commands(request):
     char_cmds = [ob for ob in CharacterCmdSet() if ob.access(user, 'cmd')]
     situational_cmds = [ob for ob in SituationalCmdSet() if ob.access(user, 'cmd')]
     return render(request, 'help_topics/list_commands.html', {'player_cmds': player_cmds,
-                                                    'character_cmds': char_cmds,
-                                                    'situational_cmds': situational_cmds})
+                                                              'character_cmds': char_cmds,
+                                                              'situational_cmds': situational_cmds,
+                                                              'page_title': 'commands'})

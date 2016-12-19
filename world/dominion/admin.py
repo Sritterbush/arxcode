@@ -9,8 +9,13 @@ from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb,
 
 
 class DomAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name')
     list_select_related = True
     save_as = True
+
+    @staticmethod
+    def name(obj):
+        return str(obj)
 
 
 class PCAdmin(DomAdmin):
@@ -243,12 +248,17 @@ class InfluenceCategoryAdmin(DomAdmin):
     def task_requirements(obj):
         return ", ".join([p.name for p in obj.tasks.all().order_by('name')])
     inlines = [SpheresInline, TaskRequirementsInline]
+
+class AgentAdmin(DomAdmin):
+    list_display = ('id', 'name', 'quantity', 'quality', 'owner')
+    raw_id_fields = ('owner',)
+    search_fields = ('name', 'owner__player__player__username', 'owner__organization_owner__name')
   
 # Register your models here.
 admin.site.register(PlayerOrNpc, PCAdmin)
 admin.site.register(Organization, OrgAdmin)
 admin.site.register(Domain, DomainAdmin)
-admin.site.register(Agent, DomAdmin)
+admin.site.register(Agent, AgentAdmin)
 admin.site.register(AgentOb, AgentObAdmin)
 admin.site.register(AssetOwner, AssetAdmin)
 admin.site.register(Army, DomAdmin)

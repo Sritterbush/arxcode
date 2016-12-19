@@ -155,7 +155,9 @@ class StateIndependentCmdSet(CmdSet):
         self.add(social.CmdJournal())
         self.add(social.CmdMessenger())
         self.add(social.CmdRoomHistory())
+        self.add(social.CmdRoomMood())
         self.add(social.CmdRandomScene())
+        self.add(social.CmdRoomTitle())
         self.add(maps.CmdMap())
 
 
@@ -172,7 +174,7 @@ class MobileCmdSet(CmdSet):
         self.add(overrides.CmdGet())
         self.add(overrides.CmdDrop())
         self.add(overrides.CmdGive())
-        self.add(default_general.CmdSay())
+        self.add(overrides.CmdArxSay())
         self.add(general.CmdWhisper())
         self.add(general.CmdFollow())
         self.add(general.CmdDitch())

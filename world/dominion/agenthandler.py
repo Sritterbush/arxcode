@@ -39,6 +39,8 @@ class AgentHandler(object):
 
     def get_or_create_agentob(self, num):
         assert (self.agent.quantity >= num), "Not enough agents to assign."
+        if num < 1:
+            raise ValueError("Assigned non-positive number.")
         if self.agent.unique:
             # ensure we can only ever have one agent object
             agent_obs = self.agent.agent_objects.all()

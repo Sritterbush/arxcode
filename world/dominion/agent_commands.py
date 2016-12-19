@@ -104,17 +104,20 @@ class CmdAgents(MuxPlayerCommand):
             return
         try:
             loc = caller.character.location
-            owner = loc.db.barracks_owner or loc.db.room_owner
+            if loc == caller.character.home:
+                owner = caller.Dominion.assets.id
+            else:
+                owner = loc.db.barracks_owner or loc.db.room_owner
             if owner:
                 owner = AssetOwner.objects.get(id=owner)
                 if owner != caller.Dominion.assets and not owner.organization_owner.access(caller, 'guards'):
                     caller.msg("You do not have access to guards here.")
             else:
-                owner = caller.Dominion.assets
-                if loc != caller.character.home:
-                    self.msg("You do not have access to guards here.")
-                    return
+                self.msg("You do not have access to guards here.")
+                return
         except (AttributeError, AssetOwner.DoesNotExist, ValueError, TypeError):
+            import traceback
+            self.msg(traceback.print_exc())
             caller.msg("You do not have access to guards here.")
             return
         if not self.lhslist:
@@ -124,6 +127,9 @@ class CmdAgents(MuxPlayerCommand):
             try:
                 player, pid, amt = self.lhslist
                 amt = int(amt)
+                if amt < 1:
+                    self.msg("Must assign a positive number.")
+                    return
                 pid = int(pid)
                 targ = caller.search(player)
                 if not targ:
@@ -174,8 +180,8 @@ class CmdAgents(MuxPlayerCommand):
                 if not agentob:
                     caller.msg("No agents assigned to %s by %s." % (player, owner.owner))
                     return
-                val = agentob.recall(amt)
-                caller.msg("You have recalled %s from %s. They have %s left." % (val, player, agentob.quantity))
+                agentob.recall(amt)
+                caller.msg("You have recalled %s from %s. They have %s left." % (amt, player, agentob.quantity))
                 return
             except Agent.DoesNotExist:
                 caller.msg("No agents found for those arguments.")
@@ -228,14 +234,17 @@ class CmdAgents(MuxPlayerCommand):
         if 'desc' in self.switches or 'name' in self.switches or 'transferowner' in self.switches:
             try:
                 agent = Agent.objects.get(id=int(self.lhslist[0]))
+                strval = ""
                 if not agent.access(caller, 'agents'):
                     caller.msg("No access.")
                     return
                 if 'desc' in self.switches:
                     attr = 'desc'
-                    agent.desc = self.lhslist[1]
+                    strval = self.rhs or ", ".join(self.lhslist[1:])
+                    agent.desc = strval
                 elif 'name' in self.switches:
-                    name = self.lhslist[1]
+                    strval = self.rhs or ", ".join(self.lhslist[1:])
+                    name = strval
                     if not validate_name(name):
                         self.msg("That is not a valid name.")
                         return
@@ -261,12 +270,14 @@ class CmdAgents(MuxPlayerCommand):
                     return
                 agent.save()
                 # do we need to do any refresh_from_db calls here to prevent sync errors with stale foreignkeys?
-                caller.msg("Changed %s to %s." % (attr, self.lhslist[1]))
+                caller.msg("Changed %s to %s." % (attr, strval))
                 if attr == 'owner':
                     agent.owner.inform_owner("You have been transferred ownership of %s from %s." % (agent, caller),
                                              category="agents")
                 return
             except (Agent.DoesNotExist, TypeError, ValueError, IndexError):
+                import traceback
+                traceback.print_exc()
                 caller.msg("User error.")
                 return
         self.msg("Unrecognized switch.")

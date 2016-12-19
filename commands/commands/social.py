@@ -81,16 +81,30 @@ class CmdWhere(MuxPlayerCommand):
             caller.msg("No visible characters found.")
             return
         caller.msg("{wLocations of players:\n")
+        verbose_where = False
+        if caller.tags.get("verbose_where"):
+            verbose_where = True
+        self.msg("Players who are currently LRP have a |R+|n by their name.")
         for room in rooms:
-            charlist = ", ".join(str(char) for char in room.get_visible_characters(caller) if char.player
-                                 and (not char.player.db.hide_from_watch or caller.check_permstring("builders")))
-            if not charlist:
+            def char_name(ob):
+                cname = ob.name
+                if ob.db.player_ob and ob.db.player_ob.db.lookingforrp:
+                    cname += "|R+|n"
+                if not verbose_where:
+                    return cname
+                if ob.db.room_title:
+                    cname += "{w(%s){n" % ob.db.room_title
+                return cname
+            charlist = sorted(room.get_visible_characters(caller), key=lambda x: x.name)
+            char_names = ", ".join(char_name(char) for char in charlist if char.player
+                                   and (not char.player.db.hide_from_watch or caller.check_permstring("builders")))
+            if not char_names:
                 continue
             name = room.name
             if room.db.x_coord is not None and room.db.y_coord is not None:
                 pos = (room.db.x_coord, room.db.y_coord)
                 name = "%s %s" % (name, str(pos))
-            msg = "%s: %s" % (name, charlist)
+            msg = "%s: %s" % (name, char_names)
             caller.msg(msg)
 
 
@@ -314,8 +328,8 @@ class CmdJournal(MuxCommand):
         from evennia.comms.models import Msg
         caller = self.caller
         all_msgs = Msg.objects.filter(Q(db_header__contains="white_journal") &
-                                      ~Q(db_receivers_players=caller.db.player_ob) &
-                                      ~Q(db_sender_objects__roster__current_account=caller.roster.current_account)
+                                      ~Q(db_receivers_players=caller.db.player_ob)
+                                      # & ~Q(db_sender_objects__roster__current_account=caller.roster.current_account)
                                       ).distinct()
         for msg in all_msgs:
             msg.db_receivers_players.add(caller.db.player_ob)
@@ -593,9 +607,14 @@ class CmdMessenger(MuxCommand):
             caller.msg("%s will also deliver %s." % (deliver_str, delivery))
         if money:
             caller.msg("%s will also deliver %s silver." % (deliver_str, money))
+        caller.posecount += 1
 
     @staticmethod
     def disp_messenger(caller, msg):
+        if not msg:
+            caller.msg("It appears this messenger was deleted already. If this appears to be an error, "
+                       "inform staff please.")
+            return
         senders = msg.senders
         if senders:
             sender = senders[0]
@@ -879,7 +898,7 @@ class CmdMessenger(MuxCommand):
                 caller.msg("Money must be a number.")
                 return
         # normal messenger
-        else:
+        elif "draft" in self.switches or not self.switches:
             money = 0
             targs = []
             for arg in self.lhslist:
@@ -887,6 +906,9 @@ class CmdMessenger(MuxCommand):
                 if targ:
                     targs.append(targ)
             delivery = None
+        else:  # invalid switch
+            self.msg("Unrecognized switch.")
+            return
         if not targs:
             return
         # get character objects of each match
@@ -1480,6 +1502,35 @@ class CmdRoomHistory(MuxCommand):
         return
 
 
+class CmdRoomMood(MuxCommand):
+    """
+    Adds a historical note to a room
+
+    Usage:
+        +room_mood <message>
+
+    Changes the current 'mood' of the room, which is a few lines that can be
+    set to describe things which recently happened and shows up under look.
+    Lasts for 24 hours.
+    """
+    key = "+room_mood"
+    locks = "cmd:all()"
+    help_category = "Social"
+
+    def func(self):
+        """Execute command."""
+        caller = self.caller
+        mood = caller.location.db.room_mood or (None, 0, "")
+        self.msg("Old mood was: %s" % mood[2])
+        if not self.args:
+            caller.location.attributes.remove("room_mood")
+            self.msg("Mood erased.")
+            return
+        mood = (caller, time.time(), self.args)
+        caller.location.db.room_mood = mood
+        self.msg("New mood is: %s" % mood[2])
+
+
 class CmdSocialScore(MuxCommand):
     """
     The who's-who of Arx
@@ -1554,10 +1605,12 @@ class CmdThink(MuxCommand):
     Usage:
         +think <message>
         
-    Sends a message to yourself about your thoughts. Can possibly
-    be used by mind-readers.
+    Sends a message to yourself about your thoughts. At present, this
+    is really mostly for your own use in logs and the like. Eventually,
+    characters with mind-reading powers may be able to see these.
     """
     key = "+think"
+    aliases = ["think"]
     locks = "cmd:all()"
     help_category = "Social"
             
@@ -1578,6 +1631,7 @@ class CmdFeel(MuxCommand):
     be seen by very sensitive people.
     """
     key = "+feel"
+    aliases = ["feel"]
     locks = "cmd:all()"
     help_category = "Social"
             
@@ -1671,7 +1725,7 @@ class CmdRandomScene(MuxCommand):
         """
         newness = datetime.now() - timedelta(days=self.DAYS_FOR_NEWBIE_CHECK)
         return self.valid_choices.filter(Q(roster__accounthistory__start_date__gte=newness) &
-                                         Q(roster__accounthistory__end_date__isnull=True))
+                                         Q(roster__accounthistory__end_date__isnull=True)).order_by('db_key')
 
     @property
     def valid_choices(self):
@@ -1799,3 +1853,27 @@ class CmdCensus(MuxPlayerCommand):
         for fealty in fealties:
             table.add_row([fealty, fealties[fealty]])
         self.msg(table)
+
+
+class CmdRoomTitle(MuxCommand):
+    """
+    Displays what your character is currently doing in the room
+
+    Usage:
+        +roomtitle <description>
+
+    Appends a short blurb to your character's name when they are displayed
+    to the room in parentheses.
+    """
+    key = "+roomtitle"
+    locks = "cmd:all()"
+    category = "Social"
+
+    def func(self):
+        if not self.args:
+            self.msg("Roomtitle cleared.")
+            self.caller.attributes.remove("room_title")
+            return
+        self.caller.db.room_title = self.args
+        self.msg("Your roomtitle set to %s {w({n%s{w){n" % (self.caller, self.args))
+        return

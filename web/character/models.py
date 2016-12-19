@@ -501,9 +501,8 @@ class ClueDiscovery(models.Model):
         except ClueDiscovery.DoesNotExist:
             targ_clue = entry.clues.create(clue=self.clue)
         if targ_clue in entry.finished_clues:
-            entry.player.inform("%s tried to share the clue %s with you, but you already know that." % (self.character,
-                                                                                                        self.name),
-                                category="Investigations")
+            entry.player.send_or_queue_msg("%s tried to share the clue %s with you, but you already know that." % (
+                self.character, self.name))
             return
         targ_clue.roll += self.roll
         targ_clue.discovery_method = "Sharing"
@@ -909,3 +908,31 @@ class Investigation(models.Model):
         if prog <= 75:
             return "You feel like you're getting close to finding something."
         return "You feel like you're on the verge of a breakthrough. You just need more time."
+
+
+class Theory(models.Model):
+    """
+    Represents a theory that a player has come up with, and is now
+    stored and can be shared with others.
+    """
+    creator = models.ForeignKey("players.PlayerDB", related_name="created_theories", blank=True, null=True,
+                                db_index=True)
+    known_by = models.ManyToManyField("players.PlayerDB", related_name="known_theories", blank=True, null=True)
+    topic = models.CharField(max_length=255, blank=True, null=True)
+    desc = models.TextField(blank=True, null=True)
+    related_clues = models.ManyToManyField("Clue", related_name="theories", blank=True, null=True)
+    related_theories = models.ManyToManyField("self", blank=True)
+
+    class Meta:
+        """Define Django meta options"""
+        verbose_name_plural = "Theories"
+
+    def __str__(self):
+        return "%s's theory on %s" % (self.creator, self.topic)
+
+    def display(self):
+        msg = "\n{wCreator{n: %s\n" % self.creator
+        msg += "{wTopic{n: %s\n" % self.topic
+        msg += "{wDesc{n: %s\n" % self.desc
+        msg += "{wRelated Theories{n: %s\n" ", ".join(ob.id for ob in self.related_theories.all())
+        return msg

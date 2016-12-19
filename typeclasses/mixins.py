@@ -236,6 +236,8 @@ class AppearanceMixins(object):
             elif con.has_player:
                 # we might have either a title or a fake name
                 lname = con.name
+                if con.db.room_title:
+                    lname += "{w(%s){n" % con.db.room_title
                 if con.key in lname and not con.db.false_name:
                     lname = lname.replace(key, "{c%s{n" % key)
                     users.append(lname)
@@ -413,33 +415,52 @@ class MsgMixins(object):
         except (TypeError, UnicodeDecodeError, ValueError):
             pass
         text = sub_old_ansi(text)
+        if from_obj and isinstance(from_obj, dict):
+            # somehow our from_obj had a dict passed to it. Fix it up.
+            # noinspection PyBroadException
+            try:
+                options.update(from_obj)
+                from_obj = None
+            except Exception:
+                import traceback
+                traceback.print_exc()
         if options.get('is_pose', False):
             if self.db.posebreak:
                 text = "\n" + text
             quote_color = self.db.pose_quote_color
             # colorize people's quotes with the given text
             if quote_color:
-                import re
-
+                pass  # to do later
         if options.get('box', False):
             boxchars = '\n{w' + '*' * 70 + '{n\n'
             text = boxchars + text + boxchars
         if options.get('roll', False):
             if self.attributes.has("dice_string"):
                 text = "{w<" + self.db.dice_string + "> {n" + text
-        if from_obj and isinstance(from_obj, dict):
-            print "DEBUG in MsgMixins: from_obj is %s" % from_obj
         try:
             if self.db.char_ob:
                 msg_sep = self.tags.get("newline_on_messages")
+                player_ob = self
             else:
                 msg_sep = self.db.player_ob.tags.get("newline_on_messages")
+                player_ob = self.db.player_ob
         except AttributeError:
             msg_sep = None
+            player_ob = self
         try:
             if msg_sep:
                 text += "\n"
         except (TypeError, ValueError):
+            pass
+        try:
+            if from_obj and (options.get('is_pose', False) or options.get('log_msg', False)):
+                private_msg = False
+                if hasattr(self, 'location') and hasattr(from_obj, 'location') and self.location == from_obj.location:
+                    if self.location.tags.get("private"):
+                        private_msg = True
+                if not private_msg:
+                    player_ob.log_message(from_obj, text)
+        except AttributeError:
             pass
         super(MsgMixins, self).msg(text, from_obj, session, options, **kwargs)
 

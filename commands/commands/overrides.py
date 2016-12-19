@@ -16,6 +16,7 @@ from world.dominion.models import CraftingMaterials
 from evennia.commands.default.building import _LITERAL_EVAL, ObjManipCommand
 from evennia.utils.utils import to_str
 from evennia.utils import create
+from evennia.commands.default.general import CmdSay
 
 AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
 
@@ -500,6 +501,7 @@ class CmdEmit(MuxCommand):
         if (self.cmdstring == '@remit' or self.cmdstring == '@pemit') and not caller.check_permstring(perm):
             caller.msg("Those options are restricted to GMs only.")
             return
+        self.caller.posecount += 1
         if self.cmdstring == '@remit':
             rooms_only = True
             send_to_contents = True
@@ -528,6 +530,7 @@ class CmdEmit(MuxCommand):
         if normal_emit:
             gms = [ob for ob in caller.location.contents if ob.check_permstring('builders')]
             caller.location.msg_contents("{w[Emit by: {c%s{w]{n %s" % (caller.name, message),
+                                         from_obj=caller,
                                          options={'is_pose': True}, gm_msg=True)
             caller.location.msg_contents(message, exclude=gms, from_obj=caller, options={'is_pose': True})
             return
@@ -606,6 +609,26 @@ class CmdPose(MuxCommand):
         else:
             msg = "%s%s" % (self.caller.name, self.args)
             self.caller.location.msg_contents(msg, from_obj=self.caller, options={'is_pose': True})
+            self.caller.posecount += 1
+
+
+class CmdArxSay(CmdSay):
+    __doc__ = CmdSay.__doc__
+
+    def func(self):
+        if not self.args:
+            self.msg("Say what?")
+            return
+        speech = self.args
+        # calling the speech hook on the location
+        speech = self.caller.location.at_say(self.caller, speech)
+        # Feedback for the object doing the talking.
+        self.caller.msg('You say, "%s{n"' % speech)
+        # Build the string to emit to neighbors.
+        emit_string = '%s says, "%s{n"' % (self.caller.name, speech)
+        self.caller.location.msg_contents(emit_string, from_obj=self.caller,
+                                          exclude=self.caller, options={'is_pose': True})
+        self.caller.posecount += 1
 
 
 # Changed to display room dbref number rather than room name

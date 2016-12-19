@@ -29,8 +29,8 @@ class CmdUseXP(MuxCommand):
     and allows you to spend xp to increase stats or skills with the
     /spend switch. Costs can be reduced by finding a teacher who is willing
     to use the '{wtrain{n' command on you, and has a skill or stat of the
-    appropriate rank you're trying to achieve. Any training bonus is lost
-    after the first time xp is spent in a week.
+    appropriate rank you're trying to achieve. The training bonus vanishes
+    when xp is spent.
 
     Dominion influence is bought with 'resources' rather than xp. The
     'learn' command is the same as 'xp/spend'.
@@ -55,6 +55,7 @@ class CmdUseXP(MuxCommand):
             self.switches.append("spend")
         if not self.args:
             # Just display our xp
+            caller.msg("{wCurrent Teacher:{n %s" % caller.db.trainer)
             caller.msg("{wUnspent XP:{n %s" % caller.db.xp)
             caller.msg("{wLifetime Earned XP:{n %s" % caller.db.total_xp)
             all_stats = ", ".join(stat for stat in stats_and_skills.VALID_STATS)
@@ -103,6 +104,8 @@ class CmdUseXP(MuxCommand):
                 caller.msg("Dominion object not found.")
                 return
         elif args in stats_and_skills.VALID_ABILITIES:
+            if not caller.db.abilities:
+                caller.db.abilities = {}
             # if we don't have it, determine if we can learn it
             if not caller.db.abilities.get(args, 0):
                 if args in stats_and_skills.CRAFTING_ABILITIES:
@@ -267,6 +270,9 @@ class CmdTrain(MuxCommand):
         """Execute command."""
         caller = self.caller
         switches = self.switches
+        if not self.args:
+            self.msg("Currently training: %s" % ", ".join(str(ob) for ob in self.currently_training))
+            return
         if not self.lhs or not self.rhs or not self.switches:
             caller.msg("Usage: train/[stat or skill] <character to train>=<name of stat or skill to train>")
             return
@@ -413,7 +419,7 @@ class CmdAdjustSkill(MuxPlayerCommand):
                     cost = skill_list.pop()
                     skill_history[self.rhs] = skill_list
                     char.db.skill_history = skill_history
-                except (KeyError, IndexError):
+                except (KeyError, IndexError, TypeError):
                     try:
                         current = char.db.skills[self.rhs]
                     except KeyError:
@@ -433,10 +439,10 @@ class CmdAdjustSkill(MuxPlayerCommand):
                     cost = ability_list.pop()
                     ability_history[self.rhs] = ability_list
                     char.db.ability_history = ability_history
-                except (KeyError, IndexError):
+                except (KeyError, IndexError, TypeError):
                     try:
                         current = char.db.abilities[self.rhs]
-                    except KeyError:
+                    except (KeyError, TypeError):
                         caller.msg("No such ability.")
                         return
                     cost = stats_and_skills.cost_at_rank(self.rhs, current - 1, current)

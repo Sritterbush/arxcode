@@ -132,12 +132,14 @@ def get_ability_val(char, recipe):
     recipe.
     """
     ability_list = recipe.ability.split(",")
+    abilities = char.db.abilities or {}
+    skills = char.db.skills or {}
     if ability_list == "all" or not ability_list:
         # get character's highest ability
-        values = sorted(char.db.abilities.values(), reverse=True)
+        values = sorted(abilities.values(), reverse=True)
         if not values:
-            if "artwork" in char.db.skills:
-                ability = char.db.skills['artwork']
+            if "artwork" in skills:
+                ability = skills['artwork']
             else:  # we have no abilities, and no artwork skill
                 ability = 0
         else:
@@ -145,7 +147,7 @@ def get_ability_val(char, recipe):
     else:
         abvalues = []
         for abname in ability_list:
-            abvalues.append(char.db.abilities.get(abname, 0))
+            abvalues.append(abilities.get(abname, 0))
         ability = sorted(abvalues, reverse=True)[0]
     return ability
     
@@ -157,7 +159,7 @@ def do_crafting_roll(char, recipe, diffmod=0, diffmult=1.0):
         diff = 0
     ability = get_ability_val(char, recipe)
     skill = recipe.skill
-    stat = "luck"
+    stat = "luck" if char.db.luck > char.db.dexterity else "dexterity"
     return do_dice_check(char, stat=stat, difficulty=diff, skill=skill, bonus_dice=ability)
 
 

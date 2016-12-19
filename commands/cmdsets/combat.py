@@ -80,6 +80,8 @@ class CmdStartCombat(MuxCommand):
     present in the room if one exists. While in combat, a number of combat-
     specific commands will be made available to you. Combat continues
     while two or more characters are active combatants.
+
+    To end combat, use +end_fight.
     """
     key = "+fight"
     aliases = ["fight"]
@@ -702,6 +704,7 @@ class CmdCombatStats(MuxCommand):
     View your combat stats
     Usage:
         +combatstats
+        +combatstats/view <character>
         
     Displays your combat stats.
     """
@@ -712,13 +715,24 @@ class CmdCombatStats(MuxCommand):
     def func(self):
         """Execute command."""
         caller = self.caller
-        combat = check_combat(caller, quiet=True)
-        if not combat or caller not in combat.ndb.combatants:
-            from typeclasses.scripts.combat.combatant import CharacterCombatData
-            fighter = CharacterCombatData(caller, None)
+        if "view" in self.switches:
+            if not self.caller.player.check_permstring("builders"):
+                self.msg("Only GMs can view +combatstats of other players.")
+                return
+            pc = caller.player.search(self.args)
+            if not pc:
+                return
+            char = pc.db.char_ob
         else:
-            fighter = combat.get_fighter_data(caller.id)
-        self.msg(fighter.display_stats())
+            char = caller
+        combat = check_combat(char, quiet=True)
+        if not combat or char not in combat.ndb.combatants:
+            from typeclasses.scripts.combat.combatant import CharacterCombatData
+            fighter = CharacterCombatData(char, None)
+        else:
+            fighter = combat.get_fighter_data(char.id)
+        msg = "\n{c%s{w's Combat Stats\n" % char
+        self.msg(msg + fighter.display_stats())
 
 
 """

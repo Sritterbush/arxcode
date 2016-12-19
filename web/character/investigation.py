@@ -4,10 +4,11 @@ stories, the timeline, etc.
 """
 
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from .models import Investigation, Clue, InvestigationAssistant, ClueDiscovery
+from .models import Investigation, Clue, InvestigationAssistant, ClueDiscovery, Theory
 from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from server.utils.arx_utils import inform_staff
+from world.dominion.models import Agent
 
 
 class InvestigationFormCommand(MuxCommand):
@@ -164,7 +165,6 @@ class InvestigationFormCommand(MuxCommand):
             if "skill" in self.switches:
                 if not self.check_skill():
                     return
-
                 investigation[3] = self.args
                 self.disp_investigation_form()
                 return True
@@ -191,9 +191,10 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         @helpinvestigate/skill <additional skill besides investigation>
         @helpinvestigate/cancel
         @helpinvestigate/finish
-        @helpinvestigate/stop <id #>
+        @helpinvestigate/stop
         @helpinvestigate/resume <id #>
-        @helpinvestigate/retainerstop <id #>
+        @helpinvestigate/retainerstop <retainer ID>
+        @helpinvestigate/retaineresume <id #>=<retainer ID>
 
     Helps with an investigation, or orders a retainer to help
     with the investigation. You may only help with one investigation
@@ -304,17 +305,27 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         self.disp_investigation_form()
 
     def mark_active(self, created_object):
-        try:
-            current = self.helper.assisted_investigations.get(currently_helping=True)
-            current.currently_helping = False
-            current.save()
+        current_qs = self.helper.assisted_investigations.filter(currently_helping=True)
+        if current_qs:
+            for current in current_qs:
+                current.currently_helping = False
+                current.save()
             self.msg("%s was currently helping another investigation. Switching." % self.helper)
-        except InvestigationAssistant.DoesNotExist:
-            pass
-        created_object.currently_helping = True
-        created_object.save()
-        created_object.investigation.do_roll()
-        self.msg("%s is now helping %s." % (self.helper, created_object))
+        try:
+            if self.helper.roster.investigations.filter(active=True):
+                already_investigating = True
+            else:
+                already_investigating = False
+        except AttributeError:
+            already_investigating = False
+        if not already_investigating:
+            created_object.currently_helping = True
+            created_object.save()
+            created_object.investigation.do_roll()
+            self.msg("%s is now helping %s." % (self.helper, created_object))
+        else:
+            self.msg("You already have an active investigation. That must stop before you help another.\n"
+                     "Once that investigation is no longer active, you may resume helping this investigation.")
         self.caller.attributes.remove(self.form_attr)
 
     @property
@@ -375,6 +386,56 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             return
         if "view" in self.switches or not self.switches:
             self.view_investigation()
+            return
+        if "stop" in self.switches or "retainerstop" in self.switches:
+            if "retainerstop" in self.switches:
+                try:
+                    if self.args.isdigit():
+                        char = self.caller.player.retainers.get(id=self.args).dbobj
+                    else:
+                        char = self.caller.player.retainers.get(name=self.args).dbobj
+                except (ValueError, TypeError, Agent.DoesNotExist):
+                    self.msg("Retainer not found by that name or number.")
+                    return
+            else:
+                char = self.caller
+            for ob in char.assisted_investigations.filter(currently_helping=True):
+                ob.currently_helping = False
+                ob.save()
+            self.msg("%s stopped assisting investigations." % char)
+            return
+        if "resume" in self.switches or "retainerresume" in self.switches:
+            if "retainerresume" in self.switches:
+
+                try:
+                    if self.rhs.isdigit():
+                        char = self.caller.player.retainers.get(id=self.rhs).dbobj
+                    else:
+                        char = self.caller.player.retainers.get(name=self.rhs).dbobj
+                except Agent.DoesNotExist:
+                    self.msg("No retainer found by that ID or number.")
+                    return
+            else:  # not a retainer, just the caller. So check if they have an active investigation
+                char = self.caller
+                if self.caller.roster.investigations.filter(active=True):
+                    self.msg("You currently have an active investigation, and cannot assist an investigation.")
+                    return
+            # check if they already are assisting something
+            if char.assisted_investigations.filter(currently_helping=True):
+                self.msg("%s is already assisting an investigation." % char)
+                return
+            # all checks passed, mark it as currently being helped if the investigation exists
+            try:
+                ob = char.assisted_investigations.get(investigation__id=self.lhs)
+                ob.currently_helping = True
+                ob.save()
+                self.msg("Now helping %s." % ob.investigation)
+            except (ValueError, TypeError, InvestigationAssistant.DoesNotExist):
+                self.msg("Not helping an investigation by that number.")
+            except InvestigationAssistant.MultipleObjectsReturned:
+                self.msg("Well, this is awkward. You are assisting that investigation multiple times. This shouldn't "
+                         "be able to happen, but here we are.")
+                inform_staff("BUG: %s is assisting investigation %s multiple times." % (char, self.lhs))
             return
         self.msg("Unrecognized switch.")
         
@@ -510,6 +571,9 @@ class CmdInvestigate(InvestigationFormCommand):
                 ob.ongoing = False
                 ob.active = False
                 ob.save()
+                for ass in ob.active_assistants:
+                    ass.currently_helping = False
+                    ass.save()
                 caller.msg("Investigation has been marked to no longer be ongoing.")
                 return
             if "view" in self.switches or not self.switches:
@@ -780,6 +844,7 @@ class CmdListClues(MuxPlayerCommand):
             caller.msg(clue.display())
             return
         if "share" in self.switches:
+            shared_names = []
             for arg in self.rhslist:
                 pc = caller.search(arg)
                 if not pc:
@@ -791,7 +856,8 @@ class CmdListClues(MuxPlayerCommand):
                              "at least some RP talking about it.")
                     return
                 clue.share(pc.roster)
-                caller.msg("You have shared the clue '%s' with %s." % (clue, pc.roster))
+                shared_names.append(str(pc.roster))
+            caller.msg("You have shared the clue '%s' with %s." % (clue, ", ".join(shared_names)))
             return
         caller.msg("Invalid switch")
         return
@@ -827,3 +893,120 @@ class CmdListMysteries(MuxPlayerCommand):
     def func(self):
         if not self.args:
             return
+
+
+class CmdTheories(MuxPlayerCommand):
+    """
+    @theories
+
+    Usage:
+        @theories
+        @theories <theory ID #>
+        @theories/share <theory ID #>=<player>
+        @theories/create <topic>=<description>
+        @theories/addclue <theory ID #>=<clue ID #>
+        @theories/rmclue <theory ID #>=<clue ID #>
+        @theories/addrelatedtheory <your theory ID #>=<other's theory ID #>
+        @theories/delete <theory ID #>
+        @theories/editdesc <theory ID #>=<desc>
+        @theoies/edittopic <theory ID #>=<topic>
+
+    Allows you to create and share theories your character comes up with,
+    and associate them with clues and other theories. You may only create
+    associations for theories that you created.
+    """
+    key = "@theories"
+    locks = "cmd:all()"
+    help_category = "Investigation"
+
+    def display_theories(self):
+        table = EvTable("{wID #{n", "{wTopic{n")
+        for theory in self.caller.known_theories.all():
+            table.add_row(theory.id, theory.topic)
+        self.msg(table)
+
+    def view_theory(self):
+        try:
+            theory = self.caller.known_theories.get(id=self.args)
+        except (Theory.DoesNotExist, ValueError, TypeError):
+            self.msg("No theory by that ID.")
+            return
+        self.msg(theory.display())
+        known_clues = [ob.clue.id for ob in self.caller.roster.finished_clues]
+        disp_clues = theory.related_clues.filter(id__in=known_clues)
+        self.msg("{wRelated Clues:{n %s" % ", ".join(ob.name for ob in disp_clues))
+
+    def func(self):
+        if not self.args:
+            self.display_theories()
+            return
+        if not self.switches or "view" in self.switches:
+            self.view_theory()
+            return
+        if "create" in self.switches:
+            theory = self.caller.created_theories.create(topic=self.lhs, desc=self.rhs)
+            self.caller.known_theories.add(theory)
+            self.msg("You have created a new theory.")
+            return
+        if "share" in self.switches:
+            try:
+                theory = self.caller.known_theories.get(id=self.lhs)
+            except (Theory.DoesNotExist, ValueError):
+                self.msg("No theory found by that ID.")
+                return
+            targ = self.caller.search(self.rhs)
+            if not targ:
+                return
+            if theory in targ.known_theories.all():
+                self.msg("They already know that theory.")
+                return
+            targ.known_theories.add(theory)
+            self.msg("Theory %s added to %s." % (self.lhs, targ))
+            targ.inform("%s has shared a theory with you." % self.caller, category="Theories")
+            return
+        try:
+            theory = self.caller.created_theories.get(id=self.lhs)
+        except (Theory.DoesNotExist, ValueError):
+            self.msg("No theory by that ID.")
+            return
+        if "delete" in self.switches:
+            theory.delete()
+            self.msg("Theory deleted.")
+            return
+        if "editdesc" in self.switches:
+            theory.desc = self.rhs
+            theory.save()
+            self.msg("New desc is: %s" % theory.desc)
+            return
+        if "edittopic" in self.switches:
+            theory.topic = self.rhs
+            theory.save()
+            self.msg("New topic is: %s" % theory.topic)
+            return
+        if "addrelatedtheory" in self.switches or "rmrelatedtheory" in self.switches:
+            try:
+                other_theory = self.caller.known_theories.get(id=self.rhs)
+            except (Theory.DoesNotExist, ValueError):
+                self.msg("You do not know a theory by that id.")
+                return
+            if "addrelatedtheory" in self.switches:
+                theory.related_theories.add(other_theory)
+                self.msg("Theory added.")
+            else:
+                theory.related_theories.remove(other_theory)
+                self.msg("Theory removed.")
+            return
+        if "addclue" in self.switches or "rmclue" in self.switches:
+            try:
+                clue = self.caller.roster.finished_clues.get(id=self.rhs)
+            except (ClueDiscovery.DoesNotExist, ValueError, TypeError, AttributeError):
+                self.msg("No clue by that ID.")
+                return
+            if "addclue" in self.switches:
+                theory.related_clues.add(clue.clue)
+                self.msg("Added clue %s to theory." % clue.name)
+            else:
+                theory.related_clues.remove(clue.clue)
+                self.msg("Removed clue %s from theory." % clue.name)
+            return
+

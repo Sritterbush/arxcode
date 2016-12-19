@@ -6,7 +6,7 @@ from .models import (Roster, RosterEntry, Photo,
                      PlayerAccount, AccountHistory,
                      Mystery, Revelation, Clue, Investigation,
                      MysteryDiscovery, RevelationDiscovery, ClueDiscovery,
-                     RevelationForMystery, ClueForRevelation,
+                     RevelationForMystery, ClueForRevelation, Theory,
                      )
 
 
@@ -45,11 +45,11 @@ class AccountHistoryInline(admin.TabularInline):
 
 
 class AccountAdmin(BaseCharAdmin):
-    list_display = ('id', 'email', 'Characters')
+    list_display = ('id', 'email', 'player_characters')
     search_fields = ('email', 'characters__character__db_key')
     inlines = [AccountHistoryInline]
 
-    def Characters(self, obj):
+    def player_characters(self, obj):
         return ", ".join([str(ob) for ob in obj.characters.all()])
 
 
@@ -114,7 +114,7 @@ class ClueDiscoInline(admin.TabularInline):
 
 class ClueAdmin(BaseCharAdmin):
     list_display = ('id', 'name', 'known_by', 'used_for')
-    inlines = [ClueDiscoInline]
+    # inlines = [ClueDiscoInline]
     search_fields = ('id', 'name', 'characters__character__db_key', 'revelations__name')
 
     def known_by(self, obj):
@@ -161,6 +161,20 @@ class InvestigationAdmin(BaseCharAdmin):
         return ", ".join(str(ob.char) for ob in obj.active_assistants)
 
 
+class TheoryAdmin(BaseCharAdmin):
+    list_display = ('id', 'creator', 'topic', 'description', 'shared_with')
+    filter_horizontal = ('known_by', 'related_clues', 'related_theories')
+
+    @staticmethod
+    def shared_with(obj):
+        return ", ".join(str(ob) for ob in obj.known_by.all())
+
+    def description(self, obj):
+        from web.help_topics.templatetags.app_filters import mush_to_html
+        return mush_to_html(obj.desc)
+    description.allow_tags = True
+
+
 # Register your models here.
 admin.site.register(Roster, BaseCharAdmin)
 admin.site.register(RosterEntry, EntryAdmin)
@@ -177,4 +191,5 @@ admin.site.register(Mystery, MysteryAdmin)
 admin.site.register(Revelation, RevelationAdmin)
 admin.site.register(Clue, ClueAdmin)
 admin.site.register(Investigation, InvestigationAdmin)
+admin.site.register(Theory, TheoryAdmin)
 

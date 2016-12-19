@@ -143,7 +143,7 @@ class Player(MsgMixins, DefaultPlayer):
             pass
         pending = self.db.pending_messages or []
         for msg in pending:
-            self.msg(msg, box=True)
+            self.msg(msg, options={'box': True})
         self.db.pending_messages = []
         # in this mode we should have only one character available. We
         # try to auto-connect to it by calling the @ic command
@@ -160,6 +160,7 @@ class Player(MsgMixins, DefaultPlayer):
                 self.roster.save()
         except AttributeError:
             pass
+
 
     def is_guest(self):
         """
@@ -218,7 +219,7 @@ class Player(MsgMixins, DefaultPlayer):
 
     def send_or_queue_msg(self, message):
         if self.is_connected:
-            self.msg(message, box=True)
+            self.msg(message, options={'box': True})
             return
         pending = self.db.pending_messages or []
         pending.append(message)
@@ -289,3 +290,58 @@ class Player(MsgMixins, DefaultPlayer):
         if not self.db.hide_from_watch:
             for watcher in watched_by:
                 watcher.msg("{wA player you are watching, {c%s{w, has disconnected.{n" % self.key.capitalize())
+        self.previous_log = self.current_log
+        self.current_log = []
+
+    def log_message(self, from_obj, text):
+        from evennia.utils.utils import make_iter
+        if not self.tags.get("private_mode"):
+            text = text.strip()
+            from_obj = make_iter(from_obj)[0]
+            tup = (from_obj, text)
+            if tup not in self.current_log and from_obj != self and from_obj != self.db.char_ob:
+                self.current_log.append((from_obj, text))
+
+    @property
+    def current_log(self):
+        if self.ndb.current_log is None:
+            self.ndb.current_log = []
+        return self.ndb.current_log
+
+    @current_log.setter
+    def current_log(self, val):
+        self.ndb.current_log = val
+
+    @property
+    def previous_log(self):
+        if self.db.previous_log is None:
+            self.db.previous_log = []
+        return self.db.previous_log
+
+    @previous_log.setter
+    def previous_log(self, val):
+        self.db.previous_log = val
+
+    @property
+    def flagged_log(self):
+        if self.db.flagged_log is None:
+            self.db.flagged_log = []
+        return self.db.flagged_log
+
+    @flagged_log.setter
+    def flagged_log(self, val):
+        self.db.flagged_log = val
+
+    def report_player(self, player):
+        charob = player.db.char_ob
+        log = []
+        for line in (list(self.previous_log) + list(self.current_log)):
+            if line[0] == charob or line[0] == player:
+                log.append(line)
+        self.flagged_log = log
+
+    @property
+    def allow_list(self):
+        if not self.db.allow_list:
+            self.db.allow_list = []
+        return self.db.allow_list
