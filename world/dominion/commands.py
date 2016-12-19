@@ -2462,6 +2462,7 @@ class CmdSupport(MuxCommand):
         caller = self.caller
         requests = caller.db.requested_support or {}
         dompc = self.caller.db.player_ob.Dominion
+        dompc.refresh_from_db()
         cooldowns = dompc.support_cooldowns
         remaining = dompc.remaining_points
         max_points = caller.max_support
