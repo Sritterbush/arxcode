@@ -162,12 +162,17 @@ class InvestigationAdmin(BaseCharAdmin):
 
 
 class TheoryAdmin(BaseCharAdmin):
-    list_display = ('id', 'creator', 'topic', 'desc', 'shared_with')
+    list_display = ('id', 'creator', 'topic', 'description', 'shared_with')
     filter_horizontal = ('known_by', 'related_clues', 'related_theories')
 
     @staticmethod
     def shared_with(obj):
         return ", ".join(str(ob) for ob in obj.known_by.all())
+
+    def description(self, obj):
+        from web.help_topics.templatetags.app_filters import mush_to_html
+        return mush_to_html(obj.desc)
+    description.allow_tags = True
 
 
 # Register your models here.

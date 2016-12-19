@@ -18,20 +18,23 @@ class InformAdmin(admin.ModelAdmin):
     search_fields = ['id', 'date_sent', 'message']
 admin.site.register(Inform, InformAdmin)
 
+
 class MsgListFilter(admin.SimpleListFilter):
-    title = ('Message Types')
+    title = ('Message Types',)
     parameter_name = 'msgfilters'
+
     def lookups(self, request, model_admin):
         return (
-            ('dispwhite', ('White')),
-            ('dispblack', ('Black')),
-            ('dispmess', ('Messenger')),
-            ('disprumor', ('Rumors')),
-            ('dispgossip', ('Gossip')),
-            ('dispvision', ('Visions')),
-            ('dispevent', ('Events')),
-            ('disposts', ('Board Posts')),
+            ('dispwhite', 'White'),
+            ('dispblack', 'Black'),
+            ('dispmess', 'Messenger'),
+            ('disprumor', 'Rumors'),
+            ('dispgossip', 'Gossip'),
+            ('dispvision', 'Visions'),
+            ('dispevent', 'Events'),
+            ('disposts', 'Board Posts'),
             )
+
     def queryset(self, request, queryset):
         if self.value() == 'dispwhite':
             return queryset.filter(db_header__icontains="white_journal")
@@ -51,6 +54,7 @@ class MsgListFilter(admin.SimpleListFilter):
             return queryset.filter(db_tags__db_category="board",
                                    db_tags__db_key="Board Post")
 
+
 class MsgTagInline(TagInline):
     """
     Defines inline descriptions of Tags (experimental)
@@ -58,14 +62,15 @@ class MsgTagInline(TagInline):
     """
     model = Msg.db_tags.through
         
+
 class MsgAdmin(admin.ModelAdmin):
     inlines = [MsgTagInline]
     list_display = ('id', 'db_date_created', 'get_senders', 'msg_receivers',
-                    'db_message')
+                    'message')
     list_display_links = ("id",)
     ordering = ["db_date_created"]
-    #readonly_fields = ['db_message', 'db_sender', 'db_receivers', 'db_channels']
-    search_fields = ['db_sender_players__db_key',"db_receivers_players__db_key",
+    # readonly_fields = ['db_message', 'db_sender', 'db_receivers', 'db_channels']
+    search_fields = ['db_sender_players__db_key', "db_receivers_players__db_key",
                      "db_sender_objects__db_key", "db_receivers_objects__db_key",
                      'id', '^db_date_created', '^db_message']
     save_as = True
@@ -75,12 +80,22 @@ class MsgAdmin(admin.ModelAdmin):
                      "db_hide_from_players", "db_hide_from_objects")
     list_filter = (MsgListFilter,)
     exclude = ('db_tags',)
-    def get_senders(self, obj):
+
+    @staticmethod
+    def get_senders(obj):
         return ", ".join([p.key for p in obj.db_sender_objects.all()])
-    def msg_receivers(self, obj):
+
+    @staticmethod
+    def msg_receivers(obj):
         return ", ".join([p.key for p in obj.db_receivers_objects.all()])
+
     def get_queryset(self, request):
         return super(MsgAdmin, self).get_queryset(request).filter(db_receivers_channels__isnull=True).distinct()
+
+    def message(self, obj):
+        from web.help_topics.templatetags.app_filters import mush_to_html
+        return mush_to_html(obj.db_message)
+    message.allow_tags = True
 admin.site.register(Msg, MsgAdmin)
 
 
@@ -88,5 +103,3 @@ class ArxObjectDBAdmin(ObjectDBAdmin):
     search_fields = ['db_key']
 admin.site.unregister(ObjectDB)
 admin.site.register(ObjectDB, ArxObjectDBAdmin)
-
-
