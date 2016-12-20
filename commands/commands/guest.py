@@ -153,6 +153,26 @@ def award_bonus_by_fealty(fealty):
         bonus = 0
     return bonus
 
+
+def award_bonus_by_age(age):
+    try:
+        bonus = age - 17
+        if age > 20:
+            bonus += (age - 20)
+        if age > 30:
+            bonus += (age - 30)
+        if age > 40:
+            bonus += (age - 40)
+        if age > 50:
+            bonus += (age - 50)
+        if age > 60:
+            bonus += (age - 60)
+    except (TypeError, ValueError):
+        bonus = 0
+    bonus /= 2
+    bonus += 1
+    return bonus
+
 STAGE0 = \
        """
 Welcome to {cArx{n, a text based fantasy roleplaying game, similar in design
