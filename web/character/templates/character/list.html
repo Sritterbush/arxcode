@@ -6,6 +6,8 @@
 		<a href="{% url 'character:active_roster' %}">Active</a></li>
 	<li {% if roster_name == "Available" %}class="active"{% endif %}>
 		<a href="{% url 'character:available_roster' %}">Available</a></li>
+    <li {% if roster_name == "Gone" %}class="active"{% endif %}>
+		<a href="{% url 'character:gone_roster' %}">RIP</a></li>
 	{% if show_hidden %}
 	<li {% if roster_name == "Inactive" %}class="active"{% endif %}>
 		<a href="{% url 'character:inactive_roster' %}">Inactive</a></li>

@@ -15,6 +15,7 @@ urlpatterns = [
     url(r'^incomplete/$', views.IncompleteRosterListView.as_view(), name="incomplete_roster"),
     url(r'^unavailable/$', views.UnavailableRosterListView.as_view(), name="unavailable_roster"),
     url(r'^inactive/$', views.InactiveRosterListView.as_view(), name="inactive_roster"),
+    url(r'^gone/$', views.GoneRosterListView.as_view(), name="gone_roster"),
     url(r'^story/$', views.current_story, name="current_story"),
     url(r'^story/episodes/(?P<ep_id>\d+)/$', views.episode, name='episode'),
     url(r'^sheet/(?P<object_id>\d+)/$', views.sheet, name="sheet"),

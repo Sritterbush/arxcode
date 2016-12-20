@@ -406,15 +406,18 @@ class CmdAdminRoster(MuxPlayerCommand):
             except Exception as err:
                 caller.msg("Move failed: %s" % err)
                 return
-        if 'retire' in switches:
+        if 'retire' in switches or 'gone' in self.switches:
             active = Roster.objects.get(name__iexact="active")
-            avail = Roster.objects.get(name__iexact="available")
+            if 'retire' in self.switches:
+                new_roster = Roster.objects.get(name__iexact="available")
+            else:  # character is dead/gone
+                new_roster = Roster.objects.get(name__iexact="gone")
             try:
                 entry = active.entries.get(character__db_key__iexact=self.lhs)
             except RosterEntry.DoesNotExist:
                 caller.msg("Character not found in active roster.")
                 return
-            entry.roster = avail
+            entry.roster = new_roster
             current = entry.current_account 
             xp = entry.character.db.xp or 0
             try:
@@ -466,14 +469,15 @@ class CmdAdminRoster(MuxPlayerCommand):
                 import traceback
                 traceback.print_exc()
                 caller.msg("Error when setting new password. Logged.")
-            inform_staff("%s has returned %s to the available roster." % (caller, self.lhs))
-            try:
-                bb = BBoard.objects.get(db_key__iexact="Roster Changes")
-                msg = "%s no longer has an active player and is now available for applications." % entry.character
-                subject = "%s now available" % entry.character
-                bb.bb_post(self.caller, msg, subject=subject, poster_name="Roster")
-            except BBoard.DoesNotExist:
-                self.msg("Board not found for posting announcement")
+            inform_staff("%s has returned %s to the %s roster." % (caller, self.lhs, new_roster.name))
+            if "retire" in self.switches:
+                try:
+                    bb = BBoard.objects.get(db_key__iexact="Roster Changes")
+                    msg = "%s no longer has an active player and is now available for applications." % entry.character
+                    subject = "%s now available" % entry.character
+                    bb.bb_post(self.caller, msg, subject=subject, poster_name="Roster")
+                except BBoard.DoesNotExist:
+                    self.msg("Board not found for posting announcement")
             return
         if 'view' in switches:
             try:
