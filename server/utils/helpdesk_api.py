@@ -11,7 +11,6 @@ from datetime import datetime
 from web.helpdesk.models import Ticket, Queue, FollowUp
 
 
-
 def create_ticket(caller, message, priority=5, queue=settings.REQUEST_QUEUE_ID,
                   send_email=True, optional_title=None):
     """
@@ -50,6 +49,7 @@ def create_ticket(caller, message, priority=5, queue=settings.REQUEST_QUEUE_ID,
     caller.inform(player_msg, category="requests", append=False)
     return True
 
+
 def add_followup(caller, ticket, message, mail_player=True):
     """
     Add comment/response to a ticket. Since this is not a method to
@@ -68,6 +68,7 @@ def add_followup(caller, ticket, message, mail_player=True):
         header = "New comment on your ticket by %s.\n\n" % caller.key
         mail_update(ticket, message, header)
     return True
+
 
 def resolve_ticket(caller, ticket_id, message):
     """
@@ -88,6 +89,7 @@ def resolve_ticket(caller, ticket_id, message):
     mail_update(ticket, message, header)
     return True
 
+
 def mail_update(ticket, comments, header="New ticket activity\n"):
     player = ticket.submitting_player
     msg = header
@@ -95,4 +97,3 @@ def mail_update(ticket, comments, header="New ticket activity\n"):
     msg += "{wIssue:{n %s\n\n" % ticket.description
     msg += "{wGM comments:{n %s" % comments
     player.inform(msg, category="requests", append=False)
-    

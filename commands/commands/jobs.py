@@ -61,6 +61,8 @@ class CmdJob(MuxPlayerCommand):
         @job/old <#> - info about closed ticket
         @job/moreold <#> - List # of recent closed tickets
         @job/followup <#>=<message> - add update to ticket #
+        @job/priority <#>=<priority number>
+        @job/low = List low priority messages
 
     Notes when closing a ticket are only seen by GM staff. A mail
     will automatically be sent to the player with <notes> when
@@ -79,12 +81,16 @@ class CmdJob(MuxPlayerCommand):
             queues = Queue.objects.filter(slug="Bugs")
         else:
             queues = Queue.objects.all()
-        unassigned_tickets = list(Ticket.objects.select_related('queue').filter(
+        unassigned_tickets = Ticket.objects.select_related('queue').filter(
                                 assigned_to__isnull=True,
                                 queue__in=queues
                                 ).exclude(
                                 status=Ticket.CLOSED_STATUS,
-                                ))
+                                )
+        if "low" in self.switches:
+            unassigned_tickets = unassigned_tickets.filter(priority__gt=5)
+        else:
+            unassigned_tickets = unassigned_tickets.filter(priority__lte=5)
         joblist = unassigned_tickets
         if not joblist:
             self.msg("No open tickets.")
@@ -108,7 +114,7 @@ class CmdJob(MuxPlayerCommand):
         caller = self.caller
         args = self.args
         switches = self.switches
-        if not args and not switches:
+        if not args and not switches or 'low' in switches:
             # list all open tickets
             self.display_open_tickets()
             return
@@ -191,6 +197,11 @@ class CmdJob(MuxPlayerCommand):
                                str(ticket.assigned_to)])
             caller.msg("{wClosed Tickets:{n\n%s" % table)
             return
+        try:
+            ticket = Ticket.objects.get(id=self.lhs)
+        except (ValueError, Ticket.DoesNotExist):
+            self.msg("No ticket found by that number.")
+            return
         if 'close' in switches:
             # Closing a ticket. Check formatting first
             lhs = self.lhs
@@ -202,10 +213,6 @@ class CmdJob(MuxPlayerCommand):
                 numticket = int(lhs)
             except ValueError:
                 caller.msg("Must give a number for the open ticket.")
-                return
-            ticket = Ticket.objects.get(id=numticket)
-            if not ticket:
-                caller.msg("No open ticket found for that number.")
                 return
             if helpdesk_api.resolve_ticket(caller, numticket, rhs):
                 caller.msg("Ticket successfully closed.")
@@ -219,11 +226,6 @@ class CmdJob(MuxPlayerCommand):
             rhs = self.rhs
             if not lhs or not rhs:
                 caller.msg("Usage: @job/followup <#>=<msg>")
-                return
-            try:
-                ticket = Ticket.objects.get(id=int(lhs))
-            except Ticket.DoesNotExist:
-                caller.msg("No ticket found for that number.")
                 return
             if helpdesk_api.add_followup(caller, ticket, rhs):
                 caller.msg("Followup added.")
@@ -239,25 +241,22 @@ class CmdJob(MuxPlayerCommand):
             except Queue.DoesNotExist:
                 self.msg("Queue must be one of the following: %s" % ", ".join(ob.slug for ob in Queue.objects.all()))
                 return
-            try:
-                ticket = Ticket.objects.get(id=self.lhs)
-            except Ticket.DoesNotExist:
-                self.msg("Invalid ticket number.")
-                return
             ticket.queue = queue
             ticket.save()
             self.msg("Ticket %s is now in queue %s." % (ticket.id, queue))
             return
         if 'delete' in switches:
-            try:
-                ticket = Ticket.objects.get(id=self.lhs)
-            except Ticket.DoesNotExist:
-                self.msg("No ticket by that number.")
-                return
             ticket.delete()
             self.msg("Ticket #%s deleted." % self.lhs)
             return
-                
+        if 'priority' in switches:
+            try:
+                ticket.priority = int(self.rhs)
+            except (TypeError, ValueError):
+                self.msg("Must be a number.")
+            ticket.save()
+            self.msg("Ticket new priority is %s." % self.rhs)
+            return
         if 'approve' in switches:
             pass
         if 'deny' in switches:
@@ -303,7 +302,7 @@ class CmdRequest(MuxPlayerCommand):
         caller = self.caller
         args = self.args
         priority = 5
-        if "followup" in self.switches:
+        if "followup" in self.switches or "comment" in self.switches:
             if not self.lhs or not self.rhs:
                 caller.msg("Missing arguments required.")
                 ticketnumbers = ", ".join(ticket.id for ticket in caller.tickets.all())
