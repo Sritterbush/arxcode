@@ -156,7 +156,7 @@ def award_bonus_by_fealty(fealty):
 
 def award_bonus_by_age(age):
     try:
-        bonus = age - 17
+        bonus = (age - 15)/4
         if age > 20:
             bonus += (age - 20)
         if age > 30:
@@ -169,8 +169,6 @@ def award_bonus_by_age(age):
             bonus += (age - 60)
     except (TypeError, ValueError):
         bonus = 0
-    bonus /= 2
-    bonus += 1
     return bonus
 
 STAGE0 = \
@@ -718,6 +716,10 @@ class CmdGuestAddInput(MuxPlayerCommand):
             if not (_min_age_ <= args <= _max_age_):
                 caller.msg("Age must be between %s and %s." % (_min_age_, _max_age_))
                 return
+            bonus = award_bonus_by_age(args)
+            msg = "For having the fealty of %s, you will receive %s " % (args, bonus)
+            msg += "bonus xp after character creation."
+            caller.msg(msg)
         if 'birthday' in switches:
             arglist = args.split("/")
             arglist = [x for x in arglist if x.isdigit()]
@@ -937,6 +939,7 @@ class CmdGuestAddInput(MuxPlayerCommand):
         try:
             xp_bonus = XP_BONUS_BY_SRANK.get(srank, 0)
             xp_bonus += award_bonus_by_fealty(char.db.fealty)
+            xp_bonus += award_bonus_by_age(char.db.age)
             char.db.xp = xp_bonus
         except Exception:
             import traceback
