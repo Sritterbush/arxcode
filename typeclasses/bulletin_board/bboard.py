@@ -51,6 +51,8 @@ class BBoard(Object):
             for sub in self.db.subscriber_list:
                 notify = "\n{{wNew post on {0} by {1}:{{n {2}".format(self.key, posted_by, subject)
                 sub.msg(notify)
+        if self.db.max_posts and self.posts.count() > self.db.max_posts:
+            self.posts.first().delete()
         return post
 
     def has_subscriber(self, pobj):
