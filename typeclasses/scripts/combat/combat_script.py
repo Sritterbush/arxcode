@@ -128,7 +128,7 @@ class CombatManager(BaseScript):
         self.ndb.flee_success = []  # if we're here, the character is allowed to flee on their turn
         self.ndb.fleeing = []  # if we're here, they're attempting to flee but haven't rolled yet
         self.db.lethal = not self.obj.tags.get("nonlethal_combat")
-        self.ndb.max_rounds = 50
+        self.ndb.max_rounds = 250
         self.ndb.rounds = 0
         # to ensure proper shutdown, prevent some timing errors
         self.ndb.shutting_down = False

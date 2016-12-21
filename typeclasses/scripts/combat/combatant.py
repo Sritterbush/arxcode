@@ -291,7 +291,7 @@ class CharacterCombatData(object):
 
     @property
     def atk_penalties(self):
-        return self.wound_penalty + self.fatigue_atk_penalty()
+        return (self.wound_penalty/2) + self.fatigue_atk_penalty()
 
     @property
     def def_penalties(self):
@@ -641,9 +641,9 @@ class CharacterCombatData(object):
         if hasattr(self.char, 'armor_penalties'):
             armor_penalty = self.char.armor_penalties
         penalty = armor_penalty
-        self.num_actions += 1 + (0.08 * armor_penalty)
-        penalty += self.num_actions + 20
-        keep = self.fatigue_soak + 2
+        self.num_actions += 1 + (0.09 * armor_penalty)
+        penalty += self.num_actions + 25
+        keep = self.fatigue_soak
         myroll = do_dice_check(self.char, stat_list=["strength", "stamina", "dexterity", "willpower"],
                                skill="athletics", keep_override=keep, difficulty=int(penalty), divisor=2)
         myroll += randint(0, 25)
@@ -658,6 +658,8 @@ class CharacterCombatData(object):
             soak += self.char.db.skills.get("athletics", 0)
         except (AttributeError, TypeError, ValueError):
             pass
+        if soak < 2:
+            soak = 2
         return soak
 
     @property
