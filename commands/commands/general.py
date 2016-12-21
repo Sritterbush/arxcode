@@ -1016,7 +1016,7 @@ class CmdMail(MuxPlayerCommand):
                     subject = mail[1]
                     mail_number += 1
                     this_number = str(mail_number)
-                    if mail not in caller.db.readmails:
+                    if mail not in (caller.db.readmails or set()):
                         col = "{w"
                     else:
                         col = "{n"
@@ -1050,8 +1050,10 @@ class CmdMail(MuxPlayerCommand):
                 string += raw(message)
                 string += "\n{w"+20*"-"+"{n\n"
                 caller.msg(string)
-                if mail not in caller.db.readmails:
-                    caller.db.readmails.add(mail)
+                read_mails = caller.db.readmails or set()
+                if mail not in read_mails:
+                    read_mails.add(mail)
+                    caller.db.readmails = read_mails
                 return
         if not self.args or not self.lhs:
             caller.msg("Usage: mail[/switches] # or mail/quick [<name>/<subject>=<message>]")

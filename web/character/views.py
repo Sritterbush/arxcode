@@ -222,6 +222,10 @@ class AvailableRosterListView(RosterListView):
     roster_name = "Available"
 
 
+class GoneRosterListView(RosterListView):
+    roster_name = "Gone"
+
+
 class IncompleteRosterListView(RosterListView):
     roster_name = "Incomplete"
 

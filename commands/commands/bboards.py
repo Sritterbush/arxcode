@@ -231,6 +231,8 @@ class CmdBBReadOrPost(MuxPlayerCommand):
 
     To subscribe to a board, use '@bbsub'. To read the newest post on
     a board, use @bbnew.
+
+    To mark all posts as read, use '+bbnew/markread all'.
     """
 
     key = "@bb"

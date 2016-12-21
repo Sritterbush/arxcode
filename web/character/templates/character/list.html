@@ -6,6 +6,8 @@
 		<a href="{% url 'character:active_roster' %}">Active</a></li>
 	<li {% if roster_name == "Available" %}class="active"{% endif %}>
 		<a href="{% url 'character:available_roster' %}">Available</a></li>
+    <li {% if roster_name == "Gone" %}class="active"{% endif %}>
+		<a href="{% url 'character:gone_roster' %}">RIP</a></li>
 	{% if show_hidden %}
 	<li {% if roster_name == "Inactive" %}class="active"{% endif %}>
 		<a href="{% url 'character:inactive_roster' %}">Inactive</a></li>
@@ -14,6 +16,7 @@
 	<li {% if roster_name == "Incomplete" %}class="active"{% endif %}>
 		<a href="{% url 'character:incomplete_roster' %}">Incomplete</a></li>
 	{% endif %}
+    </ul>
 	</div>
 	<table class="table table-hover">
 	<tr class="danger">
@@ -44,7 +47,7 @@
     {% endfor %}
 	</table>
         <div class="pagination">
-			<span class="step-links">
+			<!--span class="step-links"-->
 			<ul class="pagination nav navbar-nav">
 				{% if page_obj.has_previous %}
 					<li><a href="?page={{ page_obj.previous_page_number }}">previous</a></li>
@@ -54,11 +57,11 @@
 					<li {% if page_obj == page %}class="active"{% endif %}><a href="?page={{page.number }}">{{ page }}</a></li>
 				{% endfor %}
 
-				{% if page_obj.has_next %}
+				{% if page_obj.next_page_number <= page_obj.paginator.num_pages %}
 					<li><a href="?page={{ page_obj.next_page_number }}">next</a></li>
 				{% endif %}
 			</ul>
-			</span>
+			<!--/span-->
 		</div>
 	
 	

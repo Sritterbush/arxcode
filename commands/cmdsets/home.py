@@ -135,13 +135,13 @@ class CmdManageHome(MuxCommand):
                 r_exit.db.success_traverse = self.args
             caller.msg("{wThe message those who enter will now see is{n: %s" % self.args)
             return
-        if "lifestyle" in self.switches:
+        if "lifestyle" in self.switches or "lifestyles" in self.switches:
             if caller not in owners:
                 caller.msg("You may only set the lifestyle rating for an owner.")
                 return
             try:
                 LIFESTYLES[int(self.args)]
-            except (IndexError, TypeError, ValueError):
+            except (KeyError, TypeError, ValueError):
                 caller.msg("%s is not a valid lifestyle." % self.args)
                 self.display_lifestyles()
                 return
