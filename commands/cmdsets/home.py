@@ -378,6 +378,9 @@ class CmdBuildRoom(CmdDig):
         my_expansions = expansions.get(assets.id, 0) + 1
         expansions[assets.id] = my_expansions
         loc.db.expansions = expansions
+        # if .name and .key are equal, then it may need to set its property correctly
+        if new_room.name == new_room.key:
+            new_room.name = new_room.key  # this will setup .db.colored_name and strip ansi from key
         if cost_increase and assets.id in permits:
             permits[assets.id] += cost_increase
             loc.db.permitted_builders = permits
