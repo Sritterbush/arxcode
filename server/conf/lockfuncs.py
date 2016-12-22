@@ -161,11 +161,16 @@ def skill(accessing_obj, accessed_obj, *args, **kwargs):
         skill_list = CRAFTING_SKILLS
     else:
         skill_list = name.split(",")
+    if accessing_obj.db.char_ob:
+        accessing_obj = accessing_obj.db.char_ob
     for skill_name in skill_list:
         skill_name = skill_name.lower().strip()
-        pab = accessing_obj.db.skills.get(skill_name, 0)
-        if pab >= val:
-            return True
+        try:
+            pab = accessing_obj.db.skills.get(skill_name, 0)
+            if pab >= val:
+                return True
+        except AttributeError:
+            return False
     return False
 
 
