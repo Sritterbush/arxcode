@@ -2437,7 +2437,7 @@ class CmdSupport(MuxCommand):
             except (TypeError, KeyError, IndexError):
                 caller.msg("{rEncountered a supportform with invalid structure. Resetting the attribute." +
                            " Please start over.{n")
-                print "%s had an invalid supportform. Wiping the attribute." % caller
+                print("%s had an invalid supportform. Wiping the attribute." % caller)
                 caller.attributes.remove("supportform")
                 return
 

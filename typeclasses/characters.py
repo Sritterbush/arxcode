@@ -185,7 +185,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             if cmds.key not in [ob.key for ob in self.cmdset.all()]:
                 self.cmdset.add(cmds, permanent=True)
         except Exception as err:
-            print "<<ERROR>>: Error when importing death cmdset: %s" % err
+            print("<<ERROR>>: Error when importing death cmdset: %s" % err)
         from server.utils.arx_utils import inform_staff
         if not self.db.npc:
             inform_staff("{rDeath{n: Character {c%s{n has died." % self.key)
@@ -202,7 +202,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             from commands.cmdsets import death
             self.cmdset.delete(death.DeathCmdSet)
         except Exception as err:
-            print "<<ERROR>>: Error when importing mobile cmdset: %s" % err
+            print("<<ERROR>>: Error when importing mobile cmdset: %s" % err)
         # we'll also be asleep when we're dead, so that we're resurrected unconscious if we're brought back
         self.fall_asleep(uncon=True, quiet=True)
 
@@ -223,7 +223,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             if cmds.key not in [ob.key for ob in self.cmdset.all()]:
                 self.cmdset.add(cmds, permanent=True)
         except Exception as err:
-            print "<<ERROR>>: Error when importing sleep cmdset: %s" % err
+            print("<<ERROR>>: Error when importing sleep cmdset: %s" % err)
 
     @property
     def conscious(self):
@@ -245,7 +245,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             from commands.cmdsets import sleep
             self.cmdset.delete(sleep.SleepCmdSet)
         except Exception as err:
-            print "<<ERROR>>: Error when importing mobile cmdset: %s" % err
+            print("<<ERROR>>: Error when importing mobile cmdset: %s" % err)
         self.db.sleep_status = "awake"
         return
 
@@ -580,8 +580,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             dest = "{c" + dest + "{n roughly. Please use '{w@map{n' to determine an exact route"
         except (AttributeError, TypeError, ValueError):
             import traceback
-            print "Error in using directions for rooms: %s, %s" % (loc.id, room.id)
-            print "origin is (%s,%s), destination is (%s, %s)" % (x_ori, y_ori, x_dest, y_dest)
+            print("Error in using directions for rooms: %s, %s" % (loc.id, room.id))
+            print("origin is (%s,%s), destination is (%s, %s)" % (x_ori, y_ori, x_dest, y_dest))
             traceback.print_exc()
             self.msg("Rooms not properly set up for @directions. Logging error.")
             return
