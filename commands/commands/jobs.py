@@ -63,6 +63,7 @@ class CmdJob(MuxPlayerCommand):
         @job/followup <#>=<message> - add update to ticket #
         @job/priority <#>=<priority number>
         @job/low = List low priority messages
+        @job/check <ticket #>/<stat> + <skill> at <diff>=<character>
 
     Notes when closing a ticket are only seen by GM staff. A mail
     will automatically be sent to the player with <notes> when
@@ -197,6 +198,36 @@ class CmdJob(MuxPlayerCommand):
                                str(ticket.assigned_to)])
             caller.msg("{wClosed Tickets:{n\n%s" % table)
             return
+        if 'check' in switches:
+            try:
+                largs = self.lhs.split("/")
+                ticket = Ticket.objects.get(id=largs[0])
+                largs = largs[1].split("+")
+                stat = largs[0].strip()
+                largs = largs[1].split(" at ")
+                skill = largs[0].strip()
+                difficulty = int(largs[1])
+            except (IndexError, TypeError, ValueError):
+                self.msg("Invalid syntax. It's Apostate's fault that it's a complicated syntax so yell at him.")
+                return
+            except Ticket.DoesNotExist:
+                self.msg("Ticket not found.")
+                return
+            try:
+                char = caller.search(self.rhs).db.char_ob
+            except AttributeError:
+                self.msg("No character found.")
+                return
+            if char.attributes.get(stat) is None:
+                self.msg("Error. The stat %s for the player is undefined. You probably switched stat and skill." % stat)
+                self.msg("Otherwise, set the stat for the character to be 0.")
+                return
+            result = helpdesk_api.do_check(caller, ticket, stat, skill, difficulty, char)
+            if result:
+                self.msg(result)
+            else:
+                self.msg("Error in trying to make check.")
+            return
         try:
             ticket = Ticket.objects.get(id=self.lhs)
         except (ValueError, Ticket.DoesNotExist):
@@ -232,6 +263,7 @@ class CmdJob(MuxPlayerCommand):
                 return
             caller.msg("Error in followup.")
             return
+
         if 'move' in switches:
             if not self.lhs or not self.rhs:
                 self.msg("Usage: @job/move <#>=<msg>")
