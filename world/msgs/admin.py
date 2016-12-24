@@ -61,6 +61,7 @@ class MsgTagInline(TagInline):
 
     """
     model = Msg.db_tags.through
+    related_field = "msg"
         
 
 class MsgAdmin(admin.ModelAdmin):
