@@ -778,8 +778,10 @@ class CmdBuyFromShop(CmdCraft):
         +shop/finish [<additional silver to invest>]
         +shop/changename <object>=<new name>
 
-    Flags your current room as permitting characters to build there.
-    Cost is 50 economic resources unless specified otherwise.
+    Allows you to buy objects from a shop. +shop/craft allows you to use a
+    crafter's skills to create an item. You must provide the materials
+    yourself. Similarly, +shop/refine lets you use a crafter's skills to
+    attempt to improve a crafted object. All costs are covered by you.
     """
     key = "+shop"
     aliases = ["@shop", "shop"]
@@ -804,9 +806,11 @@ class CmdBuyFromShop(CmdCraft):
         price = 0
         if "refine" in loc.db.crafting_prices:
             price = (base * loc.db.crafting_prices["refine"])/100.0
-        if "all" in loc.db.crafting_prices:
+        elif "all" in loc.db.crafting_prices:
             price = (base * loc.db.crafting_prices["all"])/100.0
-        if price:
+        if price == 0:
+            return price
+        if price > 0:
             price -= (price * self.get_discount()/100.0)
             if price < 0:
                 raise ValueError("Negative price due to discount")

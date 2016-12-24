@@ -366,6 +366,9 @@ class CmdCraft(MuxCommand):
             if not targ:
                 return
             recipe = targ.db.recipe
+            if not recipe:
+                self.msg("This object has no recipe, and cannot be refined.")
+                return
             recipe = CraftingRecipe.objects.get(id=recipe)
             base_cost = recipe.value / 4
             caller.msg("The base cost of refining this recipe is %s." % base_cost)
