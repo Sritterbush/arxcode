@@ -878,7 +878,7 @@ class CmdListRevelations(MuxPlayerCommand):
         caller = self.caller
         table = PrettyTable(["{wRevelation #{n", "{wSubject{n"])
         revs = caller.roster.revelations.all()
-        msg = "{wDiscovered Revelationss{n\n"
+        msg = "{wDiscovered Revelations{n\n"
         for rev in revs:
             table.add_row([rev.id, rev.revelation.name])
         msg += str(table)
