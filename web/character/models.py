@@ -416,6 +416,13 @@ class RevelationDiscovery(models.Model):
     def __str__(self):
         return "%s's discovery of %s" % (self.character, self.revelation)
 
+    def display(self):
+        msg = self.revelation.name + "\n"
+        msg += self.revelation.desc + "\n"
+        if self.message:
+            msg += "\n" + self.message
+        return msg
+
 
 class RevelationForMystery(models.Model):
     mystery = models.ForeignKey('Mystery', related_name="revelations_used")

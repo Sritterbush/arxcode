@@ -4,7 +4,7 @@ stories, the timeline, etc.
 """
 
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from .models import Investigation, Clue, InvestigationAssistant, ClueDiscovery, Theory
+from .models import Investigation, Clue, InvestigationAssistant, ClueDiscovery, Theory, RevelationDiscovery
 from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from server.utils.arx_utils import inform_staff
@@ -874,9 +874,27 @@ class CmdListRevelations(MuxPlayerCommand):
     locks = "cmd:all()"
     help_category = "Investigation"
 
+    def disp_rev_table(self):
+        caller = self.caller
+        table = PrettyTable(["{wRevelation #{n", "{wSubject{n"])
+        revs = caller.roster.revelations.all()
+        msg = "{wDiscovered Revelationss{n\n"
+        for rev in revs:
+            table.add_row([rev.id, rev.revelation.name])
+        msg += str(table)
+        caller.msg(msg, options={'box': True})
+
     def func(self):
         if not self.args:
+            self.disp_rev_table()
             return
+        try:
+            rev = self.caller.roster.revelations.get(id=self.args)
+        except (ValueError, TypeError, RevelationDiscovery.DoesNotExist):
+            self.msg("No revelation by that number.")
+            self.disp_rev_table()
+            return
+        self.msg(rev.display())
 
 
 class CmdListMysteries(MuxPlayerCommand):
