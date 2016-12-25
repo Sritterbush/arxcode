@@ -536,7 +536,7 @@ class CmdApp(MuxPlayerCommand):
                         traceback.print_exc()                   
                 except (RosterEntry.DoesNotExist, RosterEntry.MultipleObjectsReturned, Roster.DoesNotExist,
                         Roster.MultipleObjectsReturned, AttributeError, ValueError, TypeError):
-                    print "Error when attempting to mark closed application as active."
+                    print("Error when attempting to mark closed application as active.")
                     traceback.print_exc()
                 try:
                     from world.dominion.setup_utils import setup_dom_for_char
