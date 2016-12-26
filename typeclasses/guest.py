@@ -55,6 +55,7 @@ class Guest(Player):
         self.execute_cmd("addcom guest")
         self.execute_cmd("@bbsub/quiet wanted concepts")
         self.execute_cmd("@bbsub/quiet story updates")
+        self.cmdset.remove("more_commands")
         self.execute_cmd("l")
         
     def is_guest(self):
