@@ -461,9 +461,9 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         except AttributeError:
             wpndict['weapon_damage'] = wpn.db.damage_bonus or 0
         wpndict['attack_type'] = wpn.db.attack_type or 'melee'
-        wpndict['can_be_parried'] = wpn.db.can_be_parried or True
-        wpndict['can_be_blocked'] = wpn.db.can_be_blocked or True
-        wpndict['can_be_dodged'] = wpn.db.can_be_dodged or True
+        wpndict['can_be_parried'] = wpn.db.can_be_parried
+        wpndict['can_be_blocked'] = wpn.db.can_be_blocked
+        wpndict['can_be_dodged'] = wpn.db.can_be_dodged
         wpndict['can_parry'] = wpn.db.can_parry or False
         wpndict['can_riposte'] = wpn.db.can_parry or wpn.db.can_riposte or False
         wpndict['reach'] = wpn.db.weapon_reach or 1
