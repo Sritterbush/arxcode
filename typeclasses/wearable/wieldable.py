@@ -57,11 +57,13 @@ class Wieldable(Object):
         self.db.can_be_parried = False
         self.db.can_parry = False
         self.db.can_riposte = False
+        self.db.attack_type = "ranged"
 
     def melee_mode(self):
         self.db.can_be_parried = True
         self.db.can_parry = True
         self.db.can_parry = True
+        self.db.attack_type = "melee"
 
     def sheathe(self, wielder):
         """
