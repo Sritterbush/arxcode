@@ -155,9 +155,6 @@ def get_ability_val(char, recipe):
 
 def do_crafting_roll(char, recipe, diffmod=0, diffmult=1.0):
     diff = int(recipe.difficulty * diffmult) - diffmod
-    # limit on spending money - can only take difficulty to 0
-    if diff < 0:
-        diff = 0
     ability = get_ability_val(char, recipe)
     skill = recipe.skill
     stat = "luck" if char.db.luck > char.db.dexterity else "dexterity"
