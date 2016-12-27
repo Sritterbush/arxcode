@@ -14,8 +14,7 @@
 	
 	{% if is_paginated %}
 	<div class="pagination">
-    <span class="step-links">
-	<ul class="pagination nav navbar-nav">
+	    <ul class="pagination nav navbar-nav">
 				{% if page_obj.has_previous %}
 					<li><a href="?page={{ page_obj.previous_page_number }}">previous</a></li>
 				{% endif %}
@@ -42,8 +41,7 @@
 				{% if page_obj.has_next %}
 					<li><a href="?page={{ page_obj.next_page_number }}">next</a></li>
 				{% endif %}
-			</ul>
-    </span>
+        </ul>
 	</div>
 	{% endif %}
 	<div>
