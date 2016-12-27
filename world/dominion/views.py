@@ -6,11 +6,12 @@ from django.http import Http404
 from django.core.urlresolvers import reverse
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
+from server.utils.view_mixins import LimitPageMixin
 
 # Create your views here.
 
 
-class RPEventListView(ListView):
+class RPEventListView(LimitPageMixin, ListView):
     model = RPEvent
     template_name = 'dominion/cal_list.html'
     paginate_by = 20
@@ -78,7 +79,7 @@ class RPEventDetailView(DetailView):
         return context
 
 
-class AssignedTaskListView(ListView):
+class AssignedTaskListView(LimitPageMixin, ListView):
     model = AssignedTask
     template_name = 'dominion/task_list.html'
     paginate_by = 5
