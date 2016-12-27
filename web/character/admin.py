@@ -49,7 +49,8 @@ class AccountAdmin(BaseCharAdmin):
     search_fields = ('email', 'characters__character__db_key')
     inlines = [AccountHistoryInline]
 
-    def player_characters(self, obj):
+    @staticmethod
+    def player_characters(obj):
         return ", ".join([str(ob) for ob in obj.characters.all()])
 
 
@@ -100,10 +101,12 @@ class RevelationAdmin(BaseCharAdmin):
     inlines = [ClueForRevInline, RevDiscoInline]
     search_fields = ('id', 'name', 'characters__character__db_key', 'mysteries__name')
 
-    def known_by(self, obj):
+    @staticmethod
+    def known_by(obj):
         return ", ".join([str(ob.character) for ob in obj.discoveries.all()])
 
-    def used_for(self, obj):
+    @staticmethod
+    def used_for(obj):
         return ", ".join([str(ob) for ob in obj.mysteries.all()])
 
 
@@ -117,10 +120,12 @@ class ClueAdmin(BaseCharAdmin):
     # inlines = [ClueDiscoInline]
     search_fields = ('id', 'name', 'characters__character__db_key', 'revelations__name')
 
-    def known_by(self, obj):
+    @staticmethod
+    def known_by(obj):
         return ", ".join([str(ob.character) for ob in obj.discoveries.all() if ob.roll >= obj.rating])
 
-    def used_for(self, obj):
+    @staticmethod
+    def used_for(obj):
         return ", ".join([str(ob) for ob in obj.revelations.all()])
 
 
@@ -145,19 +150,23 @@ class EntryAdmin(NoDeleteAdmin):
     form = EntryForm
     inlines = [MystForEntry, RevForEntry, ClueForEntry]
 
-    def current_alts(self, obj):
+    @staticmethod
+    def current_alts(obj):
         return ", ".join([str(ob) for ob in obj.alts])
 
 
 class InvestigationAdmin(BaseCharAdmin):
-    list_display = ('id', 'character', 'topic', 'clue_target', 'clue_progress', 'current_assistants', 'active', 'ongoing', 'automate_result')
+    list_display = ('id', 'character', 'topic', 'clue_target', 'clue_progress', 'current_assistants', 'active',
+                    'ongoing', 'automate_result')
     list_filter = ('active', 'ongoing', 'automate_result')
     inlines = [MystDiscoInline, RevDiscoInline, ClueDiscoInline]
 
-    def clue_progress(self, obj):
+    @staticmethod
+    def clue_progress(obj):
         return obj.progress
 
-    def current_assistants(self, obj):
+    @staticmethod
+    def current_assistants(obj):
         return ", ".join(str(ob.char) for ob in obj.active_assistants)
 
 
@@ -175,6 +184,9 @@ class TheoryAdmin(BaseCharAdmin):
     description.allow_tags = True
 
 
+class StoryEmitAdmin(BaseCharAdmin):
+    list_display = ('id', 'chapter', 'episode', 'text', 'sender')
+
 # Register your models here.
 admin.site.register(Roster, BaseCharAdmin)
 admin.site.register(RosterEntry, EntryAdmin)
@@ -186,10 +198,9 @@ admin.site.register(Milestone, BaseCharAdmin)
 admin.site.register(Participant, BaseCharAdmin)
 admin.site.register(Comment, BaseCharAdmin)
 admin.site.register(PlayerAccount, AccountAdmin)
-admin.site.register(StoryEmit, BaseCharAdmin)
+admin.site.register(StoryEmit, StoryEmitAdmin)
 admin.site.register(Mystery, MysteryAdmin)
 admin.site.register(Revelation, RevelationAdmin)
 admin.site.register(Clue, ClueAdmin)
 admin.site.register(Investigation, InvestigationAdmin)
 admin.site.register(Theory, TheoryAdmin)
-

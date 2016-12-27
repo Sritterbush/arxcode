@@ -4,7 +4,7 @@ stories, the timeline, etc.
 """
 
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from .models import Investigation, Clue, InvestigationAssistant, ClueDiscovery, Theory
+from .models import Investigation, Clue, InvestigationAssistant, ClueDiscovery, Theory, RevelationDiscovery
 from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from server.utils.arx_utils import inform_staff
@@ -874,9 +874,27 @@ class CmdListRevelations(MuxPlayerCommand):
     locks = "cmd:all()"
     help_category = "Investigation"
 
+    def disp_rev_table(self):
+        caller = self.caller
+        table = PrettyTable(["{wRevelation #{n", "{wSubject{n"])
+        revs = caller.roster.revelations.all()
+        msg = "{wDiscovered Revelations{n\n"
+        for rev in revs:
+            table.add_row([rev.id, rev.revelation.name])
+        msg += str(table)
+        caller.msg(msg, options={'box': True})
+
     def func(self):
         if not self.args:
+            self.disp_rev_table()
             return
+        try:
+            rev = self.caller.roster.revelations.get(id=self.args)
+        except (ValueError, TypeError, RevelationDiscovery.DoesNotExist):
+            self.msg("No revelation by that number.")
+            self.disp_rev_table()
+            return
+        self.msg(rev.display())
 
 
 class CmdListMysteries(MuxPlayerCommand):
@@ -909,11 +927,15 @@ class CmdTheories(MuxPlayerCommand):
         @theories/addrelatedtheory <your theory ID #>=<other's theory ID #>
         @theories/delete <theory ID #>
         @theories/editdesc <theory ID #>=<desc>
-        @theoies/edittopic <theory ID #>=<topic>
+        @theories/edittopic <theory ID #>=<topic>
+        @theories/shareall <theory ID #>=<player>
 
     Allows you to create and share theories your character comes up with,
     and associate them with clues and other theories. You may only create
     associations for theories that you created.
+
+    /shareall allows you to also share any clue you know that is related
+    to the theory specify.
     """
     key = "@theories"
     locks = "cmd:all()"
@@ -948,7 +970,7 @@ class CmdTheories(MuxPlayerCommand):
             self.caller.known_theories.add(theory)
             self.msg("You have created a new theory.")
             return
-        if "share" in self.switches:
+        if "share" in self.switches or "shareall" in self.switches:
             try:
                 theory = self.caller.known_theories.get(id=self.lhs)
             except (Theory.DoesNotExist, ValueError):
@@ -963,6 +985,18 @@ class CmdTheories(MuxPlayerCommand):
             targ.known_theories.add(theory)
             self.msg("Theory %s added to %s." % (self.lhs, targ))
             targ.inform("%s has shared a theory with you." % self.caller, category="Theories")
+            if "shareall" in self.switches:
+                try:
+                    if targ.db.char_ob.location != self.caller.db.char_ob.location:
+                        self.msg("You must be in the same room.")
+                        return
+                except AttributeError:
+                    self.msg("One of you does not have a character object.")
+                    return
+                clues = self.caller.roster.finished_clues.filter(clue__id__in=theory.related_clues.all())
+                for clue in clues:
+                    clue.share(targ.roster)
+                    self.msg("Shared clue %s with %s" % (clue.name, targ))
             return
         try:
             theory = self.caller.created_theories.get(id=self.lhs)
@@ -1009,4 +1043,3 @@ class CmdTheories(MuxPlayerCommand):
                 theory.related_clues.remove(clue.clue)
                 self.msg("Removed clue %s from theory." % clue.name)
             return
-

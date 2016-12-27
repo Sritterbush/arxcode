@@ -2152,7 +2152,6 @@ class CmdTask(MuxCommand):
             return
         if "abandon" in self.switches:
             # delete an active AssignedTask
-            
             try:
                 org = Organization.objects.get(name__iexact=self.rhs)
                 member = dompc.memberships.get(organization=org, deguilded=False)
@@ -2194,7 +2193,8 @@ class CmdTask(MuxCommand):
                         caller.msg("More than one task by that number active. You must specify the organization.")
                         return
             except Task.DoesNotExist:
-                caller.msg("No task by that number.")
+                caller.msg("Could not find an active task by that number for that organization.")
+                self.msg("You may need to choose/accept it first.")
                 return
             except ValueError:
                 caller.msg("Task must be a number.")
@@ -2437,7 +2437,7 @@ class CmdSupport(MuxCommand):
             except (TypeError, KeyError, IndexError):
                 caller.msg("{rEncountered a supportform with invalid structure. Resetting the attribute." +
                            " Please start over.{n")
-                print "%s had an invalid supportform. Wiping the attribute." % caller
+                print("%s had an invalid supportform. Wiping the attribute." % caller)
                 caller.attributes.remove("supportform")
                 return
 

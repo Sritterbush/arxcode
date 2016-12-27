@@ -63,11 +63,20 @@ def add_followup(caller, ticket, message, mail_player=True):
     except Exception as err:
         inform_staff("ERROR: Error when attempting to add followup to ticket: %s" % err)
         return False
-    inform_staff("{w[Requests]{n: %s has left a comment on ticket %s." % (caller.key, ticket.id))
+    inform_staff("{w[Requests]{n: %s has left a comment on ticket %s: %s" % (caller.key, ticket.id, message))
     if mail_player:
         header = "New comment on your ticket by %s.\n\n" % caller.key
         mail_update(ticket, message, header)
     return True
+
+
+def do_check(caller, ticket, stat, skill, difficulty, char):
+    from world.stats_and_skills import do_dice_check
+    result = do_dice_check(char, stat=stat, skill=skill, difficulty=difficulty)
+    msg = "%s has called for %s to check %s + %s at difficulty %s.\n" % (caller, char, stat, skill, difficulty)
+    msg += "The result is %s. A positive number is a success, a negative number is a failure." % result
+    if add_followup(caller, ticket, msg):
+        return msg
 
 
 def resolve_ticket(caller, ticket_id, message):

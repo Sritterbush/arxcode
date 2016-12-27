@@ -36,11 +36,13 @@ class CmdMore(Command):
         """
         Implement the command
         """
-        more = self.caller.ndb._more
+        caller = self.caller
+        more = caller.ndb._more
         if not more and hasattr(self.caller, "player"):
-            more = self.caller.player.ndb._more
+            caller = caller.player
+            more = caller.ndb._more
         if not more:
-            self.caller.msg("Error in loading the pager. Contact an admin.")
+            caller.cmdset.remove("more_commands")
             return
 
         cmd = self.cmdstring
@@ -70,11 +72,13 @@ class CmdMoreLook(Command):
         """
         Implement the command
         """
-        more = self.caller.ndb._more
+        caller = self.caller
+        more = caller.ndb._more
         if not more and hasattr(self.caller, "player"):
-            more = self.caller.player.ndb._more
+            caller = caller.player
+            more = caller.ndb._more
         if not more:
-            self.caller.msg("Error in loading the pager. Contact an admin.")
+            caller.cmdset.remove("more_commands")
             return
         more.display()
 
@@ -176,6 +180,12 @@ class EvMore(object):
                                pagemax=self._npages)
         if not page or not text:
             self.page_quit()
+        # check for wrong session
+        sessions = self._caller.sessions.get()
+        if not sessions:
+            self.page_quit()
+        if not any(ob for ob in sessions if ob is self._session):
+            self._session = sessions[0]
         self._caller.msg(text=page, session=self._session, **self._kwargs)
 
     def page_top(self):

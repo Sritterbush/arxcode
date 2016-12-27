@@ -197,6 +197,7 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(investigation.CmdAdminInvestigations())
             self.add(investigation.CmdListClues())
             self.add(investigation.CmdTheories())
+            self.add(investigation.CmdListRevelations())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading investigation cmdset: %s" % err)
 

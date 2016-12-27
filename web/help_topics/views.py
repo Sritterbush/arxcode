@@ -31,7 +31,13 @@ def command_help(request, cmd_key):
 def list_topics(request):
     user = request.user
     try:
-        all_topics = [topic_ob for topic_ob in HelpEntry.objects.all() if topic_ob.access(user, 'view', default=True)]
+        all_topics = []
+        for topic_ob in HelpEntry.objects.all():
+            try:
+                if topic_ob.access(user, 'view', default=True):
+                    all_topics.append(topic_ob)
+            except AttributeError:
+                continue
         all_topics = sorted(all_topics, key=lambda entry: entry.key.lower())
         all_categories = list(set([topic_ob.help_category.capitalize() for topic_ob in all_topics]))
         all_categories = sorted(all_categories)

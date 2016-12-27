@@ -11,6 +11,7 @@ from server.utils.prettytable import PrettyTable
 from server.utils.arx_utils import validate_name, inform_staff
 from evennia.utils import utils
 from evennia.utils.utils import make_iter
+from random import randint
 
 AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
 
@@ -366,6 +367,9 @@ class CmdCraft(MuxCommand):
             if not targ:
                 return
             recipe = targ.db.recipe
+            if not recipe:
+                self.msg("This object has no recipe, and cannot be refined.")
+                return
             recipe = CraftingRecipe.objects.get(id=recipe)
             base_cost = recipe.value / 4
             caller.msg("The base cost of refining this recipe is %s." % base_cost)
@@ -402,6 +406,14 @@ class CmdCraft(MuxCommand):
                 return
             diffmod = get_difficulty_mod(recipe, invest)
             cost = base_cost + invest + price
+            # difficulty gets easier by 1 each time we attempt it
+            refine_attempts = crafter.db.refine_attempts or {}
+            attempts = refine_attempts.get(targ.id, 0)
+            if attempts > 60:
+                attempts = 60
+            diffmod += attempts
+            if diffmod:
+                self.msg("Based on silver spent and previous attempts, the difficulty is adjusted by %s." % diffmod)
             if caller.ndb.refine_targ != targ:
                 caller.ndb.refine_targ = targ
                 caller.msg("The total cost would be {w%s{n. To confirm this, execute the command again." % cost)
@@ -414,9 +426,17 @@ class CmdCraft(MuxCommand):
             self.pay_owner(price, "%s has refined '%s', a %s, at your shop and you earn %s silver." % (caller, targ,
                                                                                                        recipe.name,
                                                                                                        price))
+
             roll = do_crafting_roll(crafter, recipe, diffmod, diffmult=0.75)
+            if randint(1, 20) == 20:
+                self.msg("{yYou got a critical success!{n")
+                roll *= 2
             quality = get_quality_lvl(roll, recipe.difficulty)
             old = targ.db.quality_level or 0
+            attempts += 1
+            refine_attempts[targ.id] = attempts
+            crafter.db.refine_attempts = refine_attempts
+            self.msg("The roll is %s, a quality level of %s." % (roll, QUALITY_LEVELS[quality]))
             if quality <= old:
                 caller.msg("You failed to improve %s." % targ)
                 return

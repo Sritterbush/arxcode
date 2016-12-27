@@ -2561,7 +2561,10 @@ class Member(models.Model):
             return 0
         total = self.organization.support_pool
         shares = 0
-        for member in self.organization.active_members:
+        active = self.organization.active_members
+        if self not in active:
+            return 0
+        for member in active:
             shares += calc_share(member.rank)
         myshare = calc_share(self.rank)
         myshare = (myshare*total)/shares

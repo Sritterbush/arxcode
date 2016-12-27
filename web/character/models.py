@@ -110,7 +110,7 @@ class RosterEntry(models.Model):
         try:
             delroster = Roster.objects.get(name__iexact="Deleted")
         except Roster.DoesNotExist:
-            print "Could not find Deleted Roster!"
+            print("Could not find Deleted Roster!")
             return
         self.roster = delroster
         self.inactive = True
@@ -121,7 +121,7 @@ class RosterEntry(models.Model):
         try:
             roster = Roster.objects.get(name__iexact=rname)
         except Roster.DoesNotExist:
-            print "Could not find %s roster!" % rname
+            print("Could not find %s roster!" % rname)
             return
         self.roster = roster
         self.inactive = False
@@ -416,6 +416,13 @@ class RevelationDiscovery(models.Model):
     def __str__(self):
         return "%s's discovery of %s" % (self.character, self.revelation)
 
+    def display(self):
+        msg = self.revelation.name + "\n"
+        msg += self.revelation.desc + "\n"
+        if self.message:
+            msg += "\n" + self.message
+        return msg
+
 
 class RevelationForMystery(models.Model):
     mystery = models.ForeignKey('Mystery', related_name="revelations_used")
@@ -657,7 +664,7 @@ class Investigation(models.Model):
             aroll += random.randint(0, 5) * ability_level
             roll += aroll
         # save the character's roll
-        print "final roll is %s" % roll
+        print("final roll is %s" % roll)
         self.roll = roll
         return roll
 
@@ -814,7 +821,7 @@ class Investigation(models.Model):
 
     @property
     def keywords(self):
-        kwords = self.topic.lower().split()
+        kwords = [str(ob) for ob in self.topic.lower().split()]
         # add back in the phrases for phrase matching
         if len(kwords) > 1:
             for pos in range(0, len(kwords)):
@@ -825,9 +832,9 @@ class Investigation(models.Model):
         for word in ("a", "or", "an", "the", "and", "but", "not",
                      "yet", "with", "in", "how", "if", "of"):
             if word in kwords:
-                kwords.remove(unicode(word))
+                kwords.remove(str(word))
         if self.topic.lower() not in kwords:
-            kwords.append(self.topic.lower())
+            kwords.append(str(self.topic.lower()))
         return kwords
 
     def find_target_clue(self):
