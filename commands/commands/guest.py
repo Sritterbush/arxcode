@@ -479,7 +479,7 @@ class CmdGuestCharCreate(MuxPlayerCommand):
         new_character = None
         # see if we've already defined email with @add/email
         email = player.ndb.email
-        args = self.args
+        args = self.lhs
         if email:
             args = email
         if not args:
@@ -502,9 +502,27 @@ class CmdGuestCharCreate(MuxPlayerCommand):
         if email != 'none':
             from web.character.models import RosterEntry
             try:
-                entry = RosterEntry.objects.get(roster__name="Incomplete",
-                                                player__email=email)
-                self.msg("{wFound an unfinished character with the provided email address. Resuming that session.{n")
+                try:
+                    entry = RosterEntry.objects.get(roster__name="Incomplete",
+                                                    player__email=email)
+                    self.msg("{wFound an unfinished character with the provided email address. "
+                             "Resuming that session.{n")
+                except RosterEntry.MultipleObjectsReturned:
+                    entries = RosterEntry.objects.filter(roster__name="Incomplete",
+                                                         player__email=email).order_by('-player__date_joined')
+                    if not self.rhs:
+                        self.msg("Found %s incomplete characters with that email address." % entries.count())
+                        self.msg("Please @charcreate <email>=<number> to selection one, where <number> is "
+                                 "a number from 1 to %s, where 1 is the oldest character." % entries.count())
+                        return
+                    try:
+                        index = int(self.rhs) - 1
+                        entry = entries[index]
+                    except (ValueError, TypeError, IndexError):
+                        self.msg("Please select a number from 1 to "
+                                 "%s, where 1 is the oldest character." % entries.count())
+                        return
+                    self.msg("Choosing entry number %s out of the ones for that email." % index)
                 new_character = entry.character
                 stage = new_character.db.player_ob.db.tutorial_stage
                 if not stage:
@@ -1010,7 +1028,10 @@ class CmdGuestAddInput(MuxPlayerCommand):
                 return
             args = args.lower()
             if char:
-                char.db.player_ob.email = args
+                player = char.db.player_ob
+                player.email = args
+                player.save()
+                char.db.player_ob = player
                 char.save()
             caller.ndb.email = args
             caller.msg("Email set to %s" % args)
