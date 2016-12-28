@@ -72,6 +72,17 @@ class JournalListView(LimitPageMixin, ListView):
             context['read_is_active'] = True
         else:
             context['read_is_active'] = False
+        search_tags = ""
+        sender = self.request.GET.get('sender_name', None)
+        if sender:
+            search_tags += "&sender_name=%s" % sender
+        receiver = self.request.GET.get('receiver_name', None)
+        if receiver:
+            search_tags += "&receiver_name=%s" % receiver
+        search_text = self.request.GET.get('search_text', None)
+        if search_text:
+            search_tags += "&search_text=%s" % search_text
+        context['search_tags'] = search_tags
         context['write_journal_form'] = JournalWriteForm()
         context['page_title'] = 'Journals'
         return context
