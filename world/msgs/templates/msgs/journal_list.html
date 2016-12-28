@@ -104,17 +104,17 @@
 			<div class="pagination">
 			<ul class="pagination nav navbar-nav">
 				{% if read_journals.has_previous %}
-					<li><a href="?read_page={{ read_journals.previous_page_number }}">previous</a></li>
+					<li><a href="?read_page={{ read_journals.previous_page_number }}{{ search_tags }}">previous</a></li>
 				{% endif %}
 
 				{% for pnum in read_journals_begin %}
-                     <li class="{% if read_journals.number == pnum  %}active{% endif %}"><a href="?read_page={{ pnum }}">{{ pnum }}</a></li> 
+                     <li class="{% if read_journals.number == pnum  %}active{% endif %}"><a href="?read_page={{ pnum }}{{ search_tags }}">{{ pnum }}</a></li>
                 {% endfor %}
                 {% if read_journals_middle %}
                     <li><strong>...</strong></li>
 
                     {% for pnum in read_journals_middle %}
-                       <li class="{% if read_journals.number == pnum  %}active{% endif %}"><a href="?read_page={{ pnum }}">{{ pnum }}</a></li>  
+                       <li class="{% if read_journals.number == pnum  %}active{% endif %}"><a href="?read_page={{ pnum }}{{ search_tags }}">{{ pnum }}</a></li>
                     {% endfor %}
                 {% endif %}
 
@@ -122,11 +122,11 @@
                     <li><strong>...</strong></li>
 
                     {% for pnum in read_journals_end %}
-                        <li class="{% if read_journals.number == pnum  %}active{% endif %}"><a href="?read_page={{ pnum }}">{{ pnum }}</a></li> 
+                        <li class="{% if read_journals.number == pnum  %}active{% endif %}"><a href="?read_page={{ pnum }}{{ search_tags }}">{{ pnum }}</a></li>
                     {% endfor %}
                 {% endif %}
 				{% if read_journals.has_next %}
-					<li><a href="?read_page={{ read_journals.next_page_number }}">next</a></li>
+					<li><a href="?read_page={{ read_journals.next_page_number }}{{ search_tags }}">next</a></li>
 				{% endif %}
 			</ul>
 			</div>
