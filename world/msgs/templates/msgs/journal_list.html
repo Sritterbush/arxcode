@@ -2,10 +2,10 @@
 {% load app_filters %}
 {% block content %}
 <div class="container">
-    <div class="row"></div>
+    <div class="row">
     <form method="get" action="." class="navbar-form pull-right">
-    <input type="text" id="searchBox" class="input-medium search-query" name="sender_name" placeholder="Sender">
-    <input type="text" id="searchBox" class="input-medium search-query" name="receiver_name" placeholder="Receiver">
+    <input type="text" id="searchBox" class="input-medium search-query" name="sender_name" placeholder="Written By">
+    <input type="text" id="searchBox" class="input-medium search-query" name="receiver_name" placeholder="Relationship Note On">
     <input type="text" id="searchBox" class="input-medium search-query" name="search_text" placeholder="Journal Text">
     <input type="submit" class="btn" value="Search" >
     </form>
@@ -43,7 +43,6 @@
 		{% endfor %}
 		{% if is_paginated %}
 			<div class="pagination">
-			<span class="step-links">
 			<ul class="pagination nav navbar-nav">
 				{% if page_obj.has_previous %}
 					<li><a href="?page={{ page_obj.previous_page_number }}">previous</a></li>
@@ -72,7 +71,6 @@
 					<li><a href="?page={{ page_obj.next_page_number }}">next</a></li>
 				{% endif %}
 			</ul>
-			</span>
 			</div>
 		{% endif %}
 		{% if user.is_authenticated and user.db.char_ob %}
@@ -104,7 +102,6 @@
 		{% endfor %}
 
 			<div class="pagination">
-			<span class="step-links">
 			<ul class="pagination nav navbar-nav">
 				{% if read_journals.has_previous %}
 					<li><a href="?read_page={{ read_journals.previous_page_number }}">previous</a></li>
@@ -128,12 +125,10 @@
                         <li class="{% if read_journals.number == pnum  %}active{% endif %}"><a href="?read_page={{ pnum }}">{{ pnum }}</a></li> 
                     {% endfor %}
                 {% endif %}
-
 				{% if read_journals.has_next %}
 					<li><a href="?read_page={{ read_journals.next_page_number }}">next</a></li>
 				{% endif %}
 			</ul>
-			</span>
 			</div>
 		</div> <!-- read journals-->
 		
