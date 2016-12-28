@@ -509,7 +509,7 @@ class CmdGuestCharCreate(MuxPlayerCommand):
                              "Resuming that session.{n")
                 except RosterEntry.MultipleObjectsReturned:
                     entries = RosterEntry.objects.filter(roster__name="Incomplete",
-                                                         player__email=email).order_by('-player__date_joined')
+                                                         player__email=email).order_by('player__date_joined')
                     if not self.rhs:
                         self.msg("Found %s incomplete characters with that email address." % entries.count())
                         self.msg("Please @charcreate <email>=<number> to selection one, where <number> is "
