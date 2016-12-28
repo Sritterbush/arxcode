@@ -19,31 +19,50 @@ class JournalListView(LimitPageMixin, ListView):
     paginate_by = 20
     additional_pages = {'read_journals': ('get_read_journals', 'read_page')}
 
+    def search_filters(self, queryset):
+        get = self.request.GET
+        if not get:
+            return queryset
+        sender = get.get('sender_name', None)
+        if sender:
+            queryset = queryset.filter(db_sender_objects__db_key__iexact=sender)
+        receiver = get.get('receiver_name', None)
+        if receiver:
+            queryset = queryset.filter(db_receivers_objects__db_key__iexact=receiver)
+        text = get.get('search_text', None)
+        if text:
+            queryset = queryset.filter(db_message__icontains=text)
+        return queryset
+
     def get_read_journals(self):
         user = self.request.user
         if not user or not user.is_authenticated():
             return []
         if user.is_staff:
-            return Msg.objects.filter((Q(db_header__icontains='white_journal') |
+            qs =  Msg.objects.filter((Q(db_header__icontains='white_journal') |
                                        Q(db_header__icontains='black_journal')) &
                                       Q(db_receivers_players=user)).order_by('-db_date_created')
-        return Msg.objects.filter((Q(db_header__icontains='white_journal') |
+        else:
+            qs = Msg.objects.filter((Q(db_header__icontains='white_journal') |
                                     (Q(db_header__icontains='black_journal') &
                                      Q(db_sender_objects=user.db.char_ob))) &
                                   Q(db_receivers_players=user)).order_by('-db_date_created')
+        return self.search_filters(qs)
 
     def get_queryset(self):
         user = self.request.user
         if not user or not user.is_authenticated() or not user.db.char_ob:
             return Msg.objects.filter(db_header__icontains="white_journal").order_by('-db_date_created')
         if user.is_staff:
-            return Msg.objects.filter((Q(db_header__icontains='white_journal') |
+            qs =  Msg.objects.filter((Q(db_header__icontains='white_journal') |
                                        Q(db_header__icontains='black_journal')) &
                                       ~Q(db_receivers_players=user)).order_by('-db_date_created')
-        return Msg.objects.filter((Q(db_header__icontains='white_journal') |
+        else:
+            qs = Msg.objects.filter((Q(db_header__icontains='white_journal') |
                                     (Q(db_header__icontains='black_journal') &
                                      Q(db_sender_objects=user.db.char_ob))) &
                                   ~Q(db_receivers_players=user)).order_by('-db_date_created')
+        return self.search_filters(qs)
 
     def get_context_data(self, **kwargs):
         context = super(JournalListView, self).get_context_data(**kwargs)

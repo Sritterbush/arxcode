@@ -2,6 +2,14 @@
 {% load app_filters %}
 {% block content %}
 <div class="container">
+    <div class="row"></div>
+    <form method="get" action="." class="navbar-form pull-right">
+    <input type="text" id="searchBox" class="input-medium search-query" name="sender_name" placeholder="Sender">
+    <input type="text" id="searchBox" class="input-medium search-query" name="receiver_name" placeholder="Receiver">
+    <input type="text" id="searchBox" class="input-medium search-query" name="search_text" placeholder="Journal Text">
+    <input type="submit" class="btn" value="Search" >
+    </form>
+    </div>
 	<ul class="nav nav-pills">
 		<li class={% if not read_is_active %}"active"{% endif %}><a data-toggle="pill" href="#unreadjournals">Unread Journals</a></li>
 		{% if user.is_authenticated and user.db.char_ob %}
