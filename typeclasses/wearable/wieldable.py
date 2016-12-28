@@ -161,7 +161,9 @@ class Wieldable(Object):
             return self.db.damage_bonus or 0, diffmod, flat_damage_bonus
         base = float(recipe.resultsdict.get("baseval", 0))
         if quality >= 10:
-            base += 1.0
+            crafter = self.db.crafted_by
+            if (recipe.level > 3) or not crafter or crafter.check_permstring("builders"):
+                base += 1
         scaling = float(recipe.resultsdict.get("scaling", (base/20) or 0.2))
         if not base and not scaling:
             self.ndb.cached_damage_bonus = 0

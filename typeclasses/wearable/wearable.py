@@ -103,7 +103,9 @@ class Wearable(Object):
         scaling = float(recipe.resultsdict.get("scaling", (base/10.0) or 0.2))
         penalty = float(recipe.resultsdict.get("penalty", 0.0))
         if quality >= 10:
-            base += 1
+            crafter = self.db.crafted_by
+            if (recipe.level > 3) or not crafter or crafter.check_permstring("builders"):
+                base += 1
         if not base:
             self.ndb.cached_armor_value = 0
             self.ndb.cached_penalty_value = penalty
