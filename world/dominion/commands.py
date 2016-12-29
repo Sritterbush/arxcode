@@ -2035,7 +2035,13 @@ class CmdTask(MuxCommand):
         if not self.switches and not self.args:
             # list all our active and available tasks
             caller.msg("{wAvailable/Active Tasks:{n")
-            tasks = mytasks.filter(assigned_tasks__finished=False) | available
+            tasks = mytasks.filter(assigned_tasks__finished=False)
+            # NB: combining tasks this way, rather than in queryset form, is 1000 times faster
+            # possibly due to lack of index or something, but tasks | available is chock-full of
+            # LEFT OUTER JOINs, and literally 1000 times slower than evaluating independently.
+            tasks = list(tasks)
+            available = list(available)
+            tasks = list(set(tasks) | set(available))
             caller.msg(self.display_tasks(tasks, dompc))
             caller.msg("You can perform %s more tasks." % tasks_remaining)            
             return
