@@ -2047,6 +2047,9 @@ class CmdTask(MuxCommand):
             return
         if not self.switches:
             # display info on task
+            # NB: Same query as above, but it executed around 70 times faster. Why is the execution
+            # so much worse above than here? No idea. But still, evaluating the queries independently
+            # rather than combining them was still faster, just not as mind-bogglingly so.
             tasks = [ob.id for ob in (set(mytasks) | set(available))]
             try:
                 task = Task.objects.get(id=int(self.args), id__in=tasks)         
