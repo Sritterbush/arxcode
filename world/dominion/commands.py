@@ -2047,7 +2047,7 @@ class CmdTask(MuxCommand):
             return
         if not self.switches:
             # display info on task
-            tasks = mytasks | available
+            tasks = [ob.id for ob in (set(mytasks) | set(available))]
             try:
                 task = Task.objects.get(id=int(self.args), id__in=tasks)         
             except ValueError:
