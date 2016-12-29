@@ -143,6 +143,29 @@ class MessageHandler(object):
         # type: (msg) -> str
         header = MessageHandler.parse_header(msg)
         return header.get('date', None)
+
+    def get_sender_name(self, msg):
+        senders = msg.senders
+        realname = ""
+        if senders:
+            sender = senders[0]
+            if sender:
+                if sender.db.longname:
+                    realname = sender.db.longname
+                else:
+                    realname = sender.key
+            else:
+
+                realname = "Unknown Sender"
+        else:
+            realname = "Unknown Sender"
+        header = MessageHandler.parse_header(msg)
+        name = header.get('spoofed_name', None) or ""
+        if not name:
+            return realname
+        if self.obj.check_permstring("builders"):
+            name = "%s {w(%s){n" % (name, realname)
+        return name
     
     @staticmethod
     def create_comment_header(icdate):
@@ -158,9 +181,12 @@ class MessageHandler(object):
         jtype = "white_journal" if white else "black_journal"
         return "journal:%s;type:relationship;date:%s" % (jtype, icdate)
 
-    @staticmethod
-    def create_messenger_header(icdate):
-        return "type:messenger;date:%s" % icdate
+    def create_messenger_header(self, icdate):
+        header = "type:messenger;date:%s" % icdate
+        name = self.obj.db.spoofed_messenger_name
+        if name:
+            header += ";spoofed_name:%s" % name
+        return header
 
     # ---------------------------------------------------------
     # Setup/building methods
@@ -403,7 +429,7 @@ class MessageHandler(object):
             self.del_messenger(qs.first())
         return msg
 
-    def send_messenger(self, msg, date=""):
+    def create_messenger(self, msg, date=""):
         """
         Here we create the msg object and return it to the command to handle.
         They'll attach the msg object to each receiver as an attribute, who

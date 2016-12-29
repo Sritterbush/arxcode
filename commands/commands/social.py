@@ -569,6 +569,7 @@ class CmdMessenger(MuxCommand):
         messenger/send
         messenger/discreet <retainer ID>
         messenger/custom <retainer ID>
+        messenger/spoof <name for messages you send>
 
     Dispatches or receives in-game messengers. Messengers are an
     abstraction of any IC communication through distances - they
@@ -615,19 +616,7 @@ class CmdMessenger(MuxCommand):
             caller.msg("It appears this messenger was deleted already. If this appears to be an error, "
                        "inform staff please.")
             return
-        senders = msg.senders
-        if senders:
-            sender = senders[0]
-            if sender:
-                if sender.db.longname:
-                    name = sender.db.longname
-                else:
-                    name = sender.key
-            else:
- 
-                name = "Unknown Sender"
-        else:
-            name = "Unknown Sender"
+        name = caller.messages.get_sender_name(msg)
         mssg = "{wSent by:{n %s\n" % name
         mssg += caller.messages.disp_entry(msg)
         caller.msg(mssg, options={'box': True})
@@ -650,6 +639,17 @@ class CmdMessenger(MuxCommand):
                 caller.msg("You have {w%s{n old messages you can re-read." % len(read))
             if unread:
                 caller.msg("{mYou have {w%s{m new messengers waiting to be received." % len(unread))
+            return
+        if "spoof" in self.switches:
+            if not caller.check_permstring("builders"):
+                self.msg("GM only command for now.")
+                return
+            if not self.args:
+                caller.attributes.remove("spoofed_messenger_name")
+                self.msg("Fake name stripped.")
+                return
+            caller.db.spoofed_messenger_name = self.args
+            self.msg("Messages will be sent with fake name of: %s" % self.args)
             return
         if "discreet" in self.switches:
             if not self.args:
@@ -769,12 +769,7 @@ class CmdMessenger(MuxCommand):
                 mess_num = 1
                 old = old[:num_disp]
                 for mess in old:
-                    sender = mess.senders
-                    if sender:
-                        sender = sender[0]
-                        name = sender.key
-                    else:
-                        name = "Unknown"
+                    name = caller.messages.get_sender_name(mess)
                     date = caller.messages.get_date_from_header(mess) or "Unknown"
                     saved = "{w*{n" if "preserve" in mess.db_header else ""
                     msgtable.add_row([mess_num, name, date, saved])
@@ -864,7 +859,7 @@ class CmdMessenger(MuxCommand):
                 caller.msg("You have no draft message stored.")
                 return
             targs, msg = caller.db.messenger_draft[0], caller.db.messenger_draft[1]
-            msg = caller.messages.send_messenger(msg)
+            msg = caller.messages.create_messenger(msg)
             for targ in targs:
                 self.send_messenger(caller, targ, msg)
             caller.db.messenger_draft = None
@@ -924,7 +919,7 @@ class CmdMessenger(MuxCommand):
             caller.msg("You cannot send a delivery or money to more than one person.")
             return
         # format our messenger
-        msg = caller.messages.send_messenger(self.rhs)
+        msg = caller.messages.create_messenger(self.rhs)
         # make delivery object unavailable while in transit, if we have one
         if delivery or money:
             if delivery:
