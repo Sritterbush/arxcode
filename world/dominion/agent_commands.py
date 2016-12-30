@@ -75,6 +75,7 @@ class CmdAgents(MuxPlayerCommand):
             return ["guards"]
         if "crime" in org.category:
             return ["thugs"]
+        return []
 
     def func(self):
         caller = self.caller
