@@ -741,6 +741,12 @@ class CombatManager(BaseScript):
         if character in self.ndb.combatants:
             if character == adder:
                 return "You are already in the fight."
+            cdata = self.get_fighter_data(character.id)
+            if cdata and adder:
+                cdata.add_foe(adder)
+                adata = self.get_fighter_data(adder.id)
+                if adata:
+                    adata.add_foe(character)
             return "%s is already fighting." % character.key
         # check if attackable
         if not character.db.attackable:

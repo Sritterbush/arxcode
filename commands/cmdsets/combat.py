@@ -867,11 +867,11 @@ class CmdCreateAntagonist(MuxCommand):
             ntypes = npc_types.npc_templates.keys()
             caller.msg("Valid npc types: %s" % ", ".join(ntypes))
             
-            table = evtable.EvTable("ID", "Name", "Type", "Amt", "Threat", "Location", "Desc", width=78)
+            table = evtable.EvTable("ID", "Name", "Type", "Amt", "Threat", "Location", width=78)
             for npc in npcs:
                 ntype = npc_types.get_npc_singular_name(npc.db.npc_type)
                 table.add_row(npc.id, npc.key or "None", ntype, npc.db.num_living,
-                              npc.db.npc_quality, npc.location, npc.desc)
+                              npc.db.npc_quality, npc.location.id if npc.location else None)
             caller.msg(str(table), options={'box': True})
             return
         if not self.switches or 'new' in self.switches or 'overwrite' in self.switches:
@@ -882,12 +882,12 @@ class CmdCreateAntagonist(MuxCommand):
                 desc = None
                 npc_id = None
                 if 'new' in self.switches or not self.switches:                   
-                    if len(self.lhslist) == 6:
-                        desc = self.lhslist[5]
+                    if len(self.lhslist) > 5:
+                        desc = ", ".join(self.lhslist[5:])
                     ntype, threat, qty, sname, pname = self.lhslist[:5]
                 else:
-                    if len(self.lhslist) == 7:
-                        desc = self.lhslist[6]
+                    if len(self.lhslist) > 6:
+                        desc = ", ".join(self.lhslist[6:])
                     npc_id, ntype, threat, qty, sname, pname = self.lhslist[:6]
                     npc_id = int(npc_id)
                 ntype = npc_types.npc_templates[ntype]
@@ -909,7 +909,7 @@ class CmdCreateAntagonist(MuxCommand):
                     caller.msg("No npc found for that ID.")
                     return
             else:
-                npc = create.create_object(typeclass=NPC)
+                npc = create.create_object(key=sname,typeclass=NPC)
             npc.setup_npc(ntype, threat, qty, sing_name=sname, plural_name=pname, desc=desc)
             npc.location = caller.location
             caller.location.msg_contents(self.rhs)

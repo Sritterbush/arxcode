@@ -313,6 +313,7 @@ class MultiNpc(Npc):
             self.db.npc_type = ntype
             self.db.singular_name = sing_name
             self.db.plural_name = plural_name
+            print("Desc is %s" % desc)
             self.desc = desc or get_npc_desc(ntype)
         self.setup_stats(ntype, threat)     
         self.setup_name()
