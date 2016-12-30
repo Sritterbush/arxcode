@@ -53,9 +53,9 @@ class OrgListFilter(admin.SimpleListFilter):
 
 
 class OrgAdmin(DomAdmin):
-    list_display = ('name', 'membership')
+    list_display = ('name', 'membership', 'category')
     ordering = ['name']
-    search_fields = ['name']
+    search_fields = ['name', 'category', 'members__player__player__username']
     list_filter = (OrgListFilter,)
 
     @staticmethod

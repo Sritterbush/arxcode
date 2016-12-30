@@ -71,7 +71,7 @@ class CmdAgents(MuxPlayerCommand):
 
     @staticmethod
     def get_allowed_types_from_org(org):
-        if "noble" in org.category or "social" in org.category or "military" in org.category:
+        if "noble" in org.category:
             return ["guards"]
         if "crime" in org.category:
             return ["thugs"]
