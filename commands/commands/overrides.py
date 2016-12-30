@@ -8,17 +8,20 @@ from evennia.commands.cmdhandler import get_and_merge_cmdsets
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.server.sessionhandler import SESSIONS
 import time
-from evennia.commands.default.comms import (CmdCdestroy, CmdChannelCreate,
+from evennia.commands.default.comms import (CmdCdestroy, CmdChannelCreate, CmdChannels,
                                             CmdClock, CmdCBoot, CmdCdesc, CmdAllCom)
 from evennia.commands.default.building import CmdExamine, CmdLock
+from evennia.utils import evtable
 from world.dominion.models import CraftingMaterials
 # noinspection PyProtectedMember
 from evennia.commands.default.building import _LITERAL_EVAL, ObjManipCommand
 from evennia.utils.utils import to_str
 from evennia.utils import create
 from evennia.commands.default.general import CmdSay
+from evennia.comms.models import ChannelDB
 
 AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
+_DEFAULT_WIDTH = settings.CLIENT_DEFAULT_WIDTH
 
 
 def args_are_currency(args):
@@ -1275,6 +1278,80 @@ class CmdArxAllCom(CmdAllCom):
         channels = ChannelDB.objects.get_subscriptions(caller)
         for channel in channels:
             caller.execute_cmd("%s off" % channel.key)
+
+
+class CmdArxChannels(CmdChannels):
+    """
+    list all channels available to you
+
+    Usage:
+      @channels
+      @clist
+      comlist
+
+    Lists all channels available to you, whether you listen to them or not.
+    Use 'comlist' to only view your current channel subscriptions.
+    Use addcom/delcom to join and leave channels
+    """
+    key = "@channels"
+    aliases = ["@clist", "channels", "comlist", "chanlist", "channellist", "all channels"]
+    help_category = "Comms"
+    locks = "cmd: not pperm(channel_banned)"
+
+    # this is used by the COMMAND_DEFAULT_CLASS parent
+    player_caller = True
+
+    def func(self):
+        """Implement function"""
+
+        caller = self.caller
+
+        # all channels we have available to listen to
+        channels = [chan for chan in ChannelDB.objects.get_all_channels()
+                    if chan.access(caller, 'listen')]
+        if not channels:
+            self.msg("No channels available.")
+            return
+        # all channel we are already subscribed to
+        subs = ChannelDB.objects.get_subscriptions(caller)
+
+        if self.cmdstring == "comlist":
+            # just display the subscribed channels with no extra info
+            comtable = evtable.EvTable("{wchannel{n", "{wmy aliases{n", "{wdescription{n", align="l",
+                                       maxwidth=_DEFAULT_WIDTH, border="cells")
+            for chan in subs:
+                clower = chan.key.lower()
+                nicks = caller.nicks.get(category="channel", return_obj=True)
+                comtable.add_row(*["%s%s" % (chan.key, chan.aliases.all() and
+                                             "(%s)" % ",".join(chan.aliases.all()) or ""),
+                                   "%s" % ",".join(nick.db_key for nick in make_iter(nicks)
+                                                   if nick and nick.value[3].lower() == clower),
+                                   chan.db.desc])
+            self.msg("\n{wChannel subscriptions{n (use {w@channels{n to list all, "
+                     "{waddcom{n/{wdelcom{n to sub/unsub):{n\n%s" % comtable)
+        else:
+            # full listing (of channels caller is able to listen to)
+            comtable = evtable.EvTable("{wsub{n", "{wchannel{n", "{wmy aliases{n", "{wdescription{n",
+                                       maxwidth=_DEFAULT_WIDTH, border="cells")
+            for chan in channels:
+                clower = chan.key.lower()
+                nicks = caller.nicks.get(category="channel", return_obj=True)
+                nicks = nicks or []
+                if chan not in subs:
+                    substatus = "{rNo{n"
+                elif caller in chan.mutelist:
+                    substatus = "{rMuted{n"
+                else:
+                    substatus = "{gYes{n"
+                comtable.add_row(*[substatus, "%s%s" % (chan.key, chan.aliases.all() and
+                                                        "(%s)" % ",".join(chan.aliases.all()) or ""),
+                                   "%s" % ",".join(nick.db_key for nick in make_iter(nicks)
+                                                   if nick.value[3].lower() == clower),
+                                   chan.db.desc])
+            comtable.reformat_column(0, width=9)
+            comtable.reformat_column(3, width=14)
+            self.msg("\n{wAvailable channels{n (use {wcomlist{n,{waddcom{n and "
+                     "{wdelcom{n to manage subscriptions):\n%s" % comtable)
 
 
 class CmdArxLock(CmdLock):
