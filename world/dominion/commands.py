@@ -1591,6 +1591,7 @@ class CmdOrganization(MuxPlayerCommand):
                     caller.msg("You do not have permission to edit permissions.")
                     return
                 org.locks.add("%s:rank(%s)" % (ltype, rank))
+                org.save()
                 caller.msg("Permission %s set to require rank %s or higher." % (ltype, rank))
                 return
             if 'rankname' in self.switches:
