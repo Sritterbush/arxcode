@@ -243,6 +243,17 @@ class Npc(Character):
             return self.quantity
         return 0
 
+    def setup_npc(self, ntype=0, threat=0, num=1, sing_name=None, plural_name=None, desc=None, keepold=False):
+        self.db.damage = 0
+        self.db.health_status = "alive"
+        self.db.sleep_status = "awake"
+        # if we don't
+        if not keepold:
+            self.db.npc_type = ntype
+            self.name = sing_name or plural_name or "#%s" % self.id
+            self.desc = desc or get_npc_desc(ntype)
+        self.setup_stats(ntype, threat)
+
 
 class MultiNpc(Npc):
     def multideath(self, num, death=False):
@@ -313,7 +324,6 @@ class MultiNpc(Npc):
             self.db.npc_type = ntype
             self.db.singular_name = sing_name
             self.db.plural_name = plural_name
-            print("Desc is %s" % desc)
             self.desc = desc or get_npc_desc(ntype)
         self.setup_stats(ntype, threat)     
         self.setup_name()
@@ -618,7 +628,7 @@ class Retainer(AgentMixin, Npc):
         return msg
 
     # noinspection PyUnusedLocal
-    def setup_npc(self, ntype=None, threat=None, num=None, desc=None, keepold=False):
+    def setup_npc(self, ntype=0, threat=0, num=1, sing_name=None, plural_name=None, desc=None, keepold=False):
         self.db.damage = 0
         self.db.health_status = "alive"
         self.db.sleep_status = "awake"

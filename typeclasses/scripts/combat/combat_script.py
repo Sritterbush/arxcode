@@ -431,11 +431,11 @@ class CombatManager(BaseScript):
                         target.db.damage = 0
                 elif not d_fite.multiple:
                     self.msg(message)
-                    self.remove_combatant(target)
                     if self.db.lethal:
                         target.death_process()
                     else:
                         target.db.damage = 0
+                    self.remove_combatant(target)
                 else:
                     if self.db.lethal:
                         target.death_process()
@@ -812,6 +812,9 @@ class CombatManager(BaseScript):
             self.msg("No combatants found. Exiting.")
             self.end_combat()
             return
+        if not self or not self.pk or self.ndb.shutting_down:
+            self.end_combat()
+            return
         active_combatants = [ob for ob in self.ndb.combatants if ob not in self.ndb.incapacitated]
         if not active_combatants:
             self.msg("All combatants are incapacitated. Exiting.")
@@ -833,7 +836,10 @@ class CombatManager(BaseScript):
                 self.msg("{wCharacters who are ready:{n " + list_to_string(ready))
                 self.msg("{wCharacter who have not yet hit 'continue':{n " + list_to_string(not_ready))
         else:
-            self.start_phase_2()
+            try:
+                self.start_phase_2()
+            except ValueError:
+                self.end_combat()
 
     def afk_check(self, checking_char, char_to_check):
         """

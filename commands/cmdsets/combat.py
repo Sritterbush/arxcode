@@ -12,7 +12,7 @@ telling. It's simply too disruptive, and often creates
 situations that are damaging to immersion and the
 creative process.
 """
-
+from django.db.models import Q
 from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand
 from evennia.utils import create, evtable
@@ -401,6 +401,9 @@ class CmdAttack(MuxCommand):
                 diff += mod
                 mssg += "Attempting a critical hit."
         if create_queued:
+            if combat.ndb.shutting_down:
+                self.msg("Combat is shutting down. Unqueuing command.")
+                return
             caller.msg("Queuing this action for later.")
             combat.get_fighter_data(caller.id).set_queued_action("attack", targ, mssg, diff, mod)      
             return
@@ -478,7 +481,8 @@ class CmdPassTurn(MuxCommand):
                 caller.msg("Please use '{wpass{n' to pass your turn during combat resolution.")
                 return
         # phase 1, mark us ready to proceed for phase 2
-        combat.character_ready(caller)
+        if combat and not combat.ndb.shutting_down:
+            combat.character_ready(caller)
         return
 
 
@@ -833,6 +837,7 @@ class CmdAdminCombat(MuxCommand):
         pass
 
 NPC = "typeclasses.npcs.npc.MultiNpc"
+UNIQUE_NPC = "typeclasses.npcs.npc.Npc"
 
 
 class CmdCreateAntagonist(MuxCommand):
@@ -849,7 +854,8 @@ class CmdCreateAntagonist(MuxCommand):
     the preset npc templates - 'guard', etc. /preset keeps the existing
     names, type, and description of the npc, just changing its threat and
     quantity. /new spawns a new template, while /ovewrite allows you to
-    replace an old, unsured template by its ID number with new data.
+    replace an old, unsured template by its ID number with new data. Use 'champion'
+    to spawn unique npcs. When spawning a unique, quantity will always be 1.
     """
     key = "@spawn"
     locks = "cmd:perm(spawn) or perm(Builders)"
@@ -859,7 +865,7 @@ class CmdCreateAntagonist(MuxCommand):
         """Execute command."""
         caller = self.caller
         # get list of available npcs and types
-        npcs = list(ObjectDB.objects.filter(db_typeclass_path=NPC))
+        npcs = list(ObjectDB.objects.filter(Q(db_typeclass_path=NPC) | Q(db_typeclass_path=UNIQUE_NPC)))
         unused = [npc for npc in npcs if not npc.location]
         ntype = None
         if not self.switches and not self.args:
@@ -870,7 +876,8 @@ class CmdCreateAntagonist(MuxCommand):
             table = evtable.EvTable("ID", "Name", "Type", "Amt", "Threat", "Location", width=78)
             for npc in npcs:
                 ntype = npc_types.get_npc_singular_name(npc.db.npc_type)
-                table.add_row(npc.id, npc.key or "None", ntype, npc.db.num_living,
+                num = npc.db.num_living if ntype.lower() != "champion" else "Unique"
+                table.add_row(npc.id, npc.key or "None", ntype, num,
                               npc.db.npc_quality, npc.location.id if npc.location else None)
             caller.msg(str(table), options={'box': True})
             return
@@ -884,13 +891,13 @@ class CmdCreateAntagonist(MuxCommand):
                 if 'new' in self.switches or not self.switches:                   
                     if len(self.lhslist) > 5:
                         desc = ", ".join(self.lhslist[5:])
-                    ntype, threat, qty, sname, pname = self.lhslist[:5]
+                    ntypename, threat, qty, sname, pname = self.lhslist[:5]
                 else:
                     if len(self.lhslist) > 6:
                         desc = ", ".join(self.lhslist[6:])
-                    npc_id, ntype, threat, qty, sname, pname = self.lhslist[:6]
+                    npc_id, ntypename, threat, qty, sname, pname = self.lhslist[:6]
                     npc_id = int(npc_id)
-                ntype = npc_types.npc_templates[ntype]
+                ntype = npc_types.npc_templates[ntypename]
                 qty = int(qty)
                 threat = int(threat)
             except ValueError:
@@ -904,12 +911,17 @@ class CmdCreateAntagonist(MuxCommand):
                 return
             if 'overwrite' in self.switches:
                 try:
-                    npc = ObjectDB.objects.get(db_typeclass_path=NPC, id=npc_id)
+                    npc = ObjectDB.objects.get(Q(Q(db_typeclass_path=NPC) | Q(db_typeclass_path=UNIQUE_NPC))
+                                               & Q(id=npc_id))
                 except ObjectDB.DoesNotExist:
                     caller.msg("No npc found for that ID.")
                     return
             else:
-                npc = create.create_object(key=sname, typeclass=NPC)
+                if ntypename.lower() != "champion":
+                    npc = create.create_object(key=sname, typeclass=NPC)
+                else:
+                    npc = create.create_object(key=sname, typeclass=UNIQUE_NPC)
+                    qty = 1
             npc.setup_npc(ntype, threat, qty, sing_name=sname, plural_name=pname, desc=desc)
             npc.location = caller.location
             caller.location.msg_contents(self.rhs)

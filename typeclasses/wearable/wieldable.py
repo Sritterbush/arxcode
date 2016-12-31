@@ -34,7 +34,6 @@ class Wieldable(Object):
         self.db.currently_wielded = False
         self.db.desc = "A weapon of some kind."
         # phrase that is seen when we equip it
-        self.db.ready_phrase = "wields %s" % self.name
         self.db.stealth = False  # whether it can be seen in character desc
         self.db.sense_difficulty = 15  # default if stealth is set to true
         self.db.attack_skill = "medium wpn"
