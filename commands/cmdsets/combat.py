@@ -909,7 +909,7 @@ class CmdCreateAntagonist(MuxCommand):
                     caller.msg("No npc found for that ID.")
                     return
             else:
-                npc = create.create_object(key=sname,typeclass=NPC)
+                npc = create.create_object(key=sname, typeclass=NPC)
             npc.setup_npc(ntype, threat, qty, sing_name=sname, plural_name=pname, desc=desc)
             npc.location = caller.location
             caller.location.msg_contents(self.rhs)
