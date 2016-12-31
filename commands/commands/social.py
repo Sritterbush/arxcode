@@ -1839,7 +1839,7 @@ class CmdCensus(MuxPlayerCommand):
     """
     key = "+census"
     locks = "cmd:all()"
-    category = "Information"
+    help_category = "Information"
 
     def func(self):
         from .guest import census_of_fealty
@@ -1862,7 +1862,7 @@ class CmdRoomTitle(MuxCommand):
     """
     key = "+roomtitle"
     locks = "cmd:all()"
-    category = "Social"
+    help_category = "Social"
 
     def func(self):
         if not self.args:
