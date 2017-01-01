@@ -188,12 +188,14 @@ def get_skill_cost_increase(caller):
     from commands.commands import guest
     skills = caller.db.skills or {}
     srank = caller.db.social_rank or 0
+    age = caller.db.age or 0
     total = 0
     for skill in skills:
         # get total cost of each skill
         total += cost_at_rank(skill, 0, skills[skill])
     total -= guest.SKILL_POINTS * 10
     total -= guest.XP_BONUS_BY_SRANK.get(srank, 0)
+    total -= guest.award_bonus_by_age(age)
     if total < 0:
         return 0.0
     return total/500.0

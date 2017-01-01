@@ -60,7 +60,7 @@ _voc_start_stats_ = {"noble":          (3, 3, 3,  4, 5, 4,  3, 3, 2,  2, 2, 2),
                      "scholar":        (2, 2, 2,  3, 3, 3,  5, 5, 4,  2, 2, 3),
                      "lawyer":         (2, 2, 2,  3, 3, 3,  5, 5, 4,  2, 2, 3),
                      "steward":        (3, 3, 3,  3, 3, 3,  4, 4, 4,  2, 2, 2),
-                     "commoner":       (4, 3, 4,  4, 2, 2,  2, 2, 4,  2, 4, 2)}
+                     "commoner":       (4, 3, 4,  3, 2, 3,  2, 3, 4,  2, 4, 2)}
 # 20 points for skills
 _voc_start_skills_ = {"noble": {"diplomacy": 3, "leadership": 3, "etiquette": 2,
                                 "law": 1, "ride": 1,
