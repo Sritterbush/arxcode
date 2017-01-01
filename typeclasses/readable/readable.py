@@ -2,11 +2,10 @@
 Readable/Writable objects
 """
 
-from django.conf import settings
 from typeclasses.objects import Object
 from evennia import CmdSet
-from evennia.utils.utils import make_iter
 from evennia.commands.default.muxcommand import MuxCommand
+
 
 class Readable(Object):
     """
@@ -49,24 +48,26 @@ class Readable(Object):
             msg += "\nSigned by: %s" % sigs
         return msg
 
+    # noinspection PyAttributeOutsideInit
     def setup_multiname(self):
         if self.db.num_instances > 1:
             self.key = "%s books" % self.db.num_instances
             self.save()
         else:
             self.key = "a book"
-            
 
     def set_num(self, value):
         self.db.num_instances = value
         self.setup_multiname()
 
+
 class WriteCmdSet(CmdSet):
     key = "WriteCmd"
     priority = 0
     duplicates = True
+
     def at_cmdset_creation(self):
-        "Init the cmdset"
+        """Init the cmdset"""
         self.add(CmdWrite())
 
 
@@ -74,8 +75,10 @@ class SignCmdSet(CmdSet):
     key = "SignCmd"
     priority = 0
     duplicates = True
+
     def at_cmdset_creation(self):
         self.add(CmdSign())
+
 
 class CmdSign(MuxCommand):
     """
@@ -88,6 +91,7 @@ class CmdSign(MuxCommand):
     """
     key = "sign"
     locks = "cmd:all()"
+
     def func(self):
         caller = self.caller
         obj = self.obj
@@ -99,6 +103,7 @@ class CmdSign(MuxCommand):
         caller.msg("You sign your name on %s." % obj.name)
         obj.db.signed = sigs
         return
+
 
 class CmdWrite(MuxCommand):
     """
@@ -120,6 +125,7 @@ class CmdWrite(MuxCommand):
     """
     key = "write"
     locks = "cmd:all()"
+
     def display(self):
         obj = self.obj
         title = obj.ndb.title or obj.name
@@ -129,7 +135,7 @@ class CmdWrite(MuxCommand):
         return msg
         
     def func(self):
-        "Look for object in inventory that matches args to wear"
+        """Look for object in inventory that matches args to wear"""
         caller = self.caller
         obj = self.obj
         if not self.args and not self.switches:
@@ -175,8 +181,3 @@ class CmdWrite(MuxCommand):
             obj.aliases.add("book")
             return
         caller.msg("Unrecognized syntax for write.")
-        
-
-    
-
-    

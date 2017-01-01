@@ -554,9 +554,9 @@ class CmdFlank(MuxCommand):
             caller.msg("You must use '{w+coupdegrace{n' to kill characters.")
             return
         # Check whether we attack guards
-        bypass = "only" in self.switches
+        attack_guards = "only" not in self.switches
         # to do later - adding in sneaking/invisibility into game
-        combat.do_flank(caller, targ, sneaking=False, invis=False, attack_guard=bypass)
+        combat.do_flank(caller, targ, sneaking=False, invis=False, attack_guard=attack_guards)
         return
 
 

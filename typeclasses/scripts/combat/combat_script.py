@@ -490,7 +490,7 @@ class CombatManager(BaseScript):
                     message += "%s stops %s but is attacked." % (guard.name, attacker.name)
                     self.msg(message)
                     def_pen = -5 + combat_settings.STANCE_DEF_MOD[g_fite.stance]
-                    self.do_attack(attacker, target, attack_penalty=5, defense_penalty=def_pen)
+                    self.do_attack(attacker, guard, attack_penalty=5, defense_penalty=def_pen)
                     return
         t_fite = self.ndb.fighter_data[target.id]
         if t_fite.sense_ambush(attacker, sneaking, invis) > 0:

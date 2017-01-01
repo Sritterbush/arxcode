@@ -309,12 +309,14 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             self.db.last_recovery_test = time.time()
         return roll
 
-    def sensing_check(self, difficulty=15, invis=False):
+    def sensing_check(self, difficulty=15, invis=False, allow_wake=False):
         """
         See if the character detects something that is hiding or invisible.
         The difficulty is supplied by the calling function.
         Target can be included for additional situational
         """
+        if not self.conscious and not allow_wake:
+            return -100
         roll = do_dice_check(self, stat="perception", stat_keep=True, difficulty=difficulty)
         return roll
 

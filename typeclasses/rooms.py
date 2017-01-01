@@ -421,9 +421,9 @@ class CmdExtendedLook(default_cmds.CmdLook):
         desc = looking_at_obj.return_appearance(caller, detailed=False)
         # if it's a written object, we'll paginate the description
         if looking_at_obj.db.written:
-            from evennia.utils import evmore
+            from server.utils import arx_more
             desc = desc.replace('%r', '\n')
-            evmore.msg(caller, desc)
+            arx_more.msg(caller, desc, pages_by_char=True)
         else:
             caller.msg(desc)
         # the object's at_desc() method.
