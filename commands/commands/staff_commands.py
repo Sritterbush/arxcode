@@ -7,7 +7,7 @@ from django.conf import settings
 from evennia.server.sessionhandler import SESSIONS
 from evennia.utils import evtable
 from server.utils import prettytable
-from server.utils.arx_utils import inform_staff
+from server.utils.arx_utils import inform_staff, broadcast
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
@@ -90,7 +90,7 @@ class CmdGemit(MuxPlayerCommand):
             return
         if "norecord" in self.switches:
             self.msg("Announcing to all connected players ...")
-            SESSIONS.announce_all(self.args)
+            broadcast(self.args, format_announcement=False)
             return
 
         # current story
@@ -114,7 +114,7 @@ class CmdGemit(MuxPlayerCommand):
         StoryEmit.objects.create(episode=episode, chapter=chapter, text=msg,
                                  sender=caller)
         self.msg("Announcing to all connected players ...")
-        SESSIONS.announce_all(msg)
+        broadcast(msg, format_announcement=False)
         # get board and post
         from typeclasses.bulletin_board.bboard import BBoard
         bboard = BBoard.objects.get(db_key="story updates")
