@@ -283,7 +283,7 @@ class CmdTrain(MuxCommand):
             from world.dominion.models import Agent
             try:
                 if self.rhs.isdigit():
-                    targ = player.retainers.get(id=self.rhs)
+                    targ = player.retainers.get(id=self.rhs).dbobj
                 else:
                     targ = player.retainers.get(name__iexact=self.rhs).dbobj
             except (Agent.DoesNotExist, AttributeError):
