@@ -1361,6 +1361,7 @@ class CmdPraise(MuxCommand):
 
     Praises a character, increasing their prestige. Your number
     of praises per week are based on your social rank and skills.
+    Using praise with no arguments lists your praises.
     """
     key = "praise"
     locks = "cmd:all()"
@@ -1431,6 +1432,7 @@ class CmdCondemn(CmdPraise):
 
     Condemns a character, decreasing their prestige. Your number
     of condemns per week are based on your social rank and skills.
+    Using condemn with no arguments lists your condemns.
     """
     key = "condemn"
     attr = "condemns"

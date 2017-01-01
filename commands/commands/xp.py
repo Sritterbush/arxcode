@@ -501,6 +501,8 @@ class CmdVoteXP(MuxPlayerCommand):
     this week due to excellent RP. Please vote for players who have
     impressed you in RP, rather than just your friends. Voting for your
     alts is obviously against the rules.
+
+    Using vote with no arguments displays your votes.
     """
     key = "vote"
     aliases = ["+vote", "@vote", "unvote"]
