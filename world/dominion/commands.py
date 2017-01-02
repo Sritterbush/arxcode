@@ -757,7 +757,10 @@ class CmdAdmOrganization(MuxPlayerCommand):
         @admin_org/name <org name or number>=<new name>
         @admin_org/title <orgname or number>=<rank>,<name>
         @admin_org/femaletitle <orgname or number>=<rank>,<name>
-        @admin_org/setinfluence <or name or number>=<inf name>,<value>
+        @admin_org/setinfluence <org name or number>=<inf name>,<value>
+
+    Allows you to change or control organizations. Orgs can be accessed either by
+    their ID number or name.
     """
     key = "@admin_org"
     locks = "cmd:perm(Wizards)"
