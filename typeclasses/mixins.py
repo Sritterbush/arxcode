@@ -213,7 +213,7 @@ class AppearanceMixins(object):
         string = ""
         # get and identify all objects
         visible = (con for con in self.contents if con != pobject and con.access(pobject, "view"))
-        exits, users, things, worn, sheathed, wielded, places = [], [], [], [], [], [], []
+        exits, users, things, worn, sheathed, wielded, places, npcs = [], [], [], [], [], [], [], []
         currency = self.return_currency()
         from typeclasses.places.places import Place
         qs = list(Place.objects.filter(db_location=self))
@@ -245,6 +245,8 @@ class AppearanceMixins(object):
                     users.append(lname)
                 else:
                     users.append("{c%s{n" % lname)
+            elif hasattr(con, 'is_character') and con.is_character:
+                npcs.append(con)
             else:
                 if not self.db.places:
                     things.append(con)
@@ -262,10 +264,12 @@ class AppearanceMixins(object):
                 string += "\n{wPlaces:{n " + ", ".join(places)
             if exits:
                 string += "\n{wExits:{n " + ", ".join(exits)
+            if users or npcs:
+                string += "\n{wCharacters:{n " + ", ".join(users + [get_key(ob) for ob in npcs])
             if users or things:
                 if things:
                     things = sorted(things, key=lambda x: x.db.put_time)
-                string += "\n{wYou see:{n " + ", ".join(users + [get_key(ob) for ob in things])
+                string += "\n{wObjects:{n " + ", ".join([get_key(ob) for ob in things])
             if currency:
                 string += "\n{wMoney:{n %s" % currency
         return string
