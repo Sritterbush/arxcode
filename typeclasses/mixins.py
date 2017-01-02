@@ -162,7 +162,9 @@ class NameMixins(object):
         """
         :type self: ObjectDB
         """
-        return self.fakename or self.db.colored_name or self.key
+        name = self.fakename or self.db.colored_name or self.key or ""
+        name = name.rstrip("{/").rstrip("|/") + ("{n" if ("{" in name or "|" in name or "%" in name) else "")
+        return name
 
     def __name_set(self, val):
         """
