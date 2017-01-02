@@ -740,7 +740,7 @@ class CmdAdmAssets(MuxPlayerCommand):
             msg += "{wGM:{n %s\n" % caller.key.capitalize()
             msg += "{wReason:{n %s\n" % message
             board.bb_post(poster_obj=caller, msg=msg, subject="Prestige Change for %s" % str(owner))
-        
+
 
 class CmdAdmOrganization(MuxPlayerCommand):
     """
@@ -757,11 +757,32 @@ class CmdAdmOrganization(MuxPlayerCommand):
         @admin_org/name <org name or number>=<new name>
         @admin_org/title <orgname or number>=<rank>,<name>
         @admin_org/femaletitle <orgname or number>=<rank>,<name>
+        @admin_org/setinfluence <or name or number>=<inf name>,<value>
     """
     key = "@admin_org"
     locks = "cmd:perm(Wizards)"
     help_category = "Dominion"
     aliases = ["@admorg", "@adm_org"]
+
+    def set_influence(self, org):
+        try:
+            name, value = self.rhslist[0], int(self.rhslist[1])
+        except (TypeError, ValueError, IndexError):
+            self.msg("Must provide an influence name and value.")
+            return
+        try:
+            cat = InfluenceCategory.objects.get(name__iexact=name)
+        except InfluenceCategory.DoesNotExist:
+            self.msg("No InfluenceCategory by that name.")
+            self.msg("Valid ones are: %s" % ", ".join(ob.name for ob in InfluenceCategory.objects.all()))
+            return
+        try:
+            sphere = org.spheres.get(category=cat)
+        except SphereOfInfluence.DoesNotExist:
+            sphere = org.spheres.create(category=cat)
+        sphere.rating = value
+        sphere.save()
+        self.msg("Set %s's rating in %s to be %s." % (org, cat, value))
 
     def func(self):
         caller = self.caller
@@ -861,7 +882,7 @@ class CmdAdmOrganization(MuxPlayerCommand):
                 org.save()
             caller.msg("Rank %s title changed to %s." % (rank, name))
             return
-            
+
         if 'setrank' in self.switches:
             try:
                 member = Member.objects.get(organization_id=org.id,
@@ -875,6 +896,9 @@ class CmdAdmOrganization(MuxPlayerCommand):
             except (ValueError, TypeError, AttributeError, KeyError):
                 caller.msg("Usage: @admorg/set_rank <org> = <player>, <1-10>")
                 return
+        if 'setinfluence' in self.switches:
+            self.set_influence(org)
+            return
 
 
 class CmdAdmFamily(MuxPlayerCommand):
