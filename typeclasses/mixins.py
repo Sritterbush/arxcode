@@ -266,9 +266,8 @@ class AppearanceMixins(object):
                 string += "\n{wExits:{n " + ", ".join(exits)
             if users or npcs:
                 string += "\n{wCharacters:{n " + ", ".join(users + [get_key(ob) for ob in npcs])
-            if users or things:
-                if things:
-                    things = sorted(things, key=lambda x: x.db.put_time)
+            if things:
+                things = sorted(things, key=lambda x: x.db.put_time)
                 string += "\n{wObjects:{n " + ", ".join([get_key(ob) for ob in things])
             if currency:
                 string += "\n{wMoney:{n %s" % currency
