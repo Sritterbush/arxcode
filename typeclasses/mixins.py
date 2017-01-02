@@ -473,13 +473,13 @@ class LockMixins(object):
         :type self: ObjectDB
         :param caller: ObjectDB
         """
+        if caller and not self.access(caller, 'usekey'):
+            caller.msg("You do not have a key to %s." % self)
+            return
         self.locks.add("traverse: perm(builders)")
         if self.db.locked:
             if caller:
                 caller.msg("%s is already locked." % self)
-            return
-        if caller and not self.access(caller, 'usekey'):
-            caller.msg("You do not have a key to %s." % self)
             return
         self.db.locked = True      
         msg = "%s is now locked." % self.key
@@ -498,13 +498,13 @@ class LockMixins(object):
         :param caller: ObjectDB
         :return:
         """
+        if caller and not self.access(caller, 'usekey'):
+            caller.msg("You do not have a key to %s." % self)
+            return
         self.locks.add("traverse: all()")
         if not self.db.locked:
             if caller:
                 caller.msg("%s is already unlocked." % self)
-            return
-        if caller and not self.access(caller, 'usekey'):
-            caller.msg("You do not have a key to %s." % self)
             return
         self.db.locked = False  
         msg = "%s is now unlocked." % self.key

@@ -231,7 +231,7 @@ class WeeklyEvents(Script):
 
     def count_poses(self):
         from typeclasses.bulletin_board.bboard import BBoard
-        qs = ObjectDB.objects.filter(roster__roster__name="Active")
+        qs = ObjectDB.objects.filter(roster__roster__name="Active", db_tags__db_key="rostercg")
         min_poses = 20
         low_activity = []
         for ob in qs:
