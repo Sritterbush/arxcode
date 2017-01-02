@@ -77,18 +77,12 @@ class CmdManageHome(MuxCommand):
         """Execute command."""
         caller = self.caller
         loc = caller.location
-        entrances = loc.db.entrances or []
+        entrances = loc.entrances
         owners = loc.db.owners or []
         keylist = loc.db.keylist or []
         if caller not in owners and not caller.check_permstring("builders"):
             caller.msg("You are not the owner of this room.")
             return
-        if not entrances:
-            from evennia.objects.models import ObjectDB
-            entrances = list(ObjectDB.objects.filter(db_destination=loc))
-            loc.db.entrances = entrances
-            for ent in entrances:
-                ent.locks.add("usekey: perm(builders) or roomkey(%s)" % loc.id)
         if not self.args and not self.switches:
             locked = "{rlocked{n" if loc.db.locked else "{wunlocked{n"
             caller.msg("Your home is currently %s." % locked)
@@ -101,12 +95,19 @@ class CmdManageHome(MuxCommand):
             caller.msg("{wMessage upon being denied access:{n %s" % errmsg)
             return
         if "unlock" in self.switches:
+            # we only show as locked if -all- entrances are locked
             if not loc.db.locked:
                 caller.msg("Your home is already unlocked.")
+                # some entrances can be locked. unlock those to be uniform
+                for ent in entrances:
+                    if ent.db.locked:
+                        ent.locks.add("usekey: perm(builders) or roomkey(%s)" % loc.id)
+                        ent.unlock()
                 return
             loc.db.locked = False
             caller.msg("Your house is now unlocked.")
             for ent in entrances:
+                ent.locks.add("usekey: perm(builders) or roomkey(%s)" % loc.id)
                 ent.unlock()
             return
         if "lock" in self.switches:
@@ -116,6 +117,7 @@ class CmdManageHome(MuxCommand):
             loc.db.locked = True
             caller.msg("Your house is now locked.")
             for ent in entrances:
+                ent.locks.add("usekey: perm(builders) or roomkey(%s)" % loc.id)
                 ent.lock()
             return
         if "lifestyle" in self.switches and not self.args:
