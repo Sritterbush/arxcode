@@ -787,7 +787,7 @@ class CmdMessenger(MuxCommand):
                     return
                 if "preserve" in self.switches:
                     pres_count = caller.receiver_object_set.filter(db_header__icontains="preserve").count()
-                    if pres_count >= 50:
+                    if pres_count >= 200:
                         caller.msg("You are preserving the maximum amount of messages allowed.")
                         return
                     if "preserve" in msg.db_header:
