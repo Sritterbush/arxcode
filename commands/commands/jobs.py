@@ -53,6 +53,7 @@ class CmdJob(MuxPlayerCommand):
 
     Usage:
         @job - List all open tickets
+        @job/only - only main Queue
         @job <#> - info about particular ticket
         @job/close <#>=<notes> - close ticket #
         @job/move <#>=<queue>
@@ -69,9 +70,11 @@ class CmdJob(MuxPlayerCommand):
     will automatically be sent to the player with <notes> when
     closing a ticket. Please remember to be polite and respectful
     of players when answering tickets.
+
+    To view other queues, use @bug, @code, @gm, @typo, or @prp.
     """
     key = "@job"
-    aliases = ["@jobs", "@bug", "@code", "@gm", "@typo"]
+    aliases = ["@jobs", "@bug", "@code", "@gm", "@typo", "@prp"]
     help_category = "Admin"
     locks = "cmd:perm(job) or perm(Builders)"
 
@@ -85,6 +88,10 @@ class CmdJob(MuxPlayerCommand):
             queues = Queue.objects.filter(slug="Story")
         elif self.cmdstring == "@typo":
             queues = Queue.objects.filter(slug="Typo")
+        elif self.cmdstring == "@prp":
+            queues = Queue.objects.filter(slug="PRP")
+        elif "only" in self.switches:
+            queues = Queue.objects.filter(slug="Request")
         else:
             queues = Queue.objects.all()
         return queues
@@ -123,7 +130,7 @@ class CmdJob(MuxPlayerCommand):
         caller = self.caller
         args = self.args
         switches = self.switches
-        if not args and not switches or 'low' in switches:
+        if not args and not switches or 'low' in switches or 'only' in switches:
             # list all open tickets
             self.display_open_tickets()
             return
@@ -312,6 +319,7 @@ class CmdRequest(MuxPlayerCommand):
        +request/followup <#>=<message>
        +request <#>
        +storyrequest <title>=<action you wish to take>
+       +prprequest <title>=<question about a player run plot>
 
     Send a message to the GMs for help. This is usually because
     of wanting to take some action that requires GM intervention,
@@ -323,6 +331,9 @@ class CmdRequest(MuxPlayerCommand):
     +storyrequest command. There is a restriction of how often this
     command may be used.
 
+    To request information about a player-run-plot that you wish
+    to run, use +prprequest.
+
     +911 is used for emergencies and has an elevated priority.
     Use of this for non-emergencies is prohibited.
 
@@ -330,11 +341,12 @@ class CmdRequest(MuxPlayerCommand):
     'bug' is used for reporting game errors in code.
     'feedback' is used for making suggestions on different game systems.
     '+storyrequest' is used for asking for GM resolution of IC actions.
+    '+prprequest' is used for asking questions about a PRP.
     """
 
     key = "+request"
     aliases = ["@request", "+requests", "@requests", "+911", "+ineedanadult",
-               "bug", "typo", "feedback", "+storyrequest"]
+               "bug", "typo", "feedback", "+storyrequest", "+prprequest"]
     help_category = "Admin"
     locks = "cmd:perm(request) or perm(Players)"
 
@@ -426,6 +438,9 @@ class CmdRequest(MuxPlayerCommand):
             queue = Queue.objects.get(slug="Story").id
             if self.check_recent_story_action():
                 return
+        elif cmdstr == "+prprequest":
+            optional_title = "PRP"
+            queue = Queue.objects.get(slug="PRP").id
         else:
             queue = settings.REQUEST_QUEUE_ID
         if helpdesk_api.create_ticket(caller, args, priority, queue=queue, send_email=email,
