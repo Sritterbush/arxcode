@@ -329,7 +329,7 @@ class CmdRequest(MuxPlayerCommand):
     'typo' may be used to report errors in descriptions or formatting.
     'bug' is used for reporting game errors in code.
     'feedback' is used for making suggestions on different game systems.
-    '+storyaction' is used for asking for GM resolution of IC actions.
+    '+storyrequest' is used for asking for GM resolution of IC actions.
     """
 
     key = "+request"
