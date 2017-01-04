@@ -59,7 +59,7 @@ class CmdJob(MuxPlayerCommand):
         @job/delete <#>
         @job/old - List 20 most recent closed tickets
         @job/old <#> - info about closed ticket
-        @job/moreold <#> - List # of recent closed tickets
+        @job/moreold <start ID>, <end ID>
         @job/followup <#>=<message> - add update to ticket #
         @job/priority <#>=<priority number>
         @job/low = List low priority messages
@@ -71,22 +71,28 @@ class CmdJob(MuxPlayerCommand):
     of players when answering tickets.
     """
     key = "@job"
-    aliases = ["@jobs", "@bug", "@code", "@gm"]
+    aliases = ["@jobs", "@bug", "@code", "@gm", "@typo"]
     help_category = "Admin"
     locks = "cmd:perm(job) or perm(Builders)"
 
-    def display_open_tickets(self):
+    @property
+    def queues_from_args(self):
         if self.cmdstring == "@code":
                 queues = Queue.objects.filter(slug="Code")
         elif self.cmdstring == "@bug":
             queues = Queue.objects.filter(slug="Bugs")
         elif self.cmdstring == "@gm":
             queues = Queue.objects.filter(slug="Story")
+        elif self.cmdstring == "@typo":
+            queues = Queue.objects.filter(slug="Typo")
         else:
             queues = Queue.objects.all()
+        return queues
+
+    def display_open_tickets(self):
         unassigned_tickets = Ticket.objects.select_related('queue').filter(
                                 assigned_to__isnull=True,
-                                queue__in=queues
+                                queue__in=self.queues_from_args
                                 ).exclude(
                                 status=Ticket.CLOSED_STATUS,
                                 )
@@ -136,8 +142,7 @@ class CmdJob(MuxPlayerCommand):
                 self.display_open_tickets()
                 caller.msg("No ticket found by that number.")   
                 return
-            q = Queue.objects.get(id=ticket.queue_id)
-            caller.msg("\n{wQueue:{n %s" % q)
+            caller.msg("\n{wQueue:{n %s" % ticket.queue)
             caller.msg("{wTicket Number:{n %s" % ticket.id)
             if ticket.submitting_player:
                 caller.msg("{wPlayer:{n %s" % ticket.submitting_player.key)
@@ -159,9 +164,10 @@ class CmdJob(MuxPlayerCommand):
         if 'old' in switches and not args:
             # list closed tickets
             # closed & resolved tickets, assigned to current user
-            tickets_closed_resolved = list(Ticket.objects.select_related('queue').filter(
-                                        status__in=[Ticket.CLOSED_STATUS, Ticket.RESOLVED_STATUS]))
-            joblist = tickets_closed_resolved
+            tickets_closed_resolved = Ticket.objects.select_related('queue').filter(
+                                        status__in=[Ticket.CLOSED_STATUS, Ticket.RESOLVED_STATUS]).filter(
+                queue__in=self.queues_from_args)
+            joblist = list(tickets_closed_resolved)
             if not joblist:
                 caller.msg("No closed tickets.")
                 return
@@ -170,34 +176,28 @@ class CmdJob(MuxPlayerCommand):
             table = prettytable.PrettyTable(["{w#",
                                              "{wPlayer",
                                              "{wRequest",
-                                             "{wGM"])
+                                             "{wQueue"])
             for ticket in joblist:
-                table.add_row([str(ticket.id), str(ticket.submitting_player.key), str(ticket.title),
-                               str(ticket.assigned_to.key)])
+                table.add_row([str(ticket.id), str(ticket.submitting_player), str(ticket.title)[:20],
+                               ticket.queue.slug])
             caller.msg("{wClosed Tickets:{n\n%s" % table)
             return
         if 'moreold' in switches:
             # list closed tickets
-            tickets_closed_resolved = list(Ticket.objects.select_related('queue').filter(
-                                        status__in=[Ticket.CLOSED_STATUS, Ticket.RESOLVED_STATUS]))
-            joblist = tickets_closed_resolved
+            tickets_closed_resolved = Ticket.objects.select_related('queue').filter(
+                status__in=[Ticket.CLOSED_STATUS, Ticket.RESOLVED_STATUS]).filter(
+                queue__in=self.queues_from_args).filter(id__gte=self.lhslist[0], id__lte=self.lhslist[1])
+            joblist = list(tickets_closed_resolved)
             if not joblist:
                 caller.msg("No closed tickets.")
                 return
-            try:
-                numjobs = int(args)
-            except ValueError:
-                caller.msg("Must give a number for # of closed tickets to display.")
-                return
-            # get 20 most recent
-            joblist = joblist[-numjobs:]
             table = prettytable.PrettyTable(["{w#",
                                              "{wPlayer",
                                              "{wRequest",
-                                             "{wGM"])
+                                             "{wQueue"])
             for ticket in joblist:
-                table.add_row([str(ticket.id), str(ticket.submitting_player), str(ticket.title),
-                               str(ticket.assigned_to)])
+                table.add_row([str(ticket.id), str(ticket.submitting_player), str(ticket.title)[:20],
+                               ticket.queue.slug])
             caller.msg("{wClosed Tickets:{n\n%s" % table)
             return
         if 'check' in switches:
@@ -310,6 +310,8 @@ class CmdRequest(MuxPlayerCommand):
        typo <report>
        feedback <report>
        +request/followup <#>=<message>
+       +request <#>
+       +storyrequest <title>=<action you wish to take>
 
     Send a message to the GMs for help. This is usually because
     of wanting to take some action that requires GM intervention,
@@ -317,19 +319,56 @@ class CmdRequest(MuxPlayerCommand):
     also be for simple requests to have descriptions or other
     aspects of your character editted/changed.
 
+    To request GMing of an action you wish to take, use the
+    +storyrequest command. There is a restriction of how often this
+    command may be used.
+
     +911 is used for emergencies and has an elevated priority.
     Use of this for non-emergencies is prohibited.
 
     'typo' may be used to report errors in descriptions or formatting.
     'bug' is used for reporting game errors in code.
     'feedback' is used for making suggestions on different game systems.
+    '+storyaction' is used for asking for GM resolution of IC actions.
     """
 
     key = "+request"
     aliases = ["@request", "+requests", "@requests", "+911", "+ineedanadult",
-               "bug", "typo", "feedback"]
+               "bug", "typo", "feedback", "+storyrequest"]
     help_category = "Admin"
     locks = "cmd:perm(request) or perm(Players)"
+
+    def display_ticket(self, ticket):
+        self.msg("\n{wTicket #:{n %s" % ticket.id)
+        self.msg("{wQueue:{n %s" % ticket.queue)
+        self.msg("{wRequest:{n %s" % ticket.description)
+        self.msg("{wGM Notes:{n %s" % ticket.resolution)
+        for followup in ticket.followup_set.all():
+            self.msg("{wFollowup discussion:{n %s" % followup.comment)
+
+    def list_tickets(self):
+        self.msg("{wClosed tickets:{n %s" % ", ".join(str(ticket.id) for ticket in self.caller.tickets.filter(
+                status__in=[Ticket.CLOSED_STATUS, Ticket.RESOLVED_STATUS])))
+        self.msg("{wOpen tickets:{n %s" % ", ".join(str(ticket.id) for ticket in self.caller.tickets.filter(
+            status=Ticket.OPEN_STATUS)
+        ))
+        self.msg("Use {w+request <#>{n to view an individual ticket.")
+        self.msg("Use {w+request/followup <#>=<comment>{n to add a comment.")
+
+    def check_recent_story_action(self):
+        from datetime import datetime, timedelta
+        num_days = 30
+        max_requests = 2
+        date = datetime.now()
+        offset = timedelta(days=-num_days)
+        date = date + offset
+        actions = self.caller.tickets.filter(queue__slug="Story", created__gte=date)
+        if actions.count() < max_requests:
+            return False
+        self.msg("You have submitted requests for GMing for a storyaction on: %s." % ", ".join(
+            ob.created.strftime("%x") for ob in actions))
+        self.msg("You are only permitted to make %s requests every %s days." % (max_requests, num_days))
+        return True
 
     def func(self):
         """Implement the command"""
@@ -354,18 +393,17 @@ class CmdRequest(MuxPlayerCommand):
         if cmdstr == '+911':
             priority = 1
         if not self.lhs:
-            open_tickets = caller.tickets.filter(status=Ticket.OPEN_STATUS)
-            if not open_tickets:
-                caller.msg("No open tickets found.")
-                return
-            for ticket in open_tickets:
-                caller.msg("\n{wTicket #:{n %s" % ticket.id)
-                caller.msg("{wRequest:{n %s" % ticket.description)
-                caller.msg("{wGM Notes:{n %s" % ticket.resolution)
-                for followup in ticket.followup_set.all():
-                    caller.msg("{wFollowup discussion:{n %s" % followup.comment)
+            self.list_tickets()
             return
-        
+        if self.lhs.isdigit():
+            try:
+                ticket = caller.tickets.get(id=self.lhs)
+            except (Ticket.DoesNotExist, ValueError):
+                self.msg("No ticket by that number.")
+                self.list_tickets()
+                return
+            self.display_ticket(ticket)
+            return
         optional_title = None
         if self.lhs and self.rhs:
             args = self.rhs
@@ -383,6 +421,11 @@ class CmdRequest(MuxPlayerCommand):
         elif cmdstr == "feedback":
             optional_title = "Feedback"
             queue = Queue.objects.get(slug="Code").id
+        elif cmdstr == "+storyrequest":
+            optional_title = "Action"
+            queue = Queue.objects.get(slug="Story").id
+            if self.check_recent_story_action():
+                return
         else:
             queue = settings.REQUEST_QUEUE_ID
         if helpdesk_api.create_ticket(caller, args, priority, queue=queue, send_email=email,

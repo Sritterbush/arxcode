@@ -85,7 +85,10 @@ def resolve_ticket(caller, ticket_id, message):
     """
     try:
         ticket = Ticket.objects.get(id=ticket_id)
-        ticket.resolution = message
+        if ticket.resolution:
+            ticket.resolution += "\n\n" + message
+        else:
+            ticket.resolution = message
         ticket.assigned_to_id = caller.id
         ticket.modified = datetime.now()
         ticket.status = ticket.CLOSED_STATUS
@@ -93,7 +96,7 @@ def resolve_ticket(caller, ticket_id, message):
     except Exception as err:
         inform_staff("ERROR: Error when attempting to close ticket: %s" % err)
         return False
-    inform_staff("{w[Requests]{n: %s has closed ticket %s." % (caller.key, ticket_id))
+    inform_staff("{w[Requests]{n: %s has closed ticket %s: %s" % (caller.key, ticket_id, message))
     header = "Your ticket has been closed by %s.\n\n" % caller.key
     mail_update(ticket, message, header)
     return True
