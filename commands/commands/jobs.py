@@ -71,7 +71,7 @@ class CmdJob(MuxPlayerCommand):
     of players when answering tickets.
     """
     key = "@job"
-    aliases = ["@jobs", "@bug", "@code"]
+    aliases = ["@jobs", "@bug", "@code", "@gm"]
     help_category = "Admin"
     locks = "cmd:perm(job) or perm(Builders)"
 
@@ -80,6 +80,8 @@ class CmdJob(MuxPlayerCommand):
                 queues = Queue.objects.filter(slug="Code")
         elif self.cmdstring == "@bug":
             queues = Queue.objects.filter(slug="Bugs")
+        elif self.cmdstring == "@gm":
+            queues = Queue.objects.filter(slug="Story")
         else:
             queues = Queue.objects.all()
         unassigned_tickets = Ticket.objects.select_related('queue').filter(

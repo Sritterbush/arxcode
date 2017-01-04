@@ -2740,15 +2740,16 @@ class CmdSupport(MuxCommand):
             if points > sphere.rating:
                 caller.msg("Your organization only can spend %s points for %s." % (sphere.rating, sphere.category))
                 return
+            member.refresh_from_db()  # extra call in case of stale data
             poolshare = member.pool_share
-            points_in_org = 0
+            points_in_org = points
             for sid in sdict:
                 try:
                     org.spheres.get(id=sid)
-                    points_in_org += sdict[sid]
+                    if sphere.id != sid:  # if it's another sphere, we add it to the total
+                        points_in_org += sdict[sid]
                 except SphereOfInfluence.DoesNotExist:
                     continue
-            member.refresh_from_db()  # extra call in case of stale data
             if (member.total_points_used + points_in_org) > poolshare:
                 caller.msg("You can only use a total of %s points in that organization." % poolshare)
                 return
