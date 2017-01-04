@@ -2533,8 +2533,11 @@ class CmdSupport(MuxCommand):
             self.get_support_table()          
             caller.msg("{wSupport points remaining:{n %s" % remaining)
             for memb in dompc.memberships.filter(deguilded=False):
+                def rem_pts(allocation):
+                    rat = allocation.rating
+                    return "%s(%s)" % (rat - memb.points_used(allocation.category.name), rat)
                 msg = "{wPool share for %s:{n %s" % (memb.organization, memb.pool_share)
-                msg += ", {wCategory ratings:{n %s" % ", ".join("%s: %s" % (ob.category, ob.rating)
+                msg += ", {wCategory ratings:{n %s" % ", ".join("%s: %s" % (ob.category, rem_pts(ob))
                                                                 for ob in memb.organization.spheres.all())
                 caller.msg(msg)
             self.disp_supportform()
@@ -2568,20 +2571,26 @@ class CmdSupport(MuxCommand):
         if "change" in self.switches:
             org, sphere, sup, targmember, val, member, category = None, None, None, None, None, None, None
             try:
+                # I've been having sync errors so going to do a bunch of manual refresh_from_db calls
+                # and hope this actually resolves it this time.
                 r_id = self.lhslist[0]
                 category = self.lhslist[1]
                 sup = dompc.supported_tasks.filter(task__finished=False).get(id=r_id)
+                sup.refresh_from_db()
                 if len(self.lhslist) > 2:
                     org = dompc.current_orgs.get(name__iexact=self.lhslist[2])
                 else:
                     org = dompc.current_orgs[0]
-                sphere = org.spheres.get(category__name__iexact=category)             
+                org.refresh_from_db()
+                sphere = org.spheres.get(category__name__iexact=category)
+                sphere.refresh_from_db()
                 val = int(self.rhs)
                 targmember = sup.task.member
                 member = org.members.get(player=dompc)
                 if val <= 0:
                     raise ValueError
                 supused = sup.allocation.get(week=week, sphere=sphere)
+                supused.refresh_from_db()
             except IndexError:
                 caller.msg("Must specify both the ID and the category name.")
                 self.get_support_table()
@@ -2606,6 +2615,7 @@ class CmdSupport(MuxCommand):
                 supused = SupportUsed(week=week, sphere=sphere, rating=0, supporter=sup)
             # target character we're supporting
             char = targmember.player.player.db.char_ob
+            char.refresh_from_db()
             diff = val - sup.rating
             if diff > remaining:
                 caller.msg("You want to spend %s but only have %s available." % (diff, remaining))
@@ -2738,6 +2748,7 @@ class CmdSupport(MuxCommand):
                     points_in_org += sdict[sid]
                 except SphereOfInfluence.DoesNotExist:
                     continue
+            member.refresh_from_db()  # extra call in case of stale data
             if (member.total_points_used + points_in_org) > poolshare:
                 caller.msg("You can only use a total of %s points in that organization." % poolshare)
                 return
