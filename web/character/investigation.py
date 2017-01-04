@@ -925,7 +925,7 @@ class CmdTheories(MuxPlayerCommand):
         @theories/addclue <theory ID #>=<clue ID #>
         @theories/rmclue <theory ID #>=<clue ID #>
         @theories/addrelatedtheory <your theory ID #>=<other's theory ID #>
-        @theories/delete <theory ID #>
+        @theories/forget <theory ID #>
         @theories/editdesc <theory ID #>=<desc>
         @theories/edittopic <theory ID #>=<topic>
         @theories/shareall <theory ID #>=<player>
@@ -979,12 +979,6 @@ class CmdTheories(MuxPlayerCommand):
             targ = self.caller.search(self.rhs)
             if not targ:
                 return
-            if theory in targ.known_theories.all():
-                self.msg("They already know that theory.")
-                return
-            targ.known_theories.add(theory)
-            self.msg("Theory %s added to %s." % (self.lhs, targ))
-            targ.inform("%s has shared a theory with you." % self.caller, category="Theories")
             if "shareall" in self.switches:
                 try:
                     if targ.db.char_ob.location != self.caller.db.char_ob.location:
@@ -997,15 +991,28 @@ class CmdTheories(MuxPlayerCommand):
                 for clue in clues:
                     clue.share(targ.roster)
                     self.msg("Shared clue %s with %s" % (clue.name, targ))
+            if theory in targ.known_theories.all():
+                self.msg("They already know that theory.")
+                return
+            targ.known_theories.add(theory)
+            self.msg("Theory %s added to %s." % (self.lhs, targ))
+            targ.inform("%s has shared a theory with you." % self.caller, category="Theories")
+            return
+        if "delete" in self.switches or "forget" in self.switches:
+            try:
+                theory = self.caller.known_theories.get(id=self.lhs)
+            except (Theory.DoesNotExist, ValueError):
+                self.msg("No theory by that ID.")
+                return
+            self.caller.known_theories.remove(theory)
+            self.msg("Theory forgotten.")
+            if not theory.known_by.all():  # if no one knows about it now
+                theory.delete()
             return
         try:
             theory = self.caller.created_theories.get(id=self.lhs)
         except (Theory.DoesNotExist, ValueError):
             self.msg("No theory by that ID.")
-            return
-        if "delete" in self.switches:
-            theory.delete()
-            self.msg("Theory deleted.")
             return
         if "editdesc" in self.switches:
             theory.desc = self.rhs
