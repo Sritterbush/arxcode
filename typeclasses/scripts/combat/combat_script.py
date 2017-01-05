@@ -127,7 +127,7 @@ class CombatManager(BaseScript):
         self.ndb.votes_to_end = []  # if all characters vote yes, combat ends
         self.ndb.flee_success = []  # if we're here, the character is allowed to flee on their turn
         self.ndb.fleeing = []  # if we're here, they're attempting to flee but haven't rolled yet
-        self.db.lethal = not self.obj.tags.get("nonlethal_combat")
+        self.ndb.lethal = not self.obj.tags.get("nonlethal_combat")
         self.ndb.max_rounds = 250
         self.ndb.rounds = 0
         # to ensure proper shutdown, prevent some timing errors
@@ -431,13 +431,13 @@ class CombatManager(BaseScript):
                         target.db.damage = 0
                 elif not d_fite.multiple:
                     self.msg(message)
-                    if self.db.lethal:
+                    if self.ndb.lethal:
                         target.death_process()
                     else:
                         target.db.damage = 0
                     self.remove_combatant(target)
                 else:
-                    if self.db.lethal:
+                    if self.ndb.lethal:
                         target.death_process()
                     else:
                         self.incapacitate(target)
@@ -723,10 +723,10 @@ class CombatManager(BaseScript):
         """
         c_fite = self.ndb.fighter_data.get(character.id, None)
         if c_fite and c_fite.covered_by:
-            for ob in c_fite.covered_by:
-                ob = self.ndb.fighter_data.get(ob.id, None)
-                if ob and ob.covering_targs:
-                    self.stop_covering(ob, character)
+            for covered_by_charob in c_fite.covered_by:
+                cov_data = self.ndb.fighter_data.get(covered_by_charob.id, None)
+                if cov_data and cov_data.covering_targs:
+                    self.stop_covering(covered_by_charob, character)
 
     # ---------------------------------------------------------------------
     # -----Admin Methods for OOC character status: adding, removing, etc----
@@ -936,7 +936,7 @@ class CombatManager(BaseScript):
         character.ndb.combat_manager = None
         character.ndb.charcombatdata = []
         # nonlethal combat leaves no lasting harm
-        if not self.db.lethal:
+        if not self.ndb.lethal:
             # set them to what they were before the fight and wake them up
             character.dmg = c_fite.prefight_damage
             try:
