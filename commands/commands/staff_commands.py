@@ -306,21 +306,16 @@ class CmdRestore(MuxPlayerCommand):
             if "deleted" not in str(targ.tags).split(","):
                 caller.msg("%s does not appear to be deleted." % targ)
                 return
-            targ.tags.remove("deleted")
             char = caller.db.char_ob
             inform_staff("%s restored item: %s" % (caller, targ))
             caller.msg("Restored %s." % targ)
             if char:
-                if char.location:
-                    targ.move_to(char.location)
-                    caller.msg("%s moved to your location" % targ)
-                    return
                 targ.move_to(char)
                 caller.msg("%s moved to your character object." % targ)
                 return
             caller.msg("You do not have a character object to move %s to. Use @tel to return it to the game." % targ)
             return
-        except ObjectDB.DoesNotExist:
+        except (ObjectDB.DoesNotExist, ValueError):
             caller.msg("No object found for ID %s." % self.args)
             return
 
@@ -359,7 +354,7 @@ class CmdPurgeJunk(MuxPlayerCommand):
                 caller.msg("Rooms or characters cannot be deleted with this command. " +
                            "Must be removed via shell script for safety.")
                 return
-            targ.delete(true_delete=True)
+            targ.delete()
             inform_staff("%s purged item ID %s from the database" % (caller, self.args))
             return
         except ObjectDB.DoesNotExist:

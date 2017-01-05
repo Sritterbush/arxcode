@@ -11,7 +11,7 @@ from evennia.objects.models import ObjectDB
 from world.dominion.models import PlayerOrNpc, AssetOwner, Army, AssignedTask
 import traceback
 from django.db.models import Q
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from commands.commands.bboards import get_boards
 from evennia.utils.evtable import EvTable
 
@@ -127,6 +127,7 @@ class WeeklyEvents(Script):
 
     @staticmethod
     def do_cleanup():
+        # cleanup old informs
         try:
             from world.msgs.models import Inform
             date = datetime.now()
@@ -138,6 +139,26 @@ class WeeklyEvents(Script):
         except Exception as err:
             traceback.print_exc()
             print "Error in cleanup: %s" % err
+        # cleanup soft-deleted objects
+        try:
+            import time
+            qs = ObjectDB.objects.filter(db_tags__db_key__iexact="deleted")
+            current_time = time.time()
+            for ob in qs:
+                # never delete a player character
+                if ob.db.player_ob:
+                    ob.undelete()
+                    continue
+                # never delete something in-game
+                if ob.location:
+                    ob.undelete()
+                    continue
+                deleted_time = ob.db.deleted_time
+                if (not deleted_time) or (current_time - deleted_time > 2592000):
+                    ob.delete()
+        except Exception as err:
+            traceback.print_exc()
+            print "Error in cleaning up deleted objects: %s" % err
 
     def do_events_per_player(self, reset=True):
         """

@@ -813,11 +813,14 @@ class CmdJunk(MuxCommand):
             return
         if obj.db.destroyable:
             caller.msg("You have destroyed %s." % obj)
-            obj.delete()
+            obj.softdelete()
             return
         recipe = obj.db.recipe
         if not recipe:
             caller.msg("You may only +junk crafted objects.")
+            return
+        if "plot" in obj.tags.all():
+            self.msg("This object cannot be destroyed.")
             return
         mats = obj.db.materials
         adorns = obj.db.adorns or {}
@@ -848,4 +851,4 @@ class CmdJunk(MuxCommand):
             pmat.save()            
             refunded.append("%s %s" % (amount, cmat.name))
         caller.msg("By destroying %s, you have received: %s" % (obj, ", ".join(refunded)))
-        obj.delete()
+        obj.softdelete()

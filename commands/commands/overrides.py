@@ -3,20 +3,18 @@ General Character commands usually availabe to all characters
 """
 from django.conf import settings
 from server.utils import arx_utils, prettytable
-from evennia.utils.utils import make_iter, crop, time_format, variable_from_module, inherits_from
+from evennia.utils import utils
+from evennia.utils.utils import make_iter, crop, time_format, variable_from_module, inherits_from, to_str
 from evennia.commands.cmdhandler import get_and_merge_cmdsets
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.server.sessionhandler import SESSIONS
 import time
 from evennia.commands.default.comms import (CmdCdestroy, CmdChannelCreate, CmdChannels,
                                             CmdClock, CmdCBoot, CmdCdesc, CmdAllCom)
-from evennia.commands.default.building import CmdExamine, CmdLock
-from evennia.utils import evtable
-from world.dominion.models import CraftingMaterials
 # noinspection PyProtectedMember
-from evennia.commands.default.building import _LITERAL_EVAL, ObjManipCommand
-from evennia.utils.utils import to_str
-from evennia.utils import create
+from evennia.commands.default.building import CmdExamine, CmdLock, CmdDestroy, _LITERAL_EVAL, ObjManipCommand
+from evennia.utils import evtable, create
+from world.dominion.models import CraftingMaterials
 from evennia.commands.default.general import CmdSay
 from evennia.comms.models import ChannelDB
 
@@ -1451,3 +1449,87 @@ class CmdArxExamine(CmdExamine):
                     mergemode = "object"
                 # using callback to print results whenever function returns.
                 get_and_merge_cmdsets(obj, self.session, self.player, obj, mergemode).addCallback(get_cmdset_callback)
+
+
+class CmdArxDestroy(CmdDestroy):
+    """
+        permanently delete objects
+
+        Usage:
+           @destroy[/switches] [obj, obj2, obj3, [dbref-dbref], ...]
+
+        switches:
+           override - The @destroy command will usually avoid accidentally
+                      destroying player objects. This switch overrides this safety.
+        examples:
+           @destroy house, roof, door, 44-78
+           @destroy 5-10, flower, 45
+
+        Destroys one or many objects. If dbrefs are used, a range to delete can be
+        given, e.g. 4-10. Also the end points will be deleted.
+        """
+
+    key = "@destroy"
+    aliases = ["@delete", "@del"]
+    locks = "cmd:perm(destroy) or perm(Builders)"
+    help_category = "Building"
+
+    def func(self):
+        """Implements the command."""
+
+        caller = self.caller
+
+        if not self.args or not self.lhslist:
+            caller.msg("Usage: @destroy[/switches] [obj, obj2, obj3, [dbref-dbref],...]")
+            return ""
+
+        # noinspection PyUnusedLocal
+        def delobj(obj_name, byref=False):
+            # helper function for deleting a single object
+            ret_string = ""
+            obj = caller.search(obj_name)
+            if not obj:
+                self.caller.msg(" (Objects to destroy must either be local or specified with a unique #dbref.)")
+                return ""
+            obj_name = obj.name
+            if not (obj.access(caller, "control") or obj.access(caller, 'delete')):
+                return "\nYou don't have permission to delete %s." % obj_name
+            if obj.player and 'override' not in self.switches:
+                return "\nObject %s is controlled by an active player. Use /override to delete anyway." % obj_name
+            if obj.dbid == int(settings.DEFAULT_HOME.lstrip("#")):
+                return "\nYou are trying to delete |c%s|n, which is set as DEFAULT_HOME. " \
+                       "Re-point settings.DEFAULT_HOME to another " \
+                       "object before continuing." % obj_name
+
+            had_exits = hasattr(obj, "exits") and obj.exits
+            had_objs = hasattr(obj, "contents") and any(obj for obj in obj.contents
+                                                        if not (hasattr(obj, "exits") and obj not in obj.exits))
+            # do the deletion
+            okay = obj.softdelete()
+            # if not okay:
+            #     ret_string += "\nERROR: %s not deleted, probably because delete() returned False." % obj_name
+            # else:
+            #     ret_string += "\n%s was destroyed." % obj_name
+            #     if had_exits:
+            #         ret_string += " Exits to and from %s were destroyed as well." % obj_name
+            #     if had_objs:
+            #         ret_string += " Objects inside %s were moved to their homes." % obj_name
+            ret_string += "Object has been soft deleted. You can use @restore to bring it back, or @purgejunk to "
+            ret_string += "destroy it for good. It will be permanently deleted in 30 days."
+            return ret_string
+
+        string = ""
+        for objname in self.lhslist:
+            if '-' in objname:
+                # might be a range of dbrefs
+                dmin, dmax = [utils.dbref(part, reqhash=False)
+                              for part in objname.split('-', 1)]
+                if dmin and dmax:
+                    for dbref in range(int(dmin), int(dmax + 1)):
+                        string += delobj("#" + str(dbref), True)
+                else:
+                    string += delobj(objname)
+            else:
+                string += delobj(objname, True)
+        if string:
+            caller.msg(string.strip())

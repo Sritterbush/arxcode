@@ -402,6 +402,35 @@ class ObjectMixins(DescMixins, AppearanceMixins):
     def is_character(self):
         return False
 
+    # noinspection PyAttributeOutsideInit
+    def softdelete(self):
+        """
+        Only fake-delete the object, storing the date it was fake deleted for removing it permanently later.
+
+        :type self: ObjectDB
+        """
+        import time
+        self.location = None
+        self.tags.add("deleted")
+        self.db.deleted_time = time.time()
+
+    # noinspection PyAttributeOutsideInit
+    def undelete(self, move=True):
+        """
+        :type self: ObjectDB
+        :type move: Boolean
+        :return:
+        """
+        self.tags.remove("deleted")
+        self.attributes.remove("deleted_time")
+        if move:
+            from typeclasses.rooms import ArxRoom
+            try:
+                room = ArxRoom.objects.get(db_key__iexact="Island of Lost Toys")
+                self.location = room
+            except ArxRoom.DoesNotExist:
+                pass
+
 
 class MsgMixins(object):
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):
