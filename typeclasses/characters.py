@@ -736,3 +736,13 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             if obj != self:
                 obj.msg(string % (self.get_display_name(obj),
                                   " from %s" % source_location.get_display_name(obj) if source_location else ""))
+
+    @property
+    def can_crit(self):
+        try:
+            if self.roster.roster.name == "Active":
+                return True
+            else:
+                return False
+        except AttributeError:
+            return False

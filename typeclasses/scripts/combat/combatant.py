@@ -254,6 +254,18 @@ class CharacterCombatData(object):
         self.char.msg(mssg)
 
     @property
+    def can_fight(self):
+        if not self.char:
+            return False
+        if not self.combat:
+            return False
+        if self.char.location != self.combat.obj:
+            return False
+        if not self.char.conscious:
+            return False
+        return True
+
+    @property
     def ready(self):
         # if we're an automated npc, we are ALWAYS READY TO ROCK. BAM.
         return self.automated or self._ready

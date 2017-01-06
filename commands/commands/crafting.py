@@ -153,12 +153,13 @@ def get_ability_val(char, recipe):
     return ability
     
 
-def do_crafting_roll(char, recipe, diffmod=0, diffmult=1.0):
+def do_crafting_roll(char, recipe, diffmod=0, diffmult=1.0, room=None):
     diff = int(recipe.difficulty * diffmult) - diffmod
     ability = get_ability_val(char, recipe)
     skill = recipe.skill
     stat = "luck" if char.db.luck > char.db.dexterity else "dexterity"
-    return do_dice_check(char, stat=stat, difficulty=diff, skill=skill, bonus_dice=ability)
+    return do_dice_check(char, stat=stat, difficulty=diff, skill=skill, bonus_dice=ability, quiet=False,
+                         announce_room=room)
 
 
 def get_difficulty_mod(recipe, money=0):
@@ -424,10 +425,7 @@ class CmdCraft(MuxCommand):
                                                                                                        recipe.name,
                                                                                                        price))
 
-            roll = do_crafting_roll(crafter, recipe, diffmod, diffmult=0.75)
-            if randint(1, 20) == 20:
-                self.msg("{yYou got a critical success!{n")
-                roll *= 2
+            roll = do_crafting_roll(crafter, recipe, diffmod, diffmult=0.75, room=caller.location)
             quality = get_quality_lvl(roll, recipe.difficulty)
             old = targ.db.quality_level or 0
             attempts += 1

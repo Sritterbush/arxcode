@@ -81,7 +81,7 @@ class CmdStartCombat(MuxCommand):
     specific commands will be made available to you. Combat continues
     while two or more characters are active combatants.
 
-    To end combat, use +end_fight.
+    To end combat, use +end_combat.
     """
     key = "+fight"
     aliases = ["fight"]
@@ -314,6 +314,7 @@ class CmdEndCombat(MuxCommand):
     key = "+end_combat"
     locks = "cmd:all()"
     help_category = "Combat"
+    aliases = ["+end_fight"]
 
     def func(self):
         """Execute command."""

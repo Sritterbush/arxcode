@@ -928,37 +928,40 @@ class CmdDiceCheck(MuxCommand):
                 caller.msg("There must be one unique match for a character skill. Please check spelling and try again.")
                 return
             skill = matches[0]
-        result = stats_and_skills.do_dice_check(caller, stat, skill, difficulty)
-        if result+difficulty >= difficulty:
-            resultstr = "resulting in %s, %s {whigher{n than the difficulty" % (result+difficulty, result)
+        if not self.rhs:
+            stats_and_skills.do_dice_check(caller, stat, skill, difficulty, quiet=False)
         else:
-            resultstr = "resulting in %s, %s {rlower{n than the difficulty" % (result+difficulty, -result)
-        
-        if not skill:
-            roll_msg = "checked %s against difficulty %s, %s{n." % (stat, difficulty, resultstr)
-        else:
-            roll_msg = "checked %s + %s against difficulty %s, %s{n." % (stat, skill, difficulty, resultstr)
-        caller.msg("You " + roll_msg)
-        roll_msg = caller.key.capitalize() + " " + roll_msg
-        # if they have a recepient list, only tell those people (and GMs)
-        if self.rhs:
-            namelist = [name.strip() for name in self.rhs.split(",")]
-            for name in namelist:
-                rec_ob = caller.search(name, use_nicks=True)
-                if rec_ob:
-                    orig_msg = roll_msg
-                    if rec_ob.attributes.has("dice_string"):
-                        roll_msg = "{w<" + rec_ob.db.dice_string + "> {n" + roll_msg
-                    rec_ob.msg(roll_msg)
-                    roll_msg = orig_msg
-                    rec_ob.msg("Private roll sent to: %s" % ", ".join(namelist))
-            # GMs always get to see rolls.
-            staff_list = [x for x in caller.location.contents if x.check_permstring("Builders")]
-            for GM in staff_list:
-                GM.msg("{w(Private roll){n" + roll_msg)
-            return
-        # not a private roll, tell everyone who is here
-        caller.location.msg_contents(roll_msg, exclude=caller, options={'roll': True})
+            result = stats_and_skills.do_dice_check(caller, stat, skill, difficulty)
+            if result+difficulty >= difficulty:
+                resultstr = "resulting in %s, %s {whigher{n than the difficulty" % (result+difficulty, result)
+            else:
+                resultstr = "resulting in %s, %s {rlower{n than the difficulty" % (result+difficulty, -result)
+
+            if not skill:
+                roll_msg = "checked %s against difficulty %s, %s{n." % (stat, difficulty, resultstr)
+            else:
+                roll_msg = "checked %s + %s against difficulty %s, %s{n." % (stat, skill, difficulty, resultstr)
+            caller.msg("You " + roll_msg)
+            roll_msg = caller.key.capitalize() + " " + roll_msg
+            # if they have a recepient list, only tell those people (and GMs)
+            if self.rhs:
+                namelist = [name.strip() for name in self.rhs.split(",")]
+                for name in namelist:
+                    rec_ob = caller.search(name, use_nicks=True)
+                    if rec_ob:
+                        orig_msg = roll_msg
+                        if rec_ob.attributes.has("dice_string"):
+                            roll_msg = "{w<" + rec_ob.db.dice_string + "> {n" + roll_msg
+                        rec_ob.msg(roll_msg)
+                        roll_msg = orig_msg
+                        rec_ob.msg("Private roll sent to: %s" % ", ".join(namelist))
+                # GMs always get to see rolls.
+                staff_list = [x for x in caller.location.contents if x.check_permstring("Builders")]
+                for GM in staff_list:
+                    GM.msg("{w(Private roll){n" + roll_msg)
+                return
+            # not a private roll, tell everyone who is here
+            caller.location.msg_contents(roll_msg, exclude=caller, options={'roll': True})
         
 
 # implement CmdMail. player.db.Mails is List of Mail

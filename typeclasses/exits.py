@@ -105,7 +105,8 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         exit_cmdset.add(passcmd)
         return exit_cmdset
 
-    def at_traverse(self, traversing_object, target_location, key_message=True, special_entrance=None, quiet=False):
+    def at_traverse(self, traversing_object, target_location, key_message=True, special_entrance=None, quiet=False,
+                    allow_follow=True):
         """
         This implements the actual traversal. The traverse lock has already been
         checked (in the Exit command) at this point.
@@ -118,7 +119,7 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
                 traversing_object.msg(msg)
             self.at_after_traverse(traversing_object, source_location)
             # move followers
-            if traversing_object and traversing_object.ndb.followers:
+            if traversing_object and traversing_object.ndb.followers and allow_follow:
                 invalid_followers = []
                 valid_followers = []
                 leader = None

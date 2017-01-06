@@ -573,7 +573,7 @@ class CombatManager(BaseScript):
             character.msg("You are not permitted to flee that way.")
             return
         # this is the command that exit_obj commands use
-        exit_obj.at_traverse(character, exit_obj.destination)
+        exit_obj.at_traverse(character, exit_obj.destination, allow_follow=False)
         self.msg("%s has fled from combat." % character.name)
         self.remove_combatant(character)
   
@@ -993,7 +993,7 @@ class CombatManager(BaseScript):
         for fighter in self.ndb.fighter_data.values():
             fighter.roll_initiative()
         self.ndb.initiative_list = sorted([data for data in self.ndb.fighter_data.values()
-                                           if data.char not in self.ndb.incapacitated],
+                                           if data.can_fight],
                                           key=attrgetter('initiative', 'tiebreaker'),
                                           reverse=True)
 
@@ -1010,6 +1010,7 @@ class CombatManager(BaseScript):
             return
         char_data = self.ndb.initiative_list.pop(0)
         acting_char = char_data.char
+        acting_char.refresh_from_db()
         self.ndb.active_character = acting_char
         # check if they went LD, teleported, or something
         if acting_char.location != self.ndb.combat_location:
@@ -1090,7 +1091,10 @@ class CombatManager(BaseScript):
             if c_fite.roll_flee_success():  # they can now flee
                 self.ndb.flee_success.append(char)
         # see if people woke up or fell unconscious
-        for char in self.ndb.combatants:
+        for char in self.ndb.combatants[:]:
+            if char.location != self.ndb.combat_location:
+                self.remove_combatant(char)
+                continue
             awake = char.db.asleep_status
             if awake == "awake" and char in self.ndb.incapacitated:
                 self.ndb.incapacitated.remove(char)
