@@ -38,10 +38,12 @@ class DescMixins(object):
         :type self: ObjectDB
         """
         # desc may be changed dynamically
-        self.db.raw_desc = val
         self.db.desc = val
-        # general desc is our fallback
-        self.db.general_desc = val
+        if self.db.raw_desc:
+            self.db.raw_desc = val
+        if self.db.general_desc:
+            # general desc is our fallback
+            self.db.general_desc = val
     desc = property(__desc_get, __desc_set)
 
     def __temp_desc_get(self):
