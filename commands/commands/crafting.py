@@ -11,7 +11,6 @@ from server.utils.prettytable import PrettyTable
 from server.utils.arx_utils import validate_name, inform_staff
 from evennia.utils import utils
 from evennia.utils.utils import make_iter
-from random import randint
 
 AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
 
@@ -612,7 +611,7 @@ class CmdCraft(MuxCommand):
             # determine difficulty modifier if we tossed in more money
             diffmod = get_difficulty_mod(recipe, invest)
             # do crafting roll
-            roll = do_crafting_roll(crafter, recipe, diffmod)
+            roll = do_crafting_roll(crafter, recipe, diffmod, room=caller.location)
             # get type from recipe
             otype = recipe.type
             # create object
@@ -646,7 +645,7 @@ class CmdCraft(MuxCommand):
                                                                                                        price))
             if proj[4]:
                 obj.db.forgeries = proj[4]
-                obj.db.forgery_roll = do_crafting_roll(caller, recipe)
+                obj.db.forgery_roll = do_crafting_roll(caller, recipe, room=caller.location)
                 # forgery penalty will be used to degrade weapons/armor
                 obj.db.forgery_penalty = (recipe.value/realvalue) + 1
             cnoun = "You" if caller == crafter else crafter
