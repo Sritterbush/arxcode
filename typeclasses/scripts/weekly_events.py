@@ -11,7 +11,7 @@ from evennia.objects.models import ObjectDB
 from world.dominion.models import PlayerOrNpc, AssetOwner, Army, AssignedTask
 import traceback
 from django.db.models import Q
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta
 from commands.commands.bboards import get_boards
 from evennia.utils.evtable import EvTable
 
@@ -258,11 +258,12 @@ class WeeklyEvents(Script):
         for ob in qs:
             if ob.posecount < min_poses:
                 low_activity.append(ob)
+            ob.db.previous_posecount = ob.posecount
             ob.posecount = 0
         board = BBoard.objects.get(db_key="staff")
         table = EvTable("{wName{n", "{wNum Poses{n", border="cells", width=78)
         for ob in low_activity:
-            table.add_row(ob.key, ob.posecount)
+            table.add_row(ob.key, ob.db.previous_posecount)
         board.bb_post(poster_obj=self, msg=str(table), subject="Inactive by Poses List")
         
     # Various 'Beats' -------------------------------------------------

@@ -679,6 +679,7 @@ class CmdInvestigate(InvestigationFormCommand):
                 inform_msg += "To assist them, use the {w@helpinvestigate{n command, creating a "
                 inform_msg += "form with {w@helpinvestigate/new{n, setting the target with "
                 inform_msg += "{w@helpinvestigate/target %s{n, and filling in the other fields." % ob.id
+                inform_msg += "\nThe current actions of their investigation are: %s" % ob.actions
                 char.db.player_ob.inform(inform_msg, category="Investigation Request From %s" % self.caller,
                                          append=False)
                 return

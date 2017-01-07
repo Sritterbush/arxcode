@@ -1971,7 +1971,8 @@ class CmdTask(MuxCommand):
     To accomplish this, you ask other players to confirm that you achieved
     what you set out to do with the /supportme switch, sending them either
     a message based on the task, or an alternate message of your own
-    creation through the /altecho switch.
+    creation through the /altecho switch. /supportme without specifying
+    players will list who you have previously asked.
 
     Please make notes with the /story switch that record how you
     accomplished your task. The /rumors switch is used to tell the IC
