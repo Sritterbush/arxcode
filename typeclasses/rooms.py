@@ -202,6 +202,16 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
             msg += "\n" + desc + "\n"
         return msg
 
+    def start_event_logging(self, event):
+        self.msg_contents("{rEvent logging is now on for this room.{n")
+        self.tags.add("logging event")
+        self.db.current_event = event.id
+
+    def stop_event_logging(self):
+        self.msg_contents("{rEvent logging is now off for this room.{n")
+        self.tags.remove("logging event")
+        self.attributes.remove("current_event")
+
     def command_string(self):
         msg = ""
         if "shop" in self.tags.all():

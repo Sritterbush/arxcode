@@ -958,9 +958,10 @@ class CmdCalendar(MuxPlayerCommand):
         @cal/location [<room name, otherwise room you're in>]
         @cal/private
         @cal/addhost <playername>
+        @cal/addgm <playername>
         @cal/roomdesc <description>
         @cal/submit
-        @cal/starteventearly <event number>
+        @cal/starteventearly <event number>[=here]
         @cal/endevent <event number>
         @cal/reschedule <event number>=<new date>
         @cal/cancel <event number>
@@ -974,6 +975,9 @@ class CmdCalendar(MuxPlayerCommand):
     amounts of money in hosting an event for prestige, set the /largesse
     level. To see the valid largesse types with their costs and prestige
     values, do '@cal/largesse'. All times are in EST.
+
+    When starting an event early, you can specify '=here' to start it in
+    your current room rather than its previous location.
     """
     key = "@cal"
     locks = "cmd:all()"
@@ -1001,8 +1005,11 @@ class CmdCalendar(MuxPlayerCommand):
         hosts = proj[5] or []
         largesse = proj[6] or 0
         roomdesc = proj[7] or ""
+        gms = proj[8] or []
         hosts = ", ".join(str(ob) for ob in hosts)
+        gms = ", ".join(str(ob) for ob in gms)
         mssg = "{wEvent name:{n %s\n" % name
+        mssg += "{wGMs:{n %s\n" % gms
         mssg += "{wDate:{n %s\n" % date
         mssg += "{wLocation:{n %s\n" % loc
         mssg += "{wDesc:{n %s\n" % desc
@@ -1078,7 +1085,7 @@ class CmdCalendar(MuxPlayerCommand):
             caller.msg("{wOld events:\n%s" % table, options={'box': True})
             return
         # at this point, we may be trying to update our project. Set defaults.
-        proj = caller.ndb.event_creation or [None, None, None, None, True, [], None, None]
+        proj = caller.ndb.event_creation or [None, None, None, None, True, [], None, None, []]
         if 'largesse' in self.switches:
             if not self.args:
                 table = PrettyTable(['level', 'cost', 'prestige'])
@@ -1171,22 +1178,44 @@ class CmdCalendar(MuxPlayerCommand):
             proj[5] = hosts
             caller.ndb.event_creation = proj
             return
+        if "addgm" in self.switches:
+            gms = proj[8] or []
+            gm = caller.search(self.lhs)
+            if not gm:
+                return
+            if gm in gms:
+                caller.msg("GM is already listed.")
+                return
+            try:
+                gm = gm.Dominion
+            except AttributeError:
+                char = gm.db.char_ob
+                if not char:
+                    caller.msg("GM does not have a character.")
+                    return
+                gm = setup_utils.setup_dom_for_char(char)
+            gms.append(gm)
+            caller.msg("%s added to GMs." % gm)
+            caller.msg("GMs are: %s" % ", ".join(str(gm) for gm in gms))
+            proj[8] = gms
+            caller.ndb.event_creation = proj
+            return
         if "create" in self.switches:
             if RPEvent.objects.filter(name__iexact=self.lhs):
                 caller.msg("There is already an event by that name. Choose a different name," +
                            " or add a number if it's a sequel event.")
                 return
             proj = [self.lhs, proj[1], proj[2], proj[3], proj[4], [dompc] if dompc not in proj[5] else proj[5], proj[6],
-                    proj[7]]
+                    proj[7], proj[8]]
             caller.msg("{wStarting project. It will not be saved until you submit it. " +
                        "Does not persist through logout/server reload.{n")
             caller.msg(self.display_project(proj), options={'box': True})
             caller.ndb.event_creation = proj
             return
         if "submit" in self.switches:
-            name, date, loc, desc, public, hosts, largesse, room_desc = proj
-            if not (name and date and loc and desc and hosts):
-                caller.msg("All fields must be defined before you submit.")
+            name, date, loc, desc, public, hosts, largesse, room_desc, gms = proj
+            if not (name and date and desc and hosts):
+                caller.msg("Name, date, desc, and hosts must be defined before you submit.")
                 caller.msg(self.display_project(proj), options={'box': True})
                 return         
             if not largesse:
@@ -1217,6 +1246,8 @@ class CmdCalendar(MuxPlayerCommand):
                                            room_desc=room_desc)
             for host in hosts:
                 event.hosts.add(host)
+            for gm in gms:
+                event.gms.add(gm)
             post = self.display_project(proj)
             # mark as main host with a tag
             event.tag_obj(caller)
@@ -1258,7 +1289,14 @@ class CmdCalendar(MuxPlayerCommand):
             caller.msg(self.display_events(events), options={'box': True})
             return
         if "starteventearly" in self.switches:
-            event_manager.start_event(event)
+            if self.rhs and self.rhs.lower() == "here":
+                loc = self.caller.db.char_ob.location
+                if not loc:
+                    self.msg("You do not currently have a location.")
+                    return
+                event_manager.start_event(event, location=loc)
+            else:
+                event_manager.start_event(event)
             caller.msg("You have started the event.")        
             return
         if "endevent" in self.switches:
