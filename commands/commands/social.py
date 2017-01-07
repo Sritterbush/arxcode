@@ -1775,6 +1775,13 @@ class CmdRandomScene(MuxCommand):
                                         ~Q(roster__player__db_tags__db_key="staff_npc"))
 
     def display_lists(self):
+        for ob in self.scenelist[:]:
+            try:
+                ob.refresh_from_db()
+                if ob.roster.roster.name != "Active":
+                    self.caller.db.player_ob.db.random_scenelist.remove(ob)
+            except (AttributeError, TypeError, ValueError):
+                pass
         if len(self.scenelist) + len(self.claimlist) < self.NUM_SCENES:
             self.generate_lists()
         scenelist = self.scenelist
