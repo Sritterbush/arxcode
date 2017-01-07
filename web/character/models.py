@@ -676,6 +676,8 @@ class Investigation(models.Model):
             silvermod = 20
         mod += silvermod
         resmod = int((self.economic + self.military + self.social)/2.5)
+        if random.randint(0,5) < (self.economic + self.military + self.social) % 5:
+            resmod += 1
         if resmod > 60:
             resmod = 60
         mod += resmod
