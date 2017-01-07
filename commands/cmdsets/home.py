@@ -870,7 +870,8 @@ class CmdBuyFromShop(CmdCraft):
         """Pay money to the other and send an inform of the sale"""
         loc = self.caller.location
         loc.db.shopowner.pay_money(-price)
-        loc.db.shopowner.db.player_ob.inform(msg, category="shop")
+        if price >= (loc.db.shopowner.db.min_shop_price_inform or 0):
+            loc.db.shopowner.db.player_ob.inform(msg, category="shop")
 
     def buy_item(self, item):
         """Buy an item from inventory - pay the owner and get the item"""

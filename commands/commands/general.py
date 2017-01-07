@@ -1307,8 +1307,10 @@ class CmdInform(MuxPlayerCommand):
         @inform
         @inform <number>
         @inform/del <number>
+        @inform/shopminimum <number>
 
-
+    Displays your informs. /shopminimum sets a minimum amount that must be paid
+    before you are informed of activity in your shops.
     """
     key = "@inform"
     aliases = ["@informs"]
@@ -1326,6 +1328,19 @@ class CmdInform(MuxPlayerCommand):
     def func(self):
         caller = self.caller
         informs = list(caller.informs.all())
+        if "shopminimum" in self.switches:
+            if not self.args:
+                self.msg("Removing minimum.")
+                self.caller.db.char_ob.attributes.remove("min_shop_price_inform")
+                return
+            try:
+                caller.db.char_ob.db.min_shop_price_inform = int(self.args)
+                self.msg("Minimum price set to %s." % self.args)
+            except (TypeError, ValueError):
+                self.msg("Must specify a number.")
+            except AttributeError:
+                self.msg("Character object not found.")
+            return
         if not informs:
             caller.msg("You have no messages from the game waiting for you.")
             return
