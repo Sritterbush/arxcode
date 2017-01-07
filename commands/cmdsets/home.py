@@ -96,19 +96,18 @@ class CmdManageHome(MuxCommand):
             return
         if "unlock" in self.switches:
             # we only show as locked if -all- entrances are locked
-            if not loc.db.locked:
-                caller.msg("Your home is already unlocked.")
-                # some entrances can be locked. unlock those to be uniform
-                for ent in entrances:
-                    if ent.db.locked:
-                        ent.locks.add("usekey: perm(builders) or roomkey(%s)" % loc.id)
-                        ent.unlock()
-                return
-            loc.db.locked = False
-            caller.msg("Your house is now unlocked.")
             for ent in entrances:
                 ent.locks.add("usekey: perm(builders) or roomkey(%s)" % loc.id)
                 ent.unlock()
+            for exit_ob in loc.exits:
+                exit_ob.locks.add("usekey: perm(builders) or roomkey(%s)" % loc.id)
+                exit_ob.unlock()
+            if not loc.db.locked:
+                caller.msg("Your home is already unlocked.")
+                # some entrances can be locked. unlock those to be uniform
+                return
+            loc.db.locked = False
+            caller.msg("Your house is now unlocked.")
             return
         if "lock" in self.switches:
             if loc.db.locked:
@@ -119,6 +118,9 @@ class CmdManageHome(MuxCommand):
             for ent in entrances:
                 ent.locks.add("usekey: perm(builders) or roomkey(%s)" % loc.id)
                 ent.lock()
+            for exit_ob in loc.exits:
+                exit_ob.locks.add("usekey: perm(builders) or roomkey(%s)" % loc.id)
+                exit_ob.lock()
             return
         if "lifestyle" in self.switches and not self.args:
             # list lifestyles
