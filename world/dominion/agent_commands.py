@@ -854,7 +854,7 @@ class CmdGuards(MuxCommand):
             self.msg("{WYour guards:{n\n%s" % "".join(guard.agent.display() for guard in guards), options={'box': True})
             return
         if self.args:
-            guard = ObjectDB.objects.object_search(self.lhs, candidates=guards)
+            guard = ObjectDB.objects.object_search(self.lhs, candidates=guards, exact=False)
             if not guard:
                 _AT_SEARCH_RESULT(guard, caller, self.lhs)
                 return
