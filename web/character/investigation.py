@@ -9,6 +9,7 @@ from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from server.utils.arx_utils import inform_staff
 from world.dominion.models import Agent
+from django.db.models import Q
 
 
 class InvestigationFormCommand(MuxCommand):
@@ -802,6 +803,11 @@ class CmdListClues(MuxPlayerCommand):
         @clues
         @clues <clue #>
         @clues/share <clue #>=<target>[,<target2><target3>,...]
+        @clues/search <text>
+
+    Displays the clues that your character has discovered in game,
+    or shares them with others. /search returns the clues that
+    contain the text specified.
     """
     key = "@clues"
     locks = "cmd:all()"
@@ -833,6 +839,11 @@ class CmdListClues(MuxPlayerCommand):
                 caller.msg("Nothing yet.")
                 return
             self.disp_clue_table()
+            return
+        if "search" in self.switches:
+            matches = clues.filter(Q(message__icontains=self.args) | Q(clue__desc__icontains=self.args) |
+                                   Q(clue__name__icontains=self.args))
+            self.msg("Matches: %s" % ", ".join(str(ob.id) for ob in matches))
             return
         # get clue for display or sharing
         try:
@@ -965,6 +976,10 @@ class CmdTheories(MuxPlayerCommand):
             return
         if not self.switches or "view" in self.switches:
             self.view_theory()
+            return
+        if "search" in self.switches:
+            matches = self.caller.known_theories.filter(Q(topic__icontains=self.args) | Q(desc__icontains=self.args))
+            self.msg("Matches: %s" % ", ".join(str(ob.id) for ob in matches))
             return
         if "create" in self.switches:
             theory = self.caller.created_theories.create(topic=self.lhs, desc=self.rhs)
