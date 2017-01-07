@@ -48,8 +48,9 @@ class CmdHome(MuxCommand):
                 caller.msg("You cannot use home to leave a room where a combat is occurring.")
                 return
             if 'private' in room.tags.all():
-                caller.msg("You cannot use home to leave a private room.")
-                return
+                if len([ob for ob in room.contents if ob.player]) > 1:
+                    caller.msg("You cannot use home to leave a private room if you are not alone.")
+                    return
         if not home:
             caller.msg("You have no home!")
         elif home == caller.location:
