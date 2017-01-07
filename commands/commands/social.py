@@ -1729,6 +1729,7 @@ class CmdRandomScene(MuxCommand):
         @randomscene/claim <player>=<summary of the scene>
         @randomscene/validate <player>
         @randomscene/viewrequests
+        @randomscene/online
 
     Generates three characters who you can receive bonus xp for this week
     by having an RP scene with them. Executing the command generates the
@@ -1737,6 +1738,7 @@ class CmdRandomScene(MuxCommand):
     validate the scene you both had. If they agree, during the weekly script
     you'll both receive xp. Requests that aren't answered are wiped in
     weekly maintenance. /claim requires that both of you be in the same room.
+    @randomscene/online will only display players who are currently in the game.
     """
     key = "@randomscene"
     locks = "cmd:all()"
@@ -1777,8 +1779,13 @@ class CmdRandomScene(MuxCommand):
             self.generate_lists()
         scenelist = self.scenelist
         claimlist = self.claimlist
+        newbies = self.newbies
+        if "online" in self.switches:
+            self.msg("{wOnly displaying online characters.{n")
+            scenelist = [ob for ob in scenelist if ob.location]
+            newbies = [ob for ob in newbies if ob.location]
         self.msg("{wRandomly generated RP partners for this week:{n %s" % ", ".join(str(ob) for ob in scenelist))
-        self.msg("{wNew players who can be also RP'd with for credit:{n %s" % ", ".join(str(ob) for ob in self.newbies))
+        self.msg("{wNew players who can be also RP'd with for credit:{n %s" % ", ".join(str(ob) for ob in newbies))
         if claimlist:
             self.msg("{wThose you have already RP'd with this week:{n %s" % ", ".join(str(ob) for ob in claimlist))
 
@@ -1852,7 +1859,7 @@ class CmdRandomScene(MuxCommand):
         self.msg(str(table))
 
     def func(self):
-        if not self.switches and not self.args:
+        if (not self.switches or "online" in self.switches) and not self.args:
             self.display_lists()
             return
         if "claim" in self.switches or (not self.switches and self.args):
