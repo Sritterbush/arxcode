@@ -3,6 +3,23 @@
 {% block content %}
 	<button data-toggle="collapse" data-target="#Recipes">
     <h2>Crafting Recipes</h2></button><hr />
+    <form method="get" action="." class="navbar-form">
+    <input type="text" id="searchBox" class="input-medium search-query" name="recipe_name" placeholder="Recipe Name">
+    <input type="text" id="searchBox" class="input-medium search-query" name="difficulty" placeholder="Minimum difficulty">
+    <div class="form-group">
+    <label for="sel1">Ability List:</label>
+        <select class="form-control" id="sel1" name="ability">
+            <option value=""></option>
+            <option value="weaponsmith">Weaponsmith</option>
+            <option value="jeweler">Jeweler</option>
+            <option value="armorsmith">Armorsmith</option>
+            <option value="carpenter">Carpenter</option>
+            <option value="tailor">Tailor</option>
+            <option value="leatherworker">Leatherworker</option>
+        </select>
+    </div>
+    <input type="submit" class="btn" value="Search" >
+    </form>
 	<div id="Recipes" class="collapse in">
 	<table class="table table-hover">
 	<tr class="danger">
@@ -10,6 +27,7 @@
 		<td>Ability</td>
 		<td>Difficulty</td>
 		<td>Requirements</td>
+        <td>Base Stats</td>
 		<td>Description</td>
 	</tr>
 	{% for recipe in all_recipes %}
@@ -22,7 +40,8 @@
 		<td width="10%">{{ recipe.ability }}</td>
 		<td width="10%">{{ recipe.difficulty }}</td>
 		<td width="20%">{{ recipe.display_reqs|mush_to_html }}</td>
-		<td width="60%">{{ recipe.desc }}</td>
+        <td width="10%">{{ recipe.baseval }}</td>
+		<td width="50%">{{ recipe.desc }}</td>
 		</tr>
 	{% endfor %}
 	</table>

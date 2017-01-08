@@ -3017,6 +3017,10 @@ class CraftingRecipe(models.Model):
     def __unicode__(self):
         return self.name or "Unknown"
 
+    @property
+    def baseval(self):
+        return self.resultsdict.get("baseval", 0.0)
+
 
 class CraftingMaterialType(models.Model):
     """
