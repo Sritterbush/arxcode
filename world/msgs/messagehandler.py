@@ -146,7 +146,6 @@ class MessageHandler(object):
 
     def get_sender_name(self, msg):
         senders = msg.senders
-        realname = ""
         if senders:
             sender = senders[0]
             if sender:
@@ -180,6 +179,14 @@ class MessageHandler(object):
     def create_relationship_header(icdate, white=True):
         jtype = "white_journal" if white else "black_journal"
         return "journal:%s;type:relationship;date:%s" % (jtype, icdate)
+
+    @staticmethod
+    def tag_favorite(msg, player):
+        msg.tags.add("pid_%s_favorite" % player.id)
+
+    @staticmethod
+    def untag_favorite(msg, player):
+        msg.tags.remove("pid_%s_favorite" % player.id)
 
     def create_messenger_header(self, icdate):
         header = "type:messenger;date:%s" % icdate

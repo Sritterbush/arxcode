@@ -275,6 +275,9 @@ class CmdJournal(MuxCommand):
         journal/edit <entry number>=<text>
         journal/editblack <entry number>=<text>
         journal/markallread
+        journal/favorite <character>=<entry number>
+        journal/unfavorite <character>=<entry number>
+        journal/dispfavorites
 
     Allows a character to read the White Journals of characters,
     or add to their own White Journal or Black Reflections. White
@@ -296,15 +299,20 @@ class CmdJournal(MuxCommand):
     def journal_index(self, character, jlist):
         num = 1
         table = PrettyTable(["{w#{n", "{wWritten About{n", "{wDate{n", "{wUnread?{n"])
+        fav_tag = "pid_%s_favorite" % self.caller.db.player_ob.id
         for entry in jlist:
             try:
                 event = character.messages.get_event(entry)
                 name = ", ".join(str(ob) for ob in entry.db_receivers_objects.all())       
                 if event and not name:
                     name = event.name[:25]
+                if fav_tag in entry.tags.all():
+                    strnum = str(num) + "{w*{n"
+                else:
+                    strnum = str(num)
                 unread = "" if self.caller.db.player_ob in entry.receivers else "{wX{n"
                 date = character.messages.get_date_from_header(entry)
-                table.add_row([num, name, date, unread])
+                table.add_row([strnum, name, date, unread])
                 num += 1
             except (AttributeError, RuntimeError, ValueError, TypeError):
                 continue
@@ -323,6 +331,21 @@ class CmdJournal(MuxCommand):
                                                     ~Q(db_receivers_players=caller.db.player_ob)).count()
             msglist.append("{C%s{c(%s){n" % (writer.key, count))
         caller.msg("Writers with journals you have not read: %s" % ", ".join(msglist))
+
+    def disp_favorite_journals(self):
+        caller = self.caller
+        tagname = "pid_%s_favorite" % caller.db.player_ob.id
+        all_writers = ObjectDB.objects.filter(Q(sender_object_set__db_header__contains="white_journal") &
+                                              ~Q(sender_object_set__db_receivers_players=caller.db.player_ob) &
+                                              ~Q(roster__current_account=caller.roster.current_account)
+                                              ).distinct().order_by('db_key')
+        msglist = []
+        for writer in all_writers:
+            count = writer.sender_object_set.filter(Q(db_header__contains="white_journal") &
+                                                    Q(db_tags__db_key=tagname)).count()
+            if count:
+                msglist.append("{C%s{c(%s){n" % (writer.key, count))
+        caller.msg("Writers with journals you have favorited: %s" % ", ".join(msglist))
 
     def mark_all_read(self):
         from evennia.comms.models import Msg
@@ -352,12 +375,16 @@ class CmdJournal(MuxCommand):
                 caller.msg("No journal entries written yet.")
             self.disp_unread_journals()
             return
+        if "dispfavorites" in self.switches or "favorites" in self.switches:
+            self.disp_favorite_journals()
+            return
         if "markallread" in self.switches:
             self.mark_all_read()
             caller.msg("All messages marked read.")
             return
         # if no switches but have args, looking up journal of a character
-        if not self.switches or 'black' in self.switches:
+        if (not self.switches or 'black' in self.switches
+                or 'favorite' in self.switches or 'unfavorite' in self.switches):
             white = "black" not in self.switches
             try:
                 if not self.args:
@@ -383,6 +410,19 @@ class CmdJournal(MuxCommand):
                         caller.msg("Journal entry number must be at least 1.")
                         return
                 journal = char.messages.white_journal if white else char.messages.black_journal
+                if "favorite" in self.switches or "unfavorite" in self.switches:
+                    try:
+                        entry = journal[num - 1]
+                        if "favorite" in self.switches:
+                            caller.messages.tag_favorite(entry, caller.db.player_ob)
+                            self.msg("Entry added to favorites.")
+                        else:
+                            caller.messages.untag_favorite(entry, caller.db.player_ob)
+                            self.msg("Entry removed from favorites.")
+                        return
+                    except (IndexError, AttributeError, ValueError, TypeError):
+                        self.msg("No such entry to tag as a favorite.")
+                        return
                 msg = char.messages.disp_entry_by_num(num, white=white, caller=caller.db.player_ob)
                 # if we fail access check, we have 'False' instead of a msg
                 if msg is None:

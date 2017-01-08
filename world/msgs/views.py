@@ -3,7 +3,8 @@ import json
 from django.http import HttpResponse
 from django.views.generic import ListView
 from evennia.comms.models import Msg
-from .forms import JournalMarkAllReadForm, JournalWriteForm, JournalMarkOneReadForm
+from .forms import (JournalMarkAllReadForm, JournalWriteForm, JournalMarkOneReadForm, JournalMarkFavorite,
+                    JournalRemoveFavorite)
 from django.db.models import Q
 from django.http import HttpResponseRedirect
 from django.http import Http404
@@ -32,6 +33,11 @@ class JournalListView(LimitPageMixin, ListView):
         text = get.get('search_text', None)
         if text:
             queryset = queryset.filter(db_message__icontains=text)
+        if self.request.user and self.request.user.is_authenticated():
+            favtag = "pid_%s_favorite" % self.request.user.id
+            favorites = get.get('favorites', None)
+            if favorites:
+                queryset = queryset.filter(db_tags__db_key=favtag)
         return queryset
 
     def get_read_journals(self):
@@ -82,9 +88,16 @@ class JournalListView(LimitPageMixin, ListView):
         search_text = self.request.GET.get('search_text', None)
         if search_text:
             search_tags += "&search_text=%s" % search_text
+        favorites = self.request.GET.get('favorites', None)
+        if favorites:
+            search_tags += "&favorites=True"
         context['search_tags'] = search_tags
         context['write_journal_form'] = JournalWriteForm()
         context['page_title'] = 'Journals'
+        if self.request.user and self.request.user.is_authenticated():
+            context['fav_tag'] = "pid_%s_favorite" % self.request.user.id
+        else:
+            context['fav_tag'] = None
         return context
 
     # noinspection PyUnusedLocal
@@ -103,6 +116,14 @@ class JournalListView(LimitPageMixin, ListView):
                 msg.db_receivers_players.add(self.request.user)
             else:
                 raise Http404(form.errors)
+        if "mark_favorite" in request.POST:
+            form = JournalMarkFavorite(request.POST)
+            if form.is_valid():
+                form.tag_msg(self.request.user.db.char_ob)
+        if "remove_favorite" in request.POST:
+            form = JournalRemoveFavorite(request.POST)
+            if form.is_valid():
+                form.untag_msg(self.request.user.db.char_ob)
         if "write_journal" in request.POST:
             form = JournalWriteForm(request.POST)
             if form.is_valid():
