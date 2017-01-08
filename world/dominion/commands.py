@@ -2100,11 +2100,14 @@ class CmdTask(MuxCommand):
             caller.msg("{wDescription:{n\n%s" % task.desc)
             caller.msg("{wValid spheres of influence{n: %s" % task.reqs)
             assignments = task.assigned_tasks.filter(member__player=dompc, finished=False)
+            asked_supporters = caller.db.asked_supporters or {}
             for assign in assignments:
                 echo = assign.current_alt_echo
-                caller.msg("Current echo: %s" % echo)
-                caller.msg("Current rumors (both yours and supporters): %s" % assign.story)
-                caller.msg("Current story: %s" % assign.notes)
+                caller.msg("{wCurrent echo:{n %s" % echo)
+                caller.msg("{wCurrent rumors (both yours and supporters):{n %s" % assign.story)
+                caller.msg("{wCurrent story:{n %s" % assign.notes)
+                asklist = asked_supporters.get(assign.id, [])
+                caller.msg("{wPlayers asked for support:{n %s" % ", ".join(str(ob) for ob in asklist))
             return
         if "history" in self.switches or "setfinishedrumors" in self.switches:
             # display our completed tasks
