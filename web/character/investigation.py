@@ -454,6 +454,8 @@ class CmdInvestigate(InvestigationFormCommand):
         @investigate/resource <id #>=<resource type>,<amount>
         @investigate/changetopic <id #>=<new topic>
         @investigate/changestory <id #>=<new story>
+        @investigate/changestat <id #>=<new stat>
+        #investigate/changeskill <id #>=<new skill>
         @investigate/abandon <id #>
         @investigate/resume <id #>
         @investigate/requesthelp <id #>=<player>
@@ -489,7 +491,7 @@ class CmdInvestigate(InvestigationFormCommand):
     aliases = ["+investigate", "investigate"]
     base_cost = 25
     model_switches = ("view", "active", "silver", "resource", "changetopic",
-                      "changestory", "abandon", "resume", "requesthelp")
+                      "changestory", "abandon", "resume", "requesthelp", "changestat", "changeskill")
 
     def list_ongoing_investigations(self):
         qs = self.related_manager.filter(ongoing=True)
@@ -655,6 +657,24 @@ class CmdInvestigate(InvestigationFormCommand):
                 ob.actions = self.rhs
                 ob.save()
                 caller.msg("The new story of your investigation is:\n%s" % self.args)
+                return
+            if "changestat" in self.switches:
+                from world.stats_and_skills import VALID_STATS
+                if self.rhs not in VALID_STATS:
+                    self.msg("That is not a valid stat name.")
+                    return
+                ob.stat_used = self.rhs
+                ob.save()
+                caller.msg("The new stat is: %s" % self.args)
+                return
+            if "changeskill" in self.switches:
+                from world.stats_and_skills import VALID_SKILLS
+                if self.rhs not in VALID_SKILLS:
+                    self.msg("That is not a valid skill name.")
+                    return
+                ob.skill_used = self.rhs
+                ob.save()
+                caller.msg("The new skill is: %s" % self.args)
                 return
             if "requesthelp" in self.switches:
                 from typeclasses.characters import Character
