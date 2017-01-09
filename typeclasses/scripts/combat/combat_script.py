@@ -1117,7 +1117,7 @@ class CombatManager(BaseScript):
         not_voted = [ob for ob in self.ndb.combatants if ob and ob not in self.ndb.votes_to_end]
         # only let conscious people vote
         not_voted = [ob for ob in not_voted if self.get_fighter_data(ob.id)
-                     and self.get_fighter_data(ob.id).status == "active"
+                     and self.get_fighter_data(ob.id).can_fight
                      and not self.get_fighter_data(ob.id).wants_to_end]
         if not not_voted:
             self.msg("All parties have voted to end combat.")

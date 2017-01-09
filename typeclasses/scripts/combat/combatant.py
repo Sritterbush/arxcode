@@ -546,7 +546,9 @@ class CharacterCombatData(object):
         self.times_attacked += 1
         total = None
         if att.can_be_parried and self.can_parry:
-            parry_roll = int(do_dice_check(self.char, stat=self.attack_stat, skill=self.attack_skill, difficulty=diff))
+            parry_diff = diff + 5
+            parry_roll = int(do_dice_check(self.char, stat=self.attack_stat, skill=self.attack_skill,
+                                           difficulty=parry_diff))
             if parry_roll > 1:
                 parry_roll = (parry_roll/2) + randint(0, (parry_roll/2))
             total = parry_roll
@@ -563,7 +565,10 @@ class CharacterCombatData(object):
             if not total:
                 total = block_roll
             elif block_roll > 0:
-                total += block_roll
+                if total > block_roll:
+                    total += block_roll/2
+                else:
+                    total = (total/2) + block_roll
             elif block_roll > total:
                 total = (total + block_roll)/2
         else:
@@ -579,7 +584,10 @@ class CharacterCombatData(object):
             if not total:
                 total = dodge_roll
             elif dodge_roll > 0:
-                total += dodge_roll
+                if total > dodge_roll:
+                    total += dodge_roll/2
+                else:
+                    total = (total/2) + dodge_roll
             elif dodge_roll > total:
                 total = (total + dodge_roll)/2
         else:
@@ -661,9 +669,9 @@ class CharacterCombatData(object):
         myroll = do_dice_check(self.char, stat_list=["strength", "stamina", "dexterity", "willpower"],
                                skill="athletics", keep_override=keep, difficulty=int(penalty), divisor=2)
         myroll += randint(0, 25)
-        if myroll < 0 and self.fatigue_gained_this_turn < 2:
-            self._fatigue_penalty += 1
-            self.fatigue_gained_this_turn += 1
+        if myroll < 0 and self.fatigue_gained_this_turn < 1:
+            self._fatigue_penalty += 0.5
+            self.fatigue_gained_this_turn += 0.5
 
     @property
     def fatigue_soak(self):
@@ -678,7 +686,7 @@ class CharacterCombatData(object):
 
     @property
     def fatigue_penalty(self):
-        fat = self._fatigue_penalty
+        fat = int(self._fatigue_penalty)
         soak = self.fatigue_soak
         fat -= soak
         if fat < 0:
