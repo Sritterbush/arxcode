@@ -1817,6 +1817,8 @@ class CmdRandomScene(MuxCommand):
     def display_lists(self):
         for ob in self.scenelist[:]:
             try:
+                ob.roster.roster.refresh_from_db()
+                ob.roster.refresh_from_db()
                 ob.refresh_from_db()
                 if ob.roster.roster.name != "Active":
                     self.caller.db.player_ob.db.random_scenelist.remove(ob)
@@ -1838,7 +1840,7 @@ class CmdRandomScene(MuxCommand):
 
     def generate_lists(self):
         scenelist = self.scenelist
-        claimlist = self.claimlist
+        claimlist = [ob for ob in self.claimlist if ob not in self.newbies]
         newbies = [ob.id for ob in self.newbies]
         choices = self.valid_choices
         if newbies:
