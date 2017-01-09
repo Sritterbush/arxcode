@@ -1824,7 +1824,7 @@ class CmdRandomScene(MuxCommand):
                     self.caller.db.player_ob.db.random_scenelist.remove(ob)
             except (AttributeError, TypeError, ValueError):
                 pass
-        if len(self.scenelist) + len(self.claimlist) < self.NUM_SCENES:
+        if len(self.scenelist) + len([ob for ob in self.claimlist if ob not in self.newbies]) < self.NUM_SCENES:
             self.generate_lists()
         scenelist = self.scenelist
         claimlist = self.claimlist
