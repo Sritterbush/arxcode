@@ -638,11 +638,12 @@ class CmdMessenger(MuxCommand):
         unread.insert(0, (msg, delivery, money, m_name))
         targ.db.pending_messengers = unread
         targ.messenger_notification(2)
-        if caller.db.player_ob.db.nomessengerpreview:
+        if caller.db.player_ob.db.nomessengerpreview or caller.ndb.already_previewed:
             caller.msg("You dispatch %s to {c%s{n." % (m_name or "a messenger", targ))
         else:
             caller.msg("You dispatch %s to {c%s{n with the following message:\n\n'%s'\n" % (
                 m_name or "a messenger", targ, msg.db_message))
+            caller.ndb.already_previewed = True
         deliver_str = m_name or "Your messenger"
         if delivery:
             caller.msg("%s will also deliver %s." % (deliver_str, delivery))
@@ -903,6 +904,7 @@ class CmdMessenger(MuxCommand):
             for targ in targs:
                 self.send_messenger(caller, targ, msg)
             caller.db.messenger_draft = None
+            caller.ndb.already_previewed = None
             return
         if not self.lhs or not self.rhs:
             caller.msg("Invalid usage.")
@@ -968,9 +970,12 @@ class CmdMessenger(MuxCommand):
                 caller.pay_money(money)
             targ = targs[0]
             self.send_messenger(caller, targ, msg, delivery, money)
+            caller.ndb.already_previewed = None
             return
         for targ in targs:
             self.send_messenger(caller, targ, msg, delivery)
+        caller.ndb.already_previewed = None
+
 
 largesse_types = ('none', 'common', 'refined', 'grand', 'extravagant', 'legendary')
 costs = {

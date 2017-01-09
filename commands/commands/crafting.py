@@ -808,6 +808,9 @@ class CmdJunk(MuxCommand):
         if obj.db.player_ob or obj.player:
             caller.msg("You cannot +junk a character.")
             return
+        if obj.contents:
+            self.msg("It contains objects that must first be removed.")
+            return
         if obj.db.destroyable:
             caller.msg("You have destroyed %s." % obj)
             obj.softdelete()
