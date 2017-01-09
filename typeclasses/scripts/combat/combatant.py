@@ -653,14 +653,16 @@ class CharacterCombatData(object):
         if hasattr(self.char, 'armor_penalties'):
             armor_penalty = self.char.armor_penalties
         penalty = armor_penalty
-        self.num_actions += 1 + (0.09 * armor_penalty)
+        self.num_actions += 1 + (0.12 * armor_penalty)
         penalty += self.num_actions + 25
         keep = self.fatigue_soak
+        penalty = int(penalty)
+        penalty = penalty/2 + randint(0, penalty/2)
         myroll = do_dice_check(self.char, stat_list=["strength", "stamina", "dexterity", "willpower"],
                                skill="athletics", keep_override=keep, difficulty=int(penalty), divisor=2)
         myroll += randint(0, 25)
         if myroll < 0 and self.fatigue_gained_this_turn < 2:
-            self.fatigue_penalty += 1
+            self._fatigue_penalty += 1
             self.fatigue_gained_this_turn += 1
 
     @property
@@ -682,10 +684,6 @@ class CharacterCombatData(object):
         if fat < 0:
             return 0
         return fat
-
-    @fatigue_penalty.setter
-    def fatigue_penalty(self, value):
-        self._fatigue_penalty = value
 
     def fatigue_atk_penalty(self):
         fat = self.fatigue_penalty/2
