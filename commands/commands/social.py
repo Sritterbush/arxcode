@@ -76,7 +76,7 @@ class CmdWhere(MuxPlayerCommand):
         caller = self.caller
         rooms = ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_ROOM_TYPECLASS) &
                                         Q(locations_set__db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS) &
-                                        ~Q(db_tags__db_key__iexact="private")).distinct()
+                                        ~Q(db_tags__db_key__iexact="private")).distinct().order_by('db_key')
         if not rooms:
             caller.msg("No visible characters found.")
             return
