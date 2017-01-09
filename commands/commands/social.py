@@ -1000,6 +1000,7 @@ class CmdCalendar(MuxPlayerCommand):
         @cal/addhost <playername>
         @cal/addgm <playername>
         @cal/roomdesc <description>
+        @cal/abort
         @cal/submit
         @cal/starteventearly <event number>[=here]
         @cal/endevent <event number>
@@ -1077,7 +1078,11 @@ class CmdCalendar(MuxPlayerCommand):
                 return
             else:
                 # if we don't have a project, just display upcoming events
-                self.switches.append("list")            
+                self.switches.append("list")
+        if "abort" in self.switches:
+            caller.ndb.event_creation = None
+            self.msg("Event creation cancelled.")
+            return
         if not self.switches or "comments" in self.switches:
             lhslist = self.lhs.split("/")
             if len(lhslist) > 1:
