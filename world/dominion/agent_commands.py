@@ -891,6 +891,9 @@ class CmdGuards(MuxCommand):
                 return
             # if they're only one square away
             loc = guard.location or guard.db.docked
+            if loc and caller.location == loc:
+                guard.summon()
+                return
             if loc and caller.location.locations_set.filter(db_destination_id=loc.id):
                 guard.summon()
                 return

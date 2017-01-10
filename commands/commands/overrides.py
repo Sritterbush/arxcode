@@ -706,8 +706,7 @@ class CmdWho(MuxPlayerCommand):
         """
 
         player = self.caller
-        session_list = SESSIONS.get_sessions()
-
+        session_list = [ob for ob in SESSIONS.get_sessions() if ob.player]
         session_list = sorted(session_list, key=lambda o: o.player.key.lower())
         sparse = "sparse" in self.switches
 
