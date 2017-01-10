@@ -864,7 +864,8 @@ class CmdAdmOrganization(MuxPlayerCommand):
                         return
                     caller.msg("%s is already a member.")
                     return
-                dompc.memberships.create(organization=org, rank=rank)
+                secret = org.secret
+                dompc.memberships.create(organization=org, rank=rank, secret=secret)
                 caller.msg("%s added to %s at rank %s." % (dompc, org, rank))
                 return
             except (AttributeError, ValueError, TypeError):
@@ -1535,7 +1536,8 @@ class CmdOrganization(MuxPlayerCommand):
                 deguilded.rank = 10
                 deguilded.save()
             except Member.DoesNotExist:
-                caller.Dominion.memberships.create(organization=org)
+                secret = org.secret
+                caller.Dominion.memberships.create(organization=org, secret=secret)
             caller.msg("You have joined %s." % org.name)
             org.msg("%s has joined %s." % (caller, org.name))
             return

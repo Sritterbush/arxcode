@@ -1628,7 +1628,7 @@ class Organization(models.Model):
         active = self.active_members
         if viewing_member:
             # exclude any secret members that are higher in rank than viewing member
-            pcs = pcs.exclude(Q(secret=True) & Q(rank__lte=viewing_member.rank) &
+            pcs = pcs.exclude(Q(Q(secret=True) & Q(rank__lte=viewing_member.rank)) &
                               ~Q(id=viewing_member.id))
             
         msg = ""
