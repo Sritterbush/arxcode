@@ -1978,3 +1978,25 @@ class CmdRoomTitle(MuxCommand):
         self.caller.db.room_title = self.args
         self.msg("Your roomtitle set to %s {w({n%s{w){n" % (self.caller, self.args))
         return
+
+
+class CmdTempDesc(MuxCommand):
+    """
+    Appends a temporary description to your regular description
+
+    Usage:
+        +tempdesc <description>
+
+    Appends a short blurb to your character's description in parentheses.
+    """
+    key = "+tempdesc"
+    locks = "cmd:all()"
+    help_cateogry = "Social"
+
+    def func(self):
+        if not self.args:
+            self.msg("Temporary description cleared.")
+            del self.caller.additional_desc
+            return
+        self.caller.additional_desc = self.args
+        self.msg("Temporary desc set to: %s" % self.args)

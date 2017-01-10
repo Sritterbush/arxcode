@@ -31,7 +31,7 @@ class DescMixins(object):
         :type self: evennia.objects.models.ObjectDB
         :return:
         """
-        return self.db.desc or self.db.raw_desc or self.db.general_desc
+        return (self.db.desc or self.db.raw_desc or self.db.general_desc or "") + self.additional_desc
 
     def __desc_set(self, val):
         """
@@ -80,7 +80,7 @@ class DescMixins(object):
         :type self: ObjectDB
         :return:
         """
-        return self.db.raw_desc or self.db.general_desc or self.db.desc
+        return (self.db.raw_desc or self.db.general_desc or self.db.desc or "") + self.additional_desc
 
     def __perm_desc_set(self, val):
         """
@@ -123,6 +123,35 @@ class DescMixins(object):
     @property
     def alive(self):
         return self.health_status == "alive"
+
+    @property
+    def additional_desc(self):
+        """
+        :type self: ObjectDB
+        """
+        try:
+            if self.db.additional_desc:
+                return "\n" + "{w({n%s{w){n" % self.db.additional_desc
+        except TypeError:
+            return ""
+        return ""
+
+    @additional_desc.setter
+    def additional_desc(self, value):
+        """
+        :type self: ObjectDB
+        """
+        if not value:
+            self.db.additional_desc = ""
+        else:
+            self.db.additional_desc = str(value)
+
+    @additional_desc.deleter
+    def additional_desc(self):
+        """
+        :type self: ObjectDB
+        """
+        self.attributes.remove("additional_desc")
 
 
 class NameMixins(object):
