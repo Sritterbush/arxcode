@@ -176,9 +176,12 @@ class EventManager(Script):
     def finish_event(self, event):
         loc = self.get_event_location(event)
         if loc:
-            loc.msg_contents("{rEvent logging is now off for this room.{n")
-            loc.db.current_event = None
-            loc.tags.remove("logging event")
+            try:
+                loc.stop_event_logging()
+            except AttributeError:
+                loc.db.current_event = None
+                loc.msg_contents("{rEvent logging is now off for this room.{n")
+                loc.tags.remove("logging event")
             end_str = "%s has ended at %s." % (event.name, loc.name)
         else:
             end_str = "%s has ended." % event.name

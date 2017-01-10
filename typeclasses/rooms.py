@@ -208,9 +208,9 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
         self.db.current_event = event.id
 
     def stop_event_logging(self):
-        self.msg_contents("{rEvent logging is now off for this room.{n")
         self.tags.remove("logging event")
         self.attributes.remove("current_event")
+        self.msg_contents("{rEvent logging is now off for this room.{n")
 
     def command_string(self):
         msg = ""

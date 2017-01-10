@@ -1964,7 +1964,8 @@ class CmdRoomTitle(MuxCommand):
         +roomtitle <description>
 
     Appends a short blurb to your character's name when they are displayed
-    to the room in parentheses.
+    to the room in parentheses. Use +roomtitle with no argument to remove
+    it.
     """
     key = "+roomtitle"
     locks = "cmd:all()"
@@ -1988,6 +1989,7 @@ class CmdTempDesc(MuxCommand):
         +tempdesc <description>
 
     Appends a short blurb to your character's description in parentheses.
+    Use +tempdesc with no argument to remove it.
     """
     key = "+tempdesc"
     locks = "cmd:all()"
