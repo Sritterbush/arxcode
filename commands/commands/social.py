@@ -1367,7 +1367,7 @@ class CmdCalendar(MuxPlayerCommand):
             event.date = date
             event.save()
             caller.msg("Event now scheduled for %s." % date)
-            event_manager.reschedule_event(event, date)
+            event_manager.reschedule_event(event)
             return
         if "changeroomdesc" in self.switches:
             event.room_desc = self.rhs
