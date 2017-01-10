@@ -546,7 +546,7 @@ class CharacterCombatData(object):
         self.times_attacked += 1
         total = None
         if att.can_be_parried and self.can_parry:
-            parry_diff = diff + 5
+            parry_diff = diff + 10
             parry_roll = int(do_dice_check(self.char, stat=self.attack_stat, skill=self.attack_skill,
                                            difficulty=parry_diff))
             if parry_roll > 1:
@@ -574,20 +574,23 @@ class CharacterCombatData(object):
         else:
             block_roll = -1000
         if att.can_be_dodged and self.can_dodge:
+            # dodging is easier than parrying
+            dodge_diff = diff - 10
             try:
-                dodge_diff = diff + self.dodge_penalty
+                dodge_diff += self.dodge_penalty
             except (AttributeError, TypeError, ValueError):
-                dodge_diff = diff
+                pass
             dodge_roll = int(do_dice_check(self.char, stat="dexterity", skill="dodge", difficulty=dodge_diff))
             if dodge_roll >= 2:
                 dodge_roll = (dodge_roll/2) + randint(0, (dodge_roll/2))
             if not total:
                 total = dodge_roll
             elif dodge_roll > 0:
-                if total > dodge_roll:
-                    total += dodge_roll/2
-                else:
-                    total = (total/2) + dodge_roll
+                # if total > dodge_roll:
+                #     total += dodge_roll/2
+                # else:
+                #     total = (total/2) + dodge_roll
+                total += dodge_roll
             elif dodge_roll > total:
                 total = (total + dodge_roll)/2
         else:
