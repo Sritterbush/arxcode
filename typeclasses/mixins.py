@@ -131,7 +131,7 @@ class DescMixins(object):
         """
         try:
             if self.db.additional_desc:
-                return "\n" + "{w({n%s{w){n" % self.db.additional_desc
+                return "\n\n" + "{w({n%s{w){n" % self.db.additional_desc
         except TypeError:
             return ""
         return ""
