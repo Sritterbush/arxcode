@@ -845,7 +845,12 @@ class CmdListClues(MuxPlayerCommand):
         caller = self.caller
         table = PrettyTable(["{wClue #{n", "{wSubject{n"])
         clues = self.finished_clues
-        msg = "{wDiscovered Clues{n\n"
+        if "search" in self.switches:
+            msg = "{wMatching Clues{n\n"
+            clues = clues.filter(Q(message__icontains=self.args) | Q(clue__desc__icontains=self.args) |
+                                   Q(clue__name__icontains=self.args))
+        else:
+            msg = "{wDiscovered Clues{n\n"
         for clue in clues:
             table.add_row([clue.id, clue.name])
         msg += str(table)
@@ -861,9 +866,7 @@ class CmdListClues(MuxPlayerCommand):
             self.disp_clue_table()
             return
         if "search" in self.switches:
-            matches = clues.filter(Q(message__icontains=self.args) | Q(clue__desc__icontains=self.args) |
-                                   Q(clue__name__icontains=self.args))
-            self.msg("Matches: %s" % ", ".join(str(ob.id) for ob in matches))
+            self.disp_clue_table()
             return
         # get clue for display or sharing
         try:
@@ -927,6 +930,8 @@ class CmdListRevelations(MuxPlayerCommand):
             self.disp_rev_table()
             return
         self.msg(rev.display())
+        clues = self.caller.roster.finished_clues.filter(clue__revelations=rev.revelation)
+        self.msg("Related Clues: %s" % ", ".join(str(clue.clue) for clue in clues))
 
 
 class CmdListMysteries(MuxPlayerCommand):
