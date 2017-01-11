@@ -1993,7 +1993,7 @@ class CmdTempDesc(MuxCommand):
     """
     key = "+tempdesc"
     locks = "cmd:all()"
-    help_cateogry = "Social"
+    help_category = "Social"
 
     def func(self):
         if not self.args:
@@ -2002,3 +2002,80 @@ class CmdTempDesc(MuxCommand):
             return
         self.caller.additional_desc = self.args
         self.msg("Temporary desc set to: %s" % self.args)
+
+
+class CmdLanguages(MuxCommand):
+    """
+    Sets the languages you speak, and can teach to others
+
+    Usage:
+        +lang
+        +lang <language>
+        +lang/teachme <player>=<language>
+        +lang/teach <player>
+
+    Shows what languages you know and are currently speaking. You can request
+    that a player teach you a language with +lang/teachme. You may know one
+    language per rank of linguistics
+    """
+    key = "+lang"
+    locks = "cmd:all()"
+    help_category = "Social"
+
+    def list_languages(self):
+        known = [ob.capitalize() for ob in self.caller.languages.known_languages]
+        known += ["Arvani"]
+        self.msg("{wYou can currently speak:{n %s" % ", ".join(known))
+
+    def func(self):
+        if not self.args:
+            self.msg("{wYou are currently speaking:{n %s" % self.caller.languages.current_language.capitalize())
+            self.list_languages()
+            return
+        if not self.switches:
+            args = self.args.lower()
+            if args == "arvani" or args == "common":
+                self.caller.attributes.remove("currently_speaking")
+                self.msg("{wYou are now speaking Arvani.{n")
+                return
+            if args not in self.caller.languages.known_languages:
+                self.msg("You cannot speak %s." % self.args)
+                self.list_languages()
+                return
+            self.caller.db.currently_speaking = args
+            self.msg("{wYou are now speaking %s.{n" % self.args)
+            return
+        player = self.caller.player.search(self.lhs)
+        if not player:
+            return
+        targ = player.db.char_ob
+        if not targ:
+            self.msg("Not found.")
+            return
+        if "teachme" in self.switches:
+            if self.caller.db.skills.get("linguistics", 0) <= len(self.caller.languages.known_languages):
+                self.msg("You need a higher rank of linguistics before you can learn anything else.")
+                return
+            req = targ.ndb.language_requests or {}
+            req[self.caller] = self.rhs
+            targ.ndb.language_requests = req
+            self.msg("You request that %s teach you %s." % (targ, self.rhs))
+            targ.msg("{w%s has requested that you teach them %s.{n" % (targ, self.rhs))
+            return
+        if "teach" in self.switches:
+            req = self.caller.ndb.language_requests or {}
+            if targ not in req:
+                self.msg("You do not have a request from %s." % targ)
+                return
+            lang = req[targ].lower()
+            if lang not in self.caller.languages.known_languages:
+                self.msg("You do not know %s." % lang)
+                self.list_languages()
+                return
+            if targ.db.skills.get("linguistics", 0) <= len(targ.languages.known_languages):
+                self.msg("They know as many languages as they can learn.")
+                return
+            targ.languages.add_language(lang)
+            self.msg("You have taught %s to %s." % (lang, targ))
+            targ.msg("%s has taught you %s." % (self.caller, lang))
+            return

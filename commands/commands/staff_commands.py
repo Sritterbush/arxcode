@@ -13,6 +13,7 @@ from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
 from web.character.models import Story, Episode, StoryEmit, Clue
 from world.dominion.models import Organization
+from evennia.typeclasses.tags import Tag
 
 PERMISSION_HIERARCHY = [p.lower() for p in settings.PERMISSION_HIERARCHY]
 
@@ -690,3 +691,58 @@ class CmdViewLog(MuxPlayerCommand):
             self.msg("All logs for %s cleared." % targ)
             return
         self.msg("Invalid switch.")
+
+
+class CmdSetLanguages(MuxPlayerCommand):
+    """
+    @admin_languages
+
+    Usage:
+        @admin_languages
+        @admin_languages/create <language>
+        @admin_languages/add <character>=<language>
+        @admin_languages/remove <character>=<language>
+        @admin_languages/listfluent <language>
+
+    Views and sets languages. All players are said to speak common.
+    """
+    key = "@admin_languages"
+    help_category = "GMing"
+    locks = "cmd:perm(Wizards)"
+
+    @property
+    def valid_languages(self):
+        return Tag.objects.filter(db_category="languages")
+
+    def list_valid_languages(self):
+        self.msg("Valid languages: %s" % ", ".join(ob.db_key for ob in self.valid_languages))
+
+    def func(self):
+        if not self.args:
+            self.list_valid_languages()
+            return
+        if "create" in self.switches:
+            tag = Tag.objects.create(db_key=self.args, db_category="languages")
+            self.msg("Created the new language: %s" % tag.db_key)
+            return
+        if "listfluent" in self.switches:
+            from typeclasses.characters import Character
+            chars = Character.objects.filter(db_tags__db_key__iexact=self.args,
+                                             db_tags__db_category="languages")
+            self.msg("Characters who can speak %s: %s" % (self.args, ", ".join(str(ob) for ob in chars)))
+            return
+        if not self.valid_languages.filter(db_key__iexact=self.rhs):
+            self.msg("%s is not a valid language." % self.rhs)
+            self.list_valid_languages()
+            return
+        player = self.caller.search(self.lhs)
+        if not player:
+            return
+        if "add" in self.switches:
+            player.db.char_ob.languages.add_language(self.rhs)
+            self.msg("Added %s to %s." % (self.rhs, player))
+            return
+        if "remove" in self.switches:
+            player.db.char_ob.languages.remove_language(self.rhs)
+            self.msg("Removed %s from %s." % (self.rhs, player))
+            return

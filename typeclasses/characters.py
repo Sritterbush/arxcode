@@ -10,6 +10,7 @@ creation commands.
 from evennia import DefaultCharacter
 from typeclasses.mixins import MsgMixins, ObjectMixins, NameMixins
 from world.msgs.messagehandler import MessageHandler
+from world.msgs.languagehandler import LanguageHandler
 from evennia.utils.utils import lazy_property
 import time
 from world.stats_and_skills import do_dice_check
@@ -66,6 +67,10 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     @lazy_property
     def messages(self):    
         return MessageHandler(self)
+
+    @lazy_property
+    def languages(self):
+        return LanguageHandler(self)
 
     def at_after_move(self, source_location):
         """

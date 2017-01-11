@@ -489,6 +489,14 @@ class MsgMixins(object):
             except Exception:
                 import traceback
                 traceback.print_exc()
+        lang = options.get('language', None)
+        msg_content = options.get('msg_content', None)
+        if lang and msg_content:
+            try:
+                if not self.check_permstring("builders") and lang.lower() not in self.languages.known_languages:
+                    text = text.replace(msg_content, "<Something in %s that you don't understand>." % lang.capitalize())
+            except AttributeError:
+                pass
         if options.get('is_pose', False):
             if self.db.posebreak:
                 text = "\n" + text

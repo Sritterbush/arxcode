@@ -620,15 +620,21 @@ class CmdArxSay(CmdSay):
         if not self.args:
             self.msg("Say what?")
             return
+        options = {'is_pose': True}
         speech = self.args
         # calling the speech hook on the location
         speech = self.caller.location.at_say(self.caller, speech)
         # Feedback for the object doing the talking.
-        self.caller.msg('You say, "%s{n"' % speech)
+        langstring = ""
+        current = self.caller.languages.current_language
+        if current and current.lower() != "arvani":
+            langstring = " in %s" % current.capitalize()
+            options.update({'language': current, 'msg_content': speech})
+        self.caller.msg('You say%s, "%s{n"' % (langstring, speech))
         # Build the string to emit to neighbors.
-        emit_string = '%s says, "%s{n"' % (self.caller.name, speech)
+        emit_string = '%s says%s, "%s{n"' % (self.caller.name, langstring, speech)
         self.caller.location.msg_contents(emit_string, from_obj=self.caller,
-                                          exclude=self.caller, options={'is_pose': True})
+                                          exclude=self.caller, options=options)
         self.caller.posecount += 1
 
 
