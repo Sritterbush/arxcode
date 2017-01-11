@@ -848,7 +848,7 @@ class CmdListClues(MuxPlayerCommand):
         if "search" in self.switches:
             msg = "{wMatching Clues{n\n"
             clues = clues.filter(Q(message__icontains=self.args) | Q(clue__desc__icontains=self.args) |
-                                   Q(clue__name__icontains=self.args))
+                                 Q(clue__name__icontains=self.args))
         else:
             msg = "{wDiscovered Clues{n\n"
         for clue in clues:

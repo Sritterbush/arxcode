@@ -722,6 +722,9 @@ class CmdSetLanguages(MuxPlayerCommand):
             self.list_valid_languages()
             return
         if "create" in self.switches:
+            if Tag.objects.filter(db_key__iexact=self.args, db_category="languages"):
+                self.msg("Language already exists.")
+                return
             tag = Tag.objects.create(db_key=self.args, db_category="languages")
             self.msg("Created the new language: %s" % tag.db_key)
             return
