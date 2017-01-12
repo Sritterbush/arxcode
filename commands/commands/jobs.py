@@ -315,7 +315,7 @@ class CmdRequest(MuxPlayerCommand):
        +911 <title>=<message>
        bug <report>
        typo <report>
-       feedback <report>
+       +featurerequest <report>
        +request/followup <#>=<message>
        +request <#>
        +storyrequest <title>=<action you wish to take>
@@ -339,14 +339,14 @@ class CmdRequest(MuxPlayerCommand):
 
     'typo' may be used to report errors in descriptions or formatting.
     'bug' is used for reporting game errors in code.
-    'feedback' is used for making suggestions on different game systems.
+    '+featurerequest' is used for making requests for code changes.
     '+storyrequest' is used for asking for GM resolution of IC actions.
     '+prprequest' is used for asking questions about a PRP.
     """
 
     key = "+request"
     aliases = ["@request", "+requests", "@requests", "+911", "+ineedanadult",
-               "bug", "typo", "feedback", "+storyrequest", "+prprequest"]
+               "bug", "typo", "+featurerequest", "+storyrequest", "+prprequest"]
     help_category = "Admin"
     locks = "cmd:perm(request) or perm(Players)"
 
@@ -430,8 +430,8 @@ class CmdRequest(MuxPlayerCommand):
         elif cmdstr == "typo":
             optional_title = "Typo found"
             queue = Queue.objects.get(slug="Typo").id
-        elif cmdstr == "feedback":
-            optional_title = "Feedback"
+        elif cmdstr == "+featurerequest":
+            optional_title = "Features"
             queue = Queue.objects.get(slug="Code").id
         elif cmdstr == "+storyrequest":
             optional_title = "Action"
