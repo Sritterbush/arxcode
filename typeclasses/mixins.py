@@ -96,7 +96,7 @@ class DescMixins(object):
         """
         total = 0
         for obj in self.contents:
-            if obj.db.worn_by != self and obj.db.sheathed_by != self:
+            if not obj.db.currently_worn and obj.db.sheathed_by != self:
                 vol = obj.db.volume or 1
                 total += vol
         return total
@@ -256,7 +256,7 @@ class AppearanceMixins(object):
             if con.destination:
                 exits.append(key)
             # Only display worn items in inventory to other characters
-            elif con.db.worn_by and con.db.worn_by == self:
+            elif con.db.currently_worn:
                 worn.append(con)
             elif con.db.wielded_by == self:
                 if not con.db.stealth:

@@ -98,7 +98,7 @@ class CmdRemove(MuxCommand):
                                multimatch_string="You carry more than one %s:" % args)
         if not obj:
             return
-        if not obj.db.currently_worn or obj.db.worn_by != caller:
+        if not obj.db.currently_worn:
             caller.msg("You're not wearing %s." % obj.name)
             return
         if obj.remove(caller):
