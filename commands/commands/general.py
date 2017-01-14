@@ -1488,6 +1488,12 @@ class CmdLockObject(MuxCommand):
         obj = caller.search(self.args)
         if not obj:
             return
+        if hasattr(obj, 'lock_exit'):
+            if verb == "lock":
+                obj.lock_exit(caller)
+            else:
+                obj.unlock_exit(caller)
+            return
         try:
             lock_method = getattr(obj, verb)
             lock_method(caller)

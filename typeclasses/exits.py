@@ -199,5 +199,29 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
             return "nowhere"
         return entrances[0]
 
+    def lock_exit(self, caller=None):
+        """
+        Lock exit will lock an exit -and- the reverse exit
+        """
+        if "usekey" not in self.locks.all():
+            self.locks.add("usekey: perm(builders) or roomkey(%s)" % self.location.id)
+        self.lock(caller)
+        try:
+            self.reverse_exit.lock(caller)
+        except AttributeError:
+            pass
+
+    def unlock_exit(self, caller=None):
+        """
+        As above
+        """
+        if "usekey" not in self.locks.all():
+            self.locks.add("usekey: perm(builders) or roomkey(%s)" % self.location.id)
+        self.unlock(caller)
+        try:
+            self.reverse_exit.unlock(caller)
+        except AttributeError:
+            pass
+
 
 
