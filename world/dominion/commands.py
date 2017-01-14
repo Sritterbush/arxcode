@@ -1840,8 +1840,7 @@ class CmdPatronage(MuxPlayerCommand):
         @patronage/reject
         @patronage/abandon
 
-    Displays family information about a given character, if
-    available.
+    Displays and manages patronage.
     """
     key = "@patronage"
     locks = "cmd:all()"

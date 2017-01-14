@@ -203,11 +203,16 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         """
         Lock exit will lock an exit -and- the reverse exit
         """
-        if "usekey" not in self.locks.all():
-            self.locks.add("usekey: perm(builders) or roomkey(%s)" % self.location.id)
+        if str(self.destination.id) not in self.locks.all() or str(self.location.id) not in self.locks.all():
+            self.locks.add("usekey: perm(builders) or roomkey(%s) or roomkey(%s)" % (self.destination.id,
+                                                                                     self.location.id))
         self.lock(caller)
         try:
             self.reverse_exit.lock(caller)
+            if (str(self.destination.id) not in self.reverse_exit.locks.all()
+                    or str(self.location.id) not in self.reverse_exit.locks.all()):
+                self.reverse_exit.locks.add("usekey: perm(builders) or roomkey(%s) or roomkey(%s)" % (
+                    self.destination.id, self.location.id))
         except AttributeError:
             pass
 
@@ -215,11 +220,16 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         """
         As above
         """
-        if "usekey" not in self.locks.all():
-            self.locks.add("usekey: perm(builders) or roomkey(%s)" % self.location.id)
+        if str(self.destination.id) not in self.locks.all() or str(self.location.id) not in self.locks.all():
+            self.locks.add("usekey: perm(builders) or roomkey(%s) or roomkey(%s)" % (self.destination.id,
+                                                                                     self.location.id))
         self.unlock(caller)
         try:
             self.reverse_exit.unlock(caller)
+            if (str(self.destination.id) not in self.reverse_exit.locks.all()
+                    or str(self.location.id) not in self.reverse_exit.locks.all()):
+                self.reverse_exit.locks.add("usekey: perm(builders) or roomkey(%s) or roomkey(%s)" % (
+                    self.destination.id, self.location.id))
         except AttributeError:
             pass
 
