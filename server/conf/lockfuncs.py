@@ -58,7 +58,7 @@ def rank(accessing_obj, accessed_obj, *args, **kwargs):
         except Organization.DoesNotExist:
             return False
     try:
-        member = accessing_obj.Dominion.memberships.get(organization=org_obj)
+        member = accessing_obj.Dominion.memberships.get(organization=org_obj, deguilded=False)
         return member.rank <= rank_num
     except (AttributeError, Member.DoesNotExist):
         return False
@@ -92,7 +92,7 @@ def organization(accessing_obj, accessed_obj, *args, **kwargs):
     except Organization.DoesNotExist:
         return False
     try:
-        accessing_obj.Dominion.memberships.get(organization=org_obj)
+        accessing_obj.Dominion.memberships.get(organization=org_obj, deguilded=False)
         # if get fails we get Member.DoesNotExist exception, and won't execute return True
         return True
     except (AttributeError, Member.DoesNotExist):
