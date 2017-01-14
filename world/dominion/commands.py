@@ -867,6 +867,10 @@ class CmdAdmOrganization(MuxPlayerCommand):
                 secret = org.secret
                 dompc.memberships.create(organization=org, rank=rank, secret=secret)
                 caller.msg("%s added to %s at rank %s." % (dompc, org, rank))
+                try:
+                    org.org_channel.connect(player)
+                except AttributeError:
+                    pass
                 return
             except (AttributeError, ValueError, TypeError):
                 caller.msg("Could not add %s. May need to run @admin_assets/setup on them." % self.rhs)
@@ -1540,6 +1544,10 @@ class CmdOrganization(MuxPlayerCommand):
                 caller.Dominion.memberships.create(organization=org, secret=secret)
             caller.msg("You have joined %s." % org.name)
             org.msg("%s has joined %s." % (caller, org.name))
+            try:
+                org.org_channel.connect(caller)
+            except AttributeError:
+                pass
             return
         if 'decline' in self.switches:
             org = caller.ndb.orginvite

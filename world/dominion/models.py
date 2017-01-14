@@ -1744,6 +1744,14 @@ class Organization(models.Model):
     def get_absolute_url(self):
         return reverse('help_topics:display_org', kwargs={'object_id': self.id})
 
+    @property
+    def org_channel(self):
+        from typeclasses.channels import Channel
+        try:
+            return Channel.objects.get(db_lock_storage__icontains=self.name)
+        except Channel.DoesNotExist:
+            return None
+
 
 class Agent(models.Model):
     """
@@ -2508,6 +2516,10 @@ class Member(models.Model):
         """
         self.deguilded = True
         self.save()
+        try:
+            self.organization.org_channel.disconnect(self.player.player)
+        except AttributeError:
+            pass
 
     def work(self, worktype):
         """
