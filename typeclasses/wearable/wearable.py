@@ -4,8 +4,7 @@ clothing and armor except armor will have an armor value
 defined as an attribute.
 
 is_wearable boolean is the check to see if we're a wearable
-object. worn_by returns the object wearing us. currently_worn
-is a boolean saying our worn state - True if being worn,
+object. currently_worn is a boolean saying our worn state - True if being worn,
 False if not worn.
 """
 
@@ -79,6 +78,7 @@ class Wearable(Object):
 
     def at_post_remove(self, wearer):
         """Hook called after removing."""
+        self.attributes.remove("worn_by")
         return True
     
     def calc_armor(self):

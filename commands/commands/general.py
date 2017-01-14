@@ -1448,7 +1448,7 @@ class CmdUndress(MuxCommand):
         # Iterate over all the contents of the caller's inventory
         for obj in caller.contents:
             # Ensure the item is currently worn and that it's worn by the wearer - just in case
-            if obj.db.currently_worn and obj.db.worn_by == caller:
+            if obj.db.currently_worn:
                 # Remove the wearable, setting the fact it is worn and who it is worn by to false/null
                 obj.remove(caller)
 
