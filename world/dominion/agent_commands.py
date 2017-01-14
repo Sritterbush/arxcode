@@ -235,16 +235,16 @@ class CmdAgents(MuxPlayerCommand):
         if 'desc' in self.switches or 'name' in self.switches or 'transferowner' in self.switches:
             try:
                 agent = Agent.objects.get(id=int(self.lhslist[0]))
-                strval = ""
+                strval = self.rhs
                 if not agent.access(caller, 'agents'):
                     caller.msg("No access.")
                     return
                 if 'desc' in self.switches:
                     attr = 'desc'
-                    strval = self.rhs or ", ".join(self.lhslist[1:])
+                    strval = strval or ", ".join(self.lhslist[1:])
                     agent.desc = strval
                 elif 'name' in self.switches:
-                    strval = self.rhs or ", ".join(self.lhslist[1:])
+                    strval = strval or ", ".join(self.lhslist[1:])
                     name = strval
                     if not validate_name(name):
                         self.msg("That is not a valid name.")
