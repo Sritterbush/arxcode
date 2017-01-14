@@ -130,7 +130,10 @@ def ability(accessing_obj, accessed_obj, *args, **kwargs):
         ability_list = name.split(",")
     for ability_name in ability_list:
         ability_name = ability_name.lower().strip()
-        pab = accessing_obj.db.abilities.get(ability_name, 0)
+        try:
+            pab = accessing_obj.db.abilities.get(ability_name, 0)
+        except AttributeError:
+            return False
         if pab >= val:
             return True
     return False
