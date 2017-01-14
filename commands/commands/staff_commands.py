@@ -712,10 +712,10 @@ class CmdSetLanguages(MuxPlayerCommand):
 
     @property
     def valid_languages(self):
-        return Tag.objects.filter(db_category="languages")
+        return Tag.objects.filter(db_category="languages").order_by('db_key')
 
     def list_valid_languages(self):
-        self.msg("Valid languages: %s" % ", ".join(ob.db_key for ob in self.valid_languages))
+        self.msg("Valid languages: %s" % ", ".join(ob.db_key.title() for ob in self.valid_languages))
 
     def func(self):
         if not self.args:
@@ -725,7 +725,7 @@ class CmdSetLanguages(MuxPlayerCommand):
             if Tag.objects.filter(db_key__iexact=self.args, db_category="languages"):
                 self.msg("Language already exists.")
                 return
-            tag = Tag.objects.create(db_key=self.args, db_category="languages")
+            tag = Tag.objects.create(db_key=self.args.lower(), db_category="languages")
             self.msg("Created the new language: %s" % tag.db_key)
             return
         if "listfluent" in self.switches:
