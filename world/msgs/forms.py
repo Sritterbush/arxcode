@@ -2,6 +2,7 @@ from django import forms
 from evennia.comms.models import Msg
 from evennia.objects.models import ObjectDB
 from django.conf import settings
+from django.db.models import Q
 
 
 class JournalMarkAllReadForm(forms.Form):
@@ -46,8 +47,9 @@ class JournalWriteForm(forms.Form):
         help_text="Leave blank if this journal is not a relationship",
         empty_label="(None - not a relationship)",
         required=False,
-        queryset=ObjectDB.objects.filter(db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS,
-                                         roster__roster__name="Active").order_by('db_key'),
+        queryset=ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS) & Q(
+                                         Q(roster__roster__name="Active") | Q(roster__roster__name="Gone") |
+                                         Q(roster__roster__name="Available"))).order_by('db_key'),
         )
     journal = forms.CharField(
         label="Journal Text",
