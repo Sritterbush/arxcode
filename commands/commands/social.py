@@ -1012,6 +1012,7 @@ class CmdCalendar(MuxPlayerCommand):
         @cal/reschedule <event number>=<new date>
         @cal/cancel <event number>
         @cal/changeroomdesc <event number>=<new desc>
+        @cal/toggleprivate <finished event number>
         @cal/old
         @cal/comments <event number>=<comment number>
 
@@ -1024,6 +1025,10 @@ class CmdCalendar(MuxPlayerCommand):
 
     When starting an event early, you can specify '=here' to start it in
     your current room rather than its previous location.
+
+    If you want to mark an event private or public after finishing hosting
+    it so that it can be viewed by people who didn't attend it on the web,
+    use /toggleprivate.
     """
     key = "@cal"
     locks = "cmd:all()"
@@ -1317,6 +1322,18 @@ class CmdCalendar(MuxPlayerCommand):
                 caller.msg("You have no character, which is required to set up Dominion.")
                 return
             dompc = setup_utils.setup_dom_for_char(char)
+        if "toggleprivate" in self.switches:
+            qs = dompc.events_hosted.filter(finished=True)
+            try:
+                event = qs.get(id=int(self.args))
+            except (RPEvent.DoesNotExist, ValueError, TypeError):
+                self.msg("You have not hosted an event by that number.")
+                self.msg(self.display_events(qs))
+                return
+            event.public_event = not event.public_event
+            event.save()
+            self.msg("%s's public status has been set to %s." % (event, event.public_event))
+            return
         # get the events they're hosting
         events = dompc.events_hosted.filter(finished=False)
         if not events:

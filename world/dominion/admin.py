@@ -150,6 +150,7 @@ class MaterialsAdmin(DomAdmin):
 
 class EventAdmin(DomAdmin):
     list_display = ('id', 'name', 'date')
+    search_fields = ['name', 'hosts__player__username', 'participants__player__username', 'gms__player__username']
     ordering = ['date']
     raw_id_fields = ('location',)
     filter_horizontal = ['hosts', 'participants', 'gms']

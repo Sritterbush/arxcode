@@ -23,7 +23,7 @@ class RPEventListView(LimitPageMixin, ListView):
                 return RPEvent.objects.filter(finished=False).distinct().order_by('-date')
         except AttributeError:
             pass
-        if not user:
+        if not user.is_authenticated():
             return RPEvent.objects.filter(finished=False, public_event=True).distinct().order_by('-date')
         else:
             return RPEvent.objects.filter(Q(finished=False) &
@@ -38,7 +38,7 @@ class RPEventListView(LimitPageMixin, ListView):
                 return RPEvent.objects.filter(finished=True, participants__isnull=False).distinct().order_by('-date')
         except AttributeError:
             pass
-        if not user:
+        if not user.is_authenticated():
             return RPEvent.objects.filter(finished=True, participants__isnull=False,
                                           public_event=True).distinct().order_by('-date')
         else:
@@ -62,7 +62,8 @@ class RPEventDetailView(DetailView):
         context['form'] = RPEventCommentForm
         can_view = False
         user = self.request.user
-        if user:
+        private = not self.get_object().public_event
+        if user.is_authenticated():
             if user.is_staff:
                 can_view = True
             else:
@@ -74,6 +75,8 @@ class RPEventDetailView(DetailView):
                 except AttributeError:
                     pass
         # this will determine if we can read/write about private events, won't be used for public
+        if private and not can_view:
+            raise Http404
         context['can_view'] = can_view
         context['page_title'] = str(self.get_object())
         return context
