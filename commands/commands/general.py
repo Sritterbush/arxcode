@@ -1310,8 +1310,8 @@ class CmdInform(MuxPlayerCommand):
     @inform - reads messages sent to you by the game
     Usage:
         @inform
-        @inform <number>
-        @inform/del <number>
+        @inform <number>[=<end number>]
+        @inform/del <number>[=<end number>]
         @inform/shopminimum <number>
 
     Displays your informs. /shopminimum sets a minimum amount that must be paid
@@ -1329,6 +1329,17 @@ class CmdInform(MuxPlayerCommand):
         if inform.is_unread:
             inform.is_unread = False
             inform.save()
+
+    def get_inform(self, val):
+        informs = self.caller.informs.all()
+        try:
+            val = int(val)
+            if val <= 0:
+                raise ValueError
+            inform = informs[val - 1]
+            return inform
+        except (ValueError, IndexError):
+            self.msg("You must specify a number between 1 and %s." % len(informs))
 
     def func(self):
         caller = self.caller
@@ -1371,20 +1382,29 @@ class CmdInform(MuxPlayerCommand):
             table.reformat_column(index=2, width=19)
             caller.msg(table)
             return
-        try:
-            val = int(self.args)
-            if val <= 0:
-                raise ValueError
-            inform = informs[val - 1]
-        except (ValueError, IndexError):
-            caller.msg("You must specify a number between 1 and %s." % len(informs))
-            return
+        if not self.rhs:
+            inform = self.get_inform(self.lhs)
+            if not inform:
+                return
+            informs = [inform]
+        else:
+            try:
+                vals = range(int(self.lhs), int(self.rhs) + 1)
+                if not vals:
+                    raise ValueError
+            except ValueError:
+                self.msg("Invalid numbers.")
+                return
+            informs = [self.get_inform(val) for val in vals]
+            informs = [ob for ob in informs if ob]
         if not self.switches:
-            self.read_inform(caller, inform)
+            for inform in informs:
+                self.read_inform(caller, inform)
             return
         if "del" in self.switches:
-            inform.delete()
-            caller.msg("Inform deleted.")
+            for inform in informs:
+                inform.delete()
+                caller.msg("Inform deleted.")
             return
         caller.msg("Invalid switch.")
         return
