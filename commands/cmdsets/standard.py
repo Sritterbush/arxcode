@@ -92,11 +92,6 @@ try:
 except Exception as err:
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in override commands: %s" % err)
-try:
-    from commands.commands import help as arxhelp
-except Exception as err:
-    traceback.print_exc()
-    print("<<ERROR>>: Error encountered in overriding help: %s" % err)
 from evennia.commands.cmdset import CmdSet
 
 
@@ -119,14 +114,12 @@ class OOCCmdSet(CmdSet):
         self.add(default_general.CmdAccess())
         self.add(general.CmdDiceString())
         self.add(general.CmdDiceCheck())
-        self.add(general.CmdPage())
         self.add(general.CmdBriefMode())
         self.add(general.CmdTidyUp())
         self.add(extended_room.CmdGameTime())
         self.add(extended_room.CmdStudyRawAnsi())
         self.add(xp.CmdVoteXP())
         self.add(social.CmdPosebreak())
-        self.add(arxhelp.CmdHelp())
         self.add(social.CmdSocialScore())
 
 
