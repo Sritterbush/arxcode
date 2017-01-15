@@ -383,6 +383,10 @@ class CmdManageRoom(MuxCommand):
         +manageroom
         +manageroom/name <name>
         +manageroom/desc <description>
+        +manageroom/springdesc <description>
+        +manageroom/summerdesc <description>
+        +manageroom/falldesc <description>
+        +manageroom/winterdesc <description>
         +manageroom/exitname <exit>=<new name>
         +manageroom/addhome <owner>
         +manageroom/confirmhome <owner>
@@ -395,10 +399,26 @@ class CmdManageRoom(MuxCommand):
 
     Flags your current room as permitting characters to build there.
     Cost is 100 economic resources unless specified otherwise.
+
+    To set a seasonal description for your room, use /springdesc, /summerdesc,
+    etc. /desc will always be shown as a fallback otherwise.
+
+    You can also embed special time markers in your room description, like this:
+
+        ```
+        <night>In the darkness, the forest looks foreboding.</night>.
+        ```
+
+    Text marked this way will only display when the server is truly at the given
+    timeslot. The available times are night, morning, afternoon and evening.
+
+    Note that `@detail`, seasons and time-of-day slots only work on rooms in this
+    version of the `@desc` command.
     """
     key = "+manageroom"
     locks = "cmd:all()"
     help_category = "Home"
+    desc_switches = ("desc", "winterdesc", "springdesc", "summerdesc", "falldesc")
 
     def func(self):
         """Execute command."""
@@ -453,14 +473,23 @@ class CmdManageRoom(MuxCommand):
                 exit_object.flush_from_cache()
             caller.msg("%s changed to %s." % (old, exit_object))
             return
-        if "desc" in self.switches:
+        if set(self.switches) & set(self.desc_switches):
             if loc.desc:
                 cost = loc.db.desc_cost or DESC_COST
             else:
                 cost = 0
             if loc.ndb.confirm_desc_change != self.args:
-                caller.msg("Your room's current desc is:")
-                caller.msg(loc.desc)
+                caller.msg("Your room's current %s is:" % self.switches[0])
+                if "desc" in self.switches:
+                    caller.msg(loc.desc)
+                elif "springdesc" in self.switches:
+                    caller.msg(loc.db.spring_desc)
+                elif "summerdesc" in self.switches:
+                    caller.msg(loc.db.summer_desc)
+                elif "winterdesc" in self.switches:
+                    caller.msg(loc.db.winter_desc)
+                elif "falldesc" in self.switches:
+                    caller.msg(loc.db.fall_desc)
                 caller.msg("{wCost of changing desc:{n %s economic resources" % cost)
                 if self.args:
                     caller.msg("New desc:")
@@ -475,11 +504,26 @@ class CmdManageRoom(MuxCommand):
                     return
                 owner.economic -= cost
                 owner.save()
-            loc.desc = self.args
-            loc.save()
+            if "desc" in self.switches:
+                loc.desc = self.args
+                if not loc.db.raw_desc:
+                    loc.db.raw_desc = self.args
+                if not loc.db.general_desc:
+                    loc.db.general_desc = self.args
+            elif "winterdesc" in self.switches:
+                loc.db.winter_desc = self.args
+            elif "summerdesc" in self.switches:
+                loc.db.summer_desc = self.args
+            elif "springdesc" in self.switches:
+                loc.db.summer_desc = self.args
+            elif "falldesc" in self.switches:
+                loc.db.fall_desc = self.args
             loc.ndb.confirm_desc_change = None
-            caller.msg("Desc changed to:")
-            caller.msg(loc.desc)
+            # force raw_desc to update and parse our descs
+            loc.ndb.last_season = None
+            loc.ndb.last_timeslot = None
+            caller.msg("%s changed to:" % self.switches[0])
+            caller.msg(self.args)
             return
         if "confirmhome" in self.switches:
             if caller.db.homeproposal != loc:
