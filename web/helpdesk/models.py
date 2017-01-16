@@ -338,6 +338,7 @@ class Ticket(models.Model):
         blank=True,
         null=True,
         verbose_name=_('Room where this was submitted'),
+        on_delete=models.SET_NULL,
         )
     
     status = models.IntegerField(

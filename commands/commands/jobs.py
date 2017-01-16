@@ -287,6 +287,9 @@ class CmdJob(MuxPlayerCommand):
             self.msg("Ticket %s is now in queue %s." % (ticket.id, queue))
             return
         if 'delete' in switches:
+            if ticket.queue.slug == "Story":
+                self.msg("Cannot delete a storyaction. Please move it to a different queue first.")
+                return
             ticket.delete()
             self.msg("Ticket #%s deleted." % self.lhs)
             return

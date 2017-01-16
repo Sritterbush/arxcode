@@ -1558,6 +1558,7 @@ class CmdArxReload(CmdReload):
 class CmdArxScripts(CmdScripts):
     __doc__ = CmdScripts.__doc__
 
+    # noinspection PyProtectedMember
     def list_scripts(self):
         """Takes a list of scripts and formats the output."""
         from evennia.scripts.models import ScriptDB
