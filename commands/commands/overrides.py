@@ -17,6 +17,7 @@ from evennia.utils import evtable, create
 from world.dominion.models import CraftingMaterials
 from evennia.commands.default.general import CmdSay
 from evennia.comms.models import ChannelDB
+from evennia.commands.default.system import CmdReload
 
 AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
 _DEFAULT_WIDTH = settings.CLIENT_DEFAULT_WIDTH
@@ -1538,3 +1539,17 @@ class CmdArxDestroy(CmdDestroy):
                 string += delobj(objname, True)
         if string:
             caller.msg(string.strip())
+
+
+class CmdArxReload(CmdReload):
+    __doc__ = CmdReload.__doc__ + "\n\nUse /override to force a reload when a combat is active."
+
+    def func(self):
+        if "override" in self.switches or "force" in self.switches:
+            super(CmdArxReload, self).func()
+            return
+        from typeclasses.scripts.combat.combat_script import CombatManager
+        if CombatManager.objects.all():
+            self.msg("{rThere is a combat active. You must use @reload/override or @reload/force to do a @reload.{n")
+            return
+        super(CmdArxReload, self).func()

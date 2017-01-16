@@ -74,7 +74,6 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
         self.add(player.CmdQuell())
         self.add(building.CmdExamine())
         # system commands
-        self.add(system.CmdReload())
         self.add(system.CmdReset())
         self.add(system.CmdShutdown())
         self.add(system.CmdPy())
@@ -110,6 +109,7 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(overrides.CmdArxCdesc())
             self.add(overrides.CmdArxAllCom())
             self.add(overrides.CmdArxChannels())
+            self.add(overrides.CmdArxReload())
         except Exception as err:
             print("<<ERROR>>: Error in overrides: %s." % err)
         try:
