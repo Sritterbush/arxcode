@@ -407,16 +407,24 @@ class AppearanceMixins(object):
             except CraftingRecipe.DoesNotExist:
                 pass
         # quality_level is an integer, we'll get a name from crafter file's dict
-        if self.db.quality_level:
-            from commands.commands.crafting import QUALITY_LEVELS
-            qual = self.db.quality_level
-            qual = QUALITY_LEVELS.get(qual, "average")
-            string += "\nIts level of craftsmanship is %s." % qual
+        string += self.get_quality_appearance()
         # signed_by is a crafter's character object
         signed = self.db.signed_by
         if signed:
             string += "\n%s" % (signed.db.crafter_signature or "")
         return string
+
+    def get_quality_appearance(self):
+        """
+        :type self: ObjectDB
+        :return str:
+        """
+        if self.db.quality_level:
+            from commands.commands.crafting import QUALITY_LEVELS
+            qual = self.db.quality_level
+            qual = QUALITY_LEVELS.get(qual, "average")
+            return "\nIts level of craftsmanship is %s." % qual
+        return ""
 
 
 class ObjectMixins(DescMixins, AppearanceMixins):
