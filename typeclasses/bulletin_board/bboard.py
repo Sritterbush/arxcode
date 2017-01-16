@@ -131,14 +131,14 @@ class BBoard(Object):
     def posts(self):
         return self.receiver_object_set.filter(db_tags__db_key="Board Post")
 
-    def read_post(self, caller, post):
+    def read_post(self, caller, post, board_num=None):
         """
         Helper function to read a single post.
         """
         # format post
         sender = self.get_poster(post)
         message = "\n{w" + "-"*60 + "{n\n"
-        message += "{wBoard:{n %s\n" % self.key
+        message += "{wBoard:{n %s, {wPost Number:{n %s\n" % (self.key, list(self.posts).index(post) + 1)
         message += "{wPoster:{n %s\n" % sender
         message += "{wSubject:{n %s\n" % post.db_header
         message += "{wDate:{n %s\n" % post.db_date_created.strftime("%x %X")
