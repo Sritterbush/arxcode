@@ -278,6 +278,7 @@ class CmdJournal(MuxCommand):
         journal/favorite <character>=<entry number>
         journal/unfavorite <character>=<entry number>
         journal/dispfavorites
+        journal/countweek
 
     Allows a character to read the White Journals of characters,
     or add to their own White Journal or Black Reflections. White
@@ -381,6 +382,10 @@ class CmdJournal(MuxCommand):
         if "markallread" in self.switches:
             self.mark_all_read()
             caller.msg("All messages marked read.")
+            return
+        if "countweek" in self.switches:
+            num = caller.db.num_journals or 0
+            self.msg("You have written %s journals this week." % num)
             return
         # if no switches but have args, looking up journal of a character
         if (not self.switches or 'black' in self.switches

@@ -138,6 +138,7 @@ class BBoard(Object):
         # format post
         sender = self.get_poster(post)
         message = "\n{w" + "-"*60 + "{n\n"
+        message += "{wBoard:{n %s\n" % self.key
         message += "{wPoster:{n %s\n" % sender
         message += "{wSubject:{n %s\n" % post.db_header
         message += "{wDate:{n %s\n" % post.db_date_created.strftime("%x %X")
