@@ -712,7 +712,6 @@ class CmdWho(MuxPlayerCommand):
         """
         Get all connected players by polling session.
         """
-
         player = self.caller
         session_list = [ob for ob in SESSIONS.get_sessions() if ob.player]
         session_list = sorted(session_list, key=lambda o: o.player.key.lower())
@@ -722,7 +721,6 @@ class CmdWho(MuxPlayerCommand):
             show_session_data = False
         else:
             show_session_data = player.check_permstring("Immortals") or player.check_permstring("Wizards")
-
         nplayers = (SESSIONS.player_count())
         if show_session_data:
             table = prettytable.PrettyTable(["{wPlayer Name",
@@ -746,7 +744,12 @@ class CmdWho(MuxPlayerCommand):
                 plr_pobject = plr_pobject or pc
                 base = str(session.get_player())
                 pname = self.format_pname(session.get_player())
-                if not self.check_filters(pname, base):
+                char = pc.db.char_ob
+                if not char or not char.db.fealty:
+                    fealty = "---"
+                else:
+                    fealty = char.db.fealty
+                if not self.check_filters(pname, base, fealty):
                     nplayers -= 1
                     continue
                 pname = crop(pname, width=18)
