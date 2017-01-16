@@ -807,9 +807,13 @@ class CmdGMEvent(MuxCommand):
             name, desc = form[0], form[1]
             date = datetime.now()
             loc = self.caller.location
+            events = self.caller.db.player_ob.Dominion.events_gmd.filter(finished=False, gm_event=True, location=loc)
+            if events:
+                self.msg("You are already GMing an event in this room.")
+                return
             dompc = self.caller.db.player_ob.Dominion
             event = RPEvent.objects.create(name=name, date=date, desc=desc, location=loc,
-                                           public_event=False, celebration_tier=0)
+                                           public_event=False, celebration_tier=0, gm_event=True)
             event.hosts.add(dompc)
             event.gms.add(dompc)
             event_manager = ScriptDB.objects.get(db_key="Event Manager")
@@ -818,7 +822,7 @@ class CmdGMEvent(MuxCommand):
             self.caller.attributes.remove("gm_event_form")
             return
         if "stop" in self.switches:
-            events = self.caller.db.player_ob.Dominion.events_gmd.filter(finished=False)
+            events = self.caller.db.player_ob.Dominion.events_gmd.filter(finished=False, gm_event=True)
             if not events:
                 self.msg("You are not currently GMing any events.")
                 return
