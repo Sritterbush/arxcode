@@ -56,6 +56,8 @@ class CmdHome(MuxCommand):
             caller.msg("You have no home!")
         elif home == caller.location:
             caller.msg("You are already home!")
+        elif not caller.conscious:
+            caller.msg("You must be conscious to go home.")
         else:
             caller.move_to(home)
             caller.msg("There's no place like home ...")
