@@ -649,6 +649,7 @@ class CmdWho(MuxPlayerCommand):
       doing [<filter>]
       who/sparse [<filter>]
       doing/sparse [<filter>]
+      who/active
 
     Shows who is currently online. Doing is an alias that limits info
     also for those with all permissions. Players who are currently
@@ -735,6 +736,8 @@ class CmdWho(MuxPlayerCommand):
                 if not session.logged_in:
                     continue
                 delta_cmd = time.time() - session.cmd_last_visible
+                if "active" in self.switches and delta_cmd > 1200:
+                    continue
                 delta_conn = time.time() - session.conn_time
                 pc = session.get_player()
                 plr_pobject = session.get_puppet()
@@ -762,6 +765,8 @@ class CmdWho(MuxPlayerCommand):
                 if not session.logged_in:
                     continue
                 delta_cmd = time.time() - session.cmd_last_visible
+                if "active" in self.switches and delta_cmd > 1200:
+                    continue
                 pc = session.get_player()
                 if not pc.db.hide_from_watch:
                     base = str(pc)
