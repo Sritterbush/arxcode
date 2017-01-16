@@ -17,7 +17,7 @@ from evennia.utils import evtable, create
 from world.dominion.models import CraftingMaterials
 from evennia.commands.default.general import CmdSay
 from evennia.comms.models import ChannelDB
-from evennia.commands.default.system import CmdReload
+from evennia.commands.default.system import CmdReload, CmdScripts
 
 AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
 _DEFAULT_WIDTH = settings.CLIENT_DEFAULT_WIDTH
@@ -1553,3 +1553,50 @@ class CmdArxReload(CmdReload):
             self.msg("{rThere is a combat active. You must use @reload/override or @reload/force to do a @reload.{n")
             return
         super(CmdArxReload, self).func()
+
+
+class CmdArxScripts(CmdScripts):
+    __doc__ = CmdScripts.__doc__
+
+    def list_scripts(self):
+        """Takes a list of scripts and formats the output."""
+        from evennia.scripts.models import ScriptDB
+        from django.db.models import Q
+        from evennia.utils.evtable import EvTable
+        if self.args and self.args.isdigit():
+            scripts = ScriptDB.objects.filter(Q(id=self.args) | Q(db_obj__id=self.args) | Q(db_player__id=self.args))
+        else:
+            scripts = ScriptDB.objects.filter(Q(db_key__icontains=self.args) | Q(db_obj__db_key__iexact=self.args) |
+                                              Q(db_player__username__iexact=self.args))
+        if not scripts:
+            self.msg("<No scripts>")
+            return
+
+        table = EvTable("{wdbref{n", "{wobj{n", "{wkey{n", "{wintval{n", "{wnext{n",
+                        "{wtypeclass{n",
+                        align='r', border="cells", width=78)
+        for script in scripts:
+            nextrep = script.time_until_next_repeat()
+            if nextrep is None:
+                nextrep = "PAUS" if script.db._paused_time else "--"
+            else:
+                nextrep = "%ss" % nextrep
+
+            def script_obj_str(scriptob):
+                if script.obj:
+                    return "%s(#%s)" % (crop(script.obj.key, width=10), script.obj.id)
+                return "<Global>"
+
+            table.add_row(script.id,
+                          script_obj_str(script),
+                          script.key,
+                          script.interval if script.interval > 0 else "--",
+                          nextrep,
+                          script.typeclass_path.rsplit('.', 1)[-1])
+        self.msg("%s" % table)
+
+    def func(self):
+        if self.switches:
+            super(CmdScripts, self).func()
+            return
+        self.list_scripts()

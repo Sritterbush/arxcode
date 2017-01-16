@@ -119,6 +119,7 @@ class EventManager(Script):
                 pass
         return loc
 
+    # noinspection PyBroadException
     def start_event(self, event, location=None):
         # see if this was called from callLater, and if so, remove reference to it      
         if event.id in self.db.pending_start:
@@ -141,9 +142,15 @@ class EventManager(Script):
         else:
             start_str = "%s has started." % event.name
         border = "{w***********************************************************{n\n"
-        SESSIONS.announce_all(border)
-        SESSIONS.announce_all(start_str)
-        SESSIONS.announce_all(border)
+        if event.public_event:
+            SESSIONS.announce_all(border)
+            SESSIONS.announce_all(start_str)
+            SESSIONS.announce_all(border)
+        elif event.location:
+            try:
+                event.location.msg_contents(start_str, options={'box': True})
+            except Exception:
+                pass
         self.db.active_events.append(event.id)
         self.db.idle_events[event.id] = 0
         now = tnow()

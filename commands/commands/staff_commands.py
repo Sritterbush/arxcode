@@ -12,8 +12,9 @@ from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
 from web.character.models import Story, Episode, StoryEmit, Clue
-from world.dominion.models import Organization
+from world.dominion.models import Organization, RPEvent
 from evennia.typeclasses.tags import Tag
+from evennia.scripts.models import ScriptDB
 
 PERMISSION_HIERARCHY = [p.lower() for p in settings.PERMISSION_HIERARCHY]
 
@@ -751,3 +752,84 @@ class CmdSetLanguages(MuxPlayerCommand):
             player.db.char_ob.languages.remove_language(self.rhs)
             self.msg("Removed %s from %s." % (self.rhs, player))
             return
+
+
+class CmdGMEvent(MuxCommand):
+    """
+    Creates an event at your current location
+
+        Usage:
+            @gmevent
+            @gmevent/create <name>=<description>
+            @gmevent/cancel
+            @gmevent/start
+            @gmevent/stop
+
+    @gmevent allows you to quickly create an RPEvent and log it at
+    your current location. You'll be marked as a host and GM, and it
+    will log the event at your location until you use @gmevent/stop.
+
+    Once started, you can use @cal commands to do things like change the
+    roomdesc and so on with the appropriate switches, if you choose.
+    """
+    key = "@gmevent"
+    locks = "cmd:perm(builders)"
+
+    def func(self):
+        form = self.caller.db.gm_event_form
+        if not self.switches:
+            if not form:
+                self.msg("You are not yet creating an event. Use /create to make one.")
+                return
+            self.msg("You will create an event named '%s' when you use /start." % form[0])
+            self.msg("It will have the description: %s" % form[1])
+            self.msg("If you wish to change anything, just use /create again. To abort, use /cancel.")
+            return
+        if "cancel" in self.switches:
+            self.caller.attributes.remove("gm_event_form")
+            self.msg("Cancelled.")
+            return
+        if "create" in self.switches:
+            if not self.args:
+                self.msg("You must provide a name for the Event.")
+                return
+            if RPEvent.objects.filter(name__iexact=self.args):
+                self.msg("That name is already used for an event.")
+                return
+            self.caller.db.gm_event_form = [self.lhs, self.rhs or ""]
+            self.msg("Event name will be: %s, Event Desc: %s" % (self.lhs, self.rhs))
+            return
+        if "start" in self.switches:
+            from datetime import datetime
+            if not form or len(form) < 2:
+                self.msg("You have not created an event yet. Use /create then /start it.")
+                return
+            name, desc = form[0], form[1]
+            date = datetime.now()
+            loc = self.caller.location
+            dompc = self.caller.db.player_ob.Dominion
+            event = RPEvent.objects.create(name=name, date=date, desc=desc, location=loc,
+                                           public_event=False, celebration_tier=0)
+            event.hosts.add(dompc)
+            event.gms.add(dompc)
+            event_manager = ScriptDB.objects.get(db_key="Event Manager")
+            event_manager.start_event(event)
+            self.msg("Event started.")
+            self.caller.attributes.remove("gm_event_form")
+            return
+        if "stop" in self.switches:
+            events = self.caller.db.player_ob.Dominion.events_gmd.filter(finished=False)
+            if not events:
+                self.msg("You are not currently GMing any events.")
+                return
+            if len(events) > 1:
+                try:
+                    event = events.get(location=self.caller.location)
+                except RPEvent.DoesNotExist:
+                    self.msg("Go to the location where the event is held to stop it.")
+                    return
+            else:
+                event = events[0]
+            event_manager = ScriptDB.objects.get(db_key="Event Manager")
+            event_manager.finish_event(event)
+            self.msg("Event ended.")

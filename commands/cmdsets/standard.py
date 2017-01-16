@@ -209,7 +209,7 @@ class StaffCmdSet(CmdSet):
         # The help system       
         self.add(help.CmdSetHelp())
         # System commands
-        self.add(system.CmdScripts())
+        self.add(overrides.CmdArxScripts())
         self.add(system.CmdObjects())
         self.add(system.CmdPlayers())
         self.add(system.CmdService())
@@ -257,6 +257,7 @@ class StaffCmdSet(CmdSet):
         self.add(staff_commands.CmdForce())
         self.add(staff_commands.CmdCcolor())
         self.add(staff_commands.CmdGMDisguise())
+        self.add(staff_commands.CmdGMEvent())
         self.add(extended_room.CmdExtendedDesc())
         self.add(xp.CmdAdjustSkill())
         self.add(xp.CmdAwardXP())
