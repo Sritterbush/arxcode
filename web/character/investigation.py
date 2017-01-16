@@ -592,11 +592,12 @@ class CmdInvestigate(InvestigationFormCommand):
                         caller.msg("You already have an active investigation " +
                                    "that has received GMing this week, and cannot be switched.")
                         return
-                    if caller.assisted_investigations.filter(currently_helping=True):
-                        self.msg("You are currently assisting with an investigation.")
-                        return
                     current_active.active = False
                     current_active.save()
+                for ass in caller.assisted_investigations.filter(currently_helping=True):
+                    ass.currently_helping = False
+                    ass.save()
+                    self.msg("No longer assisting in %s" % ass.investigation)
                 ob.active = True
                 ob.save()
                 caller.msg("%s set to active." % ob)
