@@ -133,7 +133,7 @@ class BBoard(Object):
     def posts(self):
         return self.receiver_object_set.filter(db_tags__db_key="Board Post")
 
-    def read_post(self, caller, post, board_num=None):
+    def read_post(self, caller, post):
         """
         Helper function to read a single post.
         """
