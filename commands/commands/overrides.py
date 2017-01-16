@@ -734,9 +734,11 @@ class CmdWho(MuxPlayerCommand):
                                              "{wHost"])
             for session in session_list:
                 if not session.logged_in:
+                    nplayers -= 1
                     continue
                 delta_cmd = time.time() - session.cmd_last_visible
                 if "active" in self.switches and delta_cmd > 1200:
+                    nplayers -= 1
                     continue
                 delta_conn = time.time() - session.conn_time
                 pc = session.get_player()
@@ -745,6 +747,7 @@ class CmdWho(MuxPlayerCommand):
                 base = str(session.get_player())
                 pname = self.format_pname(session.get_player())
                 if not self.check_filters(pname, base):
+                    nplayers -= 1
                     continue
                 pname = crop(pname, width=18)
                 table.add_row([pname,
@@ -763,9 +766,11 @@ class CmdWho(MuxPlayerCommand):
                 table = prettytable.PrettyTable(["{wPlayer name", "{wIdle"])
             for session in session_list:
                 if not session.logged_in:
+                    nplayers -= 1
                     continue
                 delta_cmd = time.time() - session.cmd_last_visible
                 if "active" in self.switches and delta_cmd > 1200:
+                    nplayers -= 1
                     continue
                 pc = session.get_player()
                 if not pc.db.hide_from_watch:
@@ -777,6 +782,7 @@ class CmdWho(MuxPlayerCommand):
                     else:
                         fealty = char.db.fealty
                     if not self.check_filters(pname, base, fealty):
+                        nplayers -= 1
                         continue
                     idlestr = self.get_idlestr(delta_cmd)
                     if sparse:
