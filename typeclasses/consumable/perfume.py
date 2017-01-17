@@ -17,7 +17,7 @@ class Perfume(Consumable):
         """
         Run at Usable creation.
         """
-        self.desc = "A lovely scent."
+        self.desc = "This is a pleasant, lingering scent."
 
     @property
     def scent_desc(self):
