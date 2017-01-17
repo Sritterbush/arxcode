@@ -722,6 +722,7 @@ class CmdWho(MuxPlayerCommand):
         else:
             show_session_data = player.check_permstring("Immortals") or player.check_permstring("Wizards")
         nplayers = (SESSIONS.player_count())
+        total_players = nplayers
         if show_session_data:
             table = prettytable.PrettyTable(["{wPlayer Name",
                                              "{wOn for",
@@ -803,8 +804,12 @@ class CmdWho(MuxPlayerCommand):
                     nplayers -= 1
 
         isone = nplayers == 1
-        string = "{wPlayers:{n\n%s\n%s unique account%s logged in." % (table, "One" if isone else nplayers,
-                                                                       "" if isone else "s")
+        if nplayers == total_players:
+            string = "{wPlayers:{n\n%s\n%s unique account%s logged in." % (table, "One" if isone else nplayers,
+                                                                           "" if isone else "s")
+        else:
+            string = "{wPlayers:{n\n%s\nShowing %s out of %s unique account%s logged in." % (
+                table, "1" if isone else nplayers, total_players, "" if total_players == 1 else "s")
         self.msg(string)
 
 

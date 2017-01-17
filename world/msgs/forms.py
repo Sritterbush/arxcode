@@ -42,20 +42,21 @@ class JournalRemoveFavorite(forms.Form):
 
 
 class JournalWriteForm(forms.Form):
+
+    journal = forms.CharField(
+        label="Journal Text",
+        widget=forms.Textarea(attrs={'class': "form-control",
+                                     'rows': "10"}),
+        )
     character = forms.ModelChoiceField(
         label="Character for Relationship Update",
         help_text="Leave blank if this journal is not a relationship",
         empty_label="(None - not a relationship)",
         required=False,
         queryset=ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS) & Q(
-                                         Q(roster__roster__name="Active") | Q(roster__roster__name="Gone") |
-                                         Q(roster__roster__name="Available"))).order_by('db_key'),
-        )
-    journal = forms.CharField(
-        label="Journal Text",
-        widget=forms.Textarea(attrs={'class': "form-control",
-                                     'rows': "10"}),
-        )
+            Q(roster__roster__name="Active") | Q(roster__roster__name="Gone") |
+            Q(roster__roster__name="Available"))).order_by('db_key'),
+    )
     private = forms.BooleanField(
         label="Black Journal",
         required=False,
