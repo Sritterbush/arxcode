@@ -3,6 +3,7 @@ Consumable object.
 """
 
 from typeclasses.objects import Object
+from evennia.utils.utils import inherits_from
 
 
 class Consumable(Object):
@@ -42,3 +43,21 @@ class Consumable(Object):
             return "\nIt has %s charges remaining." % self.charges
         else:
             return "\nIt has infinite charges."
+
+    @property
+    def valid_typeclass_path(self):
+        return "typeclasses.objects.DefaultObject"
+
+    def check_target(self, target):
+        """
+        Determines if a target is valid.
+        """
+        return inherits_from(target, self.valid_typeclass_path)
+
+    # noinspection PyMethodMayBeStatic
+    def use_on_target(self, target, caller):
+        """
+        Uses us on the target to produce some effect. Consume
+        was already called.
+        """
+        pass
