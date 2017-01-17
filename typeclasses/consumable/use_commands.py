@@ -30,11 +30,11 @@ class CmdApplyConsumable(MuxCommand):
             self.msg("Requires an object and a target.")
             return
         try:
-            if not potion.check_target(target):
+            if not potion.check_target(target, self.caller):
                 self.msg("%s is not a valid target for %s." % (target, potion))
                 return
             if not potion.consume():
-                self.msg("%s doesn't have enough left to use. It needs to be refilled by an apothecary." % potion)
+                self.msg("%s doesn't have enough left to use. It needs to be replenished." % potion)
                 return
             # the call method will handle most messaging
             potion.use_on_target(target, self.caller)

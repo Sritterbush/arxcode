@@ -128,11 +128,16 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
                 desc = parse_ansi(desc, strip_ansi=True)
             except (AttributeError, ValueError, TypeError, UnicodeDecodeError):
                 pass
+        script = self.appearance_script
         if desc:
             extras = self.return_extras(pobject)
             if extras:
                 extras += "\n"
             string += "\n\n%s%s" % (extras, desc)
+        if script:
+            scent = script.db.scent
+            if scent:
+                string += "\n%s" % scent
         if health_appearance:
             string += "\n\n%s" % health_appearance
         string += self.return_contents(pobject, detailed, strip_ansi=strip_ansi)
@@ -141,6 +146,13 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     @property
     def species(self):
         return self.db.species or "Human"
+
+    @property
+    def appearance_script(self):
+        scripts = self.scripts.get("Appearance")
+        if scripts:
+            return scripts[0]
+
 
     def return_extras(self, pobject):
         """

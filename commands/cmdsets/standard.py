@@ -92,6 +92,11 @@ try:
 except Exception as err:
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in override commands: %s" % err)
+try:
+    from typeclasses.consumable.use_commands import CmdApplyConsumable
+except Exception as err:
+    traceback.print_exc()
+    print("<<ERROR>>: Error encountered in consumable commands: %s" % err)
 from evennia.commands.cmdset import CmdSet
 
 
@@ -199,6 +204,7 @@ class MobileCmdSet(CmdSet):
         self.add(investigation.CmdInvestigate())
         self.add(investigation.CmdAssistInvestigation())
         self.add(general.CmdUndress())
+        self.add(CmdApplyConsumable())
 
 
 class StaffCmdSet(CmdSet):

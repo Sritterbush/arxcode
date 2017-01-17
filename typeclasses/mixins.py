@@ -26,14 +26,14 @@ class DescMixins(object):
     that won't override any current disguise, use .perm_desc. For a change
     that will change everything right now, disguise or not, use .desc.
     """
-    def __desc_get(self):
+    def _desc_get(self):
         """
         :type self: evennia.objects.models.ObjectDB
         :return:
         """
         return (self.db.desc or self.db.raw_desc or self.db.general_desc or "") + self.additional_desc
 
-    def __desc_set(self, val):
+    def _desc_set(self, val):
         """
         :type self: ObjectDB
         """
@@ -44,7 +44,7 @@ class DescMixins(object):
         if self.db.general_desc:
             # general desc is our fallback
             self.db.general_desc = val
-    desc = property(__desc_get, __desc_set)
+    desc = property(_desc_get, _desc_set)
 
     def __temp_desc_get(self):
         """

@@ -40,15 +40,16 @@ class Consumable(Object):
 
     def get_quality_appearance(self):
         if self.charges >= 0:
-            return "\nIt has %s charges remaining." % self.charges
+            return "\nIt has %s uses remaining." % self.charges
         else:
-            return "\nIt has infinite charges."
+            return "\nIt has infinite uses."
 
     @property
     def valid_typeclass_path(self):
         return "typeclasses.objects.DefaultObject"
 
-    def check_target(self, target):
+    # noinspection PyUnusedLocal
+    def check_target(self, target, caller):
         """
         Determines if a target is valid.
         """
