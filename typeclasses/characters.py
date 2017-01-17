@@ -232,7 +232,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
 
     @property
     def conscious(self):
-        return self.db.sleep_status == "awake" and self.db.health_status != "dead"
+        return ((self.db.sleep_status != "unconscious" and self.db.sleep_status != "asleep")
+                and self.db.health_status != "dead")
 
     def wake_up(self, quiet=False):
         """
