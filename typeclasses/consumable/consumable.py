@@ -38,4 +38,7 @@ class Consumable(Object):
         self.db.quality_level = val
 
     def get_quality_appearance(self):
-        return "\nIt has %s charges remaining." % self.charges
+        if self.charges >= 0:
+            return "\nIt has %s charges remaining." % self.charges
+        else:
+            return "\nIt has infinite charges."
