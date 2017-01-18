@@ -660,7 +660,7 @@ class CombatManager(BaseScript):
         """
         return [ob for ob in self.ndb.fighter_data.get(target.id).defenders if self.check_char_active(ob)]
 
-    def clear_defended_by_list(self, character):
+    def clear_blocked_by_list(self, character):
         """
         Removes us from defending list for everyone defending us.
         """
@@ -928,9 +928,11 @@ class CombatManager(BaseScript):
             self.ndb.fleeing.remove(character)
         if character in self.ndb.afk_check:
             self.ndb.afk_check.remove(character)
-        self.clear_defended_by_list(character)
+        self.clear_blocked_by_list(character)
         self.clear_covered_by_list(character)
-        
+        guarding = c_fite.guarding
+        if guarding:
+            self.remove_defender(guarding, character)
         self.msg("%s has left the fight." % character.name)
         character.cmdset.delete(CombatCmdSet)
         character.ndb.combat_manager = None
