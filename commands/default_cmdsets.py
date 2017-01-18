@@ -201,6 +201,12 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(investigation.CmdListRevelations())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading investigation cmdset: %s" % err)
+        try:
+            from world.dominion import crisis_commands
+            self.add(crisis_commands.CmdCrisisAction())
+            self.add(crisis_commands.CmdGMCrisis())
+        except Exception as err:
+            print("<<ERROR>>: Error encountered in loading crisis cmdset: %s" % err)
 
 
 class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):

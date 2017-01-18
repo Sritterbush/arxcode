@@ -1520,7 +1520,8 @@ class Crisis(models.Model):
     """
     A crisis affecting organizations
     """
-    name = models.CharField(blank=True, null=True, max_length=80)
+    name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
+    headline = models.CharField("News-style bulletin", max_length=255, blank=True, null=True)
     desc = models.TextField(blank=True, null=True)
     orgs = models.ManyToManyField('Organization', related_name='crises', blank=True)
     parent_crisis = models.ForeignKey('self', related_name="child_crises", blank=True, null=True,
@@ -1528,10 +1529,96 @@ class Crisis(models.Model):
     escalation_points = models.SmallIntegerField(default=0, blank=0)
     results = models.TextField(blank=True, null=True)
     modifiers = models.TextField(blank=True, null=True)
+    public = models.BooleanField(default=True, blank=True)
+    resolved = models.BooleanField(default=False)
+    start_date = models.DateTimeField(blank=True, null=True)
+    end_date = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         """Define Django meta options"""
         verbose_name_plural = "Crises"
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def rating(self):
+        return self.escalation_points - sum(ob.outcome_value for ob in self.actions.filter(sent=True))
+
+    def display(self):
+        msg = "\nName: %s" % self.name
+        msg += "\nDescription: %s" % self.desc
+        if self.orgs:
+            msg += "\nOrganizations affected: %s" % ", ".join(str(ob) for ob in self.orgs.all())
+        msg += "\nCurrent Rating: %s" % self.rating
+        return msg
+
+
+class CrisisAction(models.Model):
+    """
+    An action that a player is taking for the crisis.
+    """
+    week = models.PositiveSmallIntegerField(default=0, blank=0, db_index=True)
+    dompc = models.ForeignKey("PlayerOrNpc", db_index=True, blank=True, null=True, related_name="actions")
+    action = models.TextField("What actions the player is taking", blank=True)
+    crisis = models.ForeignKey("Crisis", db_index=True, blank=True, null=True, related_name="actions")
+    public = models.BooleanField(default=True, blank=True)
+    rolls = models.TextField(blank=True)
+    gm_notes = models.TextField(blank=True)
+    story = models.TextField("Story written by the GM for the player", blank=True)
+    outcome_value = models.SmallIntegerField(default=0, blank=0)
+    sent = models.BooleanField(default=False, blank=True)
+
+    def send(self):
+        msg = "GM Response to action for crisis: %s" % self.crisis
+        msg += "\nRolls: %s" % self.rolls
+        msg += "\n\nStory: %s\n\n" % self.story
+        self.dompc.player.inform(msg, category="Action", week=self.week,
+                                 append=True)
+        self.sent = True
+        self.save()
+
+    def view_action(self, caller=None, disp_pending=True, disp_old=False):
+        if not self.public and (not caller or not caller.check_permstring("builders")
+                                or caller != self.dompc.player):
+            return ""
+        msg = "\n%s's actions in week %s for %s" % (self.dompc, self.week, self.crisis)
+        msg += "\nAction: %s" % self.action
+        if self.sent:
+            msg += "\nGM Notes: %s" % self.gm_notes
+            msg += "\nRolls: %s" % self.rolls
+            msg += "\nOutcome Value: %s" % self.outcome_value
+            msg += "\nStory: %s" % self.story
+        if disp_pending:
+            pend = self.questions.filter(answers__isnull=True)
+            for ob in pend:
+                msg += "\nQuestion: %s" % ob.text
+        if disp_old:
+            answered = self.questions.filter(answers__isnull=False)
+            for ob in answered:
+                msg += "\nQuestion: %s" % ob.text
+                for ans in ob.answers.all():
+                    msg += "\nGM: %s" % ans.gm
+                    msg += "\nAnswer: %s" % ans.text
+        return msg
+
+
+class ActionOOCQuestion(models.Model):
+    """
+    OOC Question about a crisis. Can be associated with a given action
+    or asked about independently.
+    """
+    action = models.ForeignKey("CrisisAction", db_index=True, related_name="questions")
+    text = models.TextField(blank=True)
+
+
+class ActionOOCAnswer(models.Model):
+    """
+    OOC answer from a GM about a crisis.
+    """
+    gm = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, related_name="answers_given")
+    question = models.ForeignKey("ActionOOCQuestion", db_index=True, related_name="answers")
+    text = models.TextField(blank=True)
 
 
 class OrgRelationship(models.Model):

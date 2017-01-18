@@ -161,7 +161,6 @@ class Player(MsgMixins, DefaultPlayer):
         except AttributeError:
             pass
 
-
     def is_guest(self):
         """
         Overload in guest object to return True
