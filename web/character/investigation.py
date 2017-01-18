@@ -570,14 +570,19 @@ class CmdInvestigate(InvestigationFormCommand):
                 ob.save()
                 caller.msg("Investigation has been marked to be ongoing.")
                 return
-            if "abandon" in self.switches:
+            if "abandon" in self.switches or "stop" in self.switches:
                 ob.ongoing = False
                 ob.active = False
                 ob.save()
+                asslist = []
                 for ass in ob.active_assistants:
                     ass.currently_helping = False
                     ass.save()
-                caller.msg("Investigation has been marked to no longer be ongoing.")
+                    asslist.append(str(ass.char))
+                caller.msg("Investigation has been marked to no longer be ongoing nor active.")
+                caller.msg("You can resume it later with /resume.")
+                if asslist:
+                    caller.msg("The following assistants have stopped helping: %s" % ", ".join(asslist))
                 return
             if "view" in self.switches or not self.switches:
                 caller.msg(ob.display())
