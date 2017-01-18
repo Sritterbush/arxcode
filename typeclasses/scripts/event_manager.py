@@ -264,7 +264,7 @@ class EventManager(Script):
     @staticmethod
     def get_event_board():
         from typeclasses.bulletin_board.bboard import BBoard
-        return BBoard.objects.get(db_key="events")
+        return BBoard.objects.get(db_key__iexact="events")
 
     def post_event(self, event, poster, post):
         board = self.get_event_board()
