@@ -202,7 +202,7 @@ class CmdCrisisAction(MuxPlayerCommand):
             self.msg("Must specify an action.")
             return
         week = get_week()
-        public = "secretaction" in self.switches
+        public = "secretaction" not in self.switches
         crisis.actions.create(dompc=self.caller.Dominion, action=self.rhs, public=public, week=week)
         self.msg("You are going to perform this action: %s" % self.rhs)
         inform_staff("%s has created a new crisis action: %s" % (self.caller, self.rhs))
