@@ -49,8 +49,6 @@ class EventManager(Script):
         self.db.idle_events = {}
         self.db.active_events = []
         self.db.pending_start = {}
-        self.db.gm_logs = {}
-        self.db.event_logs = {}
         self.db.cancelled = []
 
     def at_repeat(self):
@@ -159,16 +157,10 @@ class EventManager(Script):
             event.date = now
             event.save()
         # set up log for event
-        event_logs = self.db.event_logs or {}
-        gm_logs = self.db.gm_logs or {}
         # noinspection PyBroadException
         try:
-            logname = "event_log_%s.txt" % event.id
-            gmlogname = "gm_%s" % logname
-            log = open(LOGPATH + logname, 'a+')
-            gmlog = open(GMPATH + gmlogname, 'a+')
-            event_logs[event.id] = logname
-            gm_logs[event.id] = gmlogname
+            log = open(self.get_log_path(event.id), 'a+')
+            gmlog = open(self.get_gmlog_path(event.id), 'a+')
             open_logs = self.ndb.open_logs or []
             open_logs.append(log)
             self.ndb.open_logs = open_logs
@@ -177,8 +169,6 @@ class EventManager(Script):
             self.ndb.open_gm_logs = open_gm_logs
         except Exception:
             traceback.print_exc()
-        self.db.event_logs = event_logs
-        self.db.gm_logs = gm_logs
 
     def finish_event(self, event):
         loc = self.get_event_location(event)
@@ -202,12 +192,10 @@ class EventManager(Script):
         self.do_awards(event)
         # noinspection PyBroadException
         try:
-            log = open(LOGPATH + self.db.event_logs[event.id], 'r')
+            log = open(self.get_log_path(event.id), 'r')
             log.close()
-            gmlog = open(GMPATH + self.db.gm_logs[event.id], 'r')
+            gmlog = open(self.get_gmlog_path(event.id), 'r')
             gmlog.close()
-            del self.db.event_logs[event.id]
-            del self.db.gm_logs[event.id]
         except Exception:
             traceback.print_exc()
         self.delete_event_post(event)
@@ -219,7 +207,7 @@ class EventManager(Script):
         event = RPEvent.objects.get(id=eventid)
         # noinspection PyBroadException
         try:
-            log = open(LOGPATH + self.db.event_logs[eventid], 'a+')
+            log = open(self.get_log_path(eventid), 'a+')
             msg = "\n" + msg + "\n"
             log.write(msg)
         except Exception:
@@ -234,7 +222,7 @@ class EventManager(Script):
         msg = parse_ansi(msg, strip_ansi=True)
         # noinspection PyBroadException
         try:
-            log = open(GMPATH + self.db.gm_logs[eventid], 'a+')
+            log = open(self.get_gmlog_path(eventid), 'a+')
             msg = "\n" + msg + "\n"
             log.write(msg)
         except Exception:
@@ -292,3 +280,14 @@ class EventManager(Script):
             post.delete()
         except Exception:
             traceback.print_exc()
+
+    @staticmethod
+    def get_log_path(eventid):
+        logname = "event_log_%s.txt" % eventid
+        return LOGPATH + logname
+
+    @staticmethod
+    def get_gmlog_path(eventid):
+        logname = "event_log_%s.txt" % eventid
+        gmlogname = "gm_%s" % logname
+        return GMPATH + gmlogname
