@@ -38,7 +38,8 @@ class CmdGMCrisis(MuxPlayerCommand):
             qs = qs.filter(story__exact="")
         if "list_questions" in self.switches:
             qs = qs.filter(questions__answers__isnull=True)
-        table = EvTable("{w#{n", "{wCrisis{n", "{wPlayer{n", "{wAnswered{n", "{wQuestions{n", "{wDate Set{n")
+        table = EvTable("{w#{n", "{wCrisis{n", "{wPlayer{n", "{wAnswered{n", "{wQuestions{n", "{wDate Set{n",
+                        width=78, border="cells")
         for ob in qs:
             date = "--" if not ob.crisis.end_date else ob.crisis.end_date.strftime("%x %X")
             questions = "{rYes{n" if ob.questions.filter(answers__isnull=True) else "{wNo{n"
@@ -168,7 +169,7 @@ class CmdCrisisAction(MuxPlayerCommand):
 
     def list_crises(self):
         qs = self.viewable_crises
-        table = EvTable("{w#{n", "{wName{n", "{wDesc{n", "{wRating{n", "{wUpdates On{n")
+        table = EvTable("{w#{n", "{wName{n", "{wDesc{n", "{wRating{n", "{wUpdates On{n", width=78, border="cells")
         for ob in qs:
             date = "--" if not ob.end_date else ob.end_date.strftime("%x %X")
             table.add_row(ob.id, ob.name, ob.headline, ob.rating, date)
