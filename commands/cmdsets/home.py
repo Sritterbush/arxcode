@@ -55,7 +55,10 @@ class CmdManageHome(MuxCommand):
         +home/rmkey <character>
         +home/lifestyle <rating>
 
-    Controls your home.
+    Controls your home. /passmsg is for use of the 'pass' command to
+    go through a locked door. /lockmsg is for those who are denied
+    entry. /lifestyle is to control how much silver you spend per
+    week and earn prestige.
     """
     key = "+home"
     # aliases = ["@home"]
