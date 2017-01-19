@@ -1546,11 +1546,11 @@ class Crisis(models.Model):
         return self.escalation_points - sum(ob.outcome_value for ob in self.actions.filter(sent=True))
 
     def display(self):
-        msg = "\nName: %s" % self.name
-        msg += "\nDescription: %s" % self.desc
+        msg = "\n{wName:{n %s" % self.name
+        msg += "\n{wDescription:{n %s" % self.desc
         if self.orgs:
-            msg += "\nOrganizations affected: %s" % ", ".join(str(ob) for ob in self.orgs.all())
-        msg += "\nCurrent Rating: %s" % self.rating
+            msg += "\n{wOrganizations affected:{n %s" % ", ".join(str(ob) for ob in self.orgs.all())
+        msg += "\n{wCurrent Rating:{n %s" % self.rating
         return msg
 
 
@@ -1570,9 +1570,9 @@ class CrisisAction(models.Model):
     sent = models.BooleanField(default=False, blank=True)
 
     def send(self):
-        msg = "GM Response to action for crisis: %s" % self.crisis
-        msg += "\nRolls: %s" % self.rolls
-        msg += "\n\nStory: %s\n\n" % self.story
+        msg = "{wGM Response to action for crisis:{n %s" % self.crisis
+        msg += "\n{wRolls:{n %s" % self.rolls
+        msg += "\n\n{wStory:{n %s\n\n" % self.story
         self.dompc.player.inform(msg, category="Action", week=self.week,
                                  append=True)
         self.sent = True
@@ -1582,24 +1582,24 @@ class CrisisAction(models.Model):
         if not self.public and (not caller or not caller.check_permstring("builders")
                                 or caller != self.dompc.player):
             return ""
-        msg = "\n%s's actions in week %s for %s" % (self.dompc, self.week, self.crisis)
-        msg += "\nAction: %s" % self.action
+        msg = "\n{c%s's {wactions in week %s for {m%s{n" % (self.dompc, self.week, self.crisis)
+        msg += "\n{wAction:{n %s" % self.action
         if self.sent:
-            msg += "\nGM Notes: %s" % self.gm_notes
-            msg += "\nRolls: %s" % self.rolls
-            msg += "\nOutcome Value: %s" % self.outcome_value
-            msg += "\nStory: %s" % self.story
+            msg += "\n{wGM Notes:{n %s" % self.gm_notes
+            msg += "\n{wRolls:{n %s" % self.rolls
+            msg += "\n{wOutcome Value:{n %s" % self.outcome_value
+            msg += "\n{wStory:{n %s" % self.story
         if disp_pending:
             pend = self.questions.filter(answers__isnull=True)
             for ob in pend:
-                msg += "\nQuestion: %s" % ob.text
+                msg += "\n{wQuestion:{n %s" % ob.text
         if disp_old:
             answered = self.questions.filter(answers__isnull=False)
             for ob in answered:
-                msg += "\nQuestion: %s" % ob.text
+                msg += "\n{wQuestion:{n %s" % ob.text
                 for ans in ob.answers.all():
-                    msg += "\nGM: %s" % ans.gm
-                    msg += "\nAnswer: %s" % ans.text
+                    msg += "\n{wGM:{n %s" % ans.gm
+                    msg += "\n{wAnswer:{n %s" % ans.text
         return msg
 
 
