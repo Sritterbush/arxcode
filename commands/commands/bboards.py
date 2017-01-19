@@ -70,10 +70,15 @@ def access_bboard(caller, args, request="read"):
             return
         board = bboards[bb_num]
     else:
+        board_ids = [ob.id for ob in bboards]
         try:
-            board = BBoard.objects.get(db_key__iexact=args)
+            board = BBoard.objects.get(db_key__icontains=args, id__in=board_ids)
         except BBoard.DoesNotExist:
             caller.msg("Could not find a unique board by name %s." % args)
+            return
+        except BBoard.MultipleObjectsReturned:
+            boards = BBoard.objects.filter(db_key__icontains=args, id__in=board_ids)
+            caller.msg("Too many boards returned, please pick one: %s" % ", ".join(str(ob) for ob in boards))
             return
     if not board.access(caller, request):
         caller.msg("You do not have the required privileges to do that.")
@@ -104,7 +109,10 @@ def list_messages(caller, board, board_num):
     for post in posts:
         unread = post not in read_posts
         msgnum += 1
-        bbmsgnum = str(board_num) + "/" + str(msgnum)
+        if str(board_num).isdigit():
+            bbmsgnum = str(board_num) + "/" + str(msgnum)
+        else:
+            bbmsgnum = board.name.capitalize() + "/" + str(msgnum)
         # if unread message, make the message white-bold
         if unread:
             bbmsgnum = "{w" + "{0}".format(bbmsgnum)
