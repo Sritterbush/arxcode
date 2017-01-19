@@ -1548,7 +1548,7 @@ class Crisis(models.Model):
     def display(self):
         msg = "\n{wName:{n %s" % self.name
         msg += "\n{wDescription:{n %s" % self.desc
-        if self.orgs:
+        if self.orgs.all():
             msg += "\n{wOrganizations affected:{n %s" % ", ".join(str(ob) for ob in self.orgs.all())
         msg += "\n{wCurrent Rating:{n %s" % self.rating
         return msg
