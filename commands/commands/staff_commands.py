@@ -15,6 +15,7 @@ from web.character.models import Story, Episode, StoryEmit, Clue
 from world.dominion.models import Organization, RPEvent
 from evennia.typeclasses.tags import Tag
 from evennia.scripts.models import ScriptDB
+from typeclasses.characters import Character
 
 PERMISSION_HIERARCHY = [p.lower() for p in settings.PERMISSION_HIERARCHY]
 
@@ -837,3 +838,69 @@ class CmdGMEvent(MuxCommand):
             event_manager = ScriptDB.objects.get(db_key="Event Manager")
             event_manager.finish_event(event)
             self.msg("Event ended.")
+
+
+class CmdGMNotes(MuxPlayerCommand):
+    """
+    Adds or views notes about a character
+
+    Usage:
+        @gmnotes
+        @gmnotes/search <tagtype>
+        @gmnotes/tag <character>=<type>
+        @gmnotes/rmtag <character>=<type>
+        @gmnotes/set <character>=<notes>
+    """
+    key = "@gmnotes"
+    aliases = ["@gmnote"]
+    locks = "cmd: perm(builders)"
+
+    def list_all_tags(self):
+        from evennia.utils.evtable import EvTable
+        from evennia.utils.utils import crop
+        table = EvTable("{wCharacter{n", "{wType{n", "{wDesc{n")
+        chars = Character.objects.filter(db_tags__db_category="gmnotes")
+        if self.args:
+            chars.filter(db_tags__db_key__iexact=self.args)
+        for character in chars:
+            desc = character.db.gm_notes or ""
+            desc = crop(desc, width=40)
+            table.add_row(character.key, character.tags.get(category="gmnotes"), desc)
+        self.msg(table)
+
+    def view_char(self):
+        try:
+            char = Character.objects.get(db_key__iexact=self.lhs)
+        except Character.DoesNotExist:
+            self.list_all_tags()
+            return
+        self.msg("{wNotes for {c%s{n" % char)
+        self.msg(char.db.gm_notes)
+
+    def func(self):
+        if not self.args or (not self.switches or "search" in self.switches):
+            self.list_all_tags()
+            return
+        if not self.switches or not self.rhs:
+            self.view_char()
+            return
+        player = self.caller.search(self.lhs)
+        if not player:
+            return
+        character = player.db.char_ob
+        if "tag" in self.switches:
+            character.tags.add(self.rhs, category="gmnotes")
+            self.msg("%s tagged with %s" % (character, self.rhs))
+            return
+        if "rmtag" in self.switches:
+            character.tags.remove(self.rhs, category="gmnotes")
+            self.msg("Removed %s from %s" % (self.rhs, character))
+            return
+        if "set" in self.switches:
+            old = character.db.gm_notes
+            if old:
+                self.msg("{wOld gm notes were:{n\n%s" % old)
+            character.db.gm_notes = self.rhs
+            self.msg("{wNew gm notes are:{n\n%s" % self.rhs)
+            return
+        self.msg("invalid switch")
