@@ -163,7 +163,9 @@ class CmdCrisisAction(MuxPlayerCommand):
     def viewable_crises(self):
         if self.caller.check_permstring("builders"):
             return Crisis.objects.filter(resolved=False)
-        return Crisis.objects.filter(resolved=False).filter(Q(public=True) | Q(orgs__in=self.caller.current_orgs))
+        return Crisis.objects.filter(resolved=False).filter(
+            Q(public=True) |
+            Q(required_clue__discoveries__in=self.caller.roster.finished_clues))
 
     @property
     def current_actions(self):

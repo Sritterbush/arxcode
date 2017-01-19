@@ -1530,6 +1530,8 @@ class Crisis(models.Model):
     results = models.TextField(blank=True, null=True)
     modifiers = models.TextField(blank=True, null=True)
     public = models.BooleanField(default=True, blank=True)
+    required_clue = models.ForeignKey('character.Clue', related_name="crises", blank=True, null=True,
+                                      on_delete=models.SET_NULL)
     resolved = models.BooleanField(default=False)
     start_date = models.DateTimeField(blank=True, null=True)
     end_date = models.DateTimeField(blank=True, null=True)
