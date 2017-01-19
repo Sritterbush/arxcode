@@ -861,7 +861,7 @@ class CmdGMNotes(MuxPlayerCommand):
         table = EvTable("{wCharacter{n", "{wType{n", "{wDesc{n", width=78, border="cells")
         chars = Character.objects.filter(db_tags__db_category="gmnotes").distinct()
         if self.args:
-            chars.filter(db_tags__db_key__iexact=self.args).distinct()
+            chars = chars.filter(db_tags__db_key__iexact=self.args).distinct()
         for character in chars:
             desc = character.db.gm_notes or ""
             desc = crop(desc, width=40)
