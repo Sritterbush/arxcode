@@ -858,14 +858,14 @@ class CmdGMNotes(MuxPlayerCommand):
     def list_all_tags(self):
         from evennia.utils.evtable import EvTable
         from evennia.utils.utils import crop
-        table = EvTable("{wCharacter{n", "{wType{n", "{wDesc{n")
-        chars = Character.objects.filter(db_tags__db_category="gmnotes")
+        table = EvTable("{wCharacter{n", "{wType{n", "{wDesc{n", width=78, border="cells")
+        chars = Character.objects.filter(db_tags__db_category="gmnotes").distinct()
         if self.args:
-            chars.filter(db_tags__db_key__iexact=self.args)
+            chars.filter(db_tags__db_key__iexact=self.args).distinct()
         for character in chars:
             desc = character.db.gm_notes or ""
             desc = crop(desc, width=40)
-            table.add_row(character.key, character.tags.get(category="gmnotes"), desc)
+            table.add_row(character.key, str(character.tags.get(category="gmnotes")), desc)
         self.msg(table)
 
     def view_char(self):
