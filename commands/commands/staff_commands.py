@@ -878,7 +878,7 @@ class CmdGMNotes(MuxPlayerCommand):
         self.msg(char.db.gm_notes)
 
     def func(self):
-        if not self.args or (not self.switches or "search" in self.switches):
+        if not self.args or "search" in self.switches:
             self.list_all_tags()
             return
         if not self.switches or not self.rhs:
