@@ -28,6 +28,16 @@ class Perfume(Consumable):
         return "A bottle that contains the following scent: %s" % Consumable._desc_get(self)
 
     @property
+    def quality_prefix(self):
+        recipe_id = self.db.recipe
+        from world.dominion.models import CraftingRecipe
+        try:
+            recipe = CraftingRecipe.objects.get(id=recipe_id)
+        except CraftingRecipe.DoesNotExist:
+            return "{wUnknown Perfume{n:"
+        return "{w%s{n:" % recipe.name
+
+    @property
     def valid_typeclass_path(self):
         return "typeclasses.characters.Character"
 

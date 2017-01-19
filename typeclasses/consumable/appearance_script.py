@@ -19,9 +19,9 @@ class AppearanceScript(Script):
         if not self.has_mods:
             self.stop()
 
-    def set_scent(self, scent):
+    def set_scent(self, perfume):
         self.db.scent_time_remaining = 86400
-        self.db.scent = scent.scent_desc
+        self.db.scent = perfume.quality_prefix + " " + perfume.scent_desc
 
     @property
     def has_mods(self):
