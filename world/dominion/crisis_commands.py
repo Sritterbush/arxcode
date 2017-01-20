@@ -149,6 +149,8 @@ class CmdCrisisAction(MuxPlayerCommand):
         +crisis/newaction <crisis #>=<action you are taking>
         +crisis/secretaction <crisis #>=<action you are taking>
         +crisis/viewaction <action #>
+        +crisis/appendaction <action #>=<new text to add>
+        +crisis/cancelaction <action #>
         +crisis/question <action #>=<question>
 
     Takes an action for a given crisis that is currently going on.
@@ -203,7 +205,7 @@ class CmdCrisisAction(MuxPlayerCommand):
         if not crisis:
             return
         if crisis.actions.filter(sent=False, dompc=self.caller.Dominion):
-            self.msg("You have unresolved actions.")
+            self.msg("You have unresolved actions. Use /appendaction instead.")
             return
         if not self.rhs:
             self.msg("Must specify an action.")
@@ -229,6 +231,21 @@ class CmdCrisisAction(MuxPlayerCommand):
         if not msg:
             msg = "You are not able to view that action."
         self.msg(msg)
+
+    def cancel_action(self):
+        action = self.get_action()
+        if not action:
+            return
+        action.delete()
+        self.msg("Action deleted.")
+
+    def append_action(self):
+        action = self.get_action()
+        if not action:
+            return
+        action.action += "\n%s" % self.rhs
+        action.save()
+        self.msg("Action is now: %s" % action.action)
 
     def ask_question(self):
         action = self.get_action()
@@ -260,5 +277,11 @@ class CmdCrisisAction(MuxPlayerCommand):
             return
         if "question" in self.switches:
             self.ask_question()
+            return
+        if "cancelaction" in self.switches:
+            self.cancel_action()
+            return
+        if "appendaction" in self.switches:
+            self.append_action()
             return
         self.msg("Invalid switch")
