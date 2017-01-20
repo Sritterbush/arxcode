@@ -874,17 +874,17 @@ class CmdListClues(MuxPlayerCommand):
         if "search" in self.switches:
             self.disp_clue_table()
             return
-        # get clue for display or sharing
-        try:
-            clue = clues.get(id=self.lhs)  
-        except (ClueDiscovery.DoesNotExist, ValueError, TypeError):
-            caller.msg("No clue found by that ID.")
-            self.disp_clue_table()
-            return
-        if not self.switches:
-            caller.msg(clue.display())
-            return
         if "share" in self.switches:
+            clues_to_share = []
+            for arg in self.lhslist:
+                try:
+                    clue = clues.get(id=arg)
+                except (ClueDiscovery.DoesNotExist, ValueError, TypeError):
+                    caller.msg("No clue found by that ID.")
+                    continue
+                clues_to_share.append(clue)
+            if not clues_to_share:
+                return
             shared_names = []
             for arg in self.rhslist:
                 pc = caller.search(arg)
@@ -895,11 +895,27 @@ class CmdListClues(MuxPlayerCommand):
                 if not tarchar.location or tarchar.location != calchar.location:
                     self.msg("You can only share clues with someone in the same room. Please don't share clues without "
                              "at least some RP talking about it.")
-                    return
-                clue.share(pc.roster)
+                    continue
+                for clue in clues_to_share:
+                    clue.share(pc.roster)
                 shared_names.append(str(pc.roster))
-            caller.msg("You have shared the clue '%s' with %s." % (clue, ", ".join(shared_names)))
+            if shared_names:
+                caller.msg("You have shared the clues '%s' with %s." % (", ".join(str(ob.clue) for ob in clues_to_share),
+                                                                        ", ".join(shared_names)))
+            else:
+                self.msg("Shared nothing.")
             return
+        # get clue for display or sharing
+        try:
+            clue = clues.get(id=self.lhs)  
+        except (ClueDiscovery.DoesNotExist, ValueError, TypeError):
+            caller.msg("No clue found by that ID.")
+            self.disp_clue_table()
+            return
+        if not self.switches:
+            caller.msg(clue.display())
+            return
+
         caller.msg("Invalid switch")
         return
 

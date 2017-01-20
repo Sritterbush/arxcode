@@ -459,8 +459,8 @@ class ClueDiscovery(models.Model):
     def display(self):
         if not self.finished:
             return self.message or "An investigation that hasn't yet yieled anything defininite."
-        msg = self.clue.name + "\n"
-        msg += self.clue.desc + "\n"
+        msg = "\n{c%s{n\n" % self.clue.name
+        msg +=  self.clue.desc + "\n"
         if self.message:
             msg += "\n" + self.message
         return msg
