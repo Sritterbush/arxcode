@@ -123,7 +123,7 @@ class CmdGemit(MuxPlayerCommand):
         broadcast(msg, format_announcement=False)
         # get board and post
         from typeclasses.bulletin_board.bboard import BBoard
-        bboard = BBoard.objects.get(db_key="story updates")
+        bboard = BBoard.objects.get(db_key__iexact="story updates")
         subject = "Story Update"
         if episode:
             subject = "Episode: %s" % episode.name
