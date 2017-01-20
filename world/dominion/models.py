@@ -3231,11 +3231,13 @@ class RPEvent(models.Model):
     def display(self):
         msg = "{wName:{n %s\n" % self.name
         msg += "{wHosts:{n %s\n" % ", ".join(str(ob) for ob in self.hosts.all())
+        if not self.finished and not self.public_event:
+            msg += "{wInvited:{n %s\n" % ", ".join(str(ob) for ob in self.participants.all())
         msg += "{wLocation:{n %s\n" % self.location
         if not self.public_event:
-            msg += "{w*This event has been marked as private. Ask the host about attending.*{n\n"
+            msg += "{wPrivate:{n Yes\n"
         msg += "{wEvent Scale:{n %s\n" % self.get_celebration_tier_display()
-        msg += "{wDate:{n %s\n" % self.date.strftime("%x %X")
+        msg += "{wDate:{n %s\n" % self.date.strftime("%x %H:%M")
         msg += "{wDesc:{n\n%s\n" % self.desc
         webpage = PAGEROOT + self.get_absolute_url()
         msg += "{wEvent Page:{n %s\n" % webpage
