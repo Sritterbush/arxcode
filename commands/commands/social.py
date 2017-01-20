@@ -1374,18 +1374,21 @@ class CmdCalendar(MuxPlayerCommand):
             caller.msg(self.display_events(events), options={'box': True})
             return
         if "invite" in self.switches:
-            targ = caller.search(self.rhs)
-            if not targ:
-                return
-            pc = targ.Dominion
-            if pc in event.participants.all():
-                self.msg("They are already invited to attend.")
-                return
-            event.participants.add(pc)
-            msg = "You have been invited to attend {c%s{n." % event.name
-            msg += "\nFor details about this event, use {w@cal %s{n" % event.id
-            targ.inform(msg, category="Invitation", append=False)
-            self.msg("{wInvited {c%s{w to attend %s." % (pc, event))
+            invited = []
+            for arg in self.rhslist:
+                targ = caller.search(arg)
+                if not targ:
+                    continue
+                pc = targ.Dominion
+                if pc in event.participants.all():
+                    self.msg("%s is already invited to attend." % pc)
+                    continue
+                event.participants.add(pc)
+                invited.append(str(pc))
+                msg = "You have been invited to attend {c%s{n." % event.name
+                msg += "\nFor details about this event, use {w@cal %s{n" % event.id
+                targ.inform(msg, category="Invitation", append=False)
+            self.msg("{wInvited {c%s{w to attend %s." % (", ".join(invited), event))
             return
         if "starteventearly" in self.switches:
             if self.rhs and self.rhs.lower() == "here":
