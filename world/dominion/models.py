@@ -1552,6 +1552,8 @@ class Crisis(models.Model):
         msg += "\n{wDescription:{n %s" % self.desc
         if self.orgs.all():
             msg += "\n{wOrganizations affected:{n %s" % ", ".join(str(ob) for ob in self.orgs.all())
+        if self.required_clue:
+            msg += "\n{wRequired Clue:{n %s" % self.required_clue
         msg += "\n{wCurrent Rating:{n %s" % self.rating
         return msg
 
