@@ -158,9 +158,16 @@ class Player(MsgMixins, DefaultPlayer):
             if self.roster.frozen:
                 self.roster.frozen = False
                 self.roster.save()
+            if self.roster.roster.name == "Inactive":
+                from web.character.models import Roster
+                try:
+                    active = Roster.objects.get(name="Active")
+                    self.roster.roster = active
+                    self.roster.save()
+                except Roster.DoesNotExist:
+                    pass
         except AttributeError:
             pass
-
 
     def is_guest(self):
         """

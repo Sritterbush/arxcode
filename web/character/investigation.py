@@ -9,6 +9,7 @@ from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from server.utils.arx_utils import inform_staff
 from world.dominion.models import Agent
+from django.db.models import Q
 
 
 class InvestigationFormCommand(MuxCommand):
@@ -453,6 +454,8 @@ class CmdInvestigate(InvestigationFormCommand):
         @investigate/resource <id #>=<resource type>,<amount>
         @investigate/changetopic <id #>=<new topic>
         @investigate/changestory <id #>=<new story>
+        @investigate/changestat <id #>=<new stat>
+        @investigate/changeskill <id #>=<new skill>
         @investigate/abandon <id #>
         @investigate/resume <id #>
         @investigate/requesthelp <id #>=<player>
@@ -488,7 +491,7 @@ class CmdInvestigate(InvestigationFormCommand):
     aliases = ["+investigate", "investigate"]
     base_cost = 25
     model_switches = ("view", "active", "silver", "resource", "changetopic",
-                      "changestory", "abandon", "resume", "requesthelp")
+                      "changestory", "abandon", "resume", "requesthelp", "changestat", "changeskill")
 
     def list_ongoing_investigations(self):
         qs = self.related_manager.filter(ongoing=True)
@@ -567,14 +570,19 @@ class CmdInvestigate(InvestigationFormCommand):
                 ob.save()
                 caller.msg("Investigation has been marked to be ongoing.")
                 return
-            if "abandon" in self.switches:
+            if "abandon" in self.switches or "stop" in self.switches:
                 ob.ongoing = False
                 ob.active = False
                 ob.save()
+                asslist = []
                 for ass in ob.active_assistants:
                     ass.currently_helping = False
                     ass.save()
-                caller.msg("Investigation has been marked to no longer be ongoing.")
+                    asslist.append(str(ass.char))
+                caller.msg("Investigation has been marked to no longer be ongoing nor active.")
+                caller.msg("You can resume it later with /resume.")
+                if asslist:
+                    caller.msg("The following assistants have stopped helping: %s" % ", ".join(asslist))
                 return
             if "view" in self.switches or not self.switches:
                 caller.msg(ob.display())
@@ -589,11 +597,12 @@ class CmdInvestigate(InvestigationFormCommand):
                         caller.msg("You already have an active investigation " +
                                    "that has received GMing this week, and cannot be switched.")
                         return
-                    if caller.assisted_investigations.filter(currently_helping=True):
-                        self.msg("You are currently assisting with an investigation.")
-                        return
                     current_active.active = False
                     current_active.save()
+                for ass in caller.assisted_investigations.filter(currently_helping=True):
+                    ass.currently_helping = False
+                    ass.save()
+                    self.msg("No longer assisting in %s" % ass.investigation)
                 ob.active = True
                 ob.save()
                 caller.msg("%s set to active." % ob)
@@ -655,6 +664,24 @@ class CmdInvestigate(InvestigationFormCommand):
                 ob.save()
                 caller.msg("The new story of your investigation is:\n%s" % self.args)
                 return
+            if "changestat" in self.switches:
+                from world.stats_and_skills import VALID_STATS
+                if self.rhs not in VALID_STATS:
+                    self.msg("That is not a valid stat name.")
+                    return
+                ob.stat_used = self.rhs
+                ob.save()
+                caller.msg("The new stat is: %s" % self.args)
+                return
+            if "changeskill" in self.switches:
+                from world.stats_and_skills import VALID_SKILLS
+                if self.rhs not in VALID_SKILLS:
+                    self.msg("That is not a valid skill name.")
+                    return
+                ob.skill_used = self.rhs
+                ob.save()
+                caller.msg("The new skill is: %s" % self.args)
+                return
             if "requesthelp" in self.switches:
                 from typeclasses.characters import Character
                 try:
@@ -679,6 +706,7 @@ class CmdInvestigate(InvestigationFormCommand):
                 inform_msg += "To assist them, use the {w@helpinvestigate{n command, creating a "
                 inform_msg += "form with {w@helpinvestigate/new{n, setting the target with "
                 inform_msg += "{w@helpinvestigate/target %s{n, and filling in the other fields." % ob.id
+                inform_msg += "\nThe current actions of their investigation are: %s" % ob.actions
                 char.db.player_ob.inform(inform_msg, category="Investigation Request From %s" % self.caller,
                                          append=False)
                 return
@@ -800,7 +828,12 @@ class CmdListClues(MuxPlayerCommand):
     Usage:
         @clues
         @clues <clue #>
-        @clues/share <clue #>=<target>[,<target2><target3>,...]
+        @clues/share <clue #>[,<clue #>...]=<target>[,<target2><target3>,...]
+        @clues/search <text>
+
+    Displays the clues that your character has discovered in game,
+    or shares them with others. /search returns the clues that
+    contain the text specified.
     """
     key = "@clues"
     locks = "cmd:all()"
@@ -818,7 +851,12 @@ class CmdListClues(MuxPlayerCommand):
         caller = self.caller
         table = PrettyTable(["{wClue #{n", "{wSubject{n"])
         clues = self.finished_clues
-        msg = "{wDiscovered Clues{n\n"
+        if "search" in self.switches:
+            msg = "{wMatching Clues{n\n"
+            clues = clues.filter(Q(message__icontains=self.args) | Q(clue__desc__icontains=self.args) |
+                                 Q(clue__name__icontains=self.args))
+        else:
+            msg = "{wDiscovered Clues{n\n"
         for clue in clues:
             table.add_row([clue.id, clue.name])
         msg += str(table)
@@ -833,17 +871,20 @@ class CmdListClues(MuxPlayerCommand):
                 return
             self.disp_clue_table()
             return
-        # get clue for display or sharing
-        try:
-            clue = clues.get(id=self.lhs)  
-        except (ClueDiscovery.DoesNotExist, ValueError, TypeError):
-            caller.msg("No clue found by that ID.")
+        if "search" in self.switches:
             self.disp_clue_table()
             return
-        if not self.switches:
-            caller.msg(clue.display())
-            return
         if "share" in self.switches:
+            clues_to_share = []
+            for arg in self.lhslist:
+                try:
+                    clue = clues.get(id=arg)
+                except (ClueDiscovery.DoesNotExist, ValueError, TypeError):
+                    caller.msg("No clue found by that ID.")
+                    continue
+                clues_to_share.append(clue)
+            if not clues_to_share:
+                return
             shared_names = []
             for arg in self.rhslist:
                 pc = caller.search(arg)
@@ -854,11 +895,27 @@ class CmdListClues(MuxPlayerCommand):
                 if not tarchar.location or tarchar.location != calchar.location:
                     self.msg("You can only share clues with someone in the same room. Please don't share clues without "
                              "at least some RP talking about it.")
-                    return
-                clue.share(pc.roster)
+                    continue
+                for clue in clues_to_share:
+                    clue.share(pc.roster)
                 shared_names.append(str(pc.roster))
-            caller.msg("You have shared the clue '%s' with %s." % (clue, ", ".join(shared_names)))
+            if shared_names:
+                caller.msg("You have shared the clues '%s' with %s." % (", ".join(str(ob.clue) for ob in clues_to_share),
+                                                                        ", ".join(shared_names)))
+            else:
+                self.msg("Shared nothing.")
             return
+        # get clue for display or sharing
+        try:
+            clue = clues.get(id=self.lhs)  
+        except (ClueDiscovery.DoesNotExist, ValueError, TypeError):
+            caller.msg("No clue found by that ID.")
+            self.disp_clue_table()
+            return
+        if not self.switches:
+            caller.msg(clue.display())
+            return
+
         caller.msg("Invalid switch")
         return
 
@@ -895,6 +952,8 @@ class CmdListRevelations(MuxPlayerCommand):
             self.disp_rev_table()
             return
         self.msg(rev.display())
+        clues = self.caller.roster.finished_clues.filter(clue__revelations=rev.revelation)
+        self.msg("Related Clues: %s" % ", ".join(str(clue.clue) for clue in clues))
 
 
 class CmdListMysteries(MuxPlayerCommand):
@@ -925,7 +984,7 @@ class CmdTheories(MuxPlayerCommand):
         @theories/addclue <theory ID #>=<clue ID #>
         @theories/rmclue <theory ID #>=<clue ID #>
         @theories/addrelatedtheory <your theory ID #>=<other's theory ID #>
-        @theories/delete <theory ID #>
+        @theories/forget <theory ID #>
         @theories/editdesc <theory ID #>=<desc>
         @theories/edittopic <theory ID #>=<topic>
         @theories/shareall <theory ID #>=<player>
@@ -965,6 +1024,10 @@ class CmdTheories(MuxPlayerCommand):
         if not self.switches or "view" in self.switches:
             self.view_theory()
             return
+        if "search" in self.switches:
+            matches = self.caller.known_theories.filter(Q(topic__icontains=self.args) | Q(desc__icontains=self.args))
+            self.msg("Matches: %s" % ", ".join(str(ob.id) for ob in matches))
+            return
         if "create" in self.switches:
             theory = self.caller.created_theories.create(topic=self.lhs, desc=self.rhs)
             self.caller.known_theories.add(theory)
@@ -979,12 +1042,6 @@ class CmdTheories(MuxPlayerCommand):
             targ = self.caller.search(self.rhs)
             if not targ:
                 return
-            if theory in targ.known_theories.all():
-                self.msg("They already know that theory.")
-                return
-            targ.known_theories.add(theory)
-            self.msg("Theory %s added to %s." % (self.lhs, targ))
-            targ.inform("%s has shared a theory with you." % self.caller, category="Theories")
             if "shareall" in self.switches:
                 try:
                     if targ.db.char_ob.location != self.caller.db.char_ob.location:
@@ -997,15 +1054,28 @@ class CmdTheories(MuxPlayerCommand):
                 for clue in clues:
                     clue.share(targ.roster)
                     self.msg("Shared clue %s with %s" % (clue.name, targ))
+            if theory in targ.known_theories.all():
+                self.msg("They already know that theory.")
+                return
+            targ.known_theories.add(theory)
+            self.msg("Theory %s added to %s." % (self.lhs, targ))
+            targ.inform("%s has shared a theory with you." % self.caller, category="Theories")
+            return
+        if "delete" in self.switches or "forget" in self.switches:
+            try:
+                theory = self.caller.known_theories.get(id=self.lhs)
+            except (Theory.DoesNotExist, ValueError):
+                self.msg("No theory by that ID.")
+                return
+            self.caller.known_theories.remove(theory)
+            self.msg("Theory forgotten.")
+            if not theory.known_by.all():  # if no one knows about it now
+                theory.delete()
             return
         try:
             theory = self.caller.created_theories.get(id=self.lhs)
         except (Theory.DoesNotExist, ValueError):
             self.msg("No theory by that ID.")
-            return
-        if "delete" in self.switches:
-            theory.delete()
-            self.msg("Theory deleted.")
             return
         if "editdesc" in self.switches:
             theory.desc = self.rhs

@@ -7,12 +7,15 @@ from django.conf import settings
 from evennia.server.sessionhandler import SESSIONS
 from evennia.utils import evtable
 from server.utils import prettytable
-from server.utils.arx_utils import inform_staff
+from server.utils.arx_utils import inform_staff, broadcast
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
 from web.character.models import Story, Episode, StoryEmit, Clue
-from world.dominion.models import Organization
+from world.dominion.models import Organization, RPEvent
+from evennia.typeclasses.tags import Tag
+from evennia.scripts.models import ScriptDB
+from typeclasses.characters import Character
 
 PERMISSION_HIERARCHY = [p.lower() for p in settings.PERMISSION_HIERARCHY]
 
@@ -48,12 +51,15 @@ class CmdHome(MuxCommand):
                 caller.msg("You cannot use home to leave a room where a combat is occurring.")
                 return
             if 'private' in room.tags.all():
-                caller.msg("You cannot use home to leave a private room.")
-                return
+                if len([ob for ob in room.contents if ob.player]) > 1:
+                    caller.msg("You cannot use home to leave a private room if you are not alone.")
+                    return
         if not home:
             caller.msg("You have no home!")
         elif home == caller.location:
             caller.msg("You are already home!")
+        elif not caller.conscious:
+            caller.msg("You must be conscious to go home.")
         else:
             caller.move_to(home)
             caller.msg("There's no place like home ...")
@@ -90,7 +96,7 @@ class CmdGemit(MuxPlayerCommand):
             return
         if "norecord" in self.switches:
             self.msg("Announcing to all connected players ...")
-            SESSIONS.announce_all(self.args)
+            broadcast(self.args, format_announcement=False)
             return
 
         # current story
@@ -114,10 +120,10 @@ class CmdGemit(MuxPlayerCommand):
         StoryEmit.objects.create(episode=episode, chapter=chapter, text=msg,
                                  sender=caller)
         self.msg("Announcing to all connected players ...")
-        SESSIONS.announce_all(msg)
+        broadcast(msg, format_announcement=False)
         # get board and post
         from typeclasses.bulletin_board.bboard import BBoard
-        bboard = BBoard.objects.get(db_key="story updates")
+        bboard = BBoard.objects.get(db_key__iexact="story updates")
         subject = "Story Update"
         if episode:
             subject = "Episode: %s" % episode.name
@@ -306,21 +312,16 @@ class CmdRestore(MuxPlayerCommand):
             if "deleted" not in str(targ.tags).split(","):
                 caller.msg("%s does not appear to be deleted." % targ)
                 return
-            targ.tags.remove("deleted")
             char = caller.db.char_ob
             inform_staff("%s restored item: %s" % (caller, targ))
             caller.msg("Restored %s." % targ)
             if char:
-                if char.location:
-                    targ.move_to(char.location)
-                    caller.msg("%s moved to your location" % targ)
-                    return
                 targ.move_to(char)
                 caller.msg("%s moved to your character object." % targ)
                 return
             caller.msg("You do not have a character object to move %s to. Use @tel to return it to the game." % targ)
             return
-        except ObjectDB.DoesNotExist:
+        except (ObjectDB.DoesNotExist, ValueError):
             caller.msg("No object found for ID %s." % self.args)
             return
 
@@ -359,7 +360,7 @@ class CmdPurgeJunk(MuxPlayerCommand):
                 caller.msg("Rooms or characters cannot be deleted with this command. " +
                            "Must be removed via shell script for safety.")
                 return
-            targ.delete(true_delete=True)
+            targ.delete()
             inform_staff("%s purged item ID %s from the database" % (caller, self.args))
             return
         except ObjectDB.DoesNotExist:
@@ -694,3 +695,212 @@ class CmdViewLog(MuxPlayerCommand):
             self.msg("All logs for %s cleared." % targ)
             return
         self.msg("Invalid switch.")
+
+
+class CmdSetLanguages(MuxPlayerCommand):
+    """
+    @admin_languages
+
+    Usage:
+        @admin_languages
+        @admin_languages/create <language>
+        @admin_languages/add <character>=<language>
+        @admin_languages/remove <character>=<language>
+        @admin_languages/listfluent <language>
+
+    Views and sets languages. All players are said to speak common.
+    """
+    key = "@admin_languages"
+    help_category = "GMing"
+    locks = "cmd:perm(Wizards)"
+
+    @property
+    def valid_languages(self):
+        return Tag.objects.filter(db_category="languages").order_by('db_key')
+
+    def list_valid_languages(self):
+        self.msg("Valid languages: %s" % ", ".join(ob.db_key.title() for ob in self.valid_languages))
+
+    def func(self):
+        if not self.args:
+            self.list_valid_languages()
+            return
+        if "create" in self.switches:
+            if Tag.objects.filter(db_key__iexact=self.args, db_category="languages"):
+                self.msg("Language already exists.")
+                return
+            tag = Tag.objects.create(db_key=self.args.lower(), db_category="languages")
+            self.msg("Created the new language: %s" % tag.db_key)
+            return
+        if "listfluent" in self.switches:
+            from typeclasses.characters import Character
+            chars = Character.objects.filter(db_tags__db_key__iexact=self.args,
+                                             db_tags__db_category="languages")
+            self.msg("Characters who can speak %s: %s" % (self.args, ", ".join(str(ob) for ob in chars)))
+            return
+        if not self.valid_languages.filter(db_key__iexact=self.rhs):
+            self.msg("%s is not a valid language." % self.rhs)
+            self.list_valid_languages()
+            return
+        player = self.caller.search(self.lhs)
+        if not player:
+            return
+        if "add" in self.switches:
+            player.db.char_ob.languages.add_language(self.rhs)
+            self.msg("Added %s to %s." % (self.rhs, player))
+            return
+        if "remove" in self.switches:
+            player.db.char_ob.languages.remove_language(self.rhs)
+            self.msg("Removed %s from %s." % (self.rhs, player))
+            return
+
+
+class CmdGMEvent(MuxCommand):
+    """
+    Creates an event at your current location
+
+        Usage:
+            @gmevent
+            @gmevent/create <name>=<description>
+            @gmevent/cancel
+            @gmevent/start
+            @gmevent/stop
+
+    @gmevent allows you to quickly create an RPEvent and log it at
+    your current location. You'll be marked as a host and GM, and it
+    will log the event at your location until you use @gmevent/stop.
+
+    Once started, you can use @cal commands to do things like change the
+    roomdesc and so on with the appropriate switches, if you choose.
+    """
+    key = "@gmevent"
+    locks = "cmd:perm(builders)"
+
+    def func(self):
+        form = self.caller.db.gm_event_form
+        if not self.switches:
+            if not form:
+                self.msg("You are not yet creating an event. Use /create to make one.")
+                return
+            self.msg("You will create an event named '%s' when you use /start." % form[0])
+            self.msg("It will have the description: %s" % form[1])
+            self.msg("If you wish to change anything, just use /create again. To abort, use /cancel.")
+            return
+        if "cancel" in self.switches:
+            self.caller.attributes.remove("gm_event_form")
+            self.msg("Cancelled.")
+            return
+        if "create" in self.switches:
+            if not self.args:
+                self.msg("You must provide a name for the Event.")
+                return
+            if RPEvent.objects.filter(name__iexact=self.args):
+                self.msg("That name is already used for an event.")
+                return
+            self.caller.db.gm_event_form = [self.lhs, self.rhs or ""]
+            self.msg("Event name will be: %s, Event Desc: %s" % (self.lhs, self.rhs))
+            return
+        if "start" in self.switches:
+            from datetime import datetime
+            if not form or len(form) < 2:
+                self.msg("You have not created an event yet. Use /create then /start it.")
+                return
+            name, desc = form[0], form[1]
+            date = datetime.now()
+            loc = self.caller.location
+            events = self.caller.db.player_ob.Dominion.events_gmd.filter(finished=False, gm_event=True, location=loc)
+            if events:
+                self.msg("You are already GMing an event in this room.")
+                return
+            dompc = self.caller.db.player_ob.Dominion
+            event = RPEvent.objects.create(name=name, date=date, desc=desc, location=loc,
+                                           public_event=False, celebration_tier=0, gm_event=True)
+            event.hosts.add(dompc)
+            event.gms.add(dompc)
+            event_manager = ScriptDB.objects.get(db_key="Event Manager")
+            event_manager.start_event(event)
+            self.msg("Event started.")
+            self.caller.attributes.remove("gm_event_form")
+            return
+        if "stop" in self.switches:
+            events = self.caller.db.player_ob.Dominion.events_gmd.filter(finished=False, gm_event=True)
+            if not events:
+                self.msg("You are not currently GMing any events.")
+                return
+            if len(events) > 1:
+                try:
+                    event = events.get(location=self.caller.location)
+                except RPEvent.DoesNotExist:
+                    self.msg("Go to the location where the event is held to stop it.")
+                    return
+            else:
+                event = events[0]
+            event_manager = ScriptDB.objects.get(db_key="Event Manager")
+            event_manager.finish_event(event)
+            self.msg("Event ended.")
+
+
+class CmdGMNotes(MuxPlayerCommand):
+    """
+    Adds or views notes about a character
+
+    Usage:
+        @gmnotes
+        @gmnotes/search <tagtype>
+        @gmnotes/tag <character>=<type>
+        @gmnotes/rmtag <character>=<type>
+        @gmnotes/set <character>=<notes>
+    """
+    key = "@gmnotes"
+    aliases = ["@gmnote"]
+    locks = "cmd: perm(builders)"
+
+    def list_all_tags(self):
+        from evennia.utils.evtable import EvTable
+        from evennia.utils.utils import crop
+        table = EvTable("{wCharacter{n", "{wType{n", "{wDesc{n", width=78, border="cells")
+        chars = Character.objects.filter(db_tags__db_category="gmnotes").distinct()
+        if self.args:
+            chars = chars.filter(db_tags__db_key__iexact=self.args).distinct()
+        for character in chars:
+            desc = character.db.gm_notes or ""
+            desc = crop(desc, width=40)
+            table.add_row(character.key, str(character.tags.get(category="gmnotes")), desc)
+        self.msg(table)
+
+    def view_char(self):
+        try:
+            char = Character.objects.get(db_key__iexact=self.lhs)
+        except Character.DoesNotExist:
+            self.list_all_tags()
+            return
+        self.msg("{wNotes for {c%s{n" % char)
+        self.msg(char.db.gm_notes)
+
+    def func(self):
+        if not self.args or "search" in self.switches:
+            self.list_all_tags()
+            return
+        if not self.switches or not self.rhs:
+            self.view_char()
+            return
+        player = self.caller.search(self.lhs)
+        if not player:
+            return
+        character = player.db.char_ob
+        if "tag" in self.switches:
+            character.tags.add(self.rhs, category="gmnotes")
+            self.msg("%s tagged with %s" % (character, self.rhs))
+            return
+        if "rmtag" in self.switches:
+            character.tags.remove(self.rhs, category="gmnotes")
+            self.msg("Removed %s from %s" % (self.rhs, character))
+            return
+        if "set" in self.switches:
+            old = character.db.gm_notes
+            if old:
+                self.msg("{wOld gm notes were:{n\n%s" % old)
+            character.db.gm_notes = self.rhs
+            self.msg("{wNew gm notes are:{n\n%s" % self.rhs)
+            return
+        self.msg("invalid switch")

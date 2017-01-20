@@ -15,41 +15,65 @@ class RPEventListView(LimitPageMixin, ListView):
     model = RPEvent
     template_name = 'dominion/cal_list.html'
     paginate_by = 20
-    
+
+    def search_filter(self, qs):
+        event_type = self.request.GET.get("event_type")
+        if event_type == "gm_only":
+            qs = qs.filter(gm_event=True)
+        elif event_type == "prp_only":
+            qs = qs.filter(gm_event=False, gms__isnull=False)
+        text = self.request.GET.get("search_text")
+        if text:
+            qs = qs.filter(Q(name__icontains=text) | Q(hosts__player__username__iexact=text) | Q(desc__icontains=text) |
+                           Q(gms__player__username__iexact=text) | Q(participants__player__username__iexact=text))
+        return qs
+
     def unfinished(self):
         user = self.request.user
         try:
             if user.is_staff:
-                return RPEvent.objects.filter(finished=False).distinct().order_by('-date')
+                return self.search_filter(RPEvent.objects.filter(finished=False).distinct().order_by('-date'))
         except AttributeError:
             pass
-        if not user:
-            return RPEvent.objects.filter(finished=False, public_event=True).distinct().order_by('-date')
+        if not user.is_authenticated():
+            return self.search_filter(
+                RPEvent.objects.filter(finished=False, public_event=True).distinct().order_by('-date'))
         else:
-            return RPEvent.objects.filter(Q(finished=False) &
-                                          (Q(public_event=True) |
-                                          (Q(participants__player_id=user.id) |
-                                           Q(hosts__player_id=user.id)))).distinct().order_by('-date')
-    
+            return self.search_filter(RPEvent.objects.filter(Q(finished=False) &
+                                                             (Q(public_event=True) |
+                                                              (Q(participants__player_id=user.id) |
+                                                               Q(hosts__player_id=user.id)))).distinct().order_by(
+                '-date'))
+
     def get_queryset(self):
         user = self.request.user
         try:
             if user.is_staff:
-                return RPEvent.objects.filter(finished=True, participants__isnull=False).distinct().order_by('-date')
+                return self.search_filter(
+                    RPEvent.objects.filter(finished=True, participants__isnull=False).distinct().order_by('-date'))
         except AttributeError:
             pass
-        if not user:
-            return RPEvent.objects.filter(finished=True, participants__isnull=False,
-                                          public_event=True).distinct().order_by('-date')
+        if not user.is_authenticated():
+            return self.search_filter(RPEvent.objects.filter(finished=True, participants__isnull=False,
+                                                             public_event=True).distinct().order_by('-date'))
         else:
-            return RPEvent.objects.filter(Q(finished=True) &
-                                          (Q(public_event=True) |
-                                          (Q(participants__player_id=user.id) |
-                                           Q(hosts__player_id=user.id)))).distinct().order_by('-date')
+            return self.search_filter(RPEvent.objects.filter(Q(finished=True) &
+                                                             (Q(public_event=True) |
+                                                              (Q(participants__player_id=user.id) |
+                                                               Q(hosts__player_id=user.id)))).distinct().order_by(
+                '-date'))
 
     def get_context_data(self, **kwargs):
         context = super(RPEventListView, self).get_context_data(**kwargs)
         context['page_title'] = 'Events'
+        search_tags = ""
+        text = self.request.GET.get("search_text")
+        if text:
+            search_tags += "&search_text=%s" % text
+        event_type = self.request.GET.get("event_type")
+        if event_type:
+            search_tags += "&event_type=%s" % event_type
+        context['search_tags'] = search_tags
         return context
 
 
@@ -62,7 +86,8 @@ class RPEventDetailView(DetailView):
         context['form'] = RPEventCommentForm
         can_view = False
         user = self.request.user
-        if user:
+        private = not self.get_object().public_event
+        if user.is_authenticated():
             if user.is_staff:
                 can_view = True
             else:
@@ -74,6 +99,8 @@ class RPEventDetailView(DetailView):
                 except AttributeError:
                     pass
         # this will determine if we can read/write about private events, won't be used for public
+        if private and not can_view:
+            raise Http404
         context['can_view'] = can_view
         context['page_title'] = str(self.get_object())
         return context

@@ -13,8 +13,7 @@ from evennia.help.models import HelpEntry
 from evennia.utils import create
 from evennia.utils.utils import string_suggestions
 from evennia.commands.default.muxcommand import MuxCommand
-from evennia.comms.models import ChannelDB
-from evennia.comms.channelhandler import CHANNELHANDLER
+from commands.cmdsets.situational import SituationalCmdSet
 
 # limit symbol import for API
 __all__ = ("CmdHelp", "CmdSetHelp")
@@ -23,7 +22,7 @@ __all__ = ("CmdHelp", "CmdSetHelp")
 SEP = "{C" + "-" * 78 + "{n"
 
 
-def format_help_entry(title, help_text, aliases=None, suggested=None):
+def format_help_entry(title, help_text, aliases=None, suggested=None, unavailable=False):
     """
     This visually formats the help entry.
     """
@@ -32,6 +31,8 @@ def format_help_entry(title, help_text, aliases=None, suggested=None):
         string += "{CHelp topic for {w%s{n" % title
     if aliases:
         string += " {C(aliases: {w%s{n{C){n" % (", ".join(aliases))
+    if unavailable:
+        string += "\n{rThis command is not presently available to you.{n"
     if help_text:
         string += "\n%s" % dedent(help_text.rstrip())
     if suggested:
@@ -40,6 +41,7 @@ def format_help_entry(title, help_text, aliases=None, suggested=None):
     string.strip()
     string += "\n" + SEP
     return string
+
 
 # added in 'brief' argument to allow us to snip help topics for brevity
 def format_help_list(hdict_cmds, hdict_db, brief=False):
@@ -87,6 +89,7 @@ class CmdHelp(Command):
     # the current cmdset with the call to self.func().
     return_cmdset = True
 
+    # noinspection PyAttributeOutsideInit
     def parse(self):
         """
         input is a string containing the command or topic to match.
@@ -94,12 +97,15 @@ class CmdHelp(Command):
         self.original_args = self.args.strip()
         self.args = self.args.strip().lower()
 
+    # noinspection PyUnresolvedReferences
+    # noinspection PyBroadException
     def func(self):
         """
         Run the dynamic help entry creator.
         """
         query, cmdset = self.args, self.cmdset
         caller = self.caller
+        unavailable = False
 
         suggestion_cutoff = 0.6
         suggestion_maxnum = 5
@@ -110,13 +116,13 @@ class CmdHelp(Command):
         # removing doublets in cmdset, caused by cmdhandler
         # having to allow doublet commands to manage exits etc.
         cmdset.make_unique(caller)
-        
 
         # retrieve all available commands and database topics
         all_cmds = [cmd for cmd in cmdset if cmd.auto_help and cmd.access(caller)]
         player = caller
         if not hasattr(caller, 'character'):
             player = caller.player
+
         if not player.character:
             try:
                 char_cmds = [cmd for cmd in player.db.char_ob.cmdset.all()[0] if cmd.auto_help and cmd.access(caller)]
@@ -124,7 +130,8 @@ class CmdHelp(Command):
             except Exception:
                 pass
         all_topics = [topic for topic in HelpEntry.objects.all() if topic.access(caller, 'view', default=True)]
-        all_categories = list(set([cmd.help_category.lower() for cmd in all_cmds] + [topic.help_category.lower() for topic in all_topics]))
+        all_categories = list(set([cmd.help_category.lower() for cmd in all_cmds] + [topic.help_category.lower()
+                                                                                     for topic in all_topics]))
 
         if query in ("list", "all"):
             # we want to list all available help entries, grouped by category
@@ -142,7 +149,8 @@ class CmdHelp(Command):
         # build vocabulary of suggestions and rate them by string similarity.
         vocabulary = [cmd.key for cmd in all_cmds if cmd] + [topic.key for topic in all_topics] + all_categories
         [vocabulary.extend(cmd.aliases) for cmd in all_cmds]
-        suggestions = [sugg for sugg in string_suggestions(query, set(vocabulary), cutoff=suggestion_cutoff, maxnum=suggestion_maxnum)
+        suggestions = [sugg for sugg in string_suggestions(query, set(vocabulary), cutoff=suggestion_cutoff,
+                                                           maxnum=suggestion_maxnum)
                        if sugg != query]
         if not suggestions:
             suggestions = [sugg for sugg in vocabulary if sugg != query and sugg.startswith(query)]
@@ -151,16 +159,18 @@ class CmdHelp(Command):
 
         # try an exact command auto-help match
         match = [cmd for cmd in all_cmds if cmd == query]
+        if not match:
+            match = [cmd for cmd in SituationalCmdSet() if cmd == query]
+            unavailable = True
         if len(match) == 1:
+            if not [ob for ob in self.cmdset if ob == match[0]]:
+                unavailable = True
             doc_text = match[0].__doc__
             if hasattr(match[0], 'dynamic_help'):
                 doc_text = match[0].dynamic_help(caller)
-            self.msg(format_help_entry(match[0].key,
-                     doc_text,
-                     aliases=match[0].aliases,
-                     suggested=suggestions))
+            self.msg(format_help_entry(match[0].key, doc_text, aliases=match[0].aliases, suggested=suggestions,
+                                       unavailable=unavailable))
             found_match = True
-
 
         # try an exact database help entry match
         match = list(HelpEntry.objects.find_topicmatch(query, exact=True))
@@ -176,9 +186,10 @@ class CmdHelp(Command):
 
         # try to see if a category name was entered
         if query in all_categories:
-            #fixed bug - wouldn't match if category name was capitalized
-            self.msg(format_help_list({query:[cmd.key for cmd in all_cmds if cmd.help_category.lower()==query]},
-                                        {query:[topic.key for topic in all_topics if topic.help_category.lower()==query]}))
+            # fixed bug - wouldn't match if category name was capitalized
+            self.msg(format_help_list(
+                {query: [cmd.key for cmd in all_cmds if cmd.help_category.lower() == query]},
+                {query: [topic.key for topic in all_topics if topic.help_category.lower() == query]}))
             return
 
         # no exact matches found. Just give suggestions.
@@ -217,8 +228,9 @@ class CmdSetHelp(MuxCommand):
     locks = "cmd:perm(PlayerHelpers)"
     help_category = "Building"
 
+    # noinspection PyBroadException
     def func(self):
-        "Implement the function"
+        """Implement the function"""
 
         switches = self.switches
         lhslist = self.lhslist
@@ -284,7 +296,9 @@ class CmdSetHelp(MuxCommand):
                 old_entry.save()
                 self.msg("Overwrote the old topic '%s' with a new one." % topicstr)
             else:
-                self.msg("Topic '%s' already exists. Use /force to overwrite or /append or /merge to add text to it." % topicstr)
+                msg = "Topic '%s' already exists." % topicstr
+                msg += " Use /force to overwrite or /append or /merge to add text to it."
+                self.msg(msg)
         else:
             # no old entry. Create a new one.
             new_entry = create.create_help_entry(topicstr,

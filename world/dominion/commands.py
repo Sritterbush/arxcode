@@ -740,7 +740,7 @@ class CmdAdmAssets(MuxPlayerCommand):
             msg += "{wGM:{n %s\n" % caller.key.capitalize()
             msg += "{wReason:{n %s\n" % message
             board.bb_post(poster_obj=caller, msg=msg, subject="Prestige Change for %s" % str(owner))
-        
+
 
 class CmdAdmOrganization(MuxPlayerCommand):
     """
@@ -757,11 +757,35 @@ class CmdAdmOrganization(MuxPlayerCommand):
         @admin_org/name <org name or number>=<new name>
         @admin_org/title <orgname or number>=<rank>,<name>
         @admin_org/femaletitle <orgname or number>=<rank>,<name>
+        @admin_org/setinfluence <org name or number>=<inf name>,<value>
+
+    Allows you to change or control organizations. Orgs can be accessed either by
+    their ID number or name.
     """
     key = "@admin_org"
     locks = "cmd:perm(Wizards)"
     help_category = "Dominion"
     aliases = ["@admorg", "@adm_org"]
+
+    def set_influence(self, org):
+        try:
+            name, value = self.rhslist[0], int(self.rhslist[1])
+        except (TypeError, ValueError, IndexError):
+            self.msg("Must provide an influence name and value.")
+            return
+        try:
+            cat = InfluenceCategory.objects.get(name__iexact=name)
+        except InfluenceCategory.DoesNotExist:
+            self.msg("No InfluenceCategory by that name.")
+            self.msg("Valid ones are: %s" % ", ".join(ob.name for ob in InfluenceCategory.objects.all()))
+            return
+        try:
+            sphere = org.spheres.get(category=cat)
+        except SphereOfInfluence.DoesNotExist:
+            sphere = org.spheres.create(category=cat)
+        sphere.rating = value
+        sphere.save()
+        self.msg("Set %s's rating in %s to be %s." % (org, cat, value))
 
     def func(self):
         caller = self.caller
@@ -840,8 +864,13 @@ class CmdAdmOrganization(MuxPlayerCommand):
                         return
                     caller.msg("%s is already a member.")
                     return
-                dompc.memberships.create(organization=org, rank=rank)
+                secret = org.secret
+                dompc.memberships.create(organization=org, rank=rank, secret=secret)
                 caller.msg("%s added to %s at rank %s." % (dompc, org, rank))
+                try:
+                    org.org_channel.connect(player)
+                except AttributeError:
+                    pass
                 return
             except (AttributeError, ValueError, TypeError):
                 caller.msg("Could not add %s. May need to run @admin_assets/setup on them." % self.rhs)
@@ -861,7 +890,7 @@ class CmdAdmOrganization(MuxPlayerCommand):
                 org.save()
             caller.msg("Rank %s title changed to %s." % (rank, name))
             return
-            
+
         if 'setrank' in self.switches:
             try:
                 member = Member.objects.get(organization_id=org.id,
@@ -875,6 +904,9 @@ class CmdAdmOrganization(MuxPlayerCommand):
             except (ValueError, TypeError, AttributeError, KeyError):
                 caller.msg("Usage: @admorg/set_rank <org> = <player>, <1-10>")
                 return
+        if 'setinfluence' in self.switches:
+            self.set_influence(org)
+            return
 
 
 class CmdAdmFamily(MuxPlayerCommand):
@@ -1508,9 +1540,14 @@ class CmdOrganization(MuxPlayerCommand):
                 deguilded.rank = 10
                 deguilded.save()
             except Member.DoesNotExist:
-                caller.Dominion.memberships.create(organization=org)
+                secret = org.secret
+                caller.Dominion.memberships.create(organization=org, secret=secret)
             caller.msg("You have joined %s." % org.name)
             org.msg("%s has joined %s." % (caller, org.name))
+            try:
+                org.org_channel.connect(caller)
+            except AttributeError:
+                pass
             return
         if 'decline' in self.switches:
             org = caller.ndb.orginvite
@@ -1591,6 +1628,7 @@ class CmdOrganization(MuxPlayerCommand):
                     caller.msg("You do not have permission to edit permissions.")
                     return
                 org.locks.add("%s:rank(%s)" % (ltype, rank))
+                org.save()
                 caller.msg("Permission %s set to require rank %s or higher." % (ltype, rank))
                 return
             if 'rankname' in self.switches:
@@ -1802,8 +1840,7 @@ class CmdPatronage(MuxPlayerCommand):
         @patronage/reject
         @patronage/abandon
 
-    Displays family information about a given character, if
-    available.
+    Displays and manages patronage.
     """
     key = "@patronage"
     locks = "cmd:all()"
@@ -1943,7 +1980,8 @@ class CmdTask(MuxCommand):
     To accomplish this, you ask other players to confirm that you achieved
     what you set out to do with the /supportme switch, sending them either
     a message based on the task, or an alternate message of your own
-    creation through the /altecho switch.
+    creation through the /altecho switch. /supportme without specifying
+    players will list who you have previously asked.
 
     Please make notes with the /story switch that record how you
     accomplished your task. The /rumors switch is used to tell the IC
@@ -2035,13 +2073,22 @@ class CmdTask(MuxCommand):
         if not self.switches and not self.args:
             # list all our active and available tasks
             caller.msg("{wAvailable/Active Tasks:{n")
-            tasks = mytasks.filter(assigned_tasks__finished=False) | available
+            tasks = mytasks.filter(assigned_tasks__finished=False)
+            # NB: combining tasks this way, rather than in queryset form, is 1000 times faster
+            # possibly due to lack of index or something, but tasks | available is chock-full of
+            # LEFT OUTER JOINs, and literally 1000 times slower than evaluating independently.
+            tasks = list(tasks)
+            available = list(available)
+            tasks = list(set(tasks) | set(available))
             caller.msg(self.display_tasks(tasks, dompc))
             caller.msg("You can perform %s more tasks." % tasks_remaining)            
             return
         if not self.switches:
             # display info on task
-            tasks = mytasks | available
+            # NB: Same query as above, but it executed around 70 times faster. Why is the execution
+            # so much worse above than here? No idea. But still, evaluating the queries independently
+            # rather than combining them was still faster, just not as mind-bogglingly so.
+            tasks = [ob.id for ob in (set(mytasks) | set(available))]
             try:
                 task = Task.objects.get(id=int(self.args), id__in=tasks)         
             except ValueError:
@@ -2062,11 +2109,14 @@ class CmdTask(MuxCommand):
             caller.msg("{wDescription:{n\n%s" % task.desc)
             caller.msg("{wValid spheres of influence{n: %s" % task.reqs)
             assignments = task.assigned_tasks.filter(member__player=dompc, finished=False)
+            asked_supporters = caller.db.asked_supporters or {}
             for assign in assignments:
                 echo = assign.current_alt_echo
-                caller.msg("Current echo: %s" % echo)
-                caller.msg("Current rumors (both yours and supporters): %s" % assign.story)
-                caller.msg("Current story: %s" % assign.notes)
+                caller.msg("{wCurrent echo:{n %s" % echo)
+                caller.msg("{wCurrent rumors (both yours and supporters):{n %s" % assign.story)
+                caller.msg("{wCurrent story:{n %s" % assign.notes)
+                asklist = asked_supporters.get(assign.id, [])
+                caller.msg("{wPlayers asked for support:{n %s" % ", ".join(str(ob) for ob in asklist))
             return
         if "history" in self.switches or "setfinishedrumors" in self.switches:
             # display our completed tasks
@@ -2496,8 +2546,11 @@ class CmdSupport(MuxCommand):
             self.get_support_table()          
             caller.msg("{wSupport points remaining:{n %s" % remaining)
             for memb in dompc.memberships.filter(deguilded=False):
+                def rem_pts(allocation):
+                    rat = allocation.rating
+                    return "%s(%s)" % (rat - memb.points_used(allocation.category.name), rat)
                 msg = "{wPool share for %s:{n %s" % (memb.organization, memb.pool_share)
-                msg += ", {wCategory ratings:{n %s" % ", ".join("%s: %s" % (ob.category, ob.rating)
+                msg += ", {wCategory ratings:{n %s" % ", ".join("%s: %s" % (ob.category, rem_pts(ob))
                                                                 for ob in memb.organization.spheres.all())
                 caller.msg(msg)
             self.disp_supportform()
@@ -2531,20 +2584,26 @@ class CmdSupport(MuxCommand):
         if "change" in self.switches:
             org, sphere, sup, targmember, val, member, category = None, None, None, None, None, None, None
             try:
+                # I've been having sync errors so going to do a bunch of manual refresh_from_db calls
+                # and hope this actually resolves it this time.
                 r_id = self.lhslist[0]
                 category = self.lhslist[1]
                 sup = dompc.supported_tasks.filter(task__finished=False).get(id=r_id)
+                sup.refresh_from_db()
                 if len(self.lhslist) > 2:
                     org = dompc.current_orgs.get(name__iexact=self.lhslist[2])
                 else:
                     org = dompc.current_orgs[0]
-                sphere = org.spheres.get(category__name__iexact=category)             
+                org.refresh_from_db()
+                sphere = org.spheres.get(category__name__iexact=category)
+                sphere.refresh_from_db()
                 val = int(self.rhs)
                 targmember = sup.task.member
                 member = org.members.get(player=dompc)
                 if val <= 0:
                     raise ValueError
                 supused = sup.allocation.get(week=week, sphere=sphere)
+                supused.refresh_from_db()
             except IndexError:
                 caller.msg("Must specify both the ID and the category name.")
                 self.get_support_table()
@@ -2569,6 +2628,7 @@ class CmdSupport(MuxCommand):
                 supused = SupportUsed(week=week, sphere=sphere, rating=0, supporter=sup)
             # target character we're supporting
             char = targmember.player.player.db.char_ob
+            char.refresh_from_db()
             diff = val - sup.rating
             if diff > remaining:
                 caller.msg("You want to spend %s but only have %s available." % (diff, remaining))
@@ -2693,12 +2753,14 @@ class CmdSupport(MuxCommand):
             if points > sphere.rating:
                 caller.msg("Your organization only can spend %s points for %s." % (sphere.rating, sphere.category))
                 return
+            member.refresh_from_db()  # extra call in case of stale data
             poolshare = member.pool_share
-            points_in_org = 0
+            points_in_org = points
             for sid in sdict:
                 try:
                     org.spheres.get(id=sid)
-                    points_in_org += sdict[sid]
+                    if sphere.id != sid:  # if it's another sphere, we add it to the total
+                        points_in_org += sdict[sid]
                 except SphereOfInfluence.DoesNotExist:
                     continue
             if (member.total_points_used + points_in_org) > poolshare:

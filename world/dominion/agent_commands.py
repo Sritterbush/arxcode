@@ -71,10 +71,11 @@ class CmdAgents(MuxPlayerCommand):
 
     @staticmethod
     def get_allowed_types_from_org(org):
-        if "noble" in org.category or "social" in org.category or "military" in org.category:
+        if "noble" in org.category:
             return ["guards"]
         if "crime" in org.category:
             return ["thugs"]
+        return []
 
     def func(self):
         caller = self.caller
@@ -234,16 +235,16 @@ class CmdAgents(MuxPlayerCommand):
         if 'desc' in self.switches or 'name' in self.switches or 'transferowner' in self.switches:
             try:
                 agent = Agent.objects.get(id=int(self.lhslist[0]))
-                strval = ""
+                strval = self.rhs
                 if not agent.access(caller, 'agents'):
                     caller.msg("No access.")
                     return
                 if 'desc' in self.switches:
                     attr = 'desc'
-                    strval = self.rhs or ", ".join(self.lhslist[1:])
+                    strval = strval or ", ".join(self.lhslist[1:])
                     agent.desc = strval
                 elif 'name' in self.switches:
-                    strval = self.rhs or ", ".join(self.lhslist[1:])
+                    strval = strval or ", ".join(self.lhslist[1:])
                     name = strval
                     if not validate_name(name):
                         self.msg("That is not a valid name.")
@@ -853,7 +854,7 @@ class CmdGuards(MuxCommand):
             self.msg("{WYour guards:{n\n%s" % "".join(guard.agent.display() for guard in guards), options={'box': True})
             return
         if self.args:
-            guard = ObjectDB.objects.object_search(self.lhs, candidates=guards)
+            guard = ObjectDB.objects.object_search(self.lhs, candidates=guards, exact=False)
             if not guard:
                 _AT_SEARCH_RESULT(guard, caller, self.lhs)
                 return
@@ -890,6 +891,9 @@ class CmdGuards(MuxCommand):
                 return
             # if they're only one square away
             loc = guard.location or guard.db.docked
+            if loc and caller.location == loc:
+                guard.summon()
+                return
             if loc and caller.location.locations_set.filter(db_destination_id=loc.id):
                 guard.summon()
                 return

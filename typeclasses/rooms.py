@@ -202,6 +202,16 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
             msg += "\n" + desc + "\n"
         return msg
 
+    def start_event_logging(self, event):
+        self.msg_contents("{rEvent logging is now on for this room.{n")
+        self.tags.add("logging event")
+        self.db.current_event = event.id
+
+    def stop_event_logging(self):
+        self.tags.remove("logging event")
+        self.attributes.remove("current_event")
+        self.msg_contents("{rEvent logging is now off for this room.{n")
+
     def command_string(self):
         msg = ""
         if "shop" in self.tags.all():
@@ -421,9 +431,9 @@ class CmdExtendedLook(default_cmds.CmdLook):
         desc = looking_at_obj.return_appearance(caller, detailed=False)
         # if it's a written object, we'll paginate the description
         if looking_at_obj.db.written:
-            from evennia.utils import evmore
+            from server.utils import arx_more
             desc = desc.replace('%r', '\n')
-            evmore.msg(caller, desc)
+            arx_more.msg(caller, desc, pages_by_char=True)
         else:
             caller.msg(desc)
         # the object's at_desc() method.

@@ -93,10 +93,10 @@ except Exception as err:
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in override commands: %s" % err)
 try:
-    from commands.commands import help as arxhelp
+    from typeclasses.consumable.use_commands import CmdApplyConsumable
 except Exception as err:
     traceback.print_exc()
-    print("<<ERROR>>: Error encountered in overriding help: %s" % err)
+    print("<<ERROR>>: Error encountered in consumable commands: %s" % err)
 from evennia.commands.cmdset import CmdSet
 
 
@@ -119,14 +119,12 @@ class OOCCmdSet(CmdSet):
         self.add(default_general.CmdAccess())
         self.add(general.CmdDiceString())
         self.add(general.CmdDiceCheck())
-        self.add(general.CmdPage())
         self.add(general.CmdBriefMode())
         self.add(general.CmdTidyUp())
         self.add(extended_room.CmdGameTime())
         self.add(extended_room.CmdStudyRawAnsi())
         self.add(xp.CmdVoteXP())
         self.add(social.CmdPosebreak())
-        self.add(arxhelp.CmdHelp())
         self.add(social.CmdSocialScore())
 
 
@@ -158,6 +156,8 @@ class StateIndependentCmdSet(CmdSet):
         self.add(social.CmdRoomMood())
         self.add(social.CmdRandomScene())
         self.add(social.CmdRoomTitle())
+        self.add(social.CmdTempDesc())
+        self.add(social.CmdLanguages())
         self.add(maps.CmdMap())
 
 
@@ -204,6 +204,7 @@ class MobileCmdSet(CmdSet):
         self.add(investigation.CmdInvestigate())
         self.add(investigation.CmdAssistInvestigation())
         self.add(general.CmdUndress())
+        self.add(CmdApplyConsumable())
 
 
 class StaffCmdSet(CmdSet):
@@ -214,7 +215,7 @@ class StaffCmdSet(CmdSet):
         # The help system       
         self.add(help.CmdSetHelp())
         # System commands
-        self.add(system.CmdScripts())
+        self.add(overrides.CmdArxScripts())
         self.add(system.CmdObjects())
         self.add(system.CmdPlayers())
         self.add(system.CmdService())
@@ -243,7 +244,7 @@ class StaffCmdSet(CmdSet):
         self.add(building.CmdCreate())
         self.add(overrides.CmdDig())
         self.add(building.CmdTunnel())
-        self.add(building.CmdDestroy())
+        self.add(overrides.CmdArxDestroy())
         self.add(overrides.CmdArxExamine())
         self.add(building.CmdTypeclass())
         self.add(overrides.CmdArxLock())
@@ -262,6 +263,7 @@ class StaffCmdSet(CmdSet):
         self.add(staff_commands.CmdForce())
         self.add(staff_commands.CmdCcolor())
         self.add(staff_commands.CmdGMDisguise())
+        self.add(staff_commands.CmdGMEvent())
         self.add(extended_room.CmdExtendedDesc())
         self.add(xp.CmdAdjustSkill())
         self.add(xp.CmdAwardXP())

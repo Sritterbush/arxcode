@@ -60,7 +60,7 @@ _voc_start_stats_ = {"noble":          (3, 3, 3,  4, 5, 4,  3, 3, 2,  2, 2, 2),
                      "scholar":        (2, 2, 2,  3, 3, 3,  5, 5, 4,  2, 2, 3),
                      "lawyer":         (2, 2, 2,  3, 3, 3,  5, 5, 4,  2, 2, 3),
                      "steward":        (3, 3, 3,  3, 3, 3,  4, 4, 4,  2, 2, 2),
-                     "commoner":       (4, 3, 4,  4, 2, 2,  2, 2, 4,  2, 4, 2)}
+                     "commoner":       (4, 3, 4,  3, 2, 3,  2, 3, 4,  2, 4, 2)}
 # 20 points for skills
 _voc_start_skills_ = {"noble": {"diplomacy": 3, "leadership": 3, "etiquette": 2,
                                 "law": 1, "ride": 1,
@@ -69,12 +69,12 @@ _voc_start_skills_ = {"noble": {"diplomacy": 3, "leadership": 3, "etiquette": 2,
                                     "empathy": 2, "seduction": 3, "propaganda": 1},
                       "charlatan": {"legerdemain": 3, "manipulation": 3, "empathy": 1,
                                     "streetwise": 3, "occult": 1},
-                      "soldier": {"medium wpn": 1, "brawl": 2, "dodge": 1, "athletics": 1,
-                                  "war": 1, "archery": 1, "survival": 1},
+                      "soldier": {"medium wpn": 3, "brawl": 1, "dodge": 1,
+                                  "archery": 1, "survival": 1},
                       "knight": {"medium wpn": 3, "dodge": 1, "war": 1, "etiquette": 1,
                                  "ride": 2, "leadership": 1},
                       "lawyer": {"law": 4, "etiquette": 1, "empathy": 2, "manipulation": 2,
-                                 "diplomacy": 1, "teaching": 1, "investigation": 1, "linguistics": 1},
+                                 "teaching": 1, "investigation": 1, "linguistics": 1},
                       "priest": {"theology": 3, "occult": 2, "medicine": 3,
                                  "empathy": 1, "leadership": 1, "propaganda": 2},
                       "merchant": {"streetwise": 3, "empathy": 3, "manipulation": 1,
@@ -93,9 +93,9 @@ _voc_start_skills_ = {"noble": {"diplomacy": 3, "leadership": 3, "etiquette": 2,
                       "jeweler": {"smithing": 4, "teaching": 2, "etiquette": 1},
                       "scholar": {"medicine": 3, "occult": 2, "agriculture": 1, "economics": 1,
                                   "teaching": 3, "theology": 1, "law": 1, "etiquette": 1},
-                      "steward": {"stewardship": 4, "teaching": 2, "etiquette": 2, "law": 2,
-                                  "agriculture": 2, "economics": 1},
-                      "commoner": {"streetwise": 3, "stealth": 1, "brawl": 1, "athletics": 1, "survival": 2,
+                      "steward": {"stewardship": 4, "teaching": 1, "etiquette": 2, "law": 2,
+                                  "agriculture": 2},
+                      "commoner": {"streetwise": 2, "stealth": 1, "brawl": 1, "athletics": 1, "survival": 2,
                                    "agriculture": 1, "dodge": 1, "occult": 1, "investigation": 1}}
 
 
@@ -479,7 +479,7 @@ class CmdGuestCharCreate(MuxPlayerCommand):
         new_character = None
         # see if we've already defined email with @add/email
         email = player.ndb.email
-        args = self.args
+        args = self.lhs
         if email:
             args = email
         if not args:
@@ -502,9 +502,27 @@ class CmdGuestCharCreate(MuxPlayerCommand):
         if email != 'none':
             from web.character.models import RosterEntry
             try:
-                entry = RosterEntry.objects.get(roster__name="Incomplete",
-                                                player__email=email)
-                self.msg("{wFound an unfinished character with the provided email address. Resuming that session.{n")
+                try:
+                    entry = RosterEntry.objects.get(roster__name="Incomplete",
+                                                    player__email=email)
+                    self.msg("{wFound an unfinished character with the provided email address. "
+                             "Resuming that session.{n")
+                except RosterEntry.MultipleObjectsReturned:
+                    entries = RosterEntry.objects.filter(roster__name="Incomplete",
+                                                         player__email=email).order_by('player__date_joined')
+                    if not self.rhs:
+                        self.msg("Found %s incomplete characters with that email address." % entries.count())
+                        self.msg("Please @charcreate <email>=<number> to selection one, where <number> is "
+                                 "a number from 1 to %s, where 1 is the oldest character." % entries.count())
+                        return
+                    try:
+                        index = int(self.rhs) - 1
+                        entry = entries[index]
+                    except (ValueError, TypeError, IndexError):
+                        self.msg("Please select a number from 1 to "
+                                 "%s, where 1 is the oldest character." % entries.count())
+                        return
+                    self.msg("Choosing entry number %s out of the ones for that email." % index)
                 new_character = entry.character
                 stage = new_character.db.player_ob.db.tutorial_stage
                 if not stage:
@@ -1010,7 +1028,10 @@ class CmdGuestAddInput(MuxPlayerCommand):
                 return
             args = args.lower()
             if char:
-                char.db.player_ob.email = args
+                player = char.db.player_ob
+                player.email = args
+                player.save()
+                char.db.player_ob = player
                 char.save()
             caller.ndb.email = args
             caller.msg("Email set to %s" % args)

@@ -254,6 +254,18 @@ class CharacterCombatData(object):
         self.char.msg(mssg)
 
     @property
+    def can_fight(self):
+        if not self.char:
+            return False
+        if not self.combat:
+            return False
+        if self.char.location != self.combat.obj:
+            return False
+        if not self.char.conscious:
+            return False
+        return True
+
+    @property
     def ready(self):
         # if we're an automated npc, we are ALWAYS READY TO ROCK. BAM.
         return self.automated or self._ready
@@ -534,7 +546,9 @@ class CharacterCombatData(object):
         self.times_attacked += 1
         total = None
         if att.can_be_parried and self.can_parry:
-            parry_roll = int(do_dice_check(self.char, stat=self.attack_stat, skill=self.attack_skill, difficulty=diff))
+            parry_diff = diff + 10
+            parry_roll = int(do_dice_check(self.char, stat=self.attack_stat, skill=self.attack_skill,
+                                           difficulty=parry_diff))
             if parry_roll > 1:
                 parry_roll = (parry_roll/2) + randint(0, (parry_roll/2))
             total = parry_roll
@@ -551,22 +565,31 @@ class CharacterCombatData(object):
             if not total:
                 total = block_roll
             elif block_roll > 0:
-                total += block_roll
+                if total > block_roll:
+                    total += block_roll/2
+                else:
+                    total = (total/2) + block_roll
             elif block_roll > total:
                 total = (total + block_roll)/2
         else:
             block_roll = -1000
         if att.can_be_dodged and self.can_dodge:
+            # dodging is easier than parrying
+            dodge_diff = diff - 10
             try:
-                dodge_diff = diff + self.dodge_penalty
+                dodge_diff += self.dodge_penalty
             except (AttributeError, TypeError, ValueError):
-                dodge_diff = diff
+                pass
             dodge_roll = int(do_dice_check(self.char, stat="dexterity", skill="dodge", difficulty=dodge_diff))
             if dodge_roll >= 2:
                 dodge_roll = (dodge_roll/2) + randint(0, (dodge_roll/2))
             if not total:
                 total = dodge_roll
             elif dodge_roll > 0:
+                # if total > dodge_roll:
+                #     total += dodge_roll/2
+                # else:
+                #     total = (total/2) + dodge_roll
                 total += dodge_roll
             elif dodge_roll > total:
                 total = (total + dodge_roll)/2
@@ -641,15 +664,17 @@ class CharacterCombatData(object):
         if hasattr(self.char, 'armor_penalties'):
             armor_penalty = self.char.armor_penalties
         penalty = armor_penalty
-        self.num_actions += 1 + (0.09 * armor_penalty)
+        self.num_actions += 1 + (0.12 * armor_penalty)
         penalty += self.num_actions + 25
         keep = self.fatigue_soak
+        penalty = int(penalty)
+        penalty = penalty/2 + randint(0, penalty/2)
         myroll = do_dice_check(self.char, stat_list=["strength", "stamina", "dexterity", "willpower"],
                                skill="athletics", keep_override=keep, difficulty=int(penalty), divisor=2)
         myroll += randint(0, 25)
-        if myroll < 0 and self.fatigue_gained_this_turn < 2:
-            self.fatigue_penalty += 1
-            self.fatigue_gained_this_turn += 1
+        if myroll < 0 and self.fatigue_gained_this_turn < 1:
+            self._fatigue_penalty += 0.5
+            self.fatigue_gained_this_turn += 0.5
 
     @property
     def fatigue_soak(self):
@@ -664,16 +689,12 @@ class CharacterCombatData(object):
 
     @property
     def fatigue_penalty(self):
-        fat = self._fatigue_penalty
+        fat = int(self._fatigue_penalty)
         soak = self.fatigue_soak
         fat -= soak
         if fat < 0:
             return 0
         return fat
-
-    @fatigue_penalty.setter
-    def fatigue_penalty(self, value):
-        self._fatigue_penalty = value
 
     def fatigue_atk_penalty(self):
         fat = self.fatigue_penalty/2

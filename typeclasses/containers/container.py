@@ -9,12 +9,64 @@ from evennia.commands import cmdset
 from typeclasses.mixins import LockMixins
 
 
+# noinspection PyUnresolvedReferences
+class CmdChestKey(MuxCommand):
+    """
+    Grants a key to this chest to a player
+
+    Usage:
+        @chestkey <player>
+        @chestkey/rmkey <player>
+
+    Grants or removes keys to containers to a player.
+    """
+    key = "@chestkey"
+    locks = "cmd:all()"
+    help_category = "containers"
+
+    def func(self):
+        """
+        self.obj  #  type: Container
+        :return:
+        """
+        caller = self.caller
+        chestkeys = caller.db.chestkeylist or []
+        if (caller != self.obj.db.crafted_by and not caller.check_permstring("builders")
+                and self.obj not in chestkeys):
+            caller.msg("You cannot grant keys to %s." % self)
+            return
+        if not self.args:
+            caller.msg("Grant a key to whom?")
+            return
+        player = caller.player.search(self.args)
+        if not player:
+            return
+        char = player.db.char_ob
+        if not char:
+            return
+        if not self.switches:
+            if not self.obj.grantkey(char):
+                caller.msg("They already have a key.")
+                return
+            caller.msg("%s has been granted a key to %s." % (char, self.obj))
+            return
+        if "rmkey" in self.switches:
+            if not self.obj.rmkey(char):
+                caller.msg("They don't have a key.")
+                return
+            caller.msg("%s has had their key to %s removed." % (char, self.obj))
+            return
+        caller.msg("Invalid switch.")
+        return
+
+
 # noinspection PyTypeChecker
 class Container(LockMixins, DefaultObject):
     """
     Containers - bags, chests, etc. Players can have keys and can
     lock/unlock containers.
     """
+    # noinspection PyMethodMayBeStatic
     def create_container_cmdset(self, contdbobj):
         """
         Helper function for creating an container command set + command.
@@ -27,52 +79,7 @@ class Container(LockMixins, DefaultObject):
         for handling reloads and avoid tracebacks if this is called while
         the typeclass system is rebooting.
         """
-        # noinspection PyUnresolvedReferences
-        class CmdChestKey(MuxCommand):
-            """
-            Grants a key to this chest to a player
 
-            Usage:
-                @chestkey <player>
-            """
-            key = "@chestkey"
-            locks = "cmd:all()"
-            help_category = "containers"
-
-            def func(self):
-                """
-                self.obj  #  type: Container
-                :return:
-                """
-                caller = self.caller
-                chestkeys = caller.db.chestkeylist or []
-                if (caller != self.obj.db.crafted_by and not caller.check_permstring("builders")
-                        and self.obj not in chestkeys):
-                    caller.msg("You cannot grant keys to %s." % self)
-                    return
-                if not self.args:
-                    caller.msg("Grant a key to whom?")
-                    return
-                player = caller.player.search(self.args)
-                if not player:
-                    return
-                char = player.db.char_ob
-                if not char:
-                    return
-                if not self.switches:
-                    if not self.obj.grantkey(char):
-                        caller.msg("They already have a key.")
-                        return
-                    caller.msg("%s has been granted a key to %s." % (char, self.obj))
-                    return
-                if "rmkey" in self.switches:
-                    if not self.obj.rmkey(char):
-                        caller.msg("They don't have a key.")
-                        return
-                    caller.msg("%s has had their key to %s removed." % (char, self.obj))
-                    return
-                caller.msg("Invalid switch.")
-                return
         # create a cmdset
         container_cmdset = cmdset.CmdSet(None)
         container_cmdset.key = '_containerset'

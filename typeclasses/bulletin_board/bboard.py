@@ -48,9 +48,11 @@ class BBoard(Object):
             event.tag_obj(post)
         self.receiver_object_set.add(post)
         if announce:
-            for sub in self.db.subscriber_list:
+            subs = [ob for ob in self.db.subscriber_list if self.access(ob, "read")]
+            for sub in subs:
                 notify = "\n{{wNew post on {0} by {1}:{{n {2}".format(self.key, posted_by, subject)
                 sub.msg(notify)
+            self.db.subscriber_list = subs
         if self.db.max_posts and self.posts.count() > self.db.max_posts:
             self.posts.first().delete()
         return post
@@ -138,6 +140,7 @@ class BBoard(Object):
         # format post
         sender = self.get_poster(post)
         message = "\n{w" + "-"*60 + "{n\n"
+        message += "{wBoard:{n %s, {wPost Number:{n %s\n" % (self.key, list(self.posts).index(post) + 1)
         message += "{wPoster:{n %s\n" % sender
         message += "{wSubject:{n %s\n" % post.db_header
         message += "{wDate:{n %s\n" % post.db_date_created.strftime("%x %X")

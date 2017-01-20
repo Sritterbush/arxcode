@@ -26,23 +26,25 @@ class DescMixins(object):
     that won't override any current disguise, use .perm_desc. For a change
     that will change everything right now, disguise or not, use .desc.
     """
-    def __desc_get(self):
+    def _desc_get(self):
         """
         :type self: evennia.objects.models.ObjectDB
         :return:
         """
-        return self.db.desc or self.db.raw_desc or self.db.general_desc
+        return (self.db.desc or self.db.raw_desc or self.db.general_desc or "") + self.additional_desc
 
-    def __desc_set(self, val):
+    def _desc_set(self, val):
         """
         :type self: ObjectDB
         """
         # desc may be changed dynamically
-        self.db.raw_desc = val
         self.db.desc = val
-        # general desc is our fallback
-        self.db.general_desc = val
-    desc = property(__desc_get, __desc_set)
+        if self.db.raw_desc:
+            self.db.raw_desc = val
+        if self.db.general_desc:
+            # general desc is our fallback
+            self.db.general_desc = val
+    desc = property(_desc_get, _desc_set)
 
     def __temp_desc_get(self):
         """
@@ -78,7 +80,7 @@ class DescMixins(object):
         :type self: ObjectDB
         :return:
         """
-        return self.db.raw_desc or self.db.general_desc or self.db.desc
+        return (self.db.raw_desc or self.db.general_desc or self.db.desc or "") + self.additional_desc
 
     def __perm_desc_set(self, val):
         """
@@ -94,7 +96,7 @@ class DescMixins(object):
         """
         total = 0
         for obj in self.contents:
-            if obj.db.worn_by != self and obj.db.sheathed_by != self:
+            if not obj.db.currently_worn and obj.db.sheathed_by != self:
                 vol = obj.db.volume or 1
                 total += vol
         return total
@@ -121,6 +123,35 @@ class DescMixins(object):
     @property
     def alive(self):
         return self.health_status == "alive"
+
+    @property
+    def additional_desc(self):
+        """
+        :type self: ObjectDB
+        """
+        try:
+            if self.db.additional_desc:
+                return "\n\n" + "{w({n%s{w){n" % self.db.additional_desc
+        except TypeError:
+            return ""
+        return ""
+
+    @additional_desc.setter
+    def additional_desc(self, value):
+        """
+        :type self: ObjectDB
+        """
+        if not value:
+            self.db.additional_desc = ""
+        else:
+            self.db.additional_desc = str(value)
+
+    @additional_desc.deleter
+    def additional_desc(self):
+        """
+        :type self: ObjectDB
+        """
+        self.attributes.remove("additional_desc")
 
 
 class NameMixins(object):
@@ -162,7 +193,9 @@ class NameMixins(object):
         """
         :type self: ObjectDB
         """
-        return self.fakename or self.db.colored_name or self.key
+        name = self.fakename or self.db.colored_name or self.key or ""
+        name = name.rstrip("{/").rstrip("|/") + ("{n" if ("{" in name or "|" in name or "%" in name) else "")
+        return name
 
     def __name_set(self, val):
         """
@@ -211,7 +244,7 @@ class AppearanceMixins(object):
         string = ""
         # get and identify all objects
         visible = (con for con in self.contents if con != pobject and con.access(pobject, "view"))
-        exits, users, things, worn, sheathed, wielded, places = [], [], [], [], [], [], []
+        exits, users, things, worn, sheathed, wielded, places, npcs = [], [], [], [], [], [], [], []
         currency = self.return_currency()
         from typeclasses.places.places import Place
         qs = list(Place.objects.filter(db_location=self))
@@ -223,7 +256,7 @@ class AppearanceMixins(object):
             if con.destination:
                 exits.append(key)
             # Only display worn items in inventory to other characters
-            elif con.db.worn_by and con.db.worn_by == self:
+            elif con.db.currently_worn:
                 worn.append(con)
             elif con.db.wielded_by == self:
                 if not con.db.stealth:
@@ -243,6 +276,8 @@ class AppearanceMixins(object):
                     users.append(lname)
                 else:
                     users.append("{c%s{n" % lname)
+            elif hasattr(con, 'is_character') and con.is_character:
+                npcs.append(con)
             else:
                 if not self.db.places:
                     things.append(con)
@@ -260,10 +295,11 @@ class AppearanceMixins(object):
                 string += "\n{wPlaces:{n " + ", ".join(places)
             if exits:
                 string += "\n{wExits:{n " + ", ".join(exits)
-            if users or things:
-                if things:
-                    things = sorted(things, key=lambda x: x.db.put_time)
-                string += "\n{wYou see:{n " + ", ".join(users + [get_key(ob) for ob in things])
+            if users or npcs:
+                string += "\n{wCharacters:{n " + ", ".join(users + [get_key(ob) for ob in npcs])
+            if things:
+                things = sorted(things, key=lambda x: x.db.put_time)
+                string += "\n{wObjects:{n " + ", ".join([get_key(ob) for ob in things])
             if currency:
                 string += "\n{wMoney:{n %s" % currency
         return string
@@ -371,16 +407,24 @@ class AppearanceMixins(object):
             except CraftingRecipe.DoesNotExist:
                 pass
         # quality_level is an integer, we'll get a name from crafter file's dict
-        if self.db.quality_level:
-            from commands.commands.crafting import QUALITY_LEVELS
-            qual = self.db.quality_level
-            qual = QUALITY_LEVELS.get(qual, "average")
-            string += "\nIts level of craftsmanship is %s." % qual
+        string += self.get_quality_appearance()
         # signed_by is a crafter's character object
         signed = self.db.signed_by
         if signed:
             string += "\n%s" % (signed.db.crafter_signature or "")
         return string
+
+    def get_quality_appearance(self):
+        """
+        :type self: ObjectDB
+        :return str:
+        """
+        if self.db.quality_level:
+            from commands.commands.crafting import QUALITY_LEVELS
+            qual = self.db.quality_level
+            qual = QUALITY_LEVELS.get(qual, "average")
+            return "\nIts level of craftsmanship is %s." % qual
+        return ""
 
 
 class ObjectMixins(DescMixins, AppearanceMixins):
@@ -396,6 +440,35 @@ class ObjectMixins(DescMixins, AppearanceMixins):
     @property
     def is_character(self):
         return False
+
+    # noinspection PyAttributeOutsideInit
+    def softdelete(self):
+        """
+        Only fake-delete the object, storing the date it was fake deleted for removing it permanently later.
+
+        :type self: ObjectDB
+        """
+        import time
+        self.location = None
+        self.tags.add("deleted")
+        self.db.deleted_time = time.time()
+
+    # noinspection PyAttributeOutsideInit
+    def undelete(self, move=True):
+        """
+        :type self: ObjectDB
+        :type move: Boolean
+        :return:
+        """
+        self.tags.remove("deleted")
+        self.attributes.remove("deleted_time")
+        if move:
+            from typeclasses.rooms import ArxRoom
+            try:
+                room = ArxRoom.objects.get(db_key__iexact="Island of Lost Toys")
+                self.location = room
+            except ArxRoom.DoesNotExist:
+                pass
 
 
 class MsgMixins(object):
@@ -424,6 +497,14 @@ class MsgMixins(object):
             except Exception:
                 import traceback
                 traceback.print_exc()
+        lang = options.get('language', None)
+        msg_content = options.get('msg_content', None)
+        if lang and msg_content:
+            try:
+                if not self.check_permstring("builders") and lang.lower() not in self.languages.known_languages:
+                    text = text.replace(msg_content, "<Something in %s that you don't understand>." % lang.capitalize())
+            except AttributeError:
+                pass
         if options.get('is_pose', False):
             if self.db.posebreak:
                 text = "\n" + text
@@ -471,13 +552,13 @@ class LockMixins(object):
         :type self: ObjectDB
         :param caller: ObjectDB
         """
+        if caller and not self.access(caller, 'usekey'):
+            caller.msg("You do not have a key to %s." % self)
+            return
         self.locks.add("traverse: perm(builders)")
         if self.db.locked:
             if caller:
                 caller.msg("%s is already locked." % self)
-            return
-        if caller and not self.access(caller, 'usekey'):
-            caller.msg("You do not have a key to %s." % self)
             return
         self.db.locked = True      
         msg = "%s is now locked." % self.key
@@ -496,13 +577,13 @@ class LockMixins(object):
         :param caller: ObjectDB
         :return:
         """
+        if caller and not self.access(caller, 'usekey'):
+            caller.msg("You do not have a key to %s." % self)
+            return
         self.locks.add("traverse: all()")
         if not self.db.locked:
             if caller:
                 caller.msg("%s is already unlocked." % self)
-            return
-        if caller and not self.access(caller, 'usekey'):
-            caller.msg("You do not have a key to %s." % self)
             return
         self.db.locked = False  
         msg = "%s is now unlocked." % self.key

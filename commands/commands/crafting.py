@@ -11,7 +11,6 @@ from server.utils.prettytable import PrettyTable
 from server.utils.arx_utils import validate_name, inform_staff
 from evennia.utils import utils
 from evennia.utils.utils import make_iter
-from random import randint
 
 AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
 
@@ -23,6 +22,7 @@ BOOK = "typeclasses.readable.readable.Readable"
 CONTAINER = "typeclasses.containers.container.Container"
 WEARABLE_CONTAINER = "typeclasses.wearable.wearable.WearableContainer"
 BAUBLE = "typeclasses.bauble.Bauble"
+PERFUME = "typeclasses.consumable.perfume.Perfume"
 
 QUALITY_LEVELS = {
     0: '{rawful{n',
@@ -117,6 +117,13 @@ def create_generic(recipe, roll, proj, caller):
     return obj, quality
 
 
+def create_consumable(recipe, roll, proj, caller, typeclass):
+    quality = get_quality_lvl(roll, recipe.difficulty)
+    obj = create_obj(typeclass, proj[1], caller,
+                     caller, quality)
+    return obj, quality
+
+
 def create_obj(typec, key, loc, home, quality):
     if "{" in key and not key.endswith("{n"):
         key += "{n"
@@ -153,15 +160,13 @@ def get_ability_val(char, recipe):
     return ability
     
 
-def do_crafting_roll(char, recipe, diffmod=0, diffmult=1.0):
+def do_crafting_roll(char, recipe, diffmod=0, diffmult=1.0, room=None):
     diff = int(recipe.difficulty * diffmult) - diffmod
-    # limit on spending money - can only take difficulty to 0
-    if diff < 0:
-        diff = 0
     ability = get_ability_val(char, recipe)
     skill = recipe.skill
     stat = "luck" if char.db.luck > char.db.dexterity else "dexterity"
-    return do_dice_check(char, stat=stat, difficulty=diff, skill=skill, bonus_dice=ability)
+    return do_dice_check(char, stat=stat, difficulty=diff, skill=skill, bonus_dice=ability, quiet=False,
+                         announce_room=room)
 
 
 def get_difficulty_mod(recipe, money=0):
@@ -245,7 +250,9 @@ class CmdCraft(MuxCommand):
     are ready to /finish the project and make the roll for its quality.
     Once you /finish an object, it can no longer have materials added
     to it, only be /refine'd for a better quality level. Additional
-    money spent when finishing gives a bonus to the roll.
+    money spent when finishing gives a bonus to the roll. For things
+    such as perfume, the desc is the description that appears on the
+    character, not the description of the bottle.
 
     To finish a project, use /finish, or /abandon if you wish to stop
     and do something else. To attempt to change the quality level of
@@ -427,10 +434,7 @@ class CmdCraft(MuxCommand):
                                                                                                        recipe.name,
                                                                                                        price))
 
-            roll = do_crafting_roll(crafter, recipe, diffmod, diffmult=0.75)
-            if randint(1, 20) == 20:
-                self.msg("{yYou got a critical success!{n")
-                roll *= 2
+            roll = do_crafting_roll(crafter, recipe, diffmod, diffmult=0.75, room=caller.location)
             quality = get_quality_lvl(roll, recipe.difficulty)
             old = targ.db.quality_level or 0
             attempts += 1
@@ -617,7 +621,7 @@ class CmdCraft(MuxCommand):
             # determine difficulty modifier if we tossed in more money
             diffmod = get_difficulty_mod(recipe, invest)
             # do crafting roll
-            roll = do_crafting_roll(crafter, recipe, diffmod)
+            roll = do_crafting_roll(crafter, recipe, diffmod, room=caller.location)
             # get type from recipe
             otype = recipe.type
             # create object
@@ -635,6 +639,8 @@ class CmdCraft(MuxCommand):
                 obj, quality = create_decorative_weapon(recipe, roll, proj, caller)
             elif otype == "wearable_container":
                 obj, quality = create_wearable_container(recipe, roll, proj, caller)
+            elif otype == "perfume":
+                obj, quality = create_consumable(recipe, roll, proj, caller, PERFUME)
             else:
                 obj, quality = create_generic(recipe, roll, proj, caller)
             # finish stuff universal to all crafted objects
@@ -651,7 +657,7 @@ class CmdCraft(MuxCommand):
                                                                                                        price))
             if proj[4]:
                 obj.db.forgeries = proj[4]
-                obj.db.forgery_roll = do_crafting_roll(caller, recipe)
+                obj.db.forgery_roll = do_crafting_roll(caller, recipe, room=caller.location)
                 # forgery penalty will be used to degrade weapons/armor
                 obj.db.forgery_penalty = (recipe.value/realvalue) + 1
             cnoun = "You" if caller == crafter else crafter
@@ -814,13 +820,19 @@ class CmdJunk(MuxCommand):
         if obj.db.player_ob or obj.player:
             caller.msg("You cannot +junk a character.")
             return
+        if obj.contents:
+            self.msg("It contains objects that must first be removed.")
+            return
         if obj.db.destroyable:
             caller.msg("You have destroyed %s." % obj)
-            obj.delete()
+            obj.softdelete()
             return
         recipe = obj.db.recipe
         if not recipe:
             caller.msg("You may only +junk crafted objects.")
+            return
+        if "plot" in obj.tags.all():
+            self.msg("This object cannot be destroyed.")
             return
         mats = obj.db.materials
         adorns = obj.db.adorns or {}
@@ -851,4 +863,4 @@ class CmdJunk(MuxCommand):
             pmat.save()            
             refunded.append("%s %s" % (amount, cmat.name))
         caller.msg("By destroying %s, you have received: %s" % (obj, ", ".join(refunded)))
-        obj.delete()
+        obj.softdelete()

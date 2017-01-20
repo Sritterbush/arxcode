@@ -53,9 +53,9 @@ class OrgListFilter(admin.SimpleListFilter):
 
 
 class OrgAdmin(DomAdmin):
-    list_display = ('name', 'membership')
+    list_display = ('name', 'membership', 'category')
     ordering = ['name']
-    search_fields = ['name']
+    search_fields = ['name', 'category', 'members__player__player__username']
     list_filter = (OrgListFilter,)
 
     @staticmethod
@@ -150,6 +150,7 @@ class MaterialsAdmin(DomAdmin):
 
 class EventAdmin(DomAdmin):
     list_display = ('id', 'name', 'date')
+    search_fields = ['name', 'hosts__player__username', 'participants__player__username', 'gms__player__username']
     ordering = ['date']
     raw_id_fields = ('location',)
     filter_horizontal = ['hosts', 'participants', 'gms']

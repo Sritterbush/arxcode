@@ -780,6 +780,11 @@ class CmdPage(MuxPlayerCommand):
             if not pobj.access(caller, 'msg'):
                 r_strings.append("You are not allowed to page %s." % pobj)
                 continue
+            if "ic_only" in caller.tags.all() and pobj not in caller.allow_list:
+                msg = "%s is not in your allow list, and you are IC Only. " % caller
+                msg += "Allow them to send a page, or disable the IC Only @setting."
+                self.msg(msg)
+                continue
             pobj.msg("%s %s" % (header, message), from_obj=caller, options={'log_msg': True})
             if not pobj.ndb.pages_received:
                 pobj.ndb.pages_received = []
@@ -928,37 +933,40 @@ class CmdDiceCheck(MuxCommand):
                 caller.msg("There must be one unique match for a character skill. Please check spelling and try again.")
                 return
             skill = matches[0]
-        result = stats_and_skills.do_dice_check(caller, stat, skill, difficulty)
-        if result+difficulty >= difficulty:
-            resultstr = "resulting in %s, %s {whigher{n than the difficulty" % (result+difficulty, result)
+        if not self.rhs:
+            stats_and_skills.do_dice_check(caller, stat, skill, difficulty, quiet=False)
         else:
-            resultstr = "resulting in %s, %s {rlower{n than the difficulty" % (result+difficulty, -result)
-        
-        if not skill:
-            roll_msg = "checked %s against difficulty %s, %s{n." % (stat, difficulty, resultstr)
-        else:
-            roll_msg = "checked %s + %s against difficulty %s, %s{n." % (stat, skill, difficulty, resultstr)
-        caller.msg("You " + roll_msg)
-        roll_msg = caller.key.capitalize() + " " + roll_msg
-        # if they have a recepient list, only tell those people (and GMs)
-        if self.rhs:
-            namelist = [name.strip() for name in self.rhs.split(",")]
-            for name in namelist:
-                rec_ob = caller.search(name, use_nicks=True)
-                if rec_ob:
-                    orig_msg = roll_msg
-                    if rec_ob.attributes.has("dice_string"):
-                        roll_msg = "{w<" + rec_ob.db.dice_string + "> {n" + roll_msg
-                    rec_ob.msg(roll_msg)
-                    roll_msg = orig_msg
-                    rec_ob.msg("Private roll sent to: %s" % ", ".join(namelist))
-            # GMs always get to see rolls.
-            staff_list = [x for x in caller.location.contents if x.check_permstring("Builders")]
-            for GM in staff_list:
-                GM.msg("{w(Private roll){n" + roll_msg)
-            return
-        # not a private roll, tell everyone who is here
-        caller.location.msg_contents(roll_msg, exclude=caller, options={'roll': True})
+            result = stats_and_skills.do_dice_check(caller, stat, skill, difficulty)
+            if result+difficulty >= difficulty:
+                resultstr = "resulting in %s, %s {whigher{n than the difficulty" % (result+difficulty, result)
+            else:
+                resultstr = "resulting in %s, %s {rlower{n than the difficulty" % (result+difficulty, -result)
+
+            if not skill:
+                roll_msg = "checked %s against difficulty %s, %s{n." % (stat, difficulty, resultstr)
+            else:
+                roll_msg = "checked %s + %s against difficulty %s, %s{n." % (stat, skill, difficulty, resultstr)
+            caller.msg("You " + roll_msg)
+            roll_msg = caller.key.capitalize() + " " + roll_msg
+            # if they have a recepient list, only tell those people (and GMs)
+            if self.rhs:
+                namelist = [name.strip() for name in self.rhs.split(",")]
+                for name in namelist:
+                    rec_ob = caller.search(name, use_nicks=True)
+                    if rec_ob:
+                        orig_msg = roll_msg
+                        if rec_ob.attributes.has("dice_string"):
+                            roll_msg = "{w<" + rec_ob.db.dice_string + "> {n" + roll_msg
+                        rec_ob.msg(roll_msg)
+                        roll_msg = orig_msg
+                        rec_ob.msg("Private roll sent to: %s" % ", ".join(namelist))
+                # GMs always get to see rolls.
+                staff_list = [x for x in caller.location.contents if x.check_permstring("Builders")]
+                for GM in staff_list:
+                    GM.msg("{w(Private roll){n" + roll_msg)
+                return
+            # not a private roll, tell everyone who is here
+            caller.location.msg_contents(roll_msg, exclude=caller, options={'roll': True})
         
 
 # implement CmdMail. player.db.Mails is List of Mail
@@ -996,7 +1004,7 @@ class CmdMail(MuxPlayerCommand):
         switches = self.switches
 
         # mailbox is combined from Player object and his characters
-        mails = caller.db.mails
+        mails = caller.db.mails or []
         
         # error message for invalid argument
         nomatch = "You must supply a number matching a mail message."
@@ -1151,6 +1159,9 @@ class CmdDirections(MuxCommand):
         if not room:
             caller.msg("No matches for %s." % self.args)
             return
+        if "unmappable" in caller.location.tags.all() or "unmappable" in room.tags.all():
+            self.msg("{rOne of the rooms is unmappable. You cannot get directions there.{n")
+            return
         caller.msg("Attempting to find where your destination is in relation to your position." +
                    " Please use {w@map{n if the directions don't have a direct exit there.")
         directions = caller.get_directions(room)
@@ -1302,10 +1313,12 @@ class CmdInform(MuxPlayerCommand):
     @inform - reads messages sent to you by the game
     Usage:
         @inform
-        @inform <number>
-        @inform/del <number>
+        @inform <number>[=<end number>]
+        @inform/del <number>[=<end number>]
+        @inform/shopminimum <number>
 
-
+    Displays your informs. /shopminimum sets a minimum amount that must be paid
+    before you are informed of activity in your shops.
     """
     key = "@inform"
     aliases = ["@informs"]
@@ -1320,9 +1333,33 @@ class CmdInform(MuxPlayerCommand):
             inform.is_unread = False
             inform.save()
 
+    def get_inform(self, val):
+        informs = self.caller.informs.all()
+        try:
+            val = int(val)
+            if val <= 0:
+                raise ValueError
+            inform = informs[val - 1]
+            return inform
+        except (ValueError, IndexError):
+            self.msg("You must specify a number between 1 and %s." % len(informs))
+
     def func(self):
         caller = self.caller
         informs = list(caller.informs.all())
+        if "shopminimum" in self.switches:
+            if not self.args:
+                self.msg("Removing minimum.")
+                self.caller.db.char_ob.attributes.remove("min_shop_price_inform")
+                return
+            try:
+                caller.db.char_ob.db.min_shop_price_inform = int(self.args)
+                self.msg("Minimum price set to %s." % self.args)
+            except (TypeError, ValueError):
+                self.msg("Must specify a number.")
+            except AttributeError:
+                self.msg("Character object not found.")
+            return
         if not informs:
             caller.msg("You have no messages from the game waiting for you.")
             return
@@ -1348,20 +1385,29 @@ class CmdInform(MuxPlayerCommand):
             table.reformat_column(index=2, width=19)
             caller.msg(table)
             return
-        try:
-            val = int(self.args)
-            if val <= 0:
-                raise ValueError
-            inform = informs[val - 1]
-        except (ValueError, IndexError):
-            caller.msg("You must specify a number between 1 and %s." % len(informs))
-            return
+        if not self.rhs:
+            inform = self.get_inform(self.lhs)
+            if not inform:
+                return
+            informs = [inform]
+        else:
+            try:
+                vals = range(int(self.lhs), int(self.rhs) + 1)
+                if not vals:
+                    raise ValueError
+            except ValueError:
+                self.msg("Invalid numbers.")
+                return
+            informs = [self.get_inform(val) for val in vals]
+            informs = [ob for ob in informs if ob]
         if not self.switches:
-            self.read_inform(caller, inform)
+            for inform in informs:
+                self.read_inform(caller, inform)
             return
         if "del" in self.switches:
-            inform.delete()
-            caller.msg("Inform deleted.")
+            for inform in informs:
+                inform.delete()
+                caller.msg("Inform deleted.")
             return
         caller.msg("Invalid switch.")
         return
@@ -1425,7 +1471,7 @@ class CmdUndress(MuxCommand):
         # Iterate over all the contents of the caller's inventory
         for obj in caller.contents:
             # Ensure the item is currently worn and that it's worn by the wearer - just in case
-            if obj.db.currently_worn and obj.db.worn_by == caller:
+            if obj.db.currently_worn:
                 # Remove the wearable, setting the fact it is worn and who it is worn by to false/null
                 obj.remove(caller)
 
@@ -1464,6 +1510,12 @@ class CmdLockObject(MuxCommand):
         verb = self.cmdstring.lstrip("+")
         obj = caller.search(self.args)
         if not obj:
+            return
+        if hasattr(obj, 'lock_exit'):
+            if verb == "lock":
+                obj.lock_exit(caller)
+            else:
+                obj.unlock_exit(caller)
             return
         try:
             lock_method = getattr(obj, verb)

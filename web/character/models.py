@@ -108,20 +108,20 @@ class RosterEntry(models.Model):
 
     def fake_delete(self):
         try:
-            delroster = Roster.objects.get(name__iexact="Deleted")
+            del_roster = Roster.objects.get(name__iexact="Deleted")
         except Roster.DoesNotExist:
             print("Could not find Deleted Roster!")
             return
-        self.roster = delroster
+        self.roster = del_roster
         self.inactive = True
         self.frozen = True
         self.save()
 
-    def undelete(self, rname="Active"):
+    def undelete(self, r_name="Active"):
         try:
-            roster = Roster.objects.get(name__iexact=rname)
+            roster = Roster.objects.get(name__iexact=r_name)
         except Roster.DoesNotExist:
-            print("Could not find %s roster!" % rname)
+            print("Could not find %s roster!" % r_name)
             return
         self.roster = roster
         self.inactive = False
@@ -458,8 +458,8 @@ class ClueDiscovery(models.Model):
 
     def display(self):
         if not self.finished:
-            return self.message or "An investigation that hasn't yet yieled anything defininite."
-        msg = self.clue.name + "\n"
+            return self.message or "An investigation that hasn't yet yielded anything definite."
+        msg = "\n{c%s{n\n" % self.clue.name
         msg += self.clue.desc + "\n"
         if self.message:
             msg += "\n" + self.message
@@ -492,7 +492,7 @@ class ClueDiscovery(models.Model):
     @property
     def progress_percentage(self):
         try:
-            return self.clue.rating/self.roll
+            return int((float(self.roll)/float(self.clue.rating)) * 100)
         except (AttributeError, TypeError, ValueError, ZeroDivisionError):
             return 0
 
@@ -654,15 +654,15 @@ class Investigation(models.Model):
         diff = (diff if diff is not None else self.difficulty) + mod
         roll = self.do_obj_roll(self, diff)
         for ass in self.active_assistants:
-            aroll = self.do_obj_roll(ass, diff)
-            if aroll < 0:
-                aroll = 0
+            a_roll = self.do_obj_roll(ass, diff)
+            if a_roll < 0:
+                a_roll = 0
             try:
                 ability_level = ass.char.db.abilities['investigation_assistant']
             except (AttributeError, ValueError, KeyError):
                 ability_level = 0
-            aroll += random.randint(0, 5) * ability_level
-            roll += aroll
+            a_roll += random.randint(0, 5) * ability_level
+            roll += a_roll
         # save the character's roll
         print("final roll is %s" % roll)
         self.roll = roll
@@ -671,14 +671,16 @@ class Investigation(models.Model):
     @property
     def resource_mod(self):
         mod = 0
-        silvermod = self.silver/2500
-        if silvermod > 20:
-            silvermod = 20
-        mod += silvermod
-        resmod = int((self.economic + self.military + self.social)/2.5)
-        if resmod > 60:
-            resmod = 60
-        mod += resmod
+        silver_mod = self.silver/2500
+        if silver_mod > 20:
+            silver_mod = 20
+        mod += silver_mod
+        res_mod = int((self.economic + self.military + self.social)/2.5)
+        if random.randint(0, 5) < (self.economic + self.military + self.social) % 5:
+            res_mod += 1
+        if res_mod > 60:
+            res_mod = 60
+        mod += res_mod
         return mod
 
     def _get_roll(self):
@@ -821,36 +823,36 @@ class Investigation(models.Model):
 
     @property
     def keywords(self):
-        kwords = [str(ob) for ob in self.topic.lower().split()]
+        k_words = [str(ob) for ob in self.topic.lower().split()]
         # add back in the phrases for phrase matching
-        if len(kwords) > 1:
-            for pos in range(0, len(kwords)):
+        if len(k_words) > 1:
+            for pos in range(0, len(k_words)):
                 phrase = []
-                for spos in range(0, pos):
-                    phrase.append(kwords[spos])
-                kwords.append(" ".join(phrase))
+                for s_pos in range(0, pos):
+                    phrase.append(k_words[s_pos])
+                k_words.append(" ".join(phrase))
         for word in ("a", "or", "an", "the", "and", "but", "not",
                      "yet", "with", "in", "how", "if", "of"):
-            if word in kwords:
-                kwords.remove(str(word))
-        if self.topic.lower() not in kwords:
-            kwords.append(str(self.topic.lower()))
-        return kwords
+            if word in k_words:
+                k_words.remove(str(word))
+        if self.topic.lower() not in k_words:
+            k_words.append(str(self.topic.lower()))
+        return k_words
 
     def find_target_clue(self):
         """
         Finds a target clue based on our topic and our investigation history.
         We'll choose the lowest rating out of 3 random choices.
         """
-        kwords = self.keywords
+        k_words = self.keywords
         candidates = Clue.objects.filter(Q(investigation_tags__icontains=self.topic) &
                                          ~Q(characters=self.character)).order_by('rating')
-        for kword in kwords:
-            qs = Clue.objects.filter(Q(investigation_tags__icontains=kword) &
+        for k_word in k_words:
+            qs = Clue.objects.filter(Q(investigation_tags__icontains=k_word) &
                                      ~Q(characters=self.character)).order_by('rating')
             candidates = candidates | qs
         try:
-            candidates = [ob for ob in candidates if any(set(kwords) & set(ob.keywords))]
+            candidates = [ob for ob in candidates if any(set(k_words) & set(ob.keywords))]
             choices = []
             for x in range(0, 3):
                 choices.append(random.randint(0, len(candidates) - 1))
@@ -903,16 +905,16 @@ class Investigation(models.Model):
     def progress_str(self):
         try:
             clue = self.clues.get(clue=self.targeted_clue)
-            prog = clue.progress_percentage
+            progress = clue.progress_percentage
         except (ClueDiscovery.DoesNotExist, AttributeError):
-            prog = 0
-        if prog <= 0:
+            progress = 0
+        if progress <= 0:
             return "No real progress has been made to finding something new."
-        if prog <= 25:
+        if progress <= 25:
             return "You've made some progress."
-        if prog <= 50:
+        if progress <= 50:
             return "You've made a good amount of progress."
-        if prog <= 75:
+        if progress <= 75:
             return "You feel like you're getting close to finding something."
         return "You feel like you're on the verge of a breakthrough. You just need more time."
 
@@ -941,5 +943,5 @@ class Theory(models.Model):
         msg = "\n{wCreator{n: %s\n" % self.creator
         msg += "{wTopic{n: %s\n" % self.topic
         msg += "{wDesc{n: %s\n" % self.desc
-        msg += "{wRelated Theories{n: %s\n" ", ".join(ob.id for ob in self.related_theories.all())
+        msg += "{wRelated Theories{n: %s\n" % ", ".join(str(ob.id) for ob in self.related_theories.all())
         return msg

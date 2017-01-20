@@ -67,6 +67,18 @@ def list_topics(request):
 def list_recipes(request):
     user = request.user
     all_recipes = CraftingRecipe.objects.all().order_by('ability', 'difficulty')
+    recipe_name = request.GET.get("recipe_name")
+    if recipe_name:
+        all_recipes = all_recipes.filter(name__icontains=recipe_name)
+    ability = request.GET.get("ability")
+    if ability:
+        all_recipes = all_recipes.filter(ability__iexact=ability)
+    difficulty = request.GET.get("difficulty")
+    if difficulty:
+        try:
+            all_recipes = all_recipes.filter(difficulty__gte=difficulty)
+        except (ValueError, TypeError):
+            pass
     known_recipes = []
     materials = CraftingMaterialType.objects.all().order_by('value')
     try:

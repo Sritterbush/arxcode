@@ -10,6 +10,7 @@ creation commands.
 from evennia import DefaultCharacter
 from typeclasses.mixins import MsgMixins, ObjectMixins, NameMixins
 from world.msgs.messagehandler import MessageHandler
+from world.msgs.languagehandler import LanguageHandler
 from evennia.utils.utils import lazy_property
 import time
 from world.stats_and_skills import do_dice_check
@@ -67,6 +68,10 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     def messages(self):    
         return MessageHandler(self)
 
+    @lazy_property
+    def languages(self):
+        return LanguageHandler(self)
+
     def at_after_move(self, source_location):
         """
         Hook for after movement. Look around, with brief determining how much detail we get.
@@ -123,11 +128,16 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
                 desc = parse_ansi(desc, strip_ansi=True)
             except (AttributeError, ValueError, TypeError, UnicodeDecodeError):
                 pass
+        script = self.appearance_script
         if desc:
             extras = self.return_extras(pobject)
             if extras:
                 extras += "\n"
             string += "\n\n%s%s" % (extras, desc)
+        if script:
+            scent = script.db.scent
+            if scent:
+                string += "\n%s" % scent
         if health_appearance:
             string += "\n\n%s" % health_appearance
         string += self.return_contents(pobject, detailed, strip_ansi=strip_ansi)
@@ -136,6 +146,13 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     @property
     def species(self):
         return self.db.species or "Human"
+
+    @property
+    def appearance_script(self):
+        scripts = self.scripts.get("Appearance")
+        if scripts:
+            return scripts[0]
+
 
     def return_extras(self, pobject):
         """
@@ -227,7 +244,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
 
     @property
     def conscious(self):
-        return self.db.sleep_status == "awake" and self.db.health_status != "dead"
+        return ((self.db.sleep_status != "unconscious" and self.db.sleep_status != "asleep")
+                and self.db.health_status != "dead")
 
     def wake_up(self, quiet=False):
         """
@@ -309,12 +327,14 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             self.db.last_recovery_test = time.time()
         return roll
 
-    def sensing_check(self, difficulty=15, invis=False):
+    def sensing_check(self, difficulty=15, invis=False, allow_wake=False):
         """
         See if the character detects something that is hiding or invisible.
         The difficulty is supplied by the calling function.
         Target can be included for additional situational
         """
+        if not self.conscious and not allow_wake:
+            return -100
         roll = do_dice_check(self, stat="perception", stat_keep=True, difficulty=difficulty)
         return roll
 
@@ -330,7 +350,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     
     def _get_worn(self):
         """Returns list of items in inventory currently being worn."""
-        return [ob for ob in self.contents if ob.db.worn_by == self]
+        return [ob for ob in self.contents if ob.db.currently_worn]
     
     def _get_armor(self):
         """
@@ -734,3 +754,13 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             if obj != self:
                 obj.msg(string % (self.get_display_name(obj),
                                   " from %s" % source_location.get_display_name(obj) if source_location else ""))
+
+    @property
+    def can_crit(self):
+        try:
+            if self.roster.roster.name == "Active":
+                return True
+            else:
+                return False
+        except AttributeError:
+            return False

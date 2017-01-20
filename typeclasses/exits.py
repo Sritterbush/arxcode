@@ -105,7 +105,8 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         exit_cmdset.add(passcmd)
         return exit_cmdset
 
-    def at_traverse(self, traversing_object, target_location, key_message=True, special_entrance=None, quiet=False):
+    def at_traverse(self, traversing_object, target_location, key_message=True, special_entrance=None, quiet=False,
+                    allow_follow=True):
         """
         This implements the actual traversal. The traverse lock has already been
         checked (in the Exit command) at this point.
@@ -118,7 +119,7 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
                 traversing_object.msg(msg)
             self.at_after_traverse(traversing_object, source_location)
             # move followers
-            if traversing_object and traversing_object.ndb.followers:
+            if traversing_object and traversing_object.ndb.followers and allow_follow:
                 invalid_followers = []
                 valid_followers = []
                 leader = None
@@ -197,6 +198,40 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         if not entrances:
             return "nowhere"
         return entrances[0]
+
+    def lock_exit(self, caller=None):
+        """
+        Lock exit will lock an exit -and- the reverse exit
+        """
+        if str(self.destination.id) not in self.locks.all() or str(self.location.id) not in self.locks.all():
+            self.locks.add("usekey: perm(builders) or roomkey(%s) or roomkey(%s)" % (self.destination.id,
+                                                                                     self.location.id))
+        self.lock(caller)
+        try:
+            self.reverse_exit.lock(caller)
+            if (str(self.destination.id) not in self.reverse_exit.locks.all()
+                    or str(self.location.id) not in self.reverse_exit.locks.all()):
+                self.reverse_exit.locks.add("usekey: perm(builders) or roomkey(%s) or roomkey(%s)" % (
+                    self.destination.id, self.location.id))
+        except AttributeError:
+            pass
+
+    def unlock_exit(self, caller=None):
+        """
+        As above
+        """
+        if str(self.destination.id) not in self.locks.all() or str(self.location.id) not in self.locks.all():
+            self.locks.add("usekey: perm(builders) or roomkey(%s) or roomkey(%s)" % (self.destination.id,
+                                                                                     self.location.id))
+        self.unlock(caller)
+        try:
+            self.reverse_exit.unlock(caller)
+            if (str(self.destination.id) not in self.reverse_exit.locks.all()
+                    or str(self.location.id) not in self.reverse_exit.locks.all()):
+                self.reverse_exit.locks.add("usekey: perm(builders) or roomkey(%s) or roomkey(%s)" % (
+                    self.destination.id, self.location.id))
+        except AttributeError:
+            pass
 
 
 

@@ -127,6 +127,7 @@ class WeeklyEvents(Script):
 
     @staticmethod
     def do_cleanup():
+        # cleanup old informs
         try:
             from world.msgs.models import Inform
             date = datetime.now()
@@ -138,6 +139,26 @@ class WeeklyEvents(Script):
         except Exception as err:
             traceback.print_exc()
             print "Error in cleanup: %s" % err
+        # cleanup soft-deleted objects
+        try:
+            import time
+            qs = ObjectDB.objects.filter(db_tags__db_key__iexact="deleted")
+            current_time = time.time()
+            for ob in qs:
+                # never delete a player character
+                if ob.db.player_ob:
+                    ob.undelete()
+                    continue
+                # never delete something in-game
+                if ob.location:
+                    ob.undelete()
+                    continue
+                deleted_time = ob.db.deleted_time
+                if (not deleted_time) or (current_time - deleted_time > 2592000):
+                    ob.delete()
+        except Exception as err:
+            traceback.print_exc()
+            print "Error in cleaning up deleted objects: %s" % err
 
     def do_events_per_player(self, reset=True):
         """
@@ -231,17 +252,18 @@ class WeeklyEvents(Script):
 
     def count_poses(self):
         from typeclasses.bulletin_board.bboard import BBoard
-        qs = ObjectDB.objects.filter(roster__roster__name="Active")
+        qs = ObjectDB.objects.filter(roster__roster__name="Active", db_tags__db_key="rostercg")
         min_poses = 20
         low_activity = []
         for ob in qs:
             if ob.posecount < min_poses:
                 low_activity.append(ob)
+            ob.db.previous_posecount = ob.posecount
             ob.posecount = 0
         board = BBoard.objects.get(db_key="staff")
         table = EvTable("{wName{n", "{wNum Poses{n", border="cells", width=78)
         for ob in low_activity:
-            table.add_row(ob.key, ob.posecount)
+            table.add_row(ob.key, ob.db.previous_posecount)
         board.bb_post(poster_obj=self, msg=str(table), subject="Inactive by Poses List")
         
     # Various 'Beats' -------------------------------------------------
@@ -401,8 +423,8 @@ class WeeklyEvents(Script):
         # 2 votes is 5 xp
         if votes > 1:
             xp += 2
-        # 3 to 8 votes is 6 to 11 xp
-        max_range = votes if votes <= 8 else 8
+        # 3 to 5 votes is 6 to 8 xp
+        max_range = votes if votes <= 5 else 5
         for n in range(2, max_range):
             xp += 1
 
@@ -412,22 +434,22 @@ class WeeklyEvents(Script):
                 bonus_votes = stop
             bonus_xp = bonus_votes - start
             bonus_xp /= div
-            if not bonus_xp:
-                bonus_xp = 1
+            if (bonus_votes - start) % div:
+                bonus_xp += 1
             return bonus_xp
 
-        # 1 more xp for each 2 between 9 to 12
-        if votes > 8:
-            xp += calc_xp(votes, 8, 12, 2)
-        # 1 more xp for each 3 votes after 12
-        if votes > 12:
-            xp += calc_xp(votes, 12, 21, 3)
-        # 1 more xp for each 5 votes after 21
-        if votes > 21:
-            xp += calc_xp(votes, 21, 36, 5)
+        # 1 more xp for each 3 between 6 to 14
+        if votes > 5:
+            xp += calc_xp(votes, 5, 14, 3)
+        # 1 more xp for each 4 votes after 14
+        if votes > 14:
+            xp += calc_xp(votes, 14, 26, 4)
+        # 1 more xp for each 5 votes after 26
+        if votes > 26:
+            xp += calc_xp(votes, 26, 41, 5)
         # 1 more xp for each 10 votes after 36
-        if votes > 36:
-            xp += calc_xp(votes, 36, None, 10)
+        if votes > 41:
+            xp += calc_xp(votes, 41, None, 10)
         return xp
 
     def award_vote_xp(self):

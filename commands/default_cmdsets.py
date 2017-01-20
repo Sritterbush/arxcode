@@ -74,7 +74,6 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
         self.add(player.CmdQuell())
         self.add(building.CmdExamine())
         # system commands
-        self.add(system.CmdReload())
         self.add(system.CmdReset())
         self.add(system.CmdShutdown())
         self.add(system.CmdPy())
@@ -86,7 +85,6 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
         # Comm commands
         self.add(comms.CmdAddCom())
         self.add(comms.CmdDelCom())
-        self.add(comms.CmdChannels())
         self.add(comms.CmdCemit())
         self.add(comms.CmdCWho())
         self.add(comms.CmdIRC2Chan())
@@ -110,6 +108,8 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(overrides.CmdArxCBoot())
             self.add(overrides.CmdArxCdesc())
             self.add(overrides.CmdArxAllCom())
+            self.add(overrides.CmdArxChannels())
+            self.add(overrides.CmdArxReload())
         except Exception as err:
             print("<<ERROR>>: Error in overrides: %s." % err)
         try:
@@ -185,6 +185,8 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(staff_commands.CmdPurgeJunk())
             self.add(staff_commands.CmdAdjustReputation())
             self.add(staff_commands.CmdViewLog())
+            self.add(staff_commands.CmdSetLanguages())
+            self.add(staff_commands.CmdGMNotes())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading staff_commands cmdset in Player: %s" % err)
         try:
@@ -200,6 +202,12 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(investigation.CmdListRevelations())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading investigation cmdset: %s" % err)
+        try:
+            from world.dominion import crisis_commands
+            self.add(crisis_commands.CmdCrisisAction())
+            self.add(crisis_commands.CmdGMCrisis())
+        except Exception as err:
+            print("<<ERROR>>: Error encountered in loading crisis cmdset: %s" % err)
 
 
 class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):

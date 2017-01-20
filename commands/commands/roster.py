@@ -306,19 +306,15 @@ class CmdRosterList(MuxPlayerCommand):
             inform_staff(message)
             return
         if ('family' in args or 'fealty' in args or 'concept' in args) and not self.rhs:
-            caller.msg("The filters of 'family', 'fealty', 'social class', " +
+            caller.msg("The filters of 'family', 'fealty', 'social rank', " +
                        "or 'concept' require an argument after an '='.")
             return
         if not self.rhs:
             filters = args.split(",")
             if 'all' in switches:
                 match_list = roster.search_by_filters(filters)
-                if match_list:
-                    match_list = [_char.key.capitalize() for _char in match_list]
                 list_characters(caller, match_list, "Active Characters", roster, False)
             match_list = roster.search_by_filters(filters, "available")
-            if match_list:
-                match_list = [_char.key.capitalize() for _char in match_list]
             list_characters(caller, match_list, "Available Characters", roster, False)
             return
         rhslist = self.rhslist
@@ -977,7 +973,7 @@ class CmdSheet(MuxPlayerCommand):
             if not charob:
                 caller.msg("No character found to @sheet.")
                 return
-            if charob.db.npc and not show_hidden:
+            if charob.roster.roster.name not in ("Active", "Available", "Gone") and not show_hidden:
                 caller.msg("That character is an npc and cannot be viewed.")
                 return
             if 'stats' not in switches:

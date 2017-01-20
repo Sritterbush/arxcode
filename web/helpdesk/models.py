@@ -284,6 +284,7 @@ class Ticket(models.Model):
         (3, _('3. Normal')),
         (4, _('4. Low')),
         (5, _('5. Very Low')),
+        (6, _('6. Super Low')),
     )
 
     title = models.CharField(
@@ -337,6 +338,7 @@ class Ticket(models.Model):
         blank=True,
         null=True,
         verbose_name=_('Room where this was submitted'),
+        on_delete=models.SET_NULL,
         )
     
     status = models.IntegerField(

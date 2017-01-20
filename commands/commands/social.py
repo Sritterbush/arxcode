@@ -76,7 +76,7 @@ class CmdWhere(MuxPlayerCommand):
         caller = self.caller
         rooms = ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_ROOM_TYPECLASS) &
                                         Q(locations_set__db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS) &
-                                        ~Q(db_tags__db_key__iexact="private")).distinct()
+                                        ~Q(db_tags__db_key__iexact="private")).distinct().order_by('db_key')
         if not rooms:
             caller.msg("No visible characters found.")
             return
@@ -275,6 +275,10 @@ class CmdJournal(MuxCommand):
         journal/edit <entry number>=<text>
         journal/editblack <entry number>=<text>
         journal/markallread
+        journal/favorite <character>=<entry number>
+        journal/unfavorite <character>=<entry number>
+        journal/dispfavorites
+        journal/countweek
 
     Allows a character to read the White Journals of characters,
     or add to their own White Journal or Black Reflections. White
@@ -296,15 +300,20 @@ class CmdJournal(MuxCommand):
     def journal_index(self, character, jlist):
         num = 1
         table = PrettyTable(["{w#{n", "{wWritten About{n", "{wDate{n", "{wUnread?{n"])
+        fav_tag = "pid_%s_favorite" % self.caller.db.player_ob.id
         for entry in jlist:
             try:
                 event = character.messages.get_event(entry)
                 name = ", ".join(str(ob) for ob in entry.db_receivers_objects.all())       
                 if event and not name:
                     name = event.name[:25]
+                if fav_tag in entry.tags.all():
+                    strnum = str(num) + "{w*{n"
+                else:
+                    strnum = str(num)
                 unread = "" if self.caller.db.player_ob in entry.receivers else "{wX{n"
                 date = character.messages.get_date_from_header(entry)
-                table.add_row([num, name, date, unread])
+                table.add_row([strnum, name, date, unread])
                 num += 1
             except (AttributeError, RuntimeError, ValueError, TypeError):
                 continue
@@ -323,6 +332,21 @@ class CmdJournal(MuxCommand):
                                                     ~Q(db_receivers_players=caller.db.player_ob)).count()
             msglist.append("{C%s{c(%s){n" % (writer.key, count))
         caller.msg("Writers with journals you have not read: %s" % ", ".join(msglist))
+
+    def disp_favorite_journals(self):
+        caller = self.caller
+        tagname = "pid_%s_favorite" % caller.db.player_ob.id
+        all_writers = ObjectDB.objects.filter(Q(sender_object_set__db_header__contains="white_journal") &
+                                              ~Q(sender_object_set__db_receivers_players=caller.db.player_ob) &
+                                              ~Q(roster__current_account=caller.roster.current_account)
+                                              ).distinct().order_by('db_key')
+        msglist = []
+        for writer in all_writers:
+            count = writer.sender_object_set.filter(Q(db_header__contains="white_journal") &
+                                                    Q(db_tags__db_key=tagname)).count()
+            if count:
+                msglist.append("{C%s{c(%s){n" % (writer.key, count))
+        caller.msg("Writers with journals you have favorited: %s" % ", ".join(msglist))
 
     def mark_all_read(self):
         from evennia.comms.models import Msg
@@ -352,12 +376,20 @@ class CmdJournal(MuxCommand):
                 caller.msg("No journal entries written yet.")
             self.disp_unread_journals()
             return
+        if "dispfavorites" in self.switches or "favorites" in self.switches:
+            self.disp_favorite_journals()
+            return
         if "markallread" in self.switches:
             self.mark_all_read()
             caller.msg("All messages marked read.")
             return
+        if "countweek" in self.switches:
+            num = caller.db.num_journals or 0
+            self.msg("You have written %s journals this week." % num)
+            return
         # if no switches but have args, looking up journal of a character
-        if not self.switches or 'black' in self.switches:
+        if (not self.switches or 'black' in self.switches
+                or 'favorite' in self.switches or 'unfavorite' in self.switches):
             white = "black" not in self.switches
             try:
                 if not self.args:
@@ -383,6 +415,19 @@ class CmdJournal(MuxCommand):
                         caller.msg("Journal entry number must be at least 1.")
                         return
                 journal = char.messages.white_journal if white else char.messages.black_journal
+                if "favorite" in self.switches or "unfavorite" in self.switches:
+                    try:
+                        entry = journal[num - 1]
+                        if "favorite" in self.switches:
+                            caller.messages.tag_favorite(entry, caller.db.player_ob)
+                            self.msg("Entry added to favorites.")
+                        else:
+                            caller.messages.untag_favorite(entry, caller.db.player_ob)
+                            self.msg("Entry removed from favorites.")
+                        return
+                    except (IndexError, AttributeError, ValueError, TypeError):
+                        self.msg("No such entry to tag as a favorite.")
+                        return
                 msg = char.messages.disp_entry_by_num(num, white=white, caller=caller.db.player_ob)
                 # if we fail access check, we have 'False' instead of a msg
                 if msg is None:
@@ -569,6 +614,7 @@ class CmdMessenger(MuxCommand):
         messenger/send
         messenger/discreet <retainer ID>
         messenger/custom <retainer ID>
+        messenger/spoof <name for messages you send>
 
     Dispatches or receives in-game messengers. Messengers are an
     abstraction of any IC communication through distances - they
@@ -597,11 +643,12 @@ class CmdMessenger(MuxCommand):
         unread.insert(0, (msg, delivery, money, m_name))
         targ.db.pending_messengers = unread
         targ.messenger_notification(2)
-        if caller.db.player_ob.db.nomessengerpreview:
+        if caller.db.player_ob.db.nomessengerpreview or caller.ndb.already_previewed:
             caller.msg("You dispatch %s to {c%s{n." % (m_name or "a messenger", targ))
         else:
             caller.msg("You dispatch %s to {c%s{n with the following message:\n\n'%s'\n" % (
                 m_name or "a messenger", targ, msg.db_message))
+            caller.ndb.already_previewed = True
         deliver_str = m_name or "Your messenger"
         if delivery:
             caller.msg("%s will also deliver %s." % (deliver_str, delivery))
@@ -615,19 +662,7 @@ class CmdMessenger(MuxCommand):
             caller.msg("It appears this messenger was deleted already. If this appears to be an error, "
                        "inform staff please.")
             return
-        senders = msg.senders
-        if senders:
-            sender = senders[0]
-            if sender:
-                if sender.db.longname:
-                    name = sender.db.longname
-                else:
-                    name = sender.key
-            else:
- 
-                name = "Unknown Sender"
-        else:
-            name = "Unknown Sender"
+        name = caller.messages.get_sender_name(msg)
         mssg = "{wSent by:{n %s\n" % name
         mssg += caller.messages.disp_entry(msg)
         caller.msg(mssg, options={'box': True})
@@ -650,6 +685,17 @@ class CmdMessenger(MuxCommand):
                 caller.msg("You have {w%s{n old messages you can re-read." % len(read))
             if unread:
                 caller.msg("{mYou have {w%s{m new messengers waiting to be received." % len(unread))
+            return
+        if "spoof" in self.switches:
+            if not caller.check_permstring("builders"):
+                self.msg("GM only command for now.")
+                return
+            if not self.args:
+                caller.attributes.remove("spoofed_messenger_name")
+                self.msg("Fake name stripped.")
+                return
+            caller.db.spoofed_messenger_name = self.args
+            self.msg("Messages will be sent with fake name of: %s" % self.args)
             return
         if "discreet" in self.switches:
             if not self.args:
@@ -769,12 +815,7 @@ class CmdMessenger(MuxCommand):
                 mess_num = 1
                 old = old[:num_disp]
                 for mess in old:
-                    sender = mess.senders
-                    if sender:
-                        sender = sender[0]
-                        name = sender.key
-                    else:
-                        name = "Unknown"
+                    name = caller.messages.get_sender_name(mess)
                     date = caller.messages.get_date_from_header(mess) or "Unknown"
                     saved = "{w*{n" if "preserve" in mess.db_header else ""
                     msgtable.add_row([mess_num, name, date, saved])
@@ -792,7 +833,7 @@ class CmdMessenger(MuxCommand):
                     return
                 if "preserve" in self.switches:
                     pres_count = caller.receiver_object_set.filter(db_header__icontains="preserve").count()
-                    if pres_count >= 50:
+                    if pres_count >= 200:
                         caller.msg("You are preserving the maximum amount of messages allowed.")
                         return
                     if "preserve" in msg.db_header:
@@ -864,10 +905,11 @@ class CmdMessenger(MuxCommand):
                 caller.msg("You have no draft message stored.")
                 return
             targs, msg = caller.db.messenger_draft[0], caller.db.messenger_draft[1]
-            msg = caller.messages.send_messenger(msg)
+            msg = caller.messages.create_messenger(msg)
             for targ in targs:
                 self.send_messenger(caller, targ, msg)
             caller.db.messenger_draft = None
+            caller.ndb.already_previewed = None
             return
         if not self.lhs or not self.rhs:
             caller.msg("Invalid usage.")
@@ -924,7 +966,7 @@ class CmdMessenger(MuxCommand):
             caller.msg("You cannot send a delivery or money to more than one person.")
             return
         # format our messenger
-        msg = caller.messages.send_messenger(self.rhs)
+        msg = caller.messages.create_messenger(self.rhs)
         # make delivery object unavailable while in transit, if we have one
         if delivery or money:
             if delivery:
@@ -933,9 +975,12 @@ class CmdMessenger(MuxCommand):
                 caller.pay_money(money)
             targ = targs[0]
             self.send_messenger(caller, targ, msg, delivery, money)
+            caller.ndb.already_previewed = None
             return
         for targ in targs:
             self.send_messenger(caller, targ, msg, delivery)
+        caller.ndb.already_previewed = None
+
 
 largesse_types = ('none', 'common', 'refined', 'grand', 'extravagant', 'legendary')
 costs = {
@@ -963,13 +1008,17 @@ class CmdCalendar(MuxPlayerCommand):
         @cal/location [<room name, otherwise room you're in>]
         @cal/private
         @cal/addhost <playername>
+        @cal/addgm <playername>
         @cal/roomdesc <description>
+        @cal/abort
         @cal/submit
-        @cal/starteventearly <event number>
+        @cal/invite <event number>=<player>
+        @cal/starteventearly <event number>[=here]
         @cal/endevent <event number>
         @cal/reschedule <event number>=<new date>
         @cal/cancel <event number>
         @cal/changeroomdesc <event number>=<new desc>
+        @cal/toggleprivate <finished event number>
         @cal/old
         @cal/comments <event number>=<comment number>
 
@@ -979,6 +1028,13 @@ class CmdCalendar(MuxPlayerCommand):
     amounts of money in hosting an event for prestige, set the /largesse
     level. To see the valid largesse types with their costs and prestige
     values, do '@cal/largesse'. All times are in EST.
+
+    When starting an event early, you can specify '=here' to start it in
+    your current room rather than its previous location.
+
+    If you want to mark an event private or public after finishing hosting
+    it so that it can be viewed by people who didn't attend it on the web,
+    use /toggleprivate.
     """
     key = "@cal"
     locks = "cmd:all()"
@@ -992,7 +1048,7 @@ class CmdCalendar(MuxPlayerCommand):
             host = event.main_host or "No host"
             host = str(host).capitalize()
             public = "Public" if event.public_event else "Not Public"
-            table.add_row([event.id, event.name[:25], event.date.strftime("%x %X"), host, public])
+            table.add_row([event.id, event.name[:25], event.date.strftime("%x %H:%M"), host, public])
         return table
 
     @staticmethod
@@ -1006,8 +1062,11 @@ class CmdCalendar(MuxPlayerCommand):
         hosts = proj[5] or []
         largesse = proj[6] or 0
         roomdesc = proj[7] or ""
+        gms = proj[8] or []
         hosts = ", ".join(str(ob) for ob in hosts)
+        gms = ", ".join(str(ob) for ob in gms)
         mssg = "{wEvent name:{n %s\n" % name
+        mssg += "{wGMs:{n %s\n" % gms
         mssg += "{wDate:{n %s\n" % date
         mssg += "{wLocation:{n %s\n" % loc
         mssg += "{wDesc:{n %s\n" % desc
@@ -1035,7 +1094,11 @@ class CmdCalendar(MuxPlayerCommand):
                 return
             else:
                 # if we don't have a project, just display upcoming events
-                self.switches.append("list")            
+                self.switches.append("list")
+        if "abort" in self.switches:
+            caller.ndb.event_creation = None
+            self.msg("Event creation cancelled.")
+            return
         if not self.switches or "comments" in self.switches:
             lhslist = self.lhs.split("/")
             if len(lhslist) > 1:
@@ -1072,18 +1135,29 @@ class CmdCalendar(MuxPlayerCommand):
                 return
         if "list" in self.switches:
             # display upcoming events
-            unfinished = RPEvent.objects.filter(finished=False).order_by('date')
+            if caller.check_permstring("builders"):
+                unfinished = RPEvent.objects.filter(finished=False).order_by('date')
+            else:
+                unfinished = RPEvent.objects.filter(Q(finished=False) & Q(Q(public_event=True) | Q(participants=dompc)
+                                                                          | Q(gms=dompc) | Q(hosts=dompc))
+                                                    ).distinct().order_by('date')
             table = self.display_events(unfinished)
             caller.msg("{wUpcoming events:\n%s" % table, options={'box': True})
             return
         if "old" in self.switches:
             # display finished events
-            finished = RPEvent.objects.filter(finished=True).order_by('date')
+            from server.utils import arx_more
+            if caller.check_permstring("builders"):
+                finished = RPEvent.objects.filter(finished=True).order_by('-date')
+            else:
+                finished = RPEvent.objects.filter(Q(finished=True) & Q(Q(public_event=True) | Q(participants=dompc)
+                                                                       | Q(gms=dompc) | Q(hosts=dompc))
+                                                  ).distinct().order_by('-date')
             table = self.display_events(finished)
-            caller.msg("{wOld events:\n%s" % table, options={'box': True})
+            arx_more.msg(caller, "{wOld events:\n%s" % table, justify_kwargs=False)
             return
         # at this point, we may be trying to update our project. Set defaults.
-        proj = caller.ndb.event_creation or [None, None, None, None, True, [], None, None]
+        proj = caller.ndb.event_creation or [None, None, None, None, True, [], None, None, []]
         if 'largesse' in self.switches:
             if not self.args:
                 table = PrettyTable(['level', 'cost', 'prestige'])
@@ -1176,22 +1250,44 @@ class CmdCalendar(MuxPlayerCommand):
             proj[5] = hosts
             caller.ndb.event_creation = proj
             return
+        if "addgm" in self.switches:
+            gms = proj[8] or []
+            gm = caller.search(self.lhs)
+            if not gm:
+                return
+            if gm in gms:
+                caller.msg("GM is already listed.")
+                return
+            try:
+                gm = gm.Dominion
+            except AttributeError:
+                char = gm.db.char_ob
+                if not char:
+                    caller.msg("GM does not have a character.")
+                    return
+                gm = setup_utils.setup_dom_for_char(char)
+            gms.append(gm)
+            caller.msg("%s added to GMs." % gm)
+            caller.msg("GMs are: %s" % ", ".join(str(gm) for gm in gms))
+            proj[8] = gms
+            caller.ndb.event_creation = proj
+            return
         if "create" in self.switches:
             if RPEvent.objects.filter(name__iexact=self.lhs):
                 caller.msg("There is already an event by that name. Choose a different name," +
                            " or add a number if it's a sequel event.")
                 return
             proj = [self.lhs, proj[1], proj[2], proj[3], proj[4], [dompc] if dompc not in proj[5] else proj[5], proj[6],
-                    proj[7]]
+                    proj[7], proj[8]]
             caller.msg("{wStarting project. It will not be saved until you submit it. " +
                        "Does not persist through logout/server reload.{n")
             caller.msg(self.display_project(proj), options={'box': True})
             caller.ndb.event_creation = proj
             return
         if "submit" in self.switches:
-            name, date, loc, desc, public, hosts, largesse, room_desc = proj
-            if not (name and date and loc and desc and hosts):
-                caller.msg("All fields must be defined before you submit.")
+            name, date, loc, desc, public, hosts, largesse, room_desc, gms = proj
+            if not (name and date and desc and hosts):
+                caller.msg("Name, date, desc, and hosts must be defined before you submit.")
                 caller.msg(self.display_project(proj), options={'box': True})
                 return         
             if not largesse:
@@ -1222,6 +1318,8 @@ class CmdCalendar(MuxPlayerCommand):
                                            room_desc=room_desc)
             for host in hosts:
                 event.hosts.add(host)
+            for gm in gms:
+                event.gms.add(gm)
             post = self.display_project(proj)
             # mark as main host with a tag
             event.tag_obj(caller)
@@ -1229,8 +1327,9 @@ class CmdCalendar(MuxPlayerCommand):
             caller.msg("New event created: %s at %s." % (event.name, date.strftime("%x %X")))
             inform_staff("New event created by %s: %s, scheduled for %s." % (caller, event.name,
                                                                              date.strftime("%x %X")))
-            event_manager = ScriptDB.objects.get(db_key="Event Manager")
-            event_manager.post_event(event, caller, post)         
+            if event.public_event:
+                event_manager = ScriptDB.objects.get(db_key="Event Manager")
+                event_manager.post_event(event, caller, post)
             return
         # both starting an event and ending one requires a Dominion object
         try:
@@ -1241,6 +1340,18 @@ class CmdCalendar(MuxPlayerCommand):
                 caller.msg("You have no character, which is required to set up Dominion.")
                 return
             dompc = setup_utils.setup_dom_for_char(char)
+        if "toggleprivate" in self.switches:
+            qs = dompc.events_hosted.filter(finished=True)
+            try:
+                event = qs.get(id=int(self.args))
+            except (RPEvent.DoesNotExist, ValueError, TypeError):
+                self.msg("You have not hosted an event by that number.")
+                self.msg(self.display_events(qs))
+                return
+            event.public_event = not event.public_event
+            event.save()
+            self.msg("%s's public status has been set to %s." % (event, event.public_event))
+            return
         # get the events they're hosting
         events = dompc.events_hosted.filter(finished=False)
         if not events:
@@ -1262,8 +1373,32 @@ class CmdCalendar(MuxPlayerCommand):
             caller.msg("You are not hosting any event by that number. Your events:")
             caller.msg(self.display_events(events), options={'box': True})
             return
+        if "invite" in self.switches:
+            invited = []
+            for arg in self.rhslist:
+                targ = caller.search(arg)
+                if not targ:
+                    continue
+                pc = targ.Dominion
+                if pc in event.participants.all():
+                    self.msg("%s is already invited to attend." % pc)
+                    continue
+                event.participants.add(pc)
+                invited.append(str(pc))
+                msg = "You have been invited to attend {c%s{n." % event.name
+                msg += "\nFor details about this event, use {w@cal %s{n" % event.id
+                targ.inform(msg, category="Invitation", append=False)
+            self.msg("{wInvited {c%s{w to attend %s." % (", ".join(invited), event))
+            return
         if "starteventearly" in self.switches:
-            event_manager.start_event(event)
+            if self.rhs and self.rhs.lower() == "here":
+                loc = self.caller.db.char_ob.location
+                if not loc:
+                    self.msg("You do not currently have a location.")
+                    return
+                event_manager.start_event(event, location=loc)
+            else:
+                event_manager.start_event(event)
             caller.msg("You have started the event.")        
             return
         if "endevent" in self.switches:
@@ -1284,7 +1419,7 @@ class CmdCalendar(MuxPlayerCommand):
             event.date = date
             event.save()
             caller.msg("Event now scheduled for %s." % date)
-            event_manager.reschedule_event(event, date)
+            event_manager.reschedule_event(event)
             return
         if "changeroomdesc" in self.switches:
             event.room_desc = self.rhs
@@ -1366,6 +1501,7 @@ class CmdPraise(MuxCommand):
 
     Praises a character, increasing their prestige. Your number
     of praises per week are based on your social rank and skills.
+    Using praise with no arguments lists your praises.
     """
     key = "praise"
     locks = "cmd:all()"
@@ -1436,6 +1572,7 @@ class CmdCondemn(CmdPraise):
 
     Condemns a character, decreasing their prestige. Your number
     of condemns per week are based on your social rank and skills.
+    Using condemn with no arguments lists your condemns.
     """
     key = "condemn"
     attr = "condemns"
@@ -1694,6 +1831,7 @@ class CmdRandomScene(MuxCommand):
         @randomscene/claim <player>=<summary of the scene>
         @randomscene/validate <player>
         @randomscene/viewrequests
+        @randomscene/online
 
     Generates three characters who you can receive bonus xp for this week
     by having an RP scene with them. Executing the command generates the
@@ -1702,6 +1840,7 @@ class CmdRandomScene(MuxCommand):
     validate the scene you both had. If they agree, during the weekly script
     you'll both receive xp. Requests that aren't answered are wiped in
     weekly maintenance. /claim requires that both of you be in the same room.
+    @randomscene/online will only display players who are currently in the game.
     """
     key = "@randomscene"
     locks = "cmd:all()"
@@ -1738,18 +1877,32 @@ class CmdRandomScene(MuxCommand):
                                         ~Q(roster__player__db_tags__db_key="staff_npc"))
 
     def display_lists(self):
-        if len(self.scenelist) + len(self.claimlist) < self.NUM_SCENES:
+        for ob in self.scenelist[:]:
+            try:
+                ob.roster.roster.refresh_from_db()
+                ob.roster.refresh_from_db()
+                ob.refresh_from_db()
+                if ob.roster.roster.name != "Active":
+                    self.caller.db.player_ob.db.random_scenelist.remove(ob)
+            except (AttributeError, TypeError, ValueError):
+                pass
+        if len(self.scenelist) + len([ob for ob in self.claimlist if ob not in self.newbies]) < self.NUM_SCENES:
             self.generate_lists()
         scenelist = self.scenelist
         claimlist = self.claimlist
+        newbies = self.newbies
+        if "online" in self.switches:
+            self.msg("{wOnly displaying online characters.{n")
+            scenelist = [ob for ob in scenelist if ob.location]
+            newbies = [ob for ob in newbies if ob.location]
         self.msg("{wRandomly generated RP partners for this week:{n %s" % ", ".join(str(ob) for ob in scenelist))
-        self.msg("{wNew players who can be also RP'd with for credit:{n %s" % ", ".join(str(ob) for ob in self.newbies))
+        self.msg("{wNew players who can be also RP'd with for credit:{n %s" % ", ".join(str(ob) for ob in newbies))
         if claimlist:
             self.msg("{wThose you have already RP'd with this week:{n %s" % ", ".join(str(ob) for ob in claimlist))
 
     def generate_lists(self):
         scenelist = self.scenelist
-        claimlist = self.claimlist
+        claimlist = [ob for ob in self.claimlist if ob not in self.newbies]
         newbies = [ob.id for ob in self.newbies]
         choices = self.valid_choices
         if newbies:
@@ -1817,7 +1970,7 @@ class CmdRandomScene(MuxCommand):
         self.msg(str(table))
 
     def func(self):
-        if not self.switches and not self.args:
+        if (not self.switches or "online" in self.switches) and not self.args:
             self.display_lists()
             return
         if "claim" in self.switches or (not self.switches and self.args):
@@ -1844,7 +1997,7 @@ class CmdCensus(MuxPlayerCommand):
     """
     key = "+census"
     locks = "cmd:all()"
-    category = "Information"
+    help_category = "Information"
 
     def func(self):
         from .guest import census_of_fealty
@@ -1863,11 +2016,12 @@ class CmdRoomTitle(MuxCommand):
         +roomtitle <description>
 
     Appends a short blurb to your character's name when they are displayed
-    to the room in parentheses.
+    to the room in parentheses. Use +roomtitle with no argument to remove
+    it.
     """
     key = "+roomtitle"
     locks = "cmd:all()"
-    category = "Social"
+    help_category = "Social"
 
     def func(self):
         if not self.args:
@@ -1877,3 +2031,103 @@ class CmdRoomTitle(MuxCommand):
         self.caller.db.room_title = self.args
         self.msg("Your roomtitle set to %s {w({n%s{w){n" % (self.caller, self.args))
         return
+
+
+class CmdTempDesc(MuxCommand):
+    """
+    Appends a temporary description to your regular description
+
+    Usage:
+        +tempdesc <description>
+
+    Appends a short blurb to your character's description in parentheses.
+    Use +tempdesc with no argument to remove it.
+    """
+    key = "+tempdesc"
+    locks = "cmd:all()"
+    help_category = "Social"
+
+    def func(self):
+        if not self.args:
+            self.msg("Temporary description cleared.")
+            del self.caller.additional_desc
+            return
+        self.caller.additional_desc = self.args
+        self.msg("Temporary desc set to: %s" % self.args)
+
+
+class CmdLanguages(MuxCommand):
+    """
+    Sets the languages you speak, and can teach to others
+
+    Usage:
+        +lang
+        +lang <language>
+        +lang/teachme <player>=<language>
+        +lang/teach <player>
+
+    Shows what languages you know and are currently speaking. You can request
+    that a player teach you a language with +lang/teachme. You may know one
+    language per rank of linguistics
+    """
+    key = "+lang"
+    locks = "cmd:all()"
+    help_category = "Social"
+
+    def list_languages(self):
+        known = [ob.capitalize() for ob in self.caller.languages.known_languages]
+        known += ["Arvani"]
+        self.msg("{wYou can currently speak:{n %s" % ", ".join(known))
+
+    def func(self):
+        if not self.args:
+            self.msg("{wYou are currently speaking:{n %s" % self.caller.languages.current_language.capitalize())
+            self.list_languages()
+            return
+        if not self.switches:
+            args = self.args.lower()
+            if args == "arvani" or args == "common":
+                self.caller.attributes.remove("currently_speaking")
+                self.msg("{wYou are now speaking Arvani.{n")
+                return
+            if args not in self.caller.languages.known_languages:
+                self.msg("You cannot speak %s." % self.args)
+                self.list_languages()
+                return
+            self.caller.db.currently_speaking = args
+            self.msg("{wYou are now speaking %s.{n" % self.args)
+            return
+        player = self.caller.player.search(self.lhs)
+        if not player:
+            return
+        targ = player.db.char_ob
+        if not targ:
+            self.msg("Not found.")
+            return
+        if "teachme" in self.switches:
+            if self.caller.db.skills.get("linguistics", 0) <= len(self.caller.languages.known_languages):
+                self.msg("You need a higher rank of linguistics before you can learn anything else.")
+                return
+            req = targ.ndb.language_requests or {}
+            req[self.caller] = self.rhs
+            targ.ndb.language_requests = req
+            self.msg("You request that %s teach you %s." % (targ, self.rhs))
+            targ.msg("{w%s has requested that you teach them %s.{n" % (targ, self.rhs))
+            return
+        if "teach" in self.switches:
+            req = self.caller.ndb.language_requests or {}
+            if targ not in req:
+                self.msg("You do not have a request from %s." % targ)
+                return
+            lang = req[targ].lower()
+            if lang not in self.caller.languages.known_languages:
+                self.msg("You do not know %s." % lang)
+                self.list_languages()
+                return
+            if targ.db.skills.get("linguistics", 0) <= len(targ.languages.known_languages):
+                self.msg("They know as many languages as they can learn.")
+                return
+            targ.languages.add_language(lang)
+            self.msg("You have taught %s to %s." % (lang, targ))
+            targ.msg("%s has taught you %s." % (self.caller, lang))
+            return

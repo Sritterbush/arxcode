@@ -127,7 +127,7 @@ class CombatManager(BaseScript):
         self.ndb.votes_to_end = []  # if all characters vote yes, combat ends
         self.ndb.flee_success = []  # if we're here, the character is allowed to flee on their turn
         self.ndb.fleeing = []  # if we're here, they're attempting to flee but haven't rolled yet
-        self.db.lethal = not self.obj.tags.get("nonlethal_combat")
+        self.ndb.lethal = not self.obj.tags.get("nonlethal_combat")
         self.ndb.max_rounds = 250
         self.ndb.rounds = 0
         # to ensure proper shutdown, prevent some timing errors
@@ -431,13 +431,13 @@ class CombatManager(BaseScript):
                         target.db.damage = 0
                 elif not d_fite.multiple:
                     self.msg(message)
-                    self.remove_combatant(target)
-                    if self.db.lethal:
+                    if self.ndb.lethal:
                         target.death_process()
                     else:
                         target.db.damage = 0
+                    self.remove_combatant(target)
                 else:
-                    if self.db.lethal:
+                    if self.ndb.lethal:
                         target.death_process()
                     else:
                         self.incapacitate(target)
@@ -490,7 +490,7 @@ class CombatManager(BaseScript):
                     message += "%s stops %s but is attacked." % (guard.name, attacker.name)
                     self.msg(message)
                     def_pen = -5 + combat_settings.STANCE_DEF_MOD[g_fite.stance]
-                    self.do_attack(attacker, target, attack_penalty=5, defense_penalty=def_pen)
+                    self.do_attack(attacker, guard, attack_penalty=5, defense_penalty=def_pen)
                     return
         t_fite = self.ndb.fighter_data[target.id]
         if t_fite.sense_ambush(attacker, sneaking, invis) > 0:
@@ -573,7 +573,7 @@ class CombatManager(BaseScript):
             character.msg("You are not permitted to flee that way.")
             return
         # this is the command that exit_obj commands use
-        exit_obj.at_traverse(character, exit_obj.destination)
+        exit_obj.at_traverse(character, exit_obj.destination, allow_follow=False)
         self.msg("%s has fled from combat." % character.name)
         self.remove_combatant(character)
   
@@ -660,7 +660,7 @@ class CombatManager(BaseScript):
         """
         return [ob for ob in self.ndb.fighter_data.get(target.id).defenders if self.check_char_active(ob)]
 
-    def clear_defended_by_list(self, character):
+    def clear_blocked_by_list(self, character):
         """
         Removes us from defending list for everyone defending us.
         """
@@ -723,10 +723,10 @@ class CombatManager(BaseScript):
         """
         c_fite = self.ndb.fighter_data.get(character.id, None)
         if c_fite and c_fite.covered_by:
-            for ob in c_fite.covered_by:
-                ob = self.ndb.fighter_data.get(ob.id, None)
-                if ob and ob.covering_targs:
-                    self.stop_covering(ob, character)
+            for covered_by_charob in c_fite.covered_by:
+                cov_data = self.ndb.fighter_data.get(covered_by_charob.id, None)
+                if cov_data and cov_data.covering_targs:
+                    self.stop_covering(covered_by_charob, character)
 
     # ---------------------------------------------------------------------
     # -----Admin Methods for OOC character status: adding, removing, etc----
@@ -741,6 +741,12 @@ class CombatManager(BaseScript):
         if character in self.ndb.combatants:
             if character == adder:
                 return "You are already in the fight."
+            cdata = self.get_fighter_data(character.id)
+            if cdata and adder:
+                cdata.add_foe(adder)
+                adata = self.get_fighter_data(adder.id)
+                if adata:
+                    adata.add_foe(character)
             return "%s is already fighting." % character.key
         # check if attackable
         if not character.db.attackable:
@@ -806,6 +812,9 @@ class CombatManager(BaseScript):
             self.msg("No combatants found. Exiting.")
             self.end_combat()
             return
+        if not self or not self.pk or self.ndb.shutting_down:
+            self.end_combat()
+            return
         active_combatants = [ob for ob in self.ndb.combatants if ob not in self.ndb.incapacitated]
         if not active_combatants:
             self.msg("All combatants are incapacitated. Exiting.")
@@ -827,7 +836,10 @@ class CombatManager(BaseScript):
                 self.msg("{wCharacters who are ready:{n " + list_to_string(ready))
                 self.msg("{wCharacter who have not yet hit 'continue':{n " + list_to_string(not_ready))
         else:
-            self.start_phase_2()
+            try:
+                self.start_phase_2()
+            except ValueError:
+                self.end_combat()
 
     def afk_check(self, checking_char, char_to_check):
         """
@@ -916,15 +928,17 @@ class CombatManager(BaseScript):
             self.ndb.fleeing.remove(character)
         if character in self.ndb.afk_check:
             self.ndb.afk_check.remove(character)
-        self.clear_defended_by_list(character)
+        self.clear_blocked_by_list(character)
         self.clear_covered_by_list(character)
-        
+        guarding = c_fite.guarding
+        if guarding:
+            self.remove_defender(guarding, character)
         self.msg("%s has left the fight." % character.name)
         character.cmdset.delete(CombatCmdSet)
         character.ndb.combat_manager = None
         character.ndb.charcombatdata = []
         # nonlethal combat leaves no lasting harm
-        if not self.db.lethal:
+        if not self.ndb.lethal:
             # set them to what they were before the fight and wake them up
             character.dmg = c_fite.prefight_damage
             try:
@@ -981,7 +995,7 @@ class CombatManager(BaseScript):
         for fighter in self.ndb.fighter_data.values():
             fighter.roll_initiative()
         self.ndb.initiative_list = sorted([data for data in self.ndb.fighter_data.values()
-                                           if data.char not in self.ndb.incapacitated],
+                                           if data.can_fight],
                                           key=attrgetter('initiative', 'tiebreaker'),
                                           reverse=True)
 
@@ -998,6 +1012,7 @@ class CombatManager(BaseScript):
             return
         char_data = self.ndb.initiative_list.pop(0)
         acting_char = char_data.char
+        acting_char.refresh_from_db()
         self.ndb.active_character = acting_char
         # check if they went LD, teleported, or something
         if acting_char.location != self.ndb.combat_location:
@@ -1078,7 +1093,10 @@ class CombatManager(BaseScript):
             if c_fite.roll_flee_success():  # they can now flee
                 self.ndb.flee_success.append(char)
         # see if people woke up or fell unconscious
-        for char in self.ndb.combatants:
+        for char in self.ndb.combatants[:]:
+            if char.location != self.ndb.combat_location:
+                self.remove_combatant(char)
+                continue
             awake = char.db.asleep_status
             if awake == "awake" and char in self.ndb.incapacitated:
                 self.ndb.incapacitated.remove(char)
@@ -1101,7 +1119,7 @@ class CombatManager(BaseScript):
         not_voted = [ob for ob in self.ndb.combatants if ob and ob not in self.ndb.votes_to_end]
         # only let conscious people vote
         not_voted = [ob for ob in not_voted if self.get_fighter_data(ob.id)
-                     and self.get_fighter_data(ob.id).status == "active"
+                     and self.get_fighter_data(ob.id).can_fight
                      and not self.get_fighter_data(ob.id).wants_to_end]
         if not not_voted:
             self.msg("All parties have voted to end combat.")

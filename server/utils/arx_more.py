@@ -23,6 +23,16 @@ _DISPLAY = \
 (|wmore|n [{pageno}/{pagemax}] |wn|next|||wb|nack|||wt|nop|||we|nnd|||wq|nuit)"""
 
 
+def find_newline_seperator(text):
+    seps = ("\n", "|/", "{/", "%r")
+    index = -1
+    for sep in seps:
+        index = text.find(sep)
+        if index != -1:
+            return index + len(sep)
+    return index
+
+
 class CmdMore(Command):
     """
     Manipulate the text paging
@@ -137,23 +147,33 @@ class EvMore(object):
         height = max(4, session.protocol_flags.get("SCREENHEIGHT", {0:_SCREEN_HEIGHT})[0] - 4)
         width = session.protocol_flags.get("SCREENWIDTH", {0:_SCREEN_WIDTH})[0]
 
-        if justify_kwargs is False:
-            # no justification. Simple division by line
-            lines = text.split("\n")
+        pages_by_char = kwargs.get('pages_by_char', False)
+        if pages_by_char:
+            PAGE_LENGTH = 3000
+            MARGIN = 1000
+            while len(text) > PAGE_LENGTH:
+                index = find_newline_seperator(text[PAGE_LENGTH:PAGE_LENGTH+MARGIN])
+                sep = PAGE_LENGTH + index
+                self._pages.append(text[:sep])
+                text = "\n" + text[sep:]
+            self._pages.append(text)
         else:
-            # we must break very long lines into multiple ones
-            justify_kwargs = justify_kwargs or {}
-            width = justify_kwargs.get("width", width)
-            justify_kwargs["width"] = width
-            justify_kwargs["align"] = justify_kwargs.get("align", 'l')
-            justify_kwargs["indent"] = justify_kwargs.get("indent", 0)
+            if justify_kwargs is False:
+                # no justification. Simple division by line
+                lines = text.split("\n")
+            else:
+                # we must break very long lines into multiple ones
+                justify_kwargs = justify_kwargs or {}
+                width = justify_kwargs.get("width", width)
+                justify_kwargs["width"] = width
+                justify_kwargs["align"] = justify_kwargs.get("align", 'l')
+                justify_kwargs["indent"] = justify_kwargs.get("indent", 0)
 
-            lines = justify(text, **justify_kwargs).split("\n")
+                lines = justify(text, **justify_kwargs).split("\n")
 
-        # always limit number of chars to 10 000 per page
-        height = min(10000 // width, height)
-
-        self._pages = ["\n".join(lines[i:i+height]) for i in range(0, len(lines), height)]
+            # always limit number of chars to 10 000 per page
+            height = min(10000 // width, height)
+            self._pages = ["\n".join(lines[i:i+height]) for i in range(0, len(lines), height)]
         self._npages = len(self._pages)
         self._npos = 0
 
