@@ -1004,7 +1004,7 @@ class CmdMail(MuxPlayerCommand):
         switches = self.switches
 
         # mailbox is combined from Player object and his characters
-        mails = caller.db.mails
+        mails = caller.db.mails or []
         
         # error message for invalid argument
         nomatch = "You must supply a number matching a mail message."
