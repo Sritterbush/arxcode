@@ -828,7 +828,7 @@ class CmdListClues(MuxPlayerCommand):
     Usage:
         @clues
         @clues <clue #>
-        @clues/share <clue #>=<target>[,<target2><target3>,...]
+        @clues/share <clue #>[,<clue #>...]=<target>[,<target2><target3>,...]
         @clues/search <text>
 
     Displays the clues that your character has discovered in game,
