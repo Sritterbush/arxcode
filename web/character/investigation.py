@@ -455,7 +455,7 @@ class CmdInvestigate(InvestigationFormCommand):
         @investigate/changetopic <id #>=<new topic>
         @investigate/changestory <id #>=<new story>
         @investigate/changestat <id #>=<new stat>
-        #investigate/changeskill <id #>=<new skill>
+        @investigate/changeskill <id #>=<new skill>
         @investigate/abandon <id #>
         @investigate/resume <id #>
         @investigate/requesthelp <id #>=<player>

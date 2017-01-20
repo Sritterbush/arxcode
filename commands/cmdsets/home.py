@@ -12,8 +12,9 @@ from world.dominion.models import AssetOwner, Organization, CraftingRecipe
 from commands.commands.crafting import CmdCraft
 from commands.commands.overrides import CmdDig
 from server.utils.prettytable import PrettyTable
-from server.utils.arx_utils import inform_staff
+from server.utils.arx_utils import inform_staff, raw
 from evennia.utils import utils
+from evennia.utils.evtable import EvTable
 import re
 # error return function, needed by Extended Look command
 AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
@@ -606,6 +607,8 @@ class CmdManageShop(MuxCommand):
         +manageshop/addblacklist <player or org name>
         +manageshop/rmblacklist <player or org name>
         +manageshop/orgdiscount <org name>=<percentage>
+        +manageshop/adddesign <key>=<code>
+        +manageshop/rmdesign <key>
 
     Sets prices for your shop. Note that if you use 'all', that will
     be used for any recipe you don't explicitly set a price for.
@@ -629,13 +632,17 @@ class CmdManageShop(MuxCommand):
             table.add_row([name, "%s%%" % prices[price]])
         msg += str(table)
         msg += "\n{wItem Prices{n\n"
-        table = PrettyTable(["{wID{n", "{wName{n", "{wPrice{n"])
+        table = EvTable("{wID{n", "{wName{n", "{wPrice{n", width=78, border="cells")
         prices = loc.db.item_prices or {}
         for price in prices:
             obj = ObjectDB.objects.get(id=price)
-            table.add_row([price, str(obj), prices[price]])
+            table.add_row(price, str(obj), prices[price])
         msg += str(table)
         return msg
+
+    def list_designs(self):
+        designs = self.caller.location.db.template_designs or {}
+        self.msg("{wTemplate designs:{n %s" % ", ".join(designs.keys()))
     
     def func(self):
         """Execute command."""
@@ -646,8 +653,10 @@ class CmdManageShop(MuxCommand):
             return
         if not self.args:
             caller.msg(self.list_prices())
-            caller.msg("Discounts: %s" % str(loc.db.discounts))
-            caller.msg("Blacklist: %s" % str(loc.db.blacklist))
+            discounts = ", ".join(("%s: %s%%" % (ob, val) for ob, val in (loc.db.discounts or {}).items()))
+            caller.msg("{wDiscounts{n: %s" % discounts)
+            caller.msg("{wBlacklist{n: %s" % str(loc.db.blacklist))
+            self.list_designs()
             return
         if "sellitem" in self.switches:
             try:
@@ -744,7 +753,32 @@ class CmdManageShop(MuxCommand):
             except CraftingRecipe.DoesNotExist:
                 caller.msg("No recipe found by that name.")
                 return
+        if "adddesign" in self.switches:
+            designs = loc.db.template_designs or {}
+            try:
+                if not self.rhs:
+                    self.msg("Design for %s: %s" % (self.lhs, designs[self.lhs]))
+                    return
+            except KeyError:
+                self.list_designs()
+                return
+            designs[self.lhs] = self.rhs
+            self.msg("Raw Design for %s is now: %s" % (self.lhs, raw(self.rhs)))
+            self.msg("Design for %s appears as: %s" % (self.lhs, self.rhs))
+            loc.db.template_designs = designs
+            return
+        if "rmdesign" in self.switches:
+            designs = loc.db.template_designs or {}
+            try:
+                del designs[self.lhs]
+                self.msg("Design deleted.")
+            except KeyError:
+                self.msg("No design by that name.")
+                self.list_designs()
+            loc.db.template_designs = designs
+            return
         if "addblacklist" in self.switches or "rmblacklist" in self.switches:
+            blacklist = loc.db.blacklist or []
             try:
                 targ = caller.player.search(self.args, nofound_string="No player by that name. Checking organizations.")
                 org = False
@@ -752,33 +786,34 @@ class CmdManageShop(MuxCommand):
                     org = True
                     targ = Organization.objects.get(name__iexact=self.args)
                 else:
-                    targ = targ.db.char_ob            
+                    targ = targ.db.char_ob
                 if "addblacklist" in self.switches:
                     if org:
-                        if targ.name in loc.db.blacklist:
+                        if targ.name in blacklist:
                             caller.msg("They are already in the blacklist.")
                             return
-                        loc.db.blacklist.append(targ.name)
+                        blacklist.append(targ.name)
                     else:
-                        if targ in loc.db.blacklist:
+                        if targ in blacklist:
                             caller.msg("They are already in the blacklist.")
                             return
-                        loc.db.blacklist.append(targ)
+                        blacklist.append(targ)
                     caller.msg("%s added to blacklist." % targ)
                 else:
                     if org:
-                        if targ.name not in loc.db.blacklist:
+                        if targ.name not in blacklist:
                             caller.msg("They are not in the blacklist.")
                             return
-                        loc.db.blacklist.remove(targ.name)
+                        blacklist.remove(targ.name)
                     else:
-                        if targ not in loc.db.blacklist:
+                        if targ not in blacklist:
                             caller.msg("They are not in the blacklist.")
                             return
-                        loc.db.blacklist.remove(targ)
+                        blacklist.remove(targ)
                     caller.msg("%s removed from blacklist." % targ)
             except Organization.DoesNotExist:
                 caller.msg("No valid target found by that name.")
+            loc.db.blacklist = blacklist
             return
         if "orgdiscount" in self.switches:
             try:
@@ -813,11 +848,14 @@ class CmdBuyFromShop(CmdCraft):
         +shop/adorn <material type>=<amount>
         +shop/finish [<additional silver to invest>]
         +shop/changename <object>=<new name>
+        +shop/viewdesigns [<key>]
 
     Allows you to buy objects from a shop. +shop/craft allows you to use a
     crafter's skills to create an item. You must provide the materials
     yourself. Similarly, +shop/refine lets you use a crafter's skills to
     attempt to improve a crafted object. All costs are covered by you.
+    +shop/design lets you see pre-made descriptions that the crafter has
+    created that you can copy for items you create.
     """
     key = "+shop"
     aliases = ["@shop", "shop"]
@@ -892,12 +930,14 @@ class CmdBuyFromShop(CmdCraft):
                 continue
         msg += str(table)
         msg += "\n{wItem Prices{n\n"
-        table = PrettyTable(["{wID{n", "{wName{n", "{wPrice{n"])
+        table = EvTable("{wID{n", "{wName{n", "{wPrice{n", width=78, border="cells")
         prices = loc.db.item_prices or {}
         for price in prices:
             obj = ObjectDB.objects.get(id=price)
-            table.add_row([price, obj.name, prices[price]])
+            table.add_row(price, obj.name, prices[price])
         msg += str(table)
+        designs = loc.db.template_designs or {}
+        msg += "{wNames of designs:{n %s" % ", ".join(designs.keys())
         return msg
     
     def pay_owner(self, price, msg):
@@ -921,10 +961,11 @@ class CmdBuyFromShop(CmdCraft):
         """See if we're allowed to buy"""
         caller = self.caller
         loc = caller.location
-        if caller in loc.db.blacklist:
+        blacklist = loc.db.blacklist or []
+        if caller in blacklist:
             return True
         for org in caller.db.player_ob.Dominion.current_orgs:
-            if org.name in loc.db.blacklist:
+            if org.name in blacklist:
                 return True
         return False
 
@@ -942,6 +983,19 @@ class CmdBuyFromShop(CmdCraft):
             if project:
                 caller.msg(self.display_project(project))
             return
+        if "viewdesigns" in self.switches:
+            designs = loc.db.template_designs or {}
+            if not self.args:
+                self.msg("Names of designs: %s" % ", ".join(designs.keys()))
+                return
+            try:
+                design = designs[self.args]
+                self.msg("{wDesign's appearance:{n\n%s" % design)
+                self.msg("\n{wRaw code of design:{n\n%s" % raw(design))
+            except KeyError:
+                self.msg("No design found by that name.")
+                self.msg("Names of designs: %s" % ", ".join(designs.keys()))
+                return
         if "buy" in self.switches:
             try:
                 num = int(self.args)
