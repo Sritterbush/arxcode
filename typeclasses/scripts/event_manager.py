@@ -279,7 +279,7 @@ class EventManager(Script):
                                    db_tags__db_data=event.tagdata)
             post.delete()
         except Exception:
-            traceback.print_exc()
+            pass
 
     @staticmethod
     def get_log_path(eventid):

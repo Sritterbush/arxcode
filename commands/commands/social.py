@@ -1012,6 +1012,7 @@ class CmdCalendar(MuxPlayerCommand):
         @cal/roomdesc <description>
         @cal/abort
         @cal/submit
+        @cal/invite <event number>=<player>
         @cal/starteventearly <event number>[=here]
         @cal/endevent <event number>
         @cal/reschedule <event number>=<new date>
@@ -1047,7 +1048,7 @@ class CmdCalendar(MuxPlayerCommand):
             host = event.main_host or "No host"
             host = str(host).capitalize()
             public = "Public" if event.public_event else "Not Public"
-            table.add_row([event.id, event.name[:25], event.date.strftime("%x %X"), host, public])
+            table.add_row([event.id, event.name[:25], event.date.strftime("%x %H:%M"), host, public])
         return table
 
     @staticmethod
@@ -1134,15 +1135,26 @@ class CmdCalendar(MuxPlayerCommand):
                 return
         if "list" in self.switches:
             # display upcoming events
-            unfinished = RPEvent.objects.filter(finished=False).order_by('date')
+            if caller.check_permstring("builders"):
+                unfinished = RPEvent.objects.filter(finished=False).order_by('date')
+            else:
+                unfinished = RPEvent.objects.filter(Q(finished=False) & Q(Q(public_event=True) | Q(participants=dompc)
+                                                                          | Q(gms=dompc) | Q(hosts=dompc))
+                                                    ).distinct().order_by('date')
             table = self.display_events(unfinished)
             caller.msg("{wUpcoming events:\n%s" % table, options={'box': True})
             return
         if "old" in self.switches:
             # display finished events
-            finished = RPEvent.objects.filter(finished=True).order_by('date')
+            from server.utils import arx_more
+            if caller.check_permstring("builders"):
+                finished = RPEvent.objects.filter(finished=True).order_by('-date')
+            else:
+                finished = RPEvent.objects.filter(Q(finished=True) & Q(Q(public_event=True) | Q(participants=dompc)
+                                                                       | Q(gms=dompc) | Q(hosts=dompc))
+                                                  ).distinct().order_by('-date')
             table = self.display_events(finished)
-            caller.msg("{wOld events:\n%s" % table, options={'box': True})
+            arx_more.msg(caller, "{wOld events:\n%s" % table, justify_kwargs=False)
             return
         # at this point, we may be trying to update our project. Set defaults.
         proj = caller.ndb.event_creation or [None, None, None, None, True, [], None, None, []]
@@ -1315,8 +1327,9 @@ class CmdCalendar(MuxPlayerCommand):
             caller.msg("New event created: %s at %s." % (event.name, date.strftime("%x %X")))
             inform_staff("New event created by %s: %s, scheduled for %s." % (caller, event.name,
                                                                              date.strftime("%x %X")))
-            event_manager = ScriptDB.objects.get(db_key="Event Manager")
-            event_manager.post_event(event, caller, post)         
+            if event.public_event:
+                event_manager = ScriptDB.objects.get(db_key="Event Manager")
+                event_manager.post_event(event, caller, post)
             return
         # both starting an event and ending one requires a Dominion object
         try:
@@ -1359,6 +1372,20 @@ class CmdCalendar(MuxPlayerCommand):
         except RPEvent.DoesNotExist:
             caller.msg("You are not hosting any event by that number. Your events:")
             caller.msg(self.display_events(events), options={'box': True})
+            return
+        if "invite" in self.switches:
+            targ = caller.search(self.rhs)
+            if not targ:
+                return
+            pc = targ.Dominion
+            if pc in event.participants.all():
+                self.msg("They are already invited to attend.")
+                return
+            event.participants.add(pc)
+            msg = "You have been invited to attend {c%s{n." % event.name
+            msg += "\nFor details about this event, use {w@cal %s{n" % event.id
+            targ.inform(msg, category="Invitation", append=False)
+            self.msg("{wInvited {c%s{w to attend %s." % (pc, event))
             return
         if "starteventearly" in self.switches:
             if self.rhs and self.rhs.lower() == "here":
