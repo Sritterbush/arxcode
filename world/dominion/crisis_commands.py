@@ -22,7 +22,7 @@ class CmdGMCrisis(MuxPlayerCommand):
         @gmcrisis/outcome <action #>=<IC notes>
         @gmcrisis/sendresponses
 
-    Use /needgm/listactions or /needgm/listquestions to list ones
+    Use /needgm or /needgm/listquestions to list ones
     that have not been answered.
     """
     key = "@gmcrisis"
@@ -158,6 +158,7 @@ class CmdCrisisAction(MuxPlayerCommand):
     GMs periodically.
     """
     key = "+crisis"
+    aliases = ["crisis"]
     locks = "cmd:all()"
     help_category = "Dominion"
 

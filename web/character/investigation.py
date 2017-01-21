@@ -195,7 +195,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         @helpinvestigate/stop
         @helpinvestigate/resume <id #>
         @helpinvestigate/retainerstop <retainer ID>
-        @helpinvestigate/retaineresume <id #>=<retainer ID>
+        @helpinvestigate/retainerresume <id #>=<retainer ID>
 
     Helps with an investigation, or orders a retainer to help
     with the investigation. You may only help with one investigation
@@ -206,7 +206,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
     retainer ID will switch back to you as being the investigation's helper.
     """
     key = "@helpinvestigate"
-    alises = ["+helpinvestigate", "helpinvestigate"]
+    aliases = ["+helpinvestigate", "helpinvestigate"]
     locks = "cmd:all()"
     help_category = "Investigation"
     form_verb = "Helping"
@@ -900,8 +900,9 @@ class CmdListClues(MuxPlayerCommand):
                     clue.share(pc.roster)
                 shared_names.append(str(pc.roster))
             if shared_names:
-                caller.msg("You have shared the clues '%s' with %s." % (", ".join(str(ob.clue) for ob in clues_to_share),
-                                                                        ", ".join(shared_names)))
+                caller.msg("You have shared the clues '%s' with %s." % (
+                    ", ".join(str(ob.clue) for ob in clues_to_share),
+                    ", ".join(shared_names)))
             else:
                 self.msg("Shared nothing.")
             return
@@ -988,6 +989,7 @@ class CmdTheories(MuxPlayerCommand):
         @theories/editdesc <theory ID #>=<desc>
         @theories/edittopic <theory ID #>=<topic>
         @theories/shareall <theory ID #>=<player>
+        @theories/readall <theory ID #>
 
     Allows you to create and share theories your character comes up with,
     and associate them with clues and other theories. You may only create
@@ -1016,12 +1018,16 @@ class CmdTheories(MuxPlayerCommand):
         known_clues = [ob.clue.id for ob in self.caller.roster.finished_clues]
         disp_clues = theory.related_clues.filter(id__in=known_clues)
         self.msg("{wRelated Clues:{n %s" % ", ".join(ob.name for ob in disp_clues))
+        if "readall" in self.switches:
+            for clue in disp_clues:
+                clue_display = "{wName{n: %s\n\n%s\n" % (clue.name, clue.desc)
+                self.msg(clue_display)
 
     def func(self):
         if not self.args:
             self.display_theories()
             return
-        if not self.switches or "view" in self.switches:
+        if not self.switches or "view" in self.switches or "readall" in self.switches:
             self.view_theory()
             return
         if "search" in self.switches:

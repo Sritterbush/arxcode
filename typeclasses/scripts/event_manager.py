@@ -98,7 +98,17 @@ class EventManager(Script):
     def announce_upcoming_event(event, diff):
         mins = int(diff/60)
         secs = diff % 60
-        SESSIONS.announce_all("{wEvent: '%s' will start in %s minutes and %s seconds.{n" % (event.name, mins, secs))
+        announce_msg = "{wEvent: '%s' will start in %s minutes and %s seconds.{n" % (event.name, mins, secs)
+        if event.public_event:
+            SESSIONS.announce_all(announce_msg)
+        else:
+            announce_msg = "{y(Private Message) " + announce_msg
+            for ob in event.characters:
+                try:
+                    ob.player.msg(announce_msg)
+                except AttributeError:
+                    continue
+
 
     @staticmethod
     def get_event_location(event):

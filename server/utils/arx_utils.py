@@ -33,9 +33,9 @@ def inform_staff(message):
     """
     from evennia.comms.models import ChannelDB
     try:
-        wizchan = ChannelDB.objects.get(db_key__iexact="mudinfo")
-        now = tnow().strftime("%X")    
-        wizchan.tempmsg("{r[%s, %s]:{n %s" % (wizchan.key, now, message))
+        wizchan = ChannelDB.objects.get(db_key__iexact="staffinfo")
+        now = tnow().strftime("%H:%M")
+        wizchan.tempmsg("{r[%s]:{n %s" % (now, message))
     except Exception as err:
         print("ERROR when attempting utils.inform_staff() : %s" % err)
 

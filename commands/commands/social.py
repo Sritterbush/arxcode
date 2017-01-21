@@ -283,7 +283,7 @@ class CmdJournal(MuxCommand):
     Allows a character to read the White Journals of characters,
     or add to their own White Journal or Black Reflections. White
     Journals are public notes that are recorded by the scribes of
-    Velichor for all to see, while Black Reflections are sealed notes
+    Vellichor for all to see, while Black Reflections are sealed notes
     that are kept private until after the character is deceased and then
     only released if explicitly stated to do so in their will, along with
     the concurrence of their family and the Scholars of Vellichor.
@@ -297,23 +297,23 @@ class CmdJournal(MuxCommand):
     aliases = ["+journal"]
     help_category = "Social"
 
-    def journal_index(self, character, jlist):
+    def journal_index(self, character, j_list):
         num = 1
         table = PrettyTable(["{w#{n", "{wWritten About{n", "{wDate{n", "{wUnread?{n"])
         fav_tag = "pid_%s_favorite" % self.caller.db.player_ob.id
-        for entry in jlist:
+        for entry in j_list:
             try:
                 event = character.messages.get_event(entry)
                 name = ", ".join(str(ob) for ob in entry.db_receivers_objects.all())       
                 if event and not name:
                     name = event.name[:25]
                 if fav_tag in entry.tags.all():
-                    strnum = str(num) + "{w*{n"
+                    str_num = str(num) + "{w*{n"
                 else:
-                    strnum = str(num)
+                    str_num = str(num)
                 unread = "" if self.caller.db.player_ob in entry.receivers else "{wX{n"
                 date = character.messages.get_date_from_header(entry)
-                table.add_row([strnum, name, date, unread])
+                table.add_row([str_num, name, date, unread])
                 num += 1
             except (AttributeError, RuntimeError, ValueError, TypeError):
                 continue
@@ -326,16 +326,16 @@ class CmdJournal(MuxCommand):
                                               ~Q(sender_object_set__db_receivers_players=caller.db.player_ob) &
                                               ~Q(roster__current_account=caller.roster.current_account)
                                               ).distinct().order_by('db_key')
-        msglist = []
+        msg_list = []
         for writer in all_writers:
             count = writer.sender_object_set.filter(Q(db_header__contains="white_journal") &
                                                     ~Q(db_receivers_players=caller.db.player_ob)).count()
-            msglist.append("{C%s{c(%s){n" % (writer.key, count))
-        caller.msg("Writers with journals you have not read: %s" % ", ".join(msglist))
+            msg_list.append("{C%s{c(%s){n" % (writer.key, count))
+        caller.msg("Writers with journals you have not read: %s" % ", ".join(msg_list))
 
     def disp_favorite_journals(self):
         caller = self.caller
-        tagname = "pid_%s_favorite" % caller.db.player_ob.id
+        tag_name = "pid_%s_favorite" % caller.db.player_ob.id
         all_writers = ObjectDB.objects.filter(Q(sender_object_set__db_header__contains="white_journal") &
                                               ~Q(sender_object_set__db_receivers_players=caller.db.player_ob) &
                                               ~Q(roster__current_account=caller.roster.current_account)
@@ -343,7 +343,7 @@ class CmdJournal(MuxCommand):
         msglist = []
         for writer in all_writers:
             count = writer.sender_object_set.filter(Q(db_header__contains="white_journal") &
-                                                    Q(db_tags__db_key=tagname)).count()
+                                                    Q(db_tags__db_key=tag_name)).count()
             if count:
                 msglist.append("{C%s{c(%s){n" % (writer.key, count))
         caller.msg("Writers with journals you have favorited: %s" % ", ".join(msglist))
@@ -357,7 +357,7 @@ class CmdJournal(MuxCommand):
                                       ).distinct()
         for msg in all_msgs:
             msg.db_receivers_players.add(caller.db.player_ob)
-            
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -366,10 +366,10 @@ class CmdJournal(MuxCommand):
         if not self.args and not self.switches:
             char = caller
             white = "black" not in self.switches
-            jname = "White Journal" if white else "Black Reflection"
+            j_name = "White Journal" if white else "Black Reflection"
             # display caller's latest white or black journal entry
             try:
-                self.msg("Number of entries in your %s: %s" % (jname, char.messages.size(white))) 
+                self.msg("Number of entries in your %s: %s" % (j_name, char.messages.size(white)))
                 self.msg(char.messages.disp_entry_by_num(num=num, white=white, caller=caller.db.player_ob),
                          options={'box': True})
             except IndexError:
@@ -561,7 +561,7 @@ class CmdJournal(MuxCommand):
                 import traceback
                 traceback.print_exc()
             caller.msg("New journal entry body is:\n%s" % self.rhs)
-            inform_staff("%s has editted their journal." % caller)
+            inform_staff("%s has edited their journal." % caller)
             return
                 
         caller.msg("Invalid switch.")
@@ -1843,6 +1843,7 @@ class CmdRandomScene(MuxCommand):
     @randomscene/online will only display players who are currently in the game.
     """
     key = "@randomscene"
+    aliases = ["@rs"]
     locks = "cmd:all()"
     help_category = "Social"
     NUM_SCENES = 3

@@ -3231,6 +3231,8 @@ class RPEvent(models.Model):
     def display(self):
         msg = "{wName:{n %s\n" % self.name
         msg += "{wHosts:{n %s\n" % ", ".join(str(ob) for ob in self.hosts.all())
+        if self.gms.all():
+            msg += "{wGMs:{n %s\n" % ", ".join(str(ob) for ob in self.gms.all())
         if not self.finished and not self.public_event:
             msg += "{wInvited:{n %s\n" % ", ".join(str(ob) for ob in self.participants.all())
         msg += "{wLocation:{n %s\n" % self.location
@@ -3318,6 +3320,10 @@ class RPEvent(models.Model):
 
     def get_absolute_url(self):
         return reverse('dominion:display_event', kwargs={'pk': self.id})
+
+    @property
+    def characters(self):
+        return set(self.gms.all() | self.hosts.all() | self.participants.all())
     
 
 class InfluenceCategory(models.Model):

@@ -1,5 +1,5 @@
 """
-General Character commands usually availabe to all characters
+General Character commands usually available to all characters
 """
 from django.conf import settings
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
@@ -57,9 +57,9 @@ class CmdGameSettings(MuxPlayerCommand):
         @settings/private_mode
         @settings/ic_only
 
-    Toggles different settings. Brief surpresses room descs when
+    Toggles different settings. Brief suppresses room descs when
     moving through rooms. Posebreak adds a newline between poses
-    fro mcharacters. lrp flags your name in the who list
+    from characters. lrp flags your name in the who list
     as looking for scenes. afk sets that you are away from the
     keyboard, with an optional message. nomessengerpreview removes
     the echo of messengers that you send. bbaltread causes you to
@@ -349,7 +349,7 @@ class CmdLook(MuxCommand):
         caller = self.caller
         args = self.args
         if args:
-            # Use search to handle duplicate/nonexistant results.
+            # Use search to handle duplicate/nonexistent results.
             looking_at_obj = caller.search(args, use_nicks=True)
             if not looking_at_obj:
                 return
@@ -948,7 +948,7 @@ class CmdDiceCheck(MuxCommand):
                 roll_msg = "checked %s + %s against difficulty %s, %s{n." % (stat, skill, difficulty, resultstr)
             caller.msg("You " + roll_msg)
             roll_msg = caller.key.capitalize() + " " + roll_msg
-            # if they have a recepient list, only tell those people (and GMs)
+            # if they have a recipient list, only tell those people (and GMs)
             if self.rhs:
                 namelist = [name.strip() for name in self.rhs.split(",")]
                 for name in namelist:
@@ -1369,13 +1369,13 @@ class CmdInform(MuxPlayerCommand):
             for info in informs:
                 x += 1
 
-                def highlight(ob, add_star=False):
+                def highlight(ob_str, add_star=False):
                     if not info.is_unread:
-                        return ob
+                        return ob_str
                     if add_star:
-                        return "{w*%s{n" % ob
+                        return "{w*%s{n" % ob_str
                     else:
-                        return "{w%s{n" % ob
+                        return "{w%s{n" % ob_str
                 num = highlight(x, add_star=True)
                 cat = highlight(info.category)
                 date = highlight(info.date_sent.strftime("%x %X"))
@@ -1426,18 +1426,17 @@ class CmdKeyring(MuxCommand):
 
     def func(self):
         caller = self.caller
-        roomkeys = caller.db.keylist or []
+        room_keys = caller.db.keylist or []
         # remove any deleted objects
-        if None in roomkeys:
-            roomkeys = [ob for ob in roomkeys if ob is not None]
-            caller.db.keylist = roomkeys
-        chestkeys = caller.db.chestkeylist or []
+        if None in room_keys:
+            room_keys = [ob for ob in room_keys if ob]
+            caller.db.keylist = room_keys
+        chest_keys = caller.db.chestkeylist or []
         # remove any deleted objects
-        if None in chestkeys:
-            chestkeys = [ob for ob in chestkeys if ob is not None]
-            caller.db.chestkeylist = chestkeys
-        keylist = list(roomkeys) + list(chestkeys)
-        caller.msg("Keys: %s" % ", ".join(ob.key for ob in keylist if ob))
+        chest_keys = [ob for ob in chest_keys if ob and "deleted" not in ob.tags.all()]
+        caller.db.chestkeylist = chest_keys
+        key_list = list(room_keys) + list(chest_keys)
+        caller.msg("Keys: %s" % ", ".join(ob.key for ob in key_list if ob))
         return
 
 
