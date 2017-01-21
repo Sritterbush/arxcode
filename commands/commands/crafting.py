@@ -257,8 +257,8 @@ class CmdCraft(MuxCommand):
     To finish a project, use /finish, or /abandon if you wish to stop
     and do something else. To attempt to change the quality level of
     a finished object, use /refine to attempt to improve it, for a
-    price based on how much it took to create. Beware - this can make
-    the object worse.
+    price based on how much it took to create. Refining can never
+    make the object worse.
 
     Craft with no arguments will display the status of a current
     project.

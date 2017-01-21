@@ -428,6 +428,9 @@ class MessageHandler(object):
             self.obj.msg("This messenger appears to have been deleted.")
             return
         self.obj.receiver_object_set.add(msg)
+        # remove the pending message from the associated player
+        player_ob = self.obj.db.player_ob
+        player_ob.receiver_player_set.remove(msg)
         if msg not in self.messenger_history:
             self.messenger_history.insert(0, msg)
         qs = self.obj.receiver_object_set.filter(Q(db_header__icontains="messenger")
@@ -453,7 +456,7 @@ class MessageHandler(object):
             self.messenger_history.remove(msg)
         self.obj.receiver_object_set.remove(msg)
         # only delete the messenger if no one else has a copy
-        if not msg.db_receivers_objects.all():
+        if not msg.db_receivers_objects.all() and not msg.db_receivers_players.all():
             msg.delete()
 
     # ---------------------------------------------------------------------

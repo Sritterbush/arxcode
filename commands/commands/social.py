@@ -608,6 +608,7 @@ class CmdMessenger(MuxCommand):
         messenger/sent <number>
         messenger/sentindex <amount to display>
         messenger/delete <number>
+        messenger/forward <number>=<target>[,<target 2>,..]
         messenger/preserve <number>
         messenger/draft <receiver>=<message>
         messenger/proof
@@ -634,13 +635,19 @@ class CmdMessenger(MuxCommand):
     help_category = "Social"
 
     @staticmethod
-    def send_messenger(caller, targ, msg, delivery=None, money=None):
+    def send_messenger(caller, targ, msg, delivery=None, money=None, forwarded=False):
         unread = targ.db.pending_messengers or []
         if type(unread) == 'unicode':
             # attribute was corrupted due to  database conversion, fix it
             unread = []
         m_name = caller.db.custom_messenger
-        unread.insert(0, (msg, delivery, money, m_name))
+        if forwarded:
+            unread.insert(0, (msg, delivery, money, m_name, caller))
+        else:
+            unread.insert(0, (msg, delivery, money, m_name))
+        # add the message to the player's set to mark it as an unread message sent to them
+        player = targ.db.player_ob
+        player.receiver_player_set.add(msg)
         targ.db.pending_messengers = unread
         targ.messenger_notification(2)
         if caller.db.player_ob.db.nomessengerpreview or caller.ndb.already_previewed:
@@ -755,11 +762,13 @@ class CmdMessenger(MuxCommand):
             msg = None
             obj = None
             money = None
+            forwarded_by = None
             try:
                 msg = msgtuple[0]
                 obj = msgtuple[1]
                 money = msgtuple[2]
                 messenger_name = msgtuple[3] or "A messenger"
+                forwarded_by = msgtuple[4]
             except IndexError:
                 pass
             except TypeError:
@@ -794,10 +803,12 @@ class CmdMessenger(MuxCommand):
                 ignore = [ob for ob in caller.location.contents if ob.db.ignore_messenger_deliveries and ob != caller]
                 caller.location.msg_contents("%s arrives, delivering a message to {c%s{n before departing." % (
                     messenger_name, caller.name), exclude=ignore)
+            if forwarded_by:
+                caller.msg("{yThis message was forwarded by {c%s{n." % forwarded_by)
             return
         # display an old message
         if ("old" in self.switches or 'delete' in self.switches or 'oldindex' in self.switches
-                or "preserve" in self.switches):
+                or "preserve" in self.switches or "forward" in self.switches):
             old = caller.messages.messenger_history
             if not old:
                 caller.msg("You have never received a single messenger ever. Not a single one. " +
@@ -827,6 +838,21 @@ class CmdMessenger(MuxCommand):
                 if num < 1:
                     raise ValueError
                 msg = old[num - 1]
+                if "forward" in self.switches:
+                    targs = []
+                    for arg in self.rhslist:
+                        targ = caller.player.search(arg)
+                        if not targ:
+                            continue
+                        character = targ.db.char_ob
+                        if not character:
+                            continue
+                        targs.append(character)
+                    if not targs:
+                        return
+                    for targ in targs:
+                        self.send_messenger(caller, targ, msg, forwarded=True)
+                    return
                 if "delete" in self.switches:
                     caller.messages.del_messenger(msg)
                     caller.msg("You destroy all evidence that you ever received that message.")
