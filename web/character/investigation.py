@@ -980,7 +980,7 @@ class CmdTheories(MuxPlayerCommand):
     Usage:
         @theories
         @theories <theory ID #>
-        @theories/share <theory ID #>=<player>
+        @theories/share <theory ID #>=<player>[,<player2>,...]
         @theories/create <topic>=<description>
         @theories/addclue <theory ID #>=<clue ID #>
         @theories/rmclue <theory ID #>=<clue ID #>
@@ -1045,27 +1045,33 @@ class CmdTheories(MuxPlayerCommand):
             except (Theory.DoesNotExist, ValueError):
                 self.msg("No theory found by that ID.")
                 return
-            targ = self.caller.search(self.rhs)
-            if not targ:
+            targs = []
+            for arg in self.rhslist:
+                targ = self.caller.search(arg)
+                if not targ:
+                    continue
+                targs.append(targ)
+            if not targs:
                 return
-            if "shareall" in self.switches:
-                try:
-                    if targ.db.char_ob.location != self.caller.db.char_ob.location:
-                        self.msg("You must be in the same room.")
-                        return
-                except AttributeError:
-                    self.msg("One of you does not have a character object.")
-                    return
-                clues = self.caller.roster.finished_clues.filter(clue__id__in=theory.related_clues.all())
-                for clue in clues:
-                    clue.share(targ.roster)
-                    self.msg("Shared clue %s with %s" % (clue.name, targ))
-            if theory in targ.known_theories.all():
-                self.msg("They already know that theory.")
-                return
-            targ.known_theories.add(theory)
-            self.msg("Theory %s added to %s." % (self.lhs, targ))
-            targ.inform("%s has shared a theory with you." % self.caller, category="Theories")
+            for targ in targs:
+                if "shareall" in self.switches:
+                    try:
+                        if targ.db.char_ob.location != self.caller.db.char_ob.location:
+                            self.msg("You must be in the same room.")
+                            continue
+                    except AttributeError:
+                        self.msg("One of you does not have a character object.")
+                        continue
+                    clues = self.caller.roster.finished_clues.filter(clue__id__in=theory.related_clues.all())
+                    for clue in clues:
+                        clue.share(targ.roster)
+                        self.msg("Shared clue %s with %s" % (clue.name, targ))
+                if theory in targ.known_theories.all():
+                    self.msg("They already know that theory.")
+                    continue
+                targ.known_theories.add(theory)
+                self.msg("Theory %s added to %s." % (self.lhs, targ))
+                targ.inform("%s has shared a theory with you." % self.caller, category="Theories")
             return
         if "delete" in self.switches or "forget" in self.switches:
             try:
