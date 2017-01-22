@@ -3,7 +3,7 @@ from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb,
                      AssetOwner, Region, Land, DomainProject, Castle,
                      Ruler, Army, Orders, MilitaryUnit, Member, Task,
                      CraftingRecipe, CraftingMaterialType, CraftingMaterials,
-                     RPEvent, AccountTransaction, AssignedTask, Crisis,
+                     RPEvent, AccountTransaction, AssignedTask, Crisis, CrisisAction,
                      OrgRelationship, Reputation, TaskSupporter, InfluenceCategory,
                      Renown, SphereOfInfluence, TaskRequirement)
 
@@ -211,6 +211,12 @@ class CrisisAdmin(DomAdmin):
     filter_horizontal = ['orgs']
 
 
+class CrisisActionAdmin(DomAdmin):
+    list_display = ('id', 'crisis', 'dompc', 'action', 'week', 'sent')
+    search_fields = ('crisis__name', 'dompc__player__username')
+    list_filter = ('sent', 'crisis')
+
+
 class OrgRelationshipAdmin(DomAdmin):
     filter_horizontal = ['orgs']
 
@@ -250,6 +256,7 @@ class InfluenceCategoryAdmin(DomAdmin):
         return ", ".join([p.name for p in obj.tasks.all().order_by('name')])
     inlines = [SpheresInline, TaskRequirementsInline]
 
+
 class AgentAdmin(DomAdmin):
     list_display = ('id', 'name', 'quantity', 'quality', 'owner')
     raw_id_fields = ('owner',)
@@ -277,6 +284,7 @@ admin.site.register(CraftingMaterialType, MaterialTypeAdmin)
 admin.site.register(CraftingMaterials, MaterialsAdmin)
 admin.site.register(RPEvent, EventAdmin)
 admin.site.register(Crisis, CrisisAdmin)
+admin.site.register(CrisisAction, CrisisActionAdmin)
 admin.site.register(OrgRelationship, OrgRelationshipAdmin)
 admin.site.register(Reputation, ReputationAdmin)
 admin.site.register(AssignedTask, AssignedTaskAdmin)
