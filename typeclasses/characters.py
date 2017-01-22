@@ -458,8 +458,11 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             return
         self.msg("You stop following %s." % f_targ.name)
         if f_targ.ndb.followers:
-            f_targ.ndb.followers.remove(self)
-            f_targ.msg("%s stops following you." % self.name)
+            try:
+                f_targ.ndb.followers.remove(self)
+                f_targ.msg("%s stops following you." % self.name)
+            except (ValueError, TypeError, AttributeError):
+                pass
         self.ndb.following = None
 
     def get_fakeweapon(self):
