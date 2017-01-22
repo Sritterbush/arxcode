@@ -1535,6 +1535,8 @@ class Crisis(models.Model):
     resolved = models.BooleanField(default=False)
     start_date = models.DateTimeField(blank=True, null=True)
     end_date = models.DateTimeField(blank=True, null=True)
+    chapter = models.ForeignKey('character.Chapter', related_name="crises", blank=True, null=True,
+                                on_delete=models.SET_NULL)
 
     class Meta:
         """Define Django meta options"""
@@ -1555,7 +1557,26 @@ class Crisis(models.Model):
         if self.required_clue:
             msg += "\n{wRequired Clue:{n %s" % self.required_clue
         msg += "\n{wCurrent Rating:{n %s" % self.rating
+        try:
+            last = self.updates.last()
+            msg += "\n{wLatest Update:{n\n%s" % last.desc
+        except AttributeError:
+            pass
         return msg
+
+
+class CrisisUpdate(models.Model):
+    """
+    Container for showing all the Crisis Actions during a period and their corresponding
+    result on the crisis
+    """
+    crisis = models.ForeignKey("Crisis", related_name="updates", db_index=True)
+    desc = models.TextField("Story of what happened this update", blank=True)
+    gm_notes = models.TextField("Any ooc notes of consequences", blank=True)
+    date = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return "Update %s for %s" % (self.id, self.crisis)
 
 
 class CrisisAction(models.Model):
@@ -1566,6 +1587,7 @@ class CrisisAction(models.Model):
     dompc = models.ForeignKey("PlayerOrNpc", db_index=True, blank=True, null=True, related_name="actions")
     action = models.TextField("What actions the player is taking", blank=True)
     crisis = models.ForeignKey("Crisis", db_index=True, blank=True, null=True, related_name="actions")
+    update = models.ForeignKey("CrisisUpdate", db_index=True, blank=True, null=True, related_name="actions")
     public = models.BooleanField(default=True, blank=True)
     rolls = models.TextField(blank=True)
     gm_notes = models.TextField(blank=True)
@@ -1573,10 +1595,11 @@ class CrisisAction(models.Model):
     outcome_value = models.SmallIntegerField(default=0, blank=0)
     sent = models.BooleanField(default=False, blank=True)
 
-    def send(self):
+    def send(self, update):
         msg = "{wGM Response to action for crisis:{n %s" % self.crisis
         msg += "\n{wRolls:{n %s" % self.rolls
         msg += "\n\n{wStory:{n %s\n\n" % self.story
+        self.update = update
         self.dompc.player.inform(msg, category="Action", week=self.week,
                                  append=True)
         self.sent = True
@@ -3199,9 +3222,10 @@ class RPEvent(models.Model):
         (LEGENDARY, 'Legendary'),
         )
     hosts = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_hosted')
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, db_index=True)
     desc = models.TextField(blank=True, null=True)
-    location = models.ForeignKey('objects.ObjectDB', blank=True, null=True, related_name='events_held')
+    location = models.ForeignKey('objects.ObjectDB', blank=True, null=True, related_name='events_held',
+                                 on_delete=models.SET_NULL)
     date = models.DateTimeField(blank=True, null=True)
     participants = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_attended')
     gms = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_gmd')
@@ -3211,6 +3235,7 @@ class RPEvent(models.Model):
     finished = models.BooleanField(default=False, blank=False)
     results = models.TextField(blank=True, null=True)
     room_desc = models.TextField(blank=True, null=True)
+    crisis = models.ForeignKey("Crisis", blank=True, null=True, on_delete=models.SET_NULL, related_name="events")
 
     @property
     def prestige(self):

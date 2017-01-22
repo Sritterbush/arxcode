@@ -3,7 +3,7 @@ from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb,
                      AssetOwner, Region, Land, DomainProject, Castle,
                      Ruler, Army, Orders, MilitaryUnit, Member, Task,
                      CraftingRecipe, CraftingMaterialType, CraftingMaterials,
-                     RPEvent, AccountTransaction, AssignedTask, Crisis, CrisisAction,
+                     RPEvent, AccountTransaction, AssignedTask, Crisis, CrisisAction, CrisisUpdate,
                      OrgRelationship, Reputation, TaskSupporter, InfluenceCategory,
                      Renown, SphereOfInfluence, TaskRequirement)
 
@@ -207,8 +207,15 @@ class TaskAdmin(DomAdmin):
         return super(TaskAdmin, self).formfield_for_manytomany(db_field, request, **kwargs)
 
 
+class CrisisUpdateInline(admin.TabularInline):
+    model = CrisisUpdate
+    extra = 0
+
+
 class CrisisAdmin(DomAdmin):
+    list_display = ('id', 'name', 'desc', 'end_date')
     filter_horizontal = ['orgs']
+    inlines = (CrisisUpdateInline,)
 
 
 class CrisisActionAdmin(DomAdmin):

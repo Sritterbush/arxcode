@@ -20,10 +20,18 @@ class CmdGMCrisis(MuxPlayerCommand):
         @gmcrisis/check <action #>=<stat> + <skill> at <diff>
         @gmcrisis/gmnotes <action #>=<ooc notes>/<crisis value>
         @gmcrisis/outcome <action #>=<IC notes>
-        @gmcrisis/sendresponses
+        @gmcrisis/sendresponses <crisis name>=<story update text>
+        @gmcrisis/appendresponses <crisis name>
 
     Use /needgm or /needgm/listquestions to list ones
-    that have not been answered.
+    that have not been answered. To use this command properly, use /check to make
+    checks for players, then write /gmotes and their /outcome for each action.
+    That will make the action ready to be sent. Then use /sendresponses to send
+    all the actions out simultaneously, which will create a new update for that
+    crisis with the text provided and point all those actions to that update.
+
+    If you happen to forget actions in an update, use /appendresponses to send
+    them out for the last update.
     """
     key = "@gmcrisis"
     locks = "cmd:perm(wizards)"
@@ -38,6 +46,9 @@ class CmdGMCrisis(MuxPlayerCommand):
             qs = qs.filter(story__exact="")
         if "list_questions" in self.switches:
             qs = qs.filter(questions__answers__isnull=True)
+        if self.args:
+            qs = qs.filter(Q(crisis__name__iexact=self.args) |
+                           Q(dompc__player__username__iexact=self.args))
         table = EvTable("{w#{n", "{wCrisis{n", "{wPlayer{n", "{wAnswered{n", "{wQuestions{n", "{wDate Set{n",
                         width=78, border="cells")
         for ob in qs:
@@ -65,6 +76,7 @@ class CmdGMCrisis(MuxPlayerCommand):
             msg = "\n" + msg
         action.rolls += msg
         action.save()
+        self.msg("Appended message: %s" % msg)
 
     def answer_question(self, action):
         question = action.questions.last()
@@ -91,19 +103,40 @@ class CmdGMCrisis(MuxPlayerCommand):
     def view_action(self, action):
         view_answered = "old" in self.switches
         self.msg(action.view_action(self.caller, disp_pending=True, disp_old=view_answered))
+        self.msg("{wCurrent GM story:{n %s" % action.story)
+        self.msg("{wRolls:{n %s" % action.rolls)
+        self.msg("{wGM Notes:{n %s" % action.gm_notes)
 
-    def send_responses(self):
-        qs = CrisisAction.objects.filter(sent=False).exclude(story="")
+    def send_responses(self, create_update=True):
+        try:
+            crisis = Crisis.objects.get(name__iexact=self.lhs)
+        except Crisis.DoesNotExist:
+            self.msg("No crisis by that name: %s" % ", ".join(str(ob) for ob in Crisis.objects.all()))
+            return
+        from datetime import datetime
+        qs = crisis.actions.filter(sent=False).exclude(story="")
+        if not qs:
+            self.msg("No messages need updates.")
+            return
+        date = datetime.now()
+        if create_update:
+            update = crisis.updates.create(desc=self.rhs, date=date)
+        else:
+            update = crisis.updates.last()
+        if not update:
+            self.msg("Create_update was false and no last update found.")
+            return
         for ob in qs:
-            ob.send()
+            ob.send(update)
         self.msg("Sent responses.")
 
     def func(self):
-        if not self.args and "sendresponses" not in self.switches:
+        if not self.args or (not self.lhs.isdigit() and not self.rhs) and "appendresponses" not in self.switches:
             self.list_actions()
             return
-        if "sendresponses" in self.switches:
-            self.send_responses()
+        if "sendresponses" in self.switches or "appendresponses" in self.switches:
+            create = "sendresponses" in self.switches
+            self.send_responses(create_update=create)
             return
         if "create" in self.switches:
             lhs = self.lhs.split("/")

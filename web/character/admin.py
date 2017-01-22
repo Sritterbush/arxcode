@@ -63,12 +63,12 @@ class EmitInline(admin.TabularInline):
 
 
 class ChapterAdmin(BaseCharAdmin):
-    list_display = ('id',)
+    list_display = ('id', 'name', 'story', 'synopsis', 'start_date', 'end_date')
     inlines = [EmitInline]
 
 
 class EpisodeAdmin(BaseCharAdmin):
-    list_display = ('id',)
+    list_display = ('id', 'name', 'chapter', 'synopsis', 'date')
     inlines = [EmitInline]
 
 
