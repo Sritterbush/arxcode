@@ -212,9 +212,14 @@ class CrisisAdmin(DomAdmin):
 
 
 class CrisisActionAdmin(DomAdmin):
-    list_display = ('id', 'crisis', 'dompc', 'action', 'week', 'sent')
+    list_display = ('id', 'crisis', 'dompc', 'player_action', 'week', 'sent')
     search_fields = ('crisis__name', 'dompc__player__username')
     list_filter = ('sent', 'crisis')
+
+    @staticmethod
+    def player_action(obj):
+        from web.help_topics.templatetags.app_filters import mush_to_html
+        return mush_to_html(obj.action)
 
 
 class OrgRelationshipAdmin(DomAdmin):

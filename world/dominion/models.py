@@ -1583,8 +1583,8 @@ class CrisisAction(models.Model):
         self.save()
 
     def view_action(self, caller=None, disp_pending=True, disp_old=False):
-        if not self.public and (not caller or not caller.check_permstring("builders")
-                                or caller != self.dompc.player):
+        if not self.public and (not caller or (not caller.check_permstring("builders")
+                                and caller != self.dompc.player)):
             return ""
         msg = "\n{c%s's {wactions in week %s for {m%s{n" % (self.dompc, self.week, self.crisis)
         msg += "\n{wAction:{n %s" % self.action
