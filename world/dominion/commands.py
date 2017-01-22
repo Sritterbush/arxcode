@@ -1762,6 +1762,7 @@ class CmdOrganization(MuxPlayerCommand):
                 return
             caller.msg("%s has been placed in command of all of the armies and holdings of %s." % (player, org))
             return
+        self.msg("Invalid switch.")
 
 
 class CmdFamily(MuxPlayerCommand):

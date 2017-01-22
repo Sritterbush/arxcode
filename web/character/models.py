@@ -66,9 +66,9 @@ class Roster(models.Model):
 
 class RosterEntry(models.Model):
     roster = models.ForeignKey('Roster', related_name='entries',
-                               on_delete=models.SET_NULL, blank=True, null=True)
-    player = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='roster', blank=True, null=True)
-    character = models.OneToOneField('objects.ObjectDB', related_name='roster', blank=True, null=True)
+                               on_delete=models.SET_NULL, blank=True, null=True, db_index=True)
+    player = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='roster', blank=True, null=True, unique=True)
+    character = models.OneToOneField('objects.ObjectDB', related_name='roster', blank=True, null=True, unique=True)
     current_account = models.ForeignKey('PlayerAccount', related_name='characters',
                                         on_delete=models.SET_NULL, blank=True, null=True)   
     previous_accounts = models.ManyToManyField('PlayerAccount', through='AccountHistory', blank=True)
@@ -89,6 +89,7 @@ class RosterEntry(models.Model):
     class Meta:
         """Define Django meta options"""
         verbose_name_plural = "Roster Entries"
+        unique_together = ('player', 'character')
 
     def __unicode__(self):
         if self.character:
@@ -380,19 +381,27 @@ class MysteryDiscovery(models.Model):
     date = models.DateTimeField(blank=True, null=True)
     milestone = models.OneToOneField('Milestone', related_name="mystery", blank=True, null=True)
 
+    class Meta:
+        unique_together = ('character', 'mystery')
+        verbose_name_plural = "Mystery Discoveries"
+
     def __str__(self):
         return "%s's discovery of %s" % (self.character, self.mystery)
 
 
 class RevelationDiscovery(models.Model):
-    character = models.ForeignKey('RosterEntry', related_name="revelations") 
-    revelation = models.ForeignKey('Revelation', related_name="discoveries")
+    character = models.ForeignKey('RosterEntry', related_name="revelations", db_index=True)
+    revelation = models.ForeignKey('Revelation', related_name="discoveries", db_index=True)
     investigation = models.ForeignKey('Investigation', blank=True, null=True, related_name="revelations")
     message = models.TextField(blank=True, help_text="Message for the player's records about how they discovered this.")
     date = models.DateTimeField(blank=True, null=True)
     milestone = models.OneToOneField('Milestone', related_name="revelation", blank=True, null=True)
     discovery_method = models.CharField(help_text="How this was discovered - exploration, trauma, etc", max_length=255)
     revealed_by = models.ForeignKey('RosterEntry', related_name="revelations_spoiled", blank=True, null=True)
+
+    class Meta:
+        unique_together = ('character', 'revelation')
+        verbose_name_plural = "Revelation Discoveries"
 
     def check_mystery_discovery(self):
         """
@@ -438,15 +447,18 @@ class RevelationForMystery(models.Model):
 
 
 class ClueDiscovery(models.Model):
-    clue = models.ForeignKey('Clue', related_name="discoveries")
-    character = models.ForeignKey('RosterEntry', related_name="clues")
-    investigation = models.ForeignKey('Investigation', blank=True, null=True, related_name="clues")
+    clue = models.ForeignKey('Clue', related_name="discoveries", db_index=True)
+    character = models.ForeignKey('RosterEntry', related_name="clues", db_index=True)
+    investigation = models.ForeignKey('Investigation', blank=True, null=True, related_name="clues", db_index=True)
     message = models.TextField(blank=True, help_text="Message for the player's records about how they discovered this.")
     date = models.DateTimeField(blank=True, null=True)
     milestone = models.OneToOneField('Milestone', related_name="clue", blank=True, null=True)
     discovery_method = models.CharField(help_text="How this was discovered - exploration, trauma, etc", max_length=255)
     roll = models.PositiveSmallIntegerField(default=0, blank=0)
     revealed_by = models.ForeignKey('RosterEntry', related_name="clues_spoiled", blank=True, null=True)
+
+    class Meta:
+        verbose_name_plural = "Clue Discoveries"
 
     @property
     def name(self):
@@ -507,10 +519,20 @@ class ClueDiscovery(models.Model):
             targ_clue = entry.clues.get(clue=self.clue)
         except ClueDiscovery.DoesNotExist:
             targ_clue = entry.clues.create(clue=self.clue)
+        except ClueDiscovery.MultipleObjectsReturned:
+            clues = entry.clues.filter(clue=self.clue).order_by('-roll')
+            targ_clue = clues[0]
+            for clue in clues:
+                if clue != targ_clue:
+                    clue.delete()
         if targ_clue in entry.finished_clues:
             entry.player.send_or_queue_msg("%s tried to share the clue %s with you, but you already know that." % (
                 self.character, self.name))
             return
+        investigations = entry.investigations.filter(clue_target=self.clue)
+        for investigation in investigations:
+            investigation.clue_target = None
+            investigation.save()
         targ_clue.roll += self.roll
         targ_clue.discovery_method = "Sharing"
         targ_clue.message = "This clue was shared to you by %s." % self.character
@@ -552,8 +574,8 @@ class ClueForRevelation(models.Model):
 
 class InvestigationAssistant(models.Model):
     currently_helping = models.BooleanField(default=True, help_text="Whether they're currently helping out")
-    investigation = models.ForeignKey('Investigation', related_name="assistants")
-    char = models.ForeignKey('objects.ObjectDB', related_name="assisted_investigations")
+    investigation = models.ForeignKey('Investigation', related_name="assistants", db_index=True)
+    char = models.ForeignKey('objects.ObjectDB', related_name="assisted_investigations", db_index=True)
     stat_used = models.CharField(blank=True, max_length=80, default="perception",
                                  help_text="The stat the player chose to use")
     skill_used = models.CharField(blank=True, max_length=80, default="investigation",
@@ -573,7 +595,7 @@ class InvestigationAssistant(models.Model):
         
 
 class Investigation(models.Model):
-    character = models.ForeignKey('RosterEntry', related_name="investigations")
+    character = models.ForeignKey('RosterEntry', related_name="investigations", db_index=True)
     ongoing = models.BooleanField(default=True, help_text="Whether this investigation is finished or not")
     active = models.BooleanField(default=False, help_text="Whether this is the investigation for the week. " +
                                                           "Only one allowed")

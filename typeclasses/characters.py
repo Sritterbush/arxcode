@@ -153,7 +153,6 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         if scripts:
             return scripts[0]
 
-
     def return_extras(self, pobject):
         """
         Return a string from glancing at us

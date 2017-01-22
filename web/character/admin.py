@@ -8,6 +8,7 @@ from .models import (Roster, RosterEntry, Photo,
                      MysteryDiscovery, RevelationDiscovery, ClueDiscovery,
                      RevelationForMystery, ClueForRevelation, Theory,
                      )
+from django.db.models import F
 
 
 class BaseCharAdmin(admin.ModelAdmin):
@@ -129,8 +130,31 @@ class ClueAdmin(BaseCharAdmin):
         return ", ".join([str(ob) for ob in obj.revelations.all()])
 
 
-class ClueForEntry(ClueDiscoInline):
-    fk_name = 'character'
+class ClueDiscoveryListFilter(admin.SimpleListFilter):
+    title = 'Discovered'
+    parameter_name = 'discovered'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('unfound', 'Undiscovered'),
+            ('found', 'Discovered'),
+            )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'unfound':
+            return queryset.filter(roll__lt=F('clue__rating'))
+        if self.value() == 'found':
+            return queryset.filter(roll__gte=F('clue__rating'))
+
+
+class ClueDiscoveryAdmin(BaseCharAdmin):
+    list_display = ('id', 'clue', 'character', 'roll', 'discovered')
+    search_fields = ('id', 'clue__name', 'character__character__db_key')
+    list_filter = (ClueDiscoveryListFilter,)
+
+    @staticmethod
+    def discovered(obj):
+        return obj.roll >= obj.clue.rating
 
 
 class MystForEntry(MystDiscoInline):
@@ -148,7 +172,7 @@ class EntryAdmin(NoDeleteAdmin):
     raw_id_fields = ("character", "player")
     list_filter = ('roster', 'frozen', 'inactive')
     form = EntryForm
-    inlines = [MystForEntry, RevForEntry, ClueForEntry]
+    inlines = [MystForEntry, RevForEntry]
 
     @staticmethod
     def current_alts(obj):
@@ -202,5 +226,6 @@ admin.site.register(StoryEmit, StoryEmitAdmin)
 admin.site.register(Mystery, MysteryAdmin)
 admin.site.register(Revelation, RevelationAdmin)
 admin.site.register(Clue, ClueAdmin)
+admin.site.register(ClueDiscovery, ClueDiscoveryAdmin)
 admin.site.register(Investigation, InvestigationAdmin)
 admin.site.register(Theory, TheoryAdmin)

@@ -274,12 +274,6 @@ class WeeklyEvents(Script):
         making journals, comments, or updating relationships.
         """
         char = player.db.char_ob
-        num_journals = char.db.num_journals or 0
-        char.db.num_journals = 0
-        num_comments = char.db.num_comments or 0
-        char.db.num_comments = 0
-        num_rels = char.db.num_rel_updates or 0
-        char.db.num_rel_updates = 0
         try:
             account = player.roster.current_account
             if account.id in self.db.xptypes:
@@ -287,7 +281,7 @@ class WeeklyEvents(Script):
             else:
                 self.db.xptypes[account.id] = {}
                 total = 0
-            jtotal = num_journals + int(num_comments) + int(num_rels)
+            jtotal = char.messages.num_weekly_journals
             xp = 0
             if jtotal > 0:
                 xp += 4

@@ -1093,6 +1093,10 @@ class CmdTheories(MuxPlayerCommand):
             theory.desc = self.rhs
             theory.save()
             self.msg("New desc is: %s" % theory.desc)
+            for player in theory.known_by.all():
+                if player == self.caller:
+                    continue
+                player.inform("%s has been edited." % theory, category="Theories")
             return
         if "edittopic" in self.switches:
             theory.topic = self.rhs
@@ -1125,3 +1129,4 @@ class CmdTheories(MuxPlayerCommand):
                 theory.related_clues.remove(clue.clue)
                 self.msg("Removed clue %s from theory." % clue.name)
             return
+        self.msg("Invalid switch.")

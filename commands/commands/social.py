@@ -274,6 +274,8 @@ class CmdJournal(MuxCommand):
         journal/all
         journal/edit <entry number>=<text>
         journal/editblack <entry number>=<text>
+        journal/delete <entry number>
+        journal/delblack <entry number>
         journal/markallread
         journal/favorite <character>=<entry number>
         journal/unfavorite <character>=<entry number>
@@ -384,7 +386,7 @@ class CmdJournal(MuxCommand):
             caller.msg("All messages marked read.")
             return
         if "countweek" in self.switches:
-            num = caller.db.num_journals or 0
+            num = caller.messages.num_weekly_journals
             self.msg("You have written %s journals this week." % num)
             return
         # if no switches but have args, looking up journal of a character
@@ -528,12 +530,15 @@ class CmdJournal(MuxCommand):
         if "all" in self.switches:
             self.disp_unread_journals()
             return
-        if "edit" in self.switches or "editblack" in self.switches:
-            journal = caller.messages.white_journal if "edit" in self.switches else caller.messages.black_journal
+        if ("edit" in self.switches or "editblack" in self.switches or "delete" in self.switches
+                or "delblack" in self.switches):
+            journal = caller.messages.white_journal if ("edit" in self.switches or "delete" in self.switches) \
+                else caller.messages.black_journal
+            delete = "delete" in self.switches or "delblack" in self.switches
             try:
                 num = int(self.lhs)
                 text = self.rhs
-                if num < 1 or not text:
+                if num < 1 or (not text and not delete):
                     raise ValueError
                 entry = journal[num - 1]
             except (TypeError, ValueError):
@@ -547,8 +552,13 @@ class CmdJournal(MuxCommand):
                 caller.msg("It has been too long to edit that message.")
                 return
             old = entry.db_message
-            entry.db_message = self.rhs
-            entry.save()
+            if "delete" in self.switches or "delblack" in self.switches:
+                journal.remove(entry)
+                entry.delete()
+                self.msg("Entry deleted.")
+            else:
+                entry.db_message = self.rhs
+                entry.save()
             logpath = settings.LOG_DIR + "/journal_changes.txt"
             try:
                 log = open(logpath, 'a+')
@@ -561,9 +571,8 @@ class CmdJournal(MuxCommand):
                 import traceback
                 traceback.print_exc()
             caller.msg("New journal entry body is:\n%s" % self.rhs)
-            inform_staff("%s has edited their journal." % caller)
+            inform_staff("%s has %s their journal." % (caller, "deleted" if delete else "edited"))
             return
-                
         caller.msg("Invalid switch.")
         return
 

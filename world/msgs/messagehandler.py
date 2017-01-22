@@ -528,3 +528,7 @@ class MessageHandler(object):
             return len(self.white_journal)
         else:
             return len(self.black_journal)
+
+    @property
+    def num_weekly_journals(self):
+        return (self.obj.db.num_journals or 0) + (self.obj.db.num_rel_updates or 0) + (self.obj.db.num_comments or 0)
