@@ -350,6 +350,7 @@ class WeeklyEvents(Script):
         # reset their claimed scenes, and what's used to generate those
         player.db.claimed_scenelist = []
         player.db.random_scenelist = []
+        player.db.validated_list = []
 
     def count_praises_and_condemns(self, player):
         # praises/condemns are {name: [times, msg]}

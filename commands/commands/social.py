@@ -1894,6 +1894,10 @@ class CmdRandomScene(MuxCommand):
         return self.caller.db.player_ob.db.claimed_scenelist or []
 
     @property
+    def validatedlist(self):
+        return self.caller.db.player_ob.db.validated_list or []
+
+    @property
     def newbies(self):
         """
         A list of new players we want to encourage people to RP with
@@ -1926,6 +1930,7 @@ class CmdRandomScene(MuxCommand):
             self.generate_lists()
         scenelist = self.scenelist
         claimlist = self.claimlist
+        validated = self.validatedlist
         newbies = self.newbies
         if "online" in self.switches:
             self.msg("{wOnly displaying online characters.{n")
@@ -1935,6 +1940,8 @@ class CmdRandomScene(MuxCommand):
         self.msg("{wNew players who can be also RP'd with for credit:{n %s" % ", ".join(str(ob) for ob in newbies))
         if claimlist:
             self.msg("{wThose you have already RP'd with this week:{n %s" % ", ".join(str(ob) for ob in claimlist))
+        if validated:
+            self.msg("{wThose you have validated scenes for this week{n %s" % ", ".join(str(ob) for ob in validated))
 
     def generate_lists(self):
         scenelist = self.scenelist
@@ -1989,6 +1996,7 @@ class CmdRandomScene(MuxCommand):
             self.msg("No character by that name has sent you a request.")
             self.view_requests()
             return
+        validated = self.caller.db.player_ob.db.validated_list or []
         claimed = targ.db.player_ob.db.claimed_scenelist or []
         claimed.append(self.caller)
         targ_scenelist = targ.db.player_ob.db.random_scenelist or []
@@ -1997,6 +2005,8 @@ class CmdRandomScene(MuxCommand):
             targ.db.player_ob.db.random_scenelist = targ_scenelist
         targ.db.player_ob.db.claimed_scenelist = claimed
         self.msg("Validating their scene. Both of you will receive xp for it later.")
+        validated.append(targ)
+        self.caller.db.player_ob.db.validated_list = validated
 
     def view_requests(self):
         requests = self.caller.db.scene_requests or {}
