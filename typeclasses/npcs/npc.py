@@ -188,7 +188,7 @@ class Npc(Character):
             self.db.last_recovery_test = time.time()
         return roll
     
-    def sensing_check(self, difficulty=15, invis=False):
+    def sensing_check(self, difficulty=15, invis=False, allow_wake=False):
         """
         See if the character detects something that is hiding or invisible.
         The difficulty is supplied by the calling function.
@@ -676,7 +676,7 @@ class Retainer(AgentMixin, Npc):
                 trainer.msg("They have already been trained by %s this week." % self.db.trainer)
                 return False
         # do training roll
-        roll = do_dice_check(trainer, stat="command", skill=self.training_skill, difficulty=0)
+        roll = do_dice_check(trainer, stat="command", skill=self.training_skill, difficulty=0, quiet=False)
         self.agent.xp += roll
         self.agent.save()
         self.db.trainer = trainer

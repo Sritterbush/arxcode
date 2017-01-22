@@ -776,6 +776,27 @@ class CmdObserveCombat(MuxCommand):
         combat.add_observer(caller)
 
 
+class CmdFightStatus(MuxCommand):
+    """
+    Displays the status of combat
+
+    Usage:
+        +combatstatus
+
+    Displays status of fight at your room.
+    """
+    key = "+combatstatus"
+    aliases = ["+fightstatus"]
+    locks = "cmd:all()"
+    help_category = "Combat"
+
+    def func(self):
+        combat = check_combat(self.caller)
+        if not combat:
+            return
+        combat.display_phase_status(self.caller, disp_intro=False)
+
+
 class CmdAdminCombat(MuxCommand):
     """
     Admin commands for combat

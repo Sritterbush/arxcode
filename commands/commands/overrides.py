@@ -1602,13 +1602,13 @@ class CmdArxScripts(CmdScripts):
             else:
                 nextrep = "%ss" % nextrep
 
-            def script_obj_str(scriptob):
+            def script_obj_str():
                 if script.obj:
                     return "%s(#%s)" % (crop(script.obj.key, width=10), script.obj.id)
                 return "<Global>"
 
             table.add_row(script.id,
-                          script_obj_str(script),
+                          script_obj_str(),
                           script.key,
                           script.interval if script.interval > 0 else "--",
                           nextrep,

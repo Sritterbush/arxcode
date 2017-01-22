@@ -299,6 +299,7 @@ class Player(MsgMixins, DefaultPlayer):
                 watcher.msg("{wA player you are watching, {c%s{w, has disconnected.{n" % self.key.capitalize())
         self.previous_log = self.current_log
         self.current_log = []
+        self.db.lookingforrp = False
 
     def log_message(self, from_obj, text):
         from evennia.utils.utils import make_iter
