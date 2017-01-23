@@ -353,12 +353,17 @@ class CmdJournal(MuxCommand):
     def mark_all_read(self):
         from evennia.comms.models import Msg
         caller = self.caller
+        player = caller.db.player_ob
         all_msgs = Msg.objects.filter(Q(db_header__contains="white_journal") &
-                                      ~Q(db_receivers_players=caller.db.player_ob)
+                                      ~Q(db_receivers_players=player)
                                       # & ~Q(db_sender_objects__roster__current_account=caller.roster.current_account)
                                       ).distinct()
+        # we'll do a bulk create of the through-model that represents how journals are marked as read
+        ReadJournalModel = Msg.db_receivers_players.through
+        bulk_list = []
         for msg in all_msgs:
-            msg.db_receivers_players.add(caller.db.player_ob)
+            bulk_list.append(ReadJournalModel(playerdb=player, msg=msg))
+        ReadJournalModel.objects.bulk_create(bulk_list)
 
     def func(self):
         """Execute command."""
