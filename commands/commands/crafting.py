@@ -175,7 +175,7 @@ def get_difficulty_mod(recipe, money=0):
     divisor = recipe.value or 0
     if divisor < 1:
         divisor = 1
-    val = money / divisor
+    val = float(money) / float(divisor)
     # for every 10% of the value of recipe we invest, we knock 1 off difficulty
     return int(val/0.10) + 1
 
