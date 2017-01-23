@@ -532,3 +532,44 @@ class MessageHandler(object):
     @property
     def num_weekly_journals(self):
         return (self.obj.db.num_journals or 0) + (self.obj.db.num_rel_updates or 0) + (self.obj.db.num_comments or 0)
+
+    def convert_short_rel_to_long_rel(self, character, rel_key, white=True):
+        """
+        Converts a short relationship held in our self.obj to a
+        long relationship instead.
+        :type character: ObjectDB
+        :type rel_key: str
+        :type white: bool
+        """
+        entry_list = self.obj.db.relationship_short[rel_key]
+        found_entry = None
+        for entry in entry_list:
+            if entry[0].lower() == character.key.lower():
+                found_entry = entry
+                break
+        entry_list.remove(found_entry)
+        if not entry_list:
+            del self.obj.db.relationship_short[rel_key]
+        else:
+            self.obj.db.relationship_short[rel_key] = entry_list
+        msg = found_entry[1]
+        self.add_relationship(msg, character, white=white)
+
+    def delete_journal(self, msg):
+        if msg in self.white_journal:
+            self.white_journal.remove(msg)
+        if msg in self.black_journal:
+            self.black_journal.remove(msg)
+        for rel_list in self.white_relationships.values():
+            if msg in rel_list:
+                rel_list.remove(msg)
+        for rel_list in self.black_relationships.values():
+            if msg in rel_list:
+                rel_list.remove(msg)
+        msg.delete()
+
+    def convert_to_black(self, msg):
+        self.white_journal.remove(msg)
+        msg.db_header = msg.db_header.replace("white", "black")
+        self.add_to_journals(msg, white=False)
+        msg.save()

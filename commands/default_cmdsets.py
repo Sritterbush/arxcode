@@ -187,6 +187,7 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(staff_commands.CmdViewLog())
             self.add(staff_commands.CmdSetLanguages())
             self.add(staff_commands.CmdGMNotes())
+            self.add(staff_commands.CmdJournalAdminForDummies())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading staff_commands cmdset in Player: %s" % err)
         try:

@@ -904,3 +904,83 @@ class CmdGMNotes(MuxPlayerCommand):
             self.msg("{wNew gm notes are:{n\n%s" % self.rhs)
             return
         self.msg("invalid switch")
+
+
+class CmdJournalAdminForDummies(MuxPlayerCommand):
+    """
+    Admins journal stuff
+
+    Usage:
+        @admin_journal <character>
+        @admin_journal/convert_short_rel_to_long_rel <character>=<type>,<target>
+        @admin_journal/black/convert_short_rel_to_long_rel <character>=<type>,<target>
+        @admin_journal/cancel
+        @admin_journal/delete <character>=<entry #>
+        @admin_journal/convert_to_black <character>=<entry #>
+    """
+    key = "@admin_journal"
+    locks = "cmd: perm(builders)"
+
+    def func(self):
+        player = self.caller.search(self.lhs)
+        if not player:
+            return
+        charob = player.db.char_ob
+        if not self.switches:
+            from commands.commands.roster import display_relationships
+            display_relationships(self.caller, charob, show_hidden=True)
+            return
+        if "convert_short_rel_to_long_rel" in self.switches:
+            rel_type, target = self.rhslist[0], self.rhslist[1]
+            target = self.caller.search(target)
+            if not target:
+                return
+            target = target.db.char_ob
+            charob.messages.convert_short_rel_to_long_rel(target, rel_type, "black" not in self.switches)
+            self.msg("{rDone.{n")
+            return
+        if "cancel" in self.switches:
+            self.caller.ndb.confirm_msg_delete = None
+            self.caller.ndb.confirm_msg_convert = None
+            self.msg("{rCancelled.{n")
+            return
+        if "delete" in self.switches:
+            if not self.caller.check_permstring("wizards"):
+                self.msg("Need Wizard or higher permissions.")
+                return
+            journals = charob.messages.white_journal if "black" not in self.switches else charob.messages.black_journal
+            entry = journals[int(self.rhs) - 1]
+            if not self.caller.ndb.confirm_msg_delete:
+                self.caller.ndb.confirm_msg_delete = entry
+                self.msg("{rEntry selected for deletion. To delete, repeat command. Otherwise cancel.")
+                self.msg("{rSelected entry:{n %s" % entry.db_message)
+                return
+            if self.caller.ndb.confirm_msg_delete != entry:
+                self.msg("{rEntries did not match.")
+                self.msg("{rSelected originally:{n %s" % self.caller.ndb.confirm_msg_delete.db_message)
+                self.msg("{rSelected this time:{n %s" % entry.db_message)
+                return
+            charob.messages.delete_journal(entry)
+            oldtext = entry.db_message
+            self.msg("{rJournal deleted:{n %s" % oldtext)
+            inform_staff("%s deleted %s's journal: %s" % (self.caller, charob, oldtext))
+            self.caller.ndb.confirm_msg_delete = None
+            return
+        if "convert_to_black" in self.switches:
+            entry = charob.messages.white_journal[int(self.rhs) - 1]
+            if not self.caller.ndb.confirm_msg_convert:
+                self.caller.ndb.confirm_msg_convert = entry
+                self.msg("{rEntry selected for conversion. To convert, repeat command. Otherwise cancel.")
+                self.msg("{rSelected entry:{n %s" % entry.db_message)
+                return
+            if self.caller.ndb.confirm_msg_convert != entry:
+                self.msg("{rEntries did not match.")
+                self.msg("{rSelected originally:{n %s" % self.caller.ndb.confirm_msg_convert.db_message)
+                self.msg("{rSelected this time:{n %s" % entry.db_message)
+                return
+            charob.messages.convert_to_black(entry)
+            self.msg("{rConverted.{n")
+            inform_staff("%s moved %s's journal to black:\n%s" % (self.caller, charob, entry.db_message))
+            self.caller.ndb.confirm_msg_convert = None
+            return
+        self.msg("Invalid switch.")
