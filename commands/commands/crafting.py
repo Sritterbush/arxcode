@@ -666,7 +666,7 @@ class CmdCraft(MuxCommand):
             caller.msg("It is of %s quality." % quality)
             caller.db.crafting_project = None
             return
-        
+
 
 class CmdRecipes(MuxCommand):
     """
@@ -691,11 +691,11 @@ class CmdRecipes(MuxCommand):
 
     def display_recipes(self, recipes):
         known_list = CraftingRecipe.objects.filter(known_by__player__player=self.caller.player)
-        table = PrettyTable(["{wKnown{n", "{wName{n", "{wAbility{n", 
+        table = PrettyTable(["{wKnown{n", "{wName{n", "{wAbility{n",
                              "{wDifficulty{n", "{wCost{n"])
         for recipe in recipes:
             known = "{wX{n" if recipe in known_list else ""
-            table.add_row([known, recipe.name, recipe.ability, 
+            table.add_row([known, recipe.name, recipe.ability,
                            recipe.difficulty, recipe.additional_cost])
         return table
 
@@ -715,7 +715,7 @@ class CmdRecipes(MuxCommand):
             from operator import attrgetter
             visible = sorted(visible, key=attrgetter('ability', 'difficulty',
                                                      'name'))
-            caller.msg(self.display_recipes(visible))       
+            caller.msg(self.display_recipes(visible))
             return
         if not self.switches:
             try:
@@ -727,14 +727,16 @@ class CmdRecipes(MuxCommand):
             caller.msg(recipe.display_reqs(dompc, full=True), options={'box': True})
             return
         if 'learn' in self.switches:
-            match = [ob for ob in can_learn if ob.name == self.args]
+            match = None
+            if self.args:
+                match = [ob for ob in can_learn if ob.name.lower() == self.args.lower()]
             if not match:
                 caller.msg("No recipe by that name.")
                 caller.msg("\nRecipes you can learn:")
                 caller.msg(self.display_recipes(can_learn))
                 return
             match = match[0]
-            
+
             cost = match.additional_cost
             if cost > caller.db.currency:
                 caller.msg("It costs %s to learn %s, and you only have %s." % (cost, match.name, caller.db.currency))
@@ -748,8 +750,10 @@ class CmdRecipes(MuxCommand):
             caller.msg("You have learned %s%s." % (match.name, coststr))
             return
         if 'info' in self.switches:
+            match = None
             info = list(can_learn) + list(recipes)
-            match = [ob for ob in info if ob.name == self.args]
+            if self.args:
+                match = [ob for ob in info if ob.name.lower() == self.args.lower()]
             if not match:
                 caller.msg("No recipe by that name.")
                 caller.msg("Recipes you can get /info on:")
@@ -760,8 +764,10 @@ class CmdRecipes(MuxCommand):
             caller.msg(display, options={'box': True})
             return
         if 'teach' in self.switches:
+            match = None
             can_teach = [ob for ob in recipes if ob.access(caller, 'teach')]
-            match = [ob for ob in can_teach if ob.name == self.rhs]
+            if self.rhs:
+                match = [ob for ob in can_teach if ob.name.lower() == self.rhs.lower()]
             if not match:
                 caller.msg("Recipes you can teach:")
                 caller.msg(self.display_recipes(can_teach))
