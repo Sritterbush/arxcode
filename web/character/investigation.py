@@ -323,7 +323,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             created_object.currently_helping = True
             created_object.save()
             created_object.investigation.do_roll()
-            self.msg("%s is now helping %s." % (self.helper, created_object))
+            self.msg("%s is now helping %s." % (self.helper, created_object.investigation))
         else:
             self.msg("You already have an active investigation. That must stop before you help another.\n"
                      "Once that investigation is no longer active, you may resume helping this investigation.")
