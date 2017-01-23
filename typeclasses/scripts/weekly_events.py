@@ -12,7 +12,7 @@ from world.dominion.models import PlayerOrNpc, AssetOwner, Army, AssignedTask
 import traceback
 from django.db.models import Q
 from datetime import datetime, timedelta
-from commands.commands.bboards import get_boards
+from typeclasses.bulletin_board.bboard import BBoard
 from evennia.utils.evtable import EvTable
 
 EVENT_SCRIPT_NAME = "Weekly Update"
@@ -238,12 +238,11 @@ class WeeklyEvents(Script):
             print "Error on freezing account: ID:%s, Error: %s" % (player.id, err)
 
     def post_inactives(self):
-        from typeclasses.bulletin_board.bboard import BBoard
         date = datetime.now()
         cutoffdate = date - timedelta(days=30)
         qs = PlayerDB.objects.filter(roster__roster__name="Active", last_login__isnull=False).filter(
             last_login__lte=cutoffdate)
-        board = BBoard.objects.get(db_key="staff")
+        board = BBoard.objects.get(db_key__iexact="staff")
         table = EvTable("{wName{n", "{wLast Login Date{n", border="cells", width=78)
         for ob in qs:
             table.add_row(ob.key.capitalize(), ob.last_login.strftime("%x"))
@@ -251,7 +250,6 @@ class WeeklyEvents(Script):
         inform_staff("List of Inactive Characters posted.")
 
     def count_poses(self):
-        from typeclasses.bulletin_board.bboard import BBoard
         qs = ObjectDB.objects.filter(roster__roster__name="Active", db_tags__db_key="rostercg")
         min_poses = 20
         low_activity = []
@@ -260,7 +258,7 @@ class WeeklyEvents(Script):
                 low_activity.append(ob)
             ob.db.previous_posecount = ob.posecount
             ob.posecount = 0
-        board = BBoard.objects.get(db_key="staff")
+        board = BBoard.objects.get(db_key__iexact="staff")
         table = EvTable("{wName{n", "{wNum Poses{n", border="cells", width=78)
         for ob in low_activity:
             table.add_row(ob.key, ob.db.previous_posecount)
@@ -550,17 +548,13 @@ class WeeklyEvents(Script):
                 string += "{w%s){n %-35s {wXP{n: %s\n" % (num, name, votes)
             except ObjectDB.DoesNotExist:
                 print "Could not find character of id %s during posting." % str(tup[0])
-        boards = get_boards(self)
-        boards = [ob for ob in boards if ob.key == VOTES_BOARD_NAME]
-        board = boards[0]
+        board = BBoard.objects.get(db_key__iexact=VOTES_BOARD_NAME)
         board.bb_post(poster_obj=self, msg=string, subject="Weekly Votes", poster_name="Vote Results")
         inform_staff("Vote process awards complete. Posted on %s." % board)
 
     def post_top_prestige(self):
         import random
-        boards = get_boards(self)
-        boards = [ob for ob in boards if ob.key == PRESTIGE_BOARD_NAME]
-        board = boards[0]
+        board = BBoard.objects.get(db_key__iexact=PRESTIGE_BOARD_NAME)
         sorted_praises = sorted(self.db.praises.items(), key=lambda x: x[1][1], reverse=True)
         sorted_praises = sorted_praises[:20]
         table = EvTable("{wName{n", "{w#{n", "{wMsg{n", border="cells", width=78)
