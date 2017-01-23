@@ -258,6 +258,7 @@ class CmdTrain(MuxCommand):
     
     @property
     def currently_training(self):
+        self.caller.refresh_from_db()
         return self.caller.db.currently_training or []
 
     def check_max_train(self):
@@ -272,6 +273,7 @@ class CmdTrain(MuxCommand):
         switches = self.switches
         if not self.args:
             self.msg("Currently training: %s" % ", ".join(str(ob) for ob in self.currently_training))
+            self.msg("You can train %s targets." % self.max_trainees)
             return
         if not self.lhs or not self.rhs or not self.switches:
             caller.msg("Usage: train/[stat or skill] <character to train>=<name of stat or skill to train>")
