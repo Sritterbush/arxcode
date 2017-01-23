@@ -2044,6 +2044,7 @@ class AgentOb(models.Model):
         up AgentOb and returns our agents to the agent class.
         """
         self.agent_class.quantity += self.quantity
+        self.agent_class.save()
         self.quantity = 0
         self.save()
 
