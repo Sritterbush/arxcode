@@ -2158,7 +2158,7 @@ class CmdLanguages(MuxCommand):
             req[self.caller] = self.rhs
             targ.ndb.language_requests = req
             self.msg("You request that %s teach you %s." % (targ, self.rhs))
-            targ.msg("{w%s has requested that you teach them %s.{n" % (targ, self.rhs))
+            targ.msg("{w%s has requested that you teach them %s.{n" % (self.caller, self.rhs))
             return
         if "teach" in self.switches:
             req = self.caller.ndb.language_requests or {}
