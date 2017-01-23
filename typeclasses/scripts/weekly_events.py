@@ -279,13 +279,13 @@ class WeeklyEvents(Script):
             else:
                 self.db.xptypes[account.id] = {}
                 total = 0
-            jtotal = char.messages.num_weekly_journals
+            journal_total = char.messages.num_weekly_journals
             xp = 0
-            if jtotal > 0:
+            if journal_total > 0:
                 xp += 4
-            if jtotal > 1:
+            if journal_total > 1:
                 xp += 2
-            if jtotal > 2:
+            if journal_total > 2:
                 xp += 1
             # XP capped at 7 for all sources
             if xp > 7:
@@ -379,7 +379,7 @@ class WeeklyEvents(Script):
             existing = self.db.praises.get(name, [0, 0, []])
             existing[0] += base_praise
             existing[1] += num
-            existing[2].append(msg)
+            existing[2].append((player, msg))
             self.db.praises[name] = existing
         for name in condemns:
             num = condemns[name][0]
@@ -387,7 +387,7 @@ class WeeklyEvents(Script):
             existing = self.db.condemns.get(name, [0, 0, []])
             existing[0] -= prest
             existing[1] += num
-            existing[2].append(msg)
+            existing[2].append((player, msg))
             self.db.condemns[name] = existing
         # reset their praises/condemns for next week after recording
         player.db.praises = {}
@@ -559,25 +559,25 @@ class WeeklyEvents(Script):
         sorted_praises = sorted_praises[:20]
         table = EvTable("{wName{n", "{w#{n", "{wMsg{n", border="cells", width=78)
         for tup in sorted_praises:
-            praise_messages = [msg for msg in tup[1][2] if msg] or [None]
+            praise_messages = [msg for _, msg in tup[1][2] if msg] or [None]
             table.add_row(tup[0].capitalize()[:18], tup[1][1], "'%s'" % random.choice(praise_messages))
         table.reformat_column(0, width=18)
         table.reformat_column(1, width=5)
         table.reformat_column(2, width=55)
-        pmsg = "{wMost Praised this week{n".center(72)
-        pmsg = "%s\n%s" % (pmsg, str(table).lstrip())
-        pmsg += "\n\n"
-        pmsg += "{wMost Condemned this week{n".center(72)
+        prestige_msg = "{wMost Praised this week{n".center(72)
+        prestige_msg = "%s\n%s" % (prestige_msg, str(table).lstrip())
+        prestige_msg += "\n\n"
+        prestige_msg += "{wMost Condemned this week{n".center(72)
         sorted_condemns = sorted(self.db.condemns.items(), key=lambda x: x[1][1], reverse=True)
         sorted_condemns = sorted_condemns[:20]
         table = EvTable("{wName{n", "{w#{n", "{wMsg{n", border="cells", width=78)
         for tup in sorted_condemns:
-            condemn_messages = [cmsg for cmsg in tup[1][2] if cmsg] or [None]
+            condemn_messages = [con_msg for _, con_msg in tup[1][2] if con_msg] or [None]
             table.add_row(tup[0].capitalize()[:18], tup[1][1], "'%s'" % random.choice(condemn_messages))
         table.reformat_column(0, width=18)
         table.reformat_column(1, width=5)
         table.reformat_column(2, width=55)
-        pmsg = "%s\n%s" % (pmsg, str(table).lstrip())
+        prestige_msg = "%s\n%s" % (prestige_msg, str(table).lstrip())
         try:      
             sorted_changes = sorted(self.db.prestige_changes.items(), key=lambda x: abs(x[1][0]), reverse=True)
             sorted_changes = sorted_changes[:20]
@@ -591,11 +591,11 @@ class WeeklyEvents(Script):
                 if amt > 0:
                     amt = "+%s" % amt
                 table.add_row(tup[0].capitalize(), amt, rank)
-            pmsg += "\n\n"
-            pmsg += "{wTop Prestige Changes{n".center(72)
-            pmsg = "%s\n%s" % (pmsg, str(table).lstrip())
+            prestige_msg += "\n\n"
+            prestige_msg += "{wTop Prestige Changes{n".center(72)
+            prestige_msg = "%s\n%s" % (prestige_msg, str(table).lstrip())
         except (AttributeError, ValueError, TypeError):
             import traceback
             traceback.print_exc()
-        board.bb_post(poster_obj=self, msg=pmsg, subject="Weekly Praises/Condemns", poster_name="Prestige")
+        board.bb_post(poster_obj=self, msg=prestige_msg, subject="Weekly Praises/Condemns", poster_name="Prestige")
         inform_staff("Praises/condemns tally complete. Posted on %s." % board)
