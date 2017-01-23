@@ -393,7 +393,7 @@ class CmdRequest(MuxPlayerCommand):
         if "followup" in self.switches or "comment" in self.switches:
             if not self.lhs or not self.rhs:
                 caller.msg("Missing arguments required.")
-                ticketnumbers = ", ".join(ticket.id for ticket in caller.tickets.all())
+                ticketnumbers = ", ".join(str(ticket.id) for ticket in caller.tickets.all())
                 caller.msg("Your tickets: %s" % ticketnumbers)
                 return
             try:
