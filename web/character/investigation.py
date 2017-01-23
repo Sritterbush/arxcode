@@ -850,7 +850,7 @@ class CmdListClues(MuxPlayerCommand):
     def disp_clue_table(self):
         caller = self.caller
         table = PrettyTable(["{wClue #{n", "{wSubject{n"])
-        clues = self.finished_clues
+        clues = self.finished_clues.order_by('date')
         if "search" in self.switches:
             msg = "{wMatching Clues{n\n"
             clues = clues.filter(Q(message__icontains=self.args) | Q(clue__desc__icontains=self.args) |
