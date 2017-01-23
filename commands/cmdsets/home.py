@@ -935,7 +935,7 @@ class CmdBuyFromShop(CmdCraft):
             table.add_row(price, obj.name, prices[price])
         msg += str(table)
         designs = loc.db.template_designs or {}
-        msg += "{wNames of designs:{n %s" % ", ".join(designs.keys())
+        msg += "\n{wNames of designs:{n %s" % ", ".join(designs.keys())
         return msg
     
     def pay_owner(self, price, msg):
