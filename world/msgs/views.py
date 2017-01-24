@@ -58,8 +58,8 @@ class JournalListView(LimitPageMixin, ListView):
     def get_queryset(self):
         user = self.request.user
         if not user or not user.is_authenticated() or not user.db.char_ob:
-            return Msg.objects.filter(db_header__icontains="white_journal").order_by('-db_date_created')
-        if user.is_staff:
+            qs = Msg.objects.filter(db_header__icontains="white_journal").order_by('-db_date_created')
+        elif user.is_staff:
             qs = Msg.objects.filter((Q(db_header__icontains='white_journal') |
                                      Q(db_header__icontains='black_journal')) &
                                     ~Q(db_receivers_players=user)).order_by('-db_date_created')
