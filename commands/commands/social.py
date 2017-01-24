@@ -640,7 +640,7 @@ class CmdMessenger(MuxCommand):
 
     To draft a message before sending it, use the 'draft' switch, review
     your message with 'proof', and then finally send it with 'send'.
-        
+
     """
     key = "messenger"
     locks = "cmd:all()"
@@ -687,7 +687,7 @@ class CmdMessenger(MuxCommand):
         mssg = "{wSent by:{n %s\n" % name
         mssg += caller.messages.disp_entry(msg)
         caller.msg(mssg, options={'box': True})
-            
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -986,6 +986,9 @@ class CmdMessenger(MuxCommand):
             for arg in self.lhslist:
                 targ = caller.player.search(arg)
                 if targ:
+                    if targ.db.char_ob and "no_messengers" in targ.db.char_ob.tags.all():
+                        self.msg("%s cannot receive messengers." % targ)
+                        continue
                     targs.append(targ)
             delivery = None
         else:  # invalid switch

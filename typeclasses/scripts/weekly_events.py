@@ -134,8 +134,7 @@ class WeeklyEvents(Script):
             offset = timedelta(days=-30)
             date = date + offset
             qs = Inform.objects.filter(date_sent__lte=date)
-            for ob in qs:
-                ob.delete()
+            qs.delete()
         except Exception as err:
             traceback.print_exc()
             print "Error in cleanup: %s" % err
@@ -154,7 +153,7 @@ class WeeklyEvents(Script):
                     ob.undelete()
                     continue
                 deleted_time = ob.db.deleted_time
-                if (not deleted_time) or (current_time - deleted_time > 2592000):
+                if (not deleted_time) or (current_time - deleted_time > WEEK_INTERVAL):
                     ob.delete()
         except Exception as err:
             traceback.print_exc()
