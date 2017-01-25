@@ -327,6 +327,7 @@ class CmdJournal(MuxCommand):
         msgs = Msg.objects.filter(Q(db_header__contains="white_journal")
                                   & ~Q(db_receivers_players=caller.db.player_ob))
         msgs = [msg.id for msg in msgs]
+        msgs = msgs[:998]
         all_writers = ObjectDB.objects.filter(Q(sender_object_set__in=msgs) &
                                               ~Q(roster__current_account=caller.roster.current_account)
                                               ).distinct().order_by('db_key')
@@ -344,6 +345,7 @@ class CmdJournal(MuxCommand):
                                   & ~Q(db_receivers_players=caller.db.player_ob)
                                   & Q(db_tags__db_key=tag_name))
         msgs = [msg.id for msg in msgs]
+        msgs = msgs[:998]
         all_writers = ObjectDB.objects.filter(Q(sender_object_set__in=msgs) &
                                               ~Q(roster__current_account=caller.roster.current_account)
                                               ).distinct().order_by('db_key')
