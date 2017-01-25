@@ -322,30 +322,34 @@ class CmdJournal(MuxCommand):
         return str(table)
 
     def disp_unread_journals(self):
-        
         caller = self.caller
-        all_writers = ObjectDB.objects.filter(Q(sender_object_set__db_header__contains="white_journal") &
-                                              ~Q(sender_object_set__db_receivers_players=caller.db.player_ob) &
+        from evennia.comms.models import Msg
+        msgs = Msg.objects.filter(Q(db_header__contains="white_journal")
+                                  & ~Q(db_receivers_players=caller.db.player_ob))
+        msgs = [msg.id for msg in msgs]
+        all_writers = ObjectDB.objects.filter(Q(sender_object_set__in=msgs) &
                                               ~Q(roster__current_account=caller.roster.current_account)
                                               ).distinct().order_by('db_key')
         msg_list = []
         for writer in all_writers:
-            count = writer.sender_object_set.filter(Q(db_header__contains="white_journal") &
-                                                    ~Q(db_receivers_players=caller.db.player_ob)).count()
+            count = writer.sender_object_set.filter(id__in=msgs).count()
             msg_list.append("{C%s{c(%s){n" % (writer.key, count))
         caller.msg("Writers with journals you have not read: %s" % ", ".join(msg_list))
 
     def disp_favorite_journals(self):
         caller = self.caller
         tag_name = "pid_%s_favorite" % caller.db.player_ob.id
-        all_writers = ObjectDB.objects.filter(Q(sender_object_set__db_header__contains="white_journal") &
-                                              ~Q(sender_object_set__db_receivers_players=caller.db.player_ob) &
+        from evennia.comms.models import Msg
+        msgs = Msg.objects.filter(Q(db_header__contains="white_journal")
+                                  & ~Q(db_receivers_players=caller.db.player_ob)
+                                  & Q(db_tags__db_key=tag_name))
+        msgs = [msg.id for msg in msgs]
+        all_writers = ObjectDB.objects.filter(Q(sender_object_set__in=msgs) &
                                               ~Q(roster__current_account=caller.roster.current_account)
                                               ).distinct().order_by('db_key')
         msglist = []
         for writer in all_writers:
-            count = writer.sender_object_set.filter(Q(db_header__contains="white_journal") &
-                                                    Q(db_tags__db_key=tag_name)).count()
+            count = writer.sender_object_set.filter(id__in=msgs).count()
             if count:
                 msglist.append("{C%s{c(%s){n" % (writer.key, count))
         caller.msg("Writers with journals you have favorited: %s" % ", ".join(msglist))
