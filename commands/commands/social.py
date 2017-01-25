@@ -325,11 +325,11 @@ class CmdJournal(MuxCommand):
         caller = self.caller
         from evennia.comms.models import Msg
         msgs = Msg.objects.filter(Q(db_header__contains="white_journal")
-                                  & ~Q(db_receivers_players=caller.db.player_ob))
+                                  & ~Q(db_receivers_players=caller.db.player_ob)).order_by('-db_date_created')
         msgs = [msg.id for msg in msgs]
-        if len(msgs) > 999:
+        if len(msgs) > 500:
             self.msg("Truncating some matches.")
-        msgs = msgs[:998]
+        msgs = msgs[:500]
         all_writers = ObjectDB.objects.filter(Q(sender_object_set__in=msgs) &
                                               ~Q(roster__current_account=caller.roster.current_account)
                                               ).distinct().order_by('db_key')
@@ -345,11 +345,11 @@ class CmdJournal(MuxCommand):
         from evennia.comms.models import Msg
         msgs = Msg.objects.filter(Q(db_header__contains="white_journal")
                                   & ~Q(db_receivers_players=caller.db.player_ob)
-                                  & Q(db_tags__db_key=tag_name))
+                                  & Q(db_tags__db_key=tag_name)).order_by('-db_date_created')
         msgs = [msg.id for msg in msgs]
-        if len(msgs) > 999:
+        if len(msgs) > 500:
             self.msg("Truncating some matches.")
-        msgs = msgs[:998]
+        msgs = msgs[:500]
         all_writers = ObjectDB.objects.filter(Q(sender_object_set__in=msgs) &
                                               ~Q(roster__current_account=caller.roster.current_account)
                                               ).distinct().order_by('db_key')
