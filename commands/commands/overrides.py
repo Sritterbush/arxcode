@@ -650,6 +650,7 @@ class CmdWho(MuxPlayerCommand):
       who/sparse [<filter>]
       doing/sparse [<filter>]
       who/active
+      who/watch
 
     Shows who is currently online. Doing is an alias that limits info
     also for those with all permissions. Players who are currently
@@ -716,6 +717,7 @@ class CmdWho(MuxPlayerCommand):
         session_list = [ob for ob in SESSIONS.get_sessions() if ob.player]
         session_list = sorted(session_list, key=lambda o: o.player.key.lower())
         sparse = "sparse" in self.switches
+        watch_list = player.db.watching or []
 
         if self.cmdstring == "doing":
             show_session_data = False
@@ -746,6 +748,9 @@ class CmdWho(MuxPlayerCommand):
                 base = str(session.get_player())
                 pname = self.format_pname(session.get_player())
                 char = pc.db.char_ob
+                if "watch" in self.switches and char not in watch_list:
+                    nplayers -= 1
+                    continue
                 if not char or not char.db.fealty:
                     fealty = "---"
                 else:
@@ -781,6 +786,9 @@ class CmdWho(MuxPlayerCommand):
                     base = str(pc)
                     pname = self.format_pname(pc, lname=True, sparse=sparse)
                     char = pc.db.char_ob
+                    if "watch" in self.switches and char not in watch_list:
+                        nplayers -= 1
+                        continue
                     if not char or not char.db.fealty:
                         fealty = "---"
                     else:

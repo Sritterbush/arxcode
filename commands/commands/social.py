@@ -1235,6 +1235,7 @@ class CmdCalendar(MuxPlayerCommand):
             proj[1] = date
             caller.ndb.proj = proj
             caller.msg("Date set to %s." % date.strftime("%x %X"))
+            caller.msg("Current time is %s for comparison." % (datetime.now().strftime("%x %X")))
             return
         if "location" in self.switches:
             if self.lhs:
