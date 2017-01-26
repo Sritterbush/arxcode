@@ -114,11 +114,11 @@ class RevelationAdmin(BaseCharAdmin):
 class ClueDiscoInline(admin.TabularInline):
     model = ClueDiscovery
     extra = 0
+    raw_id_fields = ("clue", "character",)
 
 
 class ClueAdmin(BaseCharAdmin):
-    list_display = ('id', 'name', 'known_by', 'used_for')
-    # inlines = [ClueDiscoInline]
+    list_display = ('id', 'name', 'rating', 'known_by', 'used_for')
     search_fields = ('id', 'name', 'characters__character__db_key', 'revelations__name')
 
     @staticmethod
@@ -169,7 +169,7 @@ class EntryAdmin(NoDeleteAdmin):
     list_display = ('id', 'character', 'roster', 'current_alts')
     ordering = ['roster', 'character__db_key']
     search_fields = ['character__db_key', 'roster__name']
-    raw_id_fields = ("character", "player")
+    raw_id_fields = ("character", "player", "current_account")
     list_filter = ('roster', 'frozen', 'inactive')
     form = EntryForm
     inlines = [MystForEntry, RevForEntry]
@@ -184,6 +184,7 @@ class InvestigationAdmin(BaseCharAdmin):
                     'ongoing', 'automate_result')
     list_filter = ('active', 'ongoing', 'automate_result')
     inlines = [MystDiscoInline, RevDiscoInline, ClueDiscoInline]
+    raw_id_fields = ('clue_target',)
 
     @staticmethod
     def clue_progress(obj):

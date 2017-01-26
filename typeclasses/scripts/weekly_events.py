@@ -8,7 +8,7 @@ from .scripts import Script
 from server.utils.arx_utils import inform_staff
 from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
-from world.dominion.models import PlayerOrNpc, AssetOwner, Army, AssignedTask
+from world.dominion.models import AssetOwner, Army, AssignedTask
 import traceback
 from django.db.models import Q
 from datetime import datetime, timedelta
@@ -350,28 +350,30 @@ class WeeklyEvents(Script):
         player.db.validated_list = []
 
     def count_praises_and_condemns(self, player):
+        # from world.dominion.models import PlayerOrNpc
         # praises/condemns are {name: [times, msg]}
         praises = player.db.praises or {}
-        condemns = player.db.condemns or {}
-        base_condemn = 0
-        try:
-            # our base prestige is our total * .05%
-            dompc = PlayerOrNpc.objects.get(player=player)
-            assets = dompc.assets
-            base_condemn = int(assets.total_prestige * 0.0005)
-        except PlayerOrNpc.DoesNotExist:
-            from world.dominion.setup_utils import setup_dom_for_char
-            char = player.db.char_ob
-            if not char or not char.db.social_rank:
-                return
-            try:
-                if char.roster.roster.name == "Active":
-                    setup_dom_for_char(char)
-            except (AttributeError, TypeError, ValueError):
-                base_condemn = 0
+        # condemns = player.db.condemns or {}
+        # base_condemn = 0
+        # try:
+        #     # our base prestige is our total * .05%
+        #     dompc = PlayerOrNpc.objects.get(player=player)
+        #     assets = dompc.assets
+        #     # base_condemn = int(assets.total_prestige * 0.0005)
+        # except PlayerOrNpc.DoesNotExist:
+        #     from world.dominion.setup_utils import setup_dom_for_char
+        #     char = player.db.char_ob
+        #     if not char or not char.db.social_rank:
+        #         return
+        #     try:
+        #         if char.roster.roster.name == "Active":
+        #             setup_dom_for_char(char)
+        #     except (AttributeError, TypeError, ValueError):
+        #         base_condemn = 0
+
         # praises are a flat value, condemns scale with the prestige of the condemner
         base_praise = 1000
-        prest = base_praise + base_condemn
+        # prest = base_praise + base_condemn
         for name in praises:
             num = praises[name][0]
             msg = praises[name][1]
@@ -380,14 +382,14 @@ class WeeklyEvents(Script):
             existing[1] += num
             existing[2].append((player, msg))
             self.db.praises[name] = existing
-        for name in condemns:
-            num = condemns[name][0]
-            msg = condemns[name][1]
-            existing = self.db.condemns.get(name, [0, 0, []])
-            existing[0] -= prest
-            existing[1] += num
-            existing[2].append((player, msg))
-            self.db.condemns[name] = existing
+        # for name in condemns:
+        #    num = condemns[name][0]
+        #    msg = condemns[name][1]
+        #    existing = self.db.condemns.get(name, [0, 0, []])
+        #    existing[0] -= prest
+        #    existing[1] += num
+        #    existing[2].append((player, msg))
+        #    self.db.condemns[name] = existing
         # reset their praises/condemns for next week after recording
         player.db.praises = {}
         player.db.condemns = {}
@@ -566,17 +568,17 @@ class WeeklyEvents(Script):
         prestige_msg = "{wMost Praised this week{n".center(72)
         prestige_msg = "%s\n%s" % (prestige_msg, str(table).lstrip())
         prestige_msg += "\n\n"
-        prestige_msg += "{wMost Condemned this week{n".center(72)
-        sorted_condemns = sorted(self.db.condemns.items(), key=lambda x: x[1][1], reverse=True)
-        sorted_condemns = sorted_condemns[:20]
-        table = EvTable("{wName{n", "{w#{n", "{wMsg{n", border="cells", width=78)
-        for tup in sorted_condemns:
-            condemn_messages = [con_msg for _, con_msg in tup[1][2] if con_msg] or [None]
-            table.add_row(tup[0].capitalize()[:18], tup[1][1], "'%s'" % random.choice(condemn_messages))
-        table.reformat_column(0, width=18)
-        table.reformat_column(1, width=5)
-        table.reformat_column(2, width=55)
-        prestige_msg = "%s\n%s" % (prestige_msg, str(table).lstrip())
+        # prestige_msg += "{wMost Condemned this week{n".center(72)
+        # sorted_condemns = sorted(self.db.condemns.items(), key=lambda x: x[1][1], reverse=True)
+        # sorted_condemns = sorted_condemns[:20]
+        # table = EvTable("{wName{n", "{w#{n", "{wMsg{n", border="cells", width=78)
+        # for tup in sorted_condemns:
+        #     condemn_messages = [con_msg for _, con_msg in tup[1][2] if con_msg] or [None]
+        #     table.add_row(tup[0].capitalize()[:18], tup[1][1], "'%s'" % random.choice(condemn_messages))
+        # table.reformat_column(0, width=18)
+        # table.reformat_column(1, width=5)
+        # table.reformat_column(2, width=55)
+        # prestige_msg = "%s\n%s" % (prestige_msg, str(table).lstrip())
         try:      
             sorted_changes = sorted(self.db.prestige_changes.items(), key=lambda x: abs(x[1][0]), reverse=True)
             sorted_changes = sorted_changes[:20]
