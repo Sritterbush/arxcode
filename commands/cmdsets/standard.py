@@ -198,7 +198,7 @@ class MobileCmdSet(CmdSet):
         self.add(crafting.CmdRecipes())
         self.add(crafting.CmdJunk())
         self.add(social.CmdPraise())
-        self.add(social.CmdCondemn())
+        # self.add(social.CmdCondemn())
         self.add(social.CmdThink())
         self.add(social.CmdFeel())
         self.add(social.CmdDonate())

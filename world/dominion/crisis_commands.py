@@ -185,6 +185,7 @@ class CmdCrisisAction(MuxPlayerCommand):
         +crisis/appendaction <action #>=<new text to add>
         +crisis/cancelaction <action #>
         +crisis/question <action #>=<question>
+        +crisis/togglesecret <action #>
 
     Takes an action for a given crisis that is currently going on.
     Actions are queued in and then all simultaneously resolved by
@@ -254,7 +255,7 @@ class CmdCrisisAction(MuxPlayerCommand):
         try:
             return self.current_actions.get(id=self.lhs)
         except (CrisisAction.DoesNotExist, ValueError):
-            self.msg("No crisis found by that id.")
+            self.msg("No action found by that id. Remember to specify the number of the action, not the crisis.")
             return
 
     def view_action(self):
@@ -296,6 +297,14 @@ class CmdCrisisAction(MuxPlayerCommand):
         self.msg("Asked the question: %s" % self.rhs)
         inform_staff("%s has asked a question about a crisis action: %s" % (self.caller, self.rhs))
 
+    def toggle_secret(self):
+        action = self.get_action()
+        if not action:
+            return
+        action.public = not action.public
+        action.save()
+        self.msg("Public status of action is now %s" % action.public)
+
     def func(self):
         if not self.args and not self.switches:
             self.list_crises()
@@ -317,5 +326,8 @@ class CmdCrisisAction(MuxPlayerCommand):
             return
         if "appendaction" in self.switches:
             self.append_action()
+            return
+        if "togglesecret" in self.switches:
+            self.toggle_secret()
             return
         self.msg("Invalid switch")
