@@ -1955,7 +1955,7 @@ class CmdRandomScene(MuxCommand):
         scenelist = self.scenelist
         claimlist = self.claimlist
         validated = self.validatedlist
-        newbies = self.newbies
+        newbies = [ob for ob in self.newbies if ob not in claimlist]
         if "online" in self.switches:
             self.msg("{wOnly displaying online characters.{n")
             scenelist = [ob for ob in scenelist if ob.location]
