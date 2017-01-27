@@ -49,8 +49,10 @@ class BBoard(Object):
         self.receiver_object_set.add(post)
         if announce:
             subs = [ob for ob in self.db.subscriber_list if self.access(ob, "read")]
+            post_num = self.posts.count()
             for sub in subs:
                 notify = "\n{{wNew post on {0} by {1}:{{n {2}".format(self.key, posted_by, subject)
+                notify += "\nUse {w@bbread %s/%s {nto read this message." % (self.key, post_num)
                 sub.msg(notify)
             self.db.subscriber_list = subs
         if self.db.max_posts and self.posts.count() > self.db.max_posts:

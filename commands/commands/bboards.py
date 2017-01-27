@@ -40,19 +40,20 @@ def list_bboards(caller):
     # just display the subscribed bboards with no extra info
     bbtable = prettytable.PrettyTable(["{wbb #",
                                        "{wName",
-                                       "{wUnread Posts",
-                                       "{wTotal Posts",
+                                       "{wPosts{n",
                                       "{wSubscribed{n"])
     for bboard in bb_list:
         bb_number = bb_list.index(bboard)
         bb_name = bboard.key
         unread_num = bboard.num_of_unread_posts(caller)
         subbed = bboard in my_subs
+        if unread_num:
+            unread_str = " {w(%s new){n" % unread_num
+        else:
+            unread_str = ""
         bbtable.add_row([bb_number, bb_name,
-                         "{0} unread postings".format(unread_num),
-                         len(bboard.posts), subbed])
+                         "%s%s" % (len(bboard.posts), unread_str), subbed])
     caller.msg("\n{w" + "="*60 + "{n\n%s" % bbtable)
-    pass
 
 
 def access_bboard(caller, args, request="read"):
