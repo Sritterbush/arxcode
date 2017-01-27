@@ -47,6 +47,8 @@ class BBoard(Object):
         if event:
             event.tag_obj(post)
         self.receiver_object_set.add(post)
+        if self.db.max_posts and self.posts.count() > self.db.max_posts:
+            self.posts.first().delete()
         if announce:
             subs = [ob for ob in self.db.subscriber_list if self.access(ob, "read")]
             post_num = self.posts.count()
@@ -55,8 +57,6 @@ class BBoard(Object):
                 notify += "\nUse {w@bbread %s/%s {nto read this message." % (self.key, post_num)
                 sub.msg(notify)
             self.db.subscriber_list = subs
-        if self.db.max_posts and self.posts.count() > self.db.max_posts:
-            self.posts.first().delete()
         return post
 
     def has_subscriber(self, pobj):
