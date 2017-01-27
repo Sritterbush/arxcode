@@ -218,6 +218,7 @@ class CmdTrain(MuxCommand):
     Usage:
         train/stat  <trainee>=<stat>
         train/skill <trainee>=<skill>
+        train/ability <trainee>=<ability>
         train/retainer <owner>=<npc name or ID number>
 
     Allows you to flag a character as being trained with you, imparting a
@@ -255,7 +256,7 @@ class CmdTrain(MuxCommand):
         targ.db.trainer = caller
         currently_training.append(targ)
         caller.db.currently_training = currently_training
-    
+
     @property
     def currently_training(self):
         self.caller.refresh_from_db()
@@ -266,7 +267,7 @@ class CmdTrain(MuxCommand):
             self.msg("You are training as many people as you can handle.")
             return False
         return True
-        
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -315,6 +316,19 @@ class CmdTrain(MuxCommand):
                 caller.msg("Your %s is not high enough to train %s." % (skill, targ.name))
                 return
             stat = skill
+        elif "ability" in switches:
+            ability = self.rhs.lower()
+            if ability not in stats_and_skills.VALID_ABILITIES:
+                caller.msg("%s is not a valid ability." % self.rhs)
+                return
+            if not caller.db.abilities:
+                caller.db.abilities = {}
+            if not targ.db.abilities:
+                targ.db.abilities = {}
+            if caller.db.abilities.get(ability, 0) <= targ.db.abilities.get(ability, 0) + 1:
+                caller.msg("Your %s is not high enough to train %s." % (ability, targ.name))
+                return
+            stat = ability
         else:
             caller.msg("Usage: train/[stat or skill] <character>=<stat or skill name>")
             return
