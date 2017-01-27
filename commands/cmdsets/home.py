@@ -15,6 +15,7 @@ from server.utils.prettytable import PrettyTable
 from server.utils.arx_utils import inform_staff, raw
 from evennia.utils import utils
 from evennia.utils.evtable import EvTable
+from typeclasses.characters import Character
 import re
 # error return function, needed by Extended Look command
 AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
@@ -589,7 +590,7 @@ class CmdManageRoom(MuxCommand):
             player.send_or_queue_msg("Your shop at %s has been removed." % loc)
             return
 
-        
+
 class CmdManageShop(MuxCommand):
     """
     +manageshop
@@ -605,6 +606,7 @@ class CmdManageShop(MuxCommand):
         +manageshop/addblacklist <player or org name>
         +manageshop/rmblacklist <player or org name>
         +manageshop/orgdiscount <org name>=<percentage>
+        +manageshop/chardiscount <character>=<percentage>
         +manageshop/adddesign <key>=<code>
         +manageshop/rmdesign <key>
 
@@ -641,7 +643,7 @@ class CmdManageShop(MuxCommand):
     def list_designs(self):
         designs = self.caller.location.db.template_designs or {}
         self.msg("{wTemplate designs:{n %s" % ", ".join(designs.keys()))
-    
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -651,7 +653,9 @@ class CmdManageShop(MuxCommand):
             return
         if not self.args:
             caller.msg(self.list_prices())
-            discounts = ", ".join(("%s: %s%%" % (ob, val) for ob, val in (loc.db.discounts or {}).items()))
+            org_discounts = (loc.db.discounts or {}).items()
+            char_discounts = (loc.db.char_discounts or {}).items()
+            discounts = ", ".join(("%s: %s%%" % (ob, val) for ob, val in (org_discounts + char_discounts)))
             caller.msg("{wDiscounts{n: %s" % discounts)
             caller.msg("{wBlacklist{n: %s" % str(loc.db.blacklist))
             self.list_designs()
@@ -819,6 +823,10 @@ class CmdManageShop(MuxCommand):
                 discount = int(self.rhs)
                 if discount > 100:
                     raise ValueError
+                if discount == 0:
+                    loc.db.discounts.pop(org.name, 0)
+                    self.msg("Removed discount for %s." % org)
+                    return
                 loc.db.discounts[org.name] = discount
                 caller.msg("%s given a discount of %s percent." % (org, discount))
                 return
@@ -827,6 +835,27 @@ class CmdManageShop(MuxCommand):
                 return
             except Organization.DoesNotExist:
                 caller.msg("No organization by that name found.")
+                return
+        if "chardiscount" in self.switches:
+            if loc.db.char_discounts is None:
+                loc.db.char_discounts = {}
+            try:
+                character = Character.objects.get(db_key__iexact=self.lhs)
+                discount = int(self.rhs)
+                if discount > 100:
+                    raise ValueError
+                if discount == 0:
+                    loc.db.char_discounts.pop(character, 0)
+                    self.msg("Removed discount for %s." % character)
+                    return
+                loc.db.char_discounts[character] = discount
+                caller.msg("%s given a discount of %s percent." % (character, discount))
+                return
+            except (TypeError, ValueError):
+                caller.msg("Discount must be a number, max of 100.")
+                return
+            except Character.DoesNotExist:
+                caller.msg("No character found by that name.")
                 return
         caller.msg("Invalid switch.")
 
@@ -863,7 +892,10 @@ class CmdBuyFromShop(CmdCraft):
     def get_discount(self):
         """Returns our percentage discount"""
         loc = self.caller.location
+        char_discounts = loc.db.char_discounts or {}
         discount = 0.0
+        if self.caller in char_discounts:
+            return char_discounts[self.caller]
         for org in self.caller.db.player_ob.Dominion.current_orgs:
             odiscount = loc.db.discounts.get(org.name, 0.0)
             if odiscount and not discount:
@@ -877,34 +909,34 @@ class CmdBuyFromShop(CmdCraft):
         loc = self.caller.location
         price = 0
         if "refine" in loc.db.crafting_prices:
-            price = (base * loc.db.crafting_prices["refine"])/100.0
+            price = (base * loc.db.crafting_prices["refine"]) / 100.0
         elif "all" in loc.db.crafting_prices:
-            price = (base * loc.db.crafting_prices["all"])/100.0
+            price = (base * loc.db.crafting_prices["all"]) / 100.0
         if price == 0:
             return price
         if price > 0:
-            price -= (price * self.get_discount()/100.0)
+            price -= (price * self.get_discount() / 100.0)
             if price < 0:
                 raise ValueError("Negative price due to discount")
             return price
         raise ValueError
-    
+
     def get_recipe_price(self, recipe):
         """Price for crafting a recipe"""
         loc = self.caller.location
         base = recipe.value
         price = 0
         if recipe.id in loc.db.crafting_prices:
-            price = (base * loc.db.crafting_prices[recipe.id])/100.0
+            price = (base * loc.db.crafting_prices[recipe.id]) / 100.0
         elif "all" in loc.db.crafting_prices:
-            price = (base * loc.db.crafting_prices["all"])/100.0
+            price = (base * loc.db.crafting_prices["all"]) / 100.0
         if price:
-            price -= (price * self.get_discount()/100.0)
+            price -= (price * self.get_discount() / 100.0)
             if price < 0:
                 raise ValueError("Negative price due to discount")
             return price
         # no price defined
-        raise ValueError         
+        raise ValueError
 
     def list_prices(self):
         """List prices of everything"""
@@ -937,7 +969,7 @@ class CmdBuyFromShop(CmdCraft):
         designs = loc.db.template_designs or {}
         msg += "\n{wNames of designs:{n %s" % ", ".join(designs.keys())
         return msg
-    
+
     def pay_owner(self, price, msg):
         """Pay money to the other and send an inform of the sale"""
         loc = self.caller.location
@@ -949,7 +981,7 @@ class CmdBuyFromShop(CmdCraft):
         """Buy an item from inventory - pay the owner and get the item"""
         loc = self.caller.location
         price = loc.db.item_prices[item.id]
-        price -= price * (self.get_discount()/100.0)
+        price -= price * (self.get_discount() / 100.0)
         self.caller.pay_money(price)
         self.pay_owner(price, "%s has bought %s for %s." % (self.caller, item, price))
         item.move_to(self.caller)
