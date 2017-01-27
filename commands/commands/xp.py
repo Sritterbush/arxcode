@@ -268,6 +268,18 @@ class CmdTrain(MuxCommand):
             return False
         return True
 
+    def check_attribute_name(self, valid_list, attr_type):
+        if self.rhs.lower() not in valid_list:
+            self.msg("%s is not a valid %s." % (self.rhs, attr_type))
+            return False
+        return True
+
+    def check_attribute_value(self, trainer_attr, target_attr):
+        if trainer_attr <= target_attr + 1:
+            self.msg("Your %s is not high enough to train %s." % (self.rhs, self.lhs))
+            return False
+        return True
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -301,40 +313,32 @@ class CmdTrain(MuxCommand):
             return
         if "stat" in switches:
             stat = self.rhs.lower()
-            if stat not in stats_and_skills.VALID_STATS:
-                caller.msg("%s is not a valid stat." % self.rhs)
+            if not self.check_attribute_name(stats_and_skills.VALID_STATS, "stat"):
                 return
-            if caller.attributes.get(stat) <= targ.attributes.get(stat) + 1:
-                caller.msg("Your %s is not high enough to train %s." % (stat, targ.name))
+            if not self.check_attribute_value(caller.attributes.get(stat), targ.attributes.get(stat)):
                 return
         elif "skill" in switches:
             skill = self.rhs.lower()
-            if skill not in stats_and_skills.VALID_SKILLS:
-                caller.msg("%s is not a valid skill." % self.rhs)
+            if not self.check_attribute_name(stats_and_skills.VALID_SKILLS, "skill"):
                 return
-            if caller.db.skills.get(skill, 0) <= targ.db.skills.get(skill, 0) + 1:
-                caller.msg("Your %s is not high enough to train %s." % (skill, targ.name))
+            if not self.check_attribute_value(caller.db.skills.get(skill, 0), targ.db.skills.get(skill, 0)):
                 return
-            stat = skill
         elif "ability" in switches:
             ability = self.rhs.lower()
-            if ability not in stats_and_skills.VALID_ABILITIES:
-                caller.msg("%s is not a valid ability." % self.rhs)
+            if not self.check_attribute_name(stats_and_skills.VALID_ABILITIES, "ability"):
                 return
             if not caller.db.abilities:
                 caller.db.abilities = {}
             if not targ.db.abilities:
                 targ.db.abilities = {}
-            if caller.db.abilities.get(ability, 0) <= targ.db.abilities.get(ability, 0) + 1:
-                caller.msg("Your %s is not high enough to train %s." % (ability, targ.name))
+            if not self.check_attribute_value(caller.db.abilities.get(ability, 0), targ.db.abilities.get(ability, 0)):
                 return
-            stat = ability
         else:
             caller.msg("Usage: train/[stat or skill] <character>=<stat or skill name>")
             return
         self.post_training(targ)
-        caller.msg("You have provided training to %s for them to increase their %s." % (targ.name, stat))
-        targ.msg("%s has provided you training, helping you increase your %s." % (caller.name, stat))
+        caller.msg("You have provided training to %s for them to increase their %s." % (targ.name, self.rhs))
+        targ.msg("%s has provided you training, helping you increase your %s." % (caller.name, self.rhs))
         return
          
         
