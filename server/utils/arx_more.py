@@ -147,7 +147,7 @@ class EvMore(object):
         height = max(4, session.protocol_flags.get("SCREENHEIGHT", {0:_SCREEN_HEIGHT})[0] - 4)
         width = session.protocol_flags.get("SCREENWIDTH", {0:_SCREEN_WIDTH})[0]
 
-        pages_by_char = kwargs.get('pages_by_char', False)
+        pages_by_char = kwargs.pop('pages_by_char', False)
         if pages_by_char:
             PAGE_LENGTH = 3000
             MARGIN = 1000
