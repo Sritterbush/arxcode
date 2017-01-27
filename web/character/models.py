@@ -463,7 +463,7 @@ class ClueDiscovery(models.Model):
     @property
     def name(self):
         return self.clue.name
-    
+
     @property
     def finished(self):
         return self.roll >= self.clue.rating
@@ -475,6 +475,9 @@ class ClueDiscovery(models.Model):
         msg += self.clue.desc + "\n"
         if self.message:
             msg += "\n" + self.message
+        shared = self.shared_with
+        if shared:
+            msg += "\n{wShared with{n: %s" % ", ".join(str(ob) for ob in shared)
         return msg
 
     def check_revelation_discovery(self):
@@ -504,7 +507,7 @@ class ClueDiscovery(models.Model):
     @property
     def progress_percentage(self):
         try:
-            return int((float(self.roll)/float(self.clue.rating)) * 100)
+            return int((float(self.roll) / float(self.clue.rating)) * 100)
         except (AttributeError, TypeError, ValueError, ZeroDivisionError):
             return 0
 
@@ -557,6 +560,11 @@ class ClueDiscovery(models.Model):
                                                 message=message,
                                                 mystery=mystery, date=datetime.now())
         pc.inform(msg, category="Investigations", append=False)
+
+    @property
+    def shared_with(self):
+        spoiled = self.character.clues_spoiled.filter(clue=self.clue)
+        return RosterEntry.objects.filter(clues__in=spoiled)
 
 
 class ClueForRevelation(models.Model):
