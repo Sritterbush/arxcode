@@ -63,6 +63,7 @@ class CmdWhere(MuxPlayerCommand):
 
     Usage:
         +where
+        +where [<character>,<character 2>,...]
 
     Displays a list of characters in public rooms.
     """
@@ -77,6 +78,10 @@ class CmdWhere(MuxPlayerCommand):
         rooms = ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_ROOM_TYPECLASS) &
                                         Q(locations_set__db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS) &
                                         ~Q(db_tags__db_key__iexact="private")).distinct().order_by('db_key')
+        if self.args:
+            q_list = map(lambda n: Q(locations_set__db_key__iexact=n), self.lhslist)
+            q_list = reduce(lambda a, b: a | b, q_list)
+            rooms = rooms.filter(q_list)
         if not rooms:
             caller.msg("No visible characters found.")
             return
