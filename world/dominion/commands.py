@@ -2550,7 +2550,9 @@ class CmdSupport(MuxCommand):
                 def rem_pts(allocation):
                     rat = allocation.rating
                     return "%s(%s)" % (rat - memb.points_used(allocation.category.name), rat)
-                msg = "{wPool share for %s:{n %s" % (memb.organization, memb.pool_share)
+                poolshare = memb.pool_share
+                used = memb.total_points_used
+                msg = "{wPool share for %s:{n %s(%s)" % (memb.organization, poolshare - used, poolshare)
                 msg += ", {wCategory ratings:{n %s" % ", ".join("%s: %s" % (ob.category, rem_pts(ob))
                                                                 for ob in memb.organization.spheres.all())
                 caller.msg(msg)
