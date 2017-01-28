@@ -231,7 +231,7 @@ class CmdCrisisAction(MuxPlayerCommand):
         try:
             return self.viewable_crises.get(id=self.lhs)
         except (Crisis.DoesNotExist, ValueError):
-            self.msg("Crisis not found by that #.")
+            self.msg("Crisis not found by that #. Remember to use /old for a resolved crisis.")
             return
 
     def view_crisis(self):
