@@ -44,7 +44,7 @@ class CmdAgents(MuxPlayerCommand):
 
     hire: enter the type, level, and quantity of the agents and the org you
     wish to buy them for. The type will generally be 'guard' for nobles,
-    and 'thug' for crime families and the like. Cost = 25*(lvl+1)^3 in
+    and 'thug' for crime families and the like. Cost = (lvl+1)^5 in
     military resources for each agent.
 
     """

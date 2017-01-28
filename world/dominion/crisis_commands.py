@@ -179,6 +179,7 @@ class CmdCrisisAction(MuxPlayerCommand):
     Usage:
         +crisis
         +crisis <#>
+        +crisis/old <#>
         +crisis/newaction <crisis #>=<action you are taking>
         +crisis/secretaction <crisis #>=<action you are taking>
         +crisis/viewaction <action #>
@@ -189,7 +190,8 @@ class CmdCrisisAction(MuxPlayerCommand):
 
     Takes an action for a given crisis that is currently going on.
     Actions are queued in and then all simultaneously resolved by
-    GMs periodically.
+    GMs periodically. To view crises that have since been resolved,
+    use the /old switch.
     """
     key = "+crisis"
     aliases = ["crisis"]
@@ -198,9 +200,13 @@ class CmdCrisisAction(MuxPlayerCommand):
 
     @property
     def viewable_crises(self):
+        if "old" in self.switches:
+            resolved = True
+        else:
+            resolved = False
         if self.caller.check_permstring("builders"):
-            return Crisis.objects.filter(resolved=False)
-        return Crisis.objects.filter(resolved=False).filter(
+            return Crisis.objects.filter(resolved=resolved)
+        return Crisis.objects.filter(resolved=resolved).filter(
             Q(public=True) |
             Q(required_clue__discoveries__in=self.caller.roster.finished_clues))
 
@@ -306,10 +312,10 @@ class CmdCrisisAction(MuxPlayerCommand):
         self.msg("Public status of action is now %s" % action.public)
 
     def func(self):
-        if not self.args and not self.switches:
+        if not self.args and (not self.switches or "old" in self.switches):
             self.list_crises()
             return
-        if not self.switches:
+        if not self.switches or "old" in self.switches:
             self.view_crisis()
             return
         if "newaction" in self.switches or "secretaction" in self.switches:
