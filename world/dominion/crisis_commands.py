@@ -200,15 +200,15 @@ class CmdCrisisAction(MuxPlayerCommand):
 
     @property
     def viewable_crises(self):
-        if "old" in self.switches:
-            resolved = True
-        else:
-            resolved = False
         if self.caller.check_permstring("builders"):
-            return Crisis.objects.filter(resolved=resolved)
-        return Crisis.objects.filter(resolved=resolved).filter(
+            qs = Crisis.objects.all()
+        else:
+            qs = Crisis.objects.filter(
             Q(public=True) |
             Q(required_clue__discoveries__in=self.caller.roster.finished_clues))
+        if "old" in self.switches:
+            qs = qs.filter(resolved=True)
+        return qs
 
     @property
     def current_actions(self):
@@ -216,6 +216,8 @@ class CmdCrisisAction(MuxPlayerCommand):
 
     def list_crises(self):
         qs = self.viewable_crises
+        if "old" not in self.switches:
+            qs = qs.filter(resolved=False)
         table = EvTable("{w#{n", "{wName{n", "{wDesc{n", "{wRating{n", "{wUpdates On{n", width=78, border="cells")
         for ob in qs:
             date = "--" if not ob.end_date else ob.end_date.strftime("%x %H:%M")
@@ -229,9 +231,11 @@ class CmdCrisisAction(MuxPlayerCommand):
 
     def get_crisis(self):
         try:
-            return self.viewable_crises.get(id=self.lhs)
+            if not self.switches or "old" in self.switches:
+                return self.viewable_crises.get(id=self.lhs)
+            return self.viewable_crises.get(resolved=False, id=self.lhs)
         except (Crisis.DoesNotExist, ValueError):
-            self.msg("Crisis not found by that #. Remember to use /old for a resolved crisis.")
+            self.msg("Crisis not found by that #.")
             return
 
     def view_crisis(self):
