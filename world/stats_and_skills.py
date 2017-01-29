@@ -42,7 +42,7 @@ DOM_SKILLS = ("population", "income", "farming", "productivity",
               "upkeep", "loyalty", "warfare")
 _parent_abilities_ = {'sewing': ['tailor'], 'smithing': ['weaponsmith', 'armorsmith', 'jeweler'],
                       'tanning': ['leatherworker'],
-                      'alchemy': ['apothecary'], 'woodworking': ['apothecary']}
+                      'alchemy': ['apothecary'], 'woodworking': ['carpenter']}
 # Default difficulty for an 'easy' task for a person with a skill of 1
 DIFF_DEFAULT = 15
 
@@ -389,6 +389,8 @@ def adjust_skill(caller, field, value=1):
     caller.db.trainer = None
     if field in CRAFTING_SKILLS:
         abilitylist = _parent_abilities_[field]
+        if caller.db.abilities is None:
+            caller.db.abilities = {}
         for ability in abilitylist:
             if ability not in caller.db.abilities:
                 caller.db.abilities[ability] = 1
