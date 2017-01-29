@@ -414,6 +414,10 @@ class CmdAdjustSkill(MuxPlayerCommand):
             except (AttributeError, ValueError, TypeError):
                 caller.msg("No player by that name.")
                 return
+            if char.db.abilities is None:
+                char.db.abilities = {}
+            if char.db.xp is None:
+                char.db.xp = 0
             if "reset" in self.switches:
                 try:
                     from commands.commands.guest import setup_voc, XP_BONUS_BY_SRANK
@@ -490,8 +494,10 @@ class CmdAdjustSkill(MuxPlayerCommand):
         if rhs <= 0:
             try:
                 if ability:
-                    del char.db.abilities[skill]
-                    caller.msg("Removed ability %s from %s." % (skill, char))
+
+                    if skill in char.db.abilities:
+                        del char.db.abilities[skill]
+                        caller.msg("Removed ability %s from %s." % (skill, char))
                 else:
                     del char.db.skills[skill]
                     caller.msg("Removed skill %s from %s." % (skill, char))
