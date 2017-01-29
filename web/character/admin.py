@@ -90,11 +90,13 @@ class MysteryAdmin(BaseCharAdmin):
 class ClueForRevInline(admin.TabularInline):
     model = ClueForRevelation
     extra = 0
+    raw_id_fields = ('clue',)
 
 
 class RevDiscoInline(admin.TabularInline):
     model = RevelationDiscovery
     extra = 0
+    raw_id_fields = ('character', 'investigation', 'revealed_by')
 
 
 class RevelationAdmin(BaseCharAdmin):
