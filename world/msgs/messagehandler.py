@@ -533,6 +533,11 @@ class MessageHandler(object):
     def num_weekly_journals(self):
         return (self.obj.db.num_journals or 0) + (self.obj.db.num_rel_updates or 0) + (self.obj.db.num_comments or 0)
 
+    def reset_journal_count(self):
+        self.obj.db.num_journals = 0
+        self.obj.db.num_rel_updates = 0
+        self.obj.db.num_comments = 0
+
     def convert_short_rel_to_long_rel(self, character, rel_key, white=True):
         """
         Converts a short relationship held in our self.obj to a

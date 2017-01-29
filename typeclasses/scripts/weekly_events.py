@@ -279,6 +279,7 @@ class WeeklyEvents(Script):
                 self.db.xptypes[account.id] = {}
                 total = 0
             journal_total = char.messages.num_weekly_journals
+            char.messages.reset_journal_count()
             xp = 0
             if journal_total > 0:
                 xp += 4
