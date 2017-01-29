@@ -330,7 +330,8 @@ class CharacterCombatData(object):
         # check for attrition between rounds
         if self.multiple:
             self.num_attacks = self.num
-            # if we order them to stand down, they do nothing
+        # if we order them to stand down, they do nothing
+        if self.automated:
             if self.wants_to_end:
                 self.combat.vote_to_end(self.char)
                 self.set_queued_action("pass")

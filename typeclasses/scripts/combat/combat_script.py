@@ -816,8 +816,10 @@ class CombatManager(BaseScript):
             self.end_combat()
             return
         active_combatants = [ob for ob in self.ndb.combatants if ob not in self.ndb.incapacitated]
-        if not active_combatants:
-            self.msg("All combatants are incapacitated. Exiting.")
+        active_fighters = [self.ndb.fighter_data[ob.id] for ob in active_combatants if ob.id in self.ndb.fighter_data]
+        active_fighters = [ob for ob in active_fighters if not (ob.automated and ob.queued_action.qtype == "Pass")]
+        if not active_fighters:
+            self.msg("All combatants are incapacitated or automated npcs who are passing their turn. Exiting.")
             self.end_combat()
             return
         for char in self.ndb.combatants:
