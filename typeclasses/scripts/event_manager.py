@@ -109,7 +109,6 @@ class EventManager(Script):
                 except AttributeError:
                     continue
 
-
     @staticmethod
     def get_event_location(event):
         loc = event.location
@@ -192,7 +191,10 @@ class EventManager(Script):
             end_str = "%s has ended at %s." % (event.name, loc.name)
         else:
             end_str = "%s has ended." % event.name
-        SESSIONS.announce_all(end_str)
+        if event.public_event:
+            SESSIONS.announce_all(end_str)
+        else:
+            loc.msg_contents(end_str)
         event.finished = True
         event.save()
         if event.id in self.db.active_events:
