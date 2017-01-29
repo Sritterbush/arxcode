@@ -240,17 +240,20 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             self.msg("%s is already helping an investigation: %s" % (helper, ", ".join(str(ob.investigation.id)
                                                                                        for ob in helping)))
             return False
+        formid = self.investigation_form[0]
         if helper == self.caller:
             try:
                 if self.caller.roster.investigations.filter(active=True):
                     self.msg("You cannot assist an investigation while having an active investigation.")
                     return False
-                formid = self.investigation_form[0]
                 if self.caller.roster.investigations.get(id=formid):
                     self.msg("You cannot assist one of your own investigations. You must use a retainer.")
                     return False
             except (TypeError, ValueError, AttributeError, Investigation.DoesNotExist):
                 pass
+        if helper.assisted_investigations.filter(investigation_id=formid):
+            self.msg("%s is already helping that investigation. You can /resume helping it." % helper)
+            return False
         return True
 
     def set_helper(self):
