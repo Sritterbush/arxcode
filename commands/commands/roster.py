@@ -348,9 +348,11 @@ class CmdAdminRoster(MuxPlayerCommand):
         @chroster/note   <entry>=<Added note>
         @chroster/email  <entry>=<new email>
         @chroster/retire <entry>=<notes>
+        @chroster/view <entry>
+        @chroster/markavailable <entry>
 
     Admin for roster commands. Added characters go in unavailable
-    and inactive section until moved to active section. 
+    and inactive section until moved to active section.
     """
     key = "@chroster"
     help_category = "Admin"
@@ -375,6 +377,41 @@ class CmdAdminRoster(MuxPlayerCommand):
             caller.msg("Usage: @chroster/switches <arguments>")
             return
         from web.character.models import RosterEntry, Roster, AccountHistory
+        if "markavailable" in switches:
+            try:
+                entry = RosterEntry.objects.get(character__db_key__iexact=self.lhs)
+                if entry.roster.name == "Active":
+                    self.msg("They are currently played. Use /retire instead.")
+                    return
+                roster = Roster.objects.get(name__iexact="Available")
+                entry.roster = roster
+                entry.save()
+                try:
+                    bb = BBoard.objects.get(db_key__iexact="Roster Changes")
+                    msg = "%s has been placed on the roster and is now available for applications." % entry.character
+                    subject = "%s now available" % entry.character
+                    bb.bb_post(self.caller, msg, subject=subject, poster_name="Roster")
+                except BBoard.DoesNotExist:
+                    self.msg("Board not found for posting announcement")
+            except RosterEntry.DoesNotExist:
+                self.msg("Could not find a character by that name.")
+            # try to delete any apps
+            from .jobs import get_apps_manager
+            apps = get_apps_manager(caller)
+            if not apps:
+                return
+            apps_for_char = apps.view_all_apps_for_char(args)
+            if not apps_for_char:
+                caller.msg("No applications found.")
+                return
+            pend_list = [ob for ob in apps_for_char if ob[9]]
+            if not pend_list:
+                caller.msg("No pending applications found.")
+                return
+            for pending_app in pend_list:
+                app_num = pending_app[0]
+                apps.delete_app(caller, app_num)
+            return
         if 'add' in switches:
             try:
                 RosterEntry.objects.get(character__db_key__iexact=self.lhs)
