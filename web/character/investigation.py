@@ -194,8 +194,10 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         @helpinvestigate/finish
         @helpinvestigate/stop
         @helpinvestigate/resume <id #>
+        @helpinvestigate/changestory <id #>=<new story>
         @helpinvestigate/retainerstop <retainer ID>
         @helpinvestigate/retainerresume <id #>=<retainer ID>
+        @helpinvestigate/retainerchangestory <retainer ID>/<id #>=<story>
 
     Helps with an investigation, or orders a retainer to help
     with the investigation. You may only help with one investigation
@@ -210,7 +212,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
     locks = "cmd:all()"
     help_category = "Investigation"
     form_verb = "Helping"
-    
+
     def pay_costs(self):
         return True
 
@@ -374,7 +376,18 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             self.disp_currently_helping(self.caller)
             return
         self.msg(ob.display())
-    
+
+    def get_retainer_from_args(self, args):
+        try:
+            if args.isdigit():
+                char = self.caller.player.retainers.get(id=args).dbobj
+            else:
+                char = self.caller.player.retainers.get(name=args).dbobj
+            return char
+        except (ValueError, TypeError, Agent.DoesNotExist):
+            self.msg("Retainer not found by that name or number.")
+            return
+
     def func(self):
         finished = super(CmdAssistInvestigation, self).func()
         if finished:
@@ -393,13 +406,8 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             return
         if "stop" in self.switches or "retainerstop" in self.switches:
             if "retainerstop" in self.switches:
-                try:
-                    if self.args.isdigit():
-                        char = self.caller.player.retainers.get(id=self.args).dbobj
-                    else:
-                        char = self.caller.player.retainers.get(name=self.args).dbobj
-                except (ValueError, TypeError, Agent.DoesNotExist):
-                    self.msg("Retainer not found by that name or number.")
+                char = self.get_retainer_from_args(self.args)
+                if not char:
                     return
             else:
                 char = self.caller
@@ -440,6 +448,28 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                 self.msg("Well, this is awkward. You are assisting that investigation multiple times. This shouldn't "
                          "be able to happen, but here we are.")
                 inform_staff("BUG: %s is assisting investigation %s multiple times." % (char, self.lhs))
+            return
+        if "changestory" in self.switches or "retainerchangestory" in self.switches:
+            if "retainerchangestory" in self.switches:
+                lhs = self.lhs.split("/")
+                try:
+                    char = self.get_retainer_from_args(lhs[0])
+                    if not char:
+                        return
+                    investigation_id = lhs[1]
+                except (IndexError, TypeError, ValueError):
+                    self.msg("You must specify <retainer ID>/<investigation ID>.")
+                    return
+            else:
+                char = self.caller
+                investigation_id = self.lhs
+            try:
+                ob = char.assisted_investigations.get(investigation__id=investigation_id)
+                ob.actions = self.rhs
+                ob.save()
+                self.msg("Changed story to: %s" % self.rhs)
+            except (ValueError, InvestigationAssistant.DoesNotExist):
+                self.msg("%s isn't helping an investigation by that number." % char)
             return
         self.msg("Unrecognized switch.")
         
