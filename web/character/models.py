@@ -641,7 +641,8 @@ class Investigation(models.Model):
         msg += "{wStat used{n: %s\n" % self.stat_used
         msg += "{wSkill used{n: %s\n" % self.skill_used
         for assistant in self.active_assistants:
-            msg += "{wAssistant:{n %s {wActions:{n %s\n" % (assistant.char, assistant.actions)
+            msg += "{wAssistant:{n %s {wStat:{n %s {wSkill:{n %s {wActions:{n %s\n" % (
+                assistant.char, assistant.stat_used, assistant.skill_used, assistant.actions)
         return msg
 
     def gm_display(self):
