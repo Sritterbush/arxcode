@@ -1902,7 +1902,7 @@ class CmdRandomScene(MuxCommand):
     @randomscene/online will only display players who are currently in the game.
     """
     key = "@randomscene"
-    aliases = ["@rs"]
+    aliases = ["@rs", "randomscene"]
     locks = "cmd:all()"
     help_category = "Social"
     NUM_SCENES = 3
