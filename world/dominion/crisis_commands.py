@@ -44,8 +44,8 @@ class CmdGMCrisis(MuxPlayerCommand):
             qs = CrisisAction.objects.filter(sent=False)
         if "needgm" in self.switches:
             qs = qs.filter(story__exact="")
-        if "list_questions" in self.switches:
-            qs = qs.filter(questions__answers__isnull=True)
+        if "listquestions" in self.switches:
+            qs = qs.filter(questions__isnull=False, questions__answers__isnull=True)
         if self.args:
             qs = qs.filter(Q(crisis__name__iexact=self.args) |
                            Q(dompc__player__username__iexact=self.args))
