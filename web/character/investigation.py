@@ -10,6 +10,7 @@ from evennia.utils.evtable import EvTable
 from server.utils.arx_utils import inform_staff
 from world.dominion.models import Agent
 from django.db.models import Q
+from world.stats_and_skills import VALID_STATS, VALID_SKILLS
 
 
 class InvestigationFormCommand(MuxCommand):
@@ -195,9 +196,13 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         @helpinvestigate/stop
         @helpinvestigate/resume <id #>
         @helpinvestigate/changestory <id #>=<new story>
-        @helpinvestigate/retainerstop <retainer ID>
-        @helpinvestigate/retainerresume <id #>=<retainer ID>
-        @helpinvestigate/retainerchangestory <retainer ID>/<id #>=<story>
+        @helpinvestigate/changestat <id #>=<new stat>
+        @helpinvestigate/changeskill <id #>=<new skill>
+        @helpinvestigate/retainer/stop <retainer ID>
+        @helpinvestigate/retainer/resume <id #>=<retainer ID>
+        @helpinvestigate/retainer/changestory <retainer ID>/<id #>=<story>
+        @helpinvestigate/retainer/changestat <retainer ID>/<id #>=<stat>
+        @helpinvestigate/retainer/changeskill <retainer ID>/<id #>=<skill>
 
     Helps with an investigation, or orders a retainer to help
     with the investigation. You may only help with one investigation
@@ -212,6 +217,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
     locks = "cmd:all()"
     help_category = "Investigation"
     form_verb = "Helping"
+    change_switches = ("changestory", "changestat", "changeskill")
 
     def pay_costs(self):
         return True
@@ -398,14 +404,14 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             self.disp_invites()
             self.disp_currently_helping(self.caller)
             return
-        if "retainer" in self.switches:
+        if "retainer" in self.switches and len(self.switches) == 1:
             self.set_helper()
             return
         if "view" in self.switches or not self.switches:
             self.view_investigation()
             return
-        if "stop" in self.switches or "retainerstop" in self.switches:
-            if "retainerstop" in self.switches:
+        if "stop" in self.switches:
+            if "retainer" in self.switches:
                 char = self.get_retainer_from_args(self.args)
                 if not char:
                     return
@@ -416,8 +422,8 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                 ob.save()
             self.msg("%s stopped assisting investigations." % char)
             return
-        if "resume" in self.switches or "retainerresume" in self.switches:
-            if "retainerresume" in self.switches:
+        if "resume" in self.switches:
+            if "retainer" in self.switches:
 
                 try:
                     if self.rhs.isdigit():
@@ -449,8 +455,8 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                          "be able to happen, but here we are.")
                 inform_staff("BUG: %s is assisting investigation %s multiple times." % (char, self.lhs))
             return
-        if "changestory" in self.switches or "retainerchangestory" in self.switches:
-            if "retainerchangestory" in self.switches:
+        if set(self.change_switches) & set(self.switches):
+            if "retainer" in self.switches:
                 lhs = self.lhs.split("/")
                 try:
                     char = self.get_retainer_from_args(lhs[0])
@@ -465,9 +471,28 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                 investigation_id = self.lhs
             try:
                 ob = char.assisted_investigations.get(investigation__id=investigation_id)
-                ob.actions = self.rhs
+                if "changestory" in self.switches:
+                    ob.actions = self.rhs
+                    field = "story"
+                elif "changestat" in self.switches:
+                    rhs = self.rhs.lower()
+                    if rhs not in VALID_STATS:
+                        self.msg("Not a valid stat.")
+                        return
+                    ob.stat_used = rhs
+                    field = "stat"
+                elif "changeskill" in self.switches:
+                    rhs = self.rhs.lower()
+                    if rhs not in VALID_SKILLS:
+                        self.msg("Not a valid skill.")
+                        return
+                    ob.skill_used = rhs
+                    field = "skill"
+                else:
+                    self.msg("Unrecognized switch.")
+                    return
                 ob.save()
-                self.msg("Changed story to: %s" % self.rhs)
+                self.msg("Changed %s to: %s" % (field, self.rhs))
             except (ValueError, InvestigationAssistant.DoesNotExist):
                 self.msg("%s isn't helping an investigation by that number." % char)
             return
@@ -704,7 +729,6 @@ class CmdInvestigate(InvestigationFormCommand):
                 caller.msg("The new story of your investigation is:\n%s" % self.args)
                 return
             if "changestat" in self.switches:
-                from world.stats_and_skills import VALID_STATS
                 if self.rhs not in VALID_STATS:
                     self.msg("That is not a valid stat name.")
                     return
@@ -713,7 +737,7 @@ class CmdInvestigate(InvestigationFormCommand):
                 caller.msg("The new stat is: %s" % self.args)
                 return
             if "changeskill" in self.switches:
-                from world.stats_and_skills import VALID_SKILLS
+
                 if self.rhs not in VALID_SKILLS:
                     self.msg("That is not a valid skill name.")
                     return
