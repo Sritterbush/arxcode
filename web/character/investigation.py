@@ -171,7 +171,7 @@ class InvestigationFormCommand(MuxCommand):
                 return True
             if "cancel" in self.switches:
                 self.caller.attributes.remove(self.form_attr)
-                self.msg("Investigation abandoned.")
+                self.msg("Investigation creation cancelled.")
                 return True
             if "finish" in self.switches:
                 self.do_finish()
@@ -482,7 +482,8 @@ class CmdInvestigate(InvestigationFormCommand):
     week. You determine that by selecting the 'active' investigation. You
     may spend silver and resources to attempt to make your investigation
     more likely to find a result. Investigations may be abandoned with
-    the /abandon switch, which marks them as no longer ongoing.
+    the /abandon switch, which marks them as no longer ongoing. They may be
+    paused with the /pause switch, which marks them as inactive.
         
     """
     key = "@investigate"
@@ -490,7 +491,7 @@ class CmdInvestigate(InvestigationFormCommand):
     help_category = "Investigation"
     aliases = ["+investigate", "investigate"]
     base_cost = 25
-    model_switches = ("view", "active", "silver", "resource", "changetopic",
+    model_switches = ("view", "active", "silver", "resource", "changetopic", "pause",
                       "changestory", "abandon", "resume", "requesthelp", "changestat", "changeskill")
 
     def list_ongoing_investigations(self):
@@ -569,6 +570,11 @@ class CmdInvestigate(InvestigationFormCommand):
                 ob.ongoing = True
                 ob.save()
                 caller.msg("Investigation has been marked to be ongoing.")
+                return
+            if "pause" in self.switches:
+                ob.active = False
+                ob.save()
+                caller.msg("Investigation is no longer active.")
                 return
             if "abandon" in self.switches or "stop" in self.switches:
                 ob.ongoing = False
