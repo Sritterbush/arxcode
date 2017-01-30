@@ -120,12 +120,8 @@ class ClueDiscoInline(admin.TabularInline):
 
 
 class ClueAdmin(BaseCharAdmin):
-    list_display = ('id', 'name', 'rating', 'known_by', 'used_for')
+    list_display = ('id', 'name', 'rating', 'used_for')
     search_fields = ('id', 'name', 'characters__character__db_key', 'revelations__name')
-
-    @staticmethod
-    def known_by(obj):
-        return ", ".join([str(ob.character) for ob in obj.discoveries.all() if ob.roll >= obj.rating])
 
     @staticmethod
     def used_for(obj):
