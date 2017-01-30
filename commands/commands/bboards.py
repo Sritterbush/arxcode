@@ -233,6 +233,7 @@ class CmdBBReadOrPost(MuxPlayerCommand):
        @bb/read <board # or name>/<post #> - read post on board
        @bb/del  <board # or name>/<post #> - delete post on board
        @bb/archive <board # or name>/<post #>
+       @bb/sticky <board # or name>/<post #>
        @bb/edit <board # or name>/<post #>=<message> - edit
        @bb/post <board # or name>/<title>=<message> - make a post
        @bb/catchup - alias for +bbnew/markread command
@@ -331,11 +332,15 @@ class CmdBBReadOrPost(MuxPlayerCommand):
             if not num_read:
                 caller.msg("No posts in range.")
             return
-        if 'del' in switches or 'archive' in switches:
+        if 'del' in switches or 'archive' in switches or 'sticky' in switches:
             if "del" in switches:
                 switchname = "del"
                 verb = "delete"
                 method = "delete_post"
+            elif "sticky" in switches:
+                switchname = "sticky"
+                verb = "sticky"
+                method = "sticky_post"
             else:
                 switchname = "archive"
                 verb = "archive"

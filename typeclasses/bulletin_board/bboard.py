@@ -48,10 +48,11 @@ class BBoard(Object):
             event.tag_obj(post)
         self.receiver_object_set.add(post)
         if self.db.max_posts and self.posts.count() > self.db.max_posts:
+            posts = self.posts.exclude(db_tags__db_key="sticky_post")
             if "archive_posts" in self.tags.all():
-                self.mark_archived(self.posts.first())
+                self.archive_post(posts.first())
             else:
-                self.posts.first().delete()
+                posts.first().delete()
         if announce:
             subs = [ob for ob in self.db.subscriber_list if self.access(ob, "read")]
             post_num = self.posts.count()
@@ -136,6 +137,10 @@ class BBoard(Object):
         if post in self.archived_posts:
             post.delete()
             return True
+
+    def sticky_post(self, post):
+        post.tags.add("sticky_post")
+        return True
 
     @staticmethod
     def edit_post(post, msg):
