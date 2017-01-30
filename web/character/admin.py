@@ -190,6 +190,7 @@ class InvestigationAdmin(BaseCharAdmin):
     list_display = ('id', 'character', 'topic', 'clue_target', 'active',
                     'ongoing', 'automate_result')
     list_filter = ('active', 'ongoing', 'automate_result')
+    search_fields = ('character__character__db_key', 'topic', 'clue_target__name')
     inlines = [MystDiscoInline, RevDiscoInline, ClueDiscoInline, InvestigationAssistantInline]
     raw_id_fields = ('clue_target', 'character',)
     readonly_fields = ('clue_progress',)
