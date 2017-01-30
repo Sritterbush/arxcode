@@ -17,6 +17,7 @@ from evennia.scripts.models import ScriptDB
 from django.db.models import Q
 from world.dominion.models import AssetOwner, Renown, Reputation
 from typeclasses.characters import Character
+from typeclasses.rooms import ArxRoom
 import random
 
 
@@ -64,20 +65,42 @@ class CmdWhere(MuxPlayerCommand):
     Usage:
         +where
         +where [<character>,<character 2>,...]
+        +where/shops
 
-    Displays a list of characters in public rooms.
+    Displays a list of characters in public rooms. The /shops switch
+    lets you see a list of shops.
     """
     key = "+where"
     locks = "cmd:all()"
     aliases = ["@where", "where"]
     help_category = "Travel"
 
+    @staticmethod
+    def get_room_str(room):
+        name = room.name
+        if room.db.x_coord is not None and room.db.y_coord is not None:
+            pos = (room.db.x_coord, room.db.y_coord)
+            name = "%s %s" % (name, str(pos))
+        return name
+
+    def list_shops(self):
+        rooms = ArxRoom.objects.filter(db_tags__db_key__iexact="shop")
+        self.msg("{wList of shops:\n")
+        for room in rooms:
+            owner = room.db.shopowner
+            name = str(owner)
+            if owner and not owner.roster.roster.name == "Active":
+                name += " {w(Inactive){n"
+            self.msg("%s: %s" % (self.get_room_str(room), name))
+
     def func(self):
         """"Execute command."""
         caller = self.caller
-        rooms = ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_ROOM_TYPECLASS) &
-                                        Q(locations_set__db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS) &
-                                        ~Q(db_tags__db_key__iexact="private")).distinct().order_by('db_key')
+        if "shops" in self.switches:
+            self.list_shops()
+            return
+        rooms = ArxRoom.objects.filter(Q(locations_set__db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS) &
+                                       ~Q(db_tags__db_key__iexact="private")).distinct().order_by('db_key')
         if self.args:
             q_list = map(lambda n: Q(locations_set__db_key__iexact=n), self.lhslist)
             q_list = reduce(lambda a, b: a | b, q_list)
@@ -105,10 +128,7 @@ class CmdWhere(MuxPlayerCommand):
                                    and (not char.player.db.hide_from_watch or caller.check_permstring("builders")))
             if not char_names:
                 continue
-            name = room.name
-            if room.db.x_coord is not None and room.db.y_coord is not None:
-                pos = (room.db.x_coord, room.db.y_coord)
-                name = "%s %s" % (name, str(pos))
+            name = self.get_room_str(room)
             msg = "%s: %s" % (name, char_names)
             caller.msg(msg)
 

@@ -214,10 +214,13 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
 
     def command_string(self):
         msg = ""
-        if "shop" in self.tags.all():
+        tags = self.tags.all()
+        if "shop" in tags:
             msg += "\n    {wYou can {c+shop{w here.{n"
-        if "bank" in self.tags.all():
+        if "bank" in tags:
             msg += "\n    {wYou can {c+bank{w here.{n"
+        if "nonlethal_combat" in tags:
+            msg += "\n{wCombat in this room is non-lethal."
         return msg
 
     @property
