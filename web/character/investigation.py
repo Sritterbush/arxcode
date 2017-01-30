@@ -1053,6 +1053,8 @@ class CmdTheories(MuxPlayerCommand):
         @theories/edittopic <theory ID #>=<topic>
         @theories/shareall <theory ID #>=<player>
         @theories/readall <theory ID #>
+        @theories/addeditor <theory ID #>=<player>
+        @theories/rmeditor <theory ID #>=<player>
 
     Allows you to create and share theories your character comes up with,
     and associate them with clues and other theories. You may only create
@@ -1143,14 +1145,32 @@ class CmdTheories(MuxPlayerCommand):
                 self.msg("No theory by that ID.")
                 return
             self.caller.known_theories.remove(theory)
+            self.caller.editable_theories.remove(theory)
             self.msg("Theory forgotten.")
             if not theory.known_by.all():  # if no one knows about it now
                 theory.delete()
             return
+        if "addeditor" in self.switches or "rmeditor" in self.switches:
+            try:
+                theory = self.caller.created_theories.get(id=self.lhs)
+            except (Theory.DoesNotExist, ValueError):
+                self.msg("No theory by that ID.")
+                return
+            player = self.caller.search(self.rhs)
+            if not player:
+                return
+            if "addeditor" in self.switches:
+                player.editable_theories.add(theory)
+                self.msg("%s added as an editor." % player)
+                return
+            if "rmeditor" in self.switches:
+                player.editable_theories.remove(theory)
+                self.msg("%s added as an editor." % player)
+                return
         try:
-            theory = self.caller.created_theories.get(id=self.lhs)
+            theory = Theory.objects.filter(Q(can_edit=self.caller) | Q(creator=self.caller)).get(id=self.lhs)
         except (Theory.DoesNotExist, ValueError):
-            self.msg("No theory by that ID.")
+            self.msg("You cannot edit a theory by that number.")
             return
         if "editdesc" in self.switches:
             theory.desc = self.rhs

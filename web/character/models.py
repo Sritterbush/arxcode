@@ -968,9 +968,10 @@ class Theory(models.Model):
     creator = models.ForeignKey("players.PlayerDB", related_name="created_theories", blank=True, null=True,
                                 db_index=True)
     known_by = models.ManyToManyField("players.PlayerDB", related_name="known_theories", blank=True, null=True)
+    can_edit = models.ManyToManyField("players.PlayerDB", related_name="editable_theories", blank=True, null=True)
     topic = models.CharField(max_length=255, blank=True, null=True)
     desc = models.TextField(blank=True, null=True)
-    related_clues = models.ManyToManyField("Clue", related_name="theories", blank=True, null=True)
+    related_clues = models.ManyToManyField("Clue", related_name="theories", blank=True, null=True, db_index=True)
     related_theories = models.ManyToManyField("self", blank=True)
 
     class Meta:
@@ -982,6 +983,7 @@ class Theory(models.Model):
 
     def display(self):
         msg = "\n{wCreator{n: %s\n" % self.creator
+        msg += "{wCan edit:{n %s\n" % ", ".join(str(ob) for ob in self.can_edit.all())
         msg += "{wTopic{n: %s\n" % self.topic
         msg += "{wDesc{n: %s\n" % self.desc
         msg += "{wRelated Theories{n: %s\n" % ", ".join(str(ob.id) for ob in self.related_theories.all())
