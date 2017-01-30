@@ -1191,7 +1191,7 @@ class CmdTeleport(MuxCommand):
                 if not obj_to_teleport:
                     caller.msg("Did not find object to teleport.")
                     return
-                if not obj_to_teleport.access(caller, 'delete'):
+                if not obj_to_teleport.access(caller, 'get'):
                     caller.msg("Access denied.")
                     return
                 caller.msg("Teleported %s -> None-location." % obj_to_teleport)
@@ -1243,7 +1243,7 @@ class CmdTeleport(MuxCommand):
         use_destination = True
         if "intoexit" in self.switches:
             use_destination = False
-        if not obj_to_teleport.access(caller, "edit") and caller != obj_to_teleport:
+        if not obj_to_teleport.access(caller, "get") and caller != obj_to_teleport:
             caller.msg("Access denied for teleporting %s." % obj_to_teleport)
             return
         # try the teleport
