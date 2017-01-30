@@ -486,7 +486,7 @@ class CmdEmit(MuxCommand):
         if caller.check_permstring(self.perm_for_switches):
             args = self.args
         else:
-            args = self.raw
+            args = self.raw.lstrip(" ")
 
         if not args:
             string = "Usage: "
@@ -585,7 +585,10 @@ class CmdPose(MuxCommand):
       Tom is standing by the wall, smiling.
 
     Describe an action being taken. The pose text will
-    automatically begin with your name.
+    automatically begin with your name. Following pose with an apostrophe,
+    comma, or colon will not put a space between your name and the character.
+    Ex: 'pose, text' is 'Yourname, text'. Similarly, using the ; alias will
+    not append a space after your name. Ex: ';'s adverb' is 'Name's adverb'.
     """
     key = "pose"
     aliases = [":", "emote", ";"]
@@ -603,7 +606,7 @@ class CmdPose(MuxCommand):
         """
         args = self.args
         if (args and not args[0] in ["'", ",", ":"]) and not self.cmdstring.startswith(";"):
-            args = " %s" % args.strip()
+            args = " %s" % args.lstrip(" ")
         self.args = args
 
     def func(self):
@@ -625,7 +628,7 @@ class CmdArxSay(CmdSay):
             self.msg("Say what?")
             return
         options = {'is_pose': True}
-        speech = self.raw.lstrip()
+        speech = self.raw.lstrip(" ")
         # calling the speech hook on the location
         speech = self.caller.location.at_say(self.caller, speech)
         # Feedback for the object doing the talking.
