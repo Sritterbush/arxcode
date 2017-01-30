@@ -121,7 +121,20 @@ def display_org(request, object_id):
         holdings = org.assets.estate.holdings.all()
     except AttributeError:
         holdings = []
+    active_tab = request.GET.get("active_tab")
+    if not active_tab or active_tab == "all":
+        members = org.all_members
+        active_tab = "all"
+    elif active_tab == "active":
+        members = org.active_members
+    elif active_tab == "available":
+        members = org.all_members.filter(player__player__roster__roster__name="Available")
+    else:
+        members = org.all_members.filter(player__player__roster__roster__name="Gone")
+
     return render(request, 'help_topics/org.html', {'org': org,
+                                                    'members': members,
+                                                    'active_tab': active_tab,
                                                     'holdings': holdings,
                                                     'rank_display': rank_display,
                                                     'show_secret': show_secret,

@@ -43,6 +43,7 @@ class AccountHistoryInline(admin.TabularInline):
     model = AccountHistory
     can_delete = False
     extra = 0
+    raw_id_fields = ('account', 'entry')
 
 
 class AccountAdmin(BaseCharAdmin):
@@ -161,10 +162,12 @@ class ClueDiscoveryAdmin(BaseCharAdmin):
 
 class MystForEntry(MystDiscoInline):
     fk_name = 'character'
+    raw_id_fields = ('character', 'mystery')
 
 
 class RevForEntry(RevDiscoInline):
     fk_name = 'character'
+    raw_id_fields = ('character', 'revelation')
 
 
 class EntryAdmin(NoDeleteAdmin):
@@ -174,7 +177,7 @@ class EntryAdmin(NoDeleteAdmin):
     raw_id_fields = ("character", "player", "current_account")
     list_filter = ('roster', 'frozen', 'inactive')
     form = EntryForm
-    inlines = [MystForEntry, RevForEntry]
+    inlines = [MystForEntry, RevForEntry, AccountHistoryInline]
 
     @staticmethod
     def current_alts(obj):
