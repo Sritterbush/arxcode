@@ -914,6 +914,14 @@ class Investigation(models.Model):
         except ClueDiscovery.DoesNotExist:
             return 0
 
+    @property
+    def goal(self):
+        try:
+            clue = self.clues.get(clue=self.targeted_clue)
+            return clue.clue.rating
+        except (ClueDiscovery.DoesNotExist, Clue.DoesNotExist, AttributeError):
+            return 0
+
     def add_progress(self):
         if not self.targeted_clue:
             return

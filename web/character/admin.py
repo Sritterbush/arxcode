@@ -3,7 +3,7 @@ from django.forms import ModelForm
 from .models import (Roster, RosterEntry, Photo,
                      Story, Chapter, Episode, StoryEmit,
                      Milestone, Participant, Comment,
-                     PlayerAccount, AccountHistory,
+                     PlayerAccount, AccountHistory, InvestigationAssistant,
                      Mystery, Revelation, Clue, Investigation,
                      MysteryDiscovery, RevelationDiscovery, ClueDiscovery,
                      RevelationForMystery, ClueForRevelation, Theory,
@@ -75,11 +75,13 @@ class EpisodeAdmin(BaseCharAdmin):
 class RevForMystInline(admin.TabularInline):
     model = RevelationForMystery
     extra = 0
+    raw_id_fields = ('revelation', 'mystery',)
 
 
 class MystDiscoInline(admin.TabularInline):
     model = MysteryDiscovery
     extra = 0
+    raw_id_fields = ('character', 'investigation', 'mystery')
 
 
 class MysteryAdmin(BaseCharAdmin):
@@ -90,13 +92,13 @@ class MysteryAdmin(BaseCharAdmin):
 class ClueForRevInline(admin.TabularInline):
     model = ClueForRevelation
     extra = 0
-    raw_id_fields = ('clue',)
+    raw_id_fields = ('clue', 'revelation',)
 
 
 class RevDiscoInline(admin.TabularInline):
     model = RevelationDiscovery
     extra = 0
-    raw_id_fields = ('character', 'investigation', 'revealed_by')
+    raw_id_fields = ('character', 'investigation', 'revealed_by', 'revelation',)
 
 
 class RevelationAdmin(BaseCharAdmin):
@@ -116,7 +118,7 @@ class RevelationAdmin(BaseCharAdmin):
 class ClueDiscoInline(admin.TabularInline):
     model = ClueDiscovery
     extra = 0
-    raw_id_fields = ("clue", "character",)
+    raw_id_fields = ("clue", "character", "investigation", "revealed_by",)
 
 
 class ClueAdmin(BaseCharAdmin):
@@ -148,6 +150,7 @@ class ClueDiscoveryListFilter(admin.SimpleListFilter):
 class ClueDiscoveryAdmin(BaseCharAdmin):
     list_display = ('id', 'clue', 'character', 'roll', 'discovered')
     search_fields = ('id', 'clue__name', 'character__character__db_key')
+    raw_id_fields = ('clue', 'character', 'investigation', 'revealed_by')
     list_filter = (ClueDiscoveryListFilter,)
 
     @staticmethod
@@ -177,20 +180,23 @@ class EntryAdmin(NoDeleteAdmin):
         return ", ".join([str(ob) for ob in obj.alts])
 
 
+class InvestigationAssistantInline(admin.TabularInline):
+    model = InvestigationAssistant
+    extra = 0
+    raw_id_fields = ("investigation", "char",)
+
+
 class InvestigationAdmin(BaseCharAdmin):
-    list_display = ('id', 'character', 'topic', 'clue_target', 'clue_progress', 'current_assistants', 'active',
+    list_display = ('id', 'character', 'topic', 'clue_target', 'active',
                     'ongoing', 'automate_result')
     list_filter = ('active', 'ongoing', 'automate_result')
-    inlines = [MystDiscoInline, RevDiscoInline, ClueDiscoInline]
-    raw_id_fields = ('clue_target',)
+    inlines = [MystDiscoInline, RevDiscoInline, ClueDiscoInline, InvestigationAssistantInline]
+    raw_id_fields = ('clue_target', 'character',)
+    readonly_fields = ('clue_progress',)
 
     @staticmethod
     def clue_progress(obj):
-        return obj.progress
-
-    @staticmethod
-    def current_assistants(obj):
-        return ", ".join(str(ob.char) for ob in obj.active_assistants)
+        return "%s/%s" % (obj.progress, obj.goal)
 
 
 class TheoryAdmin(BaseCharAdmin):
