@@ -483,7 +483,10 @@ class CmdEmit(MuxCommand):
         """Implement the command"""
 
         caller = self.caller
-        args = self.args
+        if caller.check_permstring(self.perm_for_switches):
+            args = self.args
+        else:
+            args = self.raw
 
         if not args:
             string = "Usage: "
@@ -515,7 +518,7 @@ class CmdEmit(MuxCommand):
             players_only = False
 
         if not self.rhs or not caller.check_permstring(perm):
-            message = self.args
+            message = args
             normal_emit = True
             objnames = []
             do_global = False
@@ -618,11 +621,11 @@ class CmdArxSay(CmdSay):
     __doc__ = CmdSay.__doc__
 
     def func(self):
-        if not self.args:
+        if not self.raw:
             self.msg("Say what?")
             return
         options = {'is_pose': True}
-        speech = self.args
+        speech = self.raw.lstrip()
         # calling the speech hook on the location
         speech = self.caller.location.at_say(self.caller, speech)
         # Feedback for the object doing the talking.

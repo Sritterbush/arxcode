@@ -635,7 +635,7 @@ class CmdPage(MuxPlayerCommand):
             else:
                 self.msg("You haven't paged anyone yet.")
                 return
-        if 'list' in self.switches or not self.args:
+        if 'list' in self.switches or not self.raw:
             pages = pages_we_sent + pages_we_got
             pages.sort(lambda x, y: cmp(x.date_created, y.date_created))
 
@@ -695,7 +695,7 @@ class CmdPage(MuxPlayerCommand):
                 receivers = pages_we_sent[-1].receivers
                 # if it's a 'tt' command, they can have '=' in a message body
                 if not rhs or cmdstr == 'ttell':
-                    rhs = self.args
+                    rhs = self.raw.lstrip()
             else:
                 self.msg("Who do you want to page?")
                 return
@@ -827,12 +827,12 @@ class CmdOOCSay(MuxCommand):
         """Run the OOCsay command"""
 
         caller = self.caller
+        speech = self.raw.lstrip()
 
-        if not self.args:
+        if not speech:
             caller.msg("No message specified. If you wish to stop being IC, use @ooc instead.")
             return
 
-        speech = self.args
         oocpose = False
         nospace = False
         if speech.startswith(";") or speech.startswith(":"):
