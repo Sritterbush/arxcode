@@ -48,7 +48,10 @@ class BBoard(Object):
             event.tag_obj(post)
         self.receiver_object_set.add(post)
         if self.db.max_posts and self.posts.count() > self.db.max_posts:
-            self.posts.first().delete()
+            if "archive_posts" in self.tags.all():
+                self.mark_archived(self.posts.first())
+            else:
+                self.posts.first().delete()
         if announce:
             subs = [ob for ob in self.db.subscriber_list if self.access(ob, "read")]
             post_num = self.posts.count()
@@ -65,18 +68,24 @@ class BBoard(Object):
         else:
             return False
 
-    def get_unread_posts(self, pobj):
-        return self.posts.exclude(db_receivers_players=pobj)
+    def get_unread_posts(self, pobj, old=False):
+        if not old:
+            return self.posts.exclude(db_receivers_players=pobj)
+        return self.archived_posts.exclude(db_receivers_players=pobj)
 
-    def num_of_unread_posts(self, pobj):
-        return self.get_unread_posts(pobj).count()
+    def num_of_unread_posts(self, pobj, old=False):
+        return self.get_unread_posts(pobj, old).count()
 
-    def get_post(self, pobj, postnum):
+    def get_post(self, pobj, postnum, old=False):
         postnum -= 1
-        if (postnum < 0) or (postnum >= len(self.posts)):
+        if old:
+            posts = self.archived_posts
+        else:
+            posts = self.posts
+        if (postnum < 0) or (postnum >= len(posts)):
             pobj.msg("Invalid message number specified.")
         else:
-            return list(self.posts)[postnum]
+            return list(posts)[postnum]
 
     def get_latest_post(self):
         try:
@@ -84,8 +93,10 @@ class BBoard(Object):
         except Msg.DoesNotExist:
             return None
 
-    def get_all_posts(self):
-        return self.posts
+    def get_all_posts(self, old=False):
+        if not old:
+            return self.posts
+        return self.archived_posts
         
     def at_object_creation(self):
         """
@@ -115,15 +126,16 @@ class BBoard(Object):
         else:
             return False
 
-    def delete_post(self, post_num):
+    def delete_post(self, post):
         """
         Remove post if it's inside the bulletin board.
         """
-        post_num -= 1
-        if post_num < 0 or post_num >= len(self.posts):
-            return False
-        self.posts[post_num].delete()
-        return True
+        if post in self.posts:
+            post.delete()
+            return True
+        if post in self.archived_posts:
+            post.delete()
+            return True
 
     @staticmethod
     def edit_post(post, msg):
@@ -133,16 +145,24 @@ class BBoard(Object):
     
     @property
     def posts(self):
-        return self.receiver_object_set.filter(db_tags__db_key="Board Post")
+        return self.receiver_object_set.filter(db_tags__db_key="Board Post").exclude(db_tags__db_key="archived")
 
-    def read_post(self, caller, post):
+    @property
+    def archived_posts(self):
+        return self.receiver_object_set.filter(db_tags__db_key="Board Post").filter(db_tags__db_key="archived")
+
+    def read_post(self, caller, post, old=False):
         """
         Helper function to read a single post.
         """
+        if old:
+            posts = self.archived_posts
+        else:
+            posts = self.posts
         # format post
         sender = self.get_poster(post)
         message = "\n{w" + "-"*60 + "{n\n"
-        message += "{wBoard:{n %s, {wPost Number:{n %s\n" % (self.key, list(self.posts).index(post) + 1)
+        message += "{wBoard:{n %s, {wPost Number:{n %s\n" % (self.key, list(posts).index(post) + 1)
         message += "{wPoster:{n %s\n" % sender
         message += "{wSubject:{n %s\n" % post.db_header
         message += "{wDate:{n %s\n" % post.db_date_created.strftime("%x %X")
@@ -154,6 +174,15 @@ class BBoard(Object):
             return
         # mark it read
         self.mark_read(caller, post)
+
+    @staticmethod
+    def archive_post(post):
+        post.tags.add("archived")
+        return True
+
+    @staticmethod
+    def mark_unarchived(post):
+        post.tags.remove("archived")
 
     @staticmethod
     def mark_read(caller, post):

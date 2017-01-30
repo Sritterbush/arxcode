@@ -28,7 +28,7 @@ def get_boards(caller):
     return bb_list
     
 
-def list_bboards(caller):
+def list_bboards(caller, old=False):
     """
     Helper function for listing all boards a player is subscribed
     to in some pretty format.
@@ -38,6 +38,8 @@ def list_bboards(caller):
         return
     my_subs = [bb for bb in bb_list if bb.has_subscriber(caller)]
     # just display the subscribed bboards with no extra info
+    if old:
+        caller.msg("{cDisplaying only archived posts.{n")
     bbtable = prettytable.PrettyTable(["{wbb #",
                                        "{wName",
                                        "{wPosts{n",
@@ -45,14 +47,15 @@ def list_bboards(caller):
     for bboard in bb_list:
         bb_number = bb_list.index(bboard)
         bb_name = bboard.key
-        unread_num = bboard.num_of_unread_posts(caller)
+        unread_num = bboard.num_of_unread_posts(caller, old)
         subbed = bboard in my_subs
+        posts = bboard.archived_posts if old else bboard.posts
         if unread_num:
             unread_str = " {w(%s new){n" % unread_num
         else:
             unread_str = ""
         bbtable.add_row([bb_number, bb_name,
-                         "%s%s" % (len(bboard.posts), unread_str), subbed])
+                         "%s%s" % (len(posts), unread_str), subbed])
     caller.msg("\n{w" + "="*60 + "{n\n%s" % bbtable)
 
 
@@ -88,7 +91,7 @@ def access_bboard(caller, args, request="read"):
     return board
 
 
-def list_messages(caller, board, board_num):
+def list_messages(caller, board, board_num, old=False):
     """
     Helper function for printing all the posts on board
     to caller.
@@ -100,7 +103,7 @@ def list_messages(caller, board, board_num):
     title = "{w**** %s ****{n" % board.key.capitalize()
     title = "{:^80}".format(title)
     caller.msg(title)
-    posts = board.get_all_posts()
+    posts = board.get_all_posts(old=old)
     msgnum = 0
     msgtable = prettytable.PrettyTable(["{wbb/msg",
                                         "{wSubject",
@@ -229,10 +232,12 @@ class CmdBBReadOrPost(MuxPlayerCommand):
        @bb <board # or name>/u - read all unread posts for board
        @bb/read <board # or name>/<post #> - read post on board
        @bb/del  <board # or name>/<post #> - delete post on board
+       @bb/archive <board # or name>/<post #>
        @bb/edit <board # or name>/<post #>=<message> - edit
        @bb/post <board # or name>/<title>=<message> - make a post
        @bb/catchup - alias for +bbnew/markread command
        @bb/new - alias for the +bbnew command
+
 
     Bulletin Boards are intended to be OOC discussion groups divided
     by topic for news announcements, requests for participants in
@@ -241,7 +246,8 @@ class CmdBBReadOrPost(MuxPlayerCommand):
     To subscribe to a board, use '@bbsub'. To read the newest post on
     a board, use @bbnew.
 
-    To mark all posts as read, use '+bbnew/markread all'.
+    To mark all posts as read, use '+bbnew/markread all'. The /old
+    switch may be chained to view archived posts.
     """
 
     key = "@bb"
@@ -254,8 +260,9 @@ class CmdBBReadOrPost(MuxPlayerCommand):
         caller = self.caller
         args = self.args
         switches = self.switches
+        old = "old" in switches
         if not args and not ('new' in switches or 'catchup' in switches):
-            return list_bboards(caller)
+            return list_bboards(caller, old)
 
         # first, "@bb <board #>" use case
         def board_check(reader, arguments):
@@ -265,10 +272,10 @@ class CmdBBReadOrPost(MuxPlayerCommand):
             if not board_to_check.has_subscriber(reader):
                 reader.msg("You are not yet a subscriber to {0}".format(board_to_check.key))
                 reader.msg("Use {w@bbsub{n to subscribe to it.")
-                return    
-            list_messages(reader, board_to_check, arguments)
+                return
+            list_messages(reader, board_to_check, arguments, old)
             
-        if not switches:
+        if not switches or old and len(switches) == 1:
             arglist = args.split("/")
             if len(arglist) < 2:
                 board_check(caller, args)
@@ -304,17 +311,17 @@ class CmdBBReadOrPost(MuxPlayerCommand):
                 except ValueError:
                     caller.msg("Invalid post number.")
                     return
-                post = board.get_post(caller, post_num)
+                post = board.get_post(caller, post_num, old)
                 if not post:
                     return
-                board.read_post(caller, post)
+                board.read_post(caller, post, old)
                 return
             num_read = 0
             try:
                 for post_num in range(int(postrange[0]), int(postrange[1]) + 1):
                     try:
                         post = board.get_post(caller, int(post_num))
-                        board.read_post(caller, post)
+                        board.read_post(caller, post, old)
                         num_read += 1
                     except (TypeError, ValueError, AttributeError):
                         continue
@@ -324,26 +331,34 @@ class CmdBBReadOrPost(MuxPlayerCommand):
             if not num_read:
                 caller.msg("No posts in range.")
             return
-        if 'del' in switches:          
+        if 'del' in switches or 'archive' in switches:
+            if "del" in switches:
+                switchname = "del"
+                verb = "delete"
+                method = "delete_post"
+            else:
+                switchname = "archive"
+                verb = "archive"
+                method = "archive_post"
             if len(arglist) < 2:
-                caller.msg("Usage: @bb/del <board #>/<post #>")
+                caller.msg("Usage: @bb/%s <board #>/<post #>" % switchname)
                 return         
             try:
                 post_num = int(arglist[1])
             except ValueError:
                 caller.msg("Invalid post number.")
                 return
-            post = board.get_post(caller, post_num)
+            post = board.get_post(caller, post_num, old)
             if not post:
                 return
             if caller not in post.db_sender_players.all() and not board.access(caller, "edit"):
-                caller.msg("You cannot delete someone else's post, only your own.")
+                caller.msg("You cannot %s someone else's post, only your own." % verb)
                 return
-            if board.delete_post(post_num):
-                caller.msg("Post deleted")
-                inform_staff("%s has deleted post %s on board %s." % (caller, post_num, board))
+            if getattr(board, method)(post):
+                caller.msg("Post %sd" % verb)
+                inform_staff("%s has %sd post %s on board %s." % (caller, verb, post_num, board))
             else:
-                caller.msg("Post deletion failed for unknown reason.")
+                caller.msg("Post %s failed for unknown reason." % verb)
             return
         if 'edit' in switches:
             lhs = self.lhs
