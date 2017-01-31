@@ -156,7 +156,7 @@ class PlayerOrNpc(models.Model):
     @property
     def second_cousins(self):
         return PlayerOrNpc.objects.filter(~Q(id=self.id) & ~Q(id__in=self.cousins) &
-                                          ~Q(id__in=self.siblings)
+                                          ~Q(id__in=self.siblings) & ~Q(id__in=self.spouses.all())
                                           & (
                                             Q(parents__parents__parents__in=self.greatgrandparents) |
                                             Q(parents__parents__parents__spouses__in=self.greatgrandparents) |

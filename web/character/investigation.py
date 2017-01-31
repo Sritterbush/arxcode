@@ -249,6 +249,9 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                                                                                        for ob in helping)))
             return False
         formid = self.investigation_form[0]
+        if not formid:
+            self.msg("No investigation is defined.")
+            return
         if helper == self.caller:
             try:
                 if self.caller.roster.investigations.filter(active=True):
@@ -273,7 +276,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             if not helper.db.abilities or helper.db.abilities.get("investigation_assistant", 0) < 1:
                 self.msg("%s is not able to assist investigations." % helper)
                 return
-        except ArithmeticError:
+        except (AttributeError, ValueError, Agent.DoesNotExist):
             self.msg("No retainer by that number. Setting it to be you instead.")
             helper = self.caller
         if not self.check_eligibility(helper):
