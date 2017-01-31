@@ -249,9 +249,6 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                                                                                        for ob in helping)))
             return False
         formid = self.investigation_form[0]
-        if not formid:
-            self.msg("No investigation is defined.")
-            return
         if helper == self.caller:
             try:
                 if self.caller.roster.investigations.filter(active=True):
@@ -262,9 +259,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                     return False
             except (TypeError, ValueError, AttributeError, Investigation.DoesNotExist):
                 pass
-        if helper.assisted_investigations.filter(investigation_id=formid):
-            self.msg("%s is already helping that investigation. You can /resume helping it." % helper)
-            return False
+
         return True
 
     def set_helper(self):
@@ -316,6 +311,11 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             if self.caller.roster.investigations.filter(ongoing=True, id=targ):
                 self.msg("You cannot assist your own investigation.")
                 return
+        else:
+            helper = self.investigation_form[4]
+            if helper.assisted_investigations.filter(investigation_id=targ):
+                self.msg("%s is already helping that investigation. You can /resume helping it." % helper)
+                return False
         self.investigation_form[0] = targ
         self.disp_investigation_form()
 
