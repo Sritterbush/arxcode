@@ -543,35 +543,117 @@ class CmdAdjustReputation(MuxPlayerCommand):
     @adjustreputation
 
     Usage:
-        @adjustreputation player,org=affection,respect
-        @adjustreputation/silent player,org=affection,respect
+        @adjustreputation player,player2,...=org,affection,respect
+        @adjustreputation/post <message to post>
+        @adjustreputation/finish
 
-    Adjusts a player's affection/respect with a given org. If the silent flag
-    is not specified, then the player will be informed of the adjustment.
+    Adjusts a player's affection/respect with a given org.
     """
     key = "@adjustreputation"
     help_category = "GMing"
     locks = "cmd:perm(Wizards)"
 
-    def func(self):
+    def display_form(self):
+        rep_form = self.caller.ndb.reputation_form or [{}, ""]
+        self.msg("{wReputation Form:{n")
+        for player in rep_form[0].keys():
+            change_string = ", ".join("%s: Affection: %s Respect: %s" % (
+                org, values[0], values[1]) for org, values in rep_form[0][player].items())
+            self.msg("{wPlayer{n: %s {wChanges{n: %s" % (player, change_string))
+        self.msg("{wPost:{n %s" % rep_form[1])
+        self.msg("Warning - form saved in memory only. Use /finish to avoid losing it in reloads.")
+
+    def do_finish(self):
+        rep_changes, post_msg = self.caller.ndb.reputation_form or [{}, ""]
+        if not rep_changes or not post_msg:
+            if not rep_changes:
+                self.msg("You have not defined any reputation changes yet.")
+            if not post_msg:
+                self.msg("You have not yet defined a post message.")
+            self.display_form()
+            return
+        # go through each player and apply their reputation changes
+        character_list = []
+        for player in rep_changes:
+            # change_dict is dict of {org: (affection, respect)}
+            change_dict = rep_changes[player]
+            for org in change_dict:
+                affection, respect = change_dict[org]
+                player.gain_reputation(org, affection, respect)
+                inform_staff("%s has adjusted %s's reputation with %s: %s/%s" % (
+                    self.caller, player, org, affection, respect))
+            character_list.append(player.player.db.char_ob)
+        # post changes
+        from typeclasses.bulletin_board.bboard import BBoard
+        board = BBoard.objects.get(db_key__iexact="vox populi")
+        subject = "Reputation changes"
+        post = board.bb_post(poster_obj=self.caller, msg=post_msg, subject=subject)
+        post.tags.add("reputation_change")
+        for character in character_list:
+            post.db_receivers_objects.add(character)
+        self.caller.ndb.reputation_form = None
+
+    def add_post(self):
+        rep_form = self.caller.ndb.reputation_form or [{}, ""]
+        rep_form[1] = self.args
+        self.display_form()
+
+    def add_player(self):
+        rep_form = self.caller.ndb.reputation_form or [{}, ""]
         try:
-            player, org = self.lhslist[0], self.lhslist[1]
-            player = self.caller.search(player)
-            if not player:
+            player_list = [self.caller.search(arg) for arg in self.lhslist]
+            # remove None results
+            player_list = [ob.Dominion for ob in player_list if ob]
+            if not player_list:
                 return
+            org, affection, respect = self.rhslist[0], int(self.rhslist[1]), int(self.rhslist[2])
             org = Organization.objects.get(name__iexact=org)
-            affection, respect = int(self.rhslist[0]), int(self.rhslist[1])
         except IndexError:
-            self.msg("Need both org and player on left side, and affection and respect on right side.")
+            self.msg("Need a list of players on left side, and org, affection, and respect on right side.")
+            return
+        except (TypeError, ValueError):
+            self.msg("Affection and Respect must be numbers.")
             return
         except Organization.DoesNotExist:
             self.msg("No org found by that name.")
             return
-        player.Dominion.gain_reputation(org, affection, respect)
-        if "silent" not in self.switches:
-            msg = "You have gained %s affection and %s respect with %s." % (affection, respect, org)
-            player.inform(msg, category="Reputation")
-        self.msg("You have given %s %s affection and %s respect with %s." % (player, affection, respect, org))
+        org_dict = {org: (affection, respect)}
+        rep_changes = rep_form[0]
+        for player in player_list:
+            if player not in rep_changes:
+                if affection and respect:
+                    rep_changes[player] = org_dict
+            else:  # check if we're removing an org
+                if not affection and not respect:
+                    # if affection and respect are 0, we're choosing to remove it
+                    try:
+                        del rep_changes[player][org]
+                    except KeyError:
+                        pass
+                else:
+                    rep_changes[player].update(org_dict)
+        rep_form[0] = rep_changes
+        self.caller.ndb.reputation_form = rep_form
+        self.display_form()
+
+    def func(self):
+        if not self.args and not self.switches:
+            self.display_form()
+            return
+        if "finish" in self.switches:
+            self.do_finish()
+            return
+        if "post" in self.switches:
+            self.add_post()
+            return
+        if "cancel" in self.switches:
+            self.caller.ndb.reputation_form = None
+            self.msg("Cancelled.")
+            return
+        if not self.switches:
+            self.add_player()
+            return
+        self.msg("Invalid switch.")
 
 
 class CmdGMDisguise(MuxCommand):

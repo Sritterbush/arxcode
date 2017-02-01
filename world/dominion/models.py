@@ -601,9 +601,9 @@ class AccountTransaction(models.Model):
     their bank_amount stored in assets.money.bank_amount, and those
     have it as a debt have the same value subtracted.
     """
-    receiver = models.ForeignKey('AssetOwner', related_name='incomes', blank=True, null=True)
+    receiver = models.ForeignKey('AssetOwner', related_name='incomes', blank=True, null=True, db_index=True)
     
-    sender = models.ForeignKey('AssetOwner', related_name='debts', blank=True, null=True)
+    sender = models.ForeignKey('AssetOwner', related_name='debts', blank=True, null=True, db_index=True)
     # quick description of the type of transaction. taxes between liege/vassal, etc
     category = models.CharField(blank=True, null=True, max_length=255)
     
@@ -845,7 +845,8 @@ class Domain(models.Model):
     # 'grid' square where our domain is. More than 1 domain can be on a square
     land = models.ForeignKey('Land', on_delete=models.SET_NULL, related_name='domains', blank=True, null=True)
     # The house that rules this domain
-    ruler = models.ForeignKey('Ruler', on_delete=models.SET_NULL, related_name='holdings', blank=True, null=True)
+    ruler = models.ForeignKey('Ruler', on_delete=models.SET_NULL, related_name='holdings', blank=True, null=True,
+                              db_index=True)
     # cosmetic info
     name = models.CharField(blank=True, null=True, max_length=80)
     desc = models.TextField(blank=True, null=True)
@@ -974,7 +975,7 @@ class Domain(models.Model):
         if not self.ruler.liege:
             return 0
         if self.ruler.liege.holdings.all():
-            return self.ruler.liege.holdings.all()[0].tax_rate
+            return self.ruler.liege.holdings.first().tax_rate
         return 0
     
     def worker_cost(self, number):
@@ -1438,8 +1439,8 @@ class Minister(models.Model):
         (WARFARE, 'Warfare'),
         )
     title = models.CharField(blank=True, null=True, max_length=255)
-    player = models.ForeignKey("PlayerOrNpc", related_name="appointments", blank=True, null=True)
-    ruler = models.ForeignKey("Ruler", related_name="ministers", blank=True, null=True)
+    player = models.ForeignKey("PlayerOrNpc", related_name="appointments", blank=True, null=True, db_index=True)
+    ruler = models.ForeignKey("Ruler", related_name="ministers", blank=True, null=True, db_index=True)
     category = models.PositiveSmallIntegerField(choices=MINISTER_TYPES, default=INCOME)
 
 
@@ -1458,7 +1459,8 @@ class Ruler(models.Model):
     # the house that owns the domain
     house = models.OneToOneField("AssetOwner", on_delete=models.SET_NULL, related_name="estate", blank=True, null=True)
     # a ruler object that this object owes its alliegance to    
-    liege = models.ForeignKey("self", on_delete=models.SET_NULL, related_name="vassals", blank=True, null=True)
+    liege = models.ForeignKey("self", on_delete=models.SET_NULL, related_name="vassals", blank=True, null=True,
+                              db_index=True)
 
     def _get_titles(self):
         return ", ".join(domain.title for domain in self.domains.all())
@@ -1652,20 +1654,25 @@ class OrgRelationship(models.Model):
     """
     The relationship between two or more organizations.
     """
-    orgs = models.ManyToManyField('Organization', related_name='relationships', blank=True)
+    name = models.CharField("Name of the relationship", max_length=255, db_index=True, blank=True)
+    orgs = models.ManyToManyField('Organization', related_name='relationships', blank=True, db_index=True)
     status = models.SmallIntegerField(default=0, blank=0)
+    history = models.TextField("History of these organizations", blank=True)
 
 
 class Reputation(models.Model):
     """
     A player's reputation to an organization.
     """
-    player = models.ForeignKey('PlayerOrNpc', related_name='reputations', blank=True, null=True)
-    organization = models.ForeignKey('Organization', related_name='reputations', blank=True, null=True)
+    player = models.ForeignKey('PlayerOrNpc', related_name='reputations', blank=True, null=True, db_index=True)
+    organization = models.ForeignKey('Organization', related_name='reputations', blank=True, null=True, db_index=True)
     # negative affection is dislike/hatred
     affection = models.IntegerField(default=0, blank=0)
     # positive respect is respect/fear, negative is contempt/dismissal
     respect = models.IntegerField(default=0, blank=0)
+
+    class Meta:
+        unique_together = ('player', 'organization')
  
 
 class Organization(models.Model):
@@ -1676,7 +1683,7 @@ class Organization(models.Model):
     can substitute for an object as an asset holder. This allows them to
     have their own money, incomes, debts, etc.
     """
-    name = models.CharField(blank=True, null=True, max_length=255)
+    name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
     desc = models.TextField(blank=True, null=True)
     category = models.CharField(blank=True, null=True, default="noble", max_length=255)
     # In a RP game, titles are IMPORTANT. And we need to divide them by gender.
@@ -1885,7 +1892,8 @@ class Agent(models.Model):
     # numerical type of our agents. 0==regular guards, 1==spies, etc
     type = models.PositiveSmallIntegerField(default=0, blank=0)
     # assetowner, so either a player or an organization
-    owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="agents", blank=True, null=True)
+    owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="agents", blank=True, null=True,
+                              db_index=True)
     secret = models.BooleanField(default=False, blank=False)
     # if this class of Agent is a unique individual, and as such the quantity cannot be more than 1
     unique = models.BooleanField(default=False, blank=False)
@@ -2020,7 +2028,8 @@ class AgentOb(models.Model):
     """
     Allotment from an Agent class that has a representation in-game.
     """
-    agent_class = models.ForeignKey("Agent", related_name="agent_objects", blank=True, null=True)
+    agent_class = models.ForeignKey("Agent", related_name="agent_objects", blank=True, null=True,
+                                    db_index=True)
     dbobj = models.OneToOneField("objects.ObjectDB", blank=True, null=True)
     quantity = models.PositiveIntegerField(default=0, blank=0)
     # whether they're imprisoned, by whom, difficulty to free them, etc
@@ -2078,18 +2087,21 @@ class Army(models.Model):
     """
     Any collection of military units belonging to a given domain.
     """
-    name = models.CharField(blank=True, null=True, max_length=80)
+    name = models.CharField(blank=True, null=True, max_length=80, db_index=True)
     desc = models.TextField(blank=True, null=True)
     # the domain that we obey the orders of. Not the same as who owns us, necessarily
-    domain = models.ForeignKey("Domain", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True)
+    domain = models.ForeignKey("Domain", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
+                               db_index=True)
     # current location of this army
     land = models.ForeignKey("Land", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True)
     # if the army is located as a castle garrison
     castle = models.ForeignKey("Castle", on_delete=models.SET_NULL, related_name="garrison", blank=True, null=True)
     # The overall commander of this army. Units under his command may have their own commanders
-    commander = models.ForeignKey("Member", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True)
+    commander = models.ForeignKey("Member", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
+                                  db_index=True)
     # an owner who may be the same person who owns the domain. Or not, in the case of mercs, sent reinforcements, etc
-    owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True)
+    owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
+                              db_index=True)
     # food we're carrying with us on transports or whatever
     stored_food = models.PositiveSmallIntegerField(default=0, blank=0)
     # whether the army is starving. 0 = not starving, 1 = starting to starve, 2 = troops dying/deserting
@@ -2413,8 +2425,8 @@ class Orders(models.Model):
         (ENFORCE_ORDER, 'Enforce Order'),
         (BESIEGE, 'Besiege Castle'),
         (MARCH, 'March'),)
-    army = models.ForeignKey("Army", related_name="orders", null=True, blank=True)
-    target_domain = models.ForeignKey("Domain", related_name="incoming_attacks", null=True, blank=True)
+    army = models.ForeignKey("Army", related_name="orders", null=True, blank=True, db_index=True)
+    target_domain = models.ForeignKey("Domain", related_name="incoming_attacks", null=True, blank=True, db_index=True)
     target_land = models.ForeignKey("Land", related_name="incoming_army", null=True, blank=True)
     type = models.PositiveSmallIntegerField(choices=ORDER_CHOICES, default=TRAIN)
     coin_cost = models.PositiveIntegerField(default=0, blank=0)
@@ -2439,7 +2451,7 @@ class MilitaryUnit(models.Model):
     accured.
     """
     commander = models.ForeignKey("Member", on_delete=models.SET_NULL, related_name="units", blank=True, null=True)
-    army = models.ForeignKey("Army", related_name="units", blank=True, null=True)
+    army = models.ForeignKey("Army", related_name="units", blank=True, null=True, db_index=True)
     # type will be used to derive units and their stats elsewhere 
     unit_type = models.PositiveSmallIntegerField(default=0, blank=0)
     quantity = models.PositiveSmallIntegerField(default=1, blank=1)
@@ -2565,10 +2577,10 @@ class Member(models.Model):
     set up with their Organization.
     """  
     
-    player = models.ForeignKey('PlayerOrNpc', related_name='memberships', blank=True, null=True)
+    player = models.ForeignKey('PlayerOrNpc', related_name='memberships', blank=True, null=True, db_index=True)
     commanding_officer = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='subordinates', blank=True,
                                            null=True)
-    organization = models.ForeignKey('Organization', related_name='members', blank=True, null=True)
+    organization = models.ForeignKey('Organization', related_name='members', blank=True, null=True, db_index=True)
     
     work_this_week = models.PositiveSmallIntegerField(default=0, blank=0)
     work_total = models.PositiveSmallIntegerField(default=0, blank=0)
@@ -2761,12 +2773,12 @@ class Task(models.Model):
     A task that a guild creates and then assigns to members to carry out,
     to earn them and the members income. Used to create RP.
     """
-    name = models.CharField(blank=True, null=True, max_length=80)
-    org = models.ManyToManyField('Organization', related_name='tasks', blank=True)
+    name = models.CharField(blank=True, null=True, max_length=80, db_index=True)
+    org = models.ManyToManyField('Organization', related_name='tasks', blank=True, db_index=True)
     category = models.CharField(null=True, blank=True, max_length=80)
     room_echo = models.TextField(blank=True, null=True)
     active = models.BooleanField(default=False, blank=False)
-    week = models.PositiveSmallIntegerField(blank=0, default=0)
+    week = models.PositiveSmallIntegerField(blank=0, default=0, db_index=True)
     desc = models.TextField(blank=True, null=True)
     difficulty = models.PositiveSmallIntegerField(blank=0, default=0)
     results = models.TextField(blank=True, null=True)
@@ -2783,10 +2795,10 @@ class AssignedTask(models.Model):
     """
     A task assigned to a player.
     """
-    task = models.ForeignKey('Task', related_name='assigned_tasks', blank=True, null=True)
-    member = models.ForeignKey('Member', related_name='tasks', blank=True, null=True)
+    task = models.ForeignKey('Task', related_name='assigned_tasks', blank=True, null=True, db_index=True)
+    member = models.ForeignKey('Member', related_name='tasks', blank=True, null=True, db_index=True)
     finished = models.BooleanField(default=False, blank=False)
-    week = models.PositiveSmallIntegerField(blank=0, default=0)
+    week = models.PositiveSmallIntegerField(blank=0, default=0, db_index=True)
     notes = models.TextField(blank=True, null=True)
     observer_text = models.TextField(blank=True, null=True)
     alt_echo = models.TextField(blank=True, null=True)
@@ -2877,15 +2889,15 @@ class AssignedTask(models.Model):
             setattr(memassets, category, current + amt)
             current = getattr(orgassets, category)
             setattr(orgassets, category, current + orgres)
-            self.dompc.gain_reputation(org, amt, amt)
+            # self.dompc.gain_reputation(org, amt, amt)
             self.save()
             memassets.save()
             orgassets.save()
             total_rep += rep
             msg += "%s Resources earned: %s\n" % (category, amt)
-        msg += "Reputation earned: %s\n" % total_rep
-        for support in self.supporters.all():
-            support.award_renown()
+        # msg += "Reputation earned: %s\n" % total_rep
+        # for support in self.supporters.all():
+        #     support.award_renown()
         self.player.inform(msg, category="task", week=week,
                                          append=True)
 
@@ -2939,8 +2951,8 @@ class TaskSupporter(models.Model):
     """
     A player that has pledged support to someone doing a task
     """
-    player = models.ForeignKey('PlayerOrNpc', related_name='supported_tasks', blank=True, null=True)
-    task = models.ForeignKey('AssignedTask', related_name='supporters', blank=True, null=True)
+    player = models.ForeignKey('PlayerOrNpc', related_name='supported_tasks', blank=True, null=True, db_index=True)
+    task = models.ForeignKey('AssignedTask', related_name='supporters', blank=True, null=True, db_index=True)
     fake = models.BooleanField(default=False)
     spheres = models.ManyToManyField('SphereOfInfluence', related_name='supported_tasks', blank=True,
                                      through='SupportUsed')
@@ -2950,31 +2962,31 @@ class TaskSupporter(models.Model):
     def __str__(self):
         return "%s supporting %s" % (self.player, self.task) or "Unknown supporter"
 
-    def award_renown(self):
-        """Give renown to both players."""
-        targ = self.task.member.player
-        if not self.fake:
-            for char in (targ, self.player):
-                for inf in self.allocation.all():
-                    category = inf.sphere.category
-                    try:
-                        ren = char.renown.get(category=category)
-                    except Renown.DoesNotExist:
-                        ren = char.renown.create(category=category)
-                    ren.rating += inf.rating
-                    ren.save()
-        else:  # we're an unreliable flake. We suffer penalties
-            for req in self.task.task.requirements.all():
-                category = req.category
-                char = self.player
-                if not char:
-                    continue
-                try:
-                    ren = char.renown.get(category=category)
-                except Renown.DoesNotExist:
-                    ren = char.renown.create(category=category)
-                ren.rating -= 1
-                ren.save()
+    # def award_renown(self):
+    #     """Give renown to both players."""
+    #     targ = self.task.member.player
+    #     if not self.fake:
+    #         for char in (targ, self.player):
+    #             for inf in self.allocation.all():
+    #                 category = inf.sphere.category
+    #                 try:
+    #                     ren = char.renown.get(category=category)
+    #                 except Renown.DoesNotExist:
+    #                     ren = char.renown.create(category=category)
+    #                 ren.rating += inf.rating
+    #                 ren.save()
+    #     else:  # we're an unreliable flake. We suffer penalties
+    #         for req in self.task.task.requirements.all():
+    #             category = req.category
+    #             char = self.player
+    #             if not char:
+    #                 continue
+    #             try:
+    #                 ren = char.renown.get(category=category)
+    #             except Renown.DoesNotExist:
+    #                 ren = char.renown.create(category=category)
+    #             ren.rating -= 1
+    #             ren.save()
 
     @property
     def rating(self):
@@ -3038,10 +3050,10 @@ class CraftingRecipe(models.Model):
     are used for wearable objects to denote the slot they're worn in and
     how many other objects may be worn in that slot, respectively.
     """
-    name = models.CharField(blank=True, null=True, max_length=255)
+    name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
     desc = models.TextField(blank=True, null=True)
     # organizations or players that know this recipe
-    known_by = models.ManyToManyField('AssetOwner', blank=True, related_name='recipes')
+    known_by = models.ManyToManyField('AssetOwner', blank=True, related_name='recipes', db_index=True)
     primary_materials = models.ManyToManyField('CraftingMaterialType', blank=True, related_name='recipes_primary')
     secondary_materials = models.ManyToManyField('CraftingMaterialType', blank=True, related_name='recipes_secondary')
     tertiary_materials = models.ManyToManyField('CraftingMaterialType', blank=True, related_name='recipes_tertiary')
@@ -3051,8 +3063,8 @@ class CraftingRecipe(models.Model):
     difficulty = models.PositiveSmallIntegerField(blank=0, default=0)
     additional_cost = models.PositiveIntegerField(blank=0, default=0)
     # the ability/profession that is used in creating this
-    ability = models.CharField(blank=True, null=True, max_length=80)
-    skill = models.CharField(blank=True, null=True, max_length=80)
+    ability = models.CharField(blank=True, null=True, max_length=80, db_index=True)
+    skill = models.CharField(blank=True, null=True, max_length=80, db_index=True)
     # the type of object we're creating
     type = models.CharField(blank=True, null=True, max_length=80)
     # level in ability this recipe corresponds to. 1 through 6, usually
@@ -3158,11 +3170,11 @@ class CraftingMaterialType(models.Model):
     difficult it is to fake it as another material of the same category
     """
     # the type of material we are
-    name = models.CharField(max_length=80)
+    name = models.CharField(max_length=80, db_index=True)
     desc = models.TextField(blank=True, null=True)
     # silver value per unit
     value = models.PositiveIntegerField(blank=0, default=0)
-    category = models.CharField(blank=True, null=True, max_length=80)
+    category = models.CharField(blank=True, null=True, max_length=80, db_index=True)
     # Text we can parse for notes about cost modifiers for different orgs, locations to obtain, etc
     acquisition_modifiers = models.TextField(blank=True, null=True)
     
@@ -3182,9 +3194,9 @@ class CraftingMaterials(models.Model):
     If it is used in a recipe, do NOT set it owned by any asset owner, or by changing
     the amount they'll change the amount required in a recipe!
     """
-    type = models.ForeignKey('CraftingMaterialType', blank=True, null=True)
+    type = models.ForeignKey('CraftingMaterialType', blank=True, null=True, db_index=True)
     amount = models.PositiveIntegerField(blank=0, default=0)
-    owner = models.ForeignKey('AssetOwner', blank=True, null=True, related_name='materials')
+    owner = models.ForeignKey('AssetOwner', blank=True, null=True, related_name='materials', db_index=True)
     
     class Meta:
         """Define Django meta options"""
@@ -3222,14 +3234,14 @@ class RPEvent(models.Model):
         (EXTRAVAGANT, 'Extravagant'),
         (LEGENDARY, 'Legendary'),
         )
-    hosts = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_hosted')
+    hosts = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_hosted', db_index=True)
     name = models.CharField(max_length=255, db_index=True)
     desc = models.TextField(blank=True, null=True)
     location = models.ForeignKey('objects.ObjectDB', blank=True, null=True, related_name='events_held',
                                  on_delete=models.SET_NULL)
     date = models.DateTimeField(blank=True, null=True)
-    participants = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_attended')
-    gms = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_gmd')
+    participants = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_attended', db_index=True)
+    gms = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_gmd', db_index=True)
     celebration_tier = models.PositiveSmallIntegerField(choices=LARGESSE_CHOICES, default=NONE)
     gm_event = models.BooleanField(default=False, blank=False)
     public_event = models.BooleanField(default=True, blank=True)
@@ -3353,7 +3365,7 @@ class RPEvent(models.Model):
     
 
 class InfluenceCategory(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255, unique=True, db_index=True)
     orgs = models.ManyToManyField("Organization", through="SphereOfInfluence")
     players = models.ManyToManyField("PlayerOrNpc", through="Renown")
     tasks = models.ManyToManyField("Task", through="TaskRequirement")
@@ -3367,12 +3379,13 @@ class InfluenceCategory(models.Model):
 
 
 class Renown(models.Model):
-    category = models.ForeignKey("InfluenceCategory")
-    player = models.ForeignKey("PlayerOrNpc", related_name="renown")
+    category = models.ForeignKey("InfluenceCategory", db_index=True)
+    player = models.ForeignKey("PlayerOrNpc", related_name="renown", db_index=True)
     rating = models.IntegerField(blank=0, default=0)
 
     class Meta:
         verbose_name_plural = "Renown"
+        unique_together = ("category", "player")
 
     def __str__(self):
         return "%s's rating in %s: %s" % (self.player, self.category, self.rating)
@@ -3394,12 +3407,13 @@ class Renown(models.Model):
 
 
 class SphereOfInfluence(models.Model):
-    category = models.ForeignKey("InfluenceCategory")
-    org = models.ForeignKey("Organization", related_name="spheres")
+    category = models.ForeignKey("InfluenceCategory", db_index=True)
+    org = models.ForeignKey("Organization", related_name="spheres", db_index=True)
     rating = models.IntegerField(blank=0, default=0)
 
     class Meta:
         verbose_name_plural = "Spheres of Influence"
+        unique_together = ("category", "org")
 
     def __str__(self):
         return "%s's rating in %s: %s" % (self.org, self.category, self.rating)
@@ -3419,8 +3433,8 @@ class SphereOfInfluence(models.Model):
 
 
 class TaskRequirement(models.Model):
-    category = models.ForeignKey("InfluenceCategory")
-    task = models.ForeignKey("Task", related_name="requirements")
+    category = models.ForeignKey("InfluenceCategory", db_index=True)
+    task = models.ForeignKey("Task", related_name="requirements", db_index=True)
     minimum_amount = models.PositiveSmallIntegerField(blank=0, default=0)
 
     def __str__(self):
@@ -3429,8 +3443,8 @@ class TaskRequirement(models.Model):
 
 class SupportUsed(models.Model):
     week = models.PositiveSmallIntegerField(default=0, blank=0)
-    supporter = models.ForeignKey("TaskSupporter", related_name="allocation")
-    sphere = models.ForeignKey("SphereOfInfluence", related_name="usage")
+    supporter = models.ForeignKey("TaskSupporter", related_name="allocation", db_index=True)
+    sphere = models.ForeignKey("SphereOfInfluence", related_name="usage", db_index=True)
     rating = models.PositiveSmallIntegerField(blank=0, default=0)
 
     def __str__(self):
