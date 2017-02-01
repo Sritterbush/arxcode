@@ -1010,7 +1010,20 @@ class Domain(models.Model):
         return costs
 
     def _get_liege_taxed_amt(self):
-        return (self.total_income * self.liege_taxes)/100
+        if self.liege_taxes:
+            amt = self.ruler.liege_taxes
+            if amt:
+                return amt
+            # check if we have a transaction
+            try:
+                transaction = self.ruler.house.debts.get(category="vassal taxes")
+                return transaction.weekly_amount
+            except AccountTransaction.DoesNotExist:
+                amt = (self.total_income * self.liege_taxes)/100
+                self.ruler.house.debts.create(category="vassal taxes", receiver=self.ruler.house.liege,
+                                              weekly_amount=amt)
+                return amt
+        return
     
     def _get_food_production(self):
         """
@@ -1516,6 +1529,18 @@ class Ruler(models.Model):
             return getattr(self.castellan, attr) + self.minister_skill(attr)
         except AttributeError:
             return 0
+
+    @property
+    def vassal_taxes(self):
+        if not self.house:
+            return 0
+        return sum(ob.weekly_amount for ob in self.house.incomes.filter(category="vassal taxes"))
+
+    @property
+    def liege_taxes(self):
+        if not self.house:
+            return 0
+        return sum(ob.weekly_amount for ob in self.house.debts.filter(category="vassal taxes"))
 
 
 class Crisis(models.Model):
