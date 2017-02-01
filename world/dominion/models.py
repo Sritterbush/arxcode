@@ -1020,7 +1020,7 @@ class Domain(models.Model):
                 return transaction.weekly_amount
             except AccountTransaction.DoesNotExist:
                 amt = (self.total_income * self.liege_taxes)/100
-                self.ruler.house.debts.create(category="vassal taxes", receiver=self.ruler.house.liege,
+                self.ruler.house.debts.create(category="vassal taxes", receiver=self.ruler.liege.house,
                                               weekly_amount=amt)
                 return amt
         return
