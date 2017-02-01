@@ -1023,7 +1023,7 @@ class Domain(models.Model):
                 self.ruler.house.debts.create(category="vassal taxes", receiver=self.ruler.liege.house,
                                               weekly_amount=amt)
                 return amt
-        return
+        return 0
     
     def _get_food_production(self):
         """
