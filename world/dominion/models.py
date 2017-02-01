@@ -1024,6 +1024,20 @@ class Domain(models.Model):
                                               weekly_amount=amt)
                 return amt
         return 0
+
+    def reset_expected_tax_payment(self):
+        amt = (self.total_income * self.liege_taxes) / 100
+        if not amt:
+            return
+        try:
+            transaction = self.ruler.house.debts.get(category="vassal taxes")
+            if transaction.receiver != self.ruler.liege.house:
+                transaction.receiver = self.ruler.liege.house
+        except AccountTransaction.DoesNotExist:
+            transaction = self.ruler.house.debts.create(category="vassal taxes", receiver=self.ruler.liege.house,
+                                                        weekly_amount=amt)
+        transaction.weekly_amount = amt
+        transaction.save()
     
     def _get_food_production(self):
         """
@@ -1240,6 +1254,7 @@ class Domain(models.Model):
         # reset the amount of money that's been plundered from us
         self.amount_plundered = 0
         self.save()
+        self.reset_expected_tax_payment()
         return total_amount
     
     def display(self):
