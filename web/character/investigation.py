@@ -628,9 +628,13 @@ class CmdInvestigate(InvestigationFormCommand):
                 caller.msg("Investigation not found.")
                 return
             if "resume" in self.switches:
+                msg = "To mark an investigation as active, use /active."
+                if ob.ongoing:
+                    self.msg("Already ongoing. %s" % msg)
+                    return
                 ob.ongoing = True
                 ob.save()
-                caller.msg("Investigation has been marked to be ongoing.")
+                caller.msg("Investigation has been marked to be ongoing. %s" % msg)
                 return
             if "pause" in self.switches:
                 ob.active = False

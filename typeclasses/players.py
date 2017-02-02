@@ -353,3 +353,32 @@ class Player(MsgMixins, DefaultPlayer):
         if not self.db.allow_list:
             self.db.allow_list = []
         return self.db.allow_list
+
+    @property
+    def clues_shared_modifier_seed(self):
+        from world.stats_and_skills import SOCIAL_SKILLS, SOCIAL_STATS
+        seed = 0
+        pc = self.db.char_ob
+        for stat in SOCIAL_STATS:
+            seed += pc.attributes.get(stat) or 0
+        # do not be nervous. I love you. <3
+        seed += max([pc.db.skills.get(ob, 0) for ob in SOCIAL_SKILLS])
+        seed += pc.db.skills.get("investigation", 0)
+        return seed
+
+    @property
+    def num_free_clue_shares(self):
+        return self.clues_shared_modifier_seed / 3
+
+    @property
+    def num_clues_shared_this_week(self):
+        if self.db.num_clues_shared_this_week is None:
+            self.db.num_clues_shared_this_week = 0
+        return self.db.num_clues_shared_this_week
+
+    @num_clues_shared_this_week.setter
+    def num_clues_shared_this_week(self, val):
+        self.db.num_clues_shared_this_week = val
+
+    def clue_cost(self, num_clues):
+        pass
