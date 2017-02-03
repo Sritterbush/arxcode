@@ -199,7 +199,7 @@ class CmdStartingGear(MuxCommand):
             return
         if "abandon" in self.switches or "abort" in self.switches:
             caller.msg("You have abandoned this crafting project. You may now start another.")
-            caller.db.startgear_project = None
+            caller.attributes.remove("startgear_project")
             return
         # do rolls for our crafting. determine quality level, handle forgery stuff
         if "finish" in self.switches:
@@ -254,7 +254,7 @@ class CmdStartingGear(MuxCommand):
             obj.db.crafted_by = caller
             obj.db.volume = int(recipe.resultsdict.get('volume', 0))
             caller.msg("You created %s." % obj.name)
-            caller.db.startgear_project = None
+            caller.attributes.remove("startgear_project")
             return
         if "refundremainder" in self.switches:
             money = caller.db.currency or 0.0
@@ -269,7 +269,7 @@ class CmdStartingGear(MuxCommand):
 
 
 def setup_gear_for_char(character, money=CASH, reset=False):
-    if not reset and character.db.given_starting_gear:
+    if not reset and "given_starting_gear" in character.tags.all():
         print "Startgear aborted for %s" % character
         return
     character.db.startgear_val = money
@@ -278,7 +278,7 @@ def setup_gear_for_char(character, money=CASH, reset=False):
         character.cmdset.add(cmds, permanent=True)
     else:
         print "startgear command not added to %s" % character
-    character.db.given_starting_gear = True
+    character.tags.add("given_starting_gear")
     print "Startgear setup finished for %s" % character
 
 
@@ -292,8 +292,8 @@ class CmdSetupGear(MuxPlayerCommand):
     adds the startgear command to them to create it.
     """
     key = "@setupgear"
-    locks = "cmd:perm(Immortals)"
-    help_category = "Progression"
+    locks = "cmd:perm(Builders)"
+    help_category = "Building"
 
     def func(self):
         """Implement the command"""
@@ -310,4 +310,5 @@ class CmdSetupGear(MuxPlayerCommand):
         else:
             setup_gear_for_char(char, reset=True)
         caller.msg("Starting money for gear granted to %s." % char)
+        arx_utils.inform_staff("%s has given %s money for startgear." % (caller, char))
         return

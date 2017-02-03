@@ -1980,12 +1980,12 @@ class CmdRandomScene(MuxCommand):
             self.msg("{wOnly displaying online characters.{n")
             scenelist = [ob for ob in scenelist if ob.location]
             newbies = [ob for ob in newbies if ob.location]
-        self.msg("{wRandomly generated RP partners for this week:{n %s" % ", ".join(str(ob) for ob in scenelist))
-        self.msg("{wNew players who can be also RP'd with for credit:{n %s" % ", ".join(str(ob) for ob in newbies))
+        self.msg("{wRandomly generated RP partners for this week:{n %s" % ", ".join(ob.key for ob in scenelist))
+        self.msg("{wNew players who can be also RP'd with for credit:{n %s" % ", ".join(ob.key for ob in newbies))
         if claimlist:
-            self.msg("{wThose you have already RP'd with this week:{n %s" % ", ".join(str(ob) for ob in claimlist))
+            self.msg("{wThose you have already RP'd with this week:{n %s" % ", ".join(ob.key for ob in claimlist))
         if validated:
-            self.msg("{wThose you have validated scenes for this week{n %s" % ", ".join(str(ob) for ob in validated))
+            self.msg("{wThose you have validated scenes for this week{n %s" % ", ".join(ob.key for ob in validated))
 
     def generate_lists(self):
         scenelist = self.scenelist
