@@ -678,6 +678,7 @@ class CmdManageShop(MuxCommand):
             obj.location = None
             loc.db.item_prices[obj.id] = price
             obj.tags.add("for_sale")
+            obj.db.sale_location = loc
             caller.msg("You put %s for sale for %s silver." % (obj, price))
             return
         if "rmitem" in self.switches:
@@ -695,6 +696,7 @@ class CmdManageShop(MuxCommand):
                 return
             obj.move_to(caller)
             obj.tags.remove("for_sale")
+            obj.attributes.remove("sale_location")
             del loc.db.item_prices[obj.id]
             caller.msg("You have removed %s from your sale list." % obj)
             return
@@ -992,6 +994,7 @@ class CmdBuyFromShop(CmdCraft):
         self.pay_owner(price, "%s has bought %s for %s." % (self.caller, item, price))
         item.move_to(self.caller)
         item.tags.remove("for_sale")
+        item.attributes.remove("sale_location")
         del loc.db.item_prices[item.id]
 
     def check_blacklist(self):
