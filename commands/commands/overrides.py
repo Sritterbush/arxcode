@@ -731,7 +731,7 @@ class CmdWho(MuxPlayerCommand):
             show_session_data = player.check_permstring("Immortals") or player.check_permstring("Wizards")
         nplayers = (SESSIONS.player_count())
         total_players = nplayers
-        already_removed = []
+        already_counted = []
         if show_session_data:
             table = prettytable.PrettyTable(["{wPlayer Name",
                                              "{wOn for",
@@ -742,15 +742,15 @@ class CmdWho(MuxPlayerCommand):
                                              "{wHost"])
             for session in session_list:
                 pc = session.get_player()
-                if pc in already_removed:
+                if pc in already_counted:
                     continue
                 if not session.logged_in:
-                    already_removed.append(pc)
+                    already_counted.append(pc)
                     nplayers -= 1
                     continue
                 delta_cmd = time.time() - session.cmd_last_visible
                 if "active" in self.switches and delta_cmd > 1200:
-                    already_removed.append(pc)
+                    already_counted.append(pc)
                     nplayers -= 1
                     continue
                 delta_conn = time.time() - session.conn_time
@@ -760,7 +760,7 @@ class CmdWho(MuxPlayerCommand):
                 pname = self.format_pname(session.get_player())
                 char = pc.db.char_ob
                 if "watch" in self.switches and char not in watch_list:
-                    already_removed.append(pc)
+                    already_counted.append(pc)
                     nplayers -= 1
                     continue
                 if not char or not char.db.fealty:
@@ -768,7 +768,7 @@ class CmdWho(MuxPlayerCommand):
                 else:
                     fealty = char.db.fealty
                 if not self.check_filters(pname, base, fealty):
-                    already_removed.append(pc)
+                    already_counted.append(pc)
                     nplayers -= 1
                     continue
                 pname = crop(pname, width=18)
@@ -781,6 +781,7 @@ class CmdWho(MuxPlayerCommand):
                                # session.cmd_total,
                                session.protocol_key,
                                isinstance(session.address, tuple) and session.address[0] or session.address])
+                already_counted.append(pc)
         else:
             if not sparse:
                 table = prettytable.PrettyTable(["{wPlayer name", "{wFealty", "{wIdle"])
@@ -789,15 +790,15 @@ class CmdWho(MuxPlayerCommand):
 
             for session in session_list:
                 pc = session.get_player()
-                if pc in already_removed:
+                if pc in already_counted:
                     continue
                 if not session.logged_in:
-                    already_removed.append(pc)
+                    already_counted.append(pc)
                     nplayers -= 1
                     continue
                 delta_cmd = time.time() - session.cmd_last_visible
                 if "active" in self.switches and delta_cmd > 1200:
-                    already_removed.append(pc)
+                    already_counted.append(pc)
                     nplayers -= 1
                     continue
                 if not pc.db.hide_from_watch:
@@ -805,7 +806,7 @@ class CmdWho(MuxPlayerCommand):
                     pname = self.format_pname(pc, lname=True, sparse=sparse)
                     char = pc.db.char_ob
                     if "watch" in self.switches and char not in watch_list:
-                        already_removed.append(pc)
+                        already_counted.append(pc)
                         nplayers -= 1
                         continue
                     if not char or not char.db.fealty:
@@ -813,6 +814,8 @@ class CmdWho(MuxPlayerCommand):
                     else:
                         fealty = char.db.fealty
                     if not self.check_filters(pname, base, fealty):
+                        already_counted.append(pc)
+                        nplayers -= 1
                         continue
                     idlestr = self.get_idlestr(delta_cmd)
                     if sparse:
@@ -826,8 +829,9 @@ class CmdWho(MuxPlayerCommand):
                                        idlestr])
                     else:
                         table.add_row([pname, idlestr])
+                    already_counted.append(pc)
                 else:
-                    already_removed.append(pc)
+                    already_counted.append(pc)
                     nplayers -= 1
 
         isone = nplayers == 1
