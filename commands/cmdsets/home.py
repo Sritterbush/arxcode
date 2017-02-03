@@ -677,6 +677,7 @@ class CmdManageShop(MuxCommand):
             obj.at_drop(caller)
             obj.location = None
             loc.db.item_prices[obj.id] = price
+            obj.tags.add("for_sale")
             caller.msg("You put %s for sale for %s silver." % (obj, price))
             return
         if "rmitem" in self.switches:
@@ -693,6 +694,7 @@ class CmdManageShop(MuxCommand):
                 caller.msg("You have to specify the ID # of an item you're trying to remove.")
                 return
             obj.move_to(caller)
+            obj.tags.remove("for_sale")
             del loc.db.item_prices[obj.id]
             caller.msg("You have removed %s from your sale list." % obj)
             return
@@ -962,8 +964,12 @@ class CmdBuyFromShop(CmdCraft):
         msg += "\n{wItem Prices{n\n"
         table = EvTable("{wID{n", "{wName{n", "{wPrice{n", width=78, border="cells")
         prices = loc.db.item_prices or {}
-        for price in prices:
-            obj = ObjectDB.objects.get(id=price)
+        for price in prices.keys():
+            try:
+                obj = ObjectDB.objects.get(id=price)
+            except ObjectDB.DoesNotExist:
+                del prices[price]
+                continue
             table.add_row(price, obj.name, prices[price])
         msg += str(table)
         designs = loc.db.template_designs or {}
@@ -985,6 +991,7 @@ class CmdBuyFromShop(CmdCraft):
         self.caller.pay_money(price)
         self.pay_owner(price, "%s has bought %s for %s." % (self.caller, item, price))
         item.move_to(self.caller)
+        item.tags.remove("for_sale")
         del loc.db.item_prices[item.id]
 
     def check_blacklist(self):
