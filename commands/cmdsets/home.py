@@ -712,6 +712,7 @@ class CmdManageShop(MuxCommand):
                 caller.msg("Cost for refining set to %s percent markup." % cost)
             return
         if "addrecipe" in self.switches:
+            prices = loc.db.crafting_prices or {}
             try:
                 recipe = caller.db.player_ob.Dominion.assets.recipes.get(name__iexact=self.lhs)
                 cost = int(self.rhs)
@@ -723,15 +724,17 @@ class CmdManageShop(MuxCommand):
             except (CraftingRecipe.DoesNotExist, CraftingRecipe.MultipleObjectsReturned):
                 caller.msg("Could not retrieve a recipe by that name.")
                 return
-            loc.db.crafting_prices[recipe.id] = cost
+            prices[recipe.id] = cost
             caller.msg("Price for %s set to %s." % (recipe.name, cost))
-            removedlist = loc.db.crafting_prices.get("removed", [])
+            removedlist = prices.get("removed", [])
             if recipe.id in removedlist:
                 removedlist.remove(recipe.id)
-            loc.db.crafting_prices['removed'] = removedlist
+            prices['removed'] = removedlist
+            loc.db.crafting_prices = prices
             return
         if "rmrecipe" in self.switches:
             arg = None
+            prices = loc.db.crafting_prices or {}
             try:
                 recipe = None
                 if self.lhs.lower() == "all":
@@ -741,19 +744,19 @@ class CmdManageShop(MuxCommand):
                 else:
                     recipe = caller.db.player_ob.Dominion.assets.recipes.get(name__iexact=self.lhs)
                     arg = recipe.id
-                del loc.db.crafting_prices[arg]
+                del prices[arg]
                 caller.msg("Price for %s has been removed." % recipe.name if recipe else arg)
-                return
             except KeyError:
-                removedlist = loc.db.crafting_prices.get("removed", [])
+                removedlist = prices.get("removed", [])
                 if arg in removedlist:
                     caller.msg("You had no price listed for that recipe.")
                 else:
                     removedlist.append(arg)
-                    loc.db.crafting_prices["removed"] = removedlist
-                return
+                    prices["removed"] = removedlist
             except CraftingRecipe.DoesNotExist:
                 caller.msg("No recipe found by that name.")
+            finally:
+                loc.db.crafting_prices = prices
                 return
         if "adddesign" in self.switches:
             designs = loc.db.template_designs or {}
@@ -917,7 +920,7 @@ class CmdBuyFromShop(CmdCraft):
         if price > 0:
             price -= (price * self.get_discount() / 100.0)
             if price < 0:
-                raise ValueError("Negative price due to discount")
+                return 0
             return price
         raise ValueError
 
@@ -933,7 +936,7 @@ class CmdBuyFromShop(CmdCraft):
         if price:
             price -= (price * self.get_discount() / 100.0)
             if price < 0:
-                raise ValueError("Negative price due to discount")
+                return 0
             return price
         # no price defined
         raise ValueError
@@ -950,14 +953,11 @@ class CmdBuyFromShop(CmdCraft):
             if recipe.id in removed:
                 continue
             try:
-                try:
-                    refineprice = str(self.get_refine_price(recipe.value))
-                except ValueError:
-                    refineprice = "--"
+                refineprice = str(self.get_refine_price(recipe.value))
                 table.add_row([recipe.name, str(recipe.additional_cost + self.get_recipe_price(recipe)),
                                refineprice])
             except (ValueError, TypeError):
-                continue
+                self.msg("{rError: Recipe %s does not have a price defined.{n" % recipe.name)
         msg += str(table)
         msg += "\n{wItem Prices{n\n"
         table = EvTable("{wID{n", "{wName{n", "{wPrice{n", width=78, border="cells")
