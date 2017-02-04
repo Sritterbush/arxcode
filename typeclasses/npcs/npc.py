@@ -715,6 +715,8 @@ class Agent(AgentMixin, MultiNpc):
         """
         if num < 0:
             raise ValueError("Must pass a positive integer to lose_agents.")
+        if num > self.db.num_living:
+            num = self.db.num_living
         self.multideath(num, death)
         self.agentob.lose_agents(num)
         self.setup_name()       

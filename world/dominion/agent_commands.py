@@ -104,18 +104,24 @@ class CmdAgents(MuxPlayerCommand):
             caller.msg("{wBarracks locations:{n %s" % ", ".join(ob.key for ob in barracks))
             return
         try:
+            owner_ids = []
             loc = caller.character.location
             if loc == caller.character.home:
-                owner = caller.Dominion.assets.id
-            else:
-                owner = loc.db.barracks_owner or loc.db.room_owner
-            if owner:
-                owner = AssetOwner.objects.get(id=owner)
-                if owner != caller.Dominion.assets and not owner.organization_owner.access(caller, 'guards'):
+                owner_ids.append(caller.Dominion.assets.id)
+            if loc.db.barracks_owner:
+                owner_ids.append(loc.db.barracks_owner)
+            if loc.db.room_owner:
+                owner_ids.append(loc.db.room_owner)
+            if owner_ids:
+                owners = [ob for ob in AssetOwner.objects.filter(id__in=owner_ids) if
+                          ob == caller.Dominion.assets or ob.organization_owner.access(caller, 'guards')]
+                if not owners:
                     caller.msg("You do not have access to guards here.")
             else:
                 self.msg("You do not have access to guards here.")
                 return
+            owner_ids = [ob.id for ob in owners]
+            owner_names = ", ".join(str(ob) for ob in owners)
         except (AttributeError, AssetOwner.DoesNotExist, ValueError, TypeError):
             import traceback
             self.msg(traceback.print_exc())
@@ -136,7 +142,7 @@ class CmdAgents(MuxPlayerCommand):
                 if not targ:
                     caller.msg("Could not find player by name %s." % player)
                     return
-                avail_agent = Agent.objects.get(id=pid, owner=owner)
+                avail_agent = Agent.objects.get(id=pid, owner_id__in=owner_ids)
                 if avail_agent.quantity < amt:
                     caller.msg("You tried to assign %s, but only have %s available." % (amt, avail_agent.quantity))
                     return
@@ -157,8 +163,8 @@ class CmdAgents(MuxPlayerCommand):
                     caller.msg(err)
                     return
             except Agent.DoesNotExist:
-                caller.msg("%s owns no agents by that name." % owner.owner)
-                agents = Agent.objects.filter(owner=owner)
+                caller.msg("%s owns no agents by that name." % owner_names)
+                agents = Agent.objects.filter(owner_id__in=owner_ids)
                 caller.msg("{wAgents:{n %s" % ", ".join("%s (#%s)" % (agent.name, agent.id) for agent in agents))
                 return
             except ValueError:
@@ -175,14 +181,14 @@ class CmdAgents(MuxPlayerCommand):
                 pid = int(pid)
                 if amt < 1:
                     raise ValueError
-                agent = Agent.objects.get(id=pid, owner=owner)
+                agent = Agent.objects.get(id=pid, owner_id__in=owner_ids)
                 # look through our agent actives for a dbobj assigned to player
                 agentob = agent.find_assigned(player)
                 if not agentob:
-                    caller.msg("No agents assigned to %s by %s." % (player, owner.owner))
+                    caller.msg("No agents assigned to %s by %s." % (player, owner_names))
                     return
-                agentob.recall(amt)
-                caller.msg("You have recalled %s from %s. They have %s left." % (amt, player, agentob.quantity))
+                num = agentob.recall(amt)
+                caller.msg("You have recalled %s from %s. They have %s left." % (num, player, agentob.quantity))
                 return
             except Agent.DoesNotExist:
                 caller.msg("No agents found for those arguments.")
@@ -253,6 +259,7 @@ class CmdAgents(MuxPlayerCommand):
                     agent.name = name
                 elif 'transferowner' in self.switches:
                     attr = 'owner'
+                    strval = self.lhslist[1]
                     try:
                         agent.owner = AssetOwner.objects.get(Q(player__player__username__iexact=self.lhslist[1]) |
                                                              Q(organization_owner__name__iexact=self.lhslist[1]))
@@ -276,10 +283,12 @@ class CmdAgents(MuxPlayerCommand):
                     agent.owner.inform_owner("You have been transferred ownership of %s from %s." % (agent, caller),
                                              category="agents")
                 return
-            except (Agent.DoesNotExist, TypeError, ValueError, IndexError):
-                import traceback
-                traceback.print_exc()
-                caller.msg("User error.")
+            except IndexError:
+                self.msg("Wrong number of arguments.")
+            except (TypeError, ValueError):
+                self.msg("Wrong type of arguments.")
+            except Agent.DoesNotExist:
+                caller.msg("No agent found by that number.")
                 return
         self.msg("Unrecognized switch.")
 
