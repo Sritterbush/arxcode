@@ -473,9 +473,10 @@ class ObjectMixins(DescMixins, AppearanceMixins):
                 pass
 
 
-# regex strips ascii from stuff to make it boring
+# regex removes the ascii inside an ascii tag
 RE_ASCII = re.compile(r"<ascii>(.*?)</ascii>", re.IGNORECASE)
-
+# designates text to be ascii-free by a crafter
+RE_ALT_ASCII = re.compile(r"<noascii>(.*?)</noascii>", re.IGNORECASE)
 
 class MsgMixins(object):
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):
@@ -551,8 +552,10 @@ class MsgMixins(object):
             pass
         if 'no_ascii' in player_ob.tags.all():
             text = RE_ASCII.sub("", text)
+            text = RE_ALT_ASCII.sub(r"\1", text)
         else:
             text = RE_ASCII.sub(r"\1", text)
+            text = RE_ALT_ASCII.sub("", text)
         super(MsgMixins, self).msg(text, from_obj, session, options, **kwargs)
 
 
