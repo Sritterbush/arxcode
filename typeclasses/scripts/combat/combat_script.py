@@ -869,8 +869,9 @@ class CombatManager(BaseScript):
                               "vote them AFK if they are holding up the fight.")
             return
         if char_to_check not in self.ndb.afk_check:
-            char_to_check.msg("{w%s is checking if you are AFK. Please take" +
-                              " an action within a few minutes.{n" % checking_char.name)
+            msg = "{w%s is checking if you are AFK. Please take" % checking_char.name
+            msg += " an action within a few minutes.{n"
+            char_to_check.msg(msg)
             checking_char.msg("You have nudged %s to take an action." % char_to_check.name)
             self.ndb.afk_check.append(char_to_check)
             fite[char_to_check.id].afk_timer = time.time()  # current time
