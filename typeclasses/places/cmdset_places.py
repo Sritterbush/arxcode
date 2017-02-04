@@ -7,17 +7,15 @@ among the available commands as to what should be included in the
 cmdset - this way you can often re-use the commands too.
 """
 
-import random
-from django.conf import settings
+
 from evennia import CmdSet
-from evennia import utils
 from evennia.commands.default.muxcommand import MuxCommand
 from evennia.utils.utils import list_to_string
 
 
-#------------------------------------------------------------
+# ------------------------------------------------------------
 # Commands defined for wearable
-#------------------------------------------------------------
+# ------------------------------------------------------------
 
 class CmdJoin(MuxCommand):
     """
@@ -36,8 +34,9 @@ class CmdJoin(MuxCommand):
     key = "join"
     locks = "cmd:all()"
     help_category = "Social"
+
     def func(self):
-        "Implements command"
+        """Implements command"""
         caller = self.caller
         places = caller.location.db.places
         table = caller.db.sitting_at_table       
@@ -70,7 +69,6 @@ class CmdJoin(MuxCommand):
         return
 
         
-
 class CmdListPlaces(MuxCommand):
     """
     Lists places in current room for private chat
@@ -87,8 +85,9 @@ class CmdListPlaces(MuxCommand):
     key = "places"
     locks = "cmd:all()"
     help_category = "Social"
+
     def func(self):
-        "Implements command"
+        """Implements command"""
         caller = self.caller
         places = caller.location.db.places
         caller.msg("{wPlaces here:{n")
@@ -98,14 +97,15 @@ class CmdListPlaces(MuxCommand):
             return
         for num in range(len(places)):
             p_name = places[num].key
-            max = places[num].db.max_spots or 0
+            max_spots = places[num].db.max_spots or 0
             occupants = places[num].db.occupants or []
-            spots = max - len(occupants)
+            spots = max_spots - len(occupants)
             caller.msg("%s (#%s) : %s empty spaces" % (p_name, num + 1, spots))
             if occupants:
                 # get names rather than keys so real names don't show up for masked characters
                 names = [ob.name for ob in occupants if ob.access(caller, "view")]
                 caller.msg("-Occupants: %s" % list_to_string(names))
+
 
 class DefaultCmdSet(CmdSet):
     """
@@ -124,7 +124,7 @@ class DefaultCmdSet(CmdSet):
     duplicates = False
 
     def at_cmdset_creation(self):
-        "Init the cmdset"
+        """Init the cmdset"""
         self.add(CmdJoin())
         self.add(CmdListPlaces())
         
@@ -146,9 +146,10 @@ class SittingCmdSet(CmdSet):
     duplicates = False
 
     def at_cmdset_creation(self):
-        "Init the cmdset"
+        """Init the cmdset"""
         self.add(CmdDepart())
         self.add(CmdTableTalk())
+
 
 class CmdDepart(MuxCommand):
     """
@@ -164,8 +165,9 @@ class CmdDepart(MuxCommand):
     key = "depart"
     locks = "cmd:all()"
     help_category = "Social"
+
     def func(self):
-        "Implements command"
+        """Implements command"""
         caller = self.caller
         table = caller.db.sitting_at_table
         if not table:
@@ -173,6 +175,7 @@ class CmdDepart(MuxCommand):
             return
         table.leave(caller)
         caller.msg("You have left the %s." % table.key)
+
 
 class CmdTableTalk(MuxCommand):
     """
@@ -191,8 +194,9 @@ class CmdTableTalk(MuxCommand):
     key = "tt"
     locks = "cmd:all()"
     help_category = "Social"
+
     def func(self):
-        "Implements command"
+        """Implements command"""
         caller = self.caller
         args = self.args
         if not args:
@@ -211,6 +215,5 @@ class CmdTableTalk(MuxCommand):
             msg = "%s {c%s{n%s" % (prefix, caller.name, msg)
             table.tt_msg(msg)
             return
-        caller.msg("%s you say: %s" % (prefix, args))
-        table.tt_msg("%s {c%s{n says: %s" % (prefix, caller.name, args), exclude=caller)
-  
+        caller.msg('%s you say, "%s"' % (prefix, args))
+        table.tt_msg('%s {c%s{n says, "%s"' % (prefix, caller.name, args), exclude=caller)

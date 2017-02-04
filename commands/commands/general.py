@@ -47,6 +47,7 @@ class CmdGameSettings(MuxPlayerCommand):
         @settings/brief
         @settings/posebreak
         @settings/stripansinames
+        @settings/no_ascii
         @settings/lrp
         @settings/afk <message>
         @settings/nomessengerpreview
@@ -91,7 +92,7 @@ class CmdGameSettings(MuxPlayerCommand):
             caller.msg("%s is now off." % attr)
         else:
             caller.msg("%s is now on." % attr)
-            
+
     def func(self):
         caller = self.caller
         char = caller.db.char_ob
@@ -109,6 +110,9 @@ class CmdGameSettings(MuxPlayerCommand):
             return
         if "stripansinames" in switches:
             self.togglesetting(char, "stripansinames")
+            return
+        if "no_ascii" in switches:
+            self.togglesetting(caller, "no_ascii", tag=True)
             return
         if "lrp" in switches:
             self.togglesetting(caller, "lookingforrp")
@@ -470,7 +474,7 @@ class CmdWhisper(MuxCommand):
             lhs = arglist[0]
             rhs = arglist[1]
             lhslist = set(arglist[0].split(","))
-            
+
         if not lhs and rhs:
             # If there are no targets, then set the targets
             # to the last person we paged.
@@ -495,11 +499,11 @@ class CmdWhisper(MuxCommand):
                 return
             if pobj:
                 if hasattr(pobj, 'has_player') and not pobj.has_player:
-                    self.msg("You may only send whispers to online characters.")                 
+                    self.msg("You may only send whispers to online characters.")
                 elif not pobj.location or pobj.location != caller.location:
                     self.msg("You may only whisper characters in the same room as you.")
                 else:
-                    recobjs.append(pobj)                 
+                    recobjs.append(pobj)
         if not recobjs:
             self.msg("No one found to whisper.")
             return
@@ -507,17 +511,17 @@ class CmdWhisper(MuxCommand):
         message = rhs
         # if message begins with a :, we assume it is a 'whisper-pose'
         if message.startswith(":"):
-            message = "%s %s %s" % ("Discreetly,", caller.name, message.strip(':').strip())
+            message = "%s {c%s{n %s" % ("Discreetly,", caller.name, message.strip(':').strip())
             is_a_whisper_pose = True
         elif message.startswith(";"):
-            message = "%s %s%s" % ("Discreetly,", caller.name, message.lstrip(';').strip())
+            message = "%s {c%s{n%s" % ("Discreetly,", caller.name, message.lstrip(';').strip())
             is_a_whisper_pose = True
         else:
             is_a_whisper_pose = False
-            message = "'" + message + "'"
+            message = '"' + message + '"'
         # create the temporary message object
         temp_message = TempMsg(senders=caller, receivers=recobjs, message=message)
-                              
+
         caller.ndb.whispers_sent.append(temp_message)
 
         # tell the players they got a message.
@@ -548,10 +552,10 @@ class CmdWhisper(MuxCommand):
                                 received[-1])
             else:
                 received.append("{c%s{n" % pobj.name)
-            # afk = pobj.db.player_ob and pobj.db.player_ob.db.afk
-            # if afk:
-            #     pobj.msg("{wYou inform {c%s{w that you are AFK:{n %s" % (caller, afk))
-            #     rstrings.append("{c%s{n is AFK: %s" % (pobj.name, afk))
+                # afk = pobj.db.player_ob and pobj.db.player_ob.db.afk
+                # if afk:
+                #     pobj.msg("{wYou inform {c%s{w that you are AFK:{n %s" % (caller, afk))
+                #     rstrings.append("{c%s{n is AFK: %s" % (pobj.name, afk))
         if rstrings:
             self.msg("\n".join(rstrings))
         if received:

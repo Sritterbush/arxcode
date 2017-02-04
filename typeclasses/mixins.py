@@ -1,4 +1,5 @@
 from server.utils.arx_utils import sub_old_ansi
+import re
 
 
 class DescMixins(object):
@@ -214,7 +215,6 @@ class NameMixins(object):
 
 
 class AppearanceMixins(object):
-    
     def return_contents(self, pobject, detailed=True, show_ids=False,
                         strip_ansi=False, show_places=True):
         """
@@ -229,6 +229,7 @@ class AppearanceMixins(object):
         :param strip_ansi: bool
         :param show_places: bool
         """
+
         def get_key(ob):
             if show_ids:
                 object_key = "%s {w(ID: %s){n" % (ob.name, ob.id)
@@ -241,6 +242,7 @@ class AppearanceMixins(object):
                 except (AttributeError, TypeError, ValueError):
                     pass
             return object_key
+
         string = ""
         # get and identify all objects
         visible = (con for con in self.contents if con != pobject and con.access(pobject, "view"))
@@ -303,7 +305,7 @@ class AppearanceMixins(object):
             if currency:
                 string += "\n{wMoney:{n %s" % currency
         return string
-    
+
     def pay_money(self, amount, receiver=None):
         """
         A method to pay money from this object, possibly to a receiver.
@@ -324,7 +326,7 @@ class AppearanceMixins(object):
                 receiver.db.currency = 0.0
             receiver.db.currency += amount
         return True
-    
+
     def return_currency(self):
         """
         :type self: ObjectDB
@@ -471,6 +473,10 @@ class ObjectMixins(DescMixins, AppearanceMixins):
                 pass
 
 
+# regex strips ascii from stuff to make it boring
+RE_ASCII = re.compile(r"<ascii>(.*?)</ascii>", re.IGNORECASE)
+
+
 class MsgMixins(object):
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):
         """
@@ -543,6 +549,10 @@ class MsgMixins(object):
                     player_ob.log_message(from_obj, text)
         except AttributeError:
             pass
+        if 'no_ascii' in player_ob.tags.all():
+            text = RE_ASCII.sub("", text)
+        else:
+            text = RE_ASCII.sub(r"\1", text)
         super(MsgMixins, self).msg(text, from_obj, session, options, **kwargs)
 
 
