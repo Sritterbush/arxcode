@@ -25,7 +25,7 @@ class CmdGMCrisis(MuxPlayerCommand):
 
     Use /needgm or /needgm/listquestions to list ones
     that have not been answered. To use this command properly, use /check to make
-    checks for players, then write /gmotes and their /outcome for each action.
+    checks for players, then write /gmnotes and their /outcome for each action.
     That will make the action ready to be sent. Then use /sendresponses to send
     all the actions out simultaneously, which will create a new update for that
     crisis with the text provided and point all those actions to that update.
@@ -204,8 +204,7 @@ class CmdCrisisAction(MuxPlayerCommand):
             qs = Crisis.objects.all()
         else:
             qs = Crisis.objects.filter(
-            Q(public=True) |
-            Q(required_clue__discoveries__in=self.caller.roster.finished_clues))
+                Q(public=True) | Q(required_clue__discoveries__in=self.caller.roster.finished_clues))
         if "old" in self.switches:
             qs = qs.filter(resolved=True)
         return qs
@@ -261,7 +260,11 @@ class CmdCrisisAction(MuxPlayerCommand):
         self.msg("You are going to perform this action: %s" % self.rhs)
         inform_staff("%s has created a new crisis action: %s" % (self.caller, self.rhs))
 
-    def get_action(self):
+    def get_action(self, get_all=False):
+        if not get_all:
+            qs = self.current_actions
+        else:
+            qs = self.caller.Dominion.actions.all()
         try:
             return self.current_actions.get(id=self.lhs)
         except (CrisisAction.DoesNotExist, ValueError):
@@ -269,7 +272,7 @@ class CmdCrisisAction(MuxPlayerCommand):
             return
 
     def view_action(self):
-        action = self.get_action()
+        action = self.get_action(get_all=True)
         if not action:
             return
         msg = action.view_action(self.caller, disp_pending=True, disp_old=True)
