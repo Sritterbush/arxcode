@@ -45,12 +45,12 @@ class JournalListView(LimitPageMixin, ListView):
         if not user or not user.is_authenticated():
             return []
         if user.is_staff:
-            qs = Msg.objects.filter((Q(db_header__icontains='white_journal') |
-                                     Q(db_header__icontains='black_journal')) &
+            qs = Msg.objects.filter((Q(db_tags__db_key='white_journal') |
+                                     Q(db_tags__db_key='black_journal')) &
                                     Q(db_receivers_players=user)).order_by('-db_date_created')
         else:
-            qs = Msg.objects.filter((Q(db_header__icontains='white_journal') |
-                                    (Q(db_header__icontains='black_journal') &
+            qs = Msg.objects.filter((Q(db_tags__db_key='white_journal') |
+                                    (Q(db_tags__db_key='black_journal') &
                                      Q(db_sender_objects=user.db.char_ob))) & Q(db_receivers_players=user)
                                     ).order_by('-db_date_created')
         return self.search_filters(qs)
@@ -58,14 +58,14 @@ class JournalListView(LimitPageMixin, ListView):
     def get_queryset(self):
         user = self.request.user
         if not user or not user.is_authenticated() or not user.db.char_ob:
-            qs = Msg.objects.filter(db_header__icontains="white_journal").order_by('-db_date_created')
+            qs = Msg.objects.filter(db_tags__db_key="white_journal").order_by('-db_date_created')
         elif user.is_staff:
-            qs = Msg.objects.filter((Q(db_header__icontains='white_journal') |
-                                     Q(db_header__icontains='black_journal')) &
+            qs = Msg.objects.filter((Q(db_tags__db_key='white_journal') |
+                                     Q(db_tags__db_key='black_journal')) &
                                     ~Q(db_receivers_players=user)).order_by('-db_date_created')
         else:
-            qs = Msg.objects.filter((Q(db_header__icontains='white_journal') |
-                                    (Q(db_header__icontains='black_journal') &
+            qs = Msg.objects.filter((Q(db_tags__db_key='white_journal') |
+                                    (Q(db_tags__db_key='black_journal') &
                                      Q(db_sender_objects=user.db.char_ob))) & ~Q(db_receivers_players=user)
                                     ).order_by('-db_date_created')
         return self.search_filters(qs)
@@ -177,11 +177,11 @@ def journal_list_json(request):
     global API_CACHE
     if timestamp:
         ret = map(get_response, Msg.objects.filter(Q(db_date_created__gt=timestamp) &
-                                                   Q(db_header__icontains="white_journal")
+                                                   Q(db_tags__db_key="white_journal")
                                                    ).order_by('-db_date_created'))
         return HttpResponse(json.dumps(ret), content_type='application/json')
     if not API_CACHE:  # cache the list of all of them
-        ret = map(get_response, Msg.objects.filter(db_header__icontains="white_journal"
+        ret = map(get_response, Msg.objects.filter(db_tags__db_key="white_journal"
                                                    ).order_by('-db_date_created'))
         API_CACHE = json.dumps(ret)
     return HttpResponse(API_CACHE, content_type='application/json')

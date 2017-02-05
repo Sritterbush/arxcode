@@ -117,7 +117,8 @@ class CmdGossip(MuxCommand):
             caller.msg(msg)
             return
         if "start" in self.switches:
-            rumor = create_message(caller, self.lhs, receivers=(loc, caller), header=self.key)
+            rumor = create_message(caller, self.lhs, receivers=(loc, caller))
+            rumor.tags.add(self.key, category="msg")
             if rumor not in loc.messages.gossip:
                 loc.messages.gossip.append(rumor)
             heard = caller.ndb.heard_rumors or []
@@ -270,7 +271,8 @@ class CmdRumor(CmdGossip):
             if not player.db.char_ob:
                 caller.msg("They have no character.")
                 return
-            rumor = create_message(caller, self.rhs, receivers=(loc, caller, player), header=self.key)
+            rumor = create_message(caller, self.rhs, receivers=(loc, caller, player))
+            rumor.tags.add(self.key, category="msg")
             if rumor not in loc.messages.rumors:
                 loc.messages.rumors.append(rumor)
             caller.msg("You have started the rumor: %s" % self.lhs)

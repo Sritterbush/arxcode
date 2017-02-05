@@ -3321,7 +3321,7 @@ class RPEvent(models.Model):
         msg += "{wDesc:{n\n%s\n" % self.desc
         webpage = PAGEROOT + self.get_absolute_url()
         msg += "{wEvent Page:{n %s\n" % webpage
-        comments = self.comments.filter(db_header__icontains="white_journal").order_by('-db_date_created')
+        comments = self.comments.filter(db_tags__db_key="white_journal").order_by('-db_date_created')
         if comments:
             from server.utils.prettytable import PrettyTable
             msg += "\n{wComments:{n"
@@ -3383,18 +3383,12 @@ class RPEvent(models.Model):
                 return None
 
     def tag_obj(self, obj):
-        from evennia.typeclasses.tags import Tag
-        try:
-            tag = Tag.objects.get(db_key=self.tagkey)
-        except Tag.DoesNotExist:
-            tag = Tag.objects.create(db_key=self.tagkey, db_data=self.tagdata,
-                                     db_category="event")
-        obj.db_tags.add(tag)
+        obj.tags.add(self.tagkey, data=self.tagdata, category="event")
         return obj
 
     @property
     def public_comments(self):
-        return self.comments.filter(db_header__icontains="white_journal")
+        return self.comments.filter(db_tags__db_key="white_journal")
 
     def get_absolute_url(self):
         return reverse('dominion:display_event', kwargs={'pk': self.id})

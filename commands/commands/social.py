@@ -349,7 +349,7 @@ class CmdJournal(MuxCommand):
     def disp_unread_journals(self):
         caller = self.caller
         from evennia.comms.models import Msg
-        msgs = Msg.objects.filter(Q(db_header__contains="white_journal")
+        msgs = Msg.objects.filter(Q(db_tags__db_key="white_journal")
                                   & ~Q(db_receivers_players=caller.db.player_ob)).order_by('-db_date_created')
         msgs = [msg.id for msg in msgs]
         if len(msgs) > 500:
@@ -368,7 +368,7 @@ class CmdJournal(MuxCommand):
         caller = self.caller
         tag_name = "pid_%s_favorite" % caller.db.player_ob.id
         from evennia.comms.models import Msg
-        msgs = Msg.objects.filter(Q(db_header__contains="white_journal")
+        msgs = Msg.objects.filter(Q(db_tags__db_key="white_journal")
                                   & ~Q(db_receivers_players=caller.db.player_ob)
                                   & Q(db_tags__db_key=tag_name)).order_by('-db_date_created')
         msgs = [msg.id for msg in msgs]
@@ -389,7 +389,7 @@ class CmdJournal(MuxCommand):
         from evennia.comms.models import Msg
         caller = self.caller
         player = caller.db.player_ob
-        all_msgs = Msg.objects.filter(Q(db_header__contains="white_journal") &
+        all_msgs = Msg.objects.filter(Q(db_tags__db_key="white_journal") &
                                       ~Q(db_receivers_players=player)
                                       # & ~Q(db_sender_objects__roster__current_account=caller.roster.current_account)
                                       ).distinct()
@@ -877,7 +877,7 @@ class CmdMessenger(MuxCommand):
                 for mess in old:
                     name = caller.messages.get_sender_name(mess)
                     date = caller.messages.get_date_from_header(mess) or "Unknown"
-                    saved = "{w*{n" if "preserve" in mess.db_header else ""
+                    saved = "{w*{n" if "preserve" in mess.tags.all() else ""
                     msgtable.add_row([mess_num, name, date, saved])
                     mess_num += 1
                 caller.msg(msgtable)
@@ -907,15 +907,14 @@ class CmdMessenger(MuxCommand):
                     caller.msg("You destroy all evidence that you ever received that message.")
                     return
                 if "preserve" in self.switches:
-                    pres_count = caller.receiver_object_set.filter(db_header__icontains="preserve").count()
+                    pres_count = caller.receiver_object_set.filter(db_tags__db_key="preserve").count()
                     if pres_count >= 200:
                         caller.msg("You are preserving the maximum amount of messages allowed.")
                         return
-                    if "preserve" in msg.db_header:
+                    if "preserve" in msg.tags.all():
                         caller.msg("That message is already being preserved.")
                         return
-                    msg.db_header = "%s;preserve" % msg.db_header
-                    msg.save()
+                    msg.tags.add("preserve", category="msg")
                     caller.msg("This message will no longer be automatically deleted.")
                 self.disp_messenger(caller, msg)
                 return
@@ -926,7 +925,7 @@ class CmdMessenger(MuxCommand):
                 caller.msg("You must supply a number between 1 and %s. You wrote '%s'." % (len(old), self.lhs))
                 return
         if "sent" in self.switches or "sentindex" in self.switches or "oldsent" in self.switches:
-            old = list(caller.sender_object_set.filter(db_header__icontains="messenger").order_by('-db_date_created'))
+            old = list(caller.sender_object_set.filter(db_tags__db_key="messenger").order_by('-db_date_created'))
             if not old:
                 caller.msg("There are no traces of old messages you sent. They may have all been destroyed.")
                 return
@@ -1202,7 +1201,7 @@ class CmdCalendar(MuxPlayerCommand):
                 if num < 1:
                     raise ValueError
                 comments = list(event.comments.filter(
-                    db_header__icontains="white_journal").order_by('-db_date_created'))
+                    db_tags__db_key="white_journal").order_by('-db_date_created'))
                 caller.msg(char.messages.disp_entry(comments[num - 1]))
                 return
             except (ValueError, TypeError):
