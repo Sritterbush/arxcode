@@ -24,7 +24,7 @@
 		{% for obj in object_list %}
 			<h2> Written By {% if obj.senders.0.get_absolute_url %}
             <a href="{{ obj.senders.0.get_absolute_url }}">{{ obj.senders.0 }}</a>
-                {% else %}{{ obj.senders.0 }}{% endif %}{% if "black_journal" in obj.db_header %} in Black Journal{% endif %}</h2>
+                {% else %}{{ obj.senders.0 }}{% endif %}{% if "black_journal" in obj.tags.all %} in Black Journal{% endif %}</h2>
 			<p class="newsDate">{{obj.db_date_created}}</p>
 			{% if obj.db_receivers_objects.all.0 %}
 				<h2> Relationship Note on {% if obj.db_receivers_objects.all.0.get_absolute_url %}
@@ -110,7 +110,7 @@
 		{% for obj in read_journals %}
 			<h2> Written By {% if obj.senders.0.get_absolute_url %}
             <a href="{{ obj.senders.0.get_absolute_url }}">{{ obj.senders.0 }}</a>
-                {% else %}{{ obj.senders.0 }}{% endif %}{% if "black_journal" in obj.db_header %} in Black Journal{% endif %}</h2>
+                {% else %}{{ obj.senders.0 }}{% endif %}{% if "black_journal" in obj.tags.all %} in Black Journal{% endif %}</h2>
 			<p class="newsDate">{{obj.db_date_created}}</p>
 			{% if obj.db_receivers_objects.all.0 %}
 				<h2> Relationship Note on {% if obj.db_receivers_objects.all.0.get_absolute_url %}
