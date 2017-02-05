@@ -692,7 +692,7 @@ class Investigation(models.Model):
                 a_roll = 0
             try:
                 ability_level = ass.char.db.abilities['investigation_assistant']
-            except (AttributeError, ValueError, KeyError):
+            except (AttributeError, ValueError, KeyError, TypeError):
                 ability_level = 0
             a_roll += random.randint(0, 5) * ability_level
             roll += a_roll
