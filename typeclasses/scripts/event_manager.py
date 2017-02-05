@@ -194,7 +194,8 @@ class EventManager(Script):
         if event.public_event:
             SESSIONS.announce_all(end_str)
         else:
-            loc.msg_contents(end_str)
+            if loc:
+                loc.msg_contents(end_str)
         event.finished = True
         event.save()
         if event.id in self.db.active_events:

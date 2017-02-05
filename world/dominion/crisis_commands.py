@@ -222,11 +222,18 @@ class CmdCrisisAction(MuxPlayerCommand):
             date = "--" if not ob.end_date else ob.end_date.strftime("%x %H:%M")
             table.add_row(ob.id, ob.name, ob.headline, ob.rating, date)
         self.msg(table)
-        self.msg("{wYour actions:{n")
+        self.msg("{wYour pending actions:{n")
         table = EvTable("{w#{n", "{wCrisis{n")
         for ob in self.current_actions:
             table.add_row(ob.id, ob.crisis)
         self.msg(table)
+        past_actions = self.caller.Dominion.actions.filter(sent=True)
+        if past_actions:
+            table = EvTable("{w#{n", "{wCrisis{n")
+            self.msg("{wYour past actions:{n")
+            for ob in past_actions:
+                table.add_row(ob.id, ob.crisis)
+            self.msg(table)
 
     def get_crisis(self):
         try:
