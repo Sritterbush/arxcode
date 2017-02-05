@@ -266,7 +266,7 @@ class CmdCrisisAction(MuxPlayerCommand):
         else:
             qs = self.caller.Dominion.actions.all()
         try:
-            return self.current_actions.get(id=self.lhs)
+            return qs.get(id=self.lhs)
         except (CrisisAction.DoesNotExist, ValueError):
             self.msg("No action found by that id. Remember to specify the number of the action, not the crisis.")
             return
