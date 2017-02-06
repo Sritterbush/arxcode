@@ -89,7 +89,8 @@ class WeeklyEvents(Script):
         from django.db.models import Q, F
         for owner in AssetOwner.objects.filter(
                         Q(organization_owner__isnull=False) |
-                        Q(player__player__roster__roster__name="Active")).distinct():
+                        (Q(player__player__roster__roster__name="Active") &
+                         Q(player__player__roster__frozen=False))).distinct():
             try:
                 owner.do_weekly_adjustment(self.db.week)
             except Exception as err:
