@@ -8,7 +8,7 @@ from .scripts import Script
 from server.utils.arx_utils import inform_staff
 from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
-from world.dominion.models import AssetOwner, Army, AssignedTask
+from world.dominion.models import AssetOwner, Army, AssignedTask, Member, AccountTransaction
 import traceback
 from django.db.models import Q
 from datetime import datetime, timedelta
@@ -86,17 +86,20 @@ class WeeklyEvents(Script):
         self.db.week += 1
 
     def do_dominion_events(self):
-        from django.db.models import Q
+        from django.db.models import Q, F
         for owner in AssetOwner.objects.filter(
-                        (Q(organization_owner__isnull=False) &
-                         Q(organization_owner__members__player__player__roster__roster__name="Active") &
-                         Q(organization_owner__members__player__player__roster__frozen=False)) |
+                        Q(organization_owner__isnull=False) |
                         Q(player__player__roster__roster__name="Active")).distinct():
             try:
                 owner.do_weekly_adjustment(self.db.week)
             except Exception as err:
                 traceback.print_exc()
                 print "Error in %s's weekly adjustment: %s" % (owner, err)
+        # resets the weekly record of work command
+        Member.objects.filter(deguilded=False).update(work_this_week=0)
+        # decrement timer of limited transactions, remove transactions that are over
+        AccountTransaction.objects.filter(repetitions_left__gt=0).update(repetitions_left=F('repetitions_left') - 1)
+        AccountTransaction.objects.filter(repetitions_left=0).delete()
         for army in Army.objects.all():
             try:
                 army.execute_orders(self.db.week)

@@ -515,24 +515,26 @@ class AssetOwner(models.Model):
     def do_weekly_adjustment(self, week):
         amount = 0
         report = None
+        npc = True
         player = self.inform_target
-        if self.player and self.player.player:
-            # if we're a player, send them the report
-            for member in self.player.memberships.filter(deguilded=False):
-                member.work_this_week = 0
-                member.save()
+        org = self.organization_owner
         if player:
             report = WeeklyReport(player, week, self)
+            npc = False
+        elif org:
+            if org.members.filter(Q(player__player__roster__roster__name="Active") &
+                                  Q(player__player__roster__frozen=False)):
+                npc = False
         if hasattr(self, 'estate'):
             for domain in self.estate.holdings.all():
-                amount += domain.do_weekly_adjustment(week, report)
+                amount += domain.do_weekly_adjustment(week, report, npc)
         for agent in self.agents.all():
             amount -= agent.cost
         # WeeklyTransactions
         for income in self.incomes.filter(do_weekly=True):
             amount += income.process_payment(report)
-            income.post_repeat()
-        if self.organization_owner:
+            # income.post_repeat()
+        if org:
             # record organization's income
             amount += self.organization_owner.amount
             # organization prestige decay
@@ -1222,13 +1224,15 @@ class Domain(models.Model):
     
     def __repr__(self):
         return "<Domain (#%s): %s>" % (self.id, self.name or 'Unnamed')
-    
-    def do_weekly_adjustment(self, week, report=None):
+
+    def do_weekly_adjustment(self, week, report=None, npc=False):
         """
         Determine how much money we're passing up to the ruler of our domain. Make
         all the people and armies of this domain eat their food for the week. Bad
         things will happen if they don't have enough food.
         """
+        if npc:
+            return self.total_income - self.costs
         self.stored_food += self.food_production
         self.stored_food += self.shipped_food
         hunger = self.food_consumption - self.stored_food
@@ -1237,7 +1241,7 @@ class Domain(models.Model):
             self.stored_food = 0
             self.lawlessness += 5
             # unless we have a very large population, we'll only lose 1 serf as a penalty
-            lost_serfs = hunger/100 + 1
+            lost_serfs = hunger / 100 + 1
             self.kill_serfs(lost_serfs)
         else:  # hunger is negative, we have enough food for it
             self.stored_food += hunger
@@ -1256,7 +1260,7 @@ class Domain(models.Model):
         self.save()
         self.reset_expected_tax_payment()
         return total_amount
-    
+
     def display(self):
         castellan = None
         liege = "Crownsworn"

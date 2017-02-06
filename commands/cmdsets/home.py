@@ -349,9 +349,10 @@ class CmdBuildRoom(CmdDig):
         if not self.rhs or len(self.rhslist) < 2:
             caller.msg("You must specify an exit and return exit for the new room.")
             return
-        
-        if not re.findall('^[\-\w\'{\[,%; ]+$', self.lhs) or not re.findall('^[\-\w\'{\[,%; ]+$', self.rhs):
-            caller.msg("Invalid chraacters entered for names or exits.")
+
+        if not re.findall('^[\-\w\'{\[,%;| ]+$', self.lhs) or not re.findall('^[\-\w\'{\[,%;| ]+$', self.rhs):
+            caller.msg("Invalid characters entered for names or exits.")
+            return
         new_room = CmdDig.func(self)
         if not new_room:
             return
