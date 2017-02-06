@@ -452,15 +452,15 @@ class CmdCraft(MuxCommand):
             caller.msg("You have no crafting project.")
             return
         if "name" in self.switches:
-            if not self.lhs:
+            if not self.args:
                 caller.msg("Name it what?")
                 return
-            if not validate_name(self.lhs):
+            if not validate_name(self.args):
                 caller.msg("That is not a valid name.")
                 return
-            proj[1] = self.lhs
+            proj[1] = self.args
             caller.db.crafting_project = proj
-            caller.msg("Name set to %s." % self.lhs)
+            caller.msg("Name set to %s." % self.args)
             return
         if "desc" in self.switches:
             if not self.args:
