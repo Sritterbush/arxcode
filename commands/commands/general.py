@@ -1524,6 +1524,8 @@ class CmdLockObject(MuxCommand):
             lock_method = getattr(obj, verb)
             lock_method(caller)
         except AttributeError:
+            import traceback
+            traceback.print_exc()
             self.msg("You cannot %s %s." % (verb, obj))
             return
 

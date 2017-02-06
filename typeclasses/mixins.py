@@ -478,6 +478,7 @@ RE_ASCII = re.compile(r"<ascii>(.*?)</ascii>", re.IGNORECASE)
 # designates text to be ascii-free by a crafter
 RE_ALT_ASCII = re.compile(r"<noascii>(.*?)</noascii>", re.IGNORECASE)
 
+
 class MsgMixins(object):
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):
         """
