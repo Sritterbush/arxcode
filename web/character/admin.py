@@ -167,7 +167,7 @@ class MystForEntry(MystDiscoInline):
 
 class RevForEntry(RevDiscoInline):
     fk_name = 'character'
-    raw_id_fields = ('character', 'revelation')
+    raw_id_fields = ('character', 'revelation', 'investigation', 'revealed_by')
 
 
 class EntryAdmin(NoDeleteAdmin):
