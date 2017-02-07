@@ -37,17 +37,17 @@ class MsgListFilter(admin.SimpleListFilter):
 
     def queryset(self, request, queryset):
         if self.value() == 'dispwhite':
-            return queryset.filter(db_header__icontains="white_journal")
+            return queryset.filter(db_tags__db_key="white_journal")
         if self.value() == "dispblack":
-            return queryset.filter(db_header__icontains="black_journal")
+            return queryset.filter(db_tags__db_key="black_journal")
         if self.value() == "dispmess":
-            return queryset.filter(db_header__icontains="messenger")
+            return queryset.filter(db_tags__db_key="messenger")
         if self.value() == "disprumor":
-            return queryset.filter(db_header__icontains="rumor")
+            return queryset.filter(db_tags__db_key="rumor")
         if self.value() == "dispgossip":
-            return queryset.filter(db_header__icontains="gossip")
+            return queryset.filter(db_tags__db_key="gossip")
         if self.value() == "dispvision":
-            return queryset.filter(db_header__icontains="visions")
+            return queryset.filter(db_tags__db_key="visions")
         if self.value() == "dispevent":
             return queryset.filter(db_tags__db_category="event")
         if self.value() == "disposts":
@@ -71,9 +71,9 @@ class MsgAdmin(admin.ModelAdmin):
     list_display_links = ("id",)
     ordering = ["db_date_created"]
     # readonly_fields = ['db_message', 'db_sender', 'db_receivers', 'db_channels']
-    search_fields = ['db_sender_players__db_key', "db_receivers_players__db_key",
+    search_fields = ['db_sender_players__db_key',
                      "db_sender_objects__db_key", "db_receivers_objects__db_key",
-                     'id', '^db_date_created', '^db_message']
+                     'id', '^db_date_created']
     save_as = True
     save_on_top = True
     list_select_related = True

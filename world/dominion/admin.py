@@ -18,19 +18,26 @@ class DomAdmin(admin.ModelAdmin):
         return str(obj)
 
 
+class ReputationInline(admin.TabularInline):
+    model = Reputation
+    raw_id_fields = ('player', 'organization')
+    extra = 0
+
+
 class PCAdmin(DomAdmin):
     search_fields = ['player__username', 'npc_name']
     filter_horizontal = ['parents', 'spouses']
-    raw_id_fields = ('player',)
+    raw_id_fields = ('player', 'patron')
     list_select_related = (
         'player',
     )
+    inlines = (ReputationInline,)
 
 
 class MemberInline(admin.StackedInline):
     model = Member
     extra = 0
-    raw_id_fields = ('commanding_officer', 'player')
+    raw_id_fields = ('commanding_officer', 'player', 'organization')
     exclude = ('object', 'pc_exists', 'salary')
     readonly_fields = ('work_this_week', 'work_total')
 
@@ -236,6 +243,7 @@ class OrgRelationshipAdmin(DomAdmin):
 class ReputationAdmin(DomAdmin):
     list_display = ('player', 'organization', 'affection', 'respect')
     raw_id_fields = ('player', 'organization')
+    search_fields = ('player__player__username', 'organization__name')
 
 
 class SpheresInline(admin.TabularInline):
