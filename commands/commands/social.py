@@ -1934,7 +1934,7 @@ class CmdRandomScene(MuxCommand):
 
     @property
     def claimlist(self):
-        return set((self.caller.db.player_ob.db.claimed_scenelist or []) + self.requested_validation)
+        return set(list(self.caller.db.player_ob.db.claimed_scenelist or []) + list(self.requested_validation))
 
     @property
     def validatedlist(self):
