@@ -2,13 +2,16 @@ import json
 
 from django.http import HttpResponse
 from django.views.generic import ListView
-from evennia.comms.models import Msg
-from .forms import (JournalMarkAllReadForm, JournalWriteForm, JournalMarkOneReadForm, JournalMarkFavorite,
-                    JournalRemoveFavorite)
 from django.db.models import Q
 from django.http import HttpResponseRedirect
 from django.http import Http404
 from django.core.urlresolvers import reverse
+from django.core.exceptions import PermissionDenied
+
+from evennia.comms.models import Msg
+
+from .forms import (JournalMarkAllReadForm, JournalWriteForm, JournalMarkOneReadForm, JournalMarkFavorite,
+                    JournalRemoveFavorite)
 from server.utils.view_mixins import LimitPageMixin
 
 # Create your views here.
@@ -18,7 +21,6 @@ class JournalListView(LimitPageMixin, ListView):
     model = Msg
     template_name = 'msgs/journal_list.html'
     paginate_by = 20
-    additional_pages = {'read_journals': ('get_read_journals', 'read_page')}
 
     def search_filters(self, queryset):
         get = self.request.GET
@@ -40,21 +42,6 @@ class JournalListView(LimitPageMixin, ListView):
                 queryset = queryset.filter(db_tags__db_key=favtag)
         return queryset
 
-    def get_read_journals(self):
-        user = self.request.user
-        if not user or not user.is_authenticated():
-            return []
-        if user.is_staff:
-            qs = Msg.objects.filter((Q(db_tags__db_key='white_journal') |
-                                     Q(db_tags__db_key='black_journal')) &
-                                    Q(db_receivers_players=user)).order_by('-db_date_created')
-        else:
-            qs = Msg.objects.filter((Q(db_tags__db_key='white_journal') |
-                                    (Q(db_tags__db_key='black_journal') &
-                                     Q(db_sender_objects=user.db.char_ob))) & Q(db_receivers_players=user)
-                                    ).order_by('-db_date_created')
-        return self.search_filters(qs)
-
     def get_queryset(self):
         user = self.request.user
         if not user or not user.is_authenticated() or not user.db.char_ob:
@@ -65,19 +52,14 @@ class JournalListView(LimitPageMixin, ListView):
                                     ~Q(db_receivers_players=user)).order_by('-db_date_created')
         else:
             qs = Msg.objects.filter((Q(db_tags__db_key='white_journal') |
-                                    (Q(db_tags__db_key='black_journal') &
-                                     Q(db_sender_objects=user.db.char_ob))) & ~Q(db_receivers_players=user)
+                                     (Q(db_tags__db_key='black_journal') &
+                                      Q(db_sender_objects=user.db.char_ob))) & ~Q(db_receivers_players=user)
                                     ).order_by('-db_date_created')
         return self.search_filters(qs)
 
     def get_context_data(self, **kwargs):
         context = super(JournalListView, self).get_context_data(**kwargs)
         # paginating our read journals as well as unread
-        read_page = self.request.GET.get('read_page')
-        if read_page:
-            context['read_is_active'] = True
-        else:
-            context['read_is_active'] = False
         search_tags = ""
         sender = self.request.GET.get('sender_name', None)
         if sender:
@@ -132,6 +114,26 @@ class JournalListView(LimitPageMixin, ListView):
             else:
                 raise Http404(form.errors)
         return HttpResponseRedirect(reverse('msgs:list_journals'))
+
+
+class JournalListReadView(JournalListView):
+    template_name = 'msgs/journal_list_read.html'
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user or not user.is_authenticated() or not user.db.char_ob:
+            raise PermissionDenied("You must be logged in.")
+        if user.is_staff:
+            qs = Msg.objects.filter((Q(db_tags__db_key='white_journal') |
+                                     Q(db_tags__db_key='black_journal')) &
+                                    Q(db_receivers_players=user)).order_by('-db_date_created')
+        else:
+            qs = Msg.objects.filter((Q(db_tags__db_key='white_journal') |
+                                     (Q(db_tags__db_key='black_journal') &
+                                      Q(db_sender_objects=user.db.char_ob))) & Q(db_receivers_players=user)
+                                    ).order_by('-db_date_created')
+        return self.search_filters(qs)
+
 
 API_CACHE = None
 

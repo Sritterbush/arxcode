@@ -12,15 +12,12 @@
     </form>
     </div>
     <ul class="nav nav-pills">
-        <li class="active"><a data-toggle="pill" href="#unreadjournals">Unread Journals</a></li>
-        {% if user.is_authenticated and user.db.char_ob %}
-        <li><a href="{% url 'msgs:list_read_journals' %}">Read Journals</a></li>
+        <li><a href="{% url 'msgs:list_journals' %}">Unread Journals</a></li>
+        <li class="active"><a data-toggle="pill" href="#readjournals">Read Journals</a></li>
         <li> <a data-toggle="pill" href="#writejournal">Write Journal Entry</a></li>
-        {% endif %}
     </ul>
-    <div class="tab-content">
-        <div id="unreadjournals" class="tab-pane fade in active">
 
+        <div id="readjournals" class="tab-pane fade in active">
         {% for obj in object_list %}
             <h2> Written By {% if obj.senders.0.get_absolute_url %}
             <a href="{{ obj.senders.0.get_absolute_url }}">{{ obj.senders.0 }}</a>
@@ -32,36 +29,23 @@
                 {% else %}{{ obj.db_receivers_objects.all.0 }}{% endif %}</h2>
             {% endif %}
             <div class="well">{{obj.db_message|mush_to_html}}</div>
-            {% if user.is_authenticated and user.db.char_ob %}
-                <div class="row">
-                <div class="col-sm-3">
-                <form action="." method="post">
-                {% csrf_token %}
-                <input type="hidden" value="{{obj.id}}" name="choice" />
-                <button class="btn btn-default" type="submit" name="mark_one_read">Mark journal as read</button>
-                </form>
-                </div>
-                    <div class ="col-m-3">
-                    {% if fav_tag and fav_tag not in obj.tags.all %}
+                {% if fav_tag and fav_tag not in obj.tags.all %}
                     <form action="." method="post">
                     {% csrf_token %}
                     <input type="hidden" value="{{obj.id}}" name="tagged" />
                     <button class="btn btn-primary" type="submit" name="mark_favorite">Mark journal as favorite</button>
                     </form>
-                    {% else %}
+                {% else %}
                     <form action="." method="post">
                     {% csrf_token %}
                     <input type="hidden" value="{{obj.id}}" name="untagged" />
                     <button class="btn btn-default" type="submit" name="remove_favorite">Remove journal as favorite</button>
                     </form>
-                    {% endif %}
-                    </div>
-                </div>
-            {% endif %}
+                {% endif %}
             <hr />
-
         {% endfor %}
-        {% if is_paginated %}
+
+            {% if is_paginated %}
             <div class="pagination">
             <ul class="pagination nav navbar-nav">
                 {% if page_obj.has_previous %}
@@ -93,17 +77,7 @@
             </ul>
             </div>
         {% endif %}
-        {% if user.is_authenticated and user.db.char_ob %}
-        <form action="." method="post">
-        {% csrf_token %}
-        {% for obj in object_list %}
-        <input type="hidden" value="{{obj.id}}" name="choices" />
-        {% endfor %}
-        <button class="btn btn-success" type="submit" name="mark_all_read">Mark all journals on this page as read</button>
-        </form>
-        {% endif %}
 
-    </div>
         <div id="writejournal" class="tab-pane fade">
         <form action="." method="post">
             {% csrf_token %}
@@ -113,7 +87,7 @@
             <br><button class="btn btn-success" type="submit" name="write_journal">Submit Journal Entry</button>
         </form>
         </div> <!-- write journals-->
-
     </div> <!--tab content-->
 </div> <!--container-->
+
 {% endblock %}
