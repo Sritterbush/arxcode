@@ -23,7 +23,7 @@ def validate_name(name, formatting=True, not_player=True):
     if player_conflict:
         return None
     if formatting:
-        return re.findall('^[\-\w\'{\[,|% ]+$', name)
+        return re.findall('^[\-\w\'{\[,|%=_ ]+$', name)
     return re.findall('^[\w\']+$', name)
 
 

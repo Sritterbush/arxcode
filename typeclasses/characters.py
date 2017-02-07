@@ -87,7 +87,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             string += self.location.event_string()
             self.msg(string)
         else:
-            self.execute_cmd('look')
+            self.msg(self.at_look(self.location))
         if self.ndb.waypoint:
             if self.location == self.ndb.waypoint:
                 self.msg("You have reached your destination.")
