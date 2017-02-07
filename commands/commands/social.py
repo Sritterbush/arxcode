@@ -1934,11 +1934,15 @@ class CmdRandomScene(MuxCommand):
 
     @property
     def claimlist(self):
-        return self.caller.db.player_ob.db.claimed_scenelist or []
+        return set((self.caller.db.player_ob.db.claimed_scenelist or []) + self.requested_validation)
 
     @property
     def validatedlist(self):
         return self.caller.db.player_ob.db.validated_list or []
+
+    @property
+    def requested_validation(self):
+        return self.caller.db.player_ob.db.requested_validation or []
 
     @property
     def newbies(self):
@@ -2025,13 +2029,17 @@ class CmdRandomScene(MuxCommand):
         name = self.caller.name
         requests[name.lower()] = tup
         targ.db.scene_requests = requests
-        msg = "%s has requested that you validate their RP scene with you, which will grant you both xp." % name
+        msg = "%s has submitted a RP scene that included you, for which you have received xp. " % name
+        msg += "Validating it will grant them xp."
         msg += "\n\nTheir summary of the scene was the following: %s\n" % self.rhs
         msg += "If you ignore this request, it will be wiped in weekly maintenance."
         msg += "\nTo validate, use {w@randomscene/validate %s{n" % name
         targ.db.player_ob.inform(msg, category="Validate")
         inform_staff("%s has completed a random scene with %s. Summary: %s" % (self.caller, targ, self.rhs))
         self.msg("You have sent a request to %s to validate your scene." % targ)
+        our_requests = self.requested_validation
+        our_requests.append(targ)
+        self.caller.db.player_ob.db.requested_validation = our_requests
 
     def validate_scene(self):
         targ = self.caller.db.scene_requests.pop(self.args.lower(), (None, ""))[0]

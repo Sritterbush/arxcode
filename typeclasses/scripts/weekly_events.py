@@ -350,9 +350,13 @@ class WeeklyEvents(Script):
                 else:
                     self.db.scenes[charob.id] = 1
         # reset their claimed scenes, and what's used to generate those
-        player.db.claimed_scenelist = []
-        player.db.random_scenelist = []
-        player.db.validated_list = []
+        player.attributes.remove('claimed_scenelist')
+        player.attributes.remove('random_scenelist')
+        player.attributes.remove('validated_list')
+        requested_scenes = charob.db.scene_requests or {}
+        if requested_scenes:
+            self.db.scenes[charob.id] = self.db.scenes.get(charob.id, 0) + len(requested_scenes)
+            charob.attributes.remove('scene_requests')
 
     def count_praises_and_condemns(self, player):
         # from world.dominion.models import PlayerOrNpc
