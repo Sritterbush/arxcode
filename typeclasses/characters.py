@@ -659,17 +659,17 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         :type session: Session
         """
         super(Character, self).at_post_unpuppet(player, session)
-
-        table = self.db.sitting_at_table
-        if table:
-            table.leave(self)
-        guards = self.db.assigned_guards or []
-        for guard in guards:
-            try:
-                if guard.location:
-                    guard.dismiss()
-            except AttributeError:
-                continue
+        if not self.sessions.count():
+            table = self.db.sitting_at_table
+            if table:
+                table.leave(self)
+            guards = self.db.assigned_guards or []
+            for guard in guards:
+                try:
+                    if guard.location:
+                        guard.dismiss()
+                except AttributeError:
+                    continue
 
     def messenger_notification(self, num_times=1, login=False):
         from twisted.internet import reactor
