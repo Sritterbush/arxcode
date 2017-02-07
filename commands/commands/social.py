@@ -2034,6 +2034,8 @@ class CmdRandomScene(MuxCommand):
         msg += "\n\nTheir summary of the scene was the following: %s\n" % self.rhs
         msg += "If you ignore this request, it will be wiped in weekly maintenance."
         msg += "\nTo validate, use {w@randomscene/validate %s{n" % name
+        msg += "\n{rYou are already flagged for xp, and are not penalized in any way for ignoring a request "
+        msg += "from someone who did not meaningfully interact with you.{n"
         targ.db.player_ob.inform(msg, category="Validate")
         inform_staff("%s has completed a random scene with %s. Summary: %s" % (self.caller, targ, self.rhs))
         self.msg("You have sent a request to %s to validate your scene." % targ)
