@@ -617,9 +617,9 @@ class CmdAdjustReputation(MuxPlayerCommand):
         except Organization.DoesNotExist:
             self.msg("No org found by that name.")
             return
-        org_dict = {org: (affection, respect)}
         rep_changes = rep_form[0]
         for player in player_list:
+            org_dict = {org: (affection, respect)}
             if player not in rep_changes:
                 if affection and respect:
                     rep_changes[player] = org_dict
