@@ -28,11 +28,11 @@ def args_are_currency(args):
     Check if args to a given command match the expression of coins. Must be a number
     followed by 'silver' and/or 'coins', then nothing after.
     """
-    units = ("pieces", "coins", "coin", "piece")
+    units = ("pieces", "coins", "coin", "piece", "silver")
     if not args:
         return False
-    if args in units or args in "silver":
-        return True
+    if not any(unit for unit in units if unit in args):
+        return False
     arglist = args.split()
     if len(arglist) < 2:
         return False

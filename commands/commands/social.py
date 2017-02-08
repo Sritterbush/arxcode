@@ -15,7 +15,7 @@ from world.dominion.models import RPEvent, Agent
 from server.utils.arx_utils import inform_staff
 from evennia.scripts.models import ScriptDB
 from django.db.models import Q
-from world.dominion.models import AssetOwner, Renown, Reputation
+from world.dominion.models import AssetOwner, Renown, Reputation, Member
 from typeclasses.characters import Character
 from typeclasses.rooms import ArxRoom
 import random
@@ -1782,7 +1782,8 @@ class CmdSocialScore(MuxCommand):
                                              player__player__roster__roster__name="Active").exclude(
                                              category__name__icontains="mystery").order_by('-rating')
             if self.args:
-                renowned = renowned.filter(category__name__iexact=self.args)
+                renowned = renowned.filter(Q(category__name__iexact=self.args) |
+                                           Q(player__player__username__iexact=self.args))
             renowned = renowned[:20]
             table = PrettyTable(["{wName{n", "{wCategory{n", "{wLevel{n", "{wRating{n"])
             for ob in renowned:
@@ -1790,13 +1791,30 @@ class CmdSocialScore(MuxCommand):
             self.msg(str(table))
             return
         if "reputation" in self.switches:
-            rep = Reputation.objects.filter(player__player__isnull=False, organization__secret=False,
+            rep = Reputation.objects.filter(player__player__isnull=False,
                                             player__player__roster__roster__name="Active").order_by('-respect')
             if self.args:
-                rep = rep.filter(organization__name__iexact=self.args)
+                rep = rep.filter(Q(organization__name__iexact=self.args) |
+                                 Q(player__player__username__iexact=self.args))
             rep = rep[:20]
             table = PrettyTable(["{wName{n", "{wOrganization{n", "{wAffection{n", "{wRespect{n"])
             for ob in rep:
+                if ob.organization.secret:
+                    # only show reputation to people in the or
+                    try:
+                        caller_member = ob.organization.active_members.get(player=self.caller.db.player_ob.Dominion)
+                    except (Member.DoesNotExist, ValueError):
+                        import traceback
+                        traceback.print_exc()
+                        continue
+                    try:
+                        targ_member = ob.organization.active_members.get(player=ob.player)
+                        if targ_member.secret and caller_member.rank > targ_member.rank:
+                            continue
+                    except (Member.DoesNotExist, ValueError):
+                        import traceback
+                        traceback.print_exc()
+                        pass
                 table.add_row([str(ob.player), str(ob.organization), ob.affection, ob.respect])
             self.msg(str(table))
             return
