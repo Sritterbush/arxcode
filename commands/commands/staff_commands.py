@@ -65,7 +65,8 @@ class CmdHome(MuxCommand):
             caller.msg("There's no place like home ...")
             for guard in guards:
                 if guard.location:
-                    guard.summon()
+                    if 'stationary_guard' not in guard.tags.all():
+                        guard.summon()
                 else:
                     guard.db.docked = home
             caller.messenger_notification(login=True)

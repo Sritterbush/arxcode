@@ -1804,16 +1804,12 @@ class CmdSocialScore(MuxCommand):
                     try:
                         caller_member = ob.organization.active_members.get(player=self.caller.db.player_ob.Dominion)
                     except (Member.DoesNotExist, ValueError):
-                        import traceback
-                        traceback.print_exc()
                         continue
                     try:
                         targ_member = ob.organization.active_members.get(player=ob.player)
                         if targ_member.secret and caller_member.rank > targ_member.rank:
                             continue
                     except (Member.DoesNotExist, ValueError):
-                        import traceback
-                        traceback.print_exc()
                         pass
                 table.add_row([str(ob.player), str(ob.organization), ob.affection, ob.respect])
             self.msg(str(table))

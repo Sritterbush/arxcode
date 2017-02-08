@@ -666,7 +666,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             guards = self.db.assigned_guards or []
             for guard in guards:
                 try:
-                    if guard.location:
+                    if guard.location and 'persistent_guard' not in guard.tags.all():
                         guard.dismiss()
                 except AttributeError:
                     continue
