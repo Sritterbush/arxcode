@@ -621,7 +621,7 @@ class CmdAdjustReputation(MuxPlayerCommand):
         for player in player_list:
             org_dict = {org: (affection, respect)}
             if player not in rep_changes:
-                if affection and respect:
+                if affection or respect:
                     rep_changes[player] = org_dict
             else:  # check if we're removing an org
                 if not affection and not respect:
