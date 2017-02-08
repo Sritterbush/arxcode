@@ -207,7 +207,7 @@ class CmdCrisisAction(MuxPlayerCommand):
                 Q(public=True) | Q(required_clue__discoveries__in=self.caller.roster.finished_clues))
         if "old" in self.switches:
             qs = qs.filter(resolved=True)
-        return qs
+        return qs.order_by('end_date')
 
     @property
     def current_actions(self):
