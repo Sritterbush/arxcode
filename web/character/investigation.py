@@ -590,7 +590,23 @@ class CmdInvestigate(InvestigationFormCommand):
     base_cost = 25
     model_switches = ("view", "active", "silver", "resource", "changetopic", "pause",
                       "changestory", "abandon", "resume", "requesthelp", "changestat", "changeskill")
-    ap_cost = 50
+
+    # noinspection PyAttributeOutsideInit
+    def get_help(self, caller, cmdset):
+        doc = self.__doc__
+        if caller.db.char_ob:
+            caller = caller.db.char_ob
+        self.caller = caller
+        doc += "\n\nThe cost to make an investigation active is %s action points and %s resources." % (
+            self.ap_cost, self.start_cost)
+        return doc
+
+    @property
+    def ap_cost(self):
+        try:
+            return 50 - (self.caller.db.skills.get('investigation', 0) * 5)
+        except AttributeError:
+            return 50
 
     def list_ongoing_investigations(self):
         qs = self.related_manager.filter(ongoing=True)
@@ -611,8 +627,11 @@ class CmdInvestigate(InvestigationFormCommand):
     @property
     def start_cost(self):
         caller = self.caller
-        skill = caller.db.skills.get("investigation", 0)
-        return self.base_cost - (5 * skill)
+        try:
+            skill = caller.db.skills.get("investigation", 0)
+            return self.base_cost - (5 * skill)
+        except AttributeError:
+            return self.base_cost
 
     def mark_active(self, created_object):
         if not (self.related_manager.filter(active=True) or
