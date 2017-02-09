@@ -186,9 +186,10 @@ def roomkey(accessing_obj, accessed_obj, *args, **kwargs):
         return False
     roomid = int(args[0])
     keylist = accessing_obj.db.keylist or []
-    keylist = [room.id for room in keylist if room]
-    if keylist:
-        accessing_obj.db.keylist = keylist
+    valid = [ob for ob in keylist if hasattr(ob, 'tags')]
+    keylist = [room.id for room in valid]
+    if valid:
+        accessing_obj.db.keylist = valid
     return roomid in keylist
 
 
@@ -202,9 +203,10 @@ def chestkey(accessing_obj, accessed_obj, *args, **kwargs):
         return False
     chestid = int(args[0])
     keylist = accessing_obj.db.chestkeylist or []
-    keylist = [chest.id for chest in keylist if chest]
-    if keylist:
-        accessing_obj.db.chestkeylist = keylist
+    valid = [ob for ob in keylist if hasattr(ob, 'tags')]
+    keylist = [chest.id for chest in valid]
+    if valid:
+        accessing_obj.db.chestkeylist = valid
     return chestid in keylist
 
 
