@@ -1509,7 +1509,8 @@ class CmdArxExamine(CmdExamine):
                 else:
                     mergemode = "object"
                 # using callback to print results whenever function returns.
-                get_and_merge_cmdsets(obj, self.session, self.player, obj, mergemode).addCallback(get_cmdset_callback)
+                get_and_merge_cmdsets(obj, self.session, self.player, obj, mergemode, self.raw_string
+                                      ).addCallback(get_cmdset_callback)
 
 
 class CmdArxDestroy(CmdDestroy):
