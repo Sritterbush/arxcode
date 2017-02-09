@@ -35,7 +35,6 @@ class CmdUseXP(MuxCommand):
     Dominion influence is bought with 'resources' rather than xp. The
     'learn' command is the same as 'xp/spend'.
 
-    Spending xp costs 5 action points per rank of the ability/stat/skill.
     """
     key = "xp"
     aliases = ["+xp", "experience", "learn"]
@@ -164,10 +163,10 @@ class CmdUseXP(MuxCommand):
             caller.msg("Cost for %s: %s" % (self.args, cost))
             return
         if "spend" in self.switches:
-            ap_cost = 5 * (current + 1)
-            if not self.player.pay_action_points(ap_cost):
-                self.msg("You do not have enough action points to spend xp on that.")
-                return
+            # ap_cost = 5 * (current + 1)
+            # if not self.player.pay_action_points(ap_cost):
+            #     self.msg("You do not have enough action points to spend xp on that.")
+            #     return
             if stype == "dom":
                 if cost > getattr(dompc.assets, resource):
                     msg = "Unable to buy influence in %s. The cost is %s, " % (args, cost)
