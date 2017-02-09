@@ -330,14 +330,6 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         self.disp_investigation_form()
 
     def mark_active(self, created_object):
-        if not self.check_ap_cost():
-            return
-        current_qs = self.helper.assisted_investigations.filter(currently_helping=True)
-        if current_qs:
-            for current in current_qs:
-                current.currently_helping = False
-                current.save()
-            self.msg("%s was currently helping another investigation. Switching." % self.helper)
         try:
             if self.helper.roster.investigations.filter(active=True):
                 already_investigating = True
@@ -345,6 +337,12 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                 already_investigating = False
         except AttributeError:
             already_investigating = False
+        if not already_investigating and not self.check_ap_cost():
+            return
+        current_qs = self.helper.assisted_investigations.filter(currently_helping=True)
+        if current_qs:
+            current_qs.update(currently_helping=False)
+            self.msg("%s was currently helping another investigation. Switching." % self.helper)
         if not already_investigating:
             created_object.currently_helping = True
             created_object.save()
@@ -354,7 +352,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             self.msg("You already have an active investigation. That must stop before you help another.\n"
                      "Once that investigation is no longer active, you may resume helping this investigation.")
         self.caller.attributes.remove(self.form_attr)
-
+        
     @property
     def target_type(self):
         return "investigation"
