@@ -1662,6 +1662,8 @@ class CrisisAction(models.Model):
             msg += "\n{wRolls:{n %s" % self.rolls
             msg += "\n{wOutcome Value:{n %s" % self.outcome_value
             msg += "\n{wStory:{n %s" % self.story
+        else:
+            msg += "\n{wAdditional Action Points Spent:{n %s" % self.outcome_value
         if disp_pending:
             pend = self.questions.filter(answers__isnull=True)
             for ob in pend:
@@ -3002,35 +3004,10 @@ class TaskSupporter(models.Model):
                                      through='SupportUsed')
     observer_text = models.TextField(blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
+    additional_points = models.PositiveSmallIntegerField(default=0, blank=0)
     
     def __str__(self):
         return "%s supporting %s" % (self.player, self.task) or "Unknown supporter"
-
-    # def award_renown(self):
-    #     """Give renown to both players."""
-    #     targ = self.task.member.player
-    #     if not self.fake:
-    #         for char in (targ, self.player):
-    #             for inf in self.allocation.all():
-    #                 category = inf.sphere.category
-    #                 try:
-    #                     ren = char.renown.get(category=category)
-    #                 except Renown.DoesNotExist:
-    #                     ren = char.renown.create(category=category)
-    #                 ren.rating += inf.rating
-    #                 ren.save()
-    #     else:  # we're an unreliable flake. We suffer penalties
-    #         for req in self.task.task.requirements.all():
-    #             category = req.category
-    #             char = self.player
-    #             if not char:
-    #                 continue
-    #             try:
-    #                 ren = char.renown.get(category=category)
-    #             except Renown.DoesNotExist:
-    #                 ren = char.renown.create(category=category)
-    #             ren.rating -= 1
-    #             ren.save()
 
     @property
     def rating(self):
@@ -3049,6 +3026,7 @@ class TaskSupporter(models.Model):
             total += 5
         for usage in self.allocation.all():
             total += usage.rating
+        total += self.additional_points
         return total
 
     @property

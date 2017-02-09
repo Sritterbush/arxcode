@@ -19,6 +19,16 @@ class InvestigationFormCommand(MuxCommand):
     """
     form_verb = "Creating"
     form_switches = ("topic", "target", "story", "stat", "skill", "cancel", "finish")
+    ap_cost = 10
+
+    def check_ap_cost(self, cost=None):
+        if not cost:
+            cost = self.ap_cost
+        if self.caller.player.pay_action_points(cost):
+            return True
+        else:
+            self.msg("You cannot afford to do that action.")
+            return False
 
     @property
     def form_attr(self):
@@ -320,6 +330,8 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         self.disp_investigation_form()
 
     def mark_active(self, created_object):
+        if not self.check_ap_cost():
+            return
         current_qs = self.helper.assisted_investigations.filter(currently_helping=True)
         if current_qs:
             for current in current_qs:
@@ -445,6 +457,9 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             if char.assisted_investigations.filter(currently_helping=True):
                 self.msg("%s is already assisting an investigation." % char)
                 return
+            # check if they have action points to afford it
+            if not self.check_ap_cost():
+                return
             # all checks passed, mark it as currently being helped if the investigation exists
             try:
                 ob = char.assisted_investigations.get(investigation__id=self.lhs)
@@ -491,6 +506,28 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                         return
                     ob.skill_used = rhs
                     field = "skill"
+                elif "actionpoints" in self.switches:
+                    ob = ob.investigation
+                    # check if we can pay
+                    try:
+                        amt = int(self.rhs)
+                        if amt <= 0:
+                            raise ValueError
+                        if not amt % 5:
+                            self.msg("Action points must be a multiple of 5")
+                            self.msg("Current action points allocated: %s" % ob.action_points)
+                            return
+                        if not self.check_ap_cost(amt):
+                            return
+                    except (TypeError, ValueError):
+                        self.msg("Amount of action points must be a positive number you can afford.")
+                        return
+
+                    # add action points and save
+                    ob.action_points += amt
+                    ob.save()
+                    self.msg("New action point total is %s." % ob.action_points)
+                    return
                 else:
                     self.msg("Unrecognized switch.")
                     return
@@ -500,12 +537,12 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                 self.msg("%s isn't helping an investigation by that number." % char)
             return
         self.msg("Unrecognized switch.")
-        
+
 
 class CmdInvestigate(InvestigationFormCommand):
     """
     @investigate
-    
+
     Usage:
         @investigate
         @investigate/history
@@ -513,6 +550,7 @@ class CmdInvestigate(InvestigationFormCommand):
         @investigate/active <id #>
         @investigate/silver <id #>=<additional silver to spend>
         @investigate/resource <id #>=<resource type>,<amount>
+        @investigate/actionpoints <id #>=<additional points to spend>
         @investigate/changetopic <id #>=<new topic>
         @investigate/changestory <id #>=<new story>
         @investigate/changestat <id #>=<new stat>
@@ -545,7 +583,7 @@ class CmdInvestigate(InvestigationFormCommand):
     more likely to find a result. Investigations may be abandoned with
     the /abandon switch, which marks them as no longer ongoing. They may be
     paused with the /pause switch, which marks them as inactive.
-        
+
     """
     key = "@investigate"
     locks = "cmd:all()"
@@ -554,6 +592,7 @@ class CmdInvestigate(InvestigationFormCommand):
     base_cost = 25
     model_switches = ("view", "active", "silver", "resource", "changetopic", "pause",
                       "changestory", "abandon", "resume", "requesthelp", "changestat", "changeskill")
+    ap_cost = 50
 
     def list_ongoing_investigations(self):
         qs = self.related_manager.filter(ongoing=True)
@@ -581,9 +620,12 @@ class CmdInvestigate(InvestigationFormCommand):
         if not (self.related_manager.filter(active=True) or
                 self.caller.assisted_investigations.filter(currently_helping=True)):
             if not self.caller.assisted_investigations.filter(currently_helping=True):
-                created_object.active = True
-                self.msg("New investigation created. This has been set as your active investigation " +
-                         "for the week, and you may add resources/silver to increase its chance of success.")
+                if self.caller.player.pay_action_points(self.ap_cost):
+                    created_object.active = True
+                    self.msg("New investigation created. This has been set as your active investigation " +
+                             "for the week, and you may add resources/silver to increase its chance of success.")
+                else:
+                    self.msg("New investigation created. You could not afford the action points to mark it active.")
             else:
                 self.msg("New investigation created. This investigation is not active because you are " +
                          "currently assisting an investigation already.")
@@ -600,7 +642,7 @@ class CmdInvestigate(InvestigationFormCommand):
         else:
             staffmsg += " Their topic does not target a clue, and will automatically fail unless GM'd."
         inform_staff(staffmsg)
-        
+
     def func(self):
         finished = super(CmdInvestigate, self).func()
         if finished:
@@ -617,7 +659,7 @@ class CmdInvestigate(InvestigationFormCommand):
         if "history" in self.switches:
             # display history
             self.list_old_investigations()
-            return   
+            return
         if (set(self.switches) & set(self.model_switches)) or not self.switches:
             try:
                 ob = self.related_manager.get(id=int(self.lhs))
@@ -668,8 +710,14 @@ class CmdInvestigate(InvestigationFormCommand):
                         caller.msg("You already have an active investigation " +
                                    "that has received GMing this week, and cannot be switched.")
                         return
+                    if not self.check_ap_cost():
+                        return
                     current_active.active = False
                     current_active.save()
+                else:  # check cost if we don't have a currently active investigation
+                    if not self.check_ap_cost():
+                        return
+                # can afford it, proceed to turn off assisted investigations and mark active
                 for ass in caller.assisted_investigations.filter(currently_helping=True):
                     ass.currently_helping = False
                     ass.save()
@@ -698,6 +746,26 @@ class CmdInvestigate(InvestigationFormCommand):
                 # redo the roll with new difficulty
                 ob.do_roll()
                 caller.msg("You add %s silver to the investigation." % val)
+                return
+            if "actionpoints" in self.switches:
+                try:
+                    val = int(self.rhs)
+                    if val <= 0:
+                        raise ValueError
+                    if not val % 5:
+                        caller.msg("Action points must be a multiple of 5")
+                        caller.msg("Current action points allocated: %s" % ob.action_points)
+                        return
+                    if not self.check_ap_cost(val):
+                        return
+                except (TypeError, ValueError):
+                    caller.msg("You must specify a positive amount that you can afford.")
+                    return
+                ob.action_points += val
+                ob.save()
+                # redo the roll with new difficulty
+                ob.do_roll()
+                caller.msg("You add %s action points to the investigation." % val)
                 return
             if "resource" in self.switches or "resources" in self.switches:
                 try:
@@ -956,6 +1024,10 @@ class CmdListClues(MuxPlayerCommand):
             if not clues_to_share:
                 return
             shared_names = []
+            cost = len(self.rhslist) * len(clues_to_share) * self.caller.clue_cost
+            if cost > self.caller.roster.action_points:
+                self.msg("Sharing that many clues would cost %s action points." % cost)
+                return
             for arg in self.rhslist:
                 pc = caller.search(arg)
                 if not pc:
@@ -970,6 +1042,7 @@ class CmdListClues(MuxPlayerCommand):
                     clue.share(pc.roster)
                 shared_names.append(str(pc.roster))
             if shared_names:
+                self.caller.pay_action_points(len(shared_names) * len(clues_to_share))
                 caller.msg("You have shared the clues '%s' with %s." % (
                     ", ".join(str(ob.clue) for ob in clues_to_share),
                     ", ".join(shared_names)))
@@ -1125,8 +1198,15 @@ class CmdTheories(MuxPlayerCommand):
                 targs.append(targ)
             if not targs:
                 return
+            clues = self.caller.roster.finished_clues.filter(clue__id__in=theory.related_clues.all())
+            total_cost = 0
+            per_targ_cost = self.caller.clue_cost
             for targ in targs:
                 if "shareall" in self.switches:
+                    cost = len(targs) * len(clues) * per_targ_cost
+                    if cost > self.caller.roster.action_points:
+                        self.msg("That would cost %s action points." % cost)
+                        return
                     try:
                         if targ.db.char_ob.location != self.caller.db.char_ob.location:
                             self.msg("You must be in the same room.")
@@ -1134,16 +1214,18 @@ class CmdTheories(MuxPlayerCommand):
                     except AttributeError:
                         self.msg("One of you does not have a character object.")
                         continue
-                    clues = self.caller.roster.finished_clues.filter(clue__id__in=theory.related_clues.all())
                     for clue in clues:
                         clue.share(targ.roster)
                         self.msg("Shared clue %s with %s" % (clue.name, targ))
+                        total_cost += per_targ_cost
                 if theory in targ.known_theories.all():
                     self.msg("They already know that theory.")
                     continue
                 targ.known_theories.add(theory)
                 self.msg("Theory %s added to %s." % (self.lhs, targ))
                 targ.inform("%s has shared a theory with you." % self.caller, category="Theories")
+            if total_cost:
+                self.caller.pay_action_points(total_cost)
             return
         if "delete" in self.switches or "forget" in self.switches:
             try:

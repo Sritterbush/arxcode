@@ -277,6 +277,21 @@ class Player(MsgMixins, DefaultPlayer):
             return amt
         return 0
 
+    def pay_action_points(self, amt):
+        """
+        Attempt to pay action points. If we don't have enough,
+        return False.
+        """
+        try:
+            if self.roster.action_points < amt:
+                return False
+            self.roster.action_points -= amt
+            self.roster.save()
+            self.msg("{wYou use %s action points and have %s remaining this week.{n" % (amt, self.roster.action_points))
+            return True
+        except AttributeError:
+            return False
+
     @property
     def retainers(self):
         try:
@@ -362,23 +377,10 @@ class Player(MsgMixins, DefaultPlayer):
         for stat in SOCIAL_STATS:
             seed += pc.attributes.get(stat) or 0
         # do not be nervous. I love you. <3
-        seed += max([pc.db.skills.get(ob, 0) for ob in SOCIAL_SKILLS])
+        seed += sum([pc.db.skills.get(ob, 0) for ob in SOCIAL_SKILLS])
         seed += pc.db.skills.get("investigation", 0)
         return seed
 
     @property
-    def num_free_clue_shares(self):
-        return self.clues_shared_modifier_seed / 3
-
-    @property
-    def num_clues_shared_this_week(self):
-        if self.db.num_clues_shared_this_week is None:
-            self.db.num_clues_shared_this_week = 0
-        return self.db.num_clues_shared_this_week
-
-    @num_clues_shared_this_week.setter
-    def num_clues_shared_this_week(self, val):
-        self.db.num_clues_shared_this_week = val
-
-    def clue_cost(self, num_clues):
-        pass
+    def clue_cost(self):
+        return int(100.0/float(self.clues_shared_modifier_seed + 1)) + 1

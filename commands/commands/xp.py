@@ -34,6 +34,8 @@ class CmdUseXP(MuxCommand):
 
     Dominion influence is bought with 'resources' rather than xp. The
     'learn' command is the same as 'xp/spend'.
+
+    Spending xp costs 25 action points per raise.
     """
     key = "xp"
     aliases = ["+xp", "experience", "learn"]
@@ -73,6 +75,9 @@ class CmdUseXP(MuxCommand):
                 caller.msg(", ".join(ability for ability in stats_and_skills.VALID_ABILITIES))
             else:
                 caller.msg(", ".join(ability for ability in abilities))
+            return
+        if not self.player.pay_action_points(25):
+            self.msg("You do not have enough action points to spend XP.")
             return
         args = self.args.lower()
         # get cost already factors in if we have a trainer, so no need to check
@@ -152,7 +157,7 @@ class CmdUseXP(MuxCommand):
         else:
             caller.msg("%s wasn't identified as either a stat, ability, or a skill." % args)
             return
-        if "cost" in self.switches:           
+        if "cost" in self.switches:
             caller.msg("Cost for %s: %s" % (self.args, cost))
             return
         if "spend" in self.switches:
@@ -226,7 +231,12 @@ class CmdTrain(MuxCommand):
     only lasts until they log out or the server reboots, so it should be
     used promptly.
 
-    You may only train one character a week.
+    You can train up to a max number of players depending on your teaching
+    or animal ken skill without expending action points: 1 for skill 0-2,
+    2 for 3-4, 3 for 5.
+
+    Action points used for training is 100 - 15 * skill, where skill is the
+    higher of animal ken or teaching.
     """
     key = "train"
     aliases = ["+train", "teach", "+teach"]
@@ -235,12 +245,7 @@ class CmdTrain(MuxCommand):
 
     @property
     def max_trainees(self):
-        skills_to_check = ("animal ken", "teaching")
-        max_skill = 0
-        for skill in skills_to_check:
-            val = self.caller.db.skills.get(skill, 0)
-            if val > max_skill:
-                max_skill = val
+        max_skill = self.max_skill
         if max_skill < 3:
             return 1
         if max_skill < 5:
@@ -248,6 +253,22 @@ class CmdTrain(MuxCommand):
         if max_skill < 6:
             return 3
         return 13
+
+    @property
+    def max_skill(self):
+        skills_to_check = ("animal ken", "teaching")
+        max_skill = 0
+        for skill in skills_to_check:
+            val = self.caller.db.skills.get(skill, 0)
+            if val > max_skill:
+                max_skill = val
+        return max_skill
+
+    @property
+    def action_point_cost(self):
+        if len(self.currently_training) <= self.max_trainees:
+            return 0
+        return 100 - 15 * self.max_skill
 
     def post_training(self, targ):
         """Set attributes after training checks."""
@@ -262,11 +283,13 @@ class CmdTrain(MuxCommand):
         self.caller.refresh_from_db()
         return self.caller.db.currently_training or []
 
-    def check_max_train(self):
-        if len(self.currently_training) >= self.max_trainees:
-            self.msg("You are training as many people as you can handle.")
-            return False
-        return True
+    def pay_ap_cost(self):
+        cost = self.action_point_cost
+        if not cost:
+            return True
+        if self.caller.player.pay_action_points(cost):
+            return True
+        self.msg("You don't have enough action points to train another.")
 
     def check_attribute_name(self, valid_list, attr_type):
         if self.rhs.lower() not in valid_list:
@@ -291,8 +314,6 @@ class CmdTrain(MuxCommand):
         if not self.lhs or not self.rhs or not self.switches:
             caller.msg("Usage: train/[stat or skill] <character to train>=<name of stat or skill to train>")
             return
-        if not self.check_max_train():
-            return
         if "retainer" in self.switches:
             player = caller.player.search(self.lhs)
             from world.dominion.models import Agent
@@ -304,8 +325,9 @@ class CmdTrain(MuxCommand):
             except (Agent.DoesNotExist, AttributeError):
                 self.msg("Could not find %s's retainer named %s." % (player, self.rhs))
                 return
+            if not self.pay_ap_cost():
+                return
             targ.train_agent(caller)
-            return
         else:
             targ = caller.search(self.lhs)
         if not targ:
@@ -335,6 +357,8 @@ class CmdTrain(MuxCommand):
                 return
         else:
             caller.msg("Usage: train/[stat or skill] <character>=<stat or skill name>")
+            return
+        if not self.pay_ap_cost():
             return
         self.post_training(targ)
         caller.msg("You have provided training to %s for them to increase their %s." % (targ.name, self.rhs))

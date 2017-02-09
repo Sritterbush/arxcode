@@ -169,7 +169,8 @@ def do_crafting_roll(char, recipe, diffmod=0, diffmult=1.0, room=None):
                          announce_room=room)
 
 
-def get_difficulty_mod(recipe, money=0):
+def get_difficulty_mod(recipe, money=0, action_points=0):
+    from random import randint
     if not money:
         return 0
     divisor = recipe.value or 0
@@ -177,7 +178,8 @@ def get_difficulty_mod(recipe, money=0):
         divisor = 1
     val = float(money) / float(divisor)
     # for every 10% of the value of recipe we invest, we knock 1 off difficulty
-    return int(val/0.10) + 1
+    val = int(val/0.10) + 1
+    val += randint(0, action_points)
 
 
 def get_quality_lvl(roll, diff):
@@ -236,9 +238,9 @@ class CmdCraft(MuxCommand):
         craft/desc <description>
         craft/adorn <material type>=<amount>
         craft/forgery <real material>=<type it's faking as>
-        craft/finish [<additional silver to invest>]
+        craft/finish [<additional silver to invest>, <action points>
         craft/abandon
-        craft/refine <object>[=<additional silver to spend>]
+        craft/refine <object>[=<additional silver to spend>, <action points>]
         craft/changename <object>=<new name>
 
     Crafts an object. To start crafting, you must know recipes
@@ -387,17 +389,19 @@ class CmdCraft(MuxCommand):
                 return
             if price:
                 caller.msg("The additional price for refining is %s." % price)
+            action_points = 0
+            invest = 0
             if self.rhs:
                 try:
-                    invest = int(self.rhs)
+                    invest = int(self.rhslist[0])
+                    if len(self.rhslist) > 1:
+                        action_points = int(self.rhslist[1])
                 except ValueError:
-                    caller.msg("Amount to invest must be a number.")
+                    caller.msg("Amount of silver/action points to invest must be a number.")
                     return
-                if invest < 1:
+                if invest < 0 or action_points < 0:
                     caller.msg("Amount must be positive.")
                     return
-            else:
-                invest = 0
             if not recipe:
                 caller.msg("This is not a crafted object that can be refined.")
                 return
@@ -428,6 +432,10 @@ class CmdCraft(MuxCommand):
             if cost > caller.db.currency:
                 caller.msg("This would cost %s, and you only have %s." % (cost, caller.db.currency))
                 return
+            if not caller.player.pay_action_points(2 + action_points):
+                self.msg("You do not have enough action points to refine.")
+                return
+            diffmod = get_difficulty_mod(recipe, invest, action_points)
             # pay for it
             caller.pay_money(cost)
             self.pay_owner(price, "%s has refined '%s', a %s, at your shop and you earn %s silver." % (caller, targ,
@@ -547,14 +555,17 @@ class CmdCraft(MuxCommand):
                 caller.msg("You must write a description first.")
                 return
             invest = 0
+            action_points = 0
             if self.lhs:
                 try:
-                    invest = int(self.lhs)
+                    invest = int(self.lhslist[0])
+                    if len(self.lhslist) > 1:
+                        action_points = int(self.lhslist[1])
                 except ValueError:
-                    caller.msg("Silver to invest must be a number.")
+                    caller.msg("Silver/Action Points to invest must be a number.")
                     return
-                if invest < 1:
-                    caller.msg("Investment must be a positive number.")
+                if invest < 0 or action_points < 0:
+                    caller.msg("Silver/Action Points cannot be a negative number.")
                     return
             # first, check if we have all the materials required
             mats = {}
@@ -612,6 +623,10 @@ class CmdCraft(MuxCommand):
                 except CraftingMaterials.DoesNotExist:
                     caller.msg("You do not have any of the material %s." % c_mat.name)
                     return
+            # check if they have enough action points
+            if not caller.player.pay_action_points(2 + action_points):
+                self.msg("You do not have enough action points left to craft that.")
+                return
             # we're still here, so we have enough materials. spend em all
             for mat in mats:
                 cmat = CraftingMaterialType.objects.get(id=mat)
@@ -619,7 +634,7 @@ class CmdCraft(MuxCommand):
                 pmat.amount -= mats[mat]
                 pmat.save()
             # determine difficulty modifier if we tossed in more money
-            diffmod = get_difficulty_mod(recipe, invest)
+            diffmod = get_difficulty_mod(recipe, invest, action_points)
             # do crafting roll
             roll = do_crafting_roll(crafter, recipe, diffmod, room=caller.location)
             # get type from recipe

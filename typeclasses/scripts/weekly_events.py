@@ -3,17 +3,22 @@ This script keeps a timer that will cause an update to happen
 on a weekly basis. Things we'll be updating are counting votes
 for players, and processes for Dominion.
 """
+import traceback
+from datetime import datetime, timedelta
 
-from .scripts import Script
-from server.utils.arx_utils import inform_staff
+from django.db.models import Q, F
+
+
 from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
-from world.dominion.models import AssetOwner, Army, AssignedTask, Member, AccountTransaction
-import traceback
-from django.db.models import Q
-from datetime import datetime, timedelta
-from typeclasses.bulletin_board.bboard import BBoard
 from evennia.utils.evtable import EvTable
+
+from world.dominion.models import AssetOwner, Army, AssignedTask, Member, AccountTransaction
+from typeclasses.bulletin_board.bboard import BBoard
+from .scripts import Script
+from server.utils.arx_utils import inform_staff
+from web.character.models import Investigation, RosterEntry
+
 
 EVENT_SCRIPT_NAME = "Weekly Update"
 # number of seconds in a week
@@ -84,9 +89,9 @@ class WeeklyEvents(Script):
             self.db.pose_counter = 0
             self.count_poses()
         self.db.week += 1
+        self.reset_action_points()
 
     def do_dominion_events(self):
-        from django.db.models import Q, F
         for owner in AssetOwner.objects.filter(
                         Q(organization_owner__isnull=False) |
                         (Q(player__player__roster__roster__name="Active") &
@@ -110,6 +115,11 @@ class WeeklyEvents(Script):
         self.do_tasks()
         inform_staff("Dominion weekly events processed for week %s." % self.db.week)
 
+    @staticmethod
+    def reset_action_points():
+        RosterEntry.objects.filter(action_points__gte=0).update(action_points=100)
+        RosterEntry.objects.filter(action_points__lt=0).update(action_points=F('action_points') + 100)
+
     def do_tasks(self):
         for task in AssignedTask.objects.filter(finished=False):
             try:
@@ -120,7 +130,6 @@ class WeeklyEvents(Script):
 
     @staticmethod
     def do_investigations():
-        from web.character.models import Investigation
         for investigation in Investigation.objects.filter(active=True, ongoing=True,
                                                           character__roster__name="Active"):
             try:
@@ -128,6 +137,9 @@ class WeeklyEvents(Script):
             except Exception as err:
                 traceback.print_exc()
                 print "Error in investigation: %s" % err
+        # reset all active investigations
+        Investigation.objects.filter(active=True).update(active=False, silver=0, economic=0, military=0, social=0,
+                                                         action_points=0)
 
     @staticmethod
     def do_cleanup():
@@ -184,11 +196,11 @@ class WeeklyEvents(Script):
             self.db.xptypes = {}
             self.db.requested_support = {}
             self.db.scenes = {}
+        self.check_freeze()
         players = [ob for ob in PlayerDB.objects.filter(Q(Q(roster__roster__name="Active") &
                                                         Q(roster__frozen=False)) |
                                                         Q(is_staff=True)) if ob.db.char_ob]
         for player in players:
-            self.check_freeze(player)
             self.count_votes(player)
             self.count_praises_and_condemns(player)
             # journal XP
@@ -211,8 +223,6 @@ class WeeklyEvents(Script):
             # reset training
             char.db.currently_training = []
             char.db.trainer = None
-            # wipe stale requests
-            char.db.scene_requests = {}
             try:
                 old = player.Dominion.assets.prestige
                 self.db.prestige_changes[player.key] = old
@@ -221,24 +231,19 @@ class WeeklyEvents(Script):
                     del self.db.prestige_changes[player.key]
                 except KeyError:
                     pass
-        pass
 
     @staticmethod
-    def check_freeze(player):
+    def check_freeze():
         try:
             date = datetime.now()
-            if not player.last_login:
-                player.last_login = date
-                player.save()
+            PlayerDB.objects.filter(last_login__isnull=True).update(last_login=date)
             offset = timedelta(days=-14)
             date = date + offset
-            if player.last_login < date:
-                player.roster.frozen = True
-                player.roster.save()
+            RosterEntry.objects.filter(player__last_login__lt=date).update(frozen=True)
         except Exception as err:
             import traceback
             traceback.print_exc()
-            print "Error on freezing account: ID:%s, Error: %s" % (player.id, err)
+            print "Error on freezing accounts: %s" % err
 
     def post_inactives(self):
         date = datetime.now()

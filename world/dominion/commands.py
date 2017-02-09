@@ -2230,7 +2230,7 @@ class CmdTask(MuxCommand):
             # prompt the characters here to support me
             try:
                 task = Task.objects.filter(assigned_tasks__finished=False, id__in=mytasks).distinct().get(
-                                        id=int(self.lhslist[0]))
+                    id=int(self.lhslist[0]))
                 assignment = task.assigned_tasks.filter(member__player=dompc, finished=False)
                 if not assignment:
                     caller.msg("That task isn't active for you.")
@@ -2297,7 +2297,7 @@ class CmdTask(MuxCommand):
                     current = assignment.supporters.filter(allocation__week=week, player=dompc)
                     if current:
                         caller.msg("{c%s {ris already supporting you in this task.{n" % char.name)
-                        continue             
+                        continue
                     requests = char.db.requested_support or {}
                     if caller.id in requests:
                         caller.msg("{c%s {ralready has a pending support request from you.{n" % char.name)
@@ -2306,19 +2306,22 @@ class CmdTask(MuxCommand):
                         else:
                             caller.msg("Sending them a reminder.")
                             reminder = True
-                    
+
                     highest = char.db.player_ob.Dominion.memberships.filter(Q(secret=False) &
                                                                             Q(deguilded=False)).order_by('rank')
                     if highest:
                         highest = highest[0]
                     else:
                         highest = None
-                    if highest in org.members.filter(Q(player=char.db.player_ob.Dominion)
-                                                     & Q(deguilded=False)):
+                    if highest in org.members.filter(Q(player=char.db.player_ob.Dominion) & Q(deguilded=False)):
                         caller.msg("You cannot gain support from a member whose highest " +
                                    "rank is in the same organization as the task.")
                         continue
                     if char not in asklist:
+                        # The action point cost of requesting support for a task
+                        if not caller.db.player_ob.pay_action_points(10):
+                            caller.msg("You don't have enough action points to ask for support from %s." % char.name)
+                            continue
                         asklist.append(char)
                     # make sure assignment is current
                     assignment.refresh_from_db()
@@ -2337,7 +2340,7 @@ class CmdTask(MuxCommand):
                         mailmsg += "the '+support' command, filling out a form that indicates which npcs "
                         mailmsg += "you influenced on their behalf, how you did it, and what happened."
                         mailmsg += "\n\nYou can ask npcs to support them from any of the following "
-                        mailmsg += "areas you have influence in: %s" % ", ".join(str(ob) for ob in matches)              
+                        mailmsg += "areas you have influence in: %s" % ", ".join(str(ob) for ob in matches)
                         mailmsg += "\n\nThe support command has the usage of {wsupport %s{n, then " % caller
                         mailmsg += "adding fields that indicate how the npcs you influenced are helping them "
                         mailmsg += "out. '{w+support/notes{n' Lets you state OOCly to GMs what occurs, while "
@@ -2366,7 +2369,7 @@ class CmdTask(MuxCommand):
                 # update asklist
                 asked_supporters[assignment.id] = asklist
                 caller.db.asked_supporters = asked_supporters
-                return      
+                return
             if "story" in self.switches:
                 if not self.rhs:
                     caller.msg("You must supply a message.")
@@ -2677,6 +2680,9 @@ class CmdSupport(MuxCommand):
                 caller.msg("You have already pledged your support to this task.")
                 self.msg("Use the /change switch to support them again if you have in previous weeks, " +
                          "or to change existing support if you already have this week.")
+                return
+            if not self.caller.player.pay_action_points(5):
+                caller.msg("You don't have enough action points to support %s." % char.name)
                 return
             caller.msg("{wExisting rumor for task:{n\n%s" % assignment.observer_text)
             form = [char, False, {}, "", ""]

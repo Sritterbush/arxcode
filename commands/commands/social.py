@@ -1719,16 +1719,18 @@ class CmdRoomHistory(MuxCommand):
 
 class CmdRoomMood(MuxCommand):
     """
-    Adds a historical note to a room
+    Temporarily adds to room description
 
     Usage:
         +room_mood <message>
 
     Changes the current 'mood' of the room, which is a few lines that can be
     set to describe things which recently happened and shows up under look.
-    Lasts for 24 hours.
+    Lasts for 24 hours. This can be used to help with setting up a scene and
+    describing what is going on for people who enter.
     """
     key = "+room_mood"
+    aliases = ["+roommood"]
     locks = "cmd:all()"
     help_category = "Social"
 

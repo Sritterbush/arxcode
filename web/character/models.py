@@ -81,6 +81,7 @@ class RosterEntry(models.Model):
     # going to use for determining how our character page appears
     sheet_style = models.TextField(blank=True)
     lock_storage = models.TextField('locks', blank=True, help_text='defined in setup_utils')
+    action_points = models.SmallIntegerField(default=100, blank=100)
     
     def __init__(self, *args, **kwargs):
         super(RosterEntry, self).__init__(*args, **kwargs)
@@ -628,6 +629,8 @@ class Investigation(models.Model):
                                                 help_text="Additional military resources added by the player")
     social = models.PositiveSmallIntegerField(default=0, blank=0,
                                               help_text="Additional social resources added by the player")
+    action_points = models.PositiveSmallIntegerField(default=0, blank=0,
+                                                     help_text="How many action points spent by player/assistants.")
 
     def __str__(self):
         return "%s's investigation on %s" % (self.character, self.topic)
@@ -714,6 +717,7 @@ class Investigation(models.Model):
         if res_mod > 60:
             res_mod = 60
         mod += res_mod
+        mod += self.action_points/5
         return mod
 
     def _get_roll(self):
@@ -759,7 +763,7 @@ class Investigation(models.Model):
 
     def process_events(self):
         self.generate_result()
-        self.use_resources()
+        # self.use_resources()
         # wipe the stale roll
         self.char.attributes.remove("investigation_roll")
         msg = "Your investigation into '%s' has had the following result:\n" % self.topic
@@ -816,7 +820,6 @@ class Investigation(models.Model):
                                                         mystery=mystery, date=datetime.now())
                 # we found a clue, so this investigation is done.
                 self.clue_target = None
-                self.active = False
                 self.ongoing = False
                 for ass in self.active_assistants:
                     # noinspection PyBroadException
