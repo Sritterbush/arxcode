@@ -117,8 +117,9 @@ class WeeklyEvents(Script):
 
     @staticmethod
     def reset_action_points():
-        RosterEntry.objects.filter(action_points__gte=0).update(action_points=100)
-        RosterEntry.objects.filter(action_points__lt=0).update(action_points=F('action_points') + 100)
+        RosterEntry.objects.filter(action_points__gte=100).update(action_points=200)
+        RosterEntry.objects.filter(action_points__gte=0).exclude(
+            action_points__gte=100).update(action_points=F('action_points') + 100)
 
     def do_tasks(self):
         for task in AssignedTask.objects.filter(finished=False):

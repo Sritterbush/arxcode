@@ -35,7 +35,7 @@ class CmdUseXP(MuxCommand):
     Dominion influence is bought with 'resources' rather than xp. The
     'learn' command is the same as 'xp/spend'.
 
-    Spending xp costs 25 action points per raise.
+    Spending xp costs 5 action points per rank of the ability/stat/skill.
     """
     key = "xp"
     aliases = ["+xp", "experience", "learn"]
@@ -83,14 +83,16 @@ class CmdUseXP(MuxCommand):
         # get cost already factors in if we have a trainer, so no need to check
         if args in stats_and_skills.VALID_STATS:
             cost = stats_and_skills.get_stat_cost(caller, args)
-            if caller.attributes.get(args) >= 5:
+            current = caller.attributes.get(args)
+            if current >= 5:
                 caller.msg("%s is already at its maximum." % args)
                 return
             stype = "stat"
         elif args in stats_and_skills.VALID_SKILLS:
             if not caller.db.skills:
                 caller.db.skills = {}
-            if caller.db.skills.get(args, 0) >= 6:
+            current = caller.db.skills.get(args, 0)
+            if current >= 6:
                 caller.msg("%s is already at its maximum." % args)
                 return
             cost = stats_and_skills.get_skill_cost(caller, args)
@@ -112,7 +114,8 @@ class CmdUseXP(MuxCommand):
             if not caller.db.abilities:
                 caller.db.abilities = {}
             # if we don't have it, determine if we can learn it
-            if not caller.db.abilities.get(args, 0):
+            current = caller.db.abilities.get(args, 0)
+            if not current:
                 if args in stats_and_skills.CRAFTING_ABILITIES:
                     # check if we have valid skill:
                     if args == "tailor" and "sewing" not in caller.db.skills:
@@ -139,13 +142,13 @@ class CmdUseXP(MuxCommand):
                     return
                 else:
                     spec_warning = False
-            if caller.db.abilities.get(args, 0) >= 6:
+            if current >= 6:
                 caller.msg("%s is already at its maximum." % args)
                 return
 
             if args in stats_and_skills.CRAFTING_ABILITIES:
                 spec_warning = True
-            if caller.db.abilities.get(args, 0) == 5:
+            if current == 5:
                 if caller.db.crafting_profession:
                     caller.msg("You have already chosen a crafting specialization.")
                     return
@@ -161,6 +164,10 @@ class CmdUseXP(MuxCommand):
             caller.msg("Cost for %s: %s" % (self.args, cost))
             return
         if "spend" in self.switches:
+            ap_cost = 5 * (current + 1)
+            if not self.player.pay_action_points(ap_cost):
+                self.msg("You do not have enough action points to spend xp on that.")
+                return
             if stype == "dom":
                 if cost > getattr(dompc.assets, resource):
                     msg = "Unable to buy influence in %s. The cost is %s, " % (args, cost)
