@@ -114,9 +114,14 @@ class CmdInventory(MuxCommand):
         string += "\n{wVolume:{n %s/%s" % (char.volume,
                                            char.db.max_volume or 100)
         xp = char.db.xp or 0
-        self.caller.msg("\n{w%s currently %s {c%s {wxp." % ("You" if not show_other else char.key,
-                                                            "have" if not show_other else 'has',
-                                                            xp))
+        ap = 0
+        try:
+            ap = char.roster.action_points
+        except AttributeError:
+            pass
+        self.caller.msg("\n{w%s currently %s {c%s {wxp and {c%s{w ap." % ("You" if not show_other else char.key,
+                                                                         "have" if not show_other else 'has',
+                                                                         xp, ap))
         self.caller.msg(string)
         if hasattr(player, 'Dominion') and hasattr(player.Dominion, 'assets'):
             vault = player.Dominion.assets.vault
