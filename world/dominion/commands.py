@@ -2319,7 +2319,7 @@ class CmdTask(MuxCommand):
                         continue
                     if char not in asklist:
                         # The action point cost of requesting support for a task
-                        if not caller.db.player_ob.pay_action_points(10):
+                        if not caller.db.player_ob.pay_action_points(2):
                             caller.msg("You don't have enough action points to ask for support from %s." % char.name)
                             continue
                         asklist.append(char)
