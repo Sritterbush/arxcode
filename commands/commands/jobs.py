@@ -345,6 +345,8 @@ class CmdRequest(MuxPlayerCommand):
     '+featurerequest' is used for making requests for code changes.
     '+storyrequest' is used for asking for GM resolution of IC actions.
     '+prprequest' is used for asking questions about a PRP.
+
+    Story requests cost 40 action points.
     """
 
     key = "+request"
@@ -378,7 +380,11 @@ class CmdRequest(MuxPlayerCommand):
         offset = timedelta(days=-num_days)
         date = date + offset
         actions = self.caller.tickets.filter(queue__slug="Story", created__gte=date)
+        if self.caller.roster.action_points < 40:
+            self.msg("It costs 40 Action Points to make a story action.")
+            return True
         if actions.count() < max_requests:
+            self.caller.pay_action_points(40)
             return False
         self.msg("You have submitted requests for GMing for a storyaction on: %s." % ", ".join(
             ob.created.strftime("%x") for ob in actions))

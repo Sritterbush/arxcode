@@ -193,201 +193,187 @@ class CmdCrisisAction(MuxPlayerCommand):
     Actions are queued in and then all simultaneously resolved by
     GMs periodically. To view crises that have since been resolved,
     use the /old switch.
+
+    Crisis actions cost 50 action points.
     """
+    key = "+crisis"
+    aliases = ["crisis"]
+    locks = "cmd:all()"
+    help_category = "Dominion"
 
+    @property
+    def viewable_crises(self):
+        if self.caller.check_permstring("builders"):
+            qs = Crisis.objects.all()
+        else:
+            qs = Crisis.objects.filter(
+                Q(public=True) | Q(required_clue__discoveries__in=self.caller.roster.finished_clues))
+        if "old" in self.switches:
+            qs = qs.filter(resolved=True)
+        return qs.order_by('end_date')
 
-key = "+crisis"
-aliases = ["crisis"]
-locks = "cmd:all()"
-help_category = "Dominion"
+    @property
+    def current_actions(self):
+        return self.caller.Dominion.actions.filter(sent=False)
 
-
-@property
-def viewable_crises(self):
-    if self.caller.check_permstring("builders"):
-        qs = Crisis.objects.all()
-    else:
-        qs = Crisis.objects.filter(
-            Q(public=True) | Q(required_clue__discoveries__in=self.caller.roster.finished_clues))
-    if "old" in self.switches:
-        qs = qs.filter(resolved=True)
-    return qs.order_by('end_date')
-
-
-@property
-def current_actions(self):
-    return self.caller.Dominion.actions.filter(sent=False)
-
-
-def list_crises(self):
-    qs = self.viewable_crises
-    if "old" not in self.switches:
-        qs = qs.filter(resolved=False)
-    table = EvTable("{w#{n", "{wName{n", "{wDesc{n", "{wRating{n", "{wUpdates On{n", width=78, border="cells")
-    for ob in qs:
-        date = "--" if not ob.end_date else ob.end_date.strftime("%x %H:%M")
-        table.add_row(ob.id, ob.name, ob.headline, ob.rating, date)
-    self.msg(table)
-    self.msg("{wYour pending actions:{n")
-    table = EvTable("{w#{n", "{wCrisis{n")
-    for ob in self.current_actions:
-        table.add_row(ob.id, ob.crisis)
-    self.msg(table)
-    past_actions = self.caller.Dominion.actions.filter(sent=True)
-    if past_actions:
+    def list_crises(self):
+        qs = self.viewable_crises
+        if "old" not in self.switches:
+            qs = qs.filter(resolved=False)
+        table = EvTable("{w#{n", "{wName{n", "{wDesc{n", "{wRating{n", "{wUpdates On{n", width=78, border="cells")
+        for ob in qs:
+            date = "--" if not ob.end_date else ob.end_date.strftime("%x %H:%M")
+            table.add_row(ob.id, ob.name, ob.headline, ob.rating, date)
+        self.msg(table)
+        self.msg("{wYour pending actions:{n")
         table = EvTable("{w#{n", "{wCrisis{n")
-        self.msg("{wYour past actions:{n")
-        for ob in past_actions:
+        for ob in self.current_actions:
             table.add_row(ob.id, ob.crisis)
         self.msg(table)
+        past_actions = self.caller.Dominion.actions.filter(sent=True)
+        if past_actions:
+            table = EvTable("{w#{n", "{wCrisis{n")
+            self.msg("{wYour past actions:{n")
+            for ob in past_actions:
+                table.add_row(ob.id, ob.crisis)
+            self.msg(table)
 
-
-def get_crisis(self):
-    try:
-        if not self.switches or "old" in self.switches:
-            return self.viewable_crises.get(id=self.lhs)
-        return self.viewable_crises.get(resolved=False, id=self.lhs)
-    except (Crisis.DoesNotExist, ValueError):
-        self.msg("Crisis not found by that #.")
-        return
-
-
-def view_crisis(self):
-    crisis = self.get_crisis()
-    if not crisis:
-        return
-    self.msg(crisis.display())
-    return
-
-
-def new_action(self):
-    crisis = self.get_crisis()
-    if not crisis:
-        return
-    if crisis.actions.filter(sent=False, dompc=self.caller.Dominion):
-        self.msg("You have unresolved actions. Use /appendaction instead.")
-        return
-    if not self.rhs:
-        self.msg("Must specify an action.")
-        return
-    if not self.caller.pay_action_points(50):
-        self.msg("You do not have enough action points to respond to this crisis.")
-        return
-    week = get_week()
-    public = "secretaction" not in self.switches
-    crisis.actions.create(dompc=self.caller.Dominion, action=self.rhs, public=public, week=week)
-    self.msg("You are going to perform this action: %s" % self.rhs)
-    inform_staff("%s has created a new crisis action: %s" % (self.caller, self.rhs))
-
-
-def get_action(self, get_all=False):
-    if not get_all:
-        qs = self.current_actions
-    else:
-        qs = self.caller.Dominion.actions.all()
-    try:
-        return qs.get(id=self.lhs)
-    except (CrisisAction.DoesNotExist, ValueError):
-        self.msg("No action found by that id. Remember to specify the number of the action, not the crisis.")
-        return
-
-
-def view_action(self):
-    action = self.get_action(get_all=True)
-    if not action:
-        return
-    msg = action.view_action(self.caller, disp_pending=True, disp_old=True)
-    if not msg:
-        msg = "You are not able to view that action."
-    self.msg(msg)
-
-
-def cancel_action(self):
-    action = self.get_action()
-    if not action:
-        return
-    action.delete()
-    self.msg("Action deleted.")
-
-
-def append_action(self):
-    action = self.get_action()
-    if not action:
-        return
-    action.action += "\n%s" % self.rhs
-    action.save()
-    self.msg("Action is now: %s" % action.action)
-
-
-def add_action_points(self):
-    action = self.get_action()
-    if not action:
-        return
-    try:
-        val = int(self.rhs)
-        if val <= 0:
-            raise ValueError
-        if not self.caller.pay_action_points(val):
-            self.msg("You do not have the action points to put more effort into this crisis.")
+    def get_crisis(self):
+        try:
+            if not self.switches or "old" in self.switches:
+                return self.viewable_crises.get(id=self.lhs)
+            return self.viewable_crises.get(resolved=False, id=self.lhs)
+        except (Crisis.DoesNotExist, ValueError):
+            self.msg("Crisis not found by that #.")
             return
-    except (TypeError, ValueError):
-        self.msg("You must specify a positive amount that you can afford.")
-        return
-    action.outcome_value += val
-    action.save()
-    self.msg("You add %s action points. Current action points allocated: %s" % (self.rhs, action.outcome_value))
 
+    def view_crisis(self):
+        crisis = self.get_crisis()
+        if not crisis:
+            return
+        self.msg(crisis.display())
+        return
 
-def ask_question(self):
-    action = self.get_action()
-    if not action:
-        return
-    try:
-        question = action.questions.get(answers__isnull=True)
-        self.msg("Found an unanswered question. Appending your question to it.")
-        question.text += "\n%s" % self.rhs
-    except ActionOOCQuestion.DoesNotExist:
-        question = action.questions.create(text="")
-    question.text += self.rhs
-    question.save()
-    self.msg("Asked the question: %s" % self.rhs)
-    inform_staff("%s has asked a question about a crisis action: %s" % (self.caller, self.rhs))
+    def new_action(self):
+        crisis = self.get_crisis()
+        if not crisis:
+            return
+        if crisis.actions.filter(sent=False, dompc=self.caller.Dominion):
+            self.msg("You have unresolved actions. Use /appendaction instead.")
+            return
+        if not self.rhs:
+            self.msg("Must specify an action.")
+            return
+        if not self.caller.pay_action_points(50):
+            self.msg("You do not have enough action points to respond to this crisis.")
+            return
+        week = get_week()
+        public = "secretaction" not in self.switches
+        crisis.actions.create(dompc=self.caller.Dominion, action=self.rhs, public=public, week=week)
+        self.msg("You are going to perform this action: %s" % self.rhs)
+        inform_staff("%s has created a new crisis action: %s" % (self.caller, self.rhs))
 
+    def get_action(self, get_all=False):
+        if not get_all:
+            qs = self.current_actions
+        else:
+            qs = self.caller.Dominion.actions.all()
+        try:
+            return qs.get(id=self.lhs)
+        except (CrisisAction.DoesNotExist, ValueError):
+            self.msg("No action found by that id. Remember to specify the number of the action, not the crisis.")
+            return
 
-def toggle_secret(self):
-    action = self.get_action()
-    if not action:
-        return
-    action.public = not action.public
-    action.save()
-    self.msg("Public status of action is now %s" % action.public)
+    def view_action(self):
+        action = self.get_action(get_all=True)
+        if not action:
+            return
+        msg = action.view_action(self.caller, disp_pending=True, disp_old=True)
+        if not msg:
+            msg = "You are not able to view that action."
+        self.msg(msg)
 
+    def cancel_action(self):
+        action = self.get_action()
+        if not action:
+            return
+        action.delete()
+        self.msg("Action deleted.")
 
-def func(self):
-    if not self.args and (not self.switches or "old" in self.switches):
-        self.list_crises()
-        return
-    if not self.switches or "old" in self.switches:
-        self.view_crisis()
-        return
-    if "newaction" in self.switches or "secretaction" in self.switches:
-        self.new_action()
-        return
-    if "viewaction" in self.switches:
-        self.view_action()
-        return
-    if "question" in self.switches:
-        self.ask_question()
-        return
-    if "cancelaction" in self.switches:
-        self.cancel_action()
-        return
-    if "appendaction" in self.switches:
-        self.append_action()
-        return
-    if "togglesecret" in self.switches:
-        self.toggle_secret()
-        return
-    if "addpoints" in self.switches:
-        self.add_action_points()
-    self.msg("Invalid switch")
+    def append_action(self):
+        action = self.get_action()
+        if not action:
+            return
+        action.action += "\n%s" % self.rhs
+        action.save()
+        self.msg("Action is now: %s" % action.action)
+
+    def add_action_points(self):
+        action = self.get_action()
+        if not action:
+            return
+        try:
+            val = int(self.rhs)
+            if val <= 0:
+                raise ValueError
+            if not self.caller.pay_action_points(val):
+                self.msg("You do not have the action points to put more effort into this crisis.")
+                return
+        except (TypeError, ValueError):
+            self.msg("You must specify a positive amount that you can afford.")
+            return
+        action.outcome_value += val
+        action.save()
+        self.msg("You add %s action points. Current action points allocated: %s" % (self.rhs, action.outcome_value))
+
+    def ask_question(self):
+        action = self.get_action()
+        if not action:
+            return
+        try:
+            question = action.questions.get(answers__isnull=True)
+            self.msg("Found an unanswered question. Appending your question to it.")
+            question.text += "\n%s" % self.rhs
+        except ActionOOCQuestion.DoesNotExist:
+            question = action.questions.create(text="")
+        question.text += self.rhs
+        question.save()
+        self.msg("Asked the question: %s" % self.rhs)
+        inform_staff("%s has asked a question about a crisis action: %s" % (self.caller, self.rhs))
+
+    def toggle_secret(self):
+        action = self.get_action()
+        if not action:
+            return
+        action.public = not action.public
+        action.save()
+        self.msg("Public status of action is now %s" % action.public)
+
+    def func(self):
+        if not self.args and (not self.switches or "old" in self.switches):
+            self.list_crises()
+            return
+        if not self.switches or "old" in self.switches:
+            self.view_crisis()
+            return
+        if "newaction" in self.switches or "secretaction" in self.switches:
+            self.new_action()
+            return
+        if "viewaction" in self.switches:
+            self.view_action()
+            return
+        if "question" in self.switches:
+            self.ask_question()
+            return
+        if "cancelaction" in self.switches:
+            self.cancel_action()
+            return
+        if "appendaction" in self.switches:
+            self.append_action()
+            return
+        if "togglesecret" in self.switches:
+            self.toggle_secret()
+            return
+        if "addpoints" in self.switches:
+            self.add_action_points()
+        self.msg("Invalid switch")
