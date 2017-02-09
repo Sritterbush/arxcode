@@ -180,6 +180,7 @@ def get_difficulty_mod(recipe, money=0, action_points=0):
     # for every 10% of the value of recipe we invest, we knock 1 off difficulty
     val = int(val/0.10) + 1
     val += randint(0, action_points)
+    return val
 
 
 def get_quality_lvl(roll, diff):
@@ -415,7 +416,11 @@ class CmdCraft(MuxCommand):
             if invest > recipe.value:
                 caller.msg("The maximum amount you can spend per roll is %s." % recipe.value)
                 return
-            diffmod = get_difficulty_mod(recipe, invest)
+            # don't display a random number when they're prepping
+            if caller.ndb.refine_targ != targ:
+                diffmod = get_difficulty_mod(recipe, invest)
+            else:
+                diffmod = get_difficulty_mod(recipe, invest, action_points)
             cost = base_cost + invest + price
             # difficulty gets easier by 1 each time we attempt it
             refine_attempts = crafter.db.refine_attempts or {}
@@ -435,7 +440,6 @@ class CmdCraft(MuxCommand):
             if not caller.player.pay_action_points(2 + action_points):
                 self.msg("You do not have enough action points to refine.")
                 return
-            diffmod = get_difficulty_mod(recipe, invest, action_points)
             # pay for it
             caller.pay_money(cost)
             self.pay_owner(price, "%s has refined '%s', a %s, at your shop and you earn %s silver." % (caller, targ,

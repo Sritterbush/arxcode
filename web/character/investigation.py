@@ -352,7 +352,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             self.msg("You already have an active investigation. That must stop before you help another.\n"
                      "Once that investigation is no longer active, you may resume helping this investigation.")
         self.caller.attributes.remove(self.form_attr)
-        
+
     @property
     def target_type(self):
         return "investigation"
