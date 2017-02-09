@@ -75,7 +75,7 @@ class CmdInventory(MuxCommand):
     locks = "cmd:all()"
     perm_for_switches = "Builders"
 
-    def dynamic_help(self, caller):
+    def get_help(self, caller, cmdset):
         if not caller.check_permstring(self.perm_for_switches):
             return self.__doc__
         help_string = """
@@ -120,8 +120,8 @@ class CmdInventory(MuxCommand):
         except AttributeError:
             pass
         self.caller.msg("\n{w%s currently %s {c%s {wxp and {c%s{w ap." % ("You" if not show_other else char.key,
-                                                                         "have" if not show_other else 'has',
-                                                                         xp, ap))
+                                                                          "have" if not show_other else 'has',
+                                                                          xp, ap))
         self.caller.msg(string)
         if hasattr(player, 'Dominion') and hasattr(player.Dominion, 'assets'):
             vault = player.Dominion.assets.vault
@@ -469,7 +469,7 @@ class CmdEmit(MuxCommand):
     help_category = "Social"
     perm_for_switches = "Builders"
 
-    def dynamic_help(self, caller):
+    def get_help(self, caller, cmdset):
         if caller.check_permstring(self.perm_for_switches):
             return self.__doc__
         help_string = """

@@ -975,6 +975,13 @@ class CmdListClues(MuxPlayerCommand):
     locks = "cmd:all()"
     aliases = ["+clues", "@clue", "+clue", "@zoinks", "@jinkies"]
     help_category = "Investigation"
+
+    def get_help(self, caller, cmdset):
+        if caller.db.player_ob:
+            caller = caller.db.player_ob
+        doc = self.__doc__
+        doc += "\n\nYour cost of sharing clues is %s." % caller.clue_cost
+        return doc
     
     @property
     def finished_clues(self):
@@ -1040,7 +1047,7 @@ class CmdListClues(MuxPlayerCommand):
                     clue.share(pc.roster)
                 shared_names.append(str(pc.roster))
             if shared_names:
-                self.caller.pay_action_points(len(shared_names) * len(clues_to_share))
+                self.caller.pay_action_points(len(shared_names) * len(clues_to_share) * self.caller.clue_cost)
                 caller.msg("You have shared the clues '%s' with %s." % (
                     ", ".join(str(ob.clue) for ob in clues_to_share),
                     ", ".join(shared_names)))

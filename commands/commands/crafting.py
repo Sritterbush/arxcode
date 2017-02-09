@@ -437,7 +437,7 @@ class CmdCraft(MuxCommand):
             if cost > caller.db.currency:
                 caller.msg("This would cost %s, and you only have %s." % (cost, caller.db.currency))
                 return
-            if not caller.player.pay_action_points(2 + action_points):
+            if not caller.db.player_ob.pay_action_points(2 + action_points):
                 self.msg("You do not have enough action points to refine.")
                 return
             # pay for it
@@ -628,7 +628,7 @@ class CmdCraft(MuxCommand):
                     caller.msg("You do not have any of the material %s." % c_mat.name)
                     return
             # check if they have enough action points
-            if not caller.player.pay_action_points(2 + action_points):
+            if not caller.db.player_ob.pay_action_points(2 + action_points):
                 self.msg("You do not have enough action points left to craft that.")
                 return
             # we're still here, so we have enough materials. spend em all

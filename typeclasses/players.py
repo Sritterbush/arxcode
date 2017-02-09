@@ -288,6 +288,7 @@ class Player(MsgMixins, DefaultPlayer):
             self.roster.action_points -= amt
             self.roster.save()
             self.msg("{wYou use %s action points and have %s remaining this week.{n" % (amt, self.roster.action_points))
+            self.refresh_from_db()
             return True
         except AttributeError:
             return False
