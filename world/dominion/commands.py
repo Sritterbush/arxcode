@@ -2681,9 +2681,9 @@ class CmdSupport(MuxCommand):
                 self.msg("Use the /change switch to support them again if you have in previous weeks, " +
                          "or to change existing support if you already have this week.")
                 return
-            if not self.caller.player.pay_action_points(5):
-                caller.msg("You don't have enough action points to support %s." % char.name)
-                return
+            # if not self.caller.player.pay_action_points(5):
+            #     caller.msg("You don't have enough action points to support %s." % char.name)
+            #     return
             caller.msg("{wExisting rumor for task:{n\n%s" % assignment.observer_text)
             form = [char, False, {}, "", ""]
             caller.db.supportform = form
