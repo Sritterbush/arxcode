@@ -75,9 +75,6 @@ class CmdUseXP(MuxCommand):
             else:
                 caller.msg(", ".join(ability for ability in abilities))
             return
-        if not self.player.pay_action_points(25):
-            self.msg("You do not have enough action points to spend XP.")
-            return
         args = self.args.lower()
         # get cost already factors in if we have a trainer, so no need to check
         if args in stats_and_skills.VALID_STATS:
