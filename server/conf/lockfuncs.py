@@ -187,6 +187,8 @@ def roomkey(accessing_obj, accessed_obj, *args, **kwargs):
     roomid = int(args[0])
     keylist = accessing_obj.db.keylist or []
     keylist = [room.id for room in keylist if room]
+    if keylist:
+        accessing_obj.db.keylist = keylist
     return roomid in keylist
 
 
@@ -201,6 +203,8 @@ def chestkey(accessing_obj, accessed_obj, *args, **kwargs):
     chestid = int(args[0])
     keylist = accessing_obj.db.chestkeylist or []
     keylist = [chest.id for chest in keylist if chest]
+    if keylist:
+        accessing_obj.db.chestkeylist = keylist
     return chestid in keylist
 
 

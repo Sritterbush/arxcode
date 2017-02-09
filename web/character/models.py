@@ -768,7 +768,7 @@ class Investigation(models.Model):
         self.char.attributes.remove("investigation_roll")
         msg = "Your investigation into '%s' has had the following result:\n" % self.topic
         msg += self.results
-        self.character.player.inform(msg, category="Investigations")
+        self.character.player.inform(msg, category="Investigations", append=False)
 
     def generate_result(self):
         """
@@ -920,9 +920,8 @@ class Investigation(models.Model):
     @property
     def goal(self):
         try:
-            clue = self.clues.get(clue=self.targeted_clue)
-            return clue.clue.rating
-        except (ClueDiscovery.DoesNotExist, Clue.DoesNotExist, AttributeError):
+            return self.targeted_clue.rating
+        except (Clue.DoesNotExist, AttributeError):
             return 0
 
     def add_progress(self):
