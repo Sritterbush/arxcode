@@ -583,20 +583,19 @@ class CmdCombatStance(MuxCommand):
     def func(self):
         """Execute command."""
         caller = self.caller
-        combat = check_combat(caller)
-        if not combat:
-            return
-        assert caller in combat.ndb.combatants, "Error: caller not in combat."
-        fighter = combat.get_fighter_data(caller.id)
-        if fighter.changed_stance:
-            caller.msg("You've already changed your stance this turn.")
-            return
         if self.args not in combat_settings.COMBAT_STANCES:
             message = "Your stance must be one of the following: "
             message += "{w%s{n" % str(combat_settings.COMBAT_STANCES)
             caller.msg(message)
             return
-        caller.db.combat_stance = self.args
+        combat = check_combat(caller)
+        if not combat:
+            caller.db.combat_stance = self.args
+            self.msg("Stance is now %s." % self.args)
+            return
+        if combat.ndb.phase != 1:
+            self.msg("Can only change stance between rounds.")
+            return
         combat.change_stance(caller, self.args)       
         return
 
