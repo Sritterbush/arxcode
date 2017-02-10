@@ -70,6 +70,7 @@ class WeeklyEvents(Script):
         It's time for us to do events, like count votes, update dominion, etc.
         """
         self.db.run_time = 0
+        self.db.run_date = datetime.now()
         # processing for each player
         self.do_events_per_player(reset)
         # awarding votes we counted

@@ -42,3 +42,12 @@ class Inform(models.Model):
     class Meta:
         app_label = "msgs"
         db_table = "comms_inform"
+
+    @classmethod
+    def bulk_inform(cls, players, text, category):
+        bulk_list = []
+        for ob in players:
+            bulk_list.append(cls(player=ob, message=text, category=category))
+        cls.objects.bulk_create(bulk_list)
+        for player in players:
+            player.announce_informs()

@@ -1919,6 +1919,13 @@ class Organization(models.Model):
         except Channel.DoesNotExist:
             return None
 
+    def inform_members(self, text, category=None):
+        from world.msgs.models import Inform
+        if not category:
+            category = self.name
+        players = [ob.player.player for ob in self.active_members]
+        Inform.bulk_inform(players, text=text, category=category)
+
 
 class Agent(models.Model):
     """

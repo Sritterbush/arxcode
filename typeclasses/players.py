@@ -135,12 +135,7 @@ class Player(MsgMixins, DefaultPlayer):
         if self.db.new_comments:
             self.msg("{wYou have new comments.{n")
         self.db.afk = ""
-        try:
-            unread = self.informs.filter(is_unread=True).count()
-            if unread:
-                self.msg("{w*** You have %s unread informs. Use @informs to read them. ***{n" % unread)
-        except Exception:
-            pass
+        self.announce_informs()
         pending = self.db.pending_messages or []
         for msg in pending:
             self.msg(msg, options={'box': True})
@@ -167,6 +162,15 @@ class Player(MsgMixins, DefaultPlayer):
                 except Roster.DoesNotExist:
                     pass
         except AttributeError:
+            pass
+
+    # noinspection PyBroadException
+    def announce_informs(self):
+        try:
+            unread = self.informs.filter(is_unread=True).count()
+            if unread:
+                self.msg("{w*** You have %s unread informs. Use @informs to read them. ***{n" % unread)
+        except Exception:
             pass
 
     def is_guest(self):
