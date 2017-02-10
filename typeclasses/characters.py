@@ -637,9 +637,10 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         except (AttributeError, ValueError, TypeError):
             import traceback
             traceback.print_exc()
-        if self.db.player_ob and not self.db.player_ob.db.hide_from_watch:
-            for watcher in watched_by:
-                watcher.msg("{wA player you are watching, {c%s{w, has entered the game.{n" % self.key)
+        if self.sessions.count() == 1:
+            if self.db.player_ob and not self.db.player_ob.db.hide_from_watch:
+                for watcher in watched_by:
+                    watcher.msg("{wA player you are watching, {c%s{w, has entered the game.{n" % self.key)
         guards = self.guards
         for guard in guards:
             if guard.discreet:

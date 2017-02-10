@@ -307,15 +307,16 @@ class Player(MsgMixins, DefaultPlayer):
             pass
 
     def at_post_disconnect(self):
-        watched_by = self.db.char_ob and self.db.char_ob.db.watched_by or []
-        if not watched_by:
-            return
-        if not self.db.hide_from_watch:
-            for watcher in watched_by:
-                watcher.msg("{wA player you are watching, {c%s{w, has disconnected.{n" % self.key.capitalize())
-        self.previous_log = self.current_log
-        self.current_log = []
-        self.db.lookingforrp = False
+        if not self.sessions.all():
+            watched_by = self.db.char_ob and self.db.char_ob.db.watched_by or []
+            if not watched_by:
+                return
+            if not self.db.hide_from_watch:
+                for watcher in watched_by:
+                    watcher.msg("{wA player you are watching, {c%s{w, has disconnected.{n" % self.key.capitalize())
+            self.previous_log = self.current_log
+            self.current_log = []
+            self.db.lookingforrp = False
 
     def log_message(self, from_obj, text):
         from evennia.utils.utils import make_iter
