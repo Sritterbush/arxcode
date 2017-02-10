@@ -659,6 +659,10 @@ class CmdGameTime(default_cmds.MuxCommand):
     locks = "cmd:all()"
     help_category = "General"
 
+    # noinspection PyUnusedLocal
+    def get_help(self, caller, cmdset):
+        return self.__doc__ + "\n\nGame time moves %s faster than real time." % settings.TIME_FACTOR
+
     def func(self):
         """Reads time info from current room"""
         location = self.caller.location

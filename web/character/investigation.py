@@ -208,6 +208,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         @helpinvestigate/changestory <id #>=<new story>
         @helpinvestigate/changestat <id #>=<new stat>
         @helpinvestigate/changeskill <id #>=<new skill>
+        @helpinvestigate/actionpoints <id #>=<AP amount>
         @helpinvestigate/retainer/stop <retainer ID>
         @helpinvestigate/retainer/resume <id #>=<retainer ID>
         @helpinvestigate/retainer/changestory <retainer ID>/<id #>=<story>
@@ -227,7 +228,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
     locks = "cmd:all()"
     help_category = "Investigation"
     form_verb = "Helping"
-    change_switches = ("changestory", "changestat", "changeskill")
+    change_switches = ("changestory", "changestat", "changeskill", "actionpoints")
 
     def pay_costs(self):
         return True
@@ -588,7 +589,7 @@ class CmdInvestigate(InvestigationFormCommand):
     help_category = "Investigation"
     aliases = ["+investigate", "investigate"]
     base_cost = 25
-    model_switches = ("view", "active", "silver", "resource", "changetopic", "pause",
+    model_switches = ("view", "active", "silver", "resource", "changetopic", "pause", "actionpoints",
                       "changestory", "abandon", "resume", "requesthelp", "changestat", "changeskill")
 
     # noinspection PyAttributeOutsideInit

@@ -246,6 +246,18 @@ class CmdTrain(MuxCommand):
     locks = "cmd:all()"
     help_category = "Progression"
 
+    # noinspection PyAttributeOutsideInit
+    def get_help(self, caller, cmdset):
+        if caller.db.char_ob:
+            caller = caller.db.char_ob
+        self.caller = caller
+        msg = self.__doc__ + "\n\nYou can train {w%s{n people per week." % self.max_trainees
+        trained = ", ".join(ob.key for ob in self.currently_training)
+        if trained:
+            msg += "\nYou have trained %s this week." % trained
+        msg += "\nYour current cost to train another character is {w%s{n AP." % self.action_point_cost
+        return msg
+
     @property
     def max_trainees(self):
         max_skill = self.max_skill
@@ -269,7 +281,7 @@ class CmdTrain(MuxCommand):
 
     @property
     def action_point_cost(self):
-        if len(self.currently_training) <= self.max_trainees:
+        if len(self.currently_training) < self.max_trainees:
             return 0
         return 100 - 15 * self.max_skill
 
