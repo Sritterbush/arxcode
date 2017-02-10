@@ -376,4 +376,5 @@ class CmdCrisisAction(MuxPlayerCommand):
             return
         if "addpoints" in self.switches:
             self.add_action_points()
+            return
         self.msg("Invalid switch")
