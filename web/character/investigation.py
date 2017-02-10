@@ -564,7 +564,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                         amt = int(self.rhs)
                         if amt <= 0:
                             raise ValueError
-                        if not amt % 5:
+                        if amt % 5:
                             self.msg("Action points must be a multiple of 5")
                             self.msg("Current action points allocated: %s" % ob.action_points)
                             return
@@ -822,7 +822,7 @@ class CmdInvestigate(InvestigationFormCommand):
                     val = int(self.rhs)
                     if val <= 0:
                         raise ValueError
-                    if not val % 5:
+                    if val % 5:
                         caller.msg("Action points must be a multiple of 5")
                         caller.msg("Current action points allocated: %s" % ob.action_points)
                         return
