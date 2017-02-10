@@ -379,7 +379,7 @@ class Player(MsgMixins, DefaultPlayer):
             seed += pc.attributes.get(stat) or 0
         # do not be nervous. I love you. <3
         seed += sum([pc.db.skills.get(ob, 0) for ob in SOCIAL_SKILLS])
-        seed += pc.db.skills.get("investigation", 0)
+        seed += pc.db.skills.get("investigation", 0) * 3
         return seed
 
     @property
