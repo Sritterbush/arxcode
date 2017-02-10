@@ -209,6 +209,8 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         @helpinvestigate/changestat <id #>=<new stat>
         @helpinvestigate/changeskill <id #>=<new skill>
         @helpinvestigate/actionpoints <id #>=<AP amount>
+        @helpinvestigate/silver <id #>=<additional silver to spend>
+        @helpinvestigate/resource <id #>=<resource type>,<amount>
         @helpinvestigate/retainer/stop <retainer ID>
         @helpinvestigate/retainer/resume <id #>=<retainer ID>
         @helpinvestigate/retainer/changestory <retainer ID>/<id #>=<story>
@@ -228,7 +230,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
     locks = "cmd:all()"
     help_category = "Investigation"
     form_verb = "Helping"
-    change_switches = ("changestory", "changestat", "changeskill", "actionpoints")
+    change_switches = ("changestory", "changestat", "changeskill", "actionpoints", "silver", "resource", "resources")
 
     def pay_costs(self):
         return True
@@ -505,6 +507,56 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                         return
                     ob.skill_used = rhs
                     field = "skill"
+                elif "silver" in self.switches:
+                    ob = ob.investigation
+                    amt = self.caller.db.currency or 0.0
+                    try:
+                        val = int(self.rhs)
+                        amt -= val
+                        if amt < 0 or val <= 0:
+                            raise ValueError
+                        if val % 5000 or (ob.silver + val) > 50000:
+                            self.msg("Silver must be a multiple of 5000, 50000 max.")
+                            self.msg("Current silver: %s" % ob.silver)
+                            return
+                    except (TypeError, ValueError):
+                        self.msg("You must specify a positive amount that is less than your money on hand.")
+                        return
+                    self.caller.pay_money(val)
+                    ob.silver += val
+                    ob.save()
+                    # redo the roll with new difficulty
+                    ob.do_roll()
+                    self.msg("You add %s silver to the investigation." % val)
+                    return
+                elif "resource" in self.switches or "resources" in self.switches:
+                    ob = ob.investigation
+                    dompc = self.caller.db.player_ob.Dominion
+                    try:
+                        rtype, val = self.rhslist[0].lower(), int(self.rhslist[1])
+                        if val <= 0:
+                            raise ValueError
+                        oamt = getattr(ob, rtype)
+                        if oamt + val > 50:
+                            self.msg("Maximum of 50 per resource. Current value: %s" % oamt)
+                            return
+                        current = getattr(dompc.assets, rtype)
+                        current -= val
+                        if current < 0:
+                            self.msg("You do not have enough %s resources." % rtype)
+                            return
+                        setattr(dompc.assets, rtype, current)
+                        dompc.assets.save()
+                    except (TypeError, ValueError, IndexError, AttributeError):
+                        self.msg("Invalid syntax.")
+                        return
+                    oamt += val
+                    setattr(ob, rtype, oamt)
+                    ob.save()
+                    # redo the roll with new difficulty
+                    ob.do_roll()
+                    self.msg("You have added %s resources to the investigation." % val)
+                    return
                 elif "actionpoints" in self.switches:
                     ob = ob.investigation
                     # check if we can pay
