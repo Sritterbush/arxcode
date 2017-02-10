@@ -91,7 +91,8 @@ def explode_check(num):
 
 def do_dice_check(caller, stat=None, skill=None, difficulty=DIFF_DEFAULT, stat_list=None,
                   skill_list=None, skill_keep=True, stat_keep=False, quiet=True, announce_room=None,
-                  keep_override=None, bonus_dice=0, divisor=1, average_lists=False, can_crit=True):
+                  keep_override=None, bonus_dice=0, divisor=1, average_lists=False, can_crit=True,
+                  average_stat_list=False, average_skill_list=False):
     """
     Do a dice check and return number of successes or botches. Positive number for
     successes, negative for botches.
@@ -111,13 +112,13 @@ def do_dice_check(caller, stat=None, skill=None, difficulty=DIFF_DEFAULT, stat_l
             if not val:
                 val = 0
             statval += val
-        if average_lists:
+        if average_lists or average_stat_list:
             statval /= len(stat_list)
     skillval = caller.db.skills.get(skill, 0)
     if skill_list:
         for cskill in skill_list:
             skillval += caller.db.skills.get(cskill, 0)
-        if average_lists:
+        if average_lists or average_skill_list:
             skillval /= len(skill_list)
     # keep dice is either based on some combination of stats or skills, or supplied by caller
     keep_dice = DEFAULT_KEEP

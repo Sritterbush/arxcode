@@ -675,12 +675,12 @@ class Investigation(models.Model):
         assistants and returns a dice roll based on its character,
         and the stats/skills used by that investigation or assistant.
         """
-        stat = obj.stat_used or "perception"
+        stat = obj.stat_used or "wits"
         stat = stat.lower()
         skill = obj.skill_used or "investigation"
         skill = skill.lower()
         roll = do_dice_check(obj.char, stat_list=[stat, "perception", "intellect"], skill_list=[skill, "investigation"],
-                             difficulty=diff, average_lists=True)
+                             difficulty=diff, average_skill_list=True)
         return roll
     
     def do_roll(self, mod=0, diff=None):
