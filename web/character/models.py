@@ -679,7 +679,7 @@ class Investigation(models.Model):
         stat = stat.lower()
         skill = obj.skill_used or "investigation"
         skill = skill.lower()
-        roll = do_dice_check(obj.char, stat_list=[stat, "perception"], skill_list=[skill, "investigation"],
+        roll = do_dice_check(obj.char, stat_list=[stat, "perception", "intellect"], skill_list=[skill, "investigation"],
                              difficulty=diff, average_lists=True)
         return roll
     
