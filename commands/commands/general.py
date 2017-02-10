@@ -1009,7 +1009,7 @@ class CmdMail(MuxPlayerCommand):
 
         # mailbox is combined from Player object and his characters
         mails = caller.db.mails or []
-        
+
         # error message for invalid argument
         nomatch = "You must supply a number matching a mail message."
 
@@ -1057,10 +1057,10 @@ class CmdMail(MuxPlayerCommand):
                 string += "{wTo:{n %s" % cclist + "\n"
                 string += "{wSender:{n %s" % sender + "\n"
                 string += "{wSubject:{n %s" % subject + "\n"
-                string += "{w"+20*"-"+"{n\n"
-                
+                string += "{w" + 20 * "-" + "{n\n"
+
                 string += raw(message)
-                string += "\n{w"+20*"-"+"{n\n"
+                string += "\n{w" + 20 * "-" + "{n\n"
                 caller.msg(string)
                 read_mails = caller.db.readmails or set()
                 if mail not in read_mails:
@@ -1081,7 +1081,7 @@ class CmdMail(MuxPlayerCommand):
                 return
             mail = mails[mail_number - 1]
             caller.db.mails.remove(mail)
-            caller.db.readmails.discard(mail)         
+            caller.db.readmails.discard(mail)
             caller.msg("Message deleted.")
             return
         if 'quick' in switches:
@@ -1100,10 +1100,11 @@ class CmdMail(MuxPlayerCommand):
             else:
                 subject = arglist[1]
             receivers_raw = arglist[0]
-            receivers = receivers_raw.split(",")            
+            receivers = receivers_raw.split(",")
             sender = caller.key.capitalize()
             received_list = []
             for receiver in receivers:
+                receiver = receiver.strip()
                 pobj = caller.search(receiver, global_search=True)
                 # if we got a character instead of player, get their player
                 if hasattr(pobj, 'player') and pobj.player:
