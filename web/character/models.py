@@ -534,10 +534,7 @@ class ClueDiscovery(models.Model):
             entry.player.send_or_queue_msg("%s tried to share the clue %s with you, but you already know that." % (
                 self.character, self.name))
             return False
-        investigations = entry.investigations.filter(clue_target=self.clue)
-        for investigation in investigations:
-            investigation.clue_target = None
-            investigation.save()
+        entry.investigations.filter(clue_target=self.clue).update(clue_target=None)
         targ_clue.roll += self.roll
         targ_clue.discovery_method = "Sharing"
         targ_clue.message = "This clue was shared to you by %s." % self.character
@@ -606,6 +603,7 @@ class InvestigationAssistant(models.Model):
         
 
 class Investigation(models.Model):
+    UNSET_ROLL = -9999
     character = models.ForeignKey('RosterEntry', related_name="investigations", db_index=True)
     ongoing = models.BooleanField(default=True, help_text="Whether this investigation is finished or not",
                                   db_index=True)
@@ -632,6 +630,7 @@ class Investigation(models.Model):
                                               help_text="Additional social resources added by the player")
     action_points = models.PositiveSmallIntegerField(default=0, blank=0,
                                                      help_text="How many action points spent by player/assistants.")
+    roll = models.SmallIntegerField(default=UNSET_ROLL, blank=True, help_text="Current roll for investigation.")
 
     def __str__(self):
         return "%s's investigation on %s" % (self.character, self.topic)
@@ -703,6 +702,7 @@ class Investigation(models.Model):
         # save the character's roll
         print("final roll is %s" % roll)
         self.roll = roll
+        self.save()
         return roll
 
     @property
@@ -721,17 +721,15 @@ class Investigation(models.Model):
         mod += self.action_points/5
         return mod
 
-    def _get_roll(self):
-        char = self.char
-        try:
-            return int(char.db.investigation_roll)
-        except (ValueError, TypeError):
+    def get_roll(self):
+        if self.roll == self.UNSET_ROLL:
             return self.do_roll()
-        
-    def _set_roll(self, value):
-        char = self.char
-        char.db.investigation_roll = int(value)
-    roll = property(_get_roll, _set_roll)
+        return self.roll
+    #
+    # def _set_roll(self, value):
+    #     char = self.char
+    #     char.db.investigation_roll = int(value)
+    # roll = property(_get_roll, _set_roll)
     
     @property
     def difficulty(self):
@@ -758,9 +756,10 @@ class Investigation(models.Model):
         want to find a targeted clue and generate our difficulty based
         on that.
         """
+        roll = self.get_roll()
         if diff is not None:
-            return (self.roll + self.progress) >= (diff + modifier)
-        return (self.roll + self.progress) >= self.completion_value
+            return (roll + self.progress) >= (diff + modifier)
+        return (roll + self.progress) >= self.completion_value
 
     def process_events(self):
         self.generate_result()
@@ -788,7 +787,7 @@ class Investigation(models.Model):
                     self.results += "but you keep on finding mention of '%s' in your search." % kw
             else:
                 # add a valid clue and update results string
-                roll = self.roll
+                roll = self.get_roll()
                 try:
                     clue = self.clues.get(clue=self.targeted_clue, character=self.character)
                 except ClueDiscovery.DoesNotExist:                    

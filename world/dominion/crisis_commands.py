@@ -188,6 +188,8 @@ class CmdCrisisAction(MuxPlayerCommand):
         +crisis/cancelaction <action #>
         +crisis/question <action #>=<question>
         +crisis/togglesecret <action #>
+        +crisis/inviteassistant <action #>=<player>
+        +crisis/assist <action #>=<action you are taking>
 
     Takes an action for a given crisis that is currently going on.
     Actions are queued in and then all simultaneously resolved by
@@ -254,6 +256,44 @@ class CmdCrisisAction(MuxPlayerCommand):
         self.msg(crisis.display())
         return
 
+    def invite_assistant(self):
+        targ = self.caller.search(self.rhs)
+        if not targ:
+            return
+        action = self.get_action()
+        if not action:
+            return
+        if action.assistants.filter(assistants=targ.Dominion):
+            self.msg("%s is already helping you.")
+            return
+        invitations = targ.db.crisis_action_invitations or []
+        if action.id not in invitations:
+            invitations.append(action.id)
+        targ.db.crisis_action_invitations = invitations
+        text = "%s has asked you to help crisis action #%s. Use +crisis/assist to help." % (self.caller, action.id)
+        targ.inform(text, category="Crisis action invitation")
+        return
+
+    def assist_action(self):
+        invitations = self.caller.db.crisis_action_invitations or []
+        if not self.rhs:
+            self.msg("You have the following invitations: %s" % ", ".join(str(ob) for ob in invitations))
+            return
+        try:
+            act_id = int(self.lhs)
+            if act_id not in invitations:
+                self.msg("You do not have an invitation to assist that crisis action.")
+                return
+            action = CrisisAction.objects.get(id=act_id)
+        except (ValueError, CrisisAction.DoesNotExist):
+            self.msg("Could not get a crisis action by that id.")
+            return
+        invitations.remove(act_id)
+        self.caller.db.crisis_action_invitations = invitations
+        action.assisting_actions.create(dompc=self.caller.Dominion, action=self.rhs)
+        self.msg("Action created.")
+        return
+
     def new_action(self):
         crisis = self.get_crisis()
         if not crisis:
@@ -273,11 +313,12 @@ class CmdCrisisAction(MuxPlayerCommand):
         self.msg("You are going to perform this action: %s" % self.rhs)
         inform_staff("%s has created a new crisis action: %s" % (self.caller, self.rhs))
 
-    def get_action(self, get_all=False):
-        if not get_all:
+    def get_action(self, get_all=False, get_assisted=False):
+        if not get_all and not get_assisted:
             qs = self.current_actions
         else:
-            qs = self.caller.Dominion.actions.all()
+            dompc = self.caller.Dominion
+            qs = CrisisAction.objects.filter(Q(dompc=dompc) | Q(assistants=dompc))
         try:
             return qs.get(id=self.lhs)
         except (CrisisAction.DoesNotExist, ValueError):
@@ -285,7 +326,7 @@ class CmdCrisisAction(MuxPlayerCommand):
             return
 
     def view_action(self):
-        action = self.get_action(get_all=True)
+        action = self.get_action(get_all=True, get_assisted=True)
         if not action:
             return
         msg = action.view_action(self.caller, disp_pending=True, disp_old=True)
@@ -376,5 +417,11 @@ class CmdCrisisAction(MuxPlayerCommand):
             return
         if "addpoints" in self.switches:
             self.add_action_points()
+            return
+        if "inviteassistant" in self.switches:
+            self.invite_assistant()
+            return
+        if "assist" in self.switches:
+            self.assist_action()
             return
         self.msg("Invalid switch")

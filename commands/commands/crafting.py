@@ -169,7 +169,7 @@ def do_crafting_roll(char, recipe, diffmod=0, diffmult=1.0, room=None):
                          announce_room=room)
 
 
-def get_difficulty_mod(recipe, money=0, action_points=0):
+def get_difficulty_mod(recipe, money=0, action_points=0, ability=0):
     from random import randint
     if not money:
         return 0
@@ -179,7 +179,9 @@ def get_difficulty_mod(recipe, money=0, action_points=0):
     val = float(money) / float(divisor)
     # for every 10% of the value of recipe we invest, we knock 1 off difficulty
     val = int(val/0.10) + 1
-    val += randint(0, action_points)
+    if action_points:
+        base = action_points / (13 - (2*ability))
+        val += randint(base, action_points)
     return val
 
 
@@ -408,8 +410,9 @@ class CmdCraft(MuxCommand):
                 return
             if targ.db.quality_level and targ.db.quality_level >= 10:
                 caller.msg("This object can no longer be improved.")
-                return    
-            if get_ability_val(crafter, recipe) < recipe.level:
+                return
+            ability = get_ability_val(crafter, recipe)
+            if ability < recipe.level:
                 err = "You lack" if crafter == caller else "%s lacks" % crafter
                 caller.msg("%s the skill required to attempt to improve this." % err)
                 return
@@ -420,7 +423,7 @@ class CmdCraft(MuxCommand):
             if caller.ndb.refine_targ != targ:
                 diffmod = get_difficulty_mod(recipe, invest)
             else:
-                diffmod = get_difficulty_mod(recipe, invest, action_points)
+                diffmod = get_difficulty_mod(recipe, invest, action_points, ability)
             cost = base_cost + invest + price
             # difficulty gets easier by 1 each time we attempt it
             refine_attempts = crafter.db.refine_attempts or {}

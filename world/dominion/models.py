@@ -1640,6 +1640,8 @@ class CrisisAction(models.Model):
     story = models.TextField("Story written by the GM for the player", blank=True)
     outcome_value = models.SmallIntegerField(default=0, blank=0)
     sent = models.BooleanField(default=False, blank=True)
+    assistants = models.ManyToManyField("PlayerOrNpc", blank=True, null=True, through="CrisisActionAssistant",
+                                        related_name="assisted_actions")
 
     def send(self, update):
         msg = "{wGM Response to action for crisis:{n %s" % self.crisis
@@ -1676,6 +1678,15 @@ class CrisisAction(models.Model):
                     msg += "\n{wGM:{n %s" % ans.gm
                     msg += "\n{wAnswer:{n %s" % ans.text
         return msg
+
+
+class CrisisActionAssistant(models.Model):
+    crisis_action = models.ForeignKey("CrisisAction", db_index=True, related_name="assisting_actions")
+    dompc = models.ForeignKey("PlayerOrNpc", db_index=True, related_name="assisting_actions")
+    action = models.TextField("What action the assistant is taking", blank=True)
+
+    class Meta:
+        unique_together = ('crisis_action', 'dompc')
 
 
 class ActionOOCQuestion(models.Model):
@@ -1773,6 +1784,8 @@ class Organization(models.Model):
     social_modifier = models.SmallIntegerField(default=0, blank=0)
     base_support_value = models.SmallIntegerField(default=5, blank=5)
     member_support_multiplier = models.SmallIntegerField(default=5, blank=5)
+    clues = models.ManyToManyField('character.Clue', blank=True, null=True, related_name="orgs",
+                                   through="ClueForOrg")
     
     def _get_npc_money(self):
         npc_income = self.npc_members * self.income_per_npc
@@ -1925,6 +1938,16 @@ class Organization(models.Model):
             category = self.name
         players = [ob.player.player for ob in self.active_members]
         Inform.bulk_inform(players, text=text, category=category)
+
+
+class ClueForOrg(models.Model):
+    clue = models.ForeignKey('character.Clue', related_name="org_discoveries", db_index=True)
+    org = models.ForeignKey('Organization', related_name="clue_discoveries", db_index=True)
+    revealed_by = models.ForeignKey('character.RosterEntry', related_name="clues_added_to_orgs", blank=True, null=True,
+                                    db_index=True)
+
+    class Meta:
+        unique_together = ('clue', 'org')
 
 
 class Agent(models.Model):

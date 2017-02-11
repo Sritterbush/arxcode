@@ -5,7 +5,7 @@ from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb,
                      CraftingRecipe, CraftingMaterialType, CraftingMaterials,
                      RPEvent, AccountTransaction, AssignedTask, Crisis, CrisisAction, CrisisUpdate,
                      OrgRelationship, Reputation, TaskSupporter, InfluenceCategory,
-                     Renown, SphereOfInfluence, TaskRequirement)
+                     Renown, SphereOfInfluence, TaskRequirement, ClueForOrg)
 
 
 class DomAdmin(admin.ModelAdmin):
@@ -42,6 +42,12 @@ class MemberInline(admin.StackedInline):
     readonly_fields = ('work_this_week', 'work_total')
 
 
+class ClueForOrgInline(admin.TabularInline):
+    model = ClueForOrg
+    extra = 0
+    raw_id_fields = ('clue', 'org', 'revealed_by')
+
+
 class OrgListFilter(admin.SimpleListFilter):
     title = 'PC or NPC'
     parameter_name = 'played'
@@ -68,7 +74,7 @@ class OrgAdmin(DomAdmin):
     @staticmethod
     def membership(obj):
         return ", ".join([str(p) for p in obj.members.filter(deguilded=False)])
-    inlines = [MemberInline]
+    inlines = [MemberInline, ClueForOrgInline]
 
     
 class Assignments(admin.StackedInline):

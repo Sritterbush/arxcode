@@ -162,7 +162,7 @@ class CmdWatch(MuxPlayerCommand):
         for ob in sorted(watchlist, key=lambda x: x.key):
             name = ob.key.capitalize()
             if ob.db.player_ob.is_connected and not ob.db.player_ob.db.hide_from_watch:
-                name = "{c%s{n" % name
+                name = "{c*%s{n" % name
             table.append(name)
         caller.msg("Currently watching (online players are highlighted):\n%s" % ", ".join(table), options={'box': True})
         if caller.db.hide_from_watch:

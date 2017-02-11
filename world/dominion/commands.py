@@ -16,7 +16,7 @@ from server.utils.arx_utils import get_week
 from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from . import setup_utils
-from .models import (Region, Domain, Land, PlayerOrNpc, Army,
+from .models import (Region, Domain, Land, PlayerOrNpc, Army, ClueForOrg,
                      Castle, AssetOwner, Task,
                      Ruler, Organization, Member, Orders, SphereOfInfluence, SupportUsed, AssignedTask,
                      TaskSupporter, InfluenceCategory, Minister)
@@ -1486,6 +1486,8 @@ class CmdOrganization(MuxPlayerCommand):
         @org/decline
         @org/memberview <player>[=<org name>]
         @org/secret <player>[=<org name>]
+        @org/addclue <clue #>[=<org name>]
+        @org/briefing <player>[=<org name>]
 
     Lists the houses/organizations your character is a member
     of. Give the name of an organization for more detailed information.
@@ -1579,11 +1581,12 @@ class CmdOrganization(MuxPlayerCommand):
                 caller.msg("You are not a member of any organization named %s." % self.lhs)
                 return
         player = None
-        if not ('perm' in self.switches or 'rankname' in self.switches):
+        if not ('perm' in self.switches or 'rankname' in self.switches or 'addclue' in self.switches):
             player = caller.search(self.lhs)
             if not player:
                 return
-        if 'setrank' in self.switches or 'perm' in self.switches or 'rankname' in self.switches:
+        if ('setrank' in self.switches or 'perm' in self.switches or 'rankname' in self.switches
+                or 'addclue' in self.switches):
             if not self.rhs:
                 if 'perm' in self.switches:
                     self.display_permtypes()
@@ -1649,6 +1652,31 @@ class CmdOrganization(MuxPlayerCommand):
                     setattr(org, "rank_%s_female" % rank, rankname)
                     caller.msg("Title for rank %s female characters set to: %s" % (rank, rankname))
                 org.save()
+                return
+            if 'addclue' in self.switches:
+                from web.character.models import ClueDiscovery
+                try:
+                    clue = caller.roster.discovered_clues.get(id=self.lhs).clue
+                except (ClueDiscovery.DoesNotExist, ValueError):
+                    self.msg("No clue by that number found.")
+                    return
+                if clue in org.clues.all():
+                    self.msg("%s already knows about %s." % (org, clue))
+                    return
+                cost_multiplier = 10 - org.social_modifier
+                cost = cost_multiplier * caller.clue_cost
+                if caller.ndb.org_clue_cost_warning != org:
+                    caller.ndb.org_clue_cost_warning = org
+                    self.msg("The cost will be %s. Execute the command again to pay it." % cost)
+                    return
+                caller.ndb.org_clue_cost_warning = None
+                if not caller.pay_action_points(cost):
+                    self.msg("You cannot afford to pay %s AP." % cost)
+                    return
+                ClueForOrg.objects.create(clue=clue, org=org, revaled_by=caller.roster)
+                category = "%s: Clue Added" % org
+                text = "%s has shared the clue %s with %s. It can now be used in a /briefing." % (caller, clue, org)
+                org.inform_members(text, category)
                 return
             # 'setrank' now
             if not org.access(caller, 'setrank'):
@@ -1732,6 +1760,39 @@ class CmdOrganization(MuxPlayerCommand):
                 return
             caller.msg("{wMember info for {c%s{n" % tarmember)
             caller.msg(tarmember.display())
+            return
+        if 'briefing' in self.switches:
+            cost = caller.clue_cost / (org.social_modifier + 2)
+            if caller.ndb.briefing_cost_warning != org:
+                caller.ndb.briefing_cost_warning = org
+                self.msg("The cost of the briefing will be %s. Execute the command again to brief them." % cost)
+                return
+            caller.ndb.briefing_cost_warning = None
+            # check if they don't need this at all
+            entry = tarmember.player.player.roster
+            entry.refresh_from_db()
+            discovered_clues = [ob.clue for ob in entry]
+            clues_to_share = (ob for ob in org.clues.all() if ob not in discovered_clues)
+            if not clues_to_share:
+                self.msg("They cannot learn anything from this briefing.")
+                return
+            if not caller.pay_action_points(cost):
+                self.msg("You cannot afford to pay %s action points." % cost)
+                return
+            for clue in clues_to_share:
+                disco = entry.clues.get_or_create(clue=clue)[0]
+                disco.roll += clue.rating
+                disco.revealed_by = caller.roster
+                disco.discovery_method = "Briefing"
+                disco.save()
+            # clear any investigations that targeted the clues we were shared
+            shared_ids = [ob.id for ob in clues_to_share]
+            entry.investigations.filter(clue_target__id__in=shared_ids).update(clue_target=None)
+            text = "You have been briefed on the following clues. Use @clue to view them: %s" % ", ".join(
+                str(ob) for ob in clues_to_share)
+            tarmember.player.player.msg("%s has briefed you on %s's secrets." % (caller, org))
+            tarmember.player.player.inform(text=text, category="%s briefing" % org)
+            self.msg("You have briefed %s on your organization's secrets." % tarmember)
             return
         if 'secret' in self.switches:
             if not org.access(caller, 'setrank'):

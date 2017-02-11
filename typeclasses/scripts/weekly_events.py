@@ -141,7 +141,7 @@ class WeeklyEvents(Script):
                 print "Error in investigation: %s" % err
         # reset all active investigations
         Investigation.objects.filter(active=True).update(active=False, silver=0, economic=0, military=0, social=0,
-                                                         action_points=0)
+                                                         action_points=0, roll=Investigation.UNSET_ROLL)
 
     @staticmethod
     def do_cleanup():
