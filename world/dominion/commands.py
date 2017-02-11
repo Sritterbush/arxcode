@@ -1530,7 +1530,11 @@ class CmdOrganization(MuxPlayerCommand):
             if len(myorgs) == 1:
                 org = myorgs[0]
             else:
-                org, _ = self.get_org_and_member(self.caller, myorgs, self.rhs)
+                try:
+                    org, member = self.get_org_and_member(caller, myorgs, self.rhs)
+                except Organization.DoesNotExist:
+                    caller.msg("You are not a member of any organization named %s." % self.rhs)
+                    return
             if not org:
                 return
             try:
