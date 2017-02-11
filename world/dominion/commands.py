@@ -1772,6 +1772,9 @@ class CmdOrganization(MuxPlayerCommand):
             return
         if 'briefing' in self.switches:
             cost = caller.clue_cost / (org.social_modifier + 2)
+            if tarmember.player.player == self.caller:
+                self.msg("You cannot brief yourself.")
+                return
             if not org.clues.all():
                 self.msg("Your organization has no clues to share.")
                 return
