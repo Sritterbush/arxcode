@@ -1524,7 +1524,38 @@ class CmdOrganization(MuxPlayerCommand):
     def func(self):
         caller = self.caller
         myorgs = Organization.objects.filter(Q(members__player__player=caller)
-                                             & Q(members__deguilded=False))       
+                                             & Q(members__deguilded=False))
+        if 'addclue' in self.switches:
+            from web.character.models import ClueDiscovery
+            if len(myorgs) == 1:
+                org = myorgs[0]
+            else:
+                org, _ = self.get_org_and_member(self.caller, myorgs, self.rhs)
+            if not org:
+                return
+            try:
+                clue = caller.roster.finished_clues.get(id=self.lhs).clue
+            except (ClueDiscovery.DoesNotExist, ValueError):
+                self.msg("No clue by that number found.")
+                return
+            if clue in org.clues.all():
+                self.msg("%s already knows about %s." % (org, clue))
+                return
+            cost_multiplier = 10 - org.social_modifier
+            cost = cost_multiplier * caller.clue_cost
+            if caller.ndb.org_clue_cost_warning != org:
+                caller.ndb.org_clue_cost_warning = org
+                self.msg("The cost will be %s. Execute the command again to pay it." % cost)
+                return
+            caller.ndb.org_clue_cost_warning = None
+            if not caller.pay_action_points(cost):
+                self.msg("You cannot afford to pay %s AP." % cost)
+                return
+            ClueForOrg.objects.create(clue=clue, org=org, revealed_by=caller.roster)
+            category = "%s: Clue Added" % org
+            text = "%s has shared the clue {w%s{n to {c%s{n. It can now be used in a /briefing." % (caller, clue, org)
+            org.inform_members(text, category)
+            return
         if 'accept' in self.switches:
             org = caller.ndb.orginvite
             if not org:
@@ -1585,8 +1616,7 @@ class CmdOrganization(MuxPlayerCommand):
             player = caller.search(self.lhs)
             if not player:
                 return
-        if ('setrank' in self.switches or 'perm' in self.switches or 'rankname' in self.switches
-                or 'addclue' in self.switches):
+        if 'setrank' in self.switches or 'perm' in self.switches or 'rankname' in self.switches:
             if not self.rhs:
                 if 'perm' in self.switches:
                     self.display_permtypes()
@@ -1601,9 +1631,9 @@ class CmdOrganization(MuxPlayerCommand):
                 if not self.rhs.isdigit():
                     caller.msg("Rank must be a number.")
                     return
+                rank = int(rhs)
                 org = myorgs[0]
                 member = caller.Dominion.memberships.get(organization=org)
-                rank = int(rhs)
             else:
                 if len(self.rhslist) < 2:
                     caller.msg("You belong to more than one organization, so must supply both rank number and" +
@@ -1652,31 +1682,6 @@ class CmdOrganization(MuxPlayerCommand):
                     setattr(org, "rank_%s_female" % rank, rankname)
                     caller.msg("Title for rank %s female characters set to: %s" % (rank, rankname))
                 org.save()
-                return
-            if 'addclue' in self.switches:
-                from web.character.models import ClueDiscovery
-                try:
-                    clue = caller.roster.discovered_clues.get(id=self.lhs).clue
-                except (ClueDiscovery.DoesNotExist, ValueError):
-                    self.msg("No clue by that number found.")
-                    return
-                if clue in org.clues.all():
-                    self.msg("%s already knows about %s." % (org, clue))
-                    return
-                cost_multiplier = 10 - org.social_modifier
-                cost = cost_multiplier * caller.clue_cost
-                if caller.ndb.org_clue_cost_warning != org:
-                    caller.ndb.org_clue_cost_warning = org
-                    self.msg("The cost will be %s. Execute the command again to pay it." % cost)
-                    return
-                caller.ndb.org_clue_cost_warning = None
-                if not caller.pay_action_points(cost):
-                    self.msg("You cannot afford to pay %s AP." % cost)
-                    return
-                ClueForOrg.objects.create(clue=clue, org=org, revaled_by=caller.roster)
-                category = "%s: Clue Added" % org
-                text = "%s has shared the clue %s with %s. It can now be used in a /briefing." % (caller, clue, org)
-                org.inform_members(text, category)
                 return
             # 'setrank' now
             if not org.access(caller, 'setrank'):
@@ -1763,16 +1768,24 @@ class CmdOrganization(MuxPlayerCommand):
             return
         if 'briefing' in self.switches:
             cost = caller.clue_cost / (org.social_modifier + 2)
+            if not org.clues.all():
+                self.msg("Your organization has no clues to share.")
+                return
             if caller.ndb.briefing_cost_warning != org:
                 caller.ndb.briefing_cost_warning = org
                 self.msg("The cost of the briefing will be %s. Execute the command again to brief them." % cost)
+                return
+            if tarmember.player.player.db.char_ob.location != self.caller.db.char_ob.location:
+                self.msg("You must be in the same room to brief them.")
+                self.msg("Please actually have roleplay about briefing things - "
+                         "a 'clue dump' without context is against the rules.")
                 return
             caller.ndb.briefing_cost_warning = None
             # check if they don't need this at all
             entry = tarmember.player.player.roster
             entry.refresh_from_db()
-            discovered_clues = [ob.clue for ob in entry]
-            clues_to_share = (ob for ob in org.clues.all() if ob not in discovered_clues)
+            discovered_clues = [ob.clue for ob in entry.finished_clues]
+            clues_to_share = [ob for ob in org.clues.all() if ob not in discovered_clues]
             if not clues_to_share:
                 self.msg("They cannot learn anything from this briefing.")
                 return
@@ -1791,7 +1804,7 @@ class CmdOrganization(MuxPlayerCommand):
             text = "You have been briefed on the following clues. Use @clue to view them: %s" % ", ".join(
                 str(ob) for ob in clues_to_share)
             tarmember.player.player.msg("%s has briefed you on %s's secrets." % (caller, org))
-            tarmember.player.player.inform(text=text, category="%s briefing" % org)
+            tarmember.player.player.inform(text, category="%s briefing" % org)
             self.msg("You have briefed %s on your organization's secrets." % tarmember)
             return
         if 'secret' in self.switches:
