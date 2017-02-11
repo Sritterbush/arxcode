@@ -533,7 +533,7 @@ class ClueDiscovery(models.Model):
         if targ_clue in entry.finished_clues:
             entry.player.send_or_queue_msg("%s tried to share the clue %s with you, but you already know that." % (
                 self.character, self.name))
-            return
+            return False
         investigations = entry.investigations.filter(clue_target=self.clue)
         for investigation in investigations:
             investigation.clue_target = None
@@ -562,6 +562,7 @@ class ClueDiscovery(models.Model):
                                                 message=message,
                                                 mystery=mystery, date=datetime.now())
         pc.inform(msg, category="Investigations", append=False)
+        return True
 
     @property
     def shared_with(self):

@@ -1105,6 +1105,7 @@ class CmdListClues(MuxPlayerCommand):
             if cost > self.caller.roster.action_points:
                 self.msg("Sharing that many clues would cost %s action points." % cost)
                 return
+            num_shared = 0
             for arg in self.rhslist:
                 pc = caller.search(arg)
                 if not pc:
@@ -1116,10 +1117,11 @@ class CmdListClues(MuxPlayerCommand):
                              "at least some RP talking about it.")
                     continue
                 for clue in clues_to_share:
-                    clue.share(pc.roster)
+                    if clue.share(pc.roster):
+                        num_shared += 1
                 shared_names.append(str(pc.roster))
             if shared_names:
-                self.caller.pay_action_points(len(shared_names) * len(clues_to_share) * self.caller.clue_cost)
+                self.caller.pay_action_points(num_shared * self.caller.clue_cost)
                 caller.msg("You have shared the clues '%s' with %s." % (
                     ", ".join(str(ob.clue) for ob in clues_to_share),
                     ", ".join(shared_names)))
@@ -1292,9 +1294,9 @@ class CmdTheories(MuxPlayerCommand):
                         self.msg("One of you does not have a character object.")
                         continue
                     for clue in clues:
-                        clue.share(targ.roster)
+                        if clue.share(targ.roster):
+                            total_cost += per_targ_cost
                         self.msg("Shared clue %s with %s" % (clue.name, targ))
-                        total_cost += per_targ_cost
                 if theory in targ.known_theories.all():
                     self.msg("They already know that theory.")
                     continue
