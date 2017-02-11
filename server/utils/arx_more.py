@@ -176,7 +176,6 @@ class EvMore(object):
             self._pages = ["\n".join(lines[i:i+height]) for i in range(0, len(lines), height)]
         self._npages = len(self._pages)
         self._npos = 0
-
         if self._npages <= 1 and not always_page:
             # no need for paging; just pass-through.
             caller.msg(text=text, **kwargs)
@@ -201,12 +200,7 @@ class EvMore(object):
         if not page or not text:
             self.page_quit()
         # check for wrong session
-        sessions = self._caller.sessions.get()
-        if not sessions:
-            self.page_quit()
-        if not any(ob for ob in sessions if ob is self._session):
-            self._session = sessions[0]
-        self._caller.msg(text=page, session=self._session, **self._kwargs)
+        self._caller.msg(text=page, **self._kwargs)
 
     def page_top(self):
         """
