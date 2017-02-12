@@ -1659,6 +1659,8 @@ class CrisisAction(models.Model):
             return ""
         msg = "\n{c%s's {wactions in week %s for {m%s{n" % (self.dompc, self.week, self.crisis)
         msg += "\n{wAction:{n %s" % self.action
+        for ob in self.assisting_actions.all():
+            msg += "\n{c%s{n's assisting action: %s" % (ob.dompc, ob.action)
         if self.sent:
             msg += "\n{wGM Notes:{n %s" % self.gm_notes
             msg += "\n{wRolls:{n %s" % self.rolls

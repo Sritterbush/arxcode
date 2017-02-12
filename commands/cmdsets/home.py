@@ -876,12 +876,12 @@ class CmdBuyFromShop(CmdCraft):
         +shop
         +shop/buy <item number>
         +shop/look <item number>
-        +shop/refine <object>[=<additional silver to spend>]
+        +shop/refine <object>[=<additional silver to spend>,AP to spend>]
         +shop/craft <recipe name>
         +shop/name <name>
         +shop/desc <description>
         +shop/adorn <material type>=<amount>
-        +shop/finish [<additional silver to invest>]
+        +shop/finish [<additional silver to invest>,<AP to invest>]
         +shop/changename <object>=<new name>
         +shop/viewdesigns [<key>]
 

@@ -290,6 +290,15 @@ class CmdCrisisAction(MuxPlayerCommand):
             return
         invitations.remove(act_id)
         self.caller.db.crisis_action_invitations = invitations
+        if self.caller.Dominion.actions.filter(crisis=action.crisis, sent=False):
+            self.msg("You already have a pending action for that crisis, and cannot assist in another.")
+            return
+        if self.caller.Dominion.assisting_actions.filter(action__crisis=action.crisis, action__sent=False):
+            self.msg("You are assisting pending actions for that crisis, and cannot assist another.")
+            return
+        if not self.caller.pay_action_points(10):
+            self.msg("You do not have enough action points to respond to this crisis.")
+            return
         action.assisting_actions.create(dompc=self.caller.Dominion, action=self.rhs)
         self.msg("Action created.")
         return
