@@ -658,6 +658,7 @@ class Investigation(models.Model):
         msg += "{wEconomic Used{n %s\n" % self.economic
         msg += "{wMilitary Used{n %s\n" % self.military
         msg += "{wSocial Used{n %s\n" % self.social
+        msg += "{wAction Points Used{n: %s\n" % self.action_points
         return msg
 
     @property
@@ -738,9 +739,9 @@ class Investigation(models.Model):
         we're trying to uncover.
         """
         if not self.automate_result or not self.targeted_clue:
-            base = 30  # base difficulty for things without clues
+            base = 40  # base difficulty for things without clues
         else:
-            base = self.targeted_clue.rating + 15
+            base = self.targeted_clue.rating + 20
         return base - self.resource_mod
 
     @property

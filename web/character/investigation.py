@@ -955,13 +955,15 @@ class CmdAdminInvestigations(MuxPlayerCommand):
     def disp_active(self):
         table = EvTable("ID", "Char", "Topic", "Targeted Clue", "Roll", border="cells", width=78)
         for ob in self.qs:
-            roll = "{r%s{n" % ob.roll if ob.roll < 1 else "{w%s{n" % ob.roll
+            roll = ob.get_roll()
+            roll = "{r%s{n" % roll if roll < 1 else "{w%s{n" % roll
             target = "{rNone{n" if not ob.targeted_clue else str(ob.targeted_clue)
             table.add_row(ob.id, ob.character, str(ob.topic), target, roll)
         self.caller.msg(str(table))
 
     def set_roll(self, ob, roll, mod=0, diff=None):
         ob.roll = roll
+        ob.save()
         self.msg("Recording their new roll as: %s." % roll)
         check = ob.check_success(modifier=mod, diff=diff)
         if check:
