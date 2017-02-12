@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from evennia.commands.default.muxcommand import MuxPlayerCommand
 from .models import Crisis, CrisisAction, ActionOOCQuestion
 from evennia.utils.evtable import EvTable
@@ -113,7 +115,6 @@ class CmdGMCrisis(MuxPlayerCommand):
         except Crisis.DoesNotExist:
             self.msg("No crisis by that name: %s" % ", ".join(str(ob) for ob in Crisis.objects.all()))
             return
-        from datetime import datetime
         qs = crisis.actions.filter(sent=False).exclude(story="")
         if not qs:
             self.msg("No messages need updates.")
@@ -271,7 +272,7 @@ class CmdCrisisAction(MuxPlayerCommand):
             invitations.append(action.id)
         targ.db.crisis_action_invitations = invitations
         text = "%s has asked you to help crisis action #%s.\n\n%s\n\nUse +crisis/assist to help." % (
-            self.caller, action.action_text, action.id)
+            self.caller, action.id, action.action_text)
         targ.inform(text, category="Crisis action invitation")
         self.msg("You have invited %s to assist you in your crisis action." % targ)
         return
@@ -292,10 +293,14 @@ class CmdCrisisAction(MuxPlayerCommand):
             return
         invitations.remove(act_id)
         self.caller.db.crisis_action_invitations = invitations
-        if self.caller.Dominion.actions.filter(crisis=action.crisis, sent=False):
+        crisis = action.crisis
+        if crisis.end_date < datetime.now():
+            self.msg("It is past the update time for that crisis.")
+            return
+        if self.caller.Dominion.actions.filter(crisis=crisis, sent=False):
             self.msg("You already have a pending action for that crisis, and cannot assist in another.")
             return
-        if self.caller.Dominion.assisting_actions.filter(crisis_action__crisis=action.crisis).exclude(
+        if self.caller.Dominion.assisting_actions.filter(crisis_action__crisis=crisis).exclude(
                 crisis_action__sent=True):
             self.msg("You are assisting pending actions for that crisis, and cannot assist another.")
             return
@@ -311,6 +316,10 @@ class CmdCrisisAction(MuxPlayerCommand):
     def new_action(self):
         crisis = self.get_crisis()
         if not crisis:
+            return
+        time = datetime.now()
+        if crisis.end_date < time:
+            self.msg("It is past the submit date for that crisis.")
             return
         if crisis.actions.filter(sent=False, dompc=self.caller.Dominion):
             self.msg("You have unresolved actions. Use /appendaction instead.")
@@ -351,6 +360,9 @@ class CmdCrisisAction(MuxPlayerCommand):
     def cancel_action(self):
         action = self.get_action()
         if not action:
+            return
+        if action.story:
+            self.msg("That has already had GM action taken.")
             return
         action.delete()
         self.msg("Action deleted.")
