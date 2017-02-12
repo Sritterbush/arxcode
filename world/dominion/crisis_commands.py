@@ -263,15 +263,17 @@ class CmdCrisisAction(MuxPlayerCommand):
         action = self.get_action()
         if not action:
             return
-        if action.assistants.filter(assistants=targ.Dominion):
+        if action.assistants.filter(id=targ.Dominion.id):
             self.msg("%s is already helping you.")
             return
         invitations = targ.db.crisis_action_invitations or []
         if action.id not in invitations:
             invitations.append(action.id)
         targ.db.crisis_action_invitations = invitations
-        text = "%s has asked you to help crisis action #%s. Use +crisis/assist to help." % (self.caller, action.id)
+        text = "%s has asked you to help crisis action #%s.\n\n%s\n\nUse +crisis/assist to help." % (
+            self.caller, action.action_text, action.id)
         targ.inform(text, category="Crisis action invitation")
+        self.msg("You have invited %s to assist you in your crisis action." % targ)
         return
 
     def assist_action(self):
@@ -293,7 +295,8 @@ class CmdCrisisAction(MuxPlayerCommand):
         if self.caller.Dominion.actions.filter(crisis=action.crisis, sent=False):
             self.msg("You already have a pending action for that crisis, and cannot assist in another.")
             return
-        if self.caller.Dominion.assisting_actions.filter(action__crisis=action.crisis, action__sent=False):
+        if self.caller.Dominion.assisting_actions.filter(crisis_action__crisis=action.crisis).exclude(
+                crisis_action__sent=True):
             self.msg("You are assisting pending actions for that crisis, and cannot assist another.")
             return
         if not self.caller.pay_action_points(10):
@@ -301,6 +304,8 @@ class CmdCrisisAction(MuxPlayerCommand):
             return
         action.assisting_actions.create(dompc=self.caller.Dominion, action=self.rhs)
         self.msg("Action created.")
+        inform_staff("%s is assisting crisis action %s: %s" % (self.caller, action.id, self.rhs))
+        action.dompc.player.inform("%s is now assisting action %s: %s" % (self.caller, action.id, self.rhs))
         return
 
     def new_action(self):

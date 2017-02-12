@@ -1653,14 +1653,19 @@ class CrisisAction(models.Model):
         self.sent = True
         self.save()
 
-    def view_action(self, caller=None, disp_pending=True, disp_old=False):
-        if not self.public and (not caller or (not caller.check_permstring("builders")
-                                and caller != self.dompc.player)):
-            return ""
-        msg = "\n{c%s's {wactions in week %s for {m%s{n" % (self.dompc, self.week, self.crisis)
-        msg += "\n{wAction:{n %s" % self.action
+    @property
+    def action_text(self):
+        msg = "\n{wAction:{n %s" % self.action
         for ob in self.assisting_actions.all():
             msg += "\n{c%s{n's assisting action: %s" % (ob.dompc, ob.action)
+        return msg
+
+    def view_action(self, caller=None, disp_pending=True, disp_old=False):
+        if not self.public and (not caller or (not caller.check_permstring("builders")
+                                and caller != self.dompc.player and caller.Dominion not in self.assistants.all())):
+            return ""
+        msg = "\n{c%s's {wactions in week %s for {m%s{n" % (self.dompc, self.week, self.crisis)
+        msg += self.action_text
         if self.sent:
             msg += "\n{wGM Notes:{n %s" % self.gm_notes
             msg += "\n{wRolls:{n %s" % self.rolls
