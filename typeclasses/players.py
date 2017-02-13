@@ -287,7 +287,9 @@ class Player(MsgMixins, DefaultPlayer):
         return False.
         """
         try:
-            self.roster.refresh_from_db()
+            if self.roster.action_points != self.db.char_ob.roster.action_points:
+                self.roster.refresh_from_db(fields=("action_points",))
+                self.db.char_ob.roster.refresh_from_db(fields=("action_points",))
             if self.roster.action_points < amt:
                 return False
             self.roster.action_points -= amt

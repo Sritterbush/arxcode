@@ -26,6 +26,9 @@ WEEK_INTERVAL = 604800
 VOTES_BOARD_NAME = 'Votes'
 PRESTIGE_BOARD_NAME = 'Prestige Changes'
 
+PLAYER_ATTRS = ("votes", 'claimed_scenelist', 'random_scenelist', 'validated_list', 'praises', 'condemns')
+CHARACTER_ATTRS = ("currently_training", "trainer", 'scene_requests')
+
 
 class WeeklyEvents(Script):
     """
@@ -176,7 +179,13 @@ class WeeklyEvents(Script):
         except Exception as err:
             traceback.print_exc()
             print "Error in cleaning up deleted objects: %s" % err
+        # wipe all attributes we wish to refresh this week
+        from evennia.typeclasses.attributes import Attribute
+        attr_names = CHARACTER_ATTRS + PLAYER_ATTRS
+        qs = Attribute.objects.filter(db_key__in=attr_names)
+        qs.delete()
 
+    # noinspection PyProtectedMember
     def do_events_per_player(self, reset=True):
         """
         All the different processes that need to occur per player.
@@ -222,9 +231,6 @@ class WeeklyEvents(Script):
                     cooldown[cid] -= 1
             char.db.support_cooldown = cooldown
             char.db.support_points_spent = 0
-            # reset training
-            char.db.currently_training = []
-            char.db.trainer = None
             try:
                 old = player.Dominion.assets.prestige
                 self.db.prestige_changes[player.key] = old
@@ -233,6 +239,17 @@ class WeeklyEvents(Script):
                     del self.db.prestige_changes[player.key]
                 except KeyError:
                     pass
+            # wipe cached attributes
+            for attrname in PLAYER_ATTRS:
+                try:
+                    del player.attributes._cache["%s-None" % attrname]
+                except KeyError:
+                    continue
+            for attrname in CHARACTER_ATTRS:
+                try:
+                    del char.attributes._cache["%s-None" % attrname]
+                except KeyError:
+                    continue
 
     @staticmethod
     def check_freeze():
@@ -334,7 +351,6 @@ class WeeklyEvents(Script):
                 self.db.votes[ob.id] = 1
         if votes:
             self.db.vote_history[player.id] = votes
-        player.db.votes = []
 
     def count_scenes(self, player):
         """
@@ -356,14 +372,9 @@ class WeeklyEvents(Script):
                     self.db.scenes[charob.id] += 1
                 else:
                     self.db.scenes[charob.id] = 1
-        # reset their claimed scenes, and what's used to generate those
-        player.attributes.remove('claimed_scenelist')
-        player.attributes.remove('random_scenelist')
-        player.attributes.remove('validated_list')
         requested_scenes = charob.db.scene_requests or {}
         if requested_scenes:
             self.db.scenes[charob.id] = self.db.scenes.get(charob.id, 0) + len(requested_scenes)
-            charob.attributes.remove('scene_requests')
 
     def count_praises_and_condemns(self, player):
         # from world.dominion.models import PlayerOrNpc
@@ -406,9 +417,6 @@ class WeeklyEvents(Script):
         #    existing[1] += num
         #    existing[2].append((player, msg))
         #    self.db.condemns[name] = existing
-        # reset their praises/condemns for next week after recording
-        player.db.praises = {}
-        player.db.condemns = {}
 
     def award_scene_xp(self):
         for char_id in self.db.scenes:

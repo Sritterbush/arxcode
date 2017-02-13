@@ -116,7 +116,11 @@ class CmdInventory(MuxCommand):
         xp = char.db.xp or 0
         ap = 0
         try:
-            ap = char.db.player_ob.roster.action_points
+            # correct possible synchronization errors
+            if char.roster.action_points != char.db.player_ob.roster.action_points:
+                char.roster.refresh_from_db(fields=("action_points",))
+                char.db.player_ob.roster.refresh_from_db(fields=("action_points",))
+            ap = char.roster.action_points
         except AttributeError:
             pass
         self.caller.msg("\n{w%s currently %s {c%s {wxp and {c%s{w ap." % ("You" if not show_other else char.key,
