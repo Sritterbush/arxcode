@@ -40,6 +40,7 @@ class CmdGMCrisis(MuxPlayerCommand):
     help_category = "GMing"
 
     def list_actions(self):
+        from server.utils.prettytable import PrettyTable
         if "old" in self.switches:
             qs = CrisisAction.objects.filter(sent=True)
         else:
@@ -51,12 +52,11 @@ class CmdGMCrisis(MuxPlayerCommand):
         if self.args:
             qs = qs.filter(Q(crisis__name__iexact=self.args) |
                            Q(dompc__player__username__iexact=self.args))
-        table = EvTable("{w#{n", "{wCrisis{n", "{wPlayer{n", "{wAnswered{n", "{wQuestions{n", "{wDate Set{n",
-                        width=78, border="cells")
+        table = PrettyTable(["{w#{n", "{wCrisis{n", "{wPlayer{n", "{wAnswered{n", "{wQuestions{n", "{wDate Set{n"])
         for ob in qs:
-            date = "--" if not ob.crisis.end_date else ob.crisis.end_date.strftime("%x %H:%M")
+            date = "--" if not ob.crisis.end_date else ob.crisis.end_date.strftime("%x")
             questions = "{rYes{n" if ob.questions.filter(answers__isnull=True) else "{wNo{n"
-            table.add_row(ob.id, ob.crisis.name, str(ob.dompc), "{wYes{n" if ob.story else "{rNo{n", questions, date)
+            table.add_row([ob.id, ob.crisis.name, str(ob.dompc), "{wYes{n" if ob.story else "{rNo{n", questions, date])
         self.msg(table)
 
     def do_check(self, action):
