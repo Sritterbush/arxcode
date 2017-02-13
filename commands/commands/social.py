@@ -2060,7 +2060,9 @@ class CmdRandomScene(MuxCommand):
         self.caller.db.player_ob.db.requested_validation = our_requests
 
     def validate_scene(self):
-        targ = self.caller.db.scene_requests.pop(self.args.lower(), (None, ""))[0]
+        scene_requests = self.caller.db.scene_requests or {}
+        targ = scene_requests.pop(self.args.lower(), (None, ""))[0]
+        self.caller.db.scene_requests = scene_requests
         if not targ:
             self.msg("No character by that name has sent you a request.")
             self.view_requests()
