@@ -953,12 +953,23 @@ class CmdAdminInvestigations(MuxPlayerCommand):
                                             character__roster__name="Active")
     
     def disp_active(self):
-        table = EvTable("ID", "Char", "Topic", "Targeted Clue", "Roll", border="cells", width=78)
-        for ob in self.qs:
-            roll = ob.get_roll()
-            roll = "{r%s{n" % roll if roll < 1 else "{w%s{n" % roll
-            target = "{rNone{n" if not ob.targeted_clue else str(ob.targeted_clue)
-            table.add_row(ob.id, ob.character, str(ob.topic), target, roll)
+        qs = list(self.qs)
+        if len(qs) <= 20:
+            table = EvTable("ID", "Char", "Topic", "Targeted Clue", "Roll", border="cells", width=78)
+            for ob in qs:
+                roll = ob.get_roll()
+                roll = "{r%s{n" % roll if roll < 1 else "{w%s{n" % roll
+                target = "{rNone{n" if not ob.targeted_clue else str(ob.targeted_clue)
+                character = "{c%s{n" % ob.character
+                table.add_row(ob.id, character, str(ob.topic), target, roll)
+        else:
+            table = PrettyTable(["ID", "Char", "Topic", "Targeted Clue", "Roll"])
+            for ob in qs:
+                roll = ob.get_roll()
+                roll = "{r%s{n" % roll if roll < 1 else "{w%s{n" % roll
+                target = "{rNone{n" if not ob.targeted_clue else str(ob.targeted_clue)[:30]
+                character = "{c%s{n" % ob.character
+                table.add_row([ob.id, character, str(ob.topic)[:15], target, roll])
         self.caller.msg(str(table))
 
     def set_roll(self, ob, roll, mod=0, diff=None):
