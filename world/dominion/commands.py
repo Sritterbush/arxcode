@@ -2038,6 +2038,7 @@ class CmdTask(MuxCommand):
         +task
         +task <organization name>
         +task <task ID>
+        +task/active
         +task/history [<ID #>]
         +task/setfinishedrumors <ID #>=<text>
         +task/work <organization>,<resource type>
@@ -2092,8 +2093,7 @@ class CmdTask(MuxCommand):
     help_category = "Dominion"
     aliases = ["@task", "task", "+tasks", "@tasks", "tasks"]
 
-    @staticmethod
-    def display_tasks(tasks, dompc):
+    def display_tasks(self, tasks, dompc):
         """
         Returns a table of tasks
         """
@@ -2107,6 +2107,8 @@ class CmdTask(MuxCommand):
                                               & Q(finished=False)):
                     active = "{wX{n"
                 else:
+                    if "active" in self.switches:
+                        continue
                     active = ""
                 combo = (task, org)
                 if combo in already_displayed:
@@ -2152,7 +2154,7 @@ class CmdTask(MuxCommand):
         tasks_remaining = 7
         for member in dompc.memberships.filter(deguilded=False):
             tasks_remaining -= (member.work_this_week + member.tasks.filter(finished=False).count())
-        if not self.switches and not self.args:
+        if (not self.switches or "active" in self.switches) and not self.args:
             # list all our active and available tasks
             caller.msg("{wAvailable/Active Tasks:{n")
             tasks = mytasks.filter(assigned_tasks__finished=False)
@@ -2165,7 +2167,7 @@ class CmdTask(MuxCommand):
             caller.msg(self.display_tasks(tasks, dompc))
             caller.msg("You can perform %s more tasks." % tasks_remaining)            
             return
-        if not self.switches:
+        if not self.switches or "active" in self.switches:
             # display info on task
             # NB: Same query as above, but it executed around 70 times faster. Why is the execution
             # so much worse above than here? No idea. But still, evaluating the queries independently
