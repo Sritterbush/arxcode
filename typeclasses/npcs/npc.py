@@ -349,6 +349,11 @@ class AgentMixin(object):
         self.agent.refresh_from_db(fields=('desc',))
         return self.agent.desc
 
+    @desc.setter
+    def desc(self, val):
+        self.agent.desc = val
+        self.agent.save()
+
     def setup_agent(self  # type: Retainer or Agent
                     ):
         """
