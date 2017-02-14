@@ -295,7 +295,7 @@ class CmdDitch(MuxCommand):
         if args:
             matches = []
             for arg in self.lhslist:
-                obj = ObjectDB.objects.object_search(arg, candidates=caller.ndb.followers)
+                obj = ObjectDB.objects.object_search(arg, exact=False, candidates=caller.ndb.followers)
                 if obj:
                     matches.append(obj[0])
                 else:
