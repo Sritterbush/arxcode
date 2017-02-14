@@ -477,7 +477,7 @@ class ObjectMixins(DescMixins, AppearanceMixins):
 RE_ASCII = re.compile(r"<ascii>(.*?)</ascii>", re.IGNORECASE)
 # designates text to be ascii-free by a crafter
 RE_ALT_ASCII = re.compile(r"<noascii>(.*?)</noascii>", re.IGNORECASE)
-
+RE_COLOR = re.compile(r'"(.*?)"')
 
 class MsgMixins(object):
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):
@@ -519,7 +519,7 @@ class MsgMixins(object):
             quote_color = self.db.pose_quote_color
             # colorize people's quotes with the given text
             if quote_color:
-                pass  # to do later
+                text = RE_COLOR.sub(r'%s\1{n' % quote_color, text)
         if options.get('box', False):
             boxchars = '\n{w' + '*' * 70 + '{n\n'
             text = boxchars + text + boxchars

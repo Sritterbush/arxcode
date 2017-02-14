@@ -93,6 +93,13 @@ class CmdGameSettings(MuxPlayerCommand):
         else:
             caller.msg("%s is now on." % attr)
 
+    def set_quote_color(self, char):
+        if not self.args:
+            char.attributes.remove("pose_quote_color")
+        else:
+            char.db.pose_quote_color = self.args
+        char.msg('Text will appear inside quotes "%slike this.{n"' % self.args)
+
     def func(self):
         caller = self.caller
         char = caller.db.char_ob
@@ -143,6 +150,9 @@ class CmdGameSettings(MuxPlayerCommand):
             return
         if "ic_only" in switches:
             self.togglesetting(caller, "IC_Only", tag=True)
+            return
+        if "quote_color" in switches:
+            self.set_quote_color(char)
             return
         caller.msg("Invalid switch.")
 
