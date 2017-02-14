@@ -57,6 +57,7 @@ class CmdGameSettings(MuxPlayerCommand):
         @settings/newline_on_messages
         @settings/private_mode
         @settings/ic_only
+        @settings/quote_color <color string>
 
     Toggles different settings. Brief suppresses room descs when
     moving through rooms. Posebreak adds a newline between poses

@@ -519,7 +519,7 @@ class MsgMixins(object):
             quote_color = self.db.pose_quote_color
             # colorize people's quotes with the given text
             if quote_color:
-                text = RE_COLOR.sub(r'%s\1{n' % quote_color, text)
+                text = RE_COLOR.sub(r'%s"\1"{n' % quote_color, text)
         if options.get('box', False):
             boxchars = '\n{w' + '*' * 70 + '{n\n'
             text = boxchars + text + boxchars
