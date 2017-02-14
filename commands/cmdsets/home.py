@@ -1036,7 +1036,7 @@ class CmdBuyFromShop(CmdCraft):
             except KeyError:
                 self.msg("No design found by that name.")
                 self.msg("Names of designs: %s" % ", ".join(designs.keys()))
-                return
+            return
         if "buy" in self.switches:
             try:
                 num = int(self.args)

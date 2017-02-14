@@ -181,7 +181,10 @@ class CmdAgents(MuxPlayerCommand):
                 pid = int(pid)
                 if amt < 1:
                     raise ValueError
-                agent = Agent.objects.get(id=pid, owner_id__in=owner_ids)
+                agent = Agent.objects.get(id=pid)
+                if agent.owner.id not in owner_ids:
+                    self.msg("They are owned by %s, and must be recalled from their barracks." % agent.owner)
+                    return
                 # look through our agent actives for a dbobj assigned to player
                 agentob = agent.find_assigned(player)
                 if not agentob:

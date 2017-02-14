@@ -343,6 +343,12 @@ class MultiNpc(Npc):
 
 
 class AgentMixin(object):
+
+    @property
+    def desc(self):
+        self.agent.refresh_from_db(fields=('desc',))
+        return self.agent.desc
+
     def setup_agent(self  # type: Retainer or Agent
                     ):
         """
@@ -617,10 +623,6 @@ class AgentMixin(object):
 
 
 class Retainer(AgentMixin, Npc):
-    @property
-    def desc(self):
-        self.agent.refresh_from_db(fields=('desc',))
-        return self.agent.desc
 
     def display(self):
         msg = "{wAssigned to:{n %s " % self.db.guarding
@@ -731,7 +733,7 @@ class Agent(AgentMixin, MultiNpc):
     def display(self):
         msg = "\n{wGuards:{n %s\n" % self.name
         if self.db.guarding:
-            msg += "{wAssigned to:{n %s\n" % self.db.guarding
+            msg += "{wAssigned to:{n %s {wOwner{n:%s\n" % (self.db.guarding, self.agent.owner)
         msg += "{wLocation:{n %s\n" % (self.location or self.db.docked or "Home Barracks")
         return msg
 
