@@ -1362,6 +1362,13 @@ class CmdInform(MuxPlayerCommand):
 
     def func(self):
         caller = self.caller
+        if "new" in self.switches:
+            inform = self.caller.informs.filter(is_unread=True).first()
+            if not inform:
+                self.msg("No unread inform found.")
+                return
+            self.read_inform(caller, inform)
+            return
         informs = list(caller.informs.all())
         if "shopminimum" in self.switches:
             if not self.args:
