@@ -1800,11 +1800,7 @@ class CmdOrganization(MuxPlayerCommand):
                 self.msg("You cannot afford to pay %s action points." % cost)
                 return
             for clue in clues_to_share:
-                disco = entry.clues.get_or_create(clue=clue)[0]
-                disco.roll += clue.rating
-                disco.revealed_by = caller.roster
-                disco.discovery_method = "Briefing"
-                disco.save()
+                entry.discover_clue(clue=clue, method="Briefing")
             # clear any investigations that targeted the clues we were shared
             shared_ids = [ob.id for ob in clues_to_share]
             entry.investigations.filter(clue_target__id__in=shared_ids).update(clue_target=None)

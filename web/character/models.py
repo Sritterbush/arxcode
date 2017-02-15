@@ -10,13 +10,15 @@ import random
 import traceback
 from world.stats_and_skills import do_dice_check
 
-"""
-This is the main model in the project. It holds a reference to cloudinary-stored
-image and contains some metadata about the image.
-"""
+# multiplier for how much higher ClueDiscovery.roll must be over Clue.rating to be discovered
+DISCO_MULT = 10
 
 
 class Photo(models.Model):
+    """
+    This is the main model in the project. It holds a reference to cloudinary-stored
+    image and contains some metadata about the image.
+    """
     #  Misc Django Fields
     create_time = models.DateTimeField(auto_now_add=True)
     title = models.CharField("Name or description of the picture (optional)", max_length=200, blank=True)
@@ -150,16 +152,16 @@ class RosterEntry(models.Model):
             return self.current_account.characters.exclude(id=self.id)
         return []
 
-    def discover_clue(self, clue):
+    def discover_clue(self, clue, method="Prior Knowledge"):
         try:
             disco = self.clues.get(clue=clue)
         except ClueDiscovery.DoesNotExist:
             disco = self.clues.create(clue=clue)
         except ClueDiscovery.MultipleObjectsReturned:
             disco = self.clues.filter(clue=clue)[0]
-        disco.roll = disco.clue.rating
+        disco.roll = disco.clue.rating * DISCO_MULT
         disco.date = datetime.now()
-        disco.discovery_method = "Prior Knowledge"
+        disco.discovery_method = method
         disco.save()
         return disco
 
@@ -468,7 +470,7 @@ class ClueDiscovery(models.Model):
 
     @property
     def finished(self):
-        return self.roll >= self.clue.rating
+        return self.roll >= (self.clue.rating * DISCO_MULT)
 
     def display(self):
         if not self.finished:
@@ -509,7 +511,7 @@ class ClueDiscovery(models.Model):
     @property
     def progress_percentage(self):
         try:
-            return int((float(self.roll) / float(self.clue.rating)) * 100)
+            return int((float(self.roll) / float(self.clue.rating * DISCO_MULT)) * 100)
         except (AttributeError, TypeError, ValueError, ZeroDivisionError):
             return 0
 
@@ -748,7 +750,7 @@ class Investigation(models.Model):
     def completion_value(self):
         if not self.targeted_clue:
             return 30
-        return self.targeted_clue.rating
+        return self.targeted_clue.rating * DISCO_MULT
     
     def check_success(self, modifier=0, diff=None):
         """
