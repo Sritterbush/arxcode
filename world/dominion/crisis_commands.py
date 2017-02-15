@@ -271,8 +271,8 @@ class CmdCrisisAction(MuxPlayerCommand):
         if action.id not in invitations:
             invitations.append(action.id)
         targ.db.crisis_action_invitations = invitations
-        text = "%s has asked you to help crisis action #%s.\n\n%s\n\nUse +crisis/assist to help." % (
-            self.caller, action.id, action.action_text)
+        text = "%s has asked you to help crisis action #%s for %s.\n\n%s\n\nUse +crisis/assist to help." % (
+            self.caller, action.id, action.crisis, action.action_text)
         targ.inform(text, category="Crisis action invitation")
         self.msg("You have invited %s to assist you in your crisis action." % targ)
         return
@@ -309,7 +309,7 @@ class CmdCrisisAction(MuxPlayerCommand):
             return
         action.assisting_actions.create(dompc=self.caller.Dominion, action=self.rhs)
         self.msg("Action created.")
-        inform_staff("%s is assisting crisis action %s: %s" % (self.caller, action.id, self.rhs))
+        inform_staff("%s is assisting action %s for crisis %s: %s" % (self.caller, action.id, crisis, self.rhs))
         action.dompc.player.inform("%s is now assisting action %s: %s" % (self.caller, action.id, self.rhs))
         return
 
@@ -334,7 +334,7 @@ class CmdCrisisAction(MuxPlayerCommand):
         public = "secretaction" not in self.switches
         crisis.actions.create(dompc=self.caller.Dominion, action=self.rhs, public=public, week=week)
         self.msg("You are going to perform this action: %s" % self.rhs)
-        inform_staff("%s has created a new crisis action: %s" % (self.caller, self.rhs))
+        inform_staff("%s has created a new crisis action for crisis %s: %s" % (self.caller, crisis, self.rhs))
 
     def get_action(self, get_all=False, get_assisted=False):
         if not get_all and not get_assisted:

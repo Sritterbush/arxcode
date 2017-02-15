@@ -66,6 +66,7 @@ class CmdWhere(MuxPlayerCommand):
         +where
         +where [<character>,<character 2>,...]
         +where/shops
+        +where/randomscene
 
     Displays a list of characters in public rooms. The /shops switch
     lets you see a list of shops.
@@ -113,17 +114,24 @@ class CmdWhere(MuxPlayerCommand):
         if caller.tags.get("verbose_where"):
             verbose_where = True
         self.msg("Players who are currently LRP have a |R+|n by their name.")
+        scene_chars = []
+        if "randomscene" in self.switches:
+            cmd = CmdRandomScene()
+            cmd.caller = self.caller.db.char_ob
+            scene_chars = list(cmd.scenelist) + [ob for ob in cmd.newbies if ob not in cmd.claimlist]
         for room in rooms:
-            def char_name(ob):
-                cname = ob.name
-                if ob.db.player_ob and ob.db.player_ob.db.lookingforrp:
+            def char_name(character_object):
+                cname = character_object.name
+                if character_object.db.player_ob and character_object.db.player_ob.db.lookingforrp:
                     cname += "|R+|n"
                 if not verbose_where:
                     return cname
-                if ob.db.room_title:
-                    cname += "{w(%s){n" % ob.db.room_title
+                if character_object.db.room_title:
+                    cname += "{w(%s){n" % character_object.db.room_title
                 return cname
             charlist = sorted(room.get_visible_characters(caller), key=lambda x: x.name)
+            if "randomscene" in self.switches:
+                charlist = [ob for ob in charlist if ob in scene_chars]
             char_names = ", ".join(char_name(char) for char in charlist if char.player
                                    and (not char.player.db.hide_from_watch or caller.check_permstring("builders")))
             if not char_names:
