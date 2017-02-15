@@ -341,7 +341,7 @@ class CmdCrisisAction(MuxPlayerCommand):
             qs = self.current_actions
         else:
             dompc = self.caller.Dominion
-            qs = CrisisAction.objects.filter(Q(dompc=dompc) | Q(assistants=dompc))
+            qs = CrisisAction.objects.filter(Q(dompc=dompc) | Q(assistants=dompc)).distinct()
         try:
             return qs.get(id=self.lhs)
         except (CrisisAction.DoesNotExist, ValueError):
