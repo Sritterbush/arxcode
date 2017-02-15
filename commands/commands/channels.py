@@ -118,9 +118,12 @@ class ArxChannelCommand(command.Command):
             for msg in last_messages:
                 caller.msg("{w%s{n %s" % (datetime_format(msg.date_created), msg.message))
             return
-        if msg == "off":
+        if msg == "off" or msg == "mute":
             if player:
                 caller = player
+            if msg == "mute":
+                channel.temp_mute(caller)
+                return
             muted = channel.mute(caller)
             if muted:
                 caller.msg("You stop listening to channel '%s'." % channel.key)

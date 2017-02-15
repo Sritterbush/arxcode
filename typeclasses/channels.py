@@ -75,6 +75,19 @@ class Channel(DefaultChannel):
             string = "<None>"
         return string
 
+    def temp_mute(self, caller):
+        """
+        Temporarily mutes a channel for caller.
+        Turned back on when caller disconnects.
+        """
+        temp_mute_list = caller.db.temp_mute_list or []
+        if self in temp_mute_list:
+            return
+        temp_mute_list.append(self)
+        caller.db.temp_mute_list = temp_mute_list
+        self.mute(caller)
+        caller.msg("%s will be muted until the end of this session." % self)
+
     def mute(self, subscriber):
         """
         Adds an entity to the list of muted subscribers.

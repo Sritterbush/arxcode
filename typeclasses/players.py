@@ -323,6 +323,10 @@ class Player(MsgMixins, DefaultPlayer):
             self.previous_log = self.current_log
             self.current_log = []
             self.db.lookingforrp = False
+            temp_muted = self.db.temp_mute_list or []
+            for channel in temp_muted:
+                channel.unmute(self)
+            self.attributes.remove('temp_mute_list')
 
     def log_message(self, from_obj, text):
         from evennia.utils.utils import make_iter
