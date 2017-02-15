@@ -75,6 +75,9 @@ class ArxChannelCommand(command.Command):
         if msg == "on":
             if player:
                 caller = player
+            temp_mute = caller.db.temp_mute_list or []
+            if channel in temp_mute:
+                temp_mute.remove(channel)
             if channel.unmute(caller):
                 self.msg("You unmute channel %s." % channel)
                 return
