@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.forms import ModelForm
-from .models import (Roster, RosterEntry, Photo,
+from .models import (Roster, RosterEntry, Photo, DISCO_MULT,
                      Story, Chapter, Episode, StoryEmit,
                      Milestone, Participant, Comment,
                      PlayerAccount, AccountHistory, InvestigationAssistant,
@@ -144,9 +144,9 @@ class ClueDiscoveryListFilter(admin.SimpleListFilter):
 
     def queryset(self, request, queryset):
         if self.value() == 'unfound':
-            return queryset.filter(roll__lt=F('clue__rating'))
+            return queryset.filter(roll__lt=F('clue__rating') * DISCO_MULT)
         if self.value() == 'found':
-            return queryset.filter(roll__gte=F('clue__rating'))
+            return queryset.filter(roll__gte=F('clue__rating') * DISCO_MULT)
 
 
 class ClueDiscoveryAdmin(BaseCharAdmin):
