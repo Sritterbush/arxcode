@@ -157,7 +157,7 @@ class ClueDiscoveryAdmin(BaseCharAdmin):
 
     @staticmethod
     def discovered(obj):
-        return obj.roll >= obj.clue.rating
+        return obj.roll >= obj.clue.rating * DISCO_MULT
 
 
 class MystForEntry(MystDiscoInline):
