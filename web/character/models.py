@@ -144,7 +144,7 @@ class RosterEntry(models.Model):
 
     @property
     def finished_clues(self):
-        return self.clues.filter(roll__gte=F('clue__rating'))
+        return self.clues.filter(roll__gte=F('clue__rating') * DISCO_MULT)
 
     @property
     def alts(self):
