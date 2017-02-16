@@ -1278,6 +1278,9 @@ class CmdCalendar(MuxPlayerCommand):
             caller.ndb.proj = proj
             caller.msg("Date set to %s." % date.strftime("%x %X"))
             caller.msg("Current time is %s for comparison." % (datetime.now().strftime("%x %X")))
+            offset = timedelta(hours=2)
+            count = RPEvent.objects.filter(date__lte=date+offset, date__gte=date-offset).count()
+            caller.msg("Number of events within 2 hours of that date: %s" % count)
             return
         if "location" in self.switches:
             if self.lhs:
