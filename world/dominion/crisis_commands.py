@@ -234,13 +234,14 @@ class CmdCrisisAction(MuxPlayerCommand):
         self.msg(table)
         self.msg("{wYour pending actions:{n")
         table = EvTable("{w#{n", "{wCrisis{n")
-        current_actions = list(self.current_actions) + [ass.action for ass in self.assisted_actions.filter(
+        current_actions = list(self.current_actions) + [ass.crisis_action for ass in self.assisted_actions.filter(
                 crisis_action__sent=False)]
         for ob in current_actions:
             table.add_row(ob.id, ob.crisis)
         self.msg(table)
         past_actions = self.caller.Dominion.actions.filter(sent=True)
-        past_actions = list(past_actions) + [ob.action for ob in self.assisted_actions.filter(crisis_action__sent=True)]
+        past_actions = list(past_actions) + [ob.crisis_action for ob in self.assisted_actions.filter(
+            crisis_action__sent=True)]
         if past_actions:
             table = EvTable("{w#{n", "{wCrisis{n")
             self.msg("{wYour past actions:{n")
