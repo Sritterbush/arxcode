@@ -2259,3 +2259,52 @@ class CmdLanguages(MuxCommand):
             self.msg("You have taught %s to %s." % (lang, targ))
             targ.msg("%s has taught you %s." % (self.caller, lang))
             return
+
+
+class CmdIAmHelping(MuxPlayerCommand):
+    """
+    Donates AP to other players at a poor conversion rate
+
+        Usage:
+            +iamhelping <player>=<AP>
+
+    Allows you to donate AP to other players with some restrictions to
+    represent helping them out with whatever they're up to: gathering supplies
+    for a crafter, acting as a menial servant/helping their servants manage
+    their affairs, discreetly having annoying npcs killed, etc. This has a
+    poor conversion rate, so it's much more effective to assist them
+    directly with investigations, crisis actions, etc, with the accustomed
+    commands.
+
+    Current rate of exchange is 3 to 1.
+    """
+    key = "+iamhelping"
+    help_category = "Social"
+
+    def func(self):
+        if not self.args:
+            self.msg("You have %s AP remaining." % self.caller.roster.action_points)
+            return
+        targ = self.caller.search(self.lhs)
+        if not targ:
+            return
+        try:
+            val = int(self.rhs)
+        except ValueError:
+            self.msg("AP needs to be a number")
+            return
+        receive_amt = val/3
+        if receive_amt < 1:
+            self.msg("Must transfer at least 1 AP to them.")
+            return
+        if targ.roster.action_points + receive_amt > 100:
+            self.msg("That would put them over 100 AP.")
+            return
+        if not self.caller.pay_action_points(val):
+            self.msg("You do not have enough AP.")
+            return
+        targ.roster.action_points += receive_amt
+        targ.roster.save()
+        self.msg("You have given %s %s AP." % (targ, receive_amt))
+        msg = "%s has given you %s AP." % (self.caller, receive_amt)
+        targ.inform(msg, category=msg)

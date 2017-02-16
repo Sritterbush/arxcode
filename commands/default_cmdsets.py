@@ -173,6 +173,7 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(social.CmdAFK())
             self.add(social.CmdWhere())
             self.add(social.CmdCensus())
+            self.add(social.CmdIAmHelping())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading social cmdset in Player: %s" % err)
         try:
