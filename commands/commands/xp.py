@@ -345,6 +345,8 @@ class CmdTrain(MuxCommand):
             except (Agent.DoesNotExist, AttributeError):
                 self.msg("Could not find %s's retainer named %s." % (player, self.rhs))
                 return
+            if not targ.can_train(caller):
+                return
             if not self.pay_ap_cost():
                 return
             targ.train_agent(caller)

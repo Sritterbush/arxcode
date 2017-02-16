@@ -664,12 +664,7 @@ class Retainer(AgentMixin, Npc):
         cost, res_type = ABILITY_COSTS.get(attr)
         return cost, cost, res_type
 
-    def train_agent(self, trainer):
-        """
-        Gives xp to this agent if they haven't been trained yet this week.
-        The skill used to train them is based on our type - animal ken for
-        animals, teaching for non-animals.
-        """
+    def can_train(self, trainer):
         skill = trainer.db.skills.get(self.training_skill, 0)
         if not skill:
             trainer.msg("You must have %s skill to train them." % self.training_skill)
@@ -682,6 +677,14 @@ class Retainer(AgentMixin, Npc):
             else:
                 trainer.msg("They have already been trained by %s this week." % self.db.trainer)
                 return False
+        return True
+
+    def train_agent(self, trainer):
+        """
+        Gives xp to this agent if they haven't been trained yet this week.
+        The skill used to train them is based on our type - animal ken for
+        animals, teaching for non-animals.
+        """
         # do training roll
         roll = do_dice_check(trainer, stat="command", skill=self.training_skill, difficulty=0, quiet=False)
         self.agent.xp += roll
