@@ -302,6 +302,11 @@ class CmdTrain(MuxCommand):
         cost = self.action_point_cost
         if not cost:
             return True
+        if not self.caller.ndb.training_cost_confirmation:
+            self.msg("It will use %s action points to train. Repeat the command to confirm." % cost)
+            self.caller.ndb.training_cost_confirmation = True
+            return
+        self.caller.ndb.training_cost_confirmation = False
         if self.caller.player.pay_action_points(cost):
             return True
         self.msg("You don't have enough action points to train another.")
