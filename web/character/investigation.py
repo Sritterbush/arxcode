@@ -559,6 +559,9 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                     return
                 elif "actionpoints" in self.switches:
                     ob = ob.investigation
+                    if not ob.active:
+                        self.msg("The investigation must be marked active to invest in it.")
+                        return
                     # check if we can pay
                     try:
                         amt = int(self.rhs)
@@ -818,6 +821,9 @@ class CmdInvestigate(InvestigationFormCommand):
                 caller.msg("You add %s silver to the investigation." % val)
                 return
             if "actionpoints" in self.switches:
+                if not ob.active:
+                    self.msg("The investigation must be marked active to invest AP in it.")
+                    return
                 try:
                     val = int(self.rhs)
                     if val <= 0:
