@@ -219,6 +219,10 @@ class CmdCrisisAction(MuxPlayerCommand):
     def current_actions(self):
         return self.caller.Dominion.actions.filter(sent=False)
 
+    @property
+    def assisted_actions(self):
+        return self.caller.Dominion.assisting_actions.all()
+
     def list_crises(self):
         qs = self.viewable_crises
         if "old" not in self.switches:
@@ -230,10 +234,12 @@ class CmdCrisisAction(MuxPlayerCommand):
         self.msg(table)
         self.msg("{wYour pending actions:{n")
         table = EvTable("{w#{n", "{wCrisis{n")
-        for ob in self.current_actions:
+        for ob in list(self.current_actions) + [ob.action for ob in self.assisted_actions.filter(
+                crisis_action__sent=False)]:
             table.add_row(ob.id, ob.crisis)
         self.msg(table)
         past_actions = self.caller.Dominion.actions.filter(sent=True)
+        past_actions = list(past_actions) + [ob.action for ob in self.assisted_actions.filter(crisis_action__sent=True)]
         if past_actions:
             table = EvTable("{w#{n", "{wCrisis{n")
             self.msg("{wYour past actions:{n")
@@ -376,8 +382,13 @@ class CmdCrisisAction(MuxPlayerCommand):
         self.msg("Action is now: %s" % action.action)
 
     def add_action_points(self):
-        action = self.get_action()
+        action = self.get_action(get_assisted=True)
         if not action:
+            return
+        time = datetime.now()
+        crisis = action.crisis
+        if crisis.end_date < time:
+            self.msg("It is past the submit date for that crisis.")
             return
         try:
             val = int(self.rhs)
