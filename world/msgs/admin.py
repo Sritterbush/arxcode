@@ -101,6 +101,6 @@ admin.site.register(Msg, MsgAdmin)
 
 
 class ArxObjectDBAdmin(ObjectDBAdmin):
-    search_fields = ['db_key']
+    search_fields = ['id', 'db_key', 'db_location__db_key']
 admin.site.unregister(ObjectDB)
 admin.site.register(ObjectDB, ArxObjectDBAdmin)
