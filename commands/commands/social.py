@@ -1114,6 +1114,9 @@ class CmdCalendar(MuxPlayerCommand):
     level. To see the valid largesse types with their costs and prestige
     values, do '@cal/largesse'. All times are in EST.
 
+    To mark an event as a player-run-plot, use /addgm to designate a
+    player as the storyteller for the event.
+
     When starting an event early, you can specify '=here' to start it in
     your current room rather than its previous location.
 
