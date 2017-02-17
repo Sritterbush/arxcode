@@ -104,9 +104,9 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
         """
         # get the current time as parts of year and parts of day
         # returns a tuple (years,months,weeks,days,hours,minutes,sec)
-        MONTHS_PER_YEAR = settings.TIME_MONTH_PER_YEAR
+        MONTHS_PER_YEAR = 12
         SEASONAL_BOUNDARIES = (3 / 12.0, 6 / 12.0, 9 / 12.0)
-        HOURS_PER_DAY = settings.TIME_HOUR_PER_DAY
+        HOURS_PER_DAY = 24
         DAY_BOUNDARIES = (0, 6 / 24.0, 12 / 24.0, 18 / 24.0)
         time = gametime.gametime(format=True)
         month, hour = time[1], time[4]
