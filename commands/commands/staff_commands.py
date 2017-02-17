@@ -1067,3 +1067,36 @@ class CmdJournalAdminForDummies(MuxPlayerCommand):
             self.caller.ndb.confirm_msg_convert = None
             return
         self.msg("Invalid switch.")
+
+
+class CmdTransferKeys(MuxPlayerCommand):
+    """
+    adds all keys one player has to another
+
+        Usage:
+            @transferkeys <source>=<target>
+    """
+    key = "@transferkeys"
+    locks = "cmd: perm(builders)"
+
+    def func(self):
+        source = self.caller.search(self.lhs)
+        targ = self.caller.search(self.rhs)
+        if not source or not targ:
+            return
+        source = source.db.char_ob
+        targ = targ.db.char_ob
+        s_chest_keys = source.db.chestkeylist or []
+        s_chest_keys = list(s_chest_keys)
+        t_chest_keys = targ.db.chestkeylist or []
+        t_chest_keys = list(t_chest_keys)
+        t_chest_keys.extend(s_chest_keys)
+        targ.db.chestkeylist = t_chest_keys
+        s_room_keys = source.db.keylist or []
+        s_room_keys = list(s_room_keys)
+        t_room_keys = targ.db.keylist or []
+        t_room_keys = list(t_room_keys)
+        t_room_keys.extend(s_room_keys)
+        targ.db.keylist = t_room_keys
+        self.msg("Keys transferred.")
+
