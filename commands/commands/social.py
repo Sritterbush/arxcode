@@ -1973,15 +1973,37 @@ class CmdRandomScene(MuxCommand):
 
     @property
     def newbies(self):
-        """
-        A list of new players we want to encourage people to RP with
+        """A list of new players we want to encourage people to RP with
+
+        Returns:
+            queryset: valid_choices queryset filtered by new players
         """
         newness = datetime.now() - timedelta(days=self.DAYS_FOR_NEWBIE_CHECK)
         return self.valid_choices.filter(Q(roster__accounthistory__start_date__gte=newness) &
                                          Q(roster__accounthistory__end_date__isnull=True)).order_by('db_key')
 
     @property
+    def gms(self):
+        """A list of GMs of active events in the current space.
+
+        Returns:
+            list: list of gms for any active event in the room
+        """
+        loc = self.caller.location
+        event = loc.event
+        if not event:
+            return []
+        gms = [ob.player.db.char_ob for ob in event.gms.all() if ob.player and ob.player.db.char_ob]
+        return [gm for gm in gms if gm.location == loc]
+
+    @property
     def valid_choices(self):
+        """property that returns queryset of our valid Characters that could be our @rs list
+
+        Returns:
+            queryset: Queryset of Character objects
+
+        """
         last_week = datetime.now() - timedelta(days=self.NUM_DAYS)
         return Character.objects.filter(Q(roster__roster__name="Active") &
                                         ~Q(roster__current_account=self.caller.roster.current_account) &
@@ -2005,6 +2027,7 @@ class CmdRandomScene(MuxCommand):
         scenelist = self.scenelist
         claimlist = self.claimlist
         validated = self.validatedlist
+        gms = self.gms
         newbies = [ob for ob in self.newbies if ob not in claimlist]
         if "online" in self.switches:
             self.msg("{wOnly displaying online characters.{n")
@@ -2012,6 +2035,7 @@ class CmdRandomScene(MuxCommand):
             newbies = [ob for ob in newbies if ob.location]
         self.msg("{wRandomly generated RP partners for this week:{n %s" % ", ".join(ob.key for ob in scenelist))
         self.msg("{wNew players who can be also RP'd with for credit:{n %s" % ", ".join(ob.key for ob in newbies))
+        self.msg("{wGMs for events here that can be claimed for credit:{n %s" % ", ".join(ob.key for ob in gms))
         if claimlist:
             self.msg("{wThose you have already RP'd with this week:{n %s" % ", ".join(ob.key for ob in claimlist))
         if validated:
@@ -2027,6 +2051,8 @@ class CmdRandomScene(MuxCommand):
         choices = list(choices)
         max_iter = 0
         while len(scenelist) < (self.NUM_SCENES - len(claimlist)):
+            if not choices:
+                break
             max_iter += 1
             if max_iter > 10000:
                 raise RuntimeError("Max Recursion Depth Exceeded.")
@@ -2040,7 +2066,7 @@ class CmdRandomScene(MuxCommand):
         targ = self.caller.search(self.lhs)
         if not targ:
             return
-        if targ not in self.scenelist and targ not in self.newbies:
+        if targ not in self.scenelist and targ not in self.newbies and targ not in self.gms:
             self.msg("%s is not in your list of random scene partners this week: %s" % (targ, ", ".join(
                 str(ob) for ob in self.scenelist)))
             self.msg("New players who can be RP'd with for credit: %s" % ", ".join(str(ob) for ob in self.newbies))
