@@ -1091,12 +1091,12 @@ class CmdTransferKeys(MuxPlayerCommand):
         t_chest_keys = targ.db.chestkeylist or []
         t_chest_keys = list(t_chest_keys)
         t_chest_keys.extend(s_chest_keys)
-        targ.db.chestkeylist = t_chest_keys
+        targ.db.chestkeylist = list(set(t_chest_keys))
         s_room_keys = source.db.keylist or []
         s_room_keys = list(s_room_keys)
         t_room_keys = targ.db.keylist or []
         t_room_keys = list(t_room_keys)
         t_room_keys.extend(s_room_keys)
-        targ.db.keylist = t_room_keys
+        targ.db.keylist = list(set(t_room_keys))
         self.msg("Keys transferred.")
 
