@@ -576,7 +576,6 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                     except (TypeError, ValueError):
                         self.msg("Amount of action points must be a positive number you can afford.")
                         return
-
                     # add action points and save
                     ob.action_points += amt
                     ob.save()

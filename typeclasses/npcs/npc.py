@@ -685,12 +685,16 @@ class Retainer(AgentMixin, Npc):
         The skill used to train them is based on our type - animal ken for
         animals, teaching for non-animals.
         """
+        self.db.trainer = trainer
+        currently_training = trainer.db.currently_training or []
+        if self in currently_training:
+            # this should not be possible. Nonetheless, it has happened.
+            trainer.msg("Error: You have already trained this agent despite the check saying you hadn't.")
+            return
         # do training roll
         roll = do_dice_check(trainer, stat="command", skill=self.training_skill, difficulty=0, quiet=False)
         self.agent.xp += roll
         self.agent.save()
-        self.db.trainer = trainer
-        currently_training = trainer.db.currently_training or []
         currently_training.append(self)
         trainer.db.currently_training = currently_training
         trainer.msg("You have trained %s, giving them %s xp." % (self, roll))
