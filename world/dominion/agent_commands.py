@@ -316,6 +316,7 @@ class CmdRetainers(MuxPlayerCommand):
         @retainers/customize <id #>=<trait name>,<value>
         @retainers/viewstats <id #>
         @retainers/cost <id #>=<attribute>,<category>
+        @retainer/delete <id #>
 
     Allows you to create and train unique agents that serve you,
     called retainers. They are still agents, and use the @agents
@@ -338,6 +339,8 @@ class CmdRetainers(MuxPlayerCommand):
     and large animals requiring military, assistants using economic, and
     spies requiring social. Small animals, due to their limited use, only
     cost 25 social resources.
+
+    /delete will remove a retainer that you own forever.
     """
     key = "@retainers"
     aliases = ["@retainer"]
@@ -434,8 +437,10 @@ class CmdRetainers(MuxPlayerCommand):
         char = self.caller.db.char_ob
         try:
             amt = int(self.rhs)
+            if amt < 1:
+                raise ValueError
         except (TypeError, ValueError):
-            self.msg("You must specify an xp value to transfer to your retainer.")
+            self.msg("You must specify a positive xp value to transfer to your retainer.")
             return
         if char.db.xp < amt:
             self.msg("You want to transfer %s xp, but only have %s." % (amt, char.db.xp))
@@ -751,6 +756,18 @@ class CmdRetainers(MuxPlayerCommand):
         agent.dbobj.attributes.add(attr, val)
         self.msg("%s's %s set to %s." % (agent, attr, val))
 
+    def delete(self, agent):
+        if not self.caller.ndb.remove_agent_forever == agent:
+            self.caller.ndb.remove_agent_forever = agent
+            self.msg("You wish to remove %s forever. Use the command again to confirm." % agent)
+            return
+        dbobj = agent.dbobj
+        dbobj.softdelete()
+        dbobj.unassign()
+        agent.owner = None
+        agent.save()
+        self.msg("%s has gone to live with a nice farm family." % dbobj)
+
     def func(self):
         caller = self.caller
         if not self.args:
@@ -817,6 +834,9 @@ class CmdRetainers(MuxPlayerCommand):
             current = self.get_attr_current_value(agent, attr, category)
             xpcost, rescost, restype = self.get_attr_cost(agent, attr, category, current)
             self.msg("Raising %s would cost %s xp, %s %s resources." % (attr, xpcost, rescost, restype))
+            return
+        if "delete" in self.switches:
+            self.delete(agent)
             return
         caller.msg("Invalid switch.")
 

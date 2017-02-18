@@ -479,6 +479,7 @@ RE_ASCII = re.compile(r"<ascii>(.*?)</ascii>", re.IGNORECASE)
 RE_ALT_ASCII = re.compile(r"<noascii>(.*?)</noascii>", re.IGNORECASE)
 RE_COLOR = re.compile(r'"(.*?)"')
 
+
 class MsgMixins(object):
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):
         """

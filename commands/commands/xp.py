@@ -418,8 +418,7 @@ class CmdAwardXP(MuxPlayerCommand):
             return
         char.adjust_xp(int(val))
         caller.msg("Giving %s xp to %s." % (val, char))
-        if not caller.check_permstring("immortals"):
-            inform_staff("%s has adjusted %s's xp by %s." % (caller, char, val))
+        inform_staff("%s has adjusted %s's xp by %s." % (caller, char, val))
 
 
 class CmdAdjustSkill(MuxPlayerCommand):

@@ -174,7 +174,12 @@ class WeeklyEvents(Script):
                     ob.undelete()
                     continue
                 deleted_time = ob.db.deleted_time
+                # all checks passed, delete it for reals
                 if (not deleted_time) or (current_time - deleted_time > WEEK_INTERVAL):
+                    # if we're a unique retainer, wipe the agent object as well
+                    if hasattr(ob, 'agentob'):
+                        if ob.agentob.agent_class.unique:
+                            ob.agent_class.delete()
                     ob.delete()
         except Exception as err:
             traceback.print_exc()

@@ -1026,8 +1026,7 @@ class CmdSetAttribute(ObjManipCommand):
                     string += "strings inside lists and dicts.{n"
         # send feedback
         caller.msg(string.strip('\n'))
-        if obj != caller and not caller.check_permstring("immortals"):
-            arx_utils.inform_staff("Building command by %s: %s" % (caller, string))
+        arx_utils.inform_staff("Building command by %s: %s" % (caller, string))
 
 
 class CmdDig(ObjManipCommand):
@@ -1159,6 +1158,8 @@ class CmdDig(ObjManipCommand):
         caller.msg("%s%s%s" % (room_string, exit_to_string, exit_back_string))
         if new_room and ('teleport' in self.switches or "tel" in self.switches):
             caller.move_to(new_room)
+        # use property to set colored name attribute and strip ansi markup from key
+        new_room.name = new_room.name
         return new_room
 
 
