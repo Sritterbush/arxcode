@@ -751,12 +751,20 @@ class CmdInvestigate(InvestigationFormCommand):
                 caller.msg("Investigation has been marked to be ongoing. %s" % msg)
                 return
             if "pause" in self.switches:
+                if not ob.active:
+                    self.msg("It was already inactive.")
+                    return
+                self.caller.roster.action_points += 50
+                self.caller.roster.save()
                 ob.active = False
                 ob.save()
                 caller.msg("Investigation is no longer active.")
                 return
             if "abandon" in self.switches or "stop" in self.switches:
                 ob.ongoing = False
+                if ob.active:
+                    self.caller.roster.action_points += 50
+                    self.caller.roster.save()
                 ob.active = False
                 ob.save()
                 asslist = []

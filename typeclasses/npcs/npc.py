@@ -669,14 +669,13 @@ class Retainer(AgentMixin, Npc):
         if not skill:
             trainer.msg("You must have %s skill to train them." % self.training_skill)
             return False
-        if self.db.trainer:
-            current = self.db.trainer.db.currently_training or []
-            # if our trainer doesn't have us in current, it's stale, remove our trainer
-            if self not in current:
-                self.db.trainer = None
-            else:
-                trainer.msg("They have already been trained by %s this week." % self.db.trainer)
-                return False
+        currently_training = trainer.db.currently_training or []
+        if self.db.trainer == trainer:
+            trainer.msg("They have already been trained by %s this week." % self.db.trainer)
+            return False
+        if self in currently_training:
+            trainer.msg("They have already been trained by you this week.")
+            return False
         return True
 
     def train_agent(self, trainer):
