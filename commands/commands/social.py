@@ -1288,8 +1288,12 @@ class CmdCalendar(MuxPlayerCommand):
         if "location" in self.switches:
             if self.lhs:
                 try:
-                    room = ObjectDB.objects.get(db_typeclass_path=settings.BASE_ROOM_TYPECLASS,
-                                                db_key__icontains=self.lhs)
+                    try:
+                        room = ObjectDB.objects.get(db_typeclass_path=settings.BASE_ROOM_TYPECLASS,
+                                                    db_key__iexact=self.lhs)
+                    except ObjectDB.DoesNotExist:
+                        room = ObjectDB.objects.get(db_typeclass_path=settings.BASE_ROOM_TYPECLASS,
+                                                    db_key__icontains=self.lhs)
                 except (ObjectDB.DoesNotExist, ObjectDB.MultipleObjectsReturned):
                     caller.msg("Could not find a unique match for %s." % self.lhs)
                     return
