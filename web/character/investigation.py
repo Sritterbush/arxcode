@@ -715,6 +715,14 @@ class CmdInvestigate(InvestigationFormCommand):
             staffmsg += " Their topic does not target a clue, and will automatically fail unless GM'd."
         inform_staff(staffmsg)
 
+    def create_form(self):
+        from evennia.scripts.models import ScriptDB
+        script = ScriptDB.objects.get(db_key="Weekly Update")
+        if script.db.run_time > 518400:
+            self.msg("It is too close to the end of the week to create another investigation.")
+            return
+        super(CmdInvestigate, self).create_form()
+
     def func(self):
         finished = super(CmdInvestigate, self).func()
         if finished:
