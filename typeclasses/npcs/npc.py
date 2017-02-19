@@ -673,7 +673,9 @@ class Retainer(AgentMixin, Npc):
         if self.db.trainer == trainer:
             trainer.msg("They have already been trained by %s this week." % self.db.trainer)
             return False
-        if self in currently_training:
+        # because of possible cache errors we'll check by ID rather than by self
+        currently_training_ids = [ob.id for ob in currently_training]
+        if self.id in currently_training_ids:
             trainer.msg("They have already been trained by you this week.")
             return False
         return True
