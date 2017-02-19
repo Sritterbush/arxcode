@@ -1254,7 +1254,7 @@ class CmdTheories(MuxPlayerCommand):
 
     def display_theories(self):
         table = EvTable("{wID #{n", "{wTopic{n")
-        for theory in self.caller.known_theories.all():
+        for theory in self.caller.known_theories.all().order_by('id'):
             table.add_row(theory.id, theory.topic)
         self.msg(table)
 
