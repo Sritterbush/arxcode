@@ -327,6 +327,9 @@ class CmdTrain(MuxCommand):
         """Execute command."""
         caller = self.caller
         switches = self.switches
+        # noinspection PyProtectedMember
+        # try to handle possible caching errors
+        caller.attributes._cache.pop('currently_training-None', None)
         if not self.args:
             self.msg("Currently training: %s" % ", ".join(str(ob) for ob in self.currently_training))
             self.msg("You can train %s targets." % self.max_trainees)
@@ -350,10 +353,14 @@ class CmdTrain(MuxCommand):
             if not self.pay_ap_cost():
                 return
             targ.train_agent(caller)
+            return
         else:
             targ = caller.search(self.lhs)
         if not targ:
             caller.msg("No one to train by the name of %s." % self.lhs)
+            return
+        if not targ.player:
+            caller.msg("Use the /retainer switch to train non-player-characters.")
             return
         if "stat" in switches:
             stat = self.rhs.lower()
