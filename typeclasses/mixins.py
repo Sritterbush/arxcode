@@ -525,15 +525,17 @@ class MsgMixins(object):
         if options.get('is_pose', False):
             if self.db.posebreak:
                 text = "\n" + text
-            name_color = self.db.name_color or "{c"
-            text = text.replace(self.key, name_color + self.key + "{n")
+            name_color = self.db.name_color
+            if name_color:
+                text = text.replace(self.key, name_color + self.key + "{n")
             quote_color = self.db.pose_quote_color
             # colorize people's quotes with the given text
             if quote_color:
                 text = RE_COLOR.sub(r'%s"\1"{n' % quote_color, text)
-                # counts the instances of name replacement inside quotes and recolorizes
-                for _ in range(0, text.count("%s{n" % self.key)):
-                    text = self.namex.sub(r'"\1%s%s\2"' % (self.key, quote_color), text)
+                if name_color:
+                    # counts the instances of name replacement inside quotes and recolorizes
+                    for _ in range(0, text.count("%s{n" % self.key)):
+                        text = self.namex.sub(r'"\1%s%s\2"' % (self.key, quote_color), text)
         if options.get('box', False):
             boxchars = '\n{w' + '*' * 70 + '{n\n'
             text = boxchars + text + boxchars
