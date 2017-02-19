@@ -107,7 +107,7 @@ class CmdGameSettings(MuxPlayerCommand):
             char.attributes.remove("name_color")
         else:
             char.db.name_color = self.args
-        char.msg('Your name will appear like this: %s%s{n.' % self.args, self.key)
+        char.msg('Your name will appear like this: %s%s{n.' % (self.args, char.key))
 
     def func(self):
         caller = self.caller
