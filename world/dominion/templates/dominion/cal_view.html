@@ -9,6 +9,11 @@
       {% if obj.get_absolute_url %}<a href="{{ obj.get_absolute_url }}">{{ obj }}</a>{% else %}{{ obj }}
       {% endif %}
   {% endfor %}</p>
+  {% if object.gms.all %}
+      <h2 class="text-center">GM'd By</h2> <p class="text-center">{% for obj in object.gms.all %}
+  {% if obj.get_absolute_url %}<a href="{{ obj.get_absolute_url }}">{{ obj }}</a>{% else %}{{ obj }}
+      {% endif %}{% endfor %}</p>
+  {% endif %}
   <h2 class="text-center">Participants</h2> <p class="text-center">{% for obj in object.participants.all %}
       {% if obj.get_absolute_url %}<a href="{{ obj.get_absolute_url }}">{{ obj }}</a>{% else %}{{ obj }}
       {% endif %}
