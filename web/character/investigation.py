@@ -1227,6 +1227,7 @@ class CmdTheories(MuxPlayerCommand):
 
     Usage:
         @theories
+        @theories/mine
         @theories <theory ID #>
         @theories/share <theory ID #>=<player>[,<player2>,...]
         @theories/create <topic>=<description>
@@ -1254,7 +1255,13 @@ class CmdTheories(MuxPlayerCommand):
 
     def display_theories(self):
         table = EvTable("{wID #{n", "{wTopic{n")
-        for theory in self.caller.known_theories.all().order_by('id'):
+        if "mine" in self.switches:
+            qs = list(self.caller.created_theories.all().order_by('id'))
+            qs += list(self.caller.editable_theories.all().order_by('id'))
+        else:
+            qs = self.caller.known_theories.all()
+            qs.order_by('id')
+        for theory in qs:
             table.add_row(theory.id, theory.topic)
         self.msg(table)
 
