@@ -58,6 +58,7 @@ class CmdGameSettings(MuxPlayerCommand):
         @settings/private_mode
         @settings/ic_only
         @settings/quote_color <color string>
+        @settings/name_color <color string>
 
     Toggles different settings. Brief suppresses room descs when
     moving through rooms. Posebreak adds a newline between poses
@@ -100,6 +101,13 @@ class CmdGameSettings(MuxPlayerCommand):
         else:
             char.db.pose_quote_color = self.args
         char.msg('Text will appear inside quotes "%slike this.{n"' % self.args)
+        
+    def set_name_color(self, char):
+        if not self.args:
+            char.attributes.remove("name_color")
+        else:
+            char.db.name_color = self.args
+        char.msg('Your name will appear like this: %s%s{n.' % self.args, self.key)
 
     def func(self):
         caller = self.caller
@@ -154,6 +162,9 @@ class CmdGameSettings(MuxPlayerCommand):
             return
         if "quote_color" in switches:
             self.set_quote_color(char)
+            return
+        if "name_color" in switches:
+            self.set_name_color(char)
             return
         caller.msg("Invalid switch.")
 
