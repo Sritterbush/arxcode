@@ -693,7 +693,7 @@ class Investigation(models.Model):
         diff = (diff if diff is not None else self.difficulty) + mod
         roll = self.do_obj_roll(self, diff)
         for ass in self.active_assistants:
-            a_roll = self.do_obj_roll(ass, diff)
+            a_roll = self.do_obj_roll(ass, diff - 20)
             if a_roll < 0:
                 a_roll = 0
             try:
@@ -923,7 +923,7 @@ class Investigation(models.Model):
     @property
     def goal(self):
         try:
-            return self.targeted_clue.rating
+            return self.targeted_clue.rating * DISCO_MULT
         except (Clue.DoesNotExist, AttributeError):
             return 0
 
