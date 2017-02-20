@@ -26,7 +26,8 @@ WEEK_INTERVAL = 604800
 VOTES_BOARD_NAME = 'Votes'
 PRESTIGE_BOARD_NAME = 'Prestige Changes'
 
-PLAYER_ATTRS = ("votes", 'claimed_scenelist', 'random_scenelist', 'validated_list', 'praises', 'condemns')
+PLAYER_ATTRS = ("votes", 'claimed_scenelist', 'random_scenelist', 'validated_list', 'praises', 'condemns',
+                'requested_validation')
 CHARACTER_ATTRS = ("currently_training", "trainer", 'scene_requests')
 
 
