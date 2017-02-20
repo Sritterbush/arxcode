@@ -23,6 +23,9 @@ class ArxChannelCommand(command.Command):
        {lower_channelkey} last
        {lower_channelkey}/history
        {lower_channelkey} who
+       {lower_channelkey} mute
+       {lower_channelkey} on
+       {lower_channelkey} off
 
     This is a channel. If you have subscribed to it, you can send to
     it by entering its name or alias, followed by the text you want to
