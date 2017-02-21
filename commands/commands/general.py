@@ -78,6 +78,10 @@ class CmdGameSettings(MuxPlayerCommand):
     locks = "cmd:all()"
     help_category = "Settings"
     aliases = ["lrp"]
+    valid_switches = ('brief', 'posebreak', 'stripansinames', 'no_ascii', 'lrp',
+                      'afk', 'nomessengerpreview', 'bbaltread', 'ignore_messenger_notifications',
+                      'ignore_messenger_deliveries', 'newline_on_messages', 'private_mode',
+                      'ic_only', 'ignore_bboard_notifications', 'quote_color', 'name_color')
 
     def togglesetting(self, char, attr, tag=False):
         caller = self.caller
@@ -170,7 +174,7 @@ class CmdGameSettings(MuxPlayerCommand):
         if "name_color" in switches:
             self.set_name_color(char)
             return
-        caller.msg("Invalid switch.")
+        caller.msg("Invalid switch. Valid switches are: %s" % ", ".join(self.valid_switches))
 
 
 class CmdGlance(MuxCommand):
