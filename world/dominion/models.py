@@ -1883,11 +1883,15 @@ class Organization(models.Model):
                                                                                        self.social_modifier)
         msg += "{wSpheres of Influence:{n %s\n" % ", ".join("{w%s{n: %s" % (ob.category, ob.rating)
                                                             for ob in self.spheres.all())
+        clues = self.clues.all()
+        if clues:
+            msg += "\n{wClues Known:{n %s\n" % ", ".join(str(ob) for ob in clues)
         if holdings:
             msg += "{wHoldings{n: %s\n" % ", ".join(ob.name for ob in holdings)
         if viewing_member:
             msg += "\n{wMember stats for {c%s{n\n" % viewing_member
             msg += viewing_member.display()
+
         return msg
     
     def __init__(self, *args, **kwargs):
