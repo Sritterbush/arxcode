@@ -1460,8 +1460,9 @@ class CmdKeyring(MuxCommand):
     Checks keys
     Usage:
         +keyring
+        +keyring/remove <chest or room>
 
-    Checks your keys.
+    Checks your keys, or Removes a key.
     """
     key = "+keyring"
     locks = "cmd:all()"
@@ -1477,6 +1478,11 @@ class CmdKeyring(MuxCommand):
         # remove any deleted objects
         chest_keys = [ob for ob in chest_keys if hasattr(ob, 'tags') and "deleted" not in ob.tags.all()]
         caller.db.chestkeylist = chest_keys
+        if "remove" in self.switches:
+            room_keys = [ob for ob in room_keys if ob.key.lower() != self.args.lower()]
+            chest_keys = [ob for ob in chest_keys if ob.key.lower() != self.args.lower()]
+            caller.db.keylist = room_keys
+            caller.db.chestkeylist = chest_keys
         key_list = list(room_keys) + list(chest_keys)
         caller.msg("Keys: %s" % ", ".join(ob.key for ob in key_list if ob))
         return
