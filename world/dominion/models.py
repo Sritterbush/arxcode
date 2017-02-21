@@ -1650,6 +1650,8 @@ class CrisisAction(models.Model):
         self.update = update
         self.dompc.player.inform(msg, category="Action", week=self.week,
                                  append=True)
+        for assistant in self.assistants.all():
+            assistant.player.inform(msg, category="Action", week=self.week, append=True)
         self.sent = True
         self.save()
 

@@ -227,10 +227,14 @@ class CmdCrisisAction(MuxPlayerCommand):
         qs = self.viewable_crises
         if "old" not in self.switches:
             qs = qs.filter(resolved=False)
-        table = EvTable("{w#{n", "{wName{n", "{wDesc{n", "{wRating{n", "{wUpdates On{n", width=78, border="cells")
+        table = EvTable("{w#{n", "{wName{n", "{wDesc{n", "{wUpdates On{n", width=78, border="cells")
         for ob in qs:
-            date = "--" if not ob.end_date else ob.end_date.strftime("%x %H:%M")
-            table.add_row(ob.id, ob.name, ob.headline, ob.rating, date)
+            date = "--" if not ob.end_date else ob.end_date.strftime("%m/%d")
+            table.add_row(ob.id, ob.name, ob.headline, date)
+        table.reformat_column(0, width=7)
+        table.reformat_column(1, width=20)
+        table.reformat_column(2, width=40)
+        table.reformat_column(3, width=11)
         self.msg(table)
         self.msg("{wYour pending actions:{n")
         table = EvTable("{w#{n", "{wCrisis{n")
