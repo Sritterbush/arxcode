@@ -2685,7 +2685,7 @@ class CmdSupport(MuxCommand):
                 val = int(self.rhs)
                 targmember = sup.task.member
                 member = org.members.get(player=dompc)
-                if val <= 0:
+                if val < 0:
                     raise ValueError
                 supused = sup.allocation.get(week=week, sphere=sphere)
                 supused.refresh_from_db()
