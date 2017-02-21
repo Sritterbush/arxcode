@@ -86,7 +86,7 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         class KnockExit(command.Command):
             def func(self):
                 self.caller.msg("You knocked on the door.")
-                self.obj.destination.msg_contents("{wThere is a knock coming from %s." % self.reverse_exit)
+                self.obj.destination.msg_contents("{wThere is a knock coming from %s." % self.obj.reverse_exit)
 
         # create an exit command. We give the properties here,
         # to always trigger metaclass preparations
