@@ -1228,7 +1228,8 @@ class CmdRelationship(MuxPlayerCommand):
     help_category = "Social"
     locks = "cmd:all()"
     typelist = ['parent', 'sibling', 'friend', 'enemy', 'frenemy', 'family', 'client', 'patron', 'protege',
-                'acquaintance', 'secret', 'rival', 'ally', 'spouse']
+                'acquaintance', 'secret', 'rival', 'ally', 'spouse', 'The Crown', 'Crownlands', 'Oathlands',
+                'Lyceum', 'Mourning Isles', 'Northlands']
 
     def func(self):
         caller = self.caller
