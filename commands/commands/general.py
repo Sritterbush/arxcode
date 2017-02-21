@@ -57,6 +57,7 @@ class CmdGameSettings(MuxPlayerCommand):
         @settings/newline_on_messages
         @settings/private_mode
         @settings/ic_only
+        @settings/ignore_bboard_notifications
         @settings/quote_color <color string>
         @settings/name_color <color string>
 
@@ -159,6 +160,9 @@ class CmdGameSettings(MuxPlayerCommand):
             return
         if "ic_only" in switches:
             self.togglesetting(caller, "IC_Only", tag=True)
+            return
+        if "ignore_bboard_notifications" in switches:
+            self.togglesetting(caller, "no_post_notifications", tag=True)
             return
         if "quote_color" in switches:
             self.set_quote_color(char)

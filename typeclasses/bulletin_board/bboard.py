@@ -54,7 +54,8 @@ class BBoard(Object):
             else:
                 posts.first().delete()
         if announce:
-            subs = [ob for ob in self.db.subscriber_list if self.access(ob, "read")]
+            subs = [ob for ob in self.db.subscriber_list if self.access(ob, "read")
+                    and "no_post_notifications" not in ob.tags.all()]
             post_num = self.posts.count()
             for sub in subs:
                 notify = "\n{{wNew post on {0} by {1}:{{n {2}".format(self.key, posted_by, subject)
