@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb,
                      AssetOwner, Region, Land, DomainProject, Castle,
                      Ruler, Army, Orders, MilitaryUnit, Member, Task,
-                     CraftingRecipe, CraftingMaterialType, CraftingMaterials,
+                     CraftingRecipe, CraftingMaterialType, CraftingMaterials, CrisisActionAssistant,
                      RPEvent, AccountTransaction, AssignedTask, Crisis, CrisisAction, CrisisUpdate,
                      OrgRelationship, Reputation, TaskSupporter, InfluenceCategory,
                      Renown, SphereOfInfluence, TaskRequirement, ClueForOrg)
@@ -231,10 +231,18 @@ class CrisisAdmin(DomAdmin):
     inlines = (CrisisUpdateInline,)
 
 
+class CrisisActionAssistantInline(admin.TabularInline):
+    model = CrisisActionAssistant
+    extra = 0
+    raw_id_fields = ('crisis_action', 'dompc',)
+
+
 class CrisisActionAdmin(DomAdmin):
     list_display = ('id', 'crisis', 'dompc', 'player_action', 'week', 'sent')
     search_fields = ('crisis__name', 'dompc__player__username')
     list_filter = ('sent', 'crisis')
+    raw_id_fields = ('dompc',)
+    inlines = (CrisisActionAssistantInline,)
 
     @staticmethod
     def player_action(obj):
