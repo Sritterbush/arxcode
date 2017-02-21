@@ -83,6 +83,11 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
                     return
                 self.obj.at_traverse(self.caller, self.obj.destination)
 
+        class KnockExit(command.Command):
+            def func(self):
+                self.caller.msg("You knocked on the door.")
+                self.obj.destination.msg_contents("{wThere is a knock coming from %s." % self.reverse_exit)
+
         # create an exit command. We give the properties here,
         # to always trigger metaclass preparations
         exitcmd = ExitCommand(key=exitkey,
@@ -95,6 +100,8 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
                               obj=exidbobj)
         passaliases = ["pass %s" % alias for alias in exitaliases]
         passcmd = PassExit(key="pass %s" % exitkey, aliases = passaliases, is_exit=True, auto_help=False, obj=exidbobj)
+        knockaliases = ["knock %s" % alias for alias in exitaliases]
+        knockcmd = KnockExit(key="knock %s" % exitkey, aliases = knockaliases, is_exit=True, auto_help=False, obj=exidbobj)
         # create a cmdset
         exit_cmdset = cmdset.CmdSet(None)
         exit_cmdset.key = '_exitset'
@@ -103,6 +110,7 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         # add command to cmdset
         exit_cmdset.add(exitcmd)
         exit_cmdset.add(passcmd)
+        exit_cmdset.add(knockcmd)
         return exit_cmdset
 
     def at_traverse(self, traversing_object, target_location, key_message=True, special_entrance=None, quiet=False,
