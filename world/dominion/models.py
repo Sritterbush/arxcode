@@ -1885,7 +1885,7 @@ class Organization(models.Model):
                                                             for ob in self.spheres.all())
         clues = self.clues.all()
         if clues:
-            msg += "\n{wClues Known:{n %s\n" % ", ".join(str(ob) for ob in clues)
+            msg += "\n{wClues Known:{n %s\n" % "; ".join(str(ob) for ob in clues)
         if holdings:
             msg += "{wHoldings{n: %s\n" % ", ".join(ob.name for ob in holdings)
         if viewing_member:
