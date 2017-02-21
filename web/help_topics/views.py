@@ -123,7 +123,7 @@ def display_org(request, object_id):
         holdings = []
     active_tab = request.GET.get("active_tab")
     if not active_tab or active_tab == "all":
-        members = org.all_members
+        members = org.all_members.exclude(player__player__roster__roster__name="Gone")
         active_tab = "all"
     elif active_tab == "active":
         members = org.active_members
