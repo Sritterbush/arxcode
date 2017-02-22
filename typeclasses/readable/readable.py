@@ -159,7 +159,7 @@ class CmdWrite(MuxCommand):
             return
         if "proof" in self.switches:
             msg = self.display()
-            caller.msg(msg, box=True)
+            caller.msg(msg, options={'box': True})
             return
         if "finish" in self.switches:
             name = obj.ndb.title
