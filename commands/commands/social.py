@@ -1778,10 +1778,11 @@ class CmdSocialScore(MuxCommand):
         +score/reputation [<organization>]
         +score/reputation/bad [<organization>]
         
-    Checks the organizations and players who have the highest prestige. Renown measures the influence
-    a character has built with different npc groups, while reputation is how a character is thought of
-    by the npcs within an organization. The 'bad' switch shows only those with respect or affection
-    below zero.
+    Checks the organizations and players who have the highest prestige.
+    Renown measures the influence a character has built with different npc
+    groups, while reputation is how a character is thought of by the npcs
+    within an organization. The 'bad' switch shows only those with respect or
+    affection below zero.
     """
     key = "+score"
     locks = "cmd:all()"
