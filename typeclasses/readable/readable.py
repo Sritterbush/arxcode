@@ -113,15 +113,17 @@ class CmdWrite(MuxCommand):
         write <description>
         write/title <title>
         write/proof
+        write/translated_text <language>=<text>
         write/finish
 
     Writes upon a given scroll/letter/book or other object
     to give it a description set to the body of the text you
     write and set its name to the title you specify. For example,
     to rename 'a scroll' into 'Furen's Book of Wisdom', use
-    'write/title Furen's Book of Wisdom'. Check your changes with
-    /proof, and then finalize changes with /finish. Once set, no
-    further changes can be made.
+    'write/title Furen's Book of Wisdom'. To write in other languages,
+    use /translated_text to show what the material actually says. 
+    Check your changes with /proof, and then finalize changes with /finish. 
+    Once set, no further changes can be made.
     """
     key = "write"
     locks = "cmd:all()"
@@ -132,6 +134,9 @@ class CmdWrite(MuxCommand):
         desc = obj.ndb.desc or obj.desc
         msg = "{wName:{n %s\n" % title
         msg += "{wDesc:{n\n%s" % desc
+        transtext = obj.ndb.transtext or {}
+        for lang in transtext:
+            msg += "\n{wWritten in {c%s:{n\n%s\n" % (lang.capitalize(), transtext[lang])
         return msg
         
     def func(self):
@@ -147,6 +152,10 @@ class CmdWrite(MuxCommand):
         if "title" in self.switches:
             obj.ndb.title = self.lhs
             caller.msg("Name set to: %s" % self.lhs)
+            return
+        if "translated_text" in self.switches:
+            obj.ndb.transtext[self.lhs.lower()] = self.rhs
+            self.display()
             return
         if "proof" in self.switches:
             msg = self.display()
@@ -170,6 +179,8 @@ class CmdWrite(MuxCommand):
             obj.db.num_instances = 1
             obj.name = name
             obj.desc = desc
+            if obj.ndb.transtext:
+                obj.db.translation = obj.ndb.transtext
             obj.save()        
             caller.msg("You have written on %s." % obj.name)
             obj.attributes.remove("quality_level")

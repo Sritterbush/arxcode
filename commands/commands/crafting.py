@@ -238,6 +238,7 @@ class CmdCraft(MuxCommand):
         craft/name <name>
         craft/desc <description>
         craft/adorn <material type>=<amount>
+        craft/translated_text <language>=<text>
         craft/forgery <real material>=<type it's faking as>
         craft/finish [<additional silver to invest>, <action points>
         craft/abandon
@@ -256,6 +257,9 @@ class CmdCraft(MuxCommand):
     money spent when finishing gives a bonus to the roll. For things
     such as perfume, the desc is the description that appears on the
     character, not the description of the bottle.
+    
+    If the item should contain script in a foreign tongue that you know, 
+    use translated_text to display what the language actually says.
 
     To finish a project, use /finish, or /abandon if you wish to stop
     and do something else. To attempt to change the quality level of
@@ -299,6 +303,13 @@ class CmdCraft(MuxCommand):
             msg += "{wForgeries:{n %s\n" % ", ".join("%s as %s" % (CraftingMaterialType.objects.get(id=value).name,
                                                                    CraftingMaterialType.objects.get(id=key).name)
                                                      for key, value in forgery.items())
+        try:
+            translation = proj[5]
+            if translation:
+                msg += "{wTranslation for{n %s\n" % "\n\n".join("%s:\n%s" % (lang, text)
+                                                                for lang, text in translation.items())
+        except IndexError:
+            pass
         caller.msg(msg)
         caller.msg("{wTo finish it, use /finish after you gather the following:{n")
         caller.msg(recipe.display_reqs(dompc))
@@ -342,8 +353,8 @@ class CmdCraft(MuxCommand):
             except ValueError:
                 caller.msg("That recipe does not have a price defined.")
                 return
-            # proj = [id, name, desc, adorns, forgery]
-            proj = [recipe.id, "", "", {}, {}]
+            # proj = [id, name, desc, adorns, forgery, translation]
+            proj = [recipe.id, "", "", {}, {}, {}]
             caller.db.crafting_project = proj
             stmsg = "You have" if caller == crafter else "%s has" % crafter
             caller.msg("{w%s started to craft:{n %s." % (stmsg, recipe.name))
@@ -486,6 +497,18 @@ class CmdCraft(MuxCommand):
         if "abandon" in self.switches:
             caller.msg("You have abandoned this crafting project. You may now start another.")
             caller.db.crafting_project = None
+            return
+        if "translated_text" in self.switches:
+            if not (self.lhs and self.rhs):
+                caller.msg("Usage: craft/translated_text <language>=<text>")
+                return
+            lhs = self.lhs.lower()
+            if lhs not in self.caller.languages.known_languages:
+                caller.msg("Nice try. You cannot speak %s." % self.lhs)
+                return
+            proj[5].update({lhs:self.rhs})
+            caller.db.crafting_project = proj
+            self.display_project(proj)
             return
         if "adorn" in self.switches:
             if not (self.lhs and self.rhs):
@@ -680,6 +703,11 @@ class CmdCraft(MuxCommand):
                 obj.db.forgery_roll = do_crafting_roll(caller, recipe, room=caller.location)
                 # forgery penalty will be used to degrade weapons/armor
                 obj.db.forgery_penalty = (recipe.value/realvalue) + 1
+            try:
+                if proj[5]:
+                    obj.db.translation = proj[5]
+            except IndexError:
+                pass
             cnoun = "You" if caller == crafter else crafter
             caller.msg("%s created %s." % (cnoun, obj.name))
             quality = QUALITY_LEVELS[quality]

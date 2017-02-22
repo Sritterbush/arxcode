@@ -411,6 +411,8 @@ class AppearanceMixins(object):
                 pass
         # quality_level is an integer, we'll get a name from crafter file's dict
         string += self.get_quality_appearance()
+        if self.db.translated:
+            string += "\nIt contains script in a foreign tongue."
         # signed_by is a crafter's character object
         signed = self.db.signed_by
         if signed:

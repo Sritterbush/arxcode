@@ -2231,12 +2231,14 @@ class CmdLanguages(MuxCommand):
     Usage:
         +lang
         +lang <language>
+        +lang/translate <object>
         +lang/teachme <player>=<language>
         +lang/teach <player>
 
     Shows what languages you know and are currently speaking. You can request
     that a player teach you a language with +lang/teachme. You may know one
-    language per rank of linguistics
+    language per rank of linguistics. Translate allows you to read material 
+    written in other languages.
     """
     key = "+lang"
     locks = "cmd:all()"
@@ -2251,6 +2253,19 @@ class CmdLanguages(MuxCommand):
         if not self.args:
             self.msg("{wYou are currently speaking:{n %s" % self.caller.languages.current_language.capitalize())
             self.list_languages()
+            return
+        if "translate" in self.switches:
+            obj = self.caller.search(self.args)
+            if not obj:
+                return
+            translation = obj.db.translation or {}
+            matches = False
+            for lang in self.caller.languages.known_languages:
+                if lang in translation:
+                    self.msg("You translate the following from %s:\n%s" % (lang.capitalize(), translation[lang]))
+                    matches = True
+            if not matches:
+                self.msg("%s does not seem to contain any foreign tongue you can read." % obj)
             return
         if not self.switches:
             args = self.args.lower()
