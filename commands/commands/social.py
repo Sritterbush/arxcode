@@ -1776,10 +1776,12 @@ class CmdSocialScore(MuxCommand):
         +score/personal
         +score/renown [<category>]
         +score/reputation [<organization>]
+        +score/reputation/bad [<organization>]
         
     Checks the organizations and players who have the highest prestige. Renown measures the influence
     a character has built with different npc groups, while reputation is how a character is thought of
-    by the npcs within an organization.
+    by the npcs within an organization. The 'bad' switch shows only those with respect or affection
+    below zero.
     """
     key = "+score"
     locks = "cmd:all()"
@@ -1812,7 +1814,11 @@ class CmdSocialScore(MuxCommand):
             return
         if "reputation" in self.switches:
             rep = Reputation.objects.filter(player__player__isnull=False,
-                                            player__player__roster__roster__name="Active").order_by('-respect')
+                                            player__player__roster__roster__name="Active")
+            if "bad" in self.switches:
+                rep = rep.filter(Q(respect__lt=0) | Q(affection__lt=0)).order_by('respect')
+            else:
+                rep = rep.order_by('-respect')
             if self.args:
                 rep = rep.filter(Q(organization__name__iexact=self.args) |
                                  Q(player__player__username__iexact=self.args))
