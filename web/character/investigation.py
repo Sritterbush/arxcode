@@ -458,21 +458,23 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             if char.assisted_investigations.filter(currently_helping=True):
                 self.msg("%s is already assisting an investigation." % char)
                 return
-            # check if they have action points to afford it
-            if not self.check_ap_cost():
-                return
-            # all checks passed, mark it as currently being helped if the investigation exists
             try:
                 ob = char.assisted_investigations.get(investigation__id=self.lhs)
-                ob.currently_helping = True
-                ob.save()
-                self.msg("Now helping %s." % ob.investigation)
             except (ValueError, TypeError, InvestigationAssistant.DoesNotExist):
                 self.msg("Not helping an investigation by that number.")
+                return
             except InvestigationAssistant.MultipleObjectsReturned:
                 self.msg("Well, this is awkward. You are assisting that investigation multiple times. This shouldn't "
                          "be able to happen, but here we are.")
                 inform_staff("BUG: %s is assisting investigation %s multiple times." % (char, self.lhs))
+                return
+            # check if they have action points to afford it
+            if not self.check_ap_cost():
+                return
+            # all checks passed, mark it as currently being helped if the investigation exists
+            ob.currently_helping = True
+            ob.save()
+            self.msg("Now helping %s." % ob.investigation)
             return
         if set(self.change_switches) & set(self.switches):
             if "retainer" in self.switches:
