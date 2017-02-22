@@ -154,8 +154,16 @@ class CmdWrite(MuxCommand):
             caller.msg("Name set to: %s" % self.lhs)
             return
         if "translated_text" in self.switches:
-            obj.ndb.transtext[self.lhs.lower()] = self.rhs
-            self.display()
+            transtext = obj.ndb.transtext or {}
+            if not self.rhs:
+                self.msg("Must have text.")
+            lhs = self.lhs.lower()
+            if lhs not in self.caller.languages.known_languages:
+                self.msg("You cannot speak that language.")
+                return
+            transtext[lhs] = self.rhs
+            obj.ndb.transtext = transtext
+            self.msg(self.display())
             return
         if "proof" in self.switches:
             msg = self.display()
