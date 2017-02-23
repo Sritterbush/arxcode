@@ -177,9 +177,8 @@ class Channel(DefaultChannel):
         else:
             return '%s: %s' % (sender_string, message)
    
-    def msg(self, msgobj, header=None, senders=None, sender_strings=None, persistent=False,
-            keep_log=False, online=False, emit=False, external=False):
-        super(Channel, self).msg(msgobj, header, senders, sender_strings, keep_log, online, emit, external)
+    # def msg(self, msgobj, header=None, senders=None, sender_strings=None, persistent=False,
+    #         keep_log=False, online=False, emit=False, external=False):
     #     """
     #     Send the given message to all players connected to channel. Note that
     #     no permission-checking is done here; it is assumed to have been
@@ -246,4 +245,4 @@ class Channel(DefaultChannel):
         By default, channel logging is False, so a temp message being captured
         should only happen by intent.
         """
-        self.msg(message, senders=senders, header=header, persistent=False)
+        self.msg(message, senders=senders, header=header, keep_log=False)
