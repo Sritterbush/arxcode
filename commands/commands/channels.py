@@ -10,6 +10,7 @@ accustomed to.
 from evennia.commands import command
 from evennia.comms.models import ChannelDB, Msg
 from server.utils.arx_utils import datetime_format
+from evennia.utils.logger import tail_log_file
 
 
 class ArxChannelCommand(command.Command):
@@ -110,19 +111,28 @@ class ArxChannelCommand(command.Command):
                     self.num_messages = int(msglist[1])
                 self.display_history = True
         if self.display_history:
-            chan_messages = list(Msg.objects.get_messages_by_channel(channel.id))
-            if len(chan_messages) > 200:
-                del_list = chan_messages[:-200]
-                chan_messages = chan_messages[-200:]
-                for mssg in del_list:
-                    channel.delete_chan_message(mssg)
-            caller.msg("Messages in %s:\n" % channel.key)
-            if len(chan_messages) > self.num_messages:
-                last_messages = chan_messages[-self.num_messages:]
-            else:
-                last_messages = chan_messages
-            for msg in last_messages:
-                caller.msg("{w%s{n %s" % (datetime_format(msg.date_created), msg.message))
+            # chan_messages = list(Msg.objects.get_messages_by_channel(channel.id))
+            # if len(chan_messages) > 200:
+            #     del_list = chan_messages[:-200]
+            #     chan_messages = chan_messages[-200:]
+            #     for mssg in del_list:
+            #         channel.delete_chan_message(mssg)
+            # caller.msg("Messages in %s:\n" % channel.key)
+            # if len(chan_messages) > self.num_messages:
+            #     last_messages = chan_messages[-self.num_messages:]
+            # else:
+            #     last_messages = chan_messages
+            # for msg in last_messages:
+            #     caller.msg("{w%s{n %s" % (datetime_format(msg.date_created), msg.message))
+            log_file = channel.attributes.get("log_file", default="channel_%s.log" % channel.key)
+            # send_msg = lambda lines: self.msg("".join(line.split("[-]", 1)[1]
+            #                                           if "[-]" in line else line for line in lines))
+
+            def send_msg(lines):
+                msgs = "".join(line for line in lines)
+                self.msg(msgs)
+            self.msg("{wChannel history for %s:{n" % self.key)
+            tail_log_file(log_file, 0, self.num_messages, callback=send_msg)
             return
         if msg == "off" or msg == "mute":
             if player:
@@ -139,7 +149,7 @@ class ArxChannelCommand(command.Command):
         if player in channel.mutelist or caller in channel.mutelist:
             self.msg("You have that channel muted.")
             return
-        channel.msg(msg, senders=caller.db.char_ob or caller, persistent=True, online=True)
-        if Msg.objects.get_messages_by_channel(channel.id).count() > 200:
-            earliest = Msg.objects.get_messages_by_channel(channel.id).earliest('db_date_created')
-            channel.delete_chan_message(earliest)
+        channel.msg(msg, senders=caller.db.char_ob or caller, keep_log=True, online=True)
+        # if Msg.objects.get_messages_by_channel(channel.id).count() > 200:
+        #     earliest = Msg.objects.get_messages_by_channel(channel.id).earliest('db_date_created')
+        #     channel.delete_chan_message(earliest)
