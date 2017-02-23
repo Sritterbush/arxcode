@@ -61,7 +61,6 @@ class BBoard(Object):
                 notify = "\n{{wNew post on {0} by {1}:{{n {2}".format(self.key, posted_by, subject)
                 notify += "\nUse {w@bbread %s/%s {nto read this message." % (self.key, post_num)
                 sub.msg(notify)
-            self.db.subscriber_list = subs
         return post
 
     def has_subscriber(self, pobj):
