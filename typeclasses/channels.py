@@ -177,8 +177,9 @@ class Channel(DefaultChannel):
         else:
             return '%s: %s' % (sender_string, message)
    
-    # def msg(self, msgobj, header=None, senders=None, sender_strings=None,
-    #         keep_log=False, online=False, emit=False, external=False):
+    def msg(self, msgobj, header=None, senders=None, sender_strings=None, persistent=False,
+            keep_log=False, online=False, emit=False, external=False):
+        super(Channel, self).msg(msgobj, header, senders, sender_strings, keep_log, online, emit, external)
     #     """
     #     Send the given message to all players connected to channel. Note that
     #     no permission-checking is done here; it is assumed to have been
