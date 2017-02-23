@@ -1829,20 +1829,26 @@ class Organization(models.Model):
                 title = male_title
             else:
                 title = "%s/%s" % (male_title.capitalize(), female_title.capitalize())
+
+            def char_name(charob):
+                c_name = str(charob)
+                if charob not in active:
+                    c_name = "(R)" + c_name
+                if not self.secret and charob.secret:
+                    c_name += "(Secret)"
+                return c_name
             if len(chars) > 1:
                 msg += "{w%s{n (Rank %s): %s\n" % (title, rank,
-                                                   ", ".join(str(char) if char in active
-                                                             else "(R)%s" % char for char in chars))
+                                                   ", ".join(char_name(char) for char in chars))
             elif len(chars) > 0:
                 char = chars[0]
-                name = str(char) if char in active else "(R)%s" % char
+                name = char_name(char)
                 char = char.player.player.db.char_ob
                 gender = char.db.gender or "Male"
                 if gender.lower() == "male":
                     title = male_title
                 else:
                     title = female_title
-
                 msg += "{w%s{n (Rank %s): %s\n" % (title, rank, name)
         return msg
     

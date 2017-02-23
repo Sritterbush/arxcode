@@ -30,9 +30,9 @@
       {% if not member.secret or show_secret <= member.rank %}
   <tr>
   {% if member.player.player.db.char_ob %}
-  <td width="25%"><a href="{% url 'character:sheet' member.player.player.db.char_ob.id %}">{{ member }}</a></td>
+  <td width="25%"><a href="{% url 'character:sheet' member.player.player.db.char_ob.id %}">{{ member }}</a>{% if member.secret %}(Secret){% endif %}</td>
   {% else %}
-  <td width="25%">{{ member }}</td>
+  <td width="25%">{{ member }}{% if member.secret %}(Secret){% endif %}</td>
   {% endif %}
   <td width="25%">{{ member.rank }}</td>
   <td width="25%">{{ member.rank_title }}</td>
