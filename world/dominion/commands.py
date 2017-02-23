@@ -1487,7 +1487,7 @@ class CmdOrganization(MuxPlayerCommand):
         @org/memberview <player>[=<org name>]
         @org/secret <player>[=<org name>]
         @org/addclue <clue #>[=<org name>]
-        @org/briefing <player>[=<org name>]
+        @org/briefing <player>/<clue name>[=<org name>]
 
     Lists the houses/organizations your character is a member
     of. Give the name of an organization for more detailed information.
@@ -1525,6 +1525,68 @@ class CmdOrganization(MuxPlayerCommand):
         caller = self.caller
         myorgs = Organization.objects.filter(Q(members__player__player=caller)
                                              & Q(members__deguilded=False))
+        if 'briefing' in self.switches:
+            if len(myorgs) == 0:
+                org = myorgs[0]
+            else:
+                try:
+                    org, member = self.get_org_and_member(caller, myorgs, self.rhs)
+                except Organization.DoesNotExist:
+                    caller.msg("You are not a member of any organization named %s." % self.rhs)
+                    return
+            if not org:
+                return
+            if not org.clues.all():
+                self.msg("Your organization has no clues to share.")
+                return
+            try:
+                targname,cluename = self.lhs.split("/")
+            except (TypeError, ValueError, IndexError):
+                self.msg("You must specify the name of a character and a clue. Ex: bob/secrets of haberdashery")
+                return
+            try:
+                tarmember = org.active_members.get(player__player__username__iexact=targname)
+            except Member.DoesNotExist:
+                self.msg("There is no active member in %s by the name %s." % (org, targname))
+                return
+            from web.character.models import Clue
+            try:
+                clue = org.clues.get(name__iexact=cluename)
+            except Clue.DoesNotExist:
+                self.msg("%s does not know of a clue named %s." % (org, cluename))
+                self.msg("Org clues: %s" % ", ".join(ob.name for ob in org.clues.all()))
+                return
+            cost = (caller.clue_cost / (org.social_modifier + 4)) + 1
+            if tarmember.player.player == self.caller:
+                self.msg("You cannot brief yourself.")
+                return
+            if caller.ndb.briefing_cost_warning != org:
+                caller.ndb.briefing_cost_warning = org
+                self.msg("The cost of the briefing will be %s. Execute the command again to brief them." % cost)
+                return
+            if tarmember.player.player.db.char_ob.location != self.caller.db.char_ob.location:
+                self.msg("You must be in the same room to brief them.")
+                self.msg("Please actually have roleplay about briefing things - "
+                         "a 'clue dump' without context is against the rules.")
+                return
+            caller.ndb.briefing_cost_warning = None
+            # check if they don't need this at all
+            entry = tarmember.player.player.roster
+            entry.refresh_from_db()
+            discovered_clues = [ob.clue for ob in entry.finished_clues]
+            if clue in discovered_clues:
+                self.msg("They cannot learn anything from this briefing.")
+                return
+            if not caller.pay_action_points(cost):
+                self.msg("You cannot afford to pay %s action points." % cost)
+                return
+            entry.discover_clue(clue=clue, method="Briefing")
+            entry.investigations.filter(clue_target=clue).update(clue_target=None)
+            text = "You have been briefed and learned a clue. Use @clue to view them: %s" % clue
+            tarmember.player.player.msg("%s has briefed you on %s's secrets." % (caller, org))
+            tarmember.player.player.inform(text, category="%s briefing" % org)
+            self.msg("You have briefed %s on your organization's secrets." % tarmember)
+            return
         if 'addclue' in self.switches:
             from web.character.models import ClueDiscovery
             if len(myorgs) == 1:
@@ -1770,46 +1832,7 @@ class CmdOrganization(MuxPlayerCommand):
             caller.msg("{wMember info for {c%s{n" % tarmember)
             caller.msg(tarmember.display())
             return
-        if 'briefing' in self.switches:
-            cost = caller.clue_cost / (org.social_modifier + 2)
-            if tarmember.player.player == self.caller:
-                self.msg("You cannot brief yourself.")
-                return
-            if not org.clues.all():
-                self.msg("Your organization has no clues to share.")
-                return
-            if caller.ndb.briefing_cost_warning != org:
-                caller.ndb.briefing_cost_warning = org
-                self.msg("The cost of the briefing will be %s. Execute the command again to brief them." % cost)
-                return
-            if tarmember.player.player.db.char_ob.location != self.caller.db.char_ob.location:
-                self.msg("You must be in the same room to brief them.")
-                self.msg("Please actually have roleplay about briefing things - "
-                         "a 'clue dump' without context is against the rules.")
-                return
-            caller.ndb.briefing_cost_warning = None
-            # check if they don't need this at all
-            entry = tarmember.player.player.roster
-            entry.refresh_from_db()
-            discovered_clues = [ob.clue for ob in entry.finished_clues]
-            clues_to_share = [ob for ob in org.clues.all() if ob not in discovered_clues]
-            if not clues_to_share:
-                self.msg("They cannot learn anything from this briefing.")
-                return
-            if not caller.pay_action_points(cost):
-                self.msg("You cannot afford to pay %s action points." % cost)
-                return
-            for clue in clues_to_share:
-                entry.discover_clue(clue=clue, method="Briefing")
-            # clear any investigations that targeted the clues we were shared
-            shared_ids = [ob.id for ob in clues_to_share]
-            entry.investigations.filter(clue_target__id__in=shared_ids).update(clue_target=None)
-            text = "You have been briefed on the following clues. Use @clue to view them: %s" % ", ".join(
-                str(ob) for ob in clues_to_share)
-            tarmember.player.player.msg("%s has briefed you on %s's secrets." % (caller, org))
-            tarmember.player.player.inform(text, category="%s briefing" % org)
-            self.msg("You have briefed %s on your organization's secrets." % tarmember)
-            return
+
         if 'secret' in self.switches:
             if not org.access(caller, 'setrank'):
                 caller.msg("You do not have permission to change member status.")
