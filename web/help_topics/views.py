@@ -144,9 +144,14 @@ def display_org(request, object_id):
 
 def list_commands(request):
     user = request.user
-    player_cmds = [ob for ob in PlayerCmdSet() if ob.access(user, 'cmd')]
-    char_cmds = [ob for ob in CharacterCmdSet() if ob.access(user, 'cmd')]
-    situational_cmds = [ob for ob in SituationalCmdSet() if ob.access(user, 'cmd')]
+
+    def sort_name(cmd):
+        cmdname = cmd.key.lower()
+        cmdname = cmdname.lstrip("+").lstrip("@")
+        return cmdname
+    player_cmds = sorted([ob for ob in PlayerCmdSet() if ob.access(user, 'cmd')], key=sort_name)
+    char_cmds = sorted([ob for ob in CharacterCmdSet() if ob.access(user, 'cmd')], key=sort_name)
+    situational_cmds = sorted([ob for ob in SituationalCmdSet() if ob.access(user, 'cmd')], key=sort_name)
     return render(request, 'help_topics/list_commands.html', {'player_cmds': player_cmds,
                                                               'character_cmds': char_cmds,
                                                               'situational_cmds': situational_cmds,
