@@ -1133,6 +1133,9 @@ class CmdListClues(MuxPlayerCommand):
                 except (ClueDiscovery.DoesNotExist, ValueError, TypeError):
                     caller.msg("No clue found by that ID.")
                     continue
+                if clue.clue.allow_trauma:
+                    self.msg("%s cannot be shared." % clue.clue)
+                    return
                 clues_to_share.append(clue)
             if not clues_to_share:
                 return
@@ -1337,6 +1340,9 @@ class CmdTheories(MuxPlayerCommand):
                         self.msg("One of you does not have a character object.")
                         continue
                     for clue in clues:
+                        if clue.clue.allow_trauma:
+                            self.msg("%s cannot be shared. Skipping." % clue.clue)
+                            continue
                         if clue.share(targ.roster):
                             total_cost += per_targ_cost
                         self.msg("Shared clue %s with %s" % (clue.name, targ))
