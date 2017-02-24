@@ -1501,7 +1501,7 @@ class CmdOrganization(MuxPlayerCommand):
     locks = "cmd:all()"
     help_category = "Dominion"
     org_locks = ("edit", "boot", "withdraw", "setrank", "invite",
-                 "setruler", "view", "guards", "build")
+                 "setruler", "view", "guards", "build", "briefing")
 
     @staticmethod
     def get_org_and_member(caller, myorgs, args):
@@ -1560,6 +1560,9 @@ class CmdOrganization(MuxPlayerCommand):
             # if tarmember.player.player == self.caller:
             #     self.msg("You cannot brief yourself.")
             #     return
+            if not org.access(caller, 'briefing'):
+                self.msg("You do not have permissions to do a briefing.")
+                return
             if caller.ndb.briefing_cost_warning != org:
                 caller.ndb.briefing_cost_warning = org
                 self.msg("The cost of the briefing will be %s. Execute the command again to brief them." % cost)
