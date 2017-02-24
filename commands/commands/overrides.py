@@ -1486,7 +1486,7 @@ class CmdArxExamine(CmdExamine):
             if self.player_mode or "char" in self.switches:
                 try:
                     obj = caller.search_player(obj_name.lstrip('*'))
-                    if "char" in self.switches:
+                    if "char" in self.switches and obj:
                         obj = obj.db.char_ob
                 except AttributeError:
                     # this means we are calling examine from a player object
