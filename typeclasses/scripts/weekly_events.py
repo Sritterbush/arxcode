@@ -27,7 +27,7 @@ VOTES_BOARD_NAME = 'Votes'
 PRESTIGE_BOARD_NAME = 'Prestige Changes'
 
 PLAYER_ATTRS = ("votes", 'claimed_scenelist', 'random_scenelist', 'validated_list', 'praises', 'condemns',
-                'requested_validation')
+                'requested_validation', 'donated_ap')
 CHARACTER_ATTRS = ("currently_training", "trainer", 'scene_requests')
 
 

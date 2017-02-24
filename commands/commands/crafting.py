@@ -442,8 +442,8 @@ class CmdCraft(MuxCommand):
             diffmod += attempts
             if diffmod:
                 self.msg("Based on silver spent and previous attempts, the difficulty is adjusted by %s." % diffmod)
-            if caller.ndb.refine_targ != targ:
-                caller.ndb.refine_targ = targ
+            if caller.ndb.refine_targ != (targ, cost):
+                caller.ndb.refine_targ = (targ, cost)
                 caller.msg("The total cost would be {w%s{n. To confirm this, execute the command again." % cost)
                 return
             if cost > caller.db.currency:

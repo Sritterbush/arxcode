@@ -1540,7 +1540,7 @@ class CmdOrganization(MuxPlayerCommand):
                 self.msg("Your organization has no clues to share.")
                 return
             try:
-                targname,cluename = self.lhs.split("/")
+                targname, cluename = self.lhs.split("/")
             except (TypeError, ValueError, IndexError):
                 self.msg("You must specify the name of a character and a clue. Ex: bob/secrets of haberdashery")
                 return
@@ -1557,9 +1557,9 @@ class CmdOrganization(MuxPlayerCommand):
                 self.msg("Org clues: %s" % ", ".join(ob.name for ob in org.clues.all()))
                 return
             cost = (caller.clue_cost / (org.social_modifier + 4)) + 1
-            if tarmember.player.player == self.caller:
-                self.msg("You cannot brief yourself.")
-                return
+            # if tarmember.player.player == self.caller:
+            #     self.msg("You cannot brief yourself.")
+            #     return
             if caller.ndb.briefing_cost_warning != org:
                 caller.ndb.briefing_cost_warning = org
                 self.msg("The cost of the briefing will be %s. Execute the command again to brief them." % cost)
@@ -1607,8 +1607,9 @@ class CmdOrganization(MuxPlayerCommand):
             if clue in org.clues.all():
                 self.msg("%s already knows about %s." % (org, clue))
                 return
-            cost_multiplier = 10 - org.social_modifier
-            cost = cost_multiplier * caller.clue_cost
+            cost = 20 - (2 * org.social_modifier)
+            if cost < 1:
+                cost = 1
             if caller.ndb.org_clue_cost_warning != org:
                 caller.ndb.org_clue_cost_warning = org
                 self.msg("The cost will be %s. Execute the command again to pay it." % cost)

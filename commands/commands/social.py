@@ -2355,11 +2355,17 @@ class CmdIAmHelping(MuxPlayerCommand):
         if targ.roster.action_points + receive_amt > 100:
             self.msg("That would put them over 100 AP.")
             return
+        donated = targ.db.donated_ap or 0
+        donated += receive_amt
+        if donated > 100:
+            self.msg("That would put them over the cap of 100 AP donated per week.")
+            return
         if not self.caller.pay_action_points(val):
             self.msg("You do not have enough AP.")
             return
         targ.roster.action_points += receive_amt
         targ.roster.save()
+        targ.db.donated_ap = donated
         self.msg("You have given %s %s AP." % (targ, receive_amt))
         msg = "%s has given you %s AP." % (self.caller, receive_amt)
         targ.inform(msg, category=msg)
