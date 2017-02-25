@@ -365,6 +365,9 @@ class CmdCraft(MuxCommand):
             targ = caller.search(self.lhs, location=caller)
             if not targ:
                 return
+            if not self.rhs:
+                self.msg("Usage: /changename <object>=<new name>")
+                return
             if not validate_name(self.rhs):
                 caller.msg("That is not a valid name.")
                 return
