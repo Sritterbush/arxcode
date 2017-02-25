@@ -179,15 +179,15 @@ class CmdStartingGear(MuxCommand):
                                                               for mat, amt in adorns.items()))
             return
         if "name" in self.switches:
-            if not self.lhs:
+            if not self.args:
                 caller.msg("Name it what?")
                 return
-            if not arx_utils.validate_name(self.lhs):
+            if not arx_utils.validate_name(self.args):
                 caller.msg("That is not a valid name.")
                 return
-            proj[1] = self.lhs
+            proj[1] = self.args
             caller.db.startgear_project = proj
-            caller.msg("Name set to %s." % self.lhs)
+            caller.msg("Name set to %s." % self.args)
             return
         if "desc" in self.switches:
             if not self.args:
