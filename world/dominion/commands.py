@@ -2516,6 +2516,7 @@ class CmdSupport(MuxCommand):
 
     Usage:
         +support
+        +support/remaining
         +support <character>
         +support/decline <character>
         +support/fake
@@ -2630,7 +2631,7 @@ class CmdSupport(MuxCommand):
         remaining = dompc.remaining_points
         max_points = caller.max_support
         form = caller.db.supportform
-        if not self.args and not self.switches:
+        if not self.args and not self.switches or "remaining" in self.switches:
             # display requests and cooldowns
             chars = [ObjectDB.objects.get(id=r_id) for r_id in requests.keys()]
             chars = [ob for ob in chars if ob]
@@ -2664,9 +2665,20 @@ class CmdSupport(MuxCommand):
                     return "%s(%s)" % (rat - memb.points_used(allocation.category.name), rat)
                 poolshare = memb.pool_share
                 used = memb.total_points_used
+                if "remaining" in self.switches and (poolshare - used) <= 0:
+                    continue
                 msg = "{wPool share for %s:{n %s(%s)" % (memb.organization, poolshare - used, poolshare)
-                msg += ", {wCategory ratings:{n %s" % ", ".join("%s: %s" % (ob.category, rem_pts(ob))
-                                                                for ob in memb.organization.spheres.all())
+                if "remaining" in self.switches:
+                    catmsg = []
+                    for ob in memb.organization.spheres.all():
+                        pts = rem_pts(ob)
+                        if pts <= 0:
+                            continue
+                        catmsg.append("%s: %s" % (ob.category, pts))
+                    msg += ", {wCategory ratings:{n %s" % ", ".join(catmsg)
+                else:
+                    msg += ", {wCategory ratings:{n %s" % ", ".join("%s: %s" % (ob.category, rem_pts(ob))
+                                                                    for ob in memb.organization.spheres.all())
                 caller.msg(msg)
             self.disp_supportform()
             return
