@@ -281,7 +281,11 @@ class CmdTrain(MuxCommand):
 
     @property
     def action_point_cost(self):
-        if len(self.currently_training) < self.max_trainees:
+        """Redundant attribute to try to resolve sync/caching errors."""
+        num_trained = self.caller.db.num_trained
+        if num_trained < len(self.currently_training):
+            num_trained = len(self.currently_training)
+        if num_trained < self.max_trainees:
             return 0
         return 100 - 15 * self.max_skill
 
@@ -289,9 +293,13 @@ class CmdTrain(MuxCommand):
         """Set attributes after training checks."""
         caller = self.caller
         currently_training = self.currently_training
+        # num_trained is redundancy to attempt to prevent cache errors.
+        num_trained = caller.db.num_trained or len(currently_training)
+        num_trained += 1
         targ.db.trainer = caller
         currently_training.append(targ)
         caller.db.currently_training = currently_training
+        caller.db.num_trained = num_trained
 
     @property
     def currently_training(self):
@@ -323,13 +331,14 @@ class CmdTrain(MuxCommand):
             return False
         return True
 
+    # noinspection PyProtectedMember
     def func(self):
         """Execute command."""
         caller = self.caller
         switches = self.switches
-        # noinspection PyProtectedMember
         # try to handle possible caching errors
         caller.attributes._cache.pop('currently_training-None', None)
+        caller.attributes._cache.pop('num_trained-None', None)
         if not self.args:
             self.msg("Currently training: %s" % ", ".join(str(ob) for ob in self.currently_training))
             self.msg("You can train %s targets." % self.max_trainees)

@@ -696,6 +696,10 @@ class Retainer(AgentMixin, Npc):
         roll = do_dice_check(trainer, stat="command", skill=self.training_skill, difficulty=0, quiet=False)
         self.agent.xp += roll
         self.agent.save()
+        # redundant attribute to try to combat cache errors
+        num_trained = trainer.db.num_trained or len(currently_training)
+        num_trained += 1
+        trainer.db.num_trained = num_trained
         currently_training.append(self)
         trainer.db.currently_training = currently_training
         trainer.msg("You have trained %s, giving them %s xp." % (self, roll))

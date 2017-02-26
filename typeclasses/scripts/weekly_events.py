@@ -28,7 +28,7 @@ PRESTIGE_BOARD_NAME = 'Prestige Changes'
 
 PLAYER_ATTRS = ("votes", 'claimed_scenelist', 'random_scenelist', 'validated_list', 'praises', 'condemns',
                 'requested_validation', 'donated_ap')
-CHARACTER_ATTRS = ("currently_training", "trainer", 'scene_requests')
+CHARACTER_ATTRS = ("currently_training", "trainer", 'scene_requests', "num_trained")
 
 
 class WeeklyEvents(Script):

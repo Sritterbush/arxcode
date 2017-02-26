@@ -86,6 +86,15 @@ class Wieldable(Object):
         wielder.db.weapon = None
         return True
 
+    def softdelete(self):
+        super(Wieldable, self).softdelete()
+        wielder = self.db.wielded_by
+        if wielder:
+            wielder.db.weapon = None
+        self.db.currently_wielded = False
+        self.db.wielded_by = None
+        self.db.sheathed_by = None
+
     # noinspection PyAttributeOutsideInit
     def wield_by(self, wielder):
         """

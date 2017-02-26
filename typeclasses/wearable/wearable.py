@@ -42,6 +42,10 @@ class Wearable(Object):
         # outside the function. Be sure to search for all instances of the usage of at_post_remove.
         return True
 
+    def softdelete(self):
+        super(Wearable, self).softdelete()
+        self.db.currently_worn = False
+
     # noinspection PyAttributeOutsideInit
     def wear(self, wearer):
         """
