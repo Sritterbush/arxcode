@@ -236,6 +236,8 @@ class WeeklyEvents(Script):
                     cooldown[cid] -= 1
             char.db.support_cooldown = cooldown
             char.db.support_points_spent = 0
+            # for lazy refresh_from_db calls for queries right after the script runs, but unnecessary after a @reload
+            char.ndb.stale_ap = True
             try:
                 old = player.Dominion.assets.prestige
                 self.db.prestige_changes[player.key] = old

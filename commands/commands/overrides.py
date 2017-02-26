@@ -117,9 +117,10 @@ class CmdInventory(MuxCommand):
         ap = 0
         try:
             # correct possible synchronization errors
-            if char.roster.action_points != char.db.player_ob.roster.action_points:
+            if char.roster.action_points != char.db.player_ob.roster.action_points or char.ndb.stale_ap:
                 char.roster.refresh_from_db(fields=("action_points",))
                 char.db.player_ob.roster.refresh_from_db(fields=("action_points",))
+                char.ndb.stale_ap = False
             ap = char.roster.action_points
         except AttributeError:
             pass

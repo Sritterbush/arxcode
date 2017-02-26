@@ -295,6 +295,8 @@ class Player(MsgMixins, DefaultPlayer):
             self.roster.action_points -= amt
             self.roster.save()
             self.msg("{wYou use %s action points and have %s remaining this week.{n" % (amt, self.roster.action_points))
+            # force refresh in inventory command next time it's used to be sure values sync up
+            self.db.char_ob.ndb.stale_ap = True
             return True
         except AttributeError:
             return False
