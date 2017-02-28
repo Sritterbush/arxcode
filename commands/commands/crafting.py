@@ -432,7 +432,7 @@ class CmdCraft(MuxCommand):
                 caller.msg("The maximum amount you can spend per roll is %s." % recipe.value)
                 return
             # don't display a random number when they're prepping
-            if caller.ndb.refine_targ != targ:
+            if caller.ndb.refine_targ != (targ, cost):
                 diffmod = get_difficulty_mod(recipe, invest)
             else:
                 diffmod = get_difficulty_mod(recipe, invest, action_points, ability)
