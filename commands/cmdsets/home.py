@@ -916,10 +916,11 @@ class CmdBuyFromShop(CmdCraft):
         """Price of refining"""
         loc = self.caller.location
         price = 0
-        if "refine" in loc.db.crafting_prices:
-            price = (base * loc.db.crafting_prices["refine"]) / 100.0
-        elif "all" in loc.db.crafting_prices:
-            price = (base * loc.db.crafting_prices["all"]) / 100.0
+        prices = loc.db.crafting_prices or {}
+        if "refine" in prices:
+            price = (base * prices["refine"]) / 100.0
+        elif "all" in prices:
+            price = (base * prices["all"]) / 100.0
         if price == 0:
             return price
         if price > 0:

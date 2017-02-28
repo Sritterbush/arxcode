@@ -431,12 +431,12 @@ class CmdCraft(MuxCommand):
             if invest > recipe.value:
                 caller.msg("The maximum amount you can spend per roll is %s." % recipe.value)
                 return
+            cost = base_cost + invest + price
             # don't display a random number when they're prepping
             if caller.ndb.refine_targ != (targ, cost):
                 diffmod = get_difficulty_mod(recipe, invest)
             else:
                 diffmod = get_difficulty_mod(recipe, invest, action_points, ability)
-            cost = base_cost + invest + price
             # difficulty gets easier by 1 each time we attempt it
             refine_attempts = crafter.db.refine_attempts or {}
             attempts = refine_attempts.get(targ.id, 0)
