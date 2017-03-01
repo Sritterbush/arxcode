@@ -62,7 +62,9 @@ class Channel(DefaultChannel):
     """
     @property
     def mutelist(self):
-        return self.db.mute_list or []
+        if self.db.mute_list is None:
+            self.db.mute_list = []
+        return self.db.mute_list
 
     @property
     def wholist(self):

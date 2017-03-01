@@ -969,9 +969,11 @@ class CmdGuards(MuxCommand):
             self.msg("{c%s's {winventory:{n %s" % (guard, ", ".join(ob.name for ob in objects)))
             return
         if "give" in self.switches:
+            self.msg("You order %s to give %s." % (guard, self.rhs))
             guard.execute_cmd("give %s" % self.rhs)
             return
         if 'get' in self.switches:
+            self.msg("You order %s to get %s." % (guard, self.rhs))
             guard.execute_cmd("get %s" % self.rhs)
             return
         targ = caller.search(self.rhs)

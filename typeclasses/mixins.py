@@ -427,6 +427,8 @@ class AppearanceMixins(object):
         if self.db.quality_level:
             from commands.commands.crafting import QUALITY_LEVELS
             qual = self.db.quality_level
+            if qual > 11:
+                qual = 11
             qual = QUALITY_LEVELS.get(qual, "average")
             return "\nIts level of craftsmanship is %s." % qual
         return ""

@@ -35,7 +35,8 @@ QUALITY_LEVELS = {
     7: '{gexceptional{n',
     8: '{gsuperb{n',
     9: '{454perfect{n',
-    10: '{553divine{n'
+    10: '{553divine{n',
+    11: '|355transcendent|n'
     }
 
 
