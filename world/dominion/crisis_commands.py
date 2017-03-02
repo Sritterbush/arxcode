@@ -19,7 +19,7 @@ class CmdGMCrisis(MuxPlayerCommand):
         @gmcrisis/needgm
         @gmcrisis/old
         @gmcrisis/answerquestion <action #>=<answer>
-        @gmcrisis/check <action #>=<stat> + <skill> at <diff>
+        @gmcrisis/check[/asst] <action #>=<stat> + <skill> at <diff>[,asst]
         @gmcrisis/gmnotes <action #>=<ooc notes>/<crisis value>
         @gmcrisis/outcome <action #>=<IC notes>
         @gmcrisis/sendresponses <crisis name>=<story update text>
@@ -65,11 +65,21 @@ class CmdGMCrisis(MuxPlayerCommand):
             stat = args[0].strip()
             args = args[1].split(" at ")
             skill = args[0].strip()
-            difficulty = int(args[1])
+            if "asst" in self.switches:
+                args = args[1].split(",")
+                difficulty = int(args[0])
+                from django.core.exceptions import ObjectDoesNotExist
+                try:
+                    char = action.assistants.get(player__username__iexact=args[1]).player.db.char_ob
+                except ObjectDoesNotExist:
+                    self.msg("Assistant not found.")
+                    return
+            else:
+                difficulty = int(args[1])
+                char = action.dompc.player.db.char_ob
         except (IndexError, ValueError, TypeError):
             self.msg("Failed to parse skill string. Blame Apostate again.")
             return
-        char = action.dompc.player.db.char_ob
         from world.stats_and_skills import do_dice_check
         result = do_dice_check(char, stat=stat, skill=skill, difficulty=difficulty)
         msg = "%s has called for %s to check %s + %s at difficulty %s.\n" % (self.caller, char, stat, skill, difficulty)
