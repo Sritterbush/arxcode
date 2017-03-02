@@ -1054,8 +1054,6 @@ class CmdAdminInvestigations(MuxPlayerCommand):
                 self.set_roll(ob, int(self.rhs))
                 return
         except (TypeError, ValueError):
-            import traceback
-            traceback.print_exc()
             caller.msg("Arguments must be numbers.")
             return
         except Investigation.DoesNotExist:

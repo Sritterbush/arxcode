@@ -510,7 +510,7 @@ class CmdCraft(MuxCommand):
             if lhs not in self.caller.languages.known_languages:
                 caller.msg("Nice try. You cannot speak %s." % self.lhs)
                 return
-            proj[5].update({lhs:self.rhs})
+            proj[5].update({lhs: self.rhs})
             caller.db.crafting_project = proj
             self.display_project(proj)
             return

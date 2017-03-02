@@ -174,6 +174,11 @@ class PlayerOrNpc(models.Model):
     siblings = property(_get_siblings)
     
     def display_immediate_family(self):
+        """
+        Creates lists of our family relationships and converts the lists to sets
+        to remove duplicates. At the very end, convert each one to a string with
+        join. Then return all these strings added together.
+        """
         ggparents = self.greatgrandparents
         grandparents = []
         parents = self.all_parents
@@ -184,8 +189,6 @@ class PlayerOrNpc(models.Model):
                 unc_or_aunts.append(sibling)
                 for spouse in sibling.spouses.all():
                     unc_or_aunts.append(spouse)
-        unc_or_aunts = set(unc_or_aunts)
-        grandparents = set(grandparents)
         spouses = self.spouses.all()
         siblings = self.siblings
         neph_or_nieces = []
@@ -194,14 +197,18 @@ class PlayerOrNpc(models.Model):
         for spouse in self.spouses.all():
             for sib in spouse.siblings:
                 neph_or_nieces += list(sib.children.all())
-            neph_or_nieces = set(neph_or_nieces)
         children = self.children.all()
         grandchildren = []
         for child in children:
             grandchildren += list(child.children.all())
-        grandchildren = set(grandchildren)
         cousins = self.cousins
         second_cousins = self.second_cousins
+        # convert lists to sets that remove duplicates
+        unc_or_aunts = set(unc_or_aunts)
+        grandparents = set(grandparents)
+        neph_or_nieces = set(neph_or_nieces)
+        grandchildren = set(grandchildren)
+        # convert to strings
         if ggparents:
             ggparents = "{wGreatgrandparents{n: %s\n" % (", ".join(str(ggparent) for ggparent in ggparents))
         else:
