@@ -527,18 +527,49 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
                 watcher.msg(msg)
                 spam.append(self)
                 watcher.ndb.journal_spam = spam
+                
+    @property
+    def social_value(self):
+        """Value used for calculating support based on social stats/skills
+        
+            returns: int
+        """
+        total = 0
+        try:
+            from world.stats_and_skills import SOCIAL_SKILLS
+            total += self.db.charm * 3
+            total += self.db.intellect
+            total += self.db.command
+            total += self.db.composure
+            skills = self.db.skills
+            total += sum(skills.get(attr, 0) for attr in SOCIAL_SKILLS)
+            return total / 3
+        except (TypeError, ValueError, AttributeError):
+            return total / 3
 
     def _get_max_support(self):
         try:
             dompc = self.db.player_ob.Dominion
-            total = 0
+            remaining = 0
             for member in dompc.memberships.filter(deguilded=False):
-                total += member.pool_share
+                remaining += member.pool_share
             for ren in dompc.renown.all():
-                total += ren.level
-            return total
+                remaining += ren.level
         except (TypeError, AttributeError, ValueError):
             return 0
+        interval = self.social_value
+        multiplier = 1.0
+        total = 0
+        if interval <= 0:
+            return 0
+        while multiplier > 0:
+            if interval >= remaining:
+                total += remaining * multiplier
+                return int(total)
+            total += interval * multiplier
+            multiplier -= 0.25
+            remaining -= interval
+        return int(total)
     max_support = property(_get_max_support)
 
     @property
