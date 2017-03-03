@@ -2043,7 +2043,8 @@ class CmdRandomScene(MuxCommand):
         return Character.objects.filter(Q(roster__roster__name="Active") &
                                         ~Q(roster__current_account=self.caller.roster.current_account) &
                                         Q(roster__player__last_login__isnull=False) &
-                                        Q(Q(roster__player__last_login__gte=last_week) | Q(roster__player__db_is_connected)) &
+                                        Q(Q(roster__player__last_login__gte=last_week) |
+                                          Q(roster__player__db_is_connected=True)) &
                                         Q(roster__player__is_staff=False) &
                                         ~Q(roster__player__db_tags__db_key="staff_npc"))
 
