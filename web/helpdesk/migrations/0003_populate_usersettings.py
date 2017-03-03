@@ -10,7 +10,7 @@ from web.helpdesk.settings import DEFAULT_USER_SETTINGS
 def picke_settings(data):
     """Pickling as defined at migration's creation time"""
     import cPickle
-    from helpdesk.lib import b64encode
+    from web.helpdesk.lib import b64encode
     return b64encode(cPickle.dumps(data))
 
 

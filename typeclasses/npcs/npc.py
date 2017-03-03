@@ -23,8 +23,11 @@ command, it then summons guards for that player character.
 from typeclasses.characters import Character
 from .npc_types import (get_npc_stats, get_npc_desc, get_npc_skills,
                         get_npc_singular_name, get_npc_plural_name, get_npc_weapon,
-                        get_armor_bonus, get_hp_bonus)
-from world.stats_and_skills import do_dice_check
+                        get_armor_bonus, get_hp_bonus, primary_stats,
+                        assistant_skills, spy_skills, get_npc_stat_cap, check_passive_guard,
+                        COMBAT_TYPES, get_innate_abilities, ABILITY_COSTS)
+from world.stats_and_skills import (do_dice_check, get_stat_cost, get_skill_cost,
+                                    PHYSICAL_STATS, MENTAL_STATS, SOCIAL_STATS)
 import time
 
 
@@ -33,9 +36,9 @@ class Npc(Character):
     NPC objects
 
     """    
-    #------------------------------------------------
+    # ------------------------------------------------
     # PC command methods
-    #------------------------------------------------        
+    # ------------------------------------------------
     def attack(self, targ, lethal=False):
         """
         Attack a given target. If lethal is False, we will not kill any
@@ -59,14 +62,36 @@ class Npc(Character):
             gfite.wants_to_end = True
             gfite.reset()
 
-    #------------------------------------------------
+    def _get_passive(self):
+        return self.db.passive_guard or False
+
+    def _set_passive(self, val):
+        if val:
+            self.db.passive_guard = True
+            self.stop()
+        else:
+            self.db.passive_guard = False
+    passive = property(_get_passive, _set_passive)
+
+    @property
+    def discreet(self):
+        return self.db.discreet_guard or False
+
+    @discreet.setter
+    def discreet(self, val):
+        if val:
+            self.db.discreet_guard = True
+        else:
+            self.db.discreet_guard = False
+
+    # ------------------------------------------------
     # Inherited Character methods
-    #------------------------------------------------
+    # ------------------------------------------------
     def at_object_creation(self):
         """
         Called once, when this object is first created.
         """
-        #BriefMode is for toggling brief descriptions from rooms
+        # BriefMode is for toggling brief descriptions from rooms
         self.db.briefmode = False
         # identification attributes about our player
         self.db.player_ob = None
@@ -78,36 +103,6 @@ class Npc(Character):
         self.db.automate_combat = True
         self.db.damage = 0
         self.at_init()
-
-
-    def return_appearance(self, pobject, detailed=False, format_desc=False):
-        """
-        This is a convenient hook for a 'look'
-        command to call.
-        """
-        if not pobject:
-            return
-        # get and identify all objects
-        if pobject is self or pobject.check_permstring("builders"):
-            detailed = True
-        string = "{c%s{n" % self.get_fancy_name()
-        # Health appearance will also determine whether we
-        # use an alternate appearance if we are dead.
-        health_appearance = self.get_health_appearance()
-        # desc used to be db.desc. May use db.desc for temporary values,
-        # such as illusions, masks, etc
-        desc = self.desc
-        if self.db.use_alt_desc and self.db.desc:
-            desc = self.db.desc
-        if desc:
-            indent = 0
-            if len(desc) > 78:
-                indent = 4
-            string += "\n\n%s" % desc
-        if health_appearance:
-            string += "\n\n%s" % health_appearance
-        string += self.return_contents(pobject, detailed)
-        return string
     
     def resurrect(self, *args, **kwargs):
         """
@@ -116,9 +111,8 @@ class Npc(Character):
         self.db.health_status = "alive"
         if self.location:
             self.location.msg_contents("{w%s has returned to life.{n" % self.name)
-        
 
-    def fall_asleep(self, uncon=False):
+    def fall_asleep(self, uncon=False, quiet=False):
         """
         Falls asleep. Uncon flag determines if this is regular sleep,
         or unconsciousness.
@@ -129,9 +123,8 @@ class Npc(Character):
             self.db.sleep_status = "asleep"
         if self.location:
             self.location.msg_contents("%s falls %s." % (self.name, self.db.sleep_status))
-        
 
-    def wake_up(self):
+    def wake_up(self, quiet=False):
         """
         Wakes up.
         """
@@ -161,7 +154,7 @@ class Npc(Character):
             msg = "%s is seriously wounded." % name
         elif 0.5 < wound <= 0.75:
             msg = "%s is very seriously wounded." % name
-        elif  0.75 < wound <= 2.0:
+        elif 0.75 < wound <= 2.0:
             msg = "%s is critically wounded." % name
         else:
             msg = "%s is very critically wounded, possibly dying." % name
@@ -187,14 +180,15 @@ class Npc(Character):
             self.msg("You feel better.")
         else:
             self.msg("You feel worse.")
-        apply = self.dmg - roll # how much dmg character has after the roll
-        if apply < 0: apply = 0 # no remaining damage
-        self.db.damage = apply
+        applied_damage = self.dmg - roll  # how much dmg character has after the roll
+        if applied_damage < 0:
+            applied_damage = 0  # no remaining damage
+        self.db.damage = applied_damage
         if not free:
             self.db.last_recovery_test = time.time()
         return roll
     
-    def sensing_check(self, difficulty=15, invis=False):
+    def sensing_check(self, difficulty=15, invis=False, allow_wake=False):
         """
         See if the character detects something that is hiding or invisible.
         The difficulty is supplied by the calling function.
@@ -202,7 +196,6 @@ class Npc(Character):
         """
         roll = do_dice_check(self, stat="perception", stat_keep=True, difficulty=difficulty)
         return roll
-
 
     def _get_npc_type(self):
         return self.db.npc_type or 0
@@ -219,14 +212,54 @@ class Npc(Character):
             self.db.fakeweapon = get_npc_weapon(npctype, quality)
         return self.db.fakeweapon
 
+    def _set_fakeweapon(self, val):
+        self.db.fakeweapon = val
+
+    fakeweapon = property(get_fakeweapon, _set_fakeweapon)
+
     @property
     def quantity(self):
-        return 1
+        return 1 if self.conscious else 0
+
+    @property
+    def weaponized(self):
+        return True
+
+    def setup_stats(self, ntype, threat):
+        self.db.npc_quality = threat
+        for stat, value in get_npc_stats(ntype).items():
+            self.attributes.add(stat, value)
+        skills = get_npc_skills(ntype)
+        for skill in skills:
+            skills[skill] += threat
+        self.db.skills = skills
+        self.db.fakeweapon = get_npc_weapon(ntype, threat)
+        self.db.armor_class = get_armor_bonus(self._get_npc_type(), self._get_quality())
+        self.db.bonus_max_hp = get_hp_bonus(self._get_npc_type(), self._get_quality())
+
+    @property
+    def num_armed_guards(self):
+        if self.weaponized:
+            return self.quantity
+        return 0
+
+    def setup_npc(self, ntype=0, threat=0, num=1, sing_name=None, plural_name=None, desc=None, keepold=False):
+        self.db.damage = 0
+        self.db.health_status = "alive"
+        self.db.sleep_status = "awake"
+        # if we don't
+        if not keepold:
+            self.db.npc_type = ntype
+            self.name = sing_name or plural_name or "#%s" % self.id
+            self.desc = desc or get_npc_desc(ntype)
+        self.setup_stats(ntype, threat)
+
 
 class MultiNpc(Npc):
     def multideath(self, num, death=False):
         living = self.db.num_living or 0       
-        if num > living: num = living
+        if num > living:
+            num = living
         self.db.num_living = living - num
         if death:
             dead = self.db.num_dead or 0            
@@ -251,7 +284,7 @@ class MultiNpc(Npc):
         self.multideath(num=1, death=True)
         self.db.damage = 0
 
-    def fall_asleep(self, uncon=False):
+    def fall_asleep(self, uncon=False, quiet=False):
         """
         Falls asleep. Uncon flag determines if this is regular sleep,
         or unconsciousness.
@@ -262,27 +295,22 @@ class MultiNpc(Npc):
         self.multideath(num=1, death=False)
         # don't reset damage here since it's used for death check. Reset in combat process
 
+    # noinspection PyAttributeOutsideInit
     def setup_name(self):
-        type = self.db.npc_type
+        npc_type = self.db.npc_type
         if self.db.num_living == 1 and not self.db.num_dead:
-            self.key = self.db.singular_name or get_npc_singular_name(type)
+            self.key = self.db.singular_name or get_npc_singular_name(npc_type)
         else:
             if self.db.num_living == 1:
-                noun = self.db.singular_name or get_npc_singular_name(type)
+                noun = self.db.singular_name or get_npc_singular_name(npc_type)
             else:
-                noun = self.db.plural_name or get_npc_plural_name(type)
+                noun = self.db.plural_name or get_npc_plural_name(npc_type)
             if not self.db.num_living and self.db.num_dead:
                 noun = "dead %s" % noun
                 self.key = "%s %s" % (self.db.num_dead, noun)
             else:
                 self.key = "%s %s" % (self.db.num_living, noun)
-        self.setup_aliases()
         self.save()
-
-    def setup_aliases(self):
-        self.aliases.clear()
-        self.aliases.setup_aliases_from_key()
-        self.aliases.add(self.get_singular_name())
 
     def setup_npc(self, ntype=0, threat=0, num=1, sing_name=None, plural_name=None, desc=None, keepold=False):
         self.db.num_living = num
@@ -297,33 +325,37 @@ class MultiNpc(Npc):
             self.db.singular_name = sing_name
             self.db.plural_name = plural_name
             self.desc = desc or get_npc_desc(ntype)
-        self.db.npc_quality = threat
-        for stat,value in get_npc_stats(ntype).items():
-            self.attributes.add(stat, value)
-        skills = get_npc_skills(ntype)
-        for skill in skills:
-            skills[skill] += threat
-        self.db.skills = skills
-        self.db.fakeweapon = get_npc_weapon(ntype, threat)
-        self.db.armor_class = get_armor_bonus(self._get_npc_type(), self._get_quality())
-        self.db.bonus_max_hp = get_hp_bonus(self._get_npc_type(), self._get_quality())       
-        self.save()
+        self.setup_stats(ntype, threat)     
         self.setup_name()
 
+    # noinspection PyAttributeOutsideInit
     def dismiss(self):
         self.location = None
         self.save()
 
     @property
     def quantity(self):
-        return self.db.num_living
+        return self.db.num_living or 0
 
-class Agent(MultiNpc):
-    #-----------------------------------------------
-    # AgentHandler Admin client methods
-    #-----------------------------------------------
-           
-    def setup_agent(self):
+    @property
+    def conscious(self):
+        return self.quantity > 0
+
+
+class AgentMixin(object):
+
+    @property
+    def desc(self):
+        self.agent.refresh_from_db(fields=('desc',))
+        return self.agent.desc
+
+    @desc.setter
+    def desc(self, val):
+        self.agent.desc = val
+        self.agent.save()
+
+    def setup_agent(self  # type: Retainer or Agent
+                    ):
         """
         We'll set up our stats based on the type given by our agent class.
         """
@@ -332,28 +364,15 @@ class Agent(MultiNpc):
         quality = agent_class.quality or 0
         # set up our stats based on our type
         desc = agent_class.desc
-        self.setup_npc(ntype=agent_class.type, threat=quality, num=agent.quantity, desc=desc)
-
-    def setup_name(self):
-        type = self.agentob.agent_class.type
-        noun = self.agentob.agent_class.name
-        if not noun:
-            if self.db.num_living == 1:
-                noun = get_npc_singular_name(type)
-            else:
-                noun = get_npc_plural_name(type)
-        if self.db.num_living:
-            self.key = "%s %s" % (self.db.num_living, noun)
-        else:
-            self.key = noun
-        self.setup_aliases()
-        self.save()  
-
-    def setup_locks(self):
+        atype = agent_class.type
+        self.setup_npc(ntype=atype, threat=quality, num=agent.quantity, desc=desc)
+        self.db.passive_guard = check_passive_guard(atype)
+        
+    def setup_locks(self  # type: Retainer or Agent
+                    ):
         # base lock - the 'command' lock string
         lockfunc = ["command: %s", "desc: %s"]
         player_owner = None
-        org_owner = None
         assigned_char = self.db.guarding
         owner = self.agentob.agent_class.owner
         if owner.player:
@@ -363,19 +382,21 @@ class Agent(MultiNpc):
             if assigned_char:
                 perm = "rank(2, %s) or id(%s)" % (org_owner.name, assigned_char.id)
             else:
-                perm = "rank(2, %s)" % (org_owner.name)
+                perm = "rank(2, %s)" % org_owner.name
         else:
             if assigned_char:
                 perm = "pid(%s) or id(%s)" % (player_owner.id, assigned_char.id)
             else:
-                perm = "pid(%s)" % (player_owner.id)
+                perm = "pid(%s)" % player_owner.id
         for lock in lockfunc:
             # add the permission to the lock function from above
+            # noinspection PyAugmentAssignment
             lock = lock % perm
             # note that this will replace any currently defined 'command' lock
             self.locks.add(lock)
-    
-    def assign(self, targ):
+
+    def assign(self,  # type: Retainer or Agent
+               targ):
         """
         When given a Character as targ, we add ourselves to their list of
         guards, saved as an Attribute in the character object.
@@ -387,26 +408,24 @@ class Agent(MultiNpc):
         self.db.guarding = targ
         self.setup_locks()
         self.setup_name()
+        if self.agentob.quantity < 1:
+            self.agentob.quantity = 1
+            self.agentob.save()
 
     def lose_agents(self, num, death=False):
-        """
-        Called whenever we lose one of our agents, due to them being recalled
-        or dying.
-        """
-        if num < 0:
-            raise ValueError("Must pass a positive integer to lose_agents.")
-        self.multideath(num, death)
-        self.agentob.lose_agents(num)
-        self.setup_name()       
-        if self.db.num_living <= 0:
-            self.unassign()
-        return num
-    
+        if num < 1:
+            return 0
+        self.unassign()
+
     def gain_agents(self, num):
-        self.db.num_living += num
         self.setup_name()
-        
-    def unassign(self):
+
+    # noinspection PyAttributeOutsideInit
+    def setup_name(self):
+        self.name = self.agent.name
+
+    def unassign(self  # type: Retainer or Agent
+                 ):
         """
         When unassigned from the Character we were guarding, we remove
         ourselves from their guards list and then call unassign in our
@@ -420,31 +439,25 @@ class Agent(MultiNpc):
         self.stop_follow(unassigning=True)
         self.agentob.unassign()
         self.locks.add("command: false()")
+        self.db.guarding = None
 
-    def display(self):
-        msg = "\n{wGuards:{n %s\n" % self.name
-        if self.db.guarding:
-            msg += "{wAssigned to:{n %s\n" % self.db.guarding
-        msg += "{wLocation:{n %s\n" % (self.location or self.db.docked or "Home Barracks")
-        return msg
-    
     def _get_npc_type(self):
-        agent = self.agentob
-        agent_class = agent.agent_class
-        return agent_class.type
+        return self.agent.type
+
     def _get_quality(self):
-        agent = self.agentob
-        agent_class = agent.agent_class
-        return agent_class.quality or 0
+        return self.agent.quality or 0
     npc_type = property(_get_npc_type)
     quality = property(_get_quality)
     
-    def stop_follow(self, unassigning=False):
-        super(Agent, self).stop_follow()
+    def stop_follow(self,  # type: Retainer or Agent
+                    dismiss=True, unassigning=False):
+        super(AgentMixin, self).stop_follow()
         # if we're not being unassigned, we dock them. otherwise, they're gone
-        self.dismiss(dock=not unassigning)
+        if dismiss:
+            self.dismiss(dock=not unassigning)
     
-    def summon(self, summoner=None):
+    def summon(self,  # type: Retainer or Agent
+               summoner=None):
         """
         Have these guards appear to defend the character. This should generally only be
         called in a location that permits it, such as their house barracks, or in a
@@ -460,7 +473,8 @@ class Agent(MultiNpc):
             docked_loc.db.docked_guards.remove(self)
         self.db.docked = None
 
-    def dismiss(self, dock=True):
+    def dismiss(self,  # type: Retainer or Agent
+                dock=True):
         """
         Dismisses our guards. If they're not being dismissed permanently, then
         we dock them at the location they last occupied, saving it as an attribute.
@@ -480,30 +494,272 @@ class Agent(MultiNpc):
                 docked.append(self)
             loc.db.docked_guards = docked
         loc.msg_contents("%s have been dismissed." % self.name)
+        # noinspection PyAttributeOutsideInit
         self.location = None
         if self.ndb.combat_manager:
             self.ndb.combat_manager.remove_combatant(self)
 
+    def at_init(self  # type: Retainer or Agent
+                ):
+        try:
+            if self.location and self.db.guarding and self.db.guarding.location == self.location:
+                self.follow(self.db.guarding)
+        except AttributeError:
+            import traceback
+            traceback.print_exc()
+
+    def get_stat_cost(self,  # type: Retainer or Agent
+                      attr):
+        """
+        Get the cost of a stat based on our current
+        rating and the type of agent we are.
+        """
+        atype = self.agent.type
+        stats = primary_stats.get(atype, [])
+        base = get_stat_cost(self, attr)
+        if attr not in stats:
+            base *= 2
+        xpcost = base
+        rescost = base
+        if attr in MENTAL_STATS:
+            restype = "economic"
+        elif attr in SOCIAL_STATS:
+            restype = "social"
+        elif attr in PHYSICAL_STATS:
+            restype = "military"
+        else:  # special stats
+            restype = "military"
+        return xpcost, rescost, restype
+    
+    def get_skill_cost(self, attr):
+        """
+        Get the cost of a skill based on our current rating and the
+        type of agent that we are.
+        """
+        restype = "military"
+        atype = self.agent.type
+        primary_skills = get_npc_skills(atype)
+        base = get_skill_cost(self, attr)
+        if attr not in primary_skills:
+            base *= 2
+        xpcost = base
+        rescost = base
+        if attr in spy_skills:
+            restype = "social"
+        elif attr in assistant_skills:
+            restype = "economic"
+        return xpcost, rescost, restype
+
+    def get_stat_maximum(self, attr):
+        """
+        Get the current max for a stat based on the type
+        of agent we are. If it's primary stats, == to our
+        quality level. Otherwise, quality - 1.
+        """
+        atype = self.agent.type
+        pstats = primary_stats.get(atype, [])
+        if attr in pstats:
+            cap = self.agent.quality
+        else:
+            cap = self.agent.quality - 1
+        typecap = get_npc_stat_cap(atype, attr)
+        if cap > typecap:
+            cap = typecap
+        return cap
+    
+    def get_skill_maximum(self, attr):
+        """
+        Get the current max for a skill based on the type
+        of agent we are
+        """
+        atype = self.agent.type
+        primary_skills = get_npc_skills(atype)
+        if attr in primary_skills:
+            return self.agent.quality
+        return self.agent.quality - 1
+
+    @property
+    def agent(self  # type: Retainer or Agent
+              ):
+        """
+        Returns the agent type that this object belongs to.
+        """
+        return self.agentob.agent_class
+
+    def train_agent(self, trainer):
+        trainer.msg("This type of agent cannot be trained.")
+        return False
+    
+    @property
+    def training_skill(self):
+        if "animal" in self.agent.typename:
+            return "animal ken"
+        return "teaching"
+
+    @property
+    def species(self  # type: Retainer or Agent
+                ):
+        if "animal" in self.agent.typename:
+            default = "animal"
+        else:
+            default = "human"
+        return self.db.species or default
+    
+    @property
+    def owner(self):
+        return self.agent.owner
+    
+    def inform_owner(self, text):
+        """Passes along an inform to our owner."""
+        self.owner.inform_owner(text, category="Agents")
+
+    @property
+    def weaponized(self  # type: Retainer or Agent
+                   ):
+        if self.npc_type in COMBAT_TYPES:
+            return True
+        if self.weapons_hidden:
+            return False
+        try:
+            if self.weapondata.get('weapon_damage', 1) > 2:
+                return True
+        except (AttributeError, KeyError):
+            return False
+
+
+class Retainer(AgentMixin, Npc):
+
+    def display(self):
+        msg = "{wAssigned to:{n %s " % self.db.guarding
+        msg += "{wLocation:{n %s\n" % (self.location or self.db.docked or "Home Barracks")
+        return msg
+
+    # noinspection PyUnusedLocal
+    def setup_npc(self, ntype=0, threat=0, num=1, sing_name=None, plural_name=None, desc=None, keepold=False):
+        self.db.damage = 0
+        self.db.health_status = "alive"
+        self.db.sleep_status = "awake"
+        self.setup_stats(ntype, threat)
+        self.name = self.agentob.agent_class.name
+
+    @property
+    def buyable_abilities(self):
+        """
+        Returns a list of ability names that are valid to buy for this agent
+        """
+        abilities = ()
+        innate = get_innate_abilities(self.agent.type)
+        abilities += innate
+        # to do - get abilities based on level and add em to the ones they get innately
+        return abilities
+
+    # noinspection PyUnusedLocal
+    def get_ability_maximum(self, attr):
+        """Returns max for an ability that we can buy"""
+        # to do - make it different based on off-classes
+        return self.agent.quality + 1
+
+    # noinspection PyMethodMayBeStatic
+    def get_ability_cost(self, attr):
+        cost, res_type = ABILITY_COSTS.get(attr)
+        return cost, cost, res_type
+
+    def can_train(self, trainer):
+        skill = trainer.db.skills.get(self.training_skill, 0)
+        if not skill:
+            trainer.msg("You must have %s skill to train them." % self.training_skill)
+            return False
+        currently_training = trainer.db.currently_training or []
+        if self.db.trainer == trainer:
+            trainer.msg("They have already been trained by %s this week." % self.db.trainer)
+            return False
+        # because of possible cache errors we'll check by ID rather than by self
+        currently_training_ids = [ob.id for ob in currently_training]
+        if self.id in currently_training_ids:
+            trainer.msg("They have already been trained by you this week.")
+            return False
+        return True
+
+    def train_agent(self, trainer):
+        """
+        Gives xp to this agent if they haven't been trained yet this week.
+        The skill used to train them is based on our type - animal ken for
+        animals, teaching for non-animals.
+        """
+        self.db.trainer = trainer
+        currently_training = trainer.db.currently_training or []
+        if self in currently_training:
+            # this should not be possible. Nonetheless, it has happened.
+            trainer.msg("Error: You have already trained this agent despite the check saying you hadn't.")
+            return
+        # do training roll
+        roll = do_dice_check(trainer, stat="command", skill=self.training_skill, difficulty=0, quiet=False)
+        self.agent.xp += roll
+        self.agent.save()
+        # redundant attribute to try to combat cache errors
+        num_trained = trainer.db.num_trained or len(currently_training)
+        num_trained += 1
+        trainer.db.num_trained = num_trained
+        currently_training.append(self)
+        trainer.db.currently_training = currently_training
+        trainer.msg("You have trained %s, giving them %s xp." % (self, roll))
+        msg = "%s has trained %s, giving them %s xp." % (trainer, self, roll)
+        self.inform_owner(msg)
+    
+
+class Agent(AgentMixin, MultiNpc):
+    # -----------------------------------------------
+    # AgentHandler Admin client methods
+    # -----------------------------------------------
+
+    # noinspection PyAttributeOutsideInit
+    def setup_name(self):
+        a_type = self.agentob.agent_class.type
+        noun = self.agentob.agent_class.name
+        if not noun:
+            if self.db.num_living == 1:
+                noun = get_npc_singular_name(a_type)
+            else:
+                noun = get_npc_plural_name(a_type)
+        if self.db.num_living:
+            self.key = "%s %s" % (self.db.num_living, noun)
+        else:
+            self.key = noun
+        self.save()     
+
+    def lose_agents(self, num, death=False):
+        """
+        Called whenever we lose one of our agents, due to them being recalled
+        or dying.
+        """
+        if num < 0:
+            raise ValueError("Must pass a positive integer to lose_agents.")
+        if num > self.db.num_living:
+            num = self.db.num_living
+        self.multideath(num, death)
+        self.agentob.lose_agents(num)
+        self.setup_name()       
+        if self.db.num_living <= 0:
+            self.unassign()
+        return num
+    
+    def gain_agents(self, num):
+        self.db.num_living += num
+        self.setup_name()
+        
+    def display(self):
+        msg = "\n{wGuards:{n %s\n" % self.name
+        if self.db.guarding:
+            msg += "{wAssigned to:{n %s {wOwner{n:%s\n" % (self.db.guarding, self.agent.owner)
+        msg += "{wLocation:{n %s\n" % (self.location or self.db.docked or "Home Barracks")
+        return msg
+
     def death_process(self, *args, **kwargs):
         """
         This object dying. Set its state to dead, send out
-        death message to location. Add death commandset.
+        death message to location.
         """
         if self.location:
             self.location.msg_contents("{r%s has died.{n" % get_npc_singular_name(self._get_npc_type()))
         self.lose_agents(num=1, death=True)
         self.db.damage = 0
-
-    def at_init(self):
-        self.is_room = False
-        self.is_exit = False
-        self.is_character = True
-        try:
-            if self.location and self.db.guarding:
-                self.follow(self.db.guarding)
-        except Exception:
-            import traceback
-            traceback.print_exc()
-
-
-        

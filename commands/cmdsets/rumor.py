@@ -5,24 +5,23 @@ Commands for rumormills.
 from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand
 from evennia.utils import evtable
-from server.utils.utils import get_week, tnow
+from server.utils.arx_utils import get_week, tnow
 from evennia.utils.create import create_message
-from django.conf import settings
 from world.stats_and_skills import do_dice_check
-from evennia.comms.models import Msg
 from world.dominion.models import AssignedTask
+from server.utils import arx_more
 
 RUMOR_LIFETIME = 30
 
 
-
 class RumorCmdSet(CmdSet):
-    "CmdSet for a market."    
+    """CmdSet for a market."""
     key = "RumorCmdSet"
     priority = 20
     duplicates = False
     no_exits = False
     no_objs = False
+
     def at_cmdset_creation(self):
         """
         This is the only method defined in a cmdset, called during
@@ -59,21 +58,24 @@ class CmdGossip(MuxCommand):
     key = "gossip"
     locks = "cmd:all()"
     help_category = "Rumormill"
-    
-    def investigate(self, rumor, caller, diff):
+
+    @staticmethod
+    def investigate(rumor, caller, diff):
         result = do_dice_check(caller, stat="perception", skill="investigation", difficulty=diff)
         if result > 0:
             senders = rumor.db_sender_objects.all()
             return senders
 
-    def intimidate(self, caller, diff):
+    @staticmethod
+    def intimidate(caller, diff):
         result = do_dice_check(caller, stat="command", skill="intimidation", difficulty=diff)
         if result > 0:
             return True
         return False
 
     def disp_rumors(self, caller, rumors, add_heard=True):
-        table = evtable.EvTable("{w#{n", "{w%s{n" % self.key.capitalize(), border="cells", width=78)
+        table = evtable.EvTable("{w#{n", "{w%s{n" % self.key.capitalize(),
+                                border="cells", width=78, align="l", justify=True)
         x = 0
         heard_rumors = caller.ndb.heard_rumors or []
         week = get_week()
@@ -99,14 +101,14 @@ class CmdGossip(MuxCommand):
             for story in stories:
                 table.add_row(story.id, story.week)
             msg += str(table)
-        return msg
+        return arx_more.msg(caller, msg, justify_kwargs=False)
     
     def get_room_rumors(self):
         loc = self.caller.location
         return getattr(loc.messages, self.key)
 
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         loc = caller.location
         rumors = self.get_room_rumors()
@@ -115,7 +117,8 @@ class CmdGossip(MuxCommand):
             caller.msg(msg)
             return
         if "start" in self.switches:
-            rumor = create_message(caller, self.lhs, receivers=(loc, caller), header=self.key)
+            rumor = create_message(caller, self.lhs, receivers=(loc, caller))
+            rumor.tags.add(self.key, category="msg")
             if rumor not in loc.messages.gossip:
                 loc.messages.gossip.append(rumor)
             heard = caller.ndb.heard_rumors or []
@@ -124,7 +127,7 @@ class CmdGossip(MuxCommand):
             caller.msg("You have started the rumor: %s" % self.lhs)
             return
         if "story" in self.switches or not self.switches:
-            week=get_week()
+            week = get_week()
             stories = AssignedTask.objects.filter(finished=True, week__gte=week-3, observer_text__isnull=False)
             try:
                 story = stories.get(id=int(self.args))
@@ -134,7 +137,7 @@ class CmdGossip(MuxCommand):
             except (ValueError, TypeError):
                 caller.msg("Story must be a number.")
                 return
-            caller.msg(story.story, options={'box':True})
+            caller.msg(story.story, options={'box': True})
             return
         if "investigate" in self.switches:
             try:
@@ -171,7 +174,8 @@ class CmdGossip(MuxCommand):
             except (TypeError, ValueError, IndexError):
                 caller.msg("Must input a number between 1 and %s." % len(rumors))
                 return
-            caller.location.msg_contents("%s attempts to intimidate people here into stop spreading rumors." % caller.name)
+            caller.location.msg_contents("%s attempts to intimidate people here into stop spreading rumors." %
+                                         caller.name)
             if self.intimidate(caller, 15):
                 rumor.db_receivers_objects.remove(caller.location)
                 caller.msg("People here will 'forget' this rumor existed.")            
@@ -199,6 +203,7 @@ class CmdGossip(MuxCommand):
                     caller.msg(self.disp_rumors(caller, rumors, add_heard=False))
                 return
 
+
 class CmdRumor(CmdGossip):
     """
     rumors
@@ -220,7 +225,8 @@ class CmdRumor(CmdGossip):
     help_category = "Rumormill"
 
     def disp_rumors(self, caller, rumors, add_heard=True):
-        table = evtable.EvTable("{w#{n", "{wTopic{n", "{w%s{n" % self.key.capitalize(), border="cells", width=78)
+        table = evtable.EvTable("{w#{n", "{wTopic{n", "{w%s{n" % self.key.capitalize(),
+                                border="cells", width=78, align="l", justify=True)
         x = 0
         week = get_week()
         heard_rumors = caller.ndb.heard_rumors or []
@@ -250,12 +256,11 @@ class CmdRumor(CmdGossip):
             for story in stories:
                 table.add_row(story.id, story.week)
             msg += str(table)
-        return msg
+        return arx_more.msg(caller, msg, justify_kwargs=False)
     
     def func(self):
         caller = self.caller
         loc = caller.location
-        rumors = self.get_room_rumors()
         if "start" in self.switches:
             if not self.rhs:
                 caller.msg("Syntax: rumors/start <character>=<message>")
@@ -266,12 +271,11 @@ class CmdRumor(CmdGossip):
             if not player.db.char_ob:
                 caller.msg("They have no character.")
                 return
-            rumor = create_message(caller, self.rhs, receivers=(loc, caller, player), header=self.key)
+            rumor = create_message(caller, self.rhs, receivers=(loc, caller, player))
+            rumor.tags.add(self.key, category="msg")
             if rumor not in loc.messages.rumors:
                 loc.messages.rumors.append(rumor)
             caller.msg("You have started the rumor: %s" % self.lhs)
             return
         super(CmdRumor, self).func()
         return
-
-        

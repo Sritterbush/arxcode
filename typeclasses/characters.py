@@ -8,14 +8,15 @@ creation commands.
 
 """
 from evennia import DefaultCharacter
-from typeclasses.mixins import MsgMixins, ObjectMixins
+from typeclasses.mixins import MsgMixins, ObjectMixins, NameMixins
 from world.msgs.messagehandler import MessageHandler
-from evennia.utils import create
-from evennia.utils.utils import fill, to_str, to_unicode, lazy_property
+from world.msgs.languagehandler import LanguageHandler
+from evennia.utils.utils import lazy_property
 import time
 from world.stats_and_skills import do_dice_check
 
-class Character(MsgMixins, ObjectMixins, DefaultCharacter):
+
+class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     """
     The Character defaults to reimplementing some of base Object's hook methods with the
     following functionality:
@@ -40,7 +41,7 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         Called once, when this object is first created.
         """
         # setting up custom attributes for ArxMUSH
-        #BriefMode is for toggling brief descriptions from rooms
+        # BriefMode is for toggling brief descriptions from rooms
         self.db.briefmode = False
         # identification attributes about our player
         self.db.player_ob = None
@@ -66,12 +67,19 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
     @lazy_property
     def messages(self):    
         return MessageHandler(self)
-        
+
+    @lazy_property
+    def languages(self):
+        return LanguageHandler(self)
 
     def at_after_move(self, source_location):
-        "Default is to look around after a move."
+        """
+        Hook for after movement. Look around, with brief determining how much detail we get.
+        :param source_location: Room
+        :return:
+        """
         table = self.db.sitting_at_table
-        if table:
+        if table and source_location != self.location:
             table.leave(self)
         if self.db.briefmode:
             string = "{c%s{n" % self.location.name
@@ -79,7 +87,7 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
             string += self.location.event_string()
             self.msg(string)
         else:
-            self.execute_cmd('look')
+            self.msg(self.at_look(self.location))
         if self.ndb.waypoint:
             if self.location == self.ndb.waypoint:
                 self.msg("You have reached your destination.")
@@ -91,8 +99,12 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
             else:
                 self.msg("You've lost track of how to get to your destination.")
                 self.ndb.waypoint = None
+        if self.ndb.following and self.ndb.following.location != self.location:
+            self.stop_follow()
+        if self.db.room_title:
+            self.attributes.remove("room_title")
 
-    def return_appearance(self, pobject, detailed=False, format_desc=False):
+    def return_appearance(self, pobject, detailed=False, format_desc=False, show_contents=False):
         """
         This is a convenient hook for a 'look'
         command to call.
@@ -107,28 +119,46 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         # Health appearance will also determine whether we
         # use an alternate appearance if we are dead.
         health_appearance = self.get_health_appearance()
-        # desc used to be db.desc. May use db.desc for temporary values,
-        # such as illusions, masks, etc
-        desc = self.desc     
-        if self.db.use_alt_desc and self.db.desc:
-            desc = self.db.desc
+        # desc is our current appearance, can be fake. self.perm_desc is 'true' form
+        desc = self.desc
+        # to do: check to see through disguises
         if strip_ansi:
             try:
                 from evennia.utils.ansi import parse_ansi
                 desc = parse_ansi(desc, strip_ansi=True)
-            except Exception:
+            except (AttributeError, ValueError, TypeError, UnicodeDecodeError):
                 pass
+        script = self.appearance_script
         if desc:
             extras = self.return_extras(pobject)
             if extras:
                 extras += "\n"
             string += "\n\n%s%s" % (extras, desc)
+        if script:
+            scent = script.db.scent
+            if scent:
+                string += "\n\n%s" % scent
         if health_appearance:
             string += "\n\n%s" % health_appearance
         string += self.return_contents(pobject, detailed, strip_ansi=strip_ansi)
         return string
 
+    @property
+    def species(self):
+        return self.db.species or "Human"
+
+    @property
+    def appearance_script(self):
+        scripts = self.scripts.get("Appearance")
+        if scripts:
+            return scripts[0]
+
     def return_extras(self, pobject):
+        """
+        Return a string from glancing at us
+        :param pobject: Character
+        :return:
+        """
         hair = self.db.haircolor or ""
         hair = hair.capitalize()
         eyes = self.db.eyecolor or ""
@@ -136,10 +166,14 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         skin = self.db.skintone or ""
         skin = skin.capitalize()
         height = self.db.height or ""
-        species = self.db.species or "Human"
+        species = self.species
         gender = self.db.gender or ""
         gender = gender.capitalize()
         age = self.db.age
+        if pobject.check_permstring("builders"):
+            true_age = self.db.real_age
+            if true_age and true_age != age:
+                pobject.msg("{wThis true age is:{n %s" % true_age)
         string = """
 {w.---------------------->Physical Characteristics<---------------------.{n
 {w|                                                                     |{n
@@ -147,9 +181,7 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
 {w| Height:{n %(height)-15s {wEye Color:{n %(eyes)-15s                  {w|{n
 {w| Hair Color:{n %(hair)-11s {wSkin Tone:{n %(skin)-17s                {w|{n
 {w.---------------------------------------------------------------------.{n
-""" % (
-    {'species': species, 'hair': hair, 'eyes': eyes, 'height': height,
-     'gender': gender, 'age': age, 'skin': skin})
+""" % ({'species': species, 'hair': hair, 'eyes': eyes, 'height': height, 'gender': gender, 'age': age, 'skin': skin})
         return string
     
     def death_process(self, *args, **kwargs):
@@ -157,7 +189,7 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         This object dying. Set its state to dead, send out
         death message to location. Add death commandset.
         """
-        if self.db.health_status and self.db.health_status == "dead":
+        if self.db.health_status == "dead":
             return
         self.db.health_status = "dead"
         self.db.container = True
@@ -169,11 +201,10 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
             if cmds.key not in [ob.key for ob in self.cmdset.all()]:
                 self.cmdset.add(cmds, permanent=True)
         except Exception as err:
-            print "<<ERROR>>: Error when importing death cmdset: %s" % err
-        from server.utils.utils import inform_staff
+            print("<<ERROR>>: Error when importing death cmdset: %s" % err)
+        from server.utils.arx_utils import inform_staff
         if not self.db.npc:
             inform_staff("{rDeath{n: Character {c%s{n has died." % self.key)
-        
 
     def resurrect(self, *args, **kwargs):
         """
@@ -187,9 +218,11 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
             from commands.cmdsets import death
             self.cmdset.delete(death.DeathCmdSet)
         except Exception as err:
-            print "<<ERROR>>: Error when importing mobile cmdset: %s" % err
+            print("<<ERROR>>: Error when importing mobile cmdset: %s" % err)
+        # we'll also be asleep when we're dead, so that we're resurrected unconscious if we're brought back
+        self.fall_asleep(uncon=True, quiet=True)
 
-    def fall_asleep(self, uncon=False):
+    def fall_asleep(self, uncon=False, quiet=False):
         """
         Falls asleep. Uncon flag determines if this is regular sleep,
         or unconsciousness.
@@ -198,7 +231,7 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
             self.db.sleep_status = "unconscious"
         else:
             self.db.sleep_status = "asleep"
-        if self.location:
+        if self.location and not quiet:
             self.location.msg_contents("%s falls %s." % (self.name, self.db.sleep_status))
         try:
             from commands.cmdsets import sleep
@@ -206,20 +239,21 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
             if cmds.key not in [ob.key for ob in self.cmdset.all()]:
                 self.cmdset.add(cmds, permanent=True)
         except Exception as err:
-            print "<<ERROR>>: Error when importing death cmdset: %s" % err
+            print("<<ERROR>>: Error when importing sleep cmdset: %s" % err)
+
+    @property
+    def conscious(self):
+        return ((self.db.sleep_status != "unconscious" and self.db.sleep_status != "asleep")
+                and self.db.health_status != "dead")
 
     def wake_up(self, quiet=False):
         """
         Wakes up.
         """
-        woke = False
-        if self.db.sleep_status != "awake":
-            self.db.sleep_status = "awake"
-            woke = True
         if self.db.health_status == "dead":
-            woke = False
+            return
         if self.location:
-            if not quiet and woke:
+            if not quiet and not self.conscious:
                 self.location.msg_contents("%s wakes up." % self.name)
             combat = self.location.ndb.combat_manager
             if combat and self in combat.ndb.combatants:
@@ -228,7 +262,8 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
             from commands.cmdsets import sleep
             self.cmdset.delete(sleep.SleepCmdSet)
         except Exception as err:
-            print "<<ERROR>>: Error when importing mobile cmdset: %s" % err
+            print("<<ERROR>>: Error when importing mobile cmdset: %s" % err)
+        self.db.sleep_status = "awake"
         return
 
     def get_health_appearance(self):
@@ -249,7 +284,7 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
             msg = "%s is seriously wounded." % name
         elif 0.5 < wound <= 0.75:
             msg = "%s is very seriously wounded." % name
-        elif  0.75 < wound <= 2.0:
+        elif 0.75 < wound <= 2.0:
             msg = "%s is critically wounded." % name
         else:
             msg = "%s is very critically wounded, possibly dying." % name
@@ -271,23 +306,34 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         """
         diff = 0 + diff_mod
         roll = do_dice_check(self, stat_list=["willpower", "stamina"], difficulty=diff)
-        if roll > 0:
-            self.msg("You feel better.")
+        wound = float(abs(roll))/float(self.max_hp)
+        if wound <= 0:
+            wound_str = "no "
+        elif wound <= 0.25:
+            wound_str = "a little "
+        elif wound <= 0.5:
+            wound_str = "somewhat "
+        elif wound <= 0.75:
+            wound_str = "a lot "
         else:
-            self.msg("You feel worse.")
-        apply = self.dmg - roll # how much dmg character has after the roll
-        if apply < 0: apply = 0 # no remaining damage
-        self.db.damage = apply
+            wound_str = "incredibly "
+        if roll > 0:
+            self.msg("You feel %sbetter." % wound_str)
+        else:
+            self.msg("You feel %sworse." % wound_str)
+        self.dmg -= roll
         if not free:
             self.db.last_recovery_test = time.time()
         return roll
-    
-    def sensing_check(self, difficulty=15, invis=False):
+
+    def sensing_check(self, difficulty=15, invis=False, allow_wake=False):
         """
         See if the character detects something that is hiding or invisible.
         The difficulty is supplied by the calling function.
         Target can be included for additional situational
         """
+        if not self.conscious and not allow_wake:
+            return -100
         roll = do_dice_check(self, stat="perception", stat_keep=True, difficulty=difficulty)
         return roll
 
@@ -299,15 +345,11 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
             return self.db.false_name
         if not short and self.db.longname:
             return self.db.longname
-        return self.key
+        return self.db.colored_name or self.key
     
     def _get_worn(self):
-        "Returns list of items in inventory currently being worn."
-        worn_list = []
-        for ob in self.contents:
-            if ob.db.worn_by == self:
-                worn_list.append(ob)
-        return worn_list
+        """Returns list of items in inventory currently being worn."""
+        return [ob for ob in self.contents if ob.db.currently_worn]
     
     def _get_armor(self):
         """
@@ -321,21 +363,20 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
             except AttributeError:
                 ob_armor = 0
             armor += ob_armor
-        return armor
+        return int(round(armor))
 
     def _get_armor_penalties(self):
         penalty = 0
         for ob in self.worn:
             try:
                 penalty += ob.penalty
-            except Exception:
+            except (AttributeError, ValueError, TypeError):
                 pass
         return penalty
     armor_penalties = property(_get_armor_penalties)
-        
-    
+
     def _get_maxhp(self):
-        "Returns our max hp"
+        """Returns our max hp"""
         hp = self.db.stamina or 0
         hp *= 20
         hp += 20
@@ -344,24 +385,40 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         return hp
     
     def _get_current_damage(self):
-        "Returns how much damage we've taken."
+        """Returns how much damage we've taken."""
         dmg = self.db.damage or 0
         return dmg
+
+    def _set_current_damage(self, dmg):
+        if dmg < 1:
+            dmg = 0
+        self.db.damage = dmg
+        self.start_recovery_script()
+
+    def start_recovery_script(self):
+        # start the script if we have damage
+        start_script = self.dmg > 0
+        scripts = [ob for ob in self.scripts.all() if ob.key == "Recovery"]
+        if scripts:
+            if start_script:
+                scripts[0].start()
+            else:
+                scripts[0].stop()
+        elif start_script:
+            self.scripts.add("typeclasses.scripts.recovery.Recovery")
         
-    @property
-    def name(self):
-        return self.get_fancy_name(short=True)
+    # @property
+    # def name(self):
+    #     return self.get_fancy_name(short=True)
     
     # note - setter properties do not work with the typeclass system
     armor = property(_get_armor)
     
-    @property
-    def worn(self):
-        return self._get_worn()
+    worn = property(_get_worn)
     
     max_hp = property(_get_maxhp)
     
-    dmg = property(_get_current_damage)
+    dmg = property(_get_current_damage, _set_current_damage)
 
     def adjust_xp(self, value):
         """
@@ -370,20 +427,21 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         xp should be before this takes place, so we'll raise an exception if they
         can't pay the cost.
         """
-        if not self.db.total_xp: self.db.total_xp = 0
-        if not self.db.xp: self.db.xp = 0
+        if not self.db.total_xp:
+            self.db.total_xp = 0
+        if not self.db.xp:
+            self.db.xp = 0
         if value > 0:
             self.db.total_xp += value
             try:
                 self.roster.adjust_xp(value)
-            except Exception:
+            except (AttributeError, ValueError, TypeError):
                 pass
         else:
             if self.db.xp < abs(value):
-                raise Exception("Bad value passed to adjust_xp - character did not have enough xp to pay for the value.")
+                raise ValueError("Bad value passed to adjust_xp -" +
+                                 " character did not have enough xp to pay for the value.")
         self.db.xp += value
-        
-        
 
     def follow(self, targ):
         if not targ.ndb.followers:
@@ -400,9 +458,12 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
             return
         self.msg("You stop following %s." % f_targ.name)
         if f_targ.ndb.followers:
-            f_targ.ndb.followers.remove(self)
-            f_targ.msg("%s stops following you." % self.name)
-        self.ndb.following = []
+            try:
+                f_targ.ndb.followers.remove(self)
+                f_targ.msg("%s stops following you." % self.name)
+            except (ValueError, TypeError, AttributeError):
+                pass
+        self.ndb.following = None
 
     def get_fakeweapon(self):
         return self.db.fakeweapon
@@ -422,9 +483,9 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         except AttributeError:
             wpndict['weapon_damage'] = wpn.db.damage_bonus or 0
         wpndict['attack_type'] = wpn.db.attack_type or 'melee'
-        wpndict['can_be_parried'] = wpn.db.can_be_parried or True
-        wpndict['can_be_blocked'] = wpn.db.can_be_blocked or True
-        wpndict['can_be_dodged'] = wpn.db.can_be_dodged or True
+        wpndict['can_be_parried'] = wpn.db.can_be_parried
+        wpndict['can_be_blocked'] = wpn.db.can_be_blocked
+        wpndict['can_be_dodged'] = wpn.db.can_be_dodged
         wpndict['can_parry'] = wpn.db.can_parry or False
         wpndict['can_riposte'] = wpn.db.can_parry or wpn.db.can_riposte or False
         wpndict['reach'] = wpn.db.weapon_reach or 1
@@ -440,6 +501,14 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
         return wpndict
 
     weapondata = property(_get_weapondata)
+
+    @property
+    def weapons_hidden(self):
+        """Returns True if we have a hidden weapon, false otherwise"""
+        try:
+            return self.weapondata['hidden_weapon']
+        except (AttributeError, KeyError):
+            return False
 
     def msg_watchlist(self, msg):
         """
@@ -458,39 +527,49 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
                 watcher.msg(msg)
                 spam.append(self)
                 watcher.ndb.journal_spam = spam
-
-    def at_post_unpuppet(self, player, session=None):
-        table = self.db.sitting_at_table
-        if table:
-            table.leave(self)
-        DefaultCharacter.at_post_unpuppet(self, player, session)
-        guards = self.db.assigned_guards or []
-        for guard in guards:
-            try:
-                if guard.location:
-                    guard.dismiss()
-            except Exception:
-                pass
-
-    def at_post_puppet(self):
-        DefaultCharacter.at_post_puppet(self)
-        guards = self.db.assigned_guards or []
-        for guard in guards:
-            docked = guard.db.docked
-            if docked and docked == self.location:
-                guard.summon()
+                
+    @property
+    def social_value(self):
+        """Value used for calculating support based on social stats/skills
+        
+            returns: int
+        """
+        total = 0
+        try:
+            from world.stats_and_skills import SOCIAL_SKILLS
+            total += self.db.charm * 3
+            total += self.db.intellect
+            total += self.db.command
+            total += self.db.composure
+            skills = self.db.skills
+            total += sum(skills.get(attr, 0) for attr in SOCIAL_SKILLS)  * 2
+            return total / 3
+        except (TypeError, ValueError, AttributeError):
+            return total / 3
 
     def _get_max_support(self):
         try:
             dompc = self.db.player_ob.Dominion
-            total = 0
+            remaining = 0
             for member in dompc.memberships.filter(deguilded=False):
-                total += member.pool_share
+                remaining += member.pool_share
             for ren in dompc.renown.all():
-                total += ren.level
-            return total
+                remaining += ren.level
         except (TypeError, AttributeError, ValueError):
             return 0
+        interval = self.social_value
+        multiplier = 1.0
+        total = 0
+        if interval <= 0:
+            return 0
+        while multiplier > 0:
+            if interval >= remaining:
+                total += remaining * multiplier
+                return int(total)
+            total += interval * multiplier
+            multiplier -= 0.25
+            remaining -= interval
+        return int(total)
     max_support = property(_get_max_support)
 
     @property
@@ -500,6 +579,24 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
     @property
     def num_guards(self):
         return sum(ob.quantity for ob in self.guards)
+
+    @property
+    def present_guards(self):
+        return [ob for ob in self.guards if ob.location == self.location]
+
+    @property
+    def num_armed_guards(self):
+        try:
+            return sum([ob.num_armed_guards for ob in self.present_guards])
+        except TypeError:
+            return 0
+
+    @property
+    def max_guards(self):
+        try:
+            return 15 - (self.db.social_rank or 10)
+        except TypeError:
+            return 5
 
     def get_directions(self, room):
         """
@@ -534,58 +631,79 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
                 if loc.locations_set.filter(db_key__iexact=dirname):
                     return "{c" + dirname + "{n"
             dest = "{c" + dest + "{n roughly. Please use '{w@map{n' to determine an exact route"
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             import traceback
-            print "Error in using directions for rooms: %s, %s" % (loc.id, room.id)
-            print "origin is (%s,%s), destination is (%s, %s)" % (x_ori, y_ori, x_dest, y_dest)
+            print("Error in using directions for rooms: %s, %s" % (loc.id, room.id))
+            print("origin is (%s,%s), destination is (%s, %s)" % (x_ori, y_ori, x_dest, y_dest))
             traceback.print_exc()
             self.msg("Rooms not properly set up for @directions. Logging error.")
             return
         # try to find it through traversal
         base_query = "db_destination_id"
-        exit = []
+        exit_name = []
         iterations = 0
         # anything beyond 10 squares becomes extremely lengthy
         max_iter = 5
-        while not exit and iterations < max_iter:
+        while not exit_name and iterations < max_iter:
             q_add = "db_destination__locations_set__" * iterations
             query = q_add + base_query
-            filter_dict = { query : room.id}
-            exit = loc.locations_set.filter(**filter_dict)[0:1]
+            filter_dict = {query: room.id}
+            exit_name = loc.locations_set.filter(**filter_dict)[0:1]
             iterations += 1
-        if not exit:
+        if not exit_name:
             return "{c" + dest + "{n"
-        return "{c" + str(exit[0]) + "{n"
+        return "{c" + str(exit_name[0]) + "{n"
 
     def at_post_puppet(self):
         """
         Called just after puppeting has completed.
+
+        :type self: DefaultCharacter
         """
+        watched_by = self.db.watched_by or []
         super(Character, self).at_post_puppet()
         try:
             if self.db.pending_messengers:
-                self.messenger_notification(2)
-        except:
+                self.messenger_notification(2, login=True)
+        except (AttributeError, ValueError, TypeError):
             import traceback
             traceback.print_exc()
-        watched_by = self.db.watched_by or []
-        if self.db.player_ob and not self.db.player_ob.db.hide_from_watch:
-            for watcher in watched_by:
-                watcher.msg("{wA player you are watching, {c%s{w, has entered the game.{n" % self.key)
+        if self.sessions.count() == 1:
+            if self.db.player_ob and not self.db.player_ob.db.hide_from_watch:
+                for watcher in watched_by:
+                    watcher.msg("{wA player you are watching, {c%s{w, has entered the game.{n" % self.key)
+        guards = self.guards
+        for guard in guards:
+            if guard.discreet:
+                continue
+            docked_location = guard.db.docked
+            if docked_location and docked_location == self.location:
+                guard.summon()
 
     def at_post_unpuppet(self, player, session=None):
         """
         We stove away the character when the player goes ooc/logs off,
         otherwise the character object will remain in the room also after the
         player logged off ("headless", so to say).
+
+        :type self: DefaultCharacter
+        :type player: Player
+        :type session: Session
         """
         super(Character, self).at_post_unpuppet(player, session)
-        watched_by = self.db.watched_by or []
-        if self.db.player_ob and not self.db.player_ob.db.hide_from_watch:
-            for watcher in watched_by:
-                watcher.msg("{wA player you are watching, {c%s{w, has left the game.{n" % self.key)
+        if not self.sessions.count():
+            table = self.db.sitting_at_table
+            if table:
+                table.leave(self)
+            guards = self.db.assigned_guards or []
+            for guard in guards:
+                try:
+                    if guard.location and 'persistent_guard' not in guard.tags.all():
+                        guard.dismiss()
+                except AttributeError:
+                    continue
 
-    def messenger_notification(self, num_times=1):
+    def messenger_notification(self, num_times=1, login=False):
         from twisted.internet import reactor
         num_times -= 1
         if self.db.pending_messengers:
@@ -593,24 +711,90 @@ class Character(MsgMixins, ObjectMixins, DefaultCharacter):
             player = self.db.player_ob
             if not player or not player.is_connected:
                 return
-            player.msg("{mYou have %s messengers waiting.{n" % len(self.db.pending_messengers))
-            self.msg("(To receive a messenger, type 'receive messenger')")
-            if num_times > 0:
-                reactor.callLater(600, self.messenger_notification, num_times)
-            else:
-                # after the first one, we only tell them once an hour
-                reactor.callLater(3600, self.messenger_notification, num_times)
+            if not player.db.ignore_messenger_notifications or login:
+                player.msg("{mYou have %s messengers waiting.{n" % len(self.db.pending_messengers))
+                self.msg("(To receive a messenger, type 'receive messenger')")
+                if num_times > 0:
+                    reactor.callLater(600, self.messenger_notification, num_times)
+                else:
+                    # after the first one, we only tell them once an hour
+                    reactor.callLater(3600, self.messenger_notification, num_times)
 
     @property
     def portrait(self):
+        from web.character.models import Photo
         try:
             return self.roster.profile_picture
-        except AttributeError:
+        except (AttributeError, Photo.DoesNotExist):
             return None
 
     def get_absolute_url(self):
         from django.core.urlresolvers import reverse
         return reverse('character:sheet', kwargs={'object_id': self.id})
 
+    @property
+    def combat_data(self):
+        from typeclasses.scripts.combat.combatant import CharacterCombatData
+        return CharacterCombatData(self, None)
 
+    def view_stats(self, viewer, combat=False):
+        from commands.commands.roster import display_stats, display_skills
+        display_stats(viewer, self)
+        display_skills(viewer, self)
+        if combat:
+            viewer.msg(self.combat_data.display_stats())
 
+    @property
+    def posecount(self):
+        return self.db.pose_count or 0
+
+    @posecount.setter
+    def posecount(self, val):
+        self.db.pose_count = val
+
+    def announce_move_from(self, destination):
+        """
+        Called if the move is to be announced. This is
+        called while we are still standing in the old
+        location.
+        Args:
+            destination (Object): The place we are going to.
+        """
+        if not self.location:
+            return
+        string = "%s is leaving, heading for %s."
+        for obj in self.location.contents:
+            if obj != self:
+                obj.msg(string % (self.get_display_name(obj),
+                                  destination.get_display_name(obj)))
+
+    def announce_move_to(self, source_location):
+        """
+        Called after the move if the move was not quiet. At this point
+        we are standing in the new location.
+        Args:
+            source_location (Object): The place we came from
+        """
+
+        if not source_location and self.location.has_player:
+            # This was created from nowhere and added to a player's
+            # inventory; it's probably the result of a create command.
+            string = "You now have %s in your possession." % self.get_display_name(self.location)
+            self.location.msg(string)
+            return
+
+        string = "%s arrives%s."
+        for obj in self.location.contents:
+            if obj != self:
+                obj.msg(string % (self.get_display_name(obj),
+                                  " from %s" % source_location.get_display_name(obj) if source_location else ""))
+
+    @property
+    def can_crit(self):
+        try:
+            if self.roster.roster.name == "Active":
+                return True
+            else:
+                return False
+        except AttributeError:
+            return False

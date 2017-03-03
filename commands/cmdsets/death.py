@@ -17,15 +17,15 @@ from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand
 
 
-
 class DeathCmdSet(CmdSet):
-    "CmdSet for players who are currently dead."    
+    """CmdSet for players who are currently dead. Should be highest priority cmdset."""
     key = "DeathCmdSet"
-    key_mergetype = {"DefaultCharacter" :"Replace"}
-    priority = 20
+    key_mergetype = {"DefaultCharacter": "Replace"}
+    priority = 200
     duplicates = False
     no_exits = True
     no_objs = True
+
     def at_cmdset_creation(self):
         """
         This is the only method defined in a cmdset, called during
@@ -59,14 +59,17 @@ class DeathCommand(MuxCommand):
     """
     key = "dead"
     locks = "cmd:all()"
+
     def func(self):
-        "Let the player know they can't do anything."
+        """Let the player know they can't do anything."""
         self.caller.msg("You are dead. You cannot do that.")
         return
+
 
 class CmdMoveOverride(DeathCommand):
     key = "movement"
     aliases = ["n", "s", "w", "e"]
+
 
 class CmdGet(DeathCommand):
     """
@@ -74,11 +77,13 @@ class CmdGet(DeathCommand):
     """
     key = "get"
 
+
 class CmdDrop(DeathCommand):
     """
     You are dead. Many character commands will no longer function.
     """    
     key = "drop"
+
 
 class CmdGive(DeathCommand):
     """
@@ -86,11 +91,13 @@ class CmdGive(DeathCommand):
     """    
     key = "give"
 
+
 class CmdSay(DeathCommand):
     """
     You are dead. Many character commands will no longer function.
     """   
     key = "say"
+
 
 class CmdWhisper(DeathCommand):
     """
@@ -98,11 +105,13 @@ class CmdWhisper(DeathCommand):
     """
     key = "whisper"
 
+
 class CmdFollow(DeathCommand):
     """
     You are dead. Many character commands will no longer function.
     """
     key = "follow"
+
 
 class CmdDitch(DeathCommand):
     """
@@ -110,9 +119,9 @@ class CmdDitch(DeathCommand):
     """
     key = "ditch"
 
+
 class CmdShout(DeathCommand):
     """
     You are dead. Many character commands will no longer function.
     """
     key = "shout"
- 

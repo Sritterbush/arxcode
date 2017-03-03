@@ -15,6 +15,8 @@
 (function () {
 "use strict"
 
+
+var options = {};
 //
 // GUI Elements
 //
@@ -70,6 +72,34 @@ var input_history = function() {
             scratch: scratch}
 }();
 
+function openPopup(dialogname, content) {
+    var dialog = $(dialogname);
+    if (!dialog.length) {
+        console.log("Dialog " + renderto + " not found.");
+        return;
+    }
+
+    if (content) {
+        var contentel = dialog.find(".dialogcontent");
+        contentel.html(content);
+    }
+    dialog.show();
+}
+
+function closePopup(dialogname) {
+    var dialog = $(dialogname);
+    dialog.hide();
+}
+
+function togglePopup(dialogname, content) {
+    var dialog = $(dialogname);
+    if (dialog.css('display') == 'none') {
+        openPopup(dialogname, content);
+    } else {
+        closePopup(dialogname);
+    }
+}
+
 //
 // GUI Event Handlers
 //
@@ -87,20 +117,40 @@ function doSendText() {
     }
     var inputfield = $("#inputfield");
     var outtext = inputfield.val();
-    if (outtext.length > 7 && outtext.substr(0, 7) == "##send ") {
-        // send a specific oob instruction ["cmdname",[args],{kwargs}]
-        outtext = outtext.slice(7);
-        var cmdarr = JSON.parse(outtext);
-        var cmdname = cmdarr[0];
-        var args = cmdarr[1];
-        var kwargs = cmdarr[2];
-        log(cmdname, args, kwargs);
-        Evennia.msg(cmdname, args, kwargs);
-    } else {
-        input_history.add(outtext);
-        inputfield.val("");
-        Evennia.msg("text", [outtext], {});
+    var lines = outtext.trim().replace(/[\r]+/,"\n").replace(/[\n]+/, "\n").split("\n");
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (line.length > 7 && line.substr(0, 7) == "##send ") {
+            // send a specific oob instruction ["cmdname",[args],{kwargs}]
+            line = line.slice(7);
+            var cmdarr = JSON.parse(line);
+            var cmdname = cmdarr[0];
+            var args = cmdarr[1];
+            var kwargs = cmdarr[2];
+            log(cmdname, args, kwargs);
+            Evennia.msg(cmdname, args, kwargs);
+        } else {
+            input_history.add(line);
+            inputfield.val("");
+            Evennia.msg("text", [line], {});
+        }
     }
+}
+
+// Opens the options dialog
+function doOpenOptions() {
+    if (!Evennia.isConnected()) {
+        alert("You need to be connected.");
+        return;
+    }
+
+    togglePopup("#optionsdialog");
+}
+
+// Closes the currently open dialog
+function doCloseDialog(event) {
+    var dialog = $(event.target).closest(".dialog");
+    dialog.hide();
 }
 
 // catch all keyboard input, handle special chars
@@ -122,6 +172,11 @@ function onKeydown (event) {
         else if (code === 40) { // Arrow down
             history_entry = input_history.fwd();
         }
+    }
+
+    if (code === 27) { // Escape key
+        closePopup("#optionsdialog");
+        closePopup("#helpdialog");
     }
 
     if (history_entry !== null) {
@@ -197,12 +252,25 @@ function doWindowResize() {
 function onText(args, kwargs) {
     // append message to previous ones, then scroll so latest is at
     // the bottom. Send 'cls' kwarg to modify the output class.
-    var mwin = $("#messagewindow");
-    var cls = kwargs == null ? 'out' : kwargs['cls'];
-    mwin.append("<div class='" + cls + "'>" + args[0] + "</div>");
-    mwin.animate({
-        scrollTop: document.getElementById("messagewindow").scrollHeight
-    }, 0);
+    var renderto = "main";
+    if (kwargs["type"] == "help") {
+        if (("helppopup" in options) && (options["helppopup"])) {
+            renderto = "#helpdialog";
+        }
+    }
+
+    if (renderto == "main") {
+        var mwin = $("#messagewindow");
+        var cls = kwargs == null ? 'out' : kwargs['cls'];
+        mwin.append("<div class='" + cls + "'>" + args[0] + "</div>");
+        mwin.animate({
+            scrollTop: document.getElementById("messagewindow").scrollHeight
+        }, 0);
+
+        onNewLine(args[0], null);
+    } else {
+        openPopup(renderto, args[0]);
+    }
 }
 
 // Handle prompt output from the server
@@ -212,6 +280,42 @@ function onPrompt(args, kwargs) {
         .addClass("out")
         .html(args[0]);
     doWindowResize();
+
+    // also display the prompt in the output window if gagging is disabled
+    if (("gagprompt" in options) && (!options["gagprompt"])) {
+        onText(args, kwargs);
+    }
+}
+
+// Called when the user logged in
+function onLoggedIn() {
+    Evennia.msg("webclient_options", [], {});
+}
+
+// Called when a setting changed
+function onGotOptions(args, kwargs) {
+    options = kwargs;
+
+    $.each(kwargs, function(key, value) {
+        var elem = $("[data-setting='" + key + "']");
+        if (elem.length === 0) {
+            console.log("Could not find option: " + key);
+        } else {
+            elem.prop('checked', value);
+        };
+    });
+}
+
+// Called when the user changed a setting from the interface
+function onOptionCheckboxChanged() {
+    var name = $(this).data("setting");
+    var value = this.checked;
+
+    var changedoptions = {};
+    changedoptions[name] = value;
+    Evennia.msg("webclient_options", [], changedoptions);
+
+    options[name] = value;
 }
 
 // Silences events we don't do anything with.
@@ -241,14 +345,102 @@ function onBeforeUnload() {
     return "You are about to leave the game. Please confirm.";
 }
 
+// Notifications
+var unread = 0;
+var originalTitle = document.title;
+var focused = true;
+var favico;
+
+function onBlur(e) {
+  focused = false;
+}
+
+// Notifications for unfocused window
+function onFocus(e) {
+  focused = true;
+  document.title = originalTitle;
+  unread = 0;
+  favico.badge(0);
+}
+
+function onNewLine(text, originator) {
+  if(!focused) {
+    // Changes unfocused browser tab title to number of unread messages
+    unread++;
+    favico.badge(unread);
+    document.title = "(" + unread + ") " + originalTitle;
+
+    if (("notification_popup" in options) && (options["notification_popup"])) {
+        Notification.requestPermission().then(function(result) {
+            if(result === "granted") {
+            var title = originalTitle === "" ? "Evennia" : originalTitle;
+            var options = {
+                body: text.replace(/(<([^>]+)>)/ig,""),
+                icon: "/static/website/images/evennia_logo.png"
+            }
+
+            var n = new Notification(title, options);
+            n.onclick = function(e) {
+                e.preventDefault();
+                 window.focus();
+                 this.close();
+            }
+          }
+        });
+    }
+    if (("notification_sound" in options) && (options["notification_sound"])) {
+        var audio = new Audio("/static/webclient/media/notification.wav");
+        audio.play();
+    }
+  }
+}
+
+// User clicked on a dialog to drag it
+function doStartDragDialog(event) {
+    var dialog = $(event.target).closest(".dialog");
+    dialog.css('cursor', 'move');
+
+    var position = dialog.offset();
+    var diffx = event.pageX;
+    var diffy = event.pageY;
+
+    var drag = function(event) {
+        var y = position.top + event.pageY - diffy;
+        var x = position.left + event.pageX - diffx;
+        dialog.offset({top: y, left: x});
+    };
+
+    var undrag = function() {
+        $(document).unbind("mousemove", drag);
+        $(document).unbind("mouseup", undrag);
+        dialog.css('cursor', '');
+    }
+
+    $(document).bind("mousemove", drag);
+    $(document).bind("mouseup", undrag);
+}
+
 //
 // Register Events
 //
 
 // Event when client finishes loading
 $(document).ready(function() {
+
+    Notification.requestPermission();
+
+    favico = new Favico({
+      animation: 'none'
+    });
+
     // Event when client window changes
     $(window).bind("resize", doWindowResize);
+
+    $(window).blur(onBlur);
+    $(window).focus(onFocus);
+
+    //$(document).on("visibilitychange", onVisibilityChange);
+
     $("#inputfield").bind("resize", doWindowResize)
         .keypress(onKeyPress)
         .bind("paste", resizeInputField)
@@ -261,6 +453,18 @@ $(document).ready(function() {
     // Pressing the send button
     $("#inputsend").bind("click", doSendText);
 
+    // Pressing the settings button
+    $("#optionsbutton").bind("click", doOpenOptions);
+
+    // Checking a checkbox in the settings dialog
+    $("[data-setting]").bind("change", onOptionCheckboxChanged);
+
+    // Pressing the close button on a dialog
+    $(".dialogclose").bind("click", doCloseDialog);
+
+    // Makes dialogs draggable
+    $(".dialogtitle").bind("mousedown", doStartDragDialog);
+
     // This is safe to call, it will always only
     // initialize once.
     Evennia.init();
@@ -269,6 +473,8 @@ $(document).ready(function() {
     Evennia.emitter.on("prompt", onPrompt);
     Evennia.emitter.on("default", onDefault);
     Evennia.emitter.on("connection_close", onConnectionClose);
+    Evennia.emitter.on("logged_in", onLoggedIn);
+    Evennia.emitter.on("webclient_options", onGotOptions);
     // silence currently unused events
     Evennia.emitter.on("connection_open", onSilence);
     Evennia.emitter.on("connection_error", onSilence);
@@ -288,6 +494,8 @@ $(document).ready(function() {
     },
     60000*3
     );
+
+
 });
 
 })();

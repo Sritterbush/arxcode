@@ -1,43 +1,38 @@
 # Views for our character app
 # __init__.py for character configures cloudinary
-
+from django.db.models import Q
 from django.http import Http404
-from django.shortcuts import render, render_to_response
-from django.template import RequestContext
+from django.shortcuts import render
 from django.http import HttpResponseRedirect, HttpResponse
 from django.core.urlresolvers import reverse
-from django.conf import settings
-
-from evennia.utils.search import object_search
-from evennia.utils.utils import inherits_from
+from typeclasses.characters import Character
 from evennia.objects.models import ObjectDB
 from world.dominion.models import Organization
 from commands.commands import roster
-import cloudinary, cloudinary.uploader, cloudinary.forms
+import cloudinary
+import cloudinary.uploader
+import cloudinary.forms
 from cloudinary import api
 from .forms import (PhotoForm, PhotoDirectForm, PhotoUnsignedDirectForm, PortraitSelectForm,
-                   PhotoDeleteForm, PhotoEditForm)
-from .models import Photo, Story, Chapter, Episode
+                    PhotoDeleteForm, PhotoEditForm)
+from .models import Photo, Story, Episode
 from cloudinary.forms import cl_init_js_callbacks
 import json
 from django.views.decorators.csrf import csrf_exempt
-from django import forms
-from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from server.utils.name_paginator import NamePaginator
 from django.views.generic import ListView
 
+
 def get_character_from_ob(object_id):
-    "Helper function to get a character, run checks, return character + error messages"
-    object_id = '#' + object_id
+    """Helper function to get a character, run checks, return character + error messages"""
     character = None
     err_message = None
     try:
-        character = object_search(object_id)[0]
-    except IndexError:
+        character = Character.objects.get(id=object_id)
+    except Character.DoesNotExist:
         err_message = "I couldn't find a character with that ID."
-    if not inherits_from(character, settings.BASE_CHARACTER_TYPECLASS):
-        err_message = "No character with that ID. Found something else instead."
     return character, err_message
+
 
 def comment(request, object_id):
     """
@@ -51,10 +46,11 @@ def comment(request, object_id):
     roster.create_comment(send_charob, rec_charob, comment_txt)
     return HttpResponseRedirect(reverse('character:sheet', args=(object_id,)))
 
+
 def sheet(request, object_id):
     """
     Displays a character sheet, and is used as the primary
-    'wiki' page for a character. 
+    'wiki' page for a character.
     """
     character, err = get_character_from_ob(object_id)
     if not character:
@@ -71,7 +67,7 @@ def sheet(request, object_id):
             if user.db.char_ob.id != character.id:
                 can_comment = True
         # if we're logged in as a player without a character assigned somehow
-        except Exception:
+        except AttributeError:
             pass
     if not show_hidden and (hasattr(character, 'roster') and
                             character.roster.roster.name == "Unavailable"):
@@ -87,13 +83,15 @@ def sheet(request, object_id):
         family_org_id = Organization.objects.get(name__iexact=character.db.family)
     except Organization.DoesNotExist:
         family_org_id = None
-    return render(request, 'character/sheet.html', { 'character': character,
-                                                     'show_hidden': show_hidden,
-                                                     'can_comment': can_comment,
-                                                     'pheight': pheight,
-                                                     'pwidth': pwidth,
-                                                     'fealty_org_id': fealty_org_id,
-                                                     'family_org_id': family_org_id,})
+    return render(request, 'character/sheet.html', {'character': character,
+                                                    'show_hidden': show_hidden,
+                                                    'can_comment': can_comment,
+                                                    'pheight': pheight,
+                                                    'pwidth': pwidth,
+                                                    'fealty_org_id': fealty_org_id,
+                                                    'family_org_id': family_org_id,
+                                                    'page_title': character.key})
+
 
 def journals(request, object_id):
     """
@@ -116,11 +114,82 @@ def journals(request, object_id):
     white_journal = character.messages.white_journal
     black_journal = character.messages.black_journal
 
-    return render(request, 'character/journals.html', { 'character': character,
-                                                     'show_hidden': show_hidden,
-                                                     'white_journal': white_journal,
-                                                     'black_journal': black_journal,
-                                                     })
+    return render(request, 'character/journals.html', {'character': character,
+                                                       'show_hidden': show_hidden,
+                                                       'white_journal': white_journal,
+                                                       'black_journal': black_journal,
+                                                       'page_title': '%s Journals' % character.key
+                                                       })
+
+API_CACHE = None
+
+
+def character_list(request):
+    def get_relations(char):
+        def parse_name(relation):
+            if relation.player:
+                char_ob = relation.player.db.char_ob
+                return "%s %s" % (char_ob.key, char_ob.db.family)
+            else:
+                return str(relation)
+        try:
+            dom = char.db.player_ob.Dominion
+            parents = []
+            uncles_aunts = []
+            for parent in dom.all_parents:
+                parents.append(parent)
+                for sibling in parent.siblings:
+                    uncles_aunts.append(sibling)
+                    for spouse in sibling.spouses.all():
+                        uncles_aunts.append(spouse)
+
+            unc_or_aunts = set(uncles_aunts)
+            relations = {
+                'parents': [parse_name(ob) for ob in parents],
+                'siblings': list(parse_name(ob) for ob in dom.siblings),
+                'uncles_aunts': list(parse_name(ob) for ob in unc_or_aunts),
+                'cousins': list(parse_name(ob) for ob in dom.cousins)
+            }
+            return relations
+        except AttributeError:
+            return {}
+
+    def get_dict(char):
+        character = {}
+        if char.db.player_ob.is_staff or char.db.npc:
+            return character
+        character = {
+            'name': char.key,
+            'social_rank': char.db.social_rank,
+            'fealty': char.db.fealty,
+            'house': char.db.family,
+            'relations': get_relations(char),
+            'gender': char.db.gender,
+            'age': char.db.age,
+            'religion': char.db.religion,
+            'vocation': char.db.vocation,
+            'height': char.db.height,
+            'hair_color': char.db.haircolor,
+            'eye_color': char.db.eyecolor,
+            'skintone': char.db.skintone,
+            'description': char.desc,
+            'personality': char.db.personality,
+            'background': char.db.background,
+            'status': char.roster.roster.name,
+            'longname': char.db.longname
+        }
+        try:
+            if char.portrait:
+                character['image'] = char.portrait.image.url
+        except (Photo.DoesNotExist, AttributeError):
+            pass
+        return character
+    global API_CACHE
+    if not API_CACHE:
+        ret = map(get_dict, Character.objects.filter(Q(roster__roster__name="Active") |
+                                                     Q(roster__roster__name="Available")))
+        API_CACHE = json.dumps(ret)
+    return HttpResponse(API_CACHE, content_type='application/json')
 
 
 class RosterListView(ListView):
@@ -129,8 +198,10 @@ class RosterListView(ListView):
     paginator_class = NamePaginator
     paginate_by = 20
     roster_name = "Active"
+
     def get_queryset(self):
         return ObjectDB.objects.filter(roster__roster__name=self.roster_name).order_by('db_key')
+
     def get_context_data(self, **kwargs):
         context = super(RosterListView, self).get_context_data(**kwargs)
         user = self.request.user
@@ -139,28 +210,42 @@ class RosterListView(ListView):
             show_hidden = True
         context['show_hidden'] = show_hidden
         context['roster_name'] = self.roster_name
+        context['page_title'] = "%s Roster" % self.roster_name
         return context
+
 
 class ActiveRosterListView(RosterListView):
     pass
 
+
 class AvailableRosterListView(RosterListView):
     roster_name = "Available"
 
+
+class GoneRosterListView(RosterListView):
+    roster_name = "Gone"
+
+
 class IncompleteRosterListView(RosterListView):
     roster_name = "Incomplete"
+
     def get_queryset(self):
         user = self.request.user
         if not (user.is_authenticated() and user.check_permstring("builders")):
             raise Http404("Not staff")
         return super(IncompleteRosterListView, self).get_queryset()
 
+
 class UnavailableRosterListView(IncompleteRosterListView):
     roster_name = "Unavailable"
 
 
+class InactiveRosterListView(IncompleteRosterListView):
+    roster_name = "Inactive"
+
+
 def gallery(request, object_id):
-    "List photos that belong to object_id"
+    """"List photos that belong to object_id"""
     character, err = get_character_from_ob(object_id)
     if not character:
         raise Http404(err)
@@ -168,7 +253,7 @@ def gallery(request, object_id):
     can_upload = False
     if user.is_authenticated() and (user.db.char_ob == character or user.is_staff):
         can_upload = True
-    photos = Photo.objects.filter(owner__id = object_id)
+    photos = Photo.objects.filter(owner__id=object_id)
     portrait_form = PortraitSelectForm(object_id)
     edit_form = PhotoEditForm(object_id)
     delete_form = PhotoDeleteForm(object_id)
@@ -178,7 +263,9 @@ def gallery(request, object_id):
                                                       'can_upload': can_upload, 'portrait_form': portrait_form,
                                                       'edit_form': edit_form, 'delete_form': delete_form,
                                                       'pheight': pheight, 'pwidth': pwidth,
+                                                      'page_title': 'Gallery: %s' % character.key
                                                       })
+
 
 def edit_photo(request, object_id):
     character, err = get_character_from_ob(object_id)
@@ -200,6 +287,7 @@ def edit_photo(request, object_id):
         character.db.portrait = photo
     return HttpResponseRedirect(reverse('character:gallery', args=(object_id,)))
 
+
 def delete_photo(request, object_id):
     character, err = get_character_from_ob(object_id)
     user = request.user
@@ -217,6 +305,7 @@ def delete_photo(request, object_id):
     photo.delete()
     return HttpResponseRedirect(reverse('character:gallery', args=(object_id,)))
 
+
 def select_portrait(request, object_id):
     """
     Chooses a photo as character portrait
@@ -228,7 +317,7 @@ def select_portrait(request, object_id):
         portrait = Photo.objects.get(pk=request.POST['select_portrait'])
         height = request.POST['portrait_height']
         width = request.POST['portrait_width']
-    except Exception:
+    except (Photo.DoesNotExist, KeyError, AttributeError):
         portrait = None
         height = None
         width = None
@@ -237,10 +326,10 @@ def select_portrait(request, object_id):
     try:
         character.roster.profile_picture = portrait
         character.roster.save()
-    except Exception:
+    except AttributeError:
         pass
     return HttpResponseRedirect(reverse('character:gallery', args=(object_id,)))
-                                                       
+
 
 def upload(request, object_id):
     user = request.user
@@ -250,27 +339,30 @@ def upload(request, object_id):
     if not user.is_authenticated() or (user.db.char_ob != character and not user.is_staff):
         raise Http404("You are not permitted to upload to this gallery.")
     unsigned = request.GET.get("unsigned") == "true"
-    
-    if (unsigned):
-        # For the sake of simplicity of the sample site, we generate the preset on the fly. It only needs to be created once, in advance.
+
+    if unsigned:
+        # For the sake of simplicity of the sample site, we generate the preset on the fly.
+        #  It only needs to be created once, in advance.
         try:
             api.upload_preset(PhotoUnsignedDirectForm.upload_preset_name)
         except api.NotFound:
-            api.create_upload_preset(name=PhotoUnsignedDirectForm.upload_preset_name, unsigned=True, folder="preset_folder")
-            
+            api.create_upload_preset(name=PhotoUnsignedDirectForm.upload_preset_name, unsigned=True,
+                                     folder="preset_folder")
+
     direct_form = PhotoUnsignedDirectForm() if unsigned else PhotoDirectForm()
     context = dict(
         # Form demonstrating backend upload
-        backend_form = PhotoForm(),
+        backend_form=PhotoForm(),
         # Form demonstrating direct upload
-        direct_form = direct_form,
+        direct_form=direct_form,
         # Should the upload form be unsigned
-        unsigned = unsigned,
+        unsigned=unsigned,
     )
     # When using direct upload - the following call in necessary to update the
     # form's callback url
     cl_init_js_callbacks(context['direct_form'], request)
     context['character'] = character
+    context['page_title'] = 'Upload'
     if request.method == 'POST':
         # Only backend upload should be posting here
         owner_char = Photo(owner=character)
@@ -285,30 +377,35 @@ def upload(request, object_id):
 
     return render(request, 'character/upload.html', context)
 
+
 @csrf_exempt
 def direct_upload_complete(request, object_id):
     character, err = get_character_from_ob(object_id)
     if not character:
         raise Http404(err)
-    owner_char = Photo(owner = character)
+    owner_char = Photo(owner=character)
     form = PhotoDirectForm(request.POST, instance=owner_char)
     if form.is_valid():
         # Create a model instance for uploaded image using the provided data
         form.save()
-        ret = dict(photo_id = form.instance.id)
+        ret = dict(photo_id=form.instance.id)
     else:
-        ret = dict(errors = form.errors)
+        ret = dict(errors=form.errors)
 
     return HttpResponse(json.dumps(ret), content_type='application/json')
+
 
 def current_story(request):
     story = Story.objects.latest('start_date')
     chapters = story.previous_chapters.order_by('-start_date')
-    return render(request, 'character/story.html', { 'story': story, 'chapters': chapters})
+    return render(request, 'character/story.html', {'story': story, 'chapters': chapters,
+                                                    'page_title': str(story)})
+
 
 def episode(request, ep_id):
     try:
-        episode = Episode.objects.get(id=ep_id)
+        new_episode = Episode.objects.get(id=ep_id)
     except Episode.DoesNotExist:
         raise Http404
-    return render(request, 'character/episode.html', {'episode': episode})
+    return render(request, 'character/episode.html', {'episode': new_episode,
+                                                      'page_title': str(new_episode)})

@@ -67,10 +67,10 @@ Installation/testing:
 
 """
 
-import re
+
 from django.conf import settings
 from evennia.contrib.extended_room import ExtendedRoom
-from evennia import gametime
+from typeclasses.scripts import gametime
 from evennia import default_cmds
 from evennia import utils
 from evennia.utils.utils import lazy_property
@@ -91,19 +91,56 @@ SHOPCMD = "cmdsets.home.ShopCmdSet"
 
 # implements the Extended Room
 
+# noinspection PyUnresolvedReferences
 class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
     """
     This room implements a more advanced look functionality depending on
     time. It also allows for "details", together with a slightly modified
     look command.
     """
+    def get_time_and_season(self):
+        """
+        Calculate the current time and season ids.
+        """
+        # get the current time as parts of year and parts of day
+        # returns a tuple (years,months,weeks,days,hours,minutes,sec)
+        MONTHS_PER_YEAR = 12
+        SEASONAL_BOUNDARIES = (3 / 12.0, 6 / 12.0, 9 / 12.0)
+        HOURS_PER_DAY = 24
+        DAY_BOUNDARIES = (0, 6 / 24.0, 12 / 24.0, 18 / 24.0)
+        time = gametime.gametime(format=True)
+        month, hour = time[1], time[4]
+        season = float(month) / MONTHS_PER_YEAR
+        timeslot = float(hour) / HOURS_PER_DAY
+
+        # figure out which slots these represent
+        if SEASONAL_BOUNDARIES[0] <= season < SEASONAL_BOUNDARIES[1]:
+            curr_season = "spring"
+        elif SEASONAL_BOUNDARIES[1] <= season < SEASONAL_BOUNDARIES[2]:
+            curr_season = "summer"
+        elif SEASONAL_BOUNDARIES[2] <= season < 1.0 + SEASONAL_BOUNDARIES[0]:
+            curr_season = "autumn"
+        else:
+            curr_season = "winter"
+
+        if DAY_BOUNDARIES[0] <= timeslot < DAY_BOUNDARIES[1]:
+            curr_timeslot = "night"
+        elif DAY_BOUNDARIES[1] <= timeslot < DAY_BOUNDARIES[2]:
+            curr_timeslot = "morning"
+        elif DAY_BOUNDARIES[2] <= timeslot < DAY_BOUNDARIES[3]:
+            curr_timeslot = "afternoon"
+        else:
+            curr_timeslot = "evening"
+        return curr_season, curr_timeslot
 
     @property
     def is_room(self):
         return True
+
     @property
     def is_character(self):
         return False
+
     @property
     def is_exit(self):
         return False
@@ -113,24 +150,25 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
         return MessageHandler(self)
         
     def get_visible_characters(self, pobject):
-        "Returns a list of visible characters in a room."
-        char_list = [ob for ob in self.contents if ob.is_character and ob.player]
+        """Returns a list of visible characters in a room."""
+        char_list = [ob for ob in self.contents if hasattr(ob, "is_character") and ob.is_character and ob.player]
         return [char for char in char_list if char.access(pobject, "view")]
 
-    def return_appearance(self, looker, detailed=False, format_desc=True):
-        "This is called when e.g. the look command wants to retrieve the description of this object."
+    def return_appearance(self, looker, detailed=False, format_desc=True, show_contents=True):
+        """This is called when e.g. the look command wants to retrieve the description of this object."""
         # update desc
         super(ArxRoom, self).return_appearance(looker)
         # return updated desc plus other stuff
-        return AppearanceMixins.return_appearance(self, looker, detailed, format_desc) + self.command_string() + self.event_string()
+        return (AppearanceMixins.return_appearance(self, looker, detailed, format_desc)
+                + self.command_string() + self.mood_string + self.event_string())
     
     def _current_event(self):
         if not self.db.current_event:
             return None
+        from world.dominion.models import RPEvent
         try:
-            from world.dominion.models import RPEvent
             return RPEvent.objects.get(id=self.db.current_event)
-        except Exception:
+        except (RPEvent.DoesNotExist, ValueError, TypeError):
             return None
     event = property(_current_event)
 
@@ -155,6 +193,8 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
             largesse = "extravagant"
         elif event.celebration_tier == 5:
             largesse = "legendary"
+        else:
+            largesse = "Undefined"
         msg += "\n{wScale of the Event:{n %s" % largesse
         msg += "\n{rEvent logging is currently turned on in this room.{n\n"
         desc = event.room_desc
@@ -162,27 +202,58 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
             msg += "\n" + desc + "\n"
         return msg
 
+    def start_event_logging(self, event):
+        self.msg_contents("{rEvent logging is now on for this room.{n")
+        self.tags.add("logging event")
+        self.db.current_event = event.id
+
+    def stop_event_logging(self):
+        self.tags.remove("logging event")
+        self.attributes.remove("current_event")
+        self.msg_contents("{rEvent logging is now off for this room.{n")
+
     def command_string(self):
         msg = ""
-        if "shop" in self.tags.all():
+        tags = self.tags.all()
+        if "shop" in tags:
             msg += "\n    {wYou can {c+shop{w here.{n"
-        if "bank" in self.tags.all():
+        if "bank" in tags:
             msg += "\n    {wYou can {c+bank{w here.{n"
+        if "nonlethal_combat" in tags:
+            msg += "\n{wCombat in this room is non-lethal."
+        return msg
+
+    @property
+    def mood_string(self):
+        import time
+        msg = ""
+        mood = self.db.room_mood
+        try:
+            created = mood[1]
+            if time.time() - created > 86400:
+                self.attributes.remove('room_mood')
+            else:
+                msg = "\n{wCurrent Room Mood:{n " + mood[2]
+        except (IndexError, ValueError, TypeError):
+            msg = ""
         return msg
 
     def _homeowners(self):
         return self.db.owners or []
     homeowners = property(_homeowners)
+
     def give_key(self, char):
         keylist = char.db.keylist or []
         if self not in keylist:
             keylist.append(self)
         char.db.keylist = keylist
+
     def remove_key(self, char):
         keylist = char.db.keylist or []
         if self in keylist:
             keylist.remove(self)
         char.db.keylist = keylist
+
     def add_homeowner(self, char, sethomespace=True):
         owners = self.db.owners or []
         if char not in owners:
@@ -192,6 +263,7 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
         if sethomespace:
             char.home = self
             char.save()
+
     def remove_homeowner(self, char):
         owners = self.db.owners or []
         if char in owners:
@@ -213,14 +285,14 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
             ent.locks.add("usekey: perm(builders) or roomkey(%s)" % self.id)
         if "HomeCmdSet" not in [ob.key for ob in self.cmdset.all()]:
             self.cmdset.add(HOMECMD, permanent=True)
+        from world.dominion.models import AssetOwner
         try:
             # add our room owner as a homeowner if they're a player
-            from game.dominion.models import AssetOwner
             aowner = AssetOwner.objects.get(id=self.db.room_owner)
             char = aowner.player.player.db.char_ob
             if char not in owners:
                 self.add_homeowner(char, False)
-        except Exception:
+        except (AttributeError, AssetOwner.DoesNotExist, ValueError, TypeError):
             pass
 
     def del_home(self):
@@ -244,8 +316,8 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
         self.db.item_prices = {}
 
     def return_inventory(self):
-        for id in self.db.item_prices or {}:
-            obj = ObjectDB.objects.get(id=id)
+        for o_id in self.db.item_prices or {}:
+            obj = ObjectDB.objects.get(id=o_id)
             obj.move_to(self.db.shopowner)
 
     def del_shop(self):
@@ -258,7 +330,7 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
         self.attributes.remove("blacklist")
         self.attributes.remove("shopowner")
 
-    def msg_contents(self, text=None, exclude=None, from_obj=None, **kwargs):
+    def msg_contents(self, message, exclude=None, from_obj=None, mapping=None, **kwargs):
         """
         Emits something to all objects inside an object.
 
@@ -278,16 +350,14 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
                 event_script = ScriptDB.objects.get(db_key="Event Manager")
                 ooc = options.get('ooc_note', False)
                 if gm_only or ooc:
-                    event_script.add_gmnote(eventid, text)
+                    event_script.add_gmnote(eventid, message)
                 else:
-                    event_script.add_msg(eventid, text, from_obj)
+                    event_script.add_msg(eventid, message, from_obj)
             except ScriptDB.DoesNotExist:
                 if from_obj:
                     from_obj.msg("Error: Event Manager not found.")
-        super(ArxRoom, self).msg_contents(text, exclude=exclude,
-                                from_obj=from_obj, **kwargs)
+        super(ArxRoom, self).msg_contents(message, exclude=exclude, from_obj=from_obj, mapping=mapping, **kwargs)
 
-        
 
 class CmdExtendedLook(default_cmds.CmdLook):
     """
@@ -302,6 +372,19 @@ class CmdExtendedLook(default_cmds.CmdLook):
     Observes your location, details at your location or objects in your vicinity.
     """
     arg_regex = r'\/|\s|$'
+    # remove 'ls' alias because it just causes collisions with exit aliases
+    aliases = ["l"]
+
+    def check_detail(self):
+        caller = self.caller
+        location = caller.location
+        if location and hasattr(location, "return_detail") and callable(location.return_detail):
+            detail = location.return_detail(self.args)
+            if detail:
+                # we found a detail instead. Show that.
+                caller.msg(detail)
+                return True
+
     def func(self):
         """
         Handle the looking - add fallback to details.
@@ -322,13 +405,8 @@ class CmdExtendedLook(default_cmds.CmdLook):
             if not looking_at_obj:
                 # no object found. Check if there is a matching
                 # detail at location.
-                location = caller.location
-                if location and hasattr(location, "return_detail") and callable(location.return_detail):
-                    detail = location.return_detail(args)
-                    if detail:
-                        # we found a detail instead. Show that.
-                        caller.msg(detail)
-                        return
+                if self.check_detail():
+                    return
                 # no detail found. Trigger delayed error messages
                 _AT_SEARCH_RESULT(looking_at_obj, caller, args, False)
                 return
@@ -336,6 +414,7 @@ class CmdExtendedLook(default_cmds.CmdLook):
                 # we need to extract the match manually.
                 if len(utils.make_iter(looking_at_obj)) > 1:
                     _AT_SEARCH_RESULT(looking_at_obj, caller, args, False)
+                    self.check_detail()
                     return
                 looking_at_obj = utils.make_iter(looking_at_obj)[0]
         else:
@@ -349,37 +428,49 @@ class CmdExtendedLook(default_cmds.CmdLook):
             looking_at_obj = looking_at_obj.character
         if not looking_at_obj.access(caller, "view"):
             caller.msg("Could not find '%s'." % args)
+            self.check_detail()
             return
         # get object's appearance
         desc = looking_at_obj.return_appearance(caller, detailed=False)
         # if it's a written object, we'll paginate the description
         if looking_at_obj.db.written:
-            from evennia.utils import evmore
+            from server.utils import arx_more
             desc = desc.replace('%r', '\n')
-            evmore.msg(caller, desc)
+            arx_more.msg(caller, desc, pages_by_char=True)
         else:
             caller.msg(desc)
         # the object's at_desc() method.
         looking_at_obj.at_desc(looker=caller)
+        self.check_detail()
+
 
 class CmdStudyRawAnsi(default_cmds.MuxCommand):
     """
     prints raw ansi codes for a name
     Usage:
-        @study <obj>
+        @study <obj>[=<player to send it to>]
 
     Prints raw ansi.
     """
     key = "@study"
     locks = "cmd:all()"
+
     def func(self):
         caller = self.caller
         ob = caller.search(self.lhs)
         if not ob:
             return
-        from evennia.utils.ansi import raw
-        caller.msg("Escaped name: %s" % raw(ob.name))
-        caller.msg("Escaped desc: %s" % raw(ob.return_appearance(caller, detailed=False)))
+        targ = caller.player
+        if self.rhs:
+            targ = targ.search(self.rhs)
+            if not targ:
+                return
+        from server.utils.arx_utils import raw
+        if targ != caller:
+            targ.msg("%s sent you this @study on %s: " % (caller, ob))
+            caller.msg("Sent to %s." % targ)
+        targ.msg("Escaped name: %s" % raw(ob.name))
+        targ.msg("Escaped desc: %s" % raw(ob.return_appearance(caller, detailed=False)))
 
 
 # Custom build commands for setting seasonal descriptions
@@ -424,13 +515,14 @@ class CmdExtendedDesc(default_cmds.CmdDesc):
     """
     aliases = ["@describe", "@detail"]
 
-    def reset_times(self, obj):
-        "By deleteting the caches we force a re-load."
+    @staticmethod
+    def reset_times(obj):
+        """By deleteting the caches we force a re-load."""
         obj.ndb.last_season = None
         obj.ndb.last_timeslot = None
 
     def func(self):
-        "Define extended command"
+        """Define extended command"""
         caller = self.caller
         location = caller.location
         if self.cmdstring == '@detail':
@@ -445,7 +537,8 @@ class CmdExtendedDesc(default_cmds.CmdDesc):
             if not self.args:
                 # No args given. Return all details on location
                 string = "{wDetails on %s{n:\n" % location
-                string += "\n".join(" {w%s{n: %s" % (key, utils.crop(text)) for key, text in location.db.details.items())
+                string += "\n".join(" {w%s{n: %s" % (
+                    key, utils.crop(text)) for key, text in location.db.details.items())
                 caller.msg(string)
                 return
             if self.switches and self.switches[0] in 'del':
@@ -541,7 +634,7 @@ class CmdExtendedDesc(default_cmds.CmdDesc):
                 if not obj.access(caller, 'edit'):
                     caller.msg("You do not have permission to change the @desc of %s." % obj.name)
                     return
-                obj.desc = self.rhs # a compatability fallback
+                obj.desc = self.rhs  # a compatability fallback
                 if utils.inherits_from(obj, ExtendedRoom):
                     # this is an extendedroom, we need to reset
                     # times and set general_desc
@@ -552,9 +645,7 @@ class CmdExtendedDesc(default_cmds.CmdDesc):
                     caller.msg("The description was set on %s." % obj.key)
 
 
-
 # Simple command to view the current time and season
-
 class CmdGameTime(default_cmds.MuxCommand):
     """
     Check the game time
@@ -568,8 +659,12 @@ class CmdGameTime(default_cmds.MuxCommand):
     locks = "cmd:all()"
     help_category = "General"
 
+    # noinspection PyUnusedLocal
+    def get_help(self, caller, cmdset):
+        return self.__doc__ + "\n\nGame time moves %s faster than real time." % settings.TIME_FACTOR
+
     def func(self):
-        "Reads time info from current room"
+        """Reads time info from current room"""
         location = self.caller.location
         if not location or not hasattr(location, "get_time_and_season"):
             self.caller.msg("No location available - you are outside time.")
@@ -581,5 +676,5 @@ class CmdGameTime(default_cmds.MuxCommand):
             self.caller.msg("It's %s %s day, in the %s." % (prep, season.capitalize(), timeslot))
             time = gametime.gametime(format=True)
             hour, minute = time[4], time[5]
-            from server.utils.utils import get_date
+            from server.utils.arx_utils import get_date
             self.caller.msg("Today's date: %s. Current time: %s:%02d" % (get_date(), hour, minute))

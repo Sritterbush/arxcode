@@ -3,10 +3,8 @@ Default Typeclass for Bulletin Boards, based loosely on bboards.
 
 See objects.objects for more information on Typeclassing.
 """
-#from src.comms import Msg, TempMsg, bboardDB
 from typeclasses.objects import Object
-from datetime import datetime
-from evennia.utils.utils import datetime_format
+from evennia.comms.models import Msg
 
 
 class BBoard(Object):
@@ -14,31 +12,56 @@ class BBoard(Object):
     This is the base class for all Bulletin Boards. Inherit from this to create different
     types of communication bboards.
     """
-       
-
-    def bb_post(self, poster_obj, msg, subject="No Subject", poster_name=None):
+    @staticmethod
+    def tag_obj(post):
+        """Tags an object to show it as being a bulletin board post"""
+        tagkey = "Board Post"
+        category = "board"
+        from evennia.typeclasses.tags import Tag
+        try:
+            tag = Tag.objects.get(db_key=tagkey, db_category=category,
+                                  db_model="msg")
+        except Tag.DoesNotExist:
+            tag = Tag.objects.create(db_key=tagkey, db_category=category,
+                                     db_model="msg")
+        post.db_tags.add(tag)
+        return post
+    
+    def bb_post(self, poster_obj, msg, subject="No Subject", poster_name=None,
+                event=None, announce=True):
         """
         Post the message to the board.
         """
-        posted_by = "No One"
-        list_of_readers = []
-        if poster_name: #some form of system or script event
+        post = Msg(db_message=msg, db_header=subject)
+        post.save()
+        posted_by = "Unknown"
+        if poster_obj:
+            post.senders = poster_obj
+            post.receivers = poster_obj
+            posted_by = poster_obj
+        if poster_name:
+            post.db_sender_external = poster_name
+            post.save()
             posted_by = poster_name
-        elif poster_obj:
-            posted_by = poster_obj.key.capitalize()
-            list_of_readers.append(poster_obj)
-        date = datetime.today().strftime("%m-%d-%y")
-        time = datetime_format(datetime.now())
-        post = {'Poster': posted_by,
-                'Subject': subject,
-                'Msg': msg,
-                'Date': date,
-                'Time': time,
-                'Readers': list_of_readers}
-        self.db.posts.append(post)
-        for sub in self.db.subscriber_list:
-            notify = "\n{{wNew post on {0} by {1}:{{n {2}".format(self.key, posted_by, subject)
-            sub.msg(notify)
+        self.tag_obj(post)
+        if event:
+            event.tag_obj(post)
+        self.receiver_object_set.add(post)
+        if self.db.max_posts and self.posts.count() > self.db.max_posts:
+            posts = self.posts.exclude(db_tags__db_key="sticky_post")
+            if "archive_posts" in self.tags.all():
+                self.archive_post(posts.first())
+            else:
+                posts.first().delete()
+        if announce:
+            subs = [ob for ob in self.db.subscriber_list if self.access(ob, "read")
+                    and "no_post_notifications" not in ob.tags.all()]
+            post_num = self.posts.count()
+            for sub in subs:
+                notify = "\n{{wNew post on {0} by {1}:{{n {2}".format(self.key, posted_by, subject)
+                notify += "\nUse {w@bbread %s/%s {nto read this message." % (self.key, post_num)
+                sub.msg(notify)
+        return post
 
     def has_subscriber(self, pobj):
         if pobj in self.db.subscriber_list:
@@ -46,35 +69,41 @@ class BBoard(Object):
         else:
             return False
 
-    def num_of_unread_posts(self, pobj):
-        num_posts = 0
-        for post in self.db.posts:
-            if pobj not in post['Readers']:
-                num_posts += 1
-        return num_posts
+    def get_unread_posts(self, pobj, old=False):
+        if not old:
+            return self.posts.exclude(db_receivers_players=pobj)
+        return self.archived_posts.exclude(db_receivers_players=pobj)
 
-    def get_post(self, pobj, postnum):
+    def num_of_unread_posts(self, pobj, old=False):
+        return self.get_unread_posts(pobj, old).count()
+
+    def get_post(self, pobj, postnum, old=False):
         postnum -= 1
-        if (postnum < 0) or (postnum >= len(self.db.posts)):
+        if old:
+            posts = self.archived_posts
+        else:
+            posts = self.posts
+        if (postnum < 0) or (postnum >= len(posts)):
             pobj.msg("Invalid message number specified.")
         else:
-            return self.db.posts[postnum]
+            return list(posts)[postnum]
 
     def get_latest_post(self):
-        if self.db.posts:
-            return self.db.posts[-1]
+        try:
+            return self.posts.last()
+        except Msg.DoesNotExist:
+            return None
 
-    def get_all_posts(self):
-        return self.db.posts
+    def get_all_posts(self, old=False):
+        if not old:
+            return self.posts
+        return self.archived_posts
         
-
     def at_object_creation(self):
         """
         Run at bboard creation.
         """
         self.db.subscriber_list = []
-        self.db.posts = []
-        self.db.bboard = True
 
     def subscribe_bboard(self, joiner):
         """
@@ -98,22 +127,122 @@ class BBoard(Object):
         else:
             return False
 
-    def is_bboard(self):
-        """
-        Identifier method. All typeclasses will have some variant
-        of this going forward for doublechecking in searches.
-        """
-        return True
-
-    def delete_post(self, post_num, pobj):
+    def delete_post(self, post):
         """
         Remove post if it's inside the bulletin board.
         """
-        post_num -= 1
-        if post_num < 0 or post_num >= len(self.db.posts):
-            return False
-        del self.db.posts[post_num]
+        if post in self.posts:
+            post.delete()
+            return True
+        if post in self.archived_posts:
+            post.delete()
+            return True
+
+    def sticky_post(self, post):
+        post.tags.add("sticky_post")
         return True
 
-        pass
+    @staticmethod
+    def edit_post(post, msg):
+        post.db_message = msg
+        post.save()
+        return True
+    
+    @property
+    def posts(self):
+        return self.receiver_object_set.filter(db_tags__db_key="Board Post").exclude(db_tags__db_key="archived")
 
+    @property
+    def archived_posts(self):
+        return self.receiver_object_set.filter(db_tags__db_key="Board Post").filter(db_tags__db_key="archived")
+
+    def read_post(self, caller, post, old=False):
+        """
+        Helper function to read a single post.
+        """
+        if old:
+            posts = self.archived_posts
+        else:
+            posts = self.posts
+        # format post
+        sender = self.get_poster(post)
+        message = "\n{w" + "-"*60 + "{n\n"
+        message += "{wBoard:{n %s, {wPost Number:{n %s\n" % (self.key, list(posts).index(post) + 1)
+        message += "{wPoster:{n %s\n" % sender
+        message += "{wSubject:{n %s\n" % post.db_header
+        message += "{wDate:{n %s\n" % post.db_date_created.strftime("%x %X")
+        message += "{w" + "-"*60 + "{n\n"
+        message += post.db_message
+        message += "\n{w" + "-" * 60 + "{n\n"
+        caller.msg(message)
+        if caller.is_guest():
+            return
+        # mark it read
+        self.mark_read(caller, post)
+
+    @staticmethod
+    def archive_post(post):
+        post.tags.add("archived")
+        return True
+
+    @staticmethod
+    def mark_unarchived(post):
+        post.tags.remove("archived")
+
+    @staticmethod
+    def mark_read(caller, post):
+        post.db_receivers_players.add(caller)
+        if caller.db.bbaltread:
+            try:
+                for alt in (ob.player for ob in caller.roster.alts):
+                    post.db_receivers_players.add(alt)
+            except AttributeError:
+                pass
+
+    @staticmethod
+    def get_poster(post):
+        sender = ""
+        if post.db_sender_players.all():
+            sender += ", ".join(str(ob).capitalize() for ob in post.db_sender_players.all())
+        if post.db_sender_objects.all():
+            if sender:
+                sender += ", "
+            sender += ", ".join(str(ob).capitalize() for ob in post.db_sender_objects.all())
+        if post.db_sender_external:
+            sender = post.db_sender_external
+        if not sender:
+            sender = "No One"
+        return sender
+
+    # def convert_posts(self):
+    #     """
+    #     Helper function to convert old-style posts stored in attribute to new posts
+    #     """
+    #     try:
+    #         from server.utils.utils import broadcast
+    #         broadcast("Converting posts of board %s." % self.key)
+    #     except Exception:
+    #         pass
+    #     for post in self.db.posts:
+    #         posted_by = post['Poster']
+    #         subject = post['Subject']
+    #         msg = post['Msg']
+    #         date = post['Date']
+    #         time = post['Time']
+    #         list_of_readers = post['Readers']
+    #         from typeclasses.players import Player
+    #         try:
+    #             pobj = Player.objects.get(username__iexact=posted_by)
+    #             poster_name=None
+    #         except Player.DoesNotExist:
+    #             pobj = None
+    #             poster_name=posted_by
+    #         post_obj = self.bb_post(poster_obj=pobj, msg=msg, subject=subject,
+    #                                 poster_name=poster_name, announce=False)
+    #         for reader in list_of_readers:
+    #             try:
+    #                 post_obj.db_receivers_players.add(reader)
+    #             except Exception:
+    #                 import traceback
+    #                 traceback.print_exc()
+    #     self.attributes.remove("posts")

@@ -13,10 +13,11 @@ to add/remove commands from the default lineup. You can create your
 own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
 
 """
-
+from world.dominion import agent_commands
 from evennia import default_cmds
 from .cmdsets import standard
 from typeclasses.wearable import cmdset_wearable
+
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
     """
@@ -30,10 +31,11 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         """
         Populates the cmdset
         """
-        #super(CharacterCmdSet, self).at_cmdset_creation()
+        # super(CharacterCmdSet, self).at_cmdset_creation()
         #
         # any commands you add below will overload the default ones.
         #
+        # noinspection PyBroadException
         try:
             self.add(standard.StateIndependentCmdSet)
             self.add(standard.MobileCmdSet)
@@ -43,7 +45,6 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         except Exception:
             import traceback
             traceback.print_exc()
-
 
 
 class PlayerCmdSet(default_cmds.PlayerCmdSet):
@@ -73,7 +74,6 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
         self.add(player.CmdQuell())
         self.add(building.CmdExamine())
         # system commands
-        self.add(system.CmdReload())
         self.add(system.CmdReset())
         self.add(system.CmdShutdown())
         self.add(system.CmdPy())
@@ -85,8 +85,6 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
         # Comm commands
         self.add(comms.CmdAddCom())
         self.add(comms.CmdDelCom())
-        self.add(comms.CmdAllCom())
-        self.add(comms.CmdChannels())
         self.add(comms.CmdCemit())
         self.add(comms.CmdCWho())
         self.add(comms.CmdIRC2Chan())
@@ -109,6 +107,9 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(overrides.CmdArxClock())
             self.add(overrides.CmdArxCBoot())
             self.add(overrides.CmdArxCdesc())
+            self.add(overrides.CmdArxAllCom())
+            self.add(overrides.CmdArxChannels())
+            self.add(overrides.CmdArxReload())
         except Exception as err:
             print("<<ERROR>>: Error in overrides: %s." % err)
         try:
@@ -159,8 +160,9 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(domcommands.CmdDomain())
             self.add(domcommands.CmdFamily())
             self.add(domcommands.CmdOrganization())
-            self.add(domcommands.CmdAgents())
+            self.add(agent_commands.CmdAgents())
             self.add(domcommands.CmdPatronage())
+            self.add(agent_commands.CmdRetainers())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading Dominion cmdset in Player: %s" % err)
         try:
@@ -170,6 +172,9 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(social.CmdCalendar())
             self.add(social.CmdAFK())
             self.add(social.CmdWhere())
+            self.add(social.CmdCensus())
+            self.add(social.CmdIAmHelping())
+            self.add(social.CmdRPHooks())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading social cmdset in Player: %s" % err)
         try:
@@ -180,6 +185,12 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(staff_commands.CmdAskStaff())
             self.add(staff_commands.CmdListStaff())
             self.add(staff_commands.CmdPurgeJunk())
+            self.add(staff_commands.CmdAdjustReputation())
+            self.add(staff_commands.CmdViewLog())
+            self.add(staff_commands.CmdSetLanguages())
+            self.add(staff_commands.CmdGMNotes())
+            self.add(staff_commands.CmdJournalAdminForDummies())
+            self.add(staff_commands.CmdTransferKeys())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading staff_commands cmdset in Player: %s" % err)
         try:
@@ -191,8 +202,16 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             from web.character import investigation
             self.add(investigation.CmdAdminInvestigations())
             self.add(investigation.CmdListClues())
+            self.add(investigation.CmdTheories())
+            self.add(investigation.CmdListRevelations())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading investigation cmdset: %s" % err)
+        try:
+            from world.dominion import crisis_commands
+            self.add(crisis_commands.CmdCrisisAction())
+            self.add(crisis_commands.CmdGMCrisis())
+        except Exception as err:
+            print("<<ERROR>>: Error encountered in loading crisis cmdset: %s" % err)
 
 
 class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):
@@ -206,7 +225,7 @@ class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):
         """
         Populates the cmdset
         """
-        #super(UnloggedinCmdSet, self).at_cmdset_creation()
+        # super(UnloggedinCmdSet, self).at_cmdset_creation()
         #
         # any commands you add below will overload the default ones.
         #
@@ -223,6 +242,7 @@ class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):
             self.add(unloggedin.CmdUnconnectedHelp())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading Unlogged cmdset: %s" % err)
+
 
 class SessionCmdSet(default_cmds.SessionCmdSet):
     """
@@ -243,4 +263,3 @@ class SessionCmdSet(default_cmds.SessionCmdSet):
         #
         # any commands you add below will overload the default ones.
         #
-

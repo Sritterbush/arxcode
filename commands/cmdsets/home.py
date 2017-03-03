@@ -9,9 +9,13 @@ from world.dominion.models import LIFESTYLES
 from django.db.models import Q
 from evennia.objects.models import ObjectDB
 from world.dominion.models import AssetOwner, Organization, CraftingRecipe
+from commands.commands.crafting import CmdCraft
+from commands.commands.overrides import CmdDig
 from server.utils.prettytable import PrettyTable
-from server.utils.utils import inform_staff
+from server.utils.arx_utils import inform_staff, raw
 from evennia.utils import utils
+from evennia.utils.evtable import EvTable
+from typeclasses.characters import Character
 import re
 # error return function, needed by Extended Look command
 AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
@@ -19,14 +23,14 @@ AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit(
 DESC_COST = 0
 
 
-
 class HomeCmdSet(CmdSet):
-    "CmdSet for a home spaces."    
+    """CmdSet for a home spaces."""
     key = "HomeCmdSet"
     priority = 20
     duplicates = False
     no_exits = False
     no_objs = False
+
     def at_cmdset_creation(self):
         """
         This is the only method defined in a cmdset, called during
@@ -53,10 +57,13 @@ class CmdManageHome(MuxCommand):
         +home/rmkey <character>
         +home/lifestyle <rating>
 
-    Controls your home.
+    Controls your home. /passmsg is for use of the 'pass' command to
+    go through a locked door. /lockmsg is for those who are denied
+    entry. /lifestyle is to control how much silver you spend per
+    week and earn prestige.
     """
     key = "+home"
-    #aliases = ["@home"]
+    # aliases = ["@home"]
     locks = "cmd:all()"
     help_category = "Home"
 
@@ -69,24 +76,18 @@ class CmdManageHome(MuxCommand):
             if caller.db.player_ob.Dominion.lifestyle_rating == rating:
                 num += '{w*{n'
             table.add_row([num, LIFESTYLES[rating][0], LIFESTYLES[rating][1]])
-        caller.msg(str(table), options={'box':True})
+        caller.msg(str(table), options={'box': True})
     
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         loc = caller.location
-        entrances = loc.db.entrances or []
+        entrances = loc.entrances
         owners = loc.db.owners or []
         keylist = loc.db.keylist or []
         if caller not in owners and not caller.check_permstring("builders"):
             caller.msg("You are not the owner of this room.")
             return
-        if not entrances:
-            from evennia.objects.models import ObjectDB
-            entrances = list(ObjectDB.objects.filter(db_destination=loc))
-            loc.db.entrances = entrances
-            for ent in entrances:
-                ent.locks.add("usekey: perm(builders) or roomkey(%s)" % loc.id)
         if not self.args and not self.switches:
             locked = "{rlocked{n" if loc.db.locked else "{wunlocked{n"
             caller.msg("Your home is currently %s." % locked)
@@ -99,22 +100,17 @@ class CmdManageHome(MuxCommand):
             caller.msg("{wMessage upon being denied access:{n %s" % errmsg)
             return
         if "unlock" in self.switches:
-            if not loc.db.locked:
-                caller.msg("Your home is already unlocked.")
-                return
+            # we only show as locked if -all- entrances are locked
+            for ent in entrances:
+                ent.unlock_exit()
             loc.db.locked = False
             caller.msg("Your house is now unlocked.")
-            for ent in entrances:
-                ent.unlock()
             return
         if "lock" in self.switches:
-            if loc.db.locked:
-                caller.msg("Your home is already locked.")
-                return
             loc.db.locked = True
             caller.msg("Your house is now locked.")
             for ent in entrances:
-                ent.lock()
+                ent.lock_exit()
             return
         if "lifestyle" in self.switches and not self.args:
             # list lifestyles
@@ -124,28 +120,28 @@ class CmdManageHome(MuxCommand):
             caller.msg("You must provide an argument to the command.")
             return
         if "lockmsg" in self.switches:
-            for exit in entrances:
-                exit.db.err_traverse = self.args
+            for r_exit in entrances:
+                r_exit.db.err_traverse = self.args
             caller.msg("{wThe message those who can't enter now see is{n: %s" % self.args)
             return
         if "passmsg" in self.switches:
-            for exit in entrances:
-                exit.db.success_traverse = self.args
+            for r_exit in entrances:
+                r_exit.db.success_traverse = self.args
             caller.msg("{wThe message those who enter will now see is{n: %s" % self.args)
             return
-        if "lifestyle" in self.switches:
+        if "lifestyle" in self.switches or "lifestyles" in self.switches:
             if caller not in owners:
                 caller.msg("You may only set the lifestyle rating for an owner.")
                 return
             try:
                 LIFESTYLES[int(self.args)]
-            except Exception:
+            except (KeyError, TypeError, ValueError):
                 caller.msg("%s is not a valid lifestyle." % self.args)
                 self.display_lifestyles()
                 return
             caller.db.player_ob.Dominion.lifestyle_rating = int(self.args)
             caller.db.player_ob.Dominion.save()
-            caller.msg("Your lifestyle rating has been set to %s." % (self.args))
+            caller.msg("Your lifestyle rating has been set to %s." % self.args)
             return
         player = caller.player.search(self.lhs)
         if not player:
@@ -205,19 +201,20 @@ class CmdAllowBuilding(MuxCommand):
     key = "@allowbuilding"
     locks = "cmd:perm(Builders)"
     help_category = "Building"
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         loc = caller.location
         permits = loc.db.permitted_builders or {}
         if not self.args and not self.switches:
             table = PrettyTable(["Name", "Cost"])
-            for id in permits:
-                if id == "all":
+            for permit_id in permits:
+                if permit_id == "all":
                     owner = "all"
                 else:
-                    owner = AssetOwner.objects.get(id=id)
-                cost = permits[id]
+                    owner = AssetOwner.objects.get(id=permit_id)
+                cost = permits[permit_id]
                 table.add_row([str(owner), cost])
             caller.msg(str(table))
             return
@@ -241,7 +238,6 @@ class CmdAllowBuilding(MuxCommand):
         caller.msg("Perms set.")
         return
 
-from commands.commands.overrides import CmdDig
 
 class CmdBuildRoom(CmdDig):
     """
@@ -267,8 +263,9 @@ class CmdBuildRoom(CmdDig):
     locks = "cmd:all()"
     help_category = "Home"
 
+    # noinspection PyAttributeOutsideInit
     def func(self):
-        "Do the digging. Inherits variables from ObjManipCommand.parse()"
+        """Do the digging. Inherits variables from ObjManipCommand.parse()"""
 
         caller = self.caller
         loc = caller.location
@@ -281,37 +278,43 @@ class CmdBuildRoom(CmdDig):
         expansions = loc.db.expansions or {}
         max_expansions = loc.db.expansion_cap or 1
         assets = None
-        cost = 1000
+        # base cost = 1000
         dompc = caller.db.player_ob.Dominion
+
         if "org" in self.switches:
-            MAX_ROOMS = 100
+            max_rooms = 100
             try:
                 largs = self.lhs.split("/")
-                org = Organization.objects.get(Q(name__iexact=largs[0]) &
+                orgname = largs[0]
+                roomname = largs[1]
+            except IndexError:
+                caller.msg("Please specify orgname/roomname.")
+                return
+
+            try:
+                org = Organization.objects.get(Q(name__iexact=orgname) &
                                                Q(members__player=dompc) &
                                                Q(members__deguilded=False))
                 if not org.access(caller, 'build'):
                     caller.msg("You are not permitted to build for this org.")
-                    return    
-                self.lhs = largs[1]
-                self.lhslist = [largs[1]]
+                    return
+                self.lhs = roomname
+                self.lhslist = [roomname]
+                self.args = "%s=%s" % (self.lhs, self.rhs)
                 # fix args for CmdDig
                 self.parse()
                 assets = org.assets
                 cost = permits[assets.id]
-            except IndexError:
-                caller.msg("Please specify orgname/roomname.")
-                return
             except KeyError:
                 if "all" not in permits:
                     caller.msg("That org is not permitted to build here.")
                     return
                 cost = permits["all"]
             except Organization.DoesNotExist:
-                caller.msg("No org by that name.")
+                caller.msg("No org by that name: %s." % orgname)
                 return
         else:
-            MAX_ROOMS = 3
+            max_rooms = 3
             assets = dompc.assets
             if assets.id in permits:
                 cost = permits[assets.id]
@@ -324,7 +327,7 @@ class CmdBuildRoom(CmdDig):
             if expansions.get(assets.id, 0) >= max_expansions:
                 caller.msg("You have built as many rooms from this space as you are allowed.")
                 return
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             caller.msg("{rError logged.{n")
             inform_staff("Room %s has an invalid expansions attribute." % loc.id)
             return
@@ -332,19 +335,24 @@ class CmdBuildRoom(CmdDig):
             caller.msg("The cost for you to build from this room is %s." % cost)
             return
         if cost > assets.economic:
-            caller.msg("It would cost you %s to build here, you only have %s." % (cost, assets.economic))
+            noun = "you" if dompc.assets == assets else str(assets)
+            caller.msg("It would cost %s %s to build here, but only have %s." % (noun, cost, assets.economic))
+            if noun != "you":
+                caller.msg("Deposit resources into the account of %s." % noun)
             return
         tagname = "%s_owned_room" % str(assets)
-        if tagname not in loc.tags.all() and (ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_ROOM_TYPECLASS) &
-                                   Q(db_tags__db_key__iexact=tagname)).count() > MAX_ROOMS):
+        if tagname not in loc.tags.all() and (ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_ROOM_TYPECLASS)
+                                                                      & Q(db_tags__db_key__iexact=tagname)
+                                                                      ).count() > max_rooms):
             caller.msg("You have as many rooms as you are allowed.")
             return
         if not self.rhs or len(self.rhslist) < 2:
             caller.msg("You must specify an exit and return exit for the new room.")
             return
-        
-        if not re.findall('^[\-\w\'\{\[\,\%\; ]+$', self.lhs) or not re.findall('^[\-\w\'\{\[\,\%\; ]+$', self.rhs):
-            caller.msg("Invalid chraacters entered for names or exits.")
+
+        if not re.findall('^[\-\w\'{\[,%;|# ]+$', self.lhs) or not re.findall('^[\-\w\'{\[,%;|<># ]+$', self.rhs):
+            caller.msg("Invalid characters entered for names or exits.")
+            return
         new_room = CmdDig.func(self)
         if not new_room:
             return
@@ -365,9 +373,11 @@ class CmdBuildRoom(CmdDig):
         my_expansions = expansions.get(assets.id, 0) + 1
         expansions[assets.id] = my_expansions
         loc.db.expansions = expansions
+        new_room.name = new_room.name  # this will setup .db.colored_name and strip ansi from key
         if cost_increase and assets.id in permits:
             permits[assets.id] += cost_increase
             loc.db.permitted_builders = permits
+
 
 class CmdManageRoom(MuxCommand):
     """
@@ -377,6 +387,10 @@ class CmdManageRoom(MuxCommand):
         +manageroom
         +manageroom/name <name>
         +manageroom/desc <description>
+        +manageroom/springdesc <description>
+        +manageroom/summerdesc <description>
+        +manageroom/falldesc <description>
+        +manageroom/winterdesc <description>
         +manageroom/exitname <exit>=<new name>
         +manageroom/addhome <owner>
         +manageroom/confirmhome <owner>
@@ -385,20 +399,38 @@ class CmdManageRoom(MuxCommand):
         +manageroom/confirmshop <owner>
         +manageroom/rmshop <owner>
         +manageroom/toggleprivate
+        +manageroom/setbarracks
 
     Flags your current room as permitting characters to build there.
     Cost is 100 economic resources unless specified otherwise.
+
+    To set a seasonal description for your room, use /springdesc, /summerdesc,
+    etc. /desc will always be shown as a fallback otherwise.
+
+    You can also embed special time markers in your room description, like this:
+
+        ```
+        <night>In the darkness, the forest looks foreboding.</night>.
+        ```
+
+    Text marked this way will only display when the server is truly at the given
+    timeslot. The available times are night, morning, afternoon and evening.
+
+    Note that `@detail`, seasons and time-of-day slots only work on rooms in this
+    version of the `@desc` command.
     """
     key = "+manageroom"
     locks = "cmd:all()"
     help_category = "Home"
+    desc_switches = ("desc", "winterdesc", "springdesc", "summerdesc", "falldesc")
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         loc = caller.location
         try:
             owner = AssetOwner.objects.get(id=loc.db.room_owner)
-        except Exception:
+        except AssetOwner.DoesNotExist:
             caller.msg("No owner is defined here.")
             return
         org = owner.organization_owner
@@ -419,7 +451,7 @@ class CmdManageRoom(MuxCommand):
             caller.msg("{wShop Owners:{n %s" % shops)
             return
         if "name" in self.switches:
-            loc.name = self.args or loc.key
+            loc.name = self.args or loc.name
             caller.msg("Room name changed to %s." % loc)
             return
         if "exitname" in self.switches:
@@ -427,31 +459,41 @@ class CmdManageRoom(MuxCommand):
                 caller.msg("Invalid usage.")
                 return
             rhslist = self.rhs.split(";")
-            self.rhs = rhslist[0]
+            rhs = rhslist[0]
             aliases = rhslist[1:]
-            exit = caller.search(self.lhs)
-            if not exit:
+            exit_object = caller.search(self.lhs)
+            if not exit_object:
                 return
-            old = str(exit)
-            if exit.typeclass_path != settings.BASE_EXIT_TYPECLASS:
+            old = str(exit_object)
+            if exit_object.typeclass_path != settings.BASE_EXIT_TYPECLASS:
                 caller.msg("That is not an exit.")
                 return
-            exit.name = self.rhs
-            exit.save()
+            exit_object.name = rhs
+            exit_object.save()
+            exit_object.aliases.clear()
             for alias in aliases:
-                exit.aliases.add(alias)
-            if exit.destination:
-                exit.flush_from_cache()
-            caller.msg("%s changed to %s." % (old, exit))
+                exit_object.aliases.add(alias)
+            if exit_object.destination:
+                exit_object.flush_from_cache()
+            caller.msg("%s changed to %s." % (old, exit_object))
             return
-        if "desc" in self.switches:
+        if set(self.switches) & set(self.desc_switches):
             if loc.desc:
                 cost = loc.db.desc_cost or DESC_COST
             else:
                 cost = 0
             if loc.ndb.confirm_desc_change != self.args:
-                caller.msg("Your room's current desc is:")
-                caller.msg(loc.desc)
+                caller.msg("Your room's current %s is:" % self.switches[0])
+                if "desc" in self.switches:
+                    caller.msg(loc.desc)
+                elif "springdesc" in self.switches:
+                    caller.msg(loc.db.spring_desc)
+                elif "summerdesc" in self.switches:
+                    caller.msg(loc.db.summer_desc)
+                elif "winterdesc" in self.switches:
+                    caller.msg(loc.db.winter_desc)
+                elif "falldesc" in self.switches:
+                    caller.msg(loc.db.fall_desc)
                 caller.msg("{wCost of changing desc:{n %s economic resources" % cost)
                 if self.args:
                     caller.msg("New desc:")
@@ -466,11 +508,26 @@ class CmdManageRoom(MuxCommand):
                     return
                 owner.economic -= cost
                 owner.save()
-            loc.desc = self.args
-            loc.save()
+            if "desc" in self.switches:
+                loc.desc = self.args
+                if not loc.db.raw_desc:
+                    loc.db.raw_desc = self.args
+                if not loc.db.general_desc:
+                    loc.db.general_desc = self.args
+            elif "winterdesc" in self.switches:
+                loc.db.winter_desc = self.args
+            elif "summerdesc" in self.switches:
+                loc.db.summer_desc = self.args
+            elif "springdesc" in self.switches:
+                loc.db.summer_desc = self.args
+            elif "falldesc" in self.switches:
+                loc.db.fall_desc = self.args
             loc.ndb.confirm_desc_change = None
-            caller.msg("Desc changed to:")
-            caller.msg(loc.desc)
+            # force raw_desc to update and parse our descs
+            loc.ndb.last_season = None
+            loc.ndb.last_timeslot = None
+            caller.msg("%s changed to:" % self.switches[0])
+            caller.msg(self.args)
             return
         if "confirmhome" in self.switches:
             if caller.db.homeproposal != loc:
@@ -496,7 +553,15 @@ class CmdManageRoom(MuxCommand):
             loc.tags.add("private")
             caller.msg("Room is now private.")
             return
-        player = self.player.search(self.args)
+        if "setbarracks" in self.switches:
+            tagname = str(owner) + "_barracks"
+            other_barracks = ObjectDB.objects.filter(db_tags__db_key=tagname)
+            for obj in other_barracks:
+                obj.tags.remove(tagname)
+            loc.tags.add(tagname)
+            self.msg("%s set to %s's barracks." % (loc, owner))
+            return
+        player = caller.player.search(self.args)
         if not player:
             return
         char = player.db.char_ob
@@ -525,7 +590,7 @@ class CmdManageRoom(MuxCommand):
             loc.del_shop()
             player.send_or_queue_msg("Your shop at %s has been removed." % loc)
             return
-        
+
 
 class CmdManageShop(MuxCommand):
     """
@@ -536,12 +601,15 @@ class CmdManageShop(MuxCommand):
         +manageshop/sellitem <object>=<price>
         +manageshop/rmitem <object id>
         +manageshop/all <markup percentage>
-        +managehsop/refinecost <percentage>
+        +manageshop/refinecost <percentage>
         +manageshop/addrecipe <recipe name>=<markup percentage>
         +manageshop/rmrecipe <recipe name>
         +manageshop/addblacklist <player or org name>
         +manageshop/rmblacklist <player or org name>
         +manageshop/orgdiscount <org name>=<percentage>
+        +manageshop/chardiscount <character>=<percentage>
+        +manageshop/adddesign <key>=<code>
+        +manageshop/rmdesign <key>
 
     Sets prices for your shop. Note that if you use 'all', that will
     be used for any recipe you don't explicitly set a price for.
@@ -565,16 +633,20 @@ class CmdManageShop(MuxCommand):
             table.add_row([name, "%s%%" % prices[price]])
         msg += str(table)
         msg += "\n{wItem Prices{n\n"
-        table = PrettyTable(["{wID{n", "{wName{n", "{wPrice{n"])
+        table = EvTable("{wID{n", "{wName{n", "{wPrice{n", width=78, border="cells")
         prices = loc.db.item_prices or {}
         for price in prices:
             obj = ObjectDB.objects.get(id=price)
-            table.add_row([price, str(obj), prices[price]])
+            table.add_row(price, str(obj), prices[price])
         msg += str(table)
         return msg
-    
+
+    def list_designs(self):
+        designs = self.caller.location.db.template_designs or {}
+        self.msg("{wTemplate designs:{n %s" % ", ".join(designs.keys()))
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         loc = caller.location
         if caller != loc.db.shopowner:
@@ -582,8 +654,12 @@ class CmdManageShop(MuxCommand):
             return
         if not self.args:
             caller.msg(self.list_prices())
-            caller.msg("Discounts: %s" % str(loc.db.discounts))
-            caller.msg("Blacklist: %s" % str(loc.db.blacklist))
+            org_discounts = (loc.db.discounts or {}).items()
+            char_discounts = (loc.db.char_discounts or {}).items()
+            discounts = ", ".join(("%s: %s%%" % (ob, val) for ob, val in (org_discounts + char_discounts)))
+            caller.msg("{wDiscounts{n: %s" % discounts)
+            caller.msg("{wBlacklist{n: %s" % str(loc.db.blacklist))
+            self.list_designs()
             return
         if "sellitem" in self.switches:
             try:
@@ -595,13 +671,15 @@ class CmdManageShop(MuxCommand):
                 return
             results = caller.search(self.lhs, location=caller, quiet=True)
             obj = AT_SEARCH_RESULT(results, caller, self.lhs, False,
-                                  nofound_string="You don't carry %s." % self.lhs,
-                                  multimatch_string="You carry more than one %s:" % self.lhs)
+                                   nofound_string="You don't carry %s." % self.lhs,
+                                   multimatch_string="You carry more than one %s:" % self.lhs)
             if not obj:
                 return
             obj.at_drop(caller)
             obj.location = None
             loc.db.item_prices[obj.id] = price
+            obj.tags.add("for_sale")
+            obj.db.sale_location = loc
             caller.msg("You put %s for sale for %s silver." % (obj, price))
             return
         if "rmitem" in self.switches:
@@ -618,6 +696,8 @@ class CmdManageShop(MuxCommand):
                 caller.msg("You have to specify the ID # of an item you're trying to remove.")
                 return
             obj.move_to(caller)
+            obj.tags.remove("for_sale")
+            obj.attributes.remove("sale_location")
             del loc.db.item_prices[obj.id]
             caller.msg("You have removed %s from your sale list." % obj)
             return
@@ -637,6 +717,7 @@ class CmdManageShop(MuxCommand):
                 caller.msg("Cost for refining set to %s percent markup." % cost)
             return
         if "addrecipe" in self.switches:
+            prices = loc.db.crafting_prices or {}
             try:
                 recipe = caller.db.player_ob.Dominion.assets.recipes.get(name__iexact=self.lhs)
                 cost = int(self.rhs)
@@ -645,17 +726,20 @@ class CmdManageShop(MuxCommand):
             except (TypeError, ValueError):
                 caller.msg("Cost must be a positive number.")
                 return
-            except Exception:
+            except (CraftingRecipe.DoesNotExist, CraftingRecipe.MultipleObjectsReturned):
                 caller.msg("Could not retrieve a recipe by that name.")
                 return
-            loc.db.crafting_prices[recipe.id] = cost
+            prices[recipe.id] = cost
             caller.msg("Price for %s set to %s." % (recipe.name, cost))
-            removedlist = loc.db.crafting_prices.get("removed", [])
+            removedlist = prices.get("removed", [])
             if recipe.id in removedlist:
                 removedlist.remove(recipe.id)
-            loc.db.crafting_prices['removed'] = removedlist
+            prices['removed'] = removedlist
+            loc.db.crafting_prices = prices
             return
         if "rmrecipe" in self.switches:
+            arg = None
+            prices = loc.db.crafting_prices or {}
             try:
                 recipe = None
                 if self.lhs.lower() == "all":
@@ -665,55 +749,81 @@ class CmdManageShop(MuxCommand):
                 else:
                     recipe = caller.db.player_ob.Dominion.assets.recipes.get(name__iexact=self.lhs)
                     arg = recipe.id
-                del loc.db.crafting_prices[arg]
+                del prices[arg]
                 caller.msg("Price for %s has been removed." % recipe.name if recipe else arg)
-                return
             except KeyError:
-                removedlist = loc.db.crafting_prices.get("removed", [])
+                removedlist = prices.get("removed", [])
                 if arg in removedlist:
                     caller.msg("You had no price listed for that recipe.")
                 else:
                     removedlist.append(arg)
-                    loc.db.crafting_prices["removed"] = removedlist
-                return
-            except Exception:
+                    prices["removed"] = removedlist
+            except CraftingRecipe.DoesNotExist:
                 caller.msg("No recipe found by that name.")
+            finally:
+                loc.db.crafting_prices = prices
                 return
-        if "addblacklist" in self.switches or "rmblacklist" in self.switches:
+        if "adddesign" in self.switches:
+            designs = loc.db.template_designs or {}
             try:
-                targ = caller.player.search(self.args)
+                if not self.rhs:
+                    self.msg("Design for %s: %s" % (self.lhs, designs[self.lhs]))
+                    return
+            except KeyError:
+                self.list_designs()
+                return
+            designs[self.lhs] = self.rhs
+            self.msg("Raw Design for %s is now: %s" % (self.lhs, raw(self.rhs)))
+            self.msg("Design for %s appears as: %s" % (self.lhs, self.rhs))
+            loc.db.template_designs = designs
+            return
+        if "rmdesign" in self.switches:
+            designs = loc.db.template_designs or {}
+            try:
+                del designs[self.lhs]
+                self.msg("Design deleted.")
+            except KeyError:
+                self.msg("No design by that name.")
+                self.list_designs()
+            loc.db.template_designs = designs
+            return
+        if "addblacklist" in self.switches or "rmblacklist" in self.switches:
+            blacklist = loc.db.blacklist or []
+            try:
+                targ = caller.player.search(self.args, nofound_string="No player by that name. Checking organizations.")
                 org = False
                 if not targ:
                     org = True
                     targ = Organization.objects.get(name__iexact=self.args)
                 else:
-                    targ = targ.db.char_ob            
+                    targ = targ.db.char_ob
                 if "addblacklist" in self.switches:
                     if org:
-                        if targ.name in loc.db.blacklist:
+                        if targ.name in blacklist:
                             caller.msg("They are already in the blacklist.")
                             return
-                        loc.db.blacklist.append(targ.name)
+                        blacklist.append(targ.name)
                     else:
-                        if targ in loc.db.blacklist:
+                        if targ in blacklist:
                             caller.msg("They are already in the blacklist.")
                             return
-                        loc.db.blacklist.append(targ)
+                        blacklist.append(targ)
                     caller.msg("%s added to blacklist." % targ)
                 else:
                     if org:
-                        if targ.name not in loc.db.blacklist:
+                        if targ.name not in blacklist:
                             caller.msg("They are not in the blacklist.")
                             return
-                        loc.db.blacklist.remove(targ.name)
+                        blacklist.remove(targ.name)
                     else:
-                        if targ not in loc.db.blacklist:
+                        if targ not in blacklist:
                             caller.msg("They are not in the blacklist.")
                             return
-                        loc.db.blacklist.remove(targ)
+                        blacklist.remove(targ)
                     caller.msg("%s removed from blacklist." % targ)
             except Organization.DoesNotExist:
                 caller.msg("No valid target found by that name.")
+            loc.db.blacklist = blacklist
             return
         if "orgdiscount" in self.switches:
             try:
@@ -721,6 +831,10 @@ class CmdManageShop(MuxCommand):
                 discount = int(self.rhs)
                 if discount > 100:
                     raise ValueError
+                if discount == 0:
+                    loc.db.discounts.pop(org.name, 0)
+                    self.msg("Removed discount for %s." % org)
+                    return
                 loc.db.discounts[org.name] = discount
                 caller.msg("%s given a discount of %s percent." % (org, discount))
                 return
@@ -730,10 +844,30 @@ class CmdManageShop(MuxCommand):
             except Organization.DoesNotExist:
                 caller.msg("No organization by that name found.")
                 return
-            return
+        if "chardiscount" in self.switches:
+            if loc.db.char_discounts is None:
+                loc.db.char_discounts = {}
+            try:
+                character = Character.objects.get(db_key__iexact=self.lhs)
+                discount = int(self.rhs)
+                if discount > 100:
+                    raise ValueError
+                if discount == 0:
+                    loc.db.char_discounts.pop(character, 0)
+                    self.msg("Removed discount for %s." % character)
+                    return
+                loc.db.char_discounts[character] = discount
+                caller.msg("%s given a discount of %s percent." % (character, discount))
+                return
+            except (TypeError, ValueError):
+                caller.msg("Discount must be a number, max of 100.")
+                return
+            except Character.DoesNotExist:
+                caller.msg("No character found by that name.")
+                return
         caller.msg("Invalid switch.")
 
-from commands.commands.crafting import CmdCraft
+
 class CmdBuyFromShop(CmdCraft):
     """
     +shop
@@ -742,24 +876,34 @@ class CmdBuyFromShop(CmdCraft):
         +shop
         +shop/buy <item number>
         +shop/look <item number>
-        +shop/refine <object>[=<additional silver to spend>]
+        +shop/refine <object>[=<additional silver to spend>,AP to spend>]
         +shop/craft <recipe name>
         +shop/name <name>
         +shop/desc <description>
         +shop/adorn <material type>=<amount>
-        +shop/finish [<additional silver to invest>]
+        +shop/finish [<additional silver to invest>,<AP to invest>]
         +shop/changename <object>=<new name>
+        +shop/viewdesigns [<key>]
 
-    Flags your current room as permitting characters to build there.
-    Cost is 50 economic resources unless specified otherwise.
+    Allows you to buy objects from a shop. +shop/craft allows you to use a
+    crafter's skills to create an item. You must provide the materials
+    yourself. Similarly, +shop/refine lets you use a crafter's skills to
+    attempt to improve a crafted object. All costs are covered by you.
+    +shop/design lets you see pre-made descriptions that the crafter has
+    created that you can copy for items you create.
     """
     key = "+shop"
+    aliases = ["@shop", "shop"]
     locks = "cmd:all()"
     help_category = "Home"
+
     def get_discount(self):
-        "Returns our percentage discount"
+        """Returns our percentage discount"""
         loc = self.caller.location
+        char_discounts = loc.db.char_discounts or {}
         discount = 0.0
+        if self.caller in char_discounts:
+            return char_discounts[self.caller]
         for org in self.caller.db.player_ob.Dominion.current_orgs:
             odiscount = loc.db.discounts.get(org.name, 0.0)
             if odiscount and not discount:
@@ -769,96 +913,106 @@ class CmdBuyFromShop(CmdCraft):
         return discount
 
     def get_refine_price(self, base):
-        "Price of refining"
+        """Price of refining"""
         loc = self.caller.location
         price = 0
-        if "refine" in loc.db.crafting_prices:
-            price = (base * loc.db.crafting_prices["refine"])/100.0
-        if "all" in loc.db.crafting_prices:
-            price = (base * loc.db.crafting_prices["all"])/100.0
-        if price:
-            price = price - (price * self.get_discount()/100.0)
+        prices = loc.db.crafting_prices or {}
+        if "refine" in prices:
+            price = (base * prices["refine"]) / 100.0
+        elif "all" in prices:
+            price = (base * prices["all"]) / 100.0
+        if price == 0:
+            return price
+        if price > 0:
+            price -= (price * self.get_discount() / 100.0)
             if price < 0:
-                raise ValueError("Negative price due to discount")
+                return 0
             return price
         raise ValueError
-    
+
     def get_recipe_price(self, recipe):
-        "Price for crafting a recipe"
+        """Price for crafting a recipe"""
         loc = self.caller.location
         base = recipe.value
         price = 0
         if recipe.id in loc.db.crafting_prices:
-            price = (base * loc.db.crafting_prices[recipe.id])/100.0
-        if "all" in loc.db.crafting_prices:
-            price = (base * loc.db.crafting_prices["all"])/100.0
-        if price:
-            price = price - (price * self.get_discount()/100.0)
+            price = (base * loc.db.crafting_prices[recipe.id]) / 100.0
+        elif "all" in loc.db.crafting_prices:
+            price = (base * loc.db.crafting_prices["all"]) / 100.0
+        if price is not None:
+            price -= (price * self.get_discount() / 100.0)
             if price < 0:
-                raise ValueError("Negative price due to discount")
+                return 0
             return price
         # no price defined
-        raise ValueError         
+        raise ValueError
 
     def list_prices(self):
-        "List prices of everything"
+        """List prices of everything"""
         loc = self.caller.location
         prices = loc.db.crafting_prices or {}
         msg = "{wCrafting Prices{n\n"
         table = PrettyTable(["{wName{n", "{wCraft Price{n", "{wRefine Price{n"])
-        recipes = loc.db.shopowner.db.player_ob.Dominion.assets.recipes.all()
+        recipes = loc.db.shopowner.db.player_ob.Dominion.assets.recipes.all().order_by('name')
         removed = prices.get("removed", [])
         for recipe in recipes:
             if recipe.id in removed:
                 continue
             try:
-                try:
-                    refineprice = str(self.get_refine_price(recipe.value))
-                except ValueError:
-                    refineprice = "--"
+                refineprice = str(self.get_refine_price(recipe.value))
                 table.add_row([recipe.name, str(recipe.additional_cost + self.get_recipe_price(recipe)),
                                refineprice])
             except (ValueError, TypeError):
-                continue
+                self.msg("{rError: Recipe %s does not have a price defined.{n" % recipe.name)
         msg += str(table)
         msg += "\n{wItem Prices{n\n"
-        table = PrettyTable(["{wID{n", "{wName{n", "{wPrice{n"])
+        table = EvTable("{wID{n", "{wName{n", "{wPrice{n", width=78, border="cells")
         prices = loc.db.item_prices or {}
-        for price in prices:
-            obj = ObjectDB.objects.get(id=price)
-            table.add_row([price, obj.name, prices[price]])
+        for price in prices.keys():
+            try:
+                obj = ObjectDB.objects.get(id=price)
+            except ObjectDB.DoesNotExist:
+                del prices[price]
+                continue
+            table.add_row(price, obj.name, prices[price])
         msg += str(table)
+        designs = loc.db.template_designs or {}
+        msg += "\n{wNames of designs:{n %s" % ", ".join(designs.keys())
         return msg
-    
+
     def pay_owner(self, price, msg):
-        "Pay money to the other and send an inform of the sale"
+        """Pay money to the other and send an inform of the sale"""
         loc = self.caller.location
         loc.db.shopowner.pay_money(-price)
-        loc.db.shopowner.db.player_ob.inform(msg, category="shop")
+        if price >= (loc.db.shopowner.db.min_shop_price_inform or 0):
+            loc.db.shopowner.db.player_ob.inform(msg, category="shop")
 
     def buy_item(self, item):
-        "Buy an item from inventory - pay the owner and get the item"
+        """Buy an item from inventory - pay the owner and get the item"""
         loc = self.caller.location
         price = loc.db.item_prices[item.id]
-        price -= price * (self.get_discount()/100.0)
+        price -= price * (self.get_discount() / 100.0)
         self.caller.pay_money(price)
         self.pay_owner(price, "%s has bought %s for %s." % (self.caller, item, price))
         item.move_to(self.caller)
+        item.tags.remove("for_sale")
+        item.attributes.remove("sale_location")
         del loc.db.item_prices[item.id]
 
     def check_blacklist(self):
-        "See if we're allowed to buy"
+        """See if we're allowed to buy"""
         caller = self.caller
         loc = caller.location
-        if caller in loc.db.blacklist:
+        blacklist = loc.db.blacklist or []
+        if caller in blacklist:
             return True
         for org in caller.db.player_ob.Dominion.current_orgs:
-            if org.name in loc.db.blacklist:
+            if org.name in blacklist:
                 return True
         return False
 
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         loc = caller.location
         self.crafter = loc.db.shopowner
@@ -870,6 +1024,19 @@ class CmdBuyFromShop(CmdCraft):
             project = caller.db.crafting_project
             if project:
                 caller.msg(self.display_project(project))
+            return
+        if "viewdesigns" in self.switches:
+            designs = loc.db.template_designs or {}
+            if not self.args:
+                self.msg("Names of designs: %s" % ", ".join(designs.keys()))
+                return
+            try:
+                design = designs[self.args]
+                self.msg("{wDesign's appearance:{n\n%s" % design)
+                self.msg("\n{wRaw code of design:{n\n%s" % raw(design))
+            except KeyError:
+                self.msg("No design found by that name.")
+                self.msg("Names of designs: %s" % ", ".join(designs.keys()))
             return
         if "buy" in self.switches:
             try:
@@ -888,25 +1055,30 @@ class CmdBuyFromShop(CmdCraft):
             try:
                 num = int(self.args)
                 obj = ObjectDB.objects.get(id=num, id__in=loc.db.item_prices.keys())
-            except Exception:
+            except (TypeError, ValueError):
+                self.msg("Please provide a number of an item.")
+                return
+            except ObjectDB.DoesNotExist:
                 caller.msg("No item found by that number.")
                 return
             caller.msg(obj.return_appearance(caller))
             return
         if ("craft" in self.switches or "refine" in self.switches or
-            "desc" in self.switches or "adorn" in self.switches or
-            "finish" in self.switches or "name" in self.switches or
-            "abandon" in self.switches or "changename" in self.switches):
+                "desc" in self.switches or "adorn" in self.switches or
+                "finish" in self.switches or "name" in self.switches or
+                "abandon" in self.switches or "changename" in self.switches):
             return CmdCraft.func(self)
         caller.msg("Invalid switch.")
 
+
 class ShopCmdSet(CmdSet):
-    "CmdSet for shop spaces."    
+    """CmdSet for shop spaces."""
     key = "ShopCmdSet"
     priority = 20
     duplicates = False
     no_exits = False
     no_objs = False
+
     def at_cmdset_creation(self):
         """
         This is the only method defined in a cmdset, called during
@@ -919,5 +1091,3 @@ class ShopCmdSet(CmdSet):
         """
         self.add(CmdManageShop())
         self.add(CmdBuyFromShop())
-
-        

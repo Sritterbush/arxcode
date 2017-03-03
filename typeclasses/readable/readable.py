@@ -2,11 +2,10 @@
 Readable/Writable objects
 """
 
-from django.conf import settings
 from typeclasses.objects import Object
 from evennia import CmdSet
-from evennia.utils.utils import make_iter
 from evennia.commands.default.muxcommand import MuxCommand
+
 
 class Readable(Object):
     """
@@ -49,24 +48,26 @@ class Readable(Object):
             msg += "\nSigned by: %s" % sigs
         return msg
 
+    # noinspection PyAttributeOutsideInit
     def setup_multiname(self):
         if self.db.num_instances > 1:
             self.key = "%s books" % self.db.num_instances
             self.save()
         else:
             self.key = "a book"
-            
 
     def set_num(self, value):
         self.db.num_instances = value
         self.setup_multiname()
 
+
 class WriteCmdSet(CmdSet):
     key = "WriteCmd"
     priority = 0
     duplicates = True
+
     def at_cmdset_creation(self):
-        "Init the cmdset"
+        """Init the cmdset"""
         self.add(CmdWrite())
 
 
@@ -74,8 +75,10 @@ class SignCmdSet(CmdSet):
     key = "SignCmd"
     priority = 0
     duplicates = True
+
     def at_cmdset_creation(self):
         self.add(CmdSign())
+
 
 class CmdSign(MuxCommand):
     """
@@ -88,6 +91,7 @@ class CmdSign(MuxCommand):
     """
     key = "sign"
     locks = "cmd:all()"
+
     def func(self):
         caller = self.caller
         obj = self.obj
@@ -100,6 +104,7 @@ class CmdSign(MuxCommand):
         obj.db.signed = sigs
         return
 
+
 class CmdWrite(MuxCommand):
     """
     Write upon a scroll/book/letter.
@@ -108,28 +113,34 @@ class CmdWrite(MuxCommand):
         write <description>
         write/title <title>
         write/proof
+        write/translated_text <language>=<text>
         write/finish
 
     Writes upon a given scroll/letter/book or other object
     to give it a description set to the body of the text you
     write and set its name to the title you specify. For example,
     to rename 'a scroll' into 'Furen's Book of Wisdom', use
-    'write/title Furen's Book of Wisdom'. Check your changes with
-    /proof, and then finalize changes with /finish. Once set, no
-    further changes can be made.
+    'write/title Furen's Book of Wisdom'. To write in other languages,
+    use /translated_text to show what the material actually says. 
+    Check your changes with /proof, and then finalize changes with /finish. 
+    Once set, no further changes can be made.
     """
     key = "write"
     locks = "cmd:all()"
+
     def display(self):
         obj = self.obj
         title = obj.ndb.title or obj.name
         desc = obj.ndb.desc or obj.desc
         msg = "{wName:{n %s\n" % title
         msg += "{wDesc:{n\n%s" % desc
+        transtext = obj.ndb.transtext or {}
+        for lang in transtext:
+            msg += "\n{wWritten in {c%s:{n\n%s\n" % (lang.capitalize(), transtext[lang])
         return msg
         
     def func(self):
-        "Look for object in inventory that matches args to wear"
+        """Look for object in inventory that matches args to wear"""
         caller = self.caller
         obj = self.obj
         if not self.args and not self.switches:
@@ -142,9 +153,21 @@ class CmdWrite(MuxCommand):
             obj.ndb.title = self.lhs
             caller.msg("Name set to: %s" % self.lhs)
             return
+        if "translated_text" in self.switches:
+            transtext = obj.ndb.transtext or {}
+            if not self.rhs:
+                self.msg("Must have text.")
+            lhs = self.lhs.lower()
+            if lhs not in self.caller.languages.known_languages:
+                self.msg("You cannot speak that language.")
+                return
+            transtext[lhs] = self.rhs
+            obj.ndb.transtext = transtext
+            self.msg(self.display())
+            return
         if "proof" in self.switches:
             msg = self.display()
-            caller.msg(msg, box=True)
+            caller.msg(msg, options={'box': True})
             return
         if "finish" in self.switches:
             name = obj.ndb.title
@@ -164,6 +187,8 @@ class CmdWrite(MuxCommand):
             obj.db.num_instances = 1
             obj.name = name
             obj.desc = desc
+            if obj.ndb.transtext:
+                obj.db.translation = obj.ndb.transtext
             obj.save()        
             caller.msg("You have written on %s." % obj.name)
             obj.attributes.remove("quality_level")
@@ -175,8 +200,3 @@ class CmdWrite(MuxCommand):
             obj.aliases.add("book")
             return
         caller.msg("Unrecognized syntax for write.")
-        
-
-    
-
-    

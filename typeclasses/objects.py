@@ -13,6 +13,7 @@ inheritance.
 from evennia import DefaultObject
 from typeclasses.mixins import ObjectMixins, MsgMixins, NameMixins
 
+
 class Object(MsgMixins, ObjectMixins, NameMixins, DefaultObject):
     """
     This is the root typeclass object, implementing an in-game Evennia
@@ -161,13 +162,3 @@ class Object(MsgMixins, ObjectMixins, NameMixins, DefaultObject):
 
      """
     pass
-
-class TestObject(Object):
-    def at_object_creation(self):
-        self.db.test1 = "A"
-        self.db.test2 = "B"
-        self.db.test3 = "C"
-        self.db.test4 = "D"
-        self.db.test5 = "E"
-
-

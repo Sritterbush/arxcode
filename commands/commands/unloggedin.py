@@ -38,6 +38,7 @@ class CmdGuestConnect(MuxCommand):
     create a new guest account.
     """
     key = "guest"
+
     def func(self):
         """
         Guest is a child of Player typeclass.
@@ -46,6 +47,14 @@ class CmdGuestConnect(MuxCommand):
         num_guests = 1
         playerlist = PlayerDB.objects.typeclass_search(GUEST)
         guest = None
+        bans = ServerConfig.objects.conf("server_bans")
+        if bans and (any(tup[2].match(session.address) for tup in bans if tup[2])):
+            # this is a banned IP or name!
+            string = "{rYou have been banned and cannot continue from here." \
+                     "\nIf you feel this ban is in error, please email an admin.{x"
+            session.msg(string)
+            session.sessionhandler.disconnect(session, "Good bye! Disconnecting.")
+            return
         for pc in playerlist:
             if pc.is_guest():
                 if pc.is_connected:

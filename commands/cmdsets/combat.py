@@ -12,28 +12,27 @@ telling. It's simply too disruptive, and often creates
 situations that are damaging to immersion and the
 creative process.
 """
-
+from django.db.models import Q
 from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand
 from evennia.utils import create, evtable
-from evennia.utils.utils import inherits_from
-from server.utils.utils import inform_staff
-from django.conf import settings
+from server.utils.arx_utils import inform_staff
 from typeclasses.scripts.combat import combat_settings
 from evennia.objects.models import ObjectDB
 import random
+from typeclasses.npcs import npc_types
 
 CSCRIPT = "typeclasses.scripts.combat.combat_script.CombatManager"
 
 
-
 class CombatCmdSet(CmdSet):
-    "CmdSet for players who are currently engaging in combat."    
+    """CmdSet for players who are currently engaging in combat."""
     key = "CombatCmdSet"
     priority = 20
     duplicates = False
     no_exits = True
     no_objs = False
+
     def at_cmdset_creation(self):
         """
         This is the only method defined in a cmdset, called during
@@ -56,7 +55,6 @@ class CombatCmdSet(CmdSet):
         self.add(CmdVoteAFK())
         
 
-
 """
 -------------------------------------------------------------------
 +fight will start combat, and will probably be a part of
@@ -68,6 +66,7 @@ as automatically entering combat whenever the character they are
 protecting does.
 -------------------------------------------------------------------
 """
+
 
 class CmdStartCombat(MuxCommand):
     """
@@ -81,13 +80,16 @@ class CmdStartCombat(MuxCommand):
     present in the room if one exists. While in combat, a number of combat-
     specific commands will be made available to you. Combat continues
     while two or more characters are active combatants.
+
+    To end combat, use +end_combat.
     """
     key = "+fight"
     aliases = ["fight"]
     locks = "cmd:all()"
     help_category = "Combat"
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         room = caller.location
         lhslist = self.lhslist
@@ -95,7 +97,7 @@ class CmdStartCombat(MuxCommand):
         cscript = room.ndb.combat_manager
         if not self.args:
             if not cscript or not cscript.ndb.combatants:
-                caller.msg("No one else is fighting here. To start a new "+
+                caller.msg("No one else is fighting here. To start a new " +
                            "fight, {w+fight <character>{n")
                 return
             caller.msg(cscript.add_combatant(caller, caller))
@@ -124,6 +126,7 @@ class CmdStartCombat(MuxCommand):
         cscript.display_phase_status_to_all(intro=True)
         return
 
+
 class CmdAutoattack(MuxCommand):
     """
     Turns autoattack on or off
@@ -144,8 +147,9 @@ class CmdAutoattack(MuxCommand):
     aliases = ["autoattack", "auto"]
     locks = "cmd:all()"
     help_category = "Combat"
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         combat = check_combat(caller, quiet=True)
         autoattack_on = False
@@ -191,6 +195,7 @@ class CmdProtect(MuxCommand):
     aliases = ["+defend"]
     locks = "cmd:all()"
     help_category = "Combat"
+
     def func(self):
         """
         +protect adds people to character.db.defenders list if they're not
@@ -208,7 +213,8 @@ class CmdProtect(MuxCommand):
                 caller.msg("You stop guarding %s." % current.name)
                 deflist = current.db.defenders
                 if caller in deflist:
-                    # have to do it this way due to removal in place failing for attributes that are python lists/dicts/etc
+                    # have to do it this way due to removal in place failing for attributes that
+                    #  are python lists/dicts/etc
                     deflist.remove(caller)
                     current.db.defenders = deflist
                     if combat:
@@ -228,12 +234,13 @@ class CmdProtect(MuxCommand):
             caller.msg("Couldn't find anyone to guard.")
             return
         if not to_guard.db.attackable:
-            caller.msg("Your target is currently not attackable and "+
+            caller.msg("Your target is currently not attackable and " +
                        "does not need a guard.")
             return
         # all checks succeeded. Start guarding
         caller.db.guarding = to_guard
-        #doing it this way since list/dict methods tend to fail when called directly on attribute object. assignment works tho
+        # doing it this way since list/dict methods tend to fail when called directly on attribute object.
+        #  assignment works tho
         dlist = to_guard.db.defenders or []
         dlist.append(caller)
         to_guard.db.defenders = dlist
@@ -242,7 +249,6 @@ class CmdProtect(MuxCommand):
         if combat and to_guard in combat.ndb.combatants:
             combat.add_defender(to_guard, caller)
         return
-
 
 
 """
@@ -263,15 +269,17 @@ CmdVoteAFK - vote a character as AFK
 ----------------------------------------------------
 """
 
-#----Helper Functions--------------------------------------
+
+# ----Helper Functions--------------------------------------
 def check_combat(caller, quiet=False):
-    "Checks for and returns the combat object for a room."
+    """Checks for and returns the combat object for a room."""
     if not caller.location:
         return
     combat = caller.location.ndb.combat_manager
     if not combat and not quiet:
         caller.msg("No combat found at your location.")
     return combat
+
 
 def check_targ(caller, target, verb="Attack"):
     """
@@ -288,7 +296,8 @@ def check_targ(caller, target, verb="Attack"):
         caller.msg("%s is not in combat with you." % target.name)
         return False
     return True
-#--------------------------------------------------------
+# --------------------------------------------------------
+
 
 class CmdEndCombat(MuxCommand):
     """
@@ -305,13 +314,16 @@ class CmdEndCombat(MuxCommand):
     key = "+end_combat"
     locks = "cmd:all()"
     help_category = "Combat"
+    aliases = ["+end_fight"]
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         combat = check_combat(caller)
         if not combat:
             return
         combat.vote_to_end(caller)
+
 
 class CmdAttack(MuxCommand):
     """
@@ -332,29 +344,32 @@ class CmdAttack(MuxCommand):
     The /critical switch allows you to raise the difficulty of your attack
     in order to attempt to do more damage. The default value is 15.
     """
-    def __init__(self, **kwargs):
-        super(CmdAttack, self).__init__(**kwargs)
-        self.can_kill = False
-        self.can_bypass = True
     key = "attack"
     locks = "cmd:all()"
     help_category = "Combat"
+    can_kill = False
+    can_bypass = True
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         combat = check_combat(caller)
         create_queued = False
         if not combat:
             return
-        targ = caller.search(self.args)
+        targ = caller.search(self.lhs)
         if not check_targ(caller, targ):
             return
         assert caller in combat.ndb.combatants, "Error: caller not in combat."
+        if not caller.conscious:
+            self.msg("You are not conscious.")
+            return
         if combat.ndb.phase != 2 or combat.ndb.active_character != caller:
             create_queued = True
         # we only allow +coupdegrace to kill unless they're an npc
         can_kill = self.can_kill
-        if targ.db.npc: can_kill = True
+        if targ.db.npc:
+            can_kill = True
         if targ in combat.ndb.incapacitated and not can_kill:
             message = "%s is incapacitated. " % targ.name
             message += "To kill an incapacitated character, "
@@ -372,7 +387,7 @@ class CmdAttack(MuxCommand):
                     return
                 targ = random.choice(defenders)
                 mssg += "%s gets in your way - attacking them instead. " % targ.name
-            else: # we're doing a called shot at a protected target
+            else:  # we're doing a called shot at a protected target
                 diff += 15 * len(defenders)
         if "critical" in self.switches:
             mod = 15
@@ -387,6 +402,9 @@ class CmdAttack(MuxCommand):
                 diff += mod
                 mssg += "Attempting a critical hit."
         if create_queued:
+            if combat.ndb.shutting_down:
+                self.msg("Combat is shutting down. Unqueuing command.")
+                return
             caller.msg("Queuing this action for later.")
             combat.get_fighter_data(caller.id).set_queued_action("attack", targ, mssg, diff, mod)      
             return
@@ -415,10 +433,8 @@ class CmdSlay(CmdAttack):
     key = "+coupdegrace"
     locks = "cmd:all()"
     help_category = "Combat"
-    def __init__(self, **kwargs):
-        super(CmdSlay, self).__init__(**kwargs)
-        self.can_kill = True
-        self.can_bypass = False
+    can_kill = True
+    can_bypass = False
 
 
 class CmdPassTurn(MuxCommand):
@@ -443,8 +459,9 @@ class CmdPassTurn(MuxCommand):
     aliases = ["ready", "pass"]
     locks = "cmd:all()"
     help_category = "Combat"
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         combat = check_combat(caller)
         if not combat:
@@ -465,8 +482,10 @@ class CmdPassTurn(MuxCommand):
                 caller.msg("Please use '{wpass{n' to pass your turn during combat resolution.")
                 return
         # phase 1, mark us ready to proceed for phase 2
-        combat.character_ready(caller)
+        if combat and not combat.ndb.shutting_down:
+            combat.character_ready(caller)
         return
+
 
 class CmdFlee(MuxCommand):
     """
@@ -482,24 +501,23 @@ class CmdFlee(MuxCommand):
     key = "flee"
     locks = "cmd:all()"
     help_category = "Combat"
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         combat = check_combat(caller)
         if not combat:
             return
         assert caller in combat.ndb.combatants, "Error: caller not in combat."
-##        if combat.ndb.phase != 2 or combat.ndb.active_character != caller:
-##            caller.msg("You may only perform this action on your turn.")
-##            return
-        exit = caller.search(self.args)
-        if not exit:
+        exit_obj = caller.search(self.args)
+        if not exit_obj:
             return
-        if not exit.is_exit:
+        if not exit_obj.is_exit:
             caller.msg("That is not an exit.")
             return
-        combat.do_flee(caller, exit)
+        combat.do_flee(caller, exit_obj)
         return
+
 
 class CmdFlank(MuxCommand):
     """
@@ -519,8 +537,9 @@ class CmdFlank(MuxCommand):
     key = "flank"
     locks = "cmd:all()"
     help_category = "Combat"
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         combat = check_combat(caller)
         if not combat:
@@ -536,10 +555,11 @@ class CmdFlank(MuxCommand):
             caller.msg("You must use '{w+coupdegrace{n' to kill characters.")
             return
         # Check whether we attack guards
-        bypass = "only" in self.switches
+        attack_guards = "only" not in self.switches
         # to do later - adding in sneaking/invisibility into game
-        combat.do_flank(caller, targ, sneaking=False, invis=False, attack_guard=bypass)
+        combat.do_flank(caller, targ, sneaking=False, invis=False, attack_guard=attack_guards)
         return
+
 
 class CmdCombatStance(MuxCommand):
     """
@@ -559,25 +579,26 @@ class CmdCombatStance(MuxCommand):
     key = "stance"
     locks = "cmd:all()"
     help_category = "Combat"
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
-        combat = check_combat(caller)
-        if not combat:
-            return
-        assert caller in combat.ndb.combatants, "Error: caller not in combat."
-        fighter = combat.get_fighter_data(caller.id)
-        if fighter.changed_stance:
-            caller.msg("You've already changed your stance this turn.")
-            return
-        if self.args not in combat_settings._COMBAT_STANCES_:
+        if self.args not in combat_settings.COMBAT_STANCES:
             message = "Your stance must be one of the following: "
-            message += "{w%s{n" % str(combat_settings._COMBAT_STANCES_)
+            message += "{w%s{n" % str(combat_settings.COMBAT_STANCES)
             caller.msg(message)
             return
-        caller.db.combat_stance = self.args
+        combat = check_combat(caller)
+        if not combat:
+            caller.db.combat_stance = self.args
+            self.msg("Stance is now %s." % self.args)
+            return
+        if combat.ndb.phase != 1:
+            self.msg("Can only change stance between rounds.")
+            return
         combat.change_stance(caller, self.args)       
         return
+
 
 class CmdCatch(MuxCommand):
     """
@@ -593,8 +614,9 @@ class CmdCatch(MuxCommand):
     key = "catch"
     locks = "cmd:all()"
     help_category = "Combat"
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         combat = check_combat(caller)
         if not combat:
@@ -605,6 +627,7 @@ class CmdCatch(MuxCommand):
             return
         combat.do_stop_flee(caller, targ)
         return
+
 
 class CmdCoverRetreat(MuxCommand):
     """
@@ -622,8 +645,9 @@ class CmdCoverRetreat(MuxCommand):
     key = "cover"
     locks = "cmd:all()"
     help_category = "Combat"
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         combat = check_combat(caller)
         if not combat:
@@ -647,6 +671,7 @@ class CmdCoverRetreat(MuxCommand):
         else:
             combat.begin_covering(caller, targlist)
 
+
 class CmdVoteAFK(MuxCommand):
     """
     Attempt to stop someone from running
@@ -664,8 +689,9 @@ class CmdVoteAFK(MuxCommand):
     key = "+vote_afk"
     locks = "cmd:all()"
     help_category = "Combat"
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         combat = check_combat(caller)
         if not combat:
@@ -676,27 +702,41 @@ class CmdVoteAFK(MuxCommand):
             return
         combat.afk_check(caller, targ)
 
+
 class CmdCombatStats(MuxCommand):
     """
     View your combat stats
     Usage:
         +combatstats
+        +combatstats/view <character>
         
     Displays your combat stats.
     """
     key = "+combatstats"
     locks = "cmd:all()"
     help_category = "Combat"
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
-        combat = check_combat(caller, quiet=True)
-        if not combat or caller not in combat.ndb.combatants:
-            from typeclasses.scripts.combat.combatant import CharacterCombatData
-            fighter = CharacterCombatData(caller, None)
+        if "view" in self.switches:
+            if not self.caller.player.check_permstring("builders"):
+                self.msg("Only GMs can view +combatstats of other players.")
+                return
+            pc = caller.player.search(self.args)
+            if not pc:
+                return
+            char = pc.db.char_ob
         else:
-            fighter = combat.get_fighter_data(caller.id)
-        self.msg(fighter.display_stats())
+            char = caller
+        combat = check_combat(char, quiet=True)
+        if not combat or char not in combat.ndb.combatants:
+            from typeclasses.scripts.combat.combatant import CharacterCombatData
+            fighter = CharacterCombatData(char, None)
+        else:
+            fighter = combat.get_fighter_data(char.id)
+        msg = "\n{c%s{w's Combat Stats\n" % char
+        self.msg(msg + fighter.display_stats())
 
 
 """
@@ -706,6 +746,7 @@ commands for manipulating combat: observing combat,
 as well as changing events.
 ----------------------------------------------------
 """
+
 
 class CmdObserveCombat(MuxCommand):
     """
@@ -718,8 +759,9 @@ class CmdObserveCombat(MuxCommand):
     key = "@spectate_combat"
     locks = "cmd:all()"
     help_category = "Combat"
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         combat = check_combat(caller)
         if not combat:
@@ -731,6 +773,28 @@ class CmdObserveCombat(MuxCommand):
             combat.remove_observer(caller, quiet=False)
             return
         combat.add_observer(caller)
+
+
+class CmdFightStatus(MuxCommand):
+    """
+    Displays the status of combat
+
+    Usage:
+        +combatstatus
+
+    Displays status of fight at your room.
+    """
+    key = "+combatstatus"
+    aliases = ["+fightstatus"]
+    locks = "cmd:all()"
+    help_category = "Combat"
+
+    def func(self):
+        combat = check_combat(self.caller)
+        if not combat:
+            return
+        combat.display_phase_status(self.caller, disp_intro=False)
+
 
 class CmdAdminCombat(MuxCommand):
     """
@@ -750,8 +814,9 @@ class CmdAdminCombat(MuxCommand):
     key = "@admin_combat"
     locks = "cmd:perm(admin_combat) or perm(Wizards)"
     help_category = "Combat"
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         combat = check_combat(caller)
         if not combat:
@@ -793,7 +858,9 @@ class CmdAdminCombat(MuxCommand):
         pass
 
 NPC = "typeclasses.npcs.npc.MultiNpc"
-from typeclasses.npcs import npc_types
+UNIQUE_NPC = "typeclasses.npcs.npc.Npc"
+
+
 class CmdCreateAntagonist(MuxCommand):
     """
     Creates an object to act as an NPC antagonist for combat.
@@ -808,28 +875,32 @@ class CmdCreateAntagonist(MuxCommand):
     the preset npc templates - 'guard', etc. /preset keeps the existing
     names, type, and description of the npc, just changing its threat and
     quantity. /new spawns a new template, while /ovewrite allows you to
-    replace an old, unsured template by its ID number with new data.
+    replace an old, unsured template by its ID number with new data. Use 'champion'
+    to spawn unique npcs. When spawning a unique, quantity will always be 1.
     """
     key = "@spawn"
     locks = "cmd:perm(spawn) or perm(Builders)"
-    help_category = "Building"
+    help_category = "GMing"
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         # get list of available npcs and types
-        npcs = list(ObjectDB.objects.filter(db_typeclass_path=NPC))
+        npcs = list(ObjectDB.objects.filter(Q(db_typeclass_path=NPC) | Q(db_typeclass_path=UNIQUE_NPC)))
         unused = [npc for npc in npcs if not npc.location]
+        ntype = None
         if not self.switches and not self.args:
             # list available types
             ntypes = npc_types.npc_templates.keys()
             caller.msg("Valid npc types: %s" % ", ".join(ntypes))
             
-            table = evtable.EvTable("ID", "Name", "Type", "Amt", "Threat", "Location", "Desc", width=78)
+            table = evtable.EvTable("ID", "Name", "Type", "Amt", "Threat", "Location", width=78)
             for npc in npcs:
                 ntype = npc_types.get_npc_singular_name(npc.db.npc_type)
-                table.add_row(npc.id, npc.key or "None", ntype, npc.db.num_living,
-                              npc.db.npc_quality, npc.location, npc.desc )
-            caller.msg(str(table), options={'box':True})
+                num = npc.db.num_living if ntype.lower() != "champion" else "Unique"
+                table.add_row(npc.id, npc.key or "None", ntype, num,
+                              npc.db.npc_quality, npc.location.id if npc.location else None)
+            caller.msg(str(table), options={'box': True})
             return
         if not self.switches or 'new' in self.switches or 'overwrite' in self.switches:
             if 'new' in self.switches and 'overwrite' in self.switches:
@@ -837,16 +908,17 @@ class CmdCreateAntagonist(MuxCommand):
                 return
             try:
                 desc = None
+                npc_id = None
                 if 'new' in self.switches or not self.switches:                   
-                    if len(self.lhslist) == 6:
-                        desc = self.lhslist[5]
-                    ntype,threat,qty,sname,pname = self.lhslist[:5]
+                    if len(self.lhslist) > 5:
+                        desc = ", ".join(self.lhslist[5:])
+                    ntypename, threat, qty, sname, pname = self.lhslist[:5]
                 else:
-                    if len(self.lhslist) == 7:
-                        desc = self.lhslist[6]
-                    id,ntype,threat,qty,sname,pname = self.lhslist[:6]
-                    id = int(id)
-                ntype = npc_types.npc_templates[ntype]
+                    if len(self.lhslist) > 6:
+                        desc = ", ".join(self.lhslist[6:])
+                    npc_id, ntypename, threat, qty, sname, pname = self.lhslist[:6]
+                    npc_id = int(npc_id)
+                ntype = npc_types.npc_templates[ntypename]
                 qty = int(qty)
                 threat = int(threat)
             except ValueError:
@@ -860,19 +932,25 @@ class CmdCreateAntagonist(MuxCommand):
                 return
             if 'overwrite' in self.switches:
                 try:
-                    npc = ObjectDB.objects.get(db_typeclass_path=NPC, id=id)
+                    npc = ObjectDB.objects.get(Q(Q(db_typeclass_path=NPC) | Q(db_typeclass_path=UNIQUE_NPC))
+                                               & Q(id=npc_id))
                 except ObjectDB.DoesNotExist:
                     caller.msg("No npc found for that ID.")
+                    return
             else:
-                npc = create.create_object(typeclass=NPC)
+                if ntypename.lower() != "champion":
+                    npc = create.create_object(key=sname, typeclass=NPC)
+                else:
+                    npc = create.create_object(key=sname, typeclass=UNIQUE_NPC)
+                    qty = 1
             npc.setup_npc(ntype, threat, qty, sing_name=sname, plural_name=pname, desc=desc)
-            npc.location=caller.location
+            npc.location = caller.location
             caller.location.msg_contents(self.rhs)
             return
         if 'preset' in self.switches:
             try:
-                id,num,threat = [int(val) for val in self.lhslist]
-                npc = ObjectDB.objects.get(id=id)
+                npc_id, num, threat = [int(val) for val in self.lhslist]
+                npc = ObjectDB.objects.get(id=npc_id)
             except ValueError:
                 caller.msg("Wrong number of arguments.")
                 return
@@ -899,6 +977,39 @@ class CmdCreateAntagonist(MuxCommand):
         caller.msg("Invalid switch.")
         return
 
+
+class CmdHarm(MuxCommand):
+    """
+    Harms characters and sends them a message
+
+    Usage:
+        @harm <character1, character2, etc>=amount,<message>
+    """
+    key = "@harm"
+    locks = "cmd:perm(Wizards)"
+    help_category = "GMing"
+
+    def func(self):
+        if not self.lhslist:
+            self.msg("Must provide one or more character names.")
+            return
+        message = "You feel worse."
+        amt = None
+        try:
+            amt = int(self.rhslist[0])
+            message = self.rhslist[1]
+        except (TypeError, ValueError):
+            self.msg("Must provide a number amount.")
+            return
+        except IndexError:
+            pass
+        charlist = [self.caller.search(arg) for arg in self.lhslist if self.caller.search(arg)]
+        for obj in charlist:
+            obj.msg(message)
+            obj.dmg += amt
+        self.msg("You inflicted %s damage on %s" % (amt, ", ".join(str(obj) for obj in charlist)))
+
+
 class CmdHeal(MuxCommand):
     """
     Administers medical care to a character.
@@ -912,8 +1023,9 @@ class CmdHeal(MuxCommand):
     key = "+heal"
     locks = "cmd:all()"
     help_category = "Combat"
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         targ = caller.search(self.args)
         if not targ:
@@ -942,16 +1054,27 @@ class CmdHeal(MuxCommand):
         aid_given[targ.id] = time.time()
         caller.db.administered_aid = aid_given
         # give healin'
-        from game.gamesrc.objects.stats_and_skills import do_dice_check
+        from world.stats_and_skills import do_dice_check
         blessed = caller.db.blessed_by_lagoma
+        antimagic_aura = random.randint(0, 5)
+        try:
+            antimagic_aura += int(caller.location.db.antimagic_aura or 0)
+        except (TypeError, ValueError):
+            pass
+        # if they have Lagoma's favor, we see if the Despite of Fable stops it
         if blessed:
             try:
                 blessed = random.randint(0, blessed + 1)
             except (TypeError, ValueError):
                 blessed = 0
+            blessed -= antimagic_aura
+            if blessed > 0:
+                caller.msg("{cYou feel Lagoma's favor upon you.{n")
+            else:
+                blessed = 0
             keep = blessed + caller.db.skills.get("medicine", 0) + 2
             heal_roll = do_dice_check(caller, stat_list=["mana", "intellect"], skill="medicine",
-                                      difficulty=15-blessed, keep_override=keep)
+                                      difficulty=15-(5*blessed), keep_override=keep)
         else:
             heal_roll = do_dice_check(caller, stat="intellect", skill="medicine", difficulty=15)
         caller.msg("You rolled a %s on your heal roll." % heal_roll)
@@ -959,6 +1082,7 @@ class CmdHeal(MuxCommand):
         targ.recovery_test(diff_mod=-heal_roll)
         if heal_roll > 0 and targ.db.sleep_status != "awake":
             targ.wake_up()
+
 
 class CmdStandYoAssUp(MuxCommand):
     """
@@ -970,15 +1094,16 @@ class CmdStandYoAssUp(MuxCommand):
     """
     key = "+standyoassup"
     locks = "cmd:perm(wizards)"
-    help_category = "Combat"
+    help_category = "GMing"
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         targ = caller.search(self.args)
         if not targ:
             return
-        targ.db.damage = 0
+        targ.dmg = 0
         targ.wake_up()
         targ.msg("You have been healed.")
-        caller.msg("You heal %s because they're a sissy mortal who need everything done for them." % char)
+        caller.msg("You heal %s because they're a sissy mortal who need everything done for them." % targ)
         return

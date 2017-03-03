@@ -7,7 +7,6 @@ among the available commands as to what should be included in the
 cmdset - this way you can often re-use the commands too.
 """
 
-import random
 from django.conf import settings
 from evennia import CmdSet
 from evennia import utils
@@ -16,9 +15,11 @@ from evennia.commands.default.muxcommand import MuxCommand
 # error return function, needed by wear/remove command
 AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
 
-#------------------------------------------------------------
+# ------------------------------------------------------------
 # Commands defined for wearable
-#------------------------------------------------------------
+# ------------------------------------------------------------
+
+
 class CmdWear(MuxCommand):
     """
     Put on an item of clothing or armor.
@@ -31,8 +32,9 @@ class CmdWear(MuxCommand):
     """
     key = "wear"
     locks = "cmd:all()"
+
     def func(self):
-        "Look for object in inventory that matches args to wear"
+        """Look for object in inventory that matches args to wear"""
         caller = self.caller
         args = self.args
         if not args:
@@ -64,9 +66,7 @@ class CmdWear(MuxCommand):
             caller.msg("You put on %s." % obj.name)
             obj.at_post_wear(caller)
             return
-            
-        
-        pass
+
 
 class CmdRemove(MuxCommand):
     """
@@ -79,8 +79,9 @@ class CmdRemove(MuxCommand):
     """
     key = "remove"
     locks = "cmd:all()"
+
     def func(self):
-        "Look for object in inventory that matches args to wear"
+        """Look for object in inventory that matches args to wear"""
         caller = self.caller
         args = self.args
         if not args:
@@ -93,11 +94,11 @@ class CmdRemove(MuxCommand):
         # now we send it into the error handler (this will output consistent
         # error messages if there are problems).
         obj = AT_SEARCH_RESULT(results, caller, args, False,
-                                nofound_string="You don't carry %s." % args,
-                                multimatch_string="You carry more than one %s:" % args)
+                               nofound_string="You don't carry %s." % args,
+                               multimatch_string="You carry more than one %s:" % args)
         if not obj:
             return
-        if not obj.db.currently_worn or obj.db.worn_by != caller:
+        if not obj.db.currently_worn and not obj.db.sheathed_by:
             caller.msg("You're not wearing %s." % obj.name)
             return
         if obj.remove(caller):
@@ -106,12 +107,14 @@ class CmdRemove(MuxCommand):
             return
         pass
 
+
 class DefaultCmdSet(CmdSet):
     """
     Legacy commandset that doesn't do anything, but required so that
     old wearables don't throw errors due to a nonexistent pathname
     """
     key = "OldWearableDefault"
+
 
 class WearCmdSet(CmdSet):
     """
@@ -130,6 +133,6 @@ class WearCmdSet(CmdSet):
     duplicates = False
 
     def at_cmdset_creation(self):
-        "Init the cmdset"
+        """Init the cmdset"""
         self.add(CmdWear())
         self.add(CmdRemove())

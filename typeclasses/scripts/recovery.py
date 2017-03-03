@@ -2,9 +2,7 @@
 Script for characters healing.
 """
 
-from django.conf import settings
 from .scripts import Script
-
 
 
 class Recovery(Script):
@@ -18,29 +16,38 @@ class Recovery(Script):
         """
         self.key = "Recovery"
         self.desc = "Healing over time"
-        self.interval = 1800
+        self.interval = 28800
         self.persistent = True
         self.start_delay = True
 
     def at_repeat(self):
         """
-        Called every 30 minutes until we're all better.
+        Called every 8 hours until we're all better.
         """
-        if not self.obj:
+        def stop_it():
             self.stop()
             self.dbobj.delete()
+        if not self.obj:
+            stop_it()
+            return
+        # RIP in pepperinos
+        try:
+            if self.obj.dead:
+                stop_it()
+                return
+        except AttributeError:
+            stop_it()
             return
         if self.obj.db.damage and self.obj.db.damage > 0:
-            self.obj.recovery_test()
+            self.obj.recovery_test(diff_mod=15)
         else:
-            self.stop()
-            self.dbobj.delete()
+            stop_it()
 
     def is_valid(self):
         try:
             if self.obj and self.obj.db.damage > 0:
                 return True
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             return False
         return False
 

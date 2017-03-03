@@ -32,8 +32,8 @@
 	</div>
     {% endif %}
     <div class="col-md-5 text-left">
-    <p><b>Social Rank:</b> {{ character.db.social_rank }}</br><b>Concept:</b> {{ character.db.concept }}</br>
-	{% if character.db.real_concept and show_hidden %}<b>Real Concept:</b> {{ character.db.real_concept}}</br>{% endif %}
+    <p><b>Social Rank:</b> {{ character.db.social_rank }}<br><b>Concept:</b> {{ character.db.concept }}<br>
+	{% if character.db.real_concept and show_hidden %}<b>Real Concept:</b> {{ character.db.real_concept}}<br>{% endif %}
     <b>Fealty:</b> 
 	{% if fealty_org_id %}
 	<a href="{% url 'help_topics:display_org' fealty_org_id.id %}">{{ character.db.fealty }}</a>
@@ -45,10 +45,10 @@
 	{% else %}{{ character.db.family}}
 	{% endif %}
 	</br>
-    <b>Gender:</b> {{ character.db.gender }}</br><b>Age:</b> {{ character.db.age }}</br>
-    <b>Religion:</b> {{ character.db.religion }}</br><b>Vocation:</b> {{character.db.vocation|capfirst }}</br>
-	<b>Height:</b> {{ character.db.height}}</br><b>Hair Color:</b> {{character.db.haircolor}}</br>
-	<b>Eye Color:</b> {{ character.db.eyecolor}}</br><b>Skintone:</b> {{character.db.skintone}}</p>
+    <b>Gender:</b> {{ character.db.gender }}<br><b>Age:</b> {{ character.db.age }}<br>
+    <b>Religion:</b> {{ character.db.religion }}<br><b>Vocation:</b> {{character.db.vocation|capfirst }}<br>
+	<b>Height:</b> {{ character.db.height}}<br><b>Hair Color:</b> {{character.db.haircolor}}<br>
+	<b>Eye Color:</b> {{ character.db.eyecolor}}<br><b>Skintone:</b> {{character.db.skintone}}</p>
 	</div>
 	</div>
 	</div>
@@ -76,6 +76,12 @@
     {% for secret in character.db.secrets %}
     <p>{{ forloop.counter}} : {{ secret|mush_to_html }}</p>
     {% endfor %}
+    {% endif %}
+    {% if character.db.gm_notes %}
+        {% if request.user.is_staff %}
+            <h2 class="text-center">GM Notes</h2>
+            {{  character.db.gm_notes }}
+        {% endif %}
     {% endif %}
     <style>
     td { text-align:center }
@@ -161,7 +167,7 @@
       </form>
     {% endif %}
 	-->
-    <h1 class="text-center"><a href="{% url 'character:gallery' character.id %}"><span class="label label-primary">Gallery</span></a></h2>
+    <h1 class="text-center"><a href="{% url 'character:gallery' character.id %}"><span class="label label-primary">Gallery</span></a></h1>
     
  
   {% endblock %}

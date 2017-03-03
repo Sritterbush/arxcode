@@ -59,7 +59,7 @@ from .reports import WeeklyReport
 from .explore import Exploration
 from .battle import Battle
 from .agenthandler import AgentHandler
-from server.utils.utils import get_week, setup_log
+from server.utils.arx_utils import get_week
 from evennia.locks.lockhandler import LockHandler
 import traceback
 from django.core.urlresolvers import reverse
@@ -69,7 +69,7 @@ BASE_WORKER_COST = 0.10
 SILVER_PER_BUILDING = 225.00
 FOOD_PER_FARM = 100.00
 # each point in a dominion skill is a 5% bonus
-BONUS_PER_SKILL_POINT = 0.05
+BONUS_PER_SKILL_POINT = 0.10
 # number of workers for a building to be at full production
 SERFS_PER_BUILDING = 20.0
 # population cap for housing
@@ -78,17 +78,16 @@ BASE_POP_GROWTH = 0.01
 DEATHS_PER_LAWLESS = 0.0025
 LAND_SIZE = 10000
 LIFESTYLES = {
-    0:(-100, -1000),
-    1:(0,0),
-    2:(100,2000),
-    3:(200,3000),
-    4:(500,4000),
-    5:(1500,7000),
-    6:(5000,10000),
+    0: (-100, -1000),
+    1: (0, 0),
+    2: (100, 2000),
+    3: (200, 3000),
+    4: (500, 4000),
+    5: (1500, 7000),
+    6: (5000, 10000),
     }
 
 PAGEROOT = "http://play.arxgame.org"
-
 
 
 # Create your models here.
@@ -106,7 +105,7 @@ class PlayerOrNpc(models.Model):
     patron = models.ForeignKey('self', related_name='proteges', null=True, blank=True,
                                on_delete=models.SET_NULL)
     lifestyle_rating = models.PositiveSmallIntegerField(default=1, blank=1)
-    #--- Dominion skills----
+    # --- Dominion skills----
     # bonus to population growth
     population = models.PositiveSmallIntegerField(default=0, blank=0)
     # bonus to income sources
@@ -121,6 +120,7 @@ class PlayerOrNpc(models.Model):
     loyalty = models.PositiveSmallIntegerField(default=0, blank=0)
     # bonus to all military combat commands
     warfare = models.PositiveSmallIntegerField(default=0, blank=0)
+
     def __str__(self):
         if self.player:
             name = self.player.key.capitalize()
@@ -143,95 +143,117 @@ class PlayerOrNpc(models.Model):
     @property
     def grandparents(self):
         return PlayerOrNpc.objects.filter(Q(children__children=self) | Q(spouses__children__children=self) |
-                                          Q(children__spouses__children=self) | Q(spouses__children__children__spouses=self) |
-                                          Q(children__children__spouses=self) | Q(spouses__children__spouses__children=self)).distinct()
+                                          Q(children__spouses__children=self) |
+                                          Q(spouses__children__children__spouses=self) |
+                                          Q(children__children__spouses=self) |
+                                          Q(spouses__children__spouses__children=self)).distinct()
 
     @property
     def greatgrandparents(self):
-        return PlayerOrNpc.objects.filter(Q(children__in=self.grandparents) | Q(spouses__children__in=self.grandparents)).distinct()
+        return PlayerOrNpc.objects.filter(Q(children__in=self.grandparents) | Q(spouses__children__in=self.grandparents)
+                                          ).distinct()
 
     @property
     def second_cousins(self):
         return PlayerOrNpc.objects.filter(~Q(id=self.id) & ~Q(id__in=self.cousins) &
-                                          ~Q(id__in=self.siblings) &(
-            Q(parents__parents__parents__in=self.greatgrandparents) |
-            Q(parents__parents__parents__spouses__in=self.greatgrandparents) |
-            Q(parents__parents__spouses__parents__in=self.greatgrandparents) |
-            Q(parents__spouses__parents__parents__in=self.greatgrandparents) 
-            )).distinct()
-
+                                          ~Q(id__in=self.siblings) & ~Q(id__in=self.spouses.all())
+                                          & (
+                                            Q(parents__parents__parents__in=self.greatgrandparents) |
+                                            Q(parents__parents__parents__spouses__in=self.greatgrandparents) |
+                                            Q(parents__parents__spouses__parents__in=self.greatgrandparents) |
+                                            Q(parents__spouses__parents__parents__in=self.greatgrandparents)
+                                          )).distinct()
 
     def _get_cousins(self):
-        return PlayerOrNpc.objects.filter( (Q(parents__parents__in=self.grandparents) |
-                                            Q(parents__parents__spouses__in=self.grandparents) |
-                                            Q(parents__spouses__parents__in=self.grandparents))
-                                           & ~Q(id=self.id)
-                                           & ~Q(id__in=self.siblings)).distinct()
-    
+        return PlayerOrNpc.objects.filter((Q(parents__parents__in=self.grandparents) |
+                                           Q(parents__parents__spouses__in=self.grandparents) |
+                                           Q(parents__spouses__parents__in=self.grandparents)) & ~Q(id=self.id)
+                                          & ~Q(id__in=self.siblings) & ~Q(id__in=self.spouses.all())).distinct()
 
     cousins = property(_get_cousins)
     siblings = property(_get_siblings)
     
     def display_immediate_family(self):
+        """
+        Creates lists of our family relationships and converts the lists to sets
+        to remove duplicates. At the very end, convert each one to a string with
+        join. Then return all these strings added together.
+        """
         ggparents = self.greatgrandparents
         grandparents = []
-        parents = self.all_parents or ''
+        parents = self.all_parents
         unc_or_aunts = []
-        if parents:
-            for parent in parents:
-                grandparents += list(parent.all_parents)
-                for sibling in parent.siblings:
-                    unc_or_aunts.append(sibling)
-                    for spouse in sibling.spouses.all():
-                        unc_or_aunts.append(spouse)
-            unc_or_aunts = set(unc_or_aunts)
-            grandparents = set(grandparents)
-        spouses = self.spouses.all() or ''
-        siblings = self.siblings or ''
+        for parent in parents:
+            grandparents += list(parent.all_parents)
+            for sibling in parent.siblings:
+                unc_or_aunts.append(sibling)
+                for spouse in sibling.spouses.all():
+                    unc_or_aunts.append(spouse)
+        spouses = self.spouses.all()
+        siblings = self.siblings
         neph_or_nieces = []
-        if siblings:
-            for sib in siblings:
+        for sib in siblings:
+            neph_or_nieces += list(sib.children.all())
+        for spouse in self.spouses.all():
+            for sib in spouse.siblings:
                 neph_or_nieces += list(sib.children.all())
-            neph_or_nieces = set(neph_or_nieces)
-        children = self.children.all() or ''
+        children = self.children.all()
         grandchildren = []
-        if children:
-            for child in children:
-                grandchildren += list(child.children.all())
-            grandchildren = set(grandchildren)
-        cousins = self.cousins or ''
-        second_cousins = self.second_cousins or ''
+        for child in children:
+            grandchildren += list(child.children.all())
+        cousins = self.cousins
+        second_cousins = self.second_cousins
+        # convert lists to sets that remove duplicates
+        unc_or_aunts = set(unc_or_aunts)
+        grandparents = set(grandparents)
+        neph_or_nieces = set(neph_or_nieces)
+        grandchildren = set(grandchildren)
+        # convert to strings
         if ggparents:
             ggparents = "{wGreatgrandparents{n: %s\n" % (", ".join(str(ggparent) for ggparent in ggparents))
+        else:
+            ggparents = ''
         if grandparents:
             grandparents = "{wGrandparents{n: %s\n" % (", ".join(str(gparent) for gparent in grandparents))
         else:
             grandparents = ''
         if parents:
             parents = "{wParents{n: %s\n" % (", ".join(str(parent) for parent in parents))
+        else:
+            parents = ''
         if spouses:
             spouses = "{wSpouses{n: %s\n" % (", ".join(str(spouse) for spouse in spouses))
+        else:
+            spouses = ''
         if unc_or_aunts:
             unc_or_aunts = "{wUncles/Aunts{n: %s\n" % (", ".join(str(unc) for unc in unc_or_aunts))
         else:
             unc_or_aunts = ''
         if siblings:
             siblings = "{wSiblings{n: %s\n" % (", ".join(str(sib) for sib in siblings))
+        else:
+            siblings = ''
         if neph_or_nieces:
             neph_or_nieces = "{wNephews/Nieces{n: %s\n" % (", ".join(str(neph) for neph in neph_or_nieces))
         else:
             neph_or_nieces = ''
         if children:
             children = "{wChildren{n: %s\n" % (", ".join(str(child) for child in children))
+        else:
+            children = ''
         if grandchildren:
             grandchildren = "{wGrandchildren{n: %s\n" % (", ".join(str(gchild) for gchild in grandchildren))
         else:
             grandchildren = ''
         if cousins:
             cousins = "{wCousins{n: %s\n" % (", ".join(str(cousin) for cousin in cousins))
+        else:
+            cousins = ''
         if second_cousins:
             second_cousins = "{wSecond Cousins{n: %s\n" % (", ".join(str(seco) for seco in second_cousins))
-        return (grandparents + parents + unc_or_aunts + spouses + siblings
+        else:
+            second_cousins = ''
+        return (ggparents + grandparents + parents + unc_or_aunts + spouses + siblings
                 + children + neph_or_nieces + cousins + second_cousins + grandchildren)
 
     def msg(self, *args, **kwargs):
@@ -251,14 +273,19 @@ class PlayerOrNpc(models.Model):
         org_ids = self.memberships.filter(deguilded=False).values_list('organization', flat=True)
         return Organization.objects.filter(id__in=org_ids)
 
+    @property
+    def public_orgs(self):
+        org_ids = self.memberships.filter(deguilded=False, secret=False).values_list('organization', flat=True)
+        return Organization.objects.filter(id__in=org_ids, secret=False)
+
     def pay_lifestyle(self, report=None):
         try:
             assets = self.assets
         except AttributeError:
             return False
         life_lvl = self.lifestyle_rating      
-        cost = LIFESTYLES.get(life_lvl, (0,0))[0]
-        prestige = LIFESTYLES.get(life_lvl, (0,0))[1]
+        cost = LIFESTYLES.get(life_lvl, (0, 0))[0]
+        prestige = LIFESTYLES.get(life_lvl, (0, 0))[1]
         
         def pay_and_adjust(payer):
             payer.vault -= cost
@@ -266,7 +293,8 @@ class PlayerOrNpc(models.Model):
             assets.adjust_prestige(prestige)
             payname = "You" if payer == assets else str(payer)
             if report:
-                report.lifestyle_msg = "%s paid %s for your lifestyle and you gained %s prestige.\n" % (payname, cost, prestige)
+                report.lifestyle_msg = "%s paid %s for your lifestyle and you gained %s prestige.\n" % (payname, cost,
+                                                                                                        prestige)
         if assets.vault > cost:
             pay_and_adjust(assets)
             return True
@@ -281,6 +309,7 @@ class PlayerOrNpc(models.Model):
         if report:
             report.lifestyle_msg = "You were unable to afford to pay for your lifestyle.\n"
         return False
+
     @property
     def support_cooldowns(self):
         if not hasattr(self, 'cached_support_cooldowns'):
@@ -288,9 +317,10 @@ class PlayerOrNpc(models.Model):
         return self.cached_support_cooldowns
     
     def calc_support_cooldowns(self):
-        "Calculates support used in last three weeks, builds a dictionary"
+        """Calculates support used in last three weeks, builds a dictionary"""
         self.cached_support_cooldowns = {}
         cdowns = self.cached_support_cooldowns
+        # noinspection PyBroadException
         try:
             week = get_week()
         except Exception:
@@ -298,27 +328,28 @@ class PlayerOrNpc(models.Model):
             traceback.print_exc()
             return cdowns
         try:
-            max = self.player.db.char_ob.max_support
+            max_support = self.player.db.char_ob.max_support
         except AttributeError:
             import traceback
             traceback.print_exc()
             return cdowns
         qs = SupportUsed.objects.select_related('supporter__task__member__player').filter(Q(supporter__player=self) &
                                                                                           Q(supporter__fake=False))
-        def process_week(qset, offset=0):
-            qset = qset.filter(week=week+offset)
+
+        def process_week(qset, week_offset=0):
+            qset = qset.filter(week=week + week_offset)
             for used in qset:
                 member = used.supporter.task.member
                 pc = member.player.player.db.char_ob
-                points = cdowns.get(pc.id, max)
+                points = cdowns.get(pc.id, max_support)
                 points -= used.rating
                 cdowns[pc.id] = points
-            if offset:
+            if week_offset:
                 for name in cdowns.keys():
-                    cdowns[name] += max/3
-                    if max % 3:
+                    cdowns[name] += max_support/3
+                    if max_support % 3:
                         cdowns[name] += 1
-                    if cdowns[name] >= max:
+                    if cdowns[name] >= max_support:
                         del cdowns[name]
         for offset in range(-3, 1):
             process_week(qs, offset)
@@ -331,15 +362,21 @@ class PlayerOrNpc(models.Model):
         many points we should have remaining.
         """
         week = get_week()
-        points_spent = 0
         try:
             max_support = self.player.db.char_ob.max_support
             points_spent = sum(SupportUsed.objects.filter(Q(week=week) & Q(supporter__player=self) &
-                                               Q(supporter__fake=False)).values_list('rating', flat=True))
+                                                          Q(supporter__fake=False)).values_list('rating', flat=True))
 
-        except Exception:
+        except (ValueError, TypeError, AttributeError):
             return 0
         return max_support - points_spent
+
+    def get_absolute_url(self):
+        try:
+            return self.player.db.char_ob.get_absolute_url()
+        except AttributeError:
+            pass
+
 
 class AssetOwner(models.Model):
     """
@@ -373,7 +410,8 @@ class AssetOwner(models.Model):
     owner = property(_get_owner)
     
     def __unicode__(self):
-        return "%s" % (self.owner)
+        return "%s" % self.owner
+
     def __repr__(self):
         return "<Owner (#%s): %s>" % (self.id, self.owner)
 
@@ -391,7 +429,7 @@ class AssetOwner(models.Model):
             org = member.organization
             try:
                 bonus += int(org.assets.prestige * mult)
-            except Exception:
+            except AttributeError:
                 print "Org %s lacks asset_owner instance!" % org
         return bonus + self.prestige
     total_prestige = property(_total_prestige)
@@ -431,7 +469,7 @@ class AssetOwner(models.Model):
             return self.cached_income
         if self.organization_owner:
             income += self.organization_owner.amount
-        for amt in self.incomes.filter(do_weekly=True):
+        for amt in self.incomes.filter(do_weekly=True).exclude(category="vassal taxes"):
             income += amt.weekly_amount
         if not hasattr(self, 'estate'):
             return income
@@ -444,7 +482,7 @@ class AssetOwner(models.Model):
         costs = 0
         if hasattr(self, 'cached_costs'):
             return self.cached_costs
-        for debt in self.debts.filter(do_weekly=True):
+        for debt in self.debts.filter(do_weekly=True).exclude(category="vassal taxes"):
             costs += debt.weekly_amount
         if not hasattr(self, 'estate'):
             return costs
@@ -459,39 +497,51 @@ class AssetOwner(models.Model):
     income = property(_income)
     net_income = property(_net_income)
     costs = property(_costs)
-           
-    def do_weekly_adjustment(self, week):
-        amount = 0
-        report = None
+
+    @property
+    def inform_target(self):
+        """
+        Determines who should get some sort of inform for this assetowner
+        """
         player = None
         if self.player and self.player.player:
-            # if we're a player, send them the report
             player = self.player.player
-            for member in self.player.memberships.filter(deguilded=False):
-                member.work_this_week = 0
-                member.save()
         else:
             # if we're an organization, we see if we have a player Castellan to send reports
             if (hasattr(self, 'estate') and self.estate.castellan and self.estate.castellan.player
                 and hasattr(self.estate.castellan.player, 'roster') and self.estate.castellan.player.roster.roster and
-                self.estate.castellan.player.roster.roster == "Active"):
+                    self.estate.castellan.player.roster.roster == "Active"):
                 player = self.estate.castellan.player
-            elif self.organization_owner: # otherwise send it to the highest ranked active player
-                members = self.organization_owner.members.filter(player__player__roster__roster__name="Active").order_by('rank')
+            elif self.organization_owner:  # otherwise send it to the highest ranked active player
+                members = self.organization_owner.members.filter(player__player__roster__roster__name="Active"
+                                                                 ).order_by('rank')
                 if members:
                     player = members[0].player.player
+        return player
+        
+    def do_weekly_adjustment(self, week):
+        amount = 0
+        report = None
+        npc = True
+        player = self.inform_target
+        org = self.organization_owner
         if player:
             report = WeeklyReport(player, week, self)
+            npc = False
+        elif org:
+            if org.members.filter(Q(player__player__roster__roster__name="Active") &
+                                  Q(player__player__roster__frozen=False)):
+                npc = False
         if hasattr(self, 'estate'):
             for domain in self.estate.holdings.all():
-                amount += domain.do_weekly_adjustment(week, report)
+                amount += domain.do_weekly_adjustment(week, report, npc)
         for agent in self.agents.all():
             amount -= agent.cost
         # WeeklyTransactions
         for income in self.incomes.filter(do_weekly=True):
             amount += income.process_payment(report)
-            income.post_repeat()
-        if self.organization_owner:
+            # income.post_repeat()
+        if org:
             # record organization's income
             amount += self.organization_owner.amount
             # organization prestige decay
@@ -513,7 +563,7 @@ class AssetOwner(models.Model):
         return amount
 
     def display(self):
-        msg  = "{wName{n: %s\n" % self.owner
+        msg = "{wName{n: %s\n" % self.owner
         msg += "{wVault{n: %s\n" % self.vault
         msg += "{wPrestige{n: %s\n" % self.total_prestige
         if hasattr(self, 'estate'):
@@ -531,6 +581,25 @@ class AssetOwner(models.Model):
         self.clear_cache()
         super(AssetOwner, self).save(*args, **kwargs)
 
+    def inform_owner(self, text, category=None, append=False):
+        player = self.inform_target
+        week = get_week()
+        if player:
+            player.inform(text, category=category, week=week, append=append)
+
+    def access(self, accessing_obj, access_type='agent', default=False):
+        if self.organization_owner:
+            return self.organization_owner.access(accessing_obj, access_type, default)
+        # it's a player, check if it's our player
+        if hasattr(accessing_obj, 'character'):
+            return self.player.player == accessing_obj
+        # it's a character, check if it's the character of our player
+        try:
+            return accessing_obj.db.player_ob == self.player.player
+        except AttributeError:
+            return default
+
+
 class AccountTransaction(models.Model):
     """
     Represents both income and costs that happen on a weekly
@@ -541,9 +610,9 @@ class AccountTransaction(models.Model):
     their bank_amount stored in assets.money.bank_amount, and those
     have it as a debt have the same value subtracted.
     """
-    receiver = models.ForeignKey('AssetOwner', related_name='incomes', blank=True, null=True)
+    receiver = models.ForeignKey('AssetOwner', related_name='incomes', blank=True, null=True, db_index=True)
     
-    sender = models.ForeignKey('AssetOwner', related_name='debts', blank=True, null=True)
+    sender = models.ForeignKey('AssetOwner', related_name='debts', blank=True, null=True, db_index=True)
     # quick description of the type of transaction. taxes between liege/vassal, etc
     category = models.CharField(blank=True, null=True, max_length=255)
     
@@ -569,9 +638,11 @@ class AccountTransaction(models.Model):
     
     def __unicode__(self):
         receiver = self.receiver
-        if receiver: receiver = receiver.owner
+        if receiver:
+            receiver = receiver.owner
         sender = self.sender
-        if sender: sender = sender.owner
+        if sender:
+            sender = sender.owner
         return "%s -> %s. Amount: %s" % (sender, receiver, self.weekly_amount)
 
     def process_payment(self, report=None):
@@ -607,8 +678,6 @@ class AccountTransaction(models.Model):
             self.receiver.clear_cache()
         
 
-
-
 class Region(models.Model):
     """
     A region of Land squares. The 'origin' x,y coordinates are by our convention
@@ -618,10 +687,12 @@ class Region(models.Model):
     """
     name = models.CharField(max_length=80, blank=True, null=True)
     # the Southwest corner of the region
-    origin_x_coord = models.SmallIntegerField(default = 0, blank = 0)
-    origin_y_coord = models.SmallIntegerField(default = 0, blank = 0)
+    origin_x_coord = models.SmallIntegerField(default=0, blank=0)
+    origin_y_coord = models.SmallIntegerField(default=0, blank=0)
+
     def __unicode__(self):
         return self.name or "Unnamed Region (#%s)" % self.id
+
     def __repr__(self):
         return "<Region: %s(#%s)>" % (self.name, self.id)
     
@@ -675,14 +746,15 @@ class Land(models.Model):
     
     name = models.CharField(max_length=80, blank=True, null=True)
     desc = models.TextField(blank=True, null=True)
-    x_coord = models.SmallIntegerField(default=0,blank=0)
+    x_coord = models.SmallIntegerField(default=0, blank=0)
     y_coord = models.SmallIntegerField(default=0, blank=0)
     
-    terrain = models.PositiveSmallIntegerField(choices = TERRAIN_CHOICES, default = PLAINS)
+    terrain = models.PositiveSmallIntegerField(choices=TERRAIN_CHOICES, default=PLAINS)
     
     region = models.ForeignKey('Region', on_delete=models.SET_NULL, blank=True, null=True)
     # whether we can have boats here
     landlocked = models.BooleanField(default=True, blank=True)
+
     def _get_farming_mod(self):
         """
         Returns an integer that is a percent modifier for farming.
@@ -691,51 +763,59 @@ class Land(models.Model):
         hunting, so 0% would only be accurate if there's nothing living
         there at all that could be hunted.
         """
-        MIN_FARM = (Land.DESERT, Land.SNOW, Land.ICE)
-        LOW_FARM = (Land.TUNDRA, Land.MARSH, Land.MOUNTAIN)
+        min_farm = (Land.DESERT, Land.SNOW, Land.ICE)
+        low_farm = (Land.TUNDRA, Land.MARSH, Land.MOUNTAIN)
         # 'farm' also refers to fishing for coast
-        HIGH_FARM = (Land.COAST, Land.LAKES, Land.PLAINS, Land.GRASSLAND, Land.FLOOD_PLAINS)
-        if self.terrain in MIN_FARM:
+        high_farm = (Land.COAST, Land.LAKES, Land.PLAINS, Land.GRASSLAND, Land.FLOOD_PLAINS)
+        if self.terrain in min_farm:
             return 25
-        if self.terrain in LOW_FARM:
+        if self.terrain in low_farm:
             return 50
-        if self.terrain in HIGH_FARM:
+        if self.terrain in high_farm:
             return 125
         return 100
+
     def _get_mining_mod(self):
-        HIGH_MINE = (Land.HILL, Land.MOUNTAIN)
-        if self.terrain in HIGH_MINE:
+        high_mine = (Land.HILL, Land.MOUNTAIN)
+        if self.terrain in high_mine:
             return 125
         return 100
+
     def _get_lumber_mod(self):
         # may add more later. comma is necessary to make it a tuple, otherwise not iterable
-        HIGH_LUMBER = (Land.FOREST,)
-        if self.terrain in HIGH_LUMBER:
+        high_lumber = (Land.FOREST,)
+        if self.terrain in high_lumber:
             return 125
         return 100
     farm_mod = property(_get_farming_mod)
     mine_mod = property(_get_mining_mod)
     lumber_mod = property(_get_lumber_mod)
+
     def _get_occupied_area(self):
         total_area = 0
         for domain in self.domains.all():
             total_area += domain.area
         return total_area
     occupied_area = property(_get_occupied_area)
+
     def _get_hostile_area(self):
         total_area = 0
         for hostile in self.hostiles.all():
             total_area += hostile.area
         return total_area
     hostile_area = property(_get_hostile_area)
+
     def _get_free_area(self):
         return LAND_SIZE - (self.occupied_area + self.hostile_area)
     free_area = property(_get_free_area)
+
     def __unicode__(self):
         return self.name
+
     def __repr__(self):
         name = self.name or "(%s, %s)" % (self.x_coord, self.y_coord)
         return "<Land (#%s): %s>" % (self.id, name)
+
 
 class HostileArea(models.Model):
     """
@@ -752,10 +832,12 @@ class HostileArea(models.Model):
     # the type of hostiles controlling this area
     type = models.PositiveSmallIntegerField(default=0, blank=0)
     # we'll have HostileArea.units.all() to describe any military forces we have
+
     def _get_units(self):
         return self.units.all()
     hostiles = property(_get_units)
-    
+
+
 class Domain(models.Model):
     """
     A domain owned by a noble house that resides on a particular Land square on
@@ -772,7 +854,8 @@ class Domain(models.Model):
     # 'grid' square where our domain is. More than 1 domain can be on a square
     land = models.ForeignKey('Land', on_delete=models.SET_NULL, related_name='domains', blank=True, null=True)
     # The house that rules this domain
-    ruler = models.ForeignKey('Ruler', on_delete=models.SET_NULL, related_name='holdings', blank=True, null=True)
+    ruler = models.ForeignKey('Ruler', on_delete=models.SET_NULL, related_name='holdings', blank=True, null=True,
+                              db_index=True)
     # cosmetic info
     name = models.CharField(blank=True, null=True, max_length=80)
     desc = models.TextField(blank=True, null=True)
@@ -791,14 +874,14 @@ class Domain(models.Model):
     shipped_food = models.PositiveIntegerField(default=0, blank=0)
     
     # percentage out of 100
-    tax_rate = models.PositiveSmallIntegerField(default = 10, blank = 10)
+    tax_rate = models.PositiveSmallIntegerField(default=10, blank=10)
     
     # our economic resources
-    num_mines = models.PositiveSmallIntegerField(default = 0, blank=0)  
-    num_lumber_yards = models.PositiveSmallIntegerField(default = 0, blank=0)
-    num_mills = models.PositiveSmallIntegerField(default = 0, blank=0)
-    num_housing = models.PositiveIntegerField(default = 0, blank = 0)
-    num_farms = models.PositiveSmallIntegerField(default = 0, blank = 0)
+    num_mines = models.PositiveSmallIntegerField(default=0, blank=0)
+    num_lumber_yards = models.PositiveSmallIntegerField(default=0, blank=0)
+    num_mills = models.PositiveSmallIntegerField(default=0, blank=0)
+    num_housing = models.PositiveIntegerField(default=0, blank=0)
+    num_farms = models.PositiveSmallIntegerField(default=0, blank=0)
     # workers who are not currently employed in a resource
     unassigned_serfs = models.PositiveIntegerField(default=0, blank=0)
     # what proportion of our serfs are slaves and will have no money upkeep
@@ -819,8 +902,9 @@ class Domain(models.Model):
         if hasattr(self, 'cached_tax_income'):
             return self.cached_tax_income
         tax = float(self.tax_rate)/100.0
-        if tax > 1.00: tax = 1.00
-        tax = float(self.total_serfs) * tax
+        if tax > 1.00:
+            tax = 1.00
+        tax *= float(self.total_serfs)
         if self.ruler:
             vassals = self.ruler.vassals.all()
             for vassal in vassals:
@@ -828,12 +912,13 @@ class Domain(models.Model):
                     for domain in vassal.holdings.all():
                         amt = domain.liege_taxed_amt
                         tax += amt
-                except Exception:
+                except (AttributeError, TypeError, ValueError):
                     pass
         self.cached_tax_income = tax       
         return tax
-    
-    def required_worker_mod(self, buildings, workers):
+
+    @staticmethod
+    def required_worker_mod(buildings, workers):
         """
         Returns what percentage (as a float between 0.0 to 100.0) we have of
         the workers needed to run these number of buildings at full strength.
@@ -861,9 +946,18 @@ class Domain(models.Model):
         if self.land:
             base = (base * self.land.lumber_mod)/100.0
         return base
+
     def _get_mill_income(self):
         base = self.get_resource_income(self.num_mills, self.mill_serfs)
         return base
+
+    def get_bonus(self, attr):
+        try:
+            skill_value = self.ruler.ruler_skill(attr)
+            skill_value *= BONUS_PER_SKILL_POINT
+            return skill_value
+        except AttributeError:
+            return 0.0
     
     def _get_total_income(self):
         """
@@ -878,7 +972,7 @@ class Domain(models.Model):
         amount += self.mill_income
         amount = (amount * self.income_modifier)/100.0
         if self.ruler and self.ruler.castellan:
-            bonus = (self.ruler.castellan.income * BONUS_PER_SKILL_POINT) * amount
+            bonus = self.get_bonus('income') * amount
             amount += bonus
         self.cached_total_income = int(amount)
         # we'll dump the remainder
@@ -890,7 +984,7 @@ class Domain(models.Model):
         if not self.ruler.liege:
             return 0
         if self.ruler.liege.holdings.all():
-            return self.ruler.liege.holdings.all()[0].tax_rate
+            return self.ruler.liege.holdings.first().tax_rate
         return 0
     
     def worker_cost(self, number):
@@ -902,9 +996,9 @@ class Domain(models.Model):
         cost = BASE_WORKER_COST * number
         cost *= (100 - self.slave_labor_percentage)/100
         if self.ruler and self.ruler.castellan:
-            # every point in upkeep skill is 5% discount to costs
-            reduction = (self.ruler.castellan.upkeep * BONUS_PER_SKILL_POINT) * cost
-            cost -= reduction
+            # every point in upkeep skill reduces cost
+            reduction = 1.00 + self.get_bonus('upkeep')
+            cost /= reduction
         return int(cost)
         
     def _get_costs(self):
@@ -925,7 +1019,34 @@ class Domain(models.Model):
         return costs
 
     def _get_liege_taxed_amt(self):
-        return (self.total_income * self.liege_taxes)/100
+        if self.liege_taxes:
+            amt = self.ruler.liege_taxes
+            if amt:
+                return amt
+            # check if we have a transaction
+            try:
+                transaction = self.ruler.house.debts.get(category="vassal taxes")
+                return transaction.weekly_amount
+            except AccountTransaction.DoesNotExist:
+                amt = (self.total_income * self.liege_taxes)/100
+                self.ruler.house.debts.create(category="vassal taxes", receiver=self.ruler.liege.house,
+                                              weekly_amount=amt)
+                return amt
+        return 0
+
+    def reset_expected_tax_payment(self):
+        amt = (self.total_income * self.liege_taxes) / 100
+        if not amt:
+            return
+        try:
+            transaction = self.ruler.house.debts.get(category="vassal taxes")
+            if transaction.receiver != self.ruler.liege.house:
+                transaction.receiver = self.ruler.liege.house
+        except AccountTransaction.DoesNotExist:
+            transaction = self.ruler.house.debts.create(category="vassal taxes", receiver=self.ruler.liege.house,
+                                                        weekly_amount=amt)
+        transaction.weekly_amount = amt
+        transaction.save()
     
     def _get_food_production(self):
         """
@@ -934,7 +1055,7 @@ class Domain(models.Model):
         mod = self.required_worker_mod(self.num_farms, self.farming_serfs)
         amount = (self.num_farms * FOOD_PER_FARM) * mod
         if self.ruler and self.ruler.castellan:
-            bonus = (self.ruler.castellan.farming * BONUS_PER_SKILL_POINT) * amount
+            bonus = self.get_bonus('farming') * amount
             amount += bonus
         return int(amount)
     
@@ -956,57 +1077,56 @@ class Domain(models.Model):
         How many serfs are currently working on a field.
         """
         return self.mill_serfs + self.mining_serfs + self.farming_serfs + self.lumber_serfs
+
     def _get_total_serfs(self):
         """
         Total of all serfs
         """
         return self.employed + self.unassigned_serfs
     
-    def kill_serfs(self, deaths, type=None):
+    def kill_serfs(self, deaths, serf_type=None):
         """
         Whenever we lose serfs, we need to lose some that are employed in some field.
-        If type is specified, then we kill serfs who are either 'farming' serfs,
+        If serf_type is specified, then we kill serfs who are either 'farming' serfs,
         'mining' serfs, 'mill' serfs, or 'lumber' sefs. Otherwise, we kill whichever
         field has the most employed.
-        """       
-        if type == "farming":
-            workers = self.farming_serfs
-        elif type == "mining":
-            workers = self.mining_serfs
-        elif type == "mill":
-            workers = self.mill_serfs
-        elif type == "lumber":
-            workers = self.lumber_serfs
+        """
+        if serf_type == "farming":
+            worker_type = "farming_serfs"
+        elif serf_type == "mining":
+            worker_type = "mining_serfs"
+        elif serf_type == "mill":
+            worker_type = "mill_serfs"
+        elif serf_type == "lumber":
+            worker_type = "lumber_serfs"
         else:
-            # if we have unemployed serfs, we kill them off first.
-            diff = self.unassigned_serfs
             # if we have more deaths than unemployed serfs
-            more_deaths = deaths - diff
-            if diff > 0: # we have unemployed serfs to murder
-                if more_deaths > 0:
-                    self.unassigned_serfs -= diff
-                else: # we have enough unemployed serfs. We'll just set them as the ones marked for death
-                    workers = self.unassigned_serfs
-            if more_deaths > 0: # we have no unemployed serfs, take whatever field employs the most
-                workers = [self.farming_serfs, self.mining_serfs, self.mill_serfs, self.lumber_serfs]
-                # sort it from most to least
-                workers.sort(reverse=True)
-                workers = workers[0]
-                # now we'll kill the remainder after killing unemployed above
-                deaths = more_deaths
-        workers -= deaths
-        # if it was just unemployed serfs marked for death, we don't kill them twice
-        if workers is not self.unassigned_serfs:
-            self.unassigned_serfs -= deaths
-        if workers < 0:
-            workers = 0
-        if self.unassigned_serfs < 0:
+            more_deaths = deaths - self.unassigned_serfs
+            if more_deaths < 1:  # only unemployed die
+                self.unassigned_serfs -= deaths
+                self.save()
+                return
+            # gotta kill more
+            worker_types = ["farming_serfs", "mining_serfs", "mill_serfs", "lumber_serfs"]
+            # sort it from most to least
+            worker_types.sort(key=lambda x: getattr(self, x), reverse=True)
+            worker_type = worker_types[0]
+            # now we'll kill the remainder after killing unemployed above
             self.unassigned_serfs = 0
+            deaths = more_deaths
+        num_workers = getattr(self, worker_type, 0)
+        if num_workers:
+            num_workers -= deaths
+        if num_workers < 0:
+            num_workers = 0
+        setattr(self, worker_type, num_workers)
+        self.save()
 
     def plundered_by(self, army, week):
         """
         An army has successfully pillaged us. Determine the economic impact.
         """
+        print "%s plundered during week %s" % (self, week)
         max_pillage = army.size/10
         pillage = self.total_income
         if pillage > max_pillage:
@@ -1042,6 +1162,7 @@ class Domain(models.Model):
         self.save()
         army.domain = self
         army.save()
+        print "%s annexed during week %s" % (self, week)
 
     def fake_delete(self):
         """
@@ -1074,11 +1195,11 @@ class Domain(models.Model):
         # if we have no food or no room, population cannot grow
         if self.stored_food <= 0 or self.total_serfs >= self.max_pop:
             base_growth = 0
-        else: # bonuses for growth
+        else:  # bonuses for growth
             # bonus for having a lot of room to grow
             bonus = float(self.max_pop)/self.total_serfs
             if self.ruler and self.ruler.castellan:
-                bonus += bonus * (self.ruler.castellan.population * BONUS_PER_SKILL_POINT)
+                bonus += bonus * self.get_bonus('population')
             bonus = int(bonus) + 1
             base_growth += bonus
         if self.lawlessness > 0:
@@ -1109,14 +1230,16 @@ class Domain(models.Model):
         return "%s (#%s)" % (self.name or 'Unnamed Domain', self.id)
     
     def __repr__(self):
-        return  "<Domain (#%s): %s>" % (self.id, self.name or 'Unnamed')
-    
-    def do_weekly_adjustment(self, week, report=None):
+        return "<Domain (#%s): %s>" % (self.id, self.name or 'Unnamed')
+
+    def do_weekly_adjustment(self, week, report=None, npc=False):
         """
         Determine how much money we're passing up to the ruler of our domain. Make
         all the people and armies of this domain eat their food for the week. Bad
         things will happen if they don't have enough food.
         """
+        if npc:
+            return self.total_income - self.costs
         self.stored_food += self.food_production
         self.stored_food += self.shipped_food
         hunger = self.food_consumption - self.stored_food
@@ -1125,9 +1248,9 @@ class Domain(models.Model):
             self.stored_food = 0
             self.lawlessness += 5
             # unless we have a very large population, we'll only lose 1 serf as a penalty
-            lost_serfs = hunger/100 + 1
+            lost_serfs = hunger / 100 + 1
             self.kill_serfs(lost_serfs)
-        else: # hunger is negative, we have enough food for it
+        else:  # hunger is negative, we have enough food for it
             self.stored_food += hunger
         for army in self.armies.all():
             army.do_weekly_adjustment(week, report)
@@ -1142,28 +1265,36 @@ class Domain(models.Model):
         # reset the amount of money that's been plundered from us
         self.amount_plundered = 0
         self.save()
+        self.reset_expected_tax_payment()
         return total_amount
-    
+
     def display(self):
         castellan = None
         liege = "Crownsworn"
+        ministers = []
         if self.ruler:
             castellan = self.ruler.castellan
             liege = self.ruler.liege
+            ministers = self.ruler.ministers.all()
         mssg = "{wDomain{n: %s\n" % self.name
         mssg += "{wLand{n: %s\n" % self.land
         mssg += "{wHouse{n: %s\n" % str(self.ruler)
         mssg += "{wLiege{n: %s\n" % str(liege)
         mssg += "{wRuler{n: %s\n" % castellan
+        for minister in ministers:
+            mssg += "{wMinister of %s{n: %s\n" % (minister.get_category_display(), minister.player)
         mssg += "{wDesc{n: %s\n" % self.desc
         mssg += "{wArea{n: %s {wFarms{n: %s {wHousing{n: %s " % (self.area, self.num_farms, self.num_housing)
         mssg += "{wMines{n: %s {wLumber{n: %s {wMills{n: %s\n" % (self.num_mines, self.num_lumber_yards, self.num_mills)
-        mssg += "{wTotal serfs{n: %s " % (self.total_serfs)
+        mssg += "{wTotal serfs{n: %s " % self.total_serfs
         mssg += "{wAssignments: Mines{n: %s {wMills{n: %s " % (self.mining_serfs, self.mill_serfs)
         mssg += "{wLumber yards:{n %s {wFarms{n: %s\n" % (self.lumber_serfs, self.farming_serfs)
         mssg += "{wTax Rate{n: %s {wLawlessness{n: %s " % (self.tax_rate, self.lawlessness)
-        mssg += "{wCosts{n: %s {wIncome{n: %s {wLiege's tax rate{n: %s\n" % (self.costs, self.total_income, self.liege_taxes)
-        mssg += "{wFood Production{n: %s {wFood Consumption{n: %s {wStored Food{n: %s\n" % (self.food_production, self.food_consumption, self.stored_food)
+        mssg += "{wCosts{n: %s {wIncome{n: %s {wLiege's tax rate{n: %s\n" % (self.costs, self.total_income,
+                                                                             self.liege_taxes)
+        mssg += "{wFood Production{n: %s {wFood Consumption{n: %s {wStored Food{n: %s\n" % (self.food_production,
+                                                                                            self.food_consumption,
+                                                                                            self.stored_food)
         mssg += "\n{wCastles:{n\n"
         mssg += "{w================================={n\n"
         for castle in self.castles.all():
@@ -1183,19 +1314,20 @@ class Domain(models.Model):
             del self.cached_total_income
         try:
             self.ruler.house.clear_cache()
-        except Exception:
+        except (AttributeError, ValueError, TypeError):
             pass
 
     def save(self, *args, **kwargs):
         super(Domain, self).save(*args, **kwargs)
         self.wipe_cached_data()
 
+
 class DomainProject(models.Model):
     """
     Construction projects with a domain. In general, each should take a week,
     but may come up with ones that would take more.
     """
-    #project types
+    # project types
     BUILD_HOUSING = 1
     BUILD_FARMS = 2
     BUILD_MINES = 3
@@ -1205,18 +1337,16 @@ class DomainProject(models.Model):
     MUSTER_TROOPS = 7
     BUILD_TROOP_EQUIPMENT = 9
 
-    PROJECT_CHOICES = ( (BUILD_HOUSING, 'Build Housing'),
-                        (BUILD_FARMS, 'Build Farms'),
-                        (BUILD_MINES, 'Build Mines'),
-                        (BUILD_MILLS, 'Build Mills'),
-                        (BUILD_DEFENSES, 'Build Defenses'),
-                        (BUILD_SIEGE_WEAPONS, 'Build Siege Weapons'),
-                        (MUSTER_TROOPS, 'Muster Troops' ),
-                        (BUILD_TROOP_EQUIPMENT, 'Build Troop Equipment'),)
+    PROJECT_CHOICES = ((BUILD_HOUSING, 'Build Housing'),
+                       (BUILD_FARMS, 'Build Farms'),
+                       (BUILD_MINES, 'Build Mines'),
+                       (BUILD_MILLS, 'Build Mills'),
+                       (BUILD_DEFENSES, 'Build Defenses'),
+                       (BUILD_SIEGE_WEAPONS, 'Build Siege Weapons'),
+                       (MUSTER_TROOPS, 'Muster Troops'),
+                       (BUILD_TROOP_EQUIPMENT, 'Build Troop Equipment'),)
     
-    type = models.PositiveSmallIntegerField( choices = PROJECT_CHOICES,
-                                             default = BUILD_HOUSING
-                                             )
+    type = models.PositiveSmallIntegerField(choices=PROJECT_CHOICES, default=BUILD_HOUSING)
     amount = models.PositiveSmallIntegerField(blank=1, default=1)
     unit_type = models.PositiveSmallIntegerField(default=1, blank=1)
     time_remaining = models.PositiveIntegerField(default=1, blank=1)
@@ -1237,20 +1367,20 @@ class DomainProject(models.Model):
         determine if the unit type we're training more of already exists in the army.
         If so, we add to the value, and if not, we create a new unit.
         """
-        if self.type == BUILD_HOUSING:
+        if self.type == self.BUILD_HOUSING:
             self.domain.num_housing += self.amount
-        if self.type == BUILD_FARMS:
+        if self.type == self.BUILD_FARMS:
             self.domain.num_farms += self.amount
-        if self.type == BUILD_MINES:
+        if self.type == self.BUILD_MINES:
             self.domain.num_mines += self.amount
-        if self.type == BUILD_MILLS:
+        if self.type == self.BUILD_MILLS:
             self.domain.num_mills += self.amount
-        if self.type < BUILD_DEFENSES:
+        if self.type < self.BUILD_DEFENSES:
             self.domain.save()
-        if self.type == BUILD_DEFENSES:
+        if self.type == self.BUILD_DEFENSES:
             self.castle.level += self.amount
             self.castle.save()
-        if self.type == MUSTER_TROOPS:
+        if self.type == self.MUSTER_TROOPS:
             existing_unit = self.military.find_unit(self.unit_type)
             if existing_unit:
                 existing_unit.adjust_readiness(self.amount)
@@ -1258,9 +1388,9 @@ class DomainProject(models.Model):
                 existing_unit.save()
             else:
                 self.military.units.create(unit_type=self.unit_type, quantity=self.amount)
-        if self.type == TRAIN_TROOPS:
+        if self.type == self.TRAIN_TROOPS:
             self.unit.train(self.amount)
-        if self.type == BUILD_TROOP_EQUIPMENT:
+        if self.type == self.BUILD_TROOP_EQUIPMENT:
             self.unit.equipment += self.amount
             self.unit.save()
         if report:
@@ -1268,6 +1398,7 @@ class DomainProject(models.Model):
             report.add_project_report(self)
         # we're all done. goodbye, cruel world
         self.delete()
+
 
 class Castle(models.Model):
     """
@@ -1293,17 +1424,18 @@ class Castle(models.Model):
         (CASTLE_WITH_CURTAIN_WALL, 'Castle with Curtain Wall'),
         (FORTIFIED_CASTLE, 'Fortified Castle'),
         (EPIC_CASTLE, 'Epic Castle'))
-    level = models.PositiveSmallIntegerField(
-        default = MOTTE_AND_BAILEY)
+    level = models.PositiveSmallIntegerField(default=MOTTE_AND_BAILEY)
     domain = models.ForeignKey("Domain", related_name="castles", blank=True, null=True)
     damage = models.PositiveSmallIntegerField(default=0, blank=0)
     # cosmetic info:
     name = models.CharField(null=True, blank=True, max_length=80)
     desc = models.TextField(null=True, blank=True)
+
     def display(self):
         msg = "{wName{n: %s {wLevel{n: %s (%s)\n" % (self.name, self.level, self.get_level_display())
         msg += "{wDescription{n: %s\n" % self.desc
         return msg
+
     def get_level_display(self):
         """
         Although we have FORTIFICATION_CHOICES defined, we're not actually using
@@ -1317,10 +1449,13 @@ class Castle(models.Model):
                 return choice[1]
         # if level is too high, return the last element in choices
         return self.FORTIFICATION_CHOICES[-1][1]
+
     def __unicode__(self):
         return "%s (#%s)" % (self.name or "Unnamed Castle", self.id)
+
     def __repr__(self):
         return "<Castle (#%s): %s>" % (self.id, self.name)
+
 
 class Minister(models.Model):
     """
@@ -1343,9 +1478,10 @@ class Minister(models.Model):
         (WARFARE, 'Warfare'),
         )
     title = models.CharField(blank=True, null=True, max_length=255)
-    player = models.ForeignKey("PlayerOrNpc", related_name="appointments", blank=True, null=True)
-    ruler = models.ForeignKey("Ruler", related_name="ministers", blank=True, null=True)
+    player = models.ForeignKey("PlayerOrNpc", related_name="appointments", blank=True, null=True, db_index=True)
+    ruler = models.ForeignKey("Ruler", related_name="ministers", blank=True, null=True, db_index=True)
     category = models.PositiveSmallIntegerField(choices=MINISTER_TYPES, default=INCOME)
+
 
 class Ruler(models.Model):
     """
@@ -1362,14 +1498,18 @@ class Ruler(models.Model):
     # the house that owns the domain
     house = models.OneToOneField("AssetOwner", on_delete=models.SET_NULL, related_name="estate", blank=True, null=True)
     # a ruler object that this object owes its alliegance to    
-    liege = models.ForeignKey("self", on_delete=models.SET_NULL, related_name="vassals", blank=True, null=True)
+    liege = models.ForeignKey("self", on_delete=models.SET_NULL, related_name="vassals", blank=True, null=True,
+                              db_index=True)
+
     def _get_titles(self):
         return ", ".join(domain.title for domain in self.domains.all())
     titles = property(_get_titles)
+
     def __unicode__(self):
         if self.house:
             return str(self.house.owner)
         return str(self.castellan) or "Undefined Ruler (#%s)" % self.id
+
     def __repr__(self):
         if self.house:
             owner = self.house.owner
@@ -1377,11 +1517,64 @@ class Ruler(models.Model):
             owner = self.castellan
         return "<Ruler (#%s): %s>" % (self.id, owner)
 
+    def minister_skill(self, attr):
+        """
+        Given attr, which must be one of the dominion skills defined in PlayerOrNpc, returns an integer which is
+        the value of the Minister which corresponds to that category. If there is no Minister or more than 1,
+        both of which are errors, we return 0.
+        :param attr: str
+        :return: int
+        """
+        try:
+            if attr == "population":
+                category = Minister.POP
+            elif attr == "warfare":
+                category = Minister.WARFARE
+            elif attr == "farming":
+                category = Minister.FARMING
+            elif attr == "income":
+                category = Minister.INCOME
+            elif attr == "loyalty":
+                category = Minister.LOYALTY
+            elif attr == "upkeep":
+                category = Minister.UPKEEP
+            else:
+                category = Minister.PRODUCTIVITY
+            minister = self.ministers.get(category=category)
+            return getattr(minister.player, attr)
+        except (Minister.DoesNotExist, Minister.MultipleObjectsReturned, AttributeError):
+            return 0
+
+    def ruler_skill(self, attr):
+        """
+        Returns the DomSkill value of the castellan + his ministers
+        :param attr: str
+        :return: int
+        """
+        try:
+            return getattr(self.castellan, attr) + self.minister_skill(attr)
+        except AttributeError:
+            return 0
+
+    @property
+    def vassal_taxes(self):
+        if not self.house:
+            return 0
+        return sum(ob.weekly_amount for ob in self.house.incomes.filter(category="vassal taxes"))
+
+    @property
+    def liege_taxes(self):
+        if not self.house:
+            return 0
+        return sum(ob.weekly_amount for ob in self.house.debts.filter(category="vassal taxes"))
+
+
 class Crisis(models.Model):
     """
     A crisis affecting organizations
     """
-    name = models.CharField(blank=True, null=True, max_length=80)
+    name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
+    headline = models.CharField("News-style bulletin", max_length=255, blank=True, null=True)
     desc = models.TextField(blank=True, null=True)
     orgs = models.ManyToManyField('Organization', related_name='crises', blank=True)
     parent_crisis = models.ForeignKey('self', related_name="child_crises", blank=True, null=True,
@@ -1389,28 +1582,172 @@ class Crisis(models.Model):
     escalation_points = models.SmallIntegerField(default=0, blank=0)
     results = models.TextField(blank=True, null=True)
     modifiers = models.TextField(blank=True, null=True)
+    public = models.BooleanField(default=True, blank=True)
+    required_clue = models.ForeignKey('character.Clue', related_name="crises", blank=True, null=True,
+                                      on_delete=models.SET_NULL)
+    resolved = models.BooleanField(default=False)
+    start_date = models.DateTimeField(blank=True, null=True)
+    end_date = models.DateTimeField(blank=True, null=True)
+    chapter = models.ForeignKey('character.Chapter', related_name="crises", blank=True, null=True,
+                                on_delete=models.SET_NULL)
+
     class Meta:
-        "Define Django meta options"
+        """Define Django meta options"""
         verbose_name_plural = "Crises"
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def rating(self):
+        return self.escalation_points - sum(ob.outcome_value for ob in self.actions.filter(sent=True))
+
+    def display(self):
+        msg = "\n{wName:{n %s" % self.name
+        msg += "\n{wDescription:{n %s" % self.desc
+        if self.orgs.all():
+            msg += "\n{wOrganizations affected:{n %s" % ", ".join(str(ob) for ob in self.orgs.all())
+        if self.required_clue:
+            msg += "\n{wRequired Clue:{n %s" % self.required_clue
+        msg += "\n{wCurrent Rating:{n %s" % self.rating
+        try:
+            last = self.updates.last()
+            msg += "\n{wLatest Update:{n\n%s" % last.desc
+        except AttributeError:
+            pass
+        return msg
+
+
+class CrisisUpdate(models.Model):
+    """
+    Container for showing all the Crisis Actions during a period and their corresponding
+    result on the crisis
+    """
+    crisis = models.ForeignKey("Crisis", related_name="updates", db_index=True)
+    desc = models.TextField("Story of what happened this update", blank=True)
+    gm_notes = models.TextField("Any ooc notes of consequences", blank=True)
+    date = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return "Update %s for %s" % (self.id, self.crisis)
+
+
+class CrisisAction(models.Model):
+    """
+    An action that a player is taking for the crisis.
+    """
+    week = models.PositiveSmallIntegerField(default=0, blank=0, db_index=True)
+    dompc = models.ForeignKey("PlayerOrNpc", db_index=True, blank=True, null=True, related_name="actions")
+    action = models.TextField("What actions the player is taking", blank=True)
+    crisis = models.ForeignKey("Crisis", db_index=True, blank=True, null=True, related_name="actions")
+    update = models.ForeignKey("CrisisUpdate", db_index=True, blank=True, null=True, related_name="actions")
+    public = models.BooleanField(default=True, blank=True)
+    rolls = models.TextField(blank=True)
+    gm_notes = models.TextField(blank=True)
+    story = models.TextField("Story written by the GM for the player", blank=True)
+    outcome_value = models.SmallIntegerField(default=0, blank=0)
+    sent = models.BooleanField(default=False, blank=True)
+    assistants = models.ManyToManyField("PlayerOrNpc", blank=True, null=True, through="CrisisActionAssistant",
+                                        related_name="assisted_actions")
+
+    def send(self, update):
+        msg = "{wGM Response to action for crisis:{n %s" % self.crisis
+        msg += "\n{wRolls:{n %s" % self.rolls
+        msg += "\n\n{wStory:{n %s\n\n" % self.story
+        self.update = update
+        self.dompc.player.inform(msg, category="Action", week=self.week,
+                                 append=True)
+        for assistant in self.assistants.all():
+            assistant.player.inform(msg, category="Action", week=self.week, append=True)
+        self.sent = True
+        self.save()
+
+    @property
+    def action_text(self):
+        msg = "\n{wAction:{n %s" % self.action
+        for ob in self.assisting_actions.all():
+            msg += "\n{c%s{n's assisting action: %s" % (ob.dompc, ob.action)
+        return msg
+
+    def view_action(self, caller=None, disp_pending=True, disp_old=False):
+        if not self.public and (not caller or (not caller.check_permstring("builders")
+                                and caller != self.dompc.player and caller.Dominion not in self.assistants.all())):
+            return ""
+        msg = "\n{c%s's {wactions in week %s for {m%s{n" % (self.dompc, self.week, self.crisis)
+        msg += self.action_text
+        if self.sent:
+            msg += "\n{wGM Notes:{n %s" % self.gm_notes
+            msg += "\n{wRolls:{n %s" % self.rolls
+            msg += "\n{wOutcome Value:{n %s" % self.outcome_value
+            msg += "\n{wStory:{n %s" % self.story
+        else:
+            msg += "\n{wAdditional Action Points Spent:{n %s" % self.outcome_value
+        if disp_pending:
+            pend = self.questions.filter(answers__isnull=True)
+            for ob in pend:
+                msg += "\n{wQuestion:{n %s" % ob.text
+        if disp_old:
+            answered = self.questions.filter(answers__isnull=False)
+            for ob in answered:
+                msg += "\n{wQuestion:{n %s" % ob.text
+                for ans in ob.answers.all():
+                    msg += "\n{wGM:{n %s" % ans.gm
+                    msg += "\n{wAnswer:{n %s" % ans.text
+        return msg
+
+
+class CrisisActionAssistant(models.Model):
+    crisis_action = models.ForeignKey("CrisisAction", db_index=True, related_name="assisting_actions")
+    dompc = models.ForeignKey("PlayerOrNpc", db_index=True, related_name="assisting_actions")
+    action = models.TextField("What action the assistant is taking", blank=True)
+
+    class Meta:
+        unique_together = ('crisis_action', 'dompc')
+
+
+class ActionOOCQuestion(models.Model):
+    """
+    OOC Question about a crisis. Can be associated with a given action
+    or asked about independently.
+    """
+    action = models.ForeignKey("CrisisAction", db_index=True, related_name="questions")
+    text = models.TextField(blank=True)
+
+
+class ActionOOCAnswer(models.Model):
+    """
+    OOC answer from a GM about a crisis.
+    """
+    gm = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, related_name="answers_given")
+    question = models.ForeignKey("ActionOOCQuestion", db_index=True, related_name="answers")
+    text = models.TextField(blank=True)
+
 
 class OrgRelationship(models.Model):
     """
     The relationship between two or more organizations.
     """
-    orgs = models.ManyToManyField('Organization', related_name='relationships', blank=True)
+    name = models.CharField("Name of the relationship", max_length=255, db_index=True, blank=True)
+    orgs = models.ManyToManyField('Organization', related_name='relationships', blank=True, db_index=True)
     status = models.SmallIntegerField(default=0, blank=0)
+    history = models.TextField("History of these organizations", blank=True)
+
 
 class Reputation(models.Model):
     """
     A player's reputation to an organization.
     """
-    player = models.ForeignKey('PlayerOrNpc', related_name='reputations', blank=True, null=True)
-    organization = models.ForeignKey('Organization', related_name='reputations', blank=True, null=True)
+    player = models.ForeignKey('PlayerOrNpc', related_name='reputations', blank=True, null=True, db_index=True)
+    organization = models.ForeignKey('Organization', related_name='reputations', blank=True, null=True, db_index=True)
     # negative affection is dislike/hatred
     affection = models.IntegerField(default=0, blank=0)
     # positive respect is respect/fear, negative is contempt/dismissal
     respect = models.IntegerField(default=0, blank=0)
+
+    class Meta:
+        unique_together = ('player', 'organization')
  
+
 class Organization(models.Model):
     """
     An in-game entity, which may contain both player characters and
@@ -1419,8 +1756,9 @@ class Organization(models.Model):
     can substitute for an object as an asset holder. This allows them to
     have their own money, incomes, debts, etc.
     """
-    name = models.CharField(blank=True, null=True, max_length=255)
+    name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
     desc = models.TextField(blank=True, null=True)
+    category = models.CharField(blank=True, null=True, default="noble", max_length=255)
     # In a RP game, titles are IMPORTANT. And we need to divide them by gender.
     rank_1_male = models.CharField(default="Prince", blank=True, null=True, max_length=255)
     rank_1_female = models.CharField(default="Princess", blank=True, null=True, max_length=255)
@@ -1462,6 +1800,8 @@ class Organization(models.Model):
     social_modifier = models.SmallIntegerField(default=0, blank=0)
     base_support_value = models.SmallIntegerField(default=5, blank=5)
     member_support_multiplier = models.SmallIntegerField(default=5, blank=5)
+    clues = models.ManyToManyField('character.Clue', blank=True, null=True, related_name="orgs",
+                                   through="ClueForOrg")
     
     def _get_npc_money(self):
         npc_income = self.npc_members * self.income_per_npc
@@ -1469,10 +1809,13 @@ class Organization(models.Model):
         npc_cost = self.npc_members * self.cost_per_npc
         return int(npc_income) - npc_cost
     amount = property(_get_npc_money)
+
     def __str__(self):
         return self.name or "Unnamed organization (#%s" % self.id
+
     def __unicode__(self):
         return self.name or "Unnamed organization (#%s)" % self.id
+
     def __repr__(self):
         return "<Org (#%s): %s>" % (self.id, self.name)
     
@@ -1481,11 +1824,11 @@ class Organization(models.Model):
         active = self.active_members
         if viewing_member:
             # exclude any secret members that are higher in rank than viewing member
-            pcs = pcs.exclude(Q(secret=True) & Q(rank__lte=viewing_member.rank) &
+            pcs = pcs.exclude(Q(Q(secret=True) & Q(rank__lte=viewing_member.rank)) &
                               ~Q(id=viewing_member.id))
             
         msg = ""
-        for rank in range(start,end+1):
+        for rank in range(start, end+1):
             chars = pcs.filter(rank=rank)
             male_title = getattr(self, 'rank_%s_male' % rank)
             female_title = getattr(self, 'rank_%s_female' % rank)
@@ -1493,22 +1836,31 @@ class Organization(models.Model):
                 title = male_title
             else:
                 title = "%s/%s" % (male_title.capitalize(), female_title.capitalize())
+
+            def char_name(charob):
+                c_name = str(charob)
+                if charob not in active:
+                    c_name = "(R)" + c_name
+                if not self.secret and charob.secret:
+                    c_name += "(Secret)"
+                return c_name
             if len(chars) > 1:
                 msg += "{w%s{n (Rank %s): %s\n" % (title, rank,
-                        ", ".join(str(char) if char.player.player.roster.roster.name == "Active" else "(R)%s" % char for char in chars))
+                                                   ", ".join(char_name(char) for char in chars))
             elif len(chars) > 0:
-                char = chars[0].player.player.db.char_ob
+                char = chars[0]
+                name = char_name(char)
+                char = char.player.player.db.char_ob
                 gender = char.db.gender or "Male"
                 if gender.lower() == "male":
                     title = male_title
                 else:
                     title = female_title
-                name = str(char) if char.roster.roster.name == "Active" else "(R)%s" % char
                 msg += "{w%s{n (Rank %s): %s\n" % (title, rank, name)
         return msg
     
     def display_public(self):
-        msg =  "\n{wName{n: %s\n" % self.name
+        msg = "\n{wName{n: %s\n" % self.name
         msg += "{wDesc{n: %s\n" % self.desc
         if not self.secret:
             msg += "\n{wLeaders of %s:\n%s\n" % (self.name, self.display_members(end=2))
@@ -1542,14 +1894,19 @@ class Organization(models.Model):
         msg += "\n{wMoney{n: %s\n" % money
         msg += "\n{wPrestige{n: %s\n" % prestige
         msg += "\n{wEconomic Mod:{n %s, {wMilitary Mod:{n %s, {wSocial Mod:{n %s\n" % (self.economic_modifier,
-                                                                                     self.military_modifier,
-                                                                                     self.social_modifier)
-        msg += "{wSpheres of Influence:{n %s\n" % ", ".join("{w%s{n: %s" % (ob.category, ob.rating) for ob in self.spheres.all())
+                                                                                       self.military_modifier,
+                                                                                       self.social_modifier)
+        msg += "{wSpheres of Influence:{n %s\n" % ", ".join("{w%s{n: %s" % (ob.category, ob.rating)
+                                                            for ob in self.spheres.all())
+        clues = self.clues.all()
+        if clues:
+            msg += "\n{wClues Known:{n %s\n" % "; ".join(str(ob) for ob in clues)
         if holdings:
             msg += "{wHoldings{n: %s\n" % ", ".join(ob.name for ob in holdings)
         if viewing_member:
             msg += "\n{wMember stats for {c%s{n\n" % viewing_member
             msg += viewing_member.display()
+
         return msg
     
     def __init__(self, *args, **kwargs):
@@ -1587,11 +1944,37 @@ class Organization(models.Model):
         super(Organization, self).save(*args, **kwargs)
         try:
             self.assets.clear_cache()
-        except Exception:
+        except (AttributeError, ValueError, TypeError):
             pass
 
     def get_absolute_url(self):
         return reverse('help_topics:display_org', kwargs={'object_id': self.id})
+
+    @property
+    def org_channel(self):
+        from typeclasses.channels import Channel
+        try:
+            return Channel.objects.get(db_lock_storage__icontains=self.name)
+        except Channel.DoesNotExist:
+            return None
+
+    def inform_members(self, text, category=None):
+        from world.msgs.models import Inform
+        if not category:
+            category = self.name
+        players = [ob.player.player for ob in self.active_members]
+        Inform.bulk_inform(players, text=text, category=category)
+
+
+class ClueForOrg(models.Model):
+    clue = models.ForeignKey('character.Clue', related_name="org_discoveries", db_index=True)
+    org = models.ForeignKey('Organization', related_name="clue_discoveries", db_index=True)
+    revealed_by = models.ForeignKey('character.RosterEntry', related_name="clues_added_to_orgs", blank=True, null=True,
+                                    db_index=True)
+
+    class Meta:
+        unique_together = ('clue', 'org')
+
 
 class Agent(models.Model):
     """
@@ -1611,7 +1994,8 @@ class Agent(models.Model):
     # numerical type of our agents. 0==regular guards, 1==spies, etc
     type = models.PositiveSmallIntegerField(default=0, blank=0)
     # assetowner, so either a player or an organization
-    owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="agents", blank=True, null=True)
+    owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="agents", blank=True, null=True,
+                              db_index=True)
     secret = models.BooleanField(default=False, blank=False)
     # if this class of Agent is a unique individual, and as such the quantity cannot be more than 1
     unique = models.BooleanField(default=False, blank=False)
@@ -1622,32 +2006,46 @@ class Agent(models.Model):
     def _get_cost(self):
         return self.cost_per_guard * self.quantity
     cost = property(_get_cost)
+
     def _get_type_name(self):
         return self.npcs.get_type_name(self.type)
     typename = property(_get_type_name)
+
     # total of all agent obs + our reserve quantity
     def _get_total_num(self):
         return self.quantity + sum(self.agent_objects.values_list("quantity", flat=True))
     total = property(_get_total_num)
+
     def _get_active(self):
         return self.agent_objects.filter(quantity__gte=1)
     active = property(_get_active)
+
     def __unicode__(self):
         name = self.name or self.typename
-        if self.quantity == 1:
+        if self.unique or self.quantity == 1:
             return name
         return "%s %s" % (self.quantity, self.name)
+
     def __repr__(self):
         return "<Agent (#%s): %s>" % (self.id, self.name)
+
     def display(self, show_assignments=True):
-        msg = "\n\n{wID{n: %s {wName{n: %s {wType:{n %s {wUnassigned:{n %s\n" % (
-            self.id, self.name, self.typename, self.quantity)
+        msg = "\n\n{wID{n: %s {wName{n: %s {wType:{n %s" % (
+            self.id, self.name, self.typename)
+        if not self.unique:
+            msg += " {wUnassigned:{n %s\n" % self.quantity
+        else:
+            msg += "  {wXP:{n %s {wLoyalty{n: %s\n" % (self.xp, self.loyalty)
         if not show_assignments:
             return msg
         for agent in self.agent_objects.all():
             msg += agent.display()
         return msg
+
     def assign(self, targ, num):
+        """
+        Assigns num agents to target character object.
+        """
         if num > self.quantity:
             raise ValueError("Agent only has %s to assign, asked for %s." % (self.quantity, num))
         self.npcs.assign(targ, num)
@@ -1660,15 +2058,60 @@ class Agent(models.Model):
         """
         return self.npcs.find_agentob_by_character(player.db.char_ob)
 
+    @property
+    def dbobj(self):
+        """Return dbobj of an agent_ob when we are unique"""
+        agentob = self.agent_objects.get(dbobj__isnull=False)
+        return agentob.dbobj
+
+    @property
+    def buyable_abilities(self):
+        try:
+            return self.dbobj.buyable_abilities
+        except AttributeError:
+            return []
+
     def __init__(self, *args, **kwargs):
         super(Agent, self).__init__(*args, **kwargs)
         self.npcs = AgentHandler(self)
 
     def access(self, accessing_obj, access_type='agent', default=False):
-        try:
-            return self.owner.organization_owner.access(accessing_obj, access_type, default)
-        except AttributeError:
-            return False
+        return self.owner.access(accessing_obj, access_type, default)
+
+    def get_stat_cost(self, attr):
+        return self.dbobj.get_stat_cost(attr)
+    
+    def get_skill_cost(self, attr):
+        return self.dbobj.get_skill_cost(attr)
+
+    def get_ability_cost(self, attr):
+        return self.dbobj.get_ability_cost(attr)
+
+    def get_attr_maximum(self, attr, category):
+        if category == "level":
+            if self.typename in attr:
+                attr_max = 6
+            else:
+                attr_max = self.quality - 1
+        elif category == "armor":
+            attr_max = (self.quality * 15) + 10
+        elif category == "stat":
+            attr_max = self.dbobj.get_stat_maximum(attr)
+        elif category == "skill":
+            attr_max = self.dbobj.get_skill_maximum(attr)
+        elif category == "ability":
+            attr_max = self.dbobj.get_ability_maximum(attr)
+        elif category == "weapon":
+            if attr == 'weapon_damage':
+                attr_max = (self.quality + 2) * 2
+            elif attr == 'difficulty_mod':
+                attr_max = (self.quality + 1) * 2
+            else:
+                raise ValueError("Undefined weapon attribute")
+        else:
+            raise ValueError("Undefined category")
+        return attr_max
+
 
 class AgentMission(models.Model):
     """
@@ -1682,11 +2125,13 @@ class AgentMission(models.Model):
     mission_details = models.TextField(blank=True, null=True)
     results = models.TextField(blank=True, null=True)
 
+
 class AgentOb(models.Model):
     """
     Allotment from an Agent class that has a representation in-game.
     """
-    agent_class = models.ForeignKey("Agent", related_name="agent_objects", blank=True, null=True)
+    agent_class = models.ForeignKey("Agent", related_name="agent_objects", blank=True, null=True,
+                                    db_index=True)
     dbobj = models.OneToOneField("objects.ObjectDB", blank=True, null=True)
     quantity = models.PositiveIntegerField(default=0, blank=0)
     # whether they're imprisoned, by whom, difficulty to free them, etc
@@ -1698,7 +2143,7 @@ class AgentOb(models.Model):
         have enough, it returns the number it was able to get. It also calls
         unassign if it runs out of troops.
         """
-        num = self.dbobj.lose_agents(num)
+        num = self.dbobj.lose_agents(num) or 0
         self.agent_class.quantity += num
         self.agent_class.save()
         return num
@@ -1710,6 +2155,7 @@ class AgentOb(models.Model):
         up AgentOb and returns our agents to the agent class.
         """
         self.agent_class.quantity += self.quantity
+        self.agent_class.save()
         self.quantity = 0
         self.save()
 
@@ -1739,23 +2185,25 @@ class AgentOb(models.Model):
         return self.agent_class.access(accessing_obj, access_type, default)
 
 
-
 class Army(models.Model):
     """
     Any collection of military units belonging to a given domain.
     """
-    name = models.CharField(blank=True, null=True, max_length=80)
+    name = models.CharField(blank=True, null=True, max_length=80, db_index=True)
     desc = models.TextField(blank=True, null=True)
     # the domain that we obey the orders of. Not the same as who owns us, necessarily
-    domain = models.ForeignKey("Domain", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True)
+    domain = models.ForeignKey("Domain", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
+                               db_index=True)
     # current location of this army
     land = models.ForeignKey("Land", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True)
     # if the army is located as a castle garrison
     castle = models.ForeignKey("Castle", on_delete=models.SET_NULL, related_name="garrison", blank=True, null=True)
     # The overall commander of this army. Units under his command may have their own commanders
-    commander = models.ForeignKey("Member", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True)
+    commander = models.ForeignKey("Member", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
+                                  db_index=True)
     # an owner who may be the same person who owns the domain. Or not, in the case of mercs, sent reinforcements, etc
-    owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True)
+    owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
+                              db_index=True)
     # food we're carrying with us on transports or whatever
     stored_food = models.PositiveSmallIntegerField(default=0, blank=0)
     # whether the army is starving. 0 = not starving, 1 = starting to starve, 2 = troops dying/deserting
@@ -1765,7 +2213,7 @@ class Army(models.Model):
     plunder = models.PositiveSmallIntegerField(default=0, blank=0)
 
     class Meta:
-        "Define Django meta options"
+        """Define Django meta options"""
         verbose_name_plural = "Armies"
         
     def display(self):
@@ -1775,23 +2223,26 @@ class Army(models.Model):
         """
         # self.owner is an AssetOwner, so its string name is AssetOwner.owner
         owner = self.owner
-        if owner: owner = owner.owner
+        if owner:
+            owner = owner.owner
         msg = "{wName{n: %s {wCommander{n: %s\n" % (self.name, self.commander)
         msg += "{wDomain{n: %s {wLocation{n: %s\n" % (self.domain, self.land)
         msg += "{wOwner{n: %s\n" % owner
         msg += "{wDescription{n: %s\n" % self.desc
-        msg += "{wMorale{n: %s {wFood{n: %s {wStarvation Level{n: %s {wPlunder{n: %s\n" % (self.morale, self.plunder, self.starvation_level, self.plunder)
+        msg += "{wMorale{n: %s {wFood{n: %s {wStarvation Level{n: %s {wPlunder{n: %s\n" % (self.morale, self.plunder,
+                                                                                           self.starvation_level,
+                                                                                           self.plunder)
         msg += "{wUnits{n:\n"
         for unit in self.units.all():
             msg += unit.display() + "\n"
         return msg
     
-    def find_unit(self, type):
+    def find_unit(self, unit_type):
         """
-        Find a unit that we have of the given type. Armies should only have one of each type
+        Find a unit that we have of the given unit_type. Armies should only have one of each unit_type
         of unit in them, so we can always just return the first match of the queryset.
         """
-        qs = self.units.filter(unit_type=type)
+        qs = self.units.filter(unit_type=unit_type)
         if len(qs) < 1:
             return None
         return qs[0]
@@ -1818,7 +2269,7 @@ class Army(models.Model):
             if hunger > self.stored_food:
                 hunger -= self.stored_food
                 self.stored_food = 0
-            else: # have enough stored food, so reduce it and done
+            else:  # have enough stored food, so reduce it and done
                 self.stored_food -= hunger
                 if self.starvation_level > 0:
                     self.starvation_level = 0
@@ -1843,9 +2294,12 @@ class Army(models.Model):
         if hunger < total_need/2 and self.starvation_level < 2:
             self.morale -= hunger/5
             self.starvation_level += 1
-        else: # starvation process
+        else:  # starvation process
             self.morale -= hunger/4
             self.starve()
+        # to do, add starvation report later
+        if report:
+            print "Starvation report would go here for %s" % self
 
     def starve(self):
         """
@@ -1854,10 +2308,12 @@ class Army(models.Model):
         for unit in self.units.all():
             unit.decimate()
 
+    # noinspection PyMethodMayBeStatic
     def countermand(self):
         """
         Erases our orders, refunds the value to our domain.
         """
+        pass
 
     def execute_orders(self, week, report=None):
         """
@@ -1888,7 +2344,7 @@ class Army(models.Model):
                     self.save()
             if order.type == Orders.CONQUER:
                 if self.do_battle(order.target_domain, week):
-                    #conquest was successful
+                    # conquest was successful
                     self.conquer(order.target_domain, week)
                 else:
                     self.morale -= 10
@@ -1903,12 +2359,16 @@ class Army(models.Model):
                     self.domain = order.target_domain
                 self.land = order.target_land
                 self.save()
+            # to do : add to report here
+            if report:
+                print "Placeholder for army orders report"
                 
     def do_battle(self, tdomain, week):
         """
         Returns True iff attackers win, False if defenders
         win or if there was a stalemate/tie.
         """
+        # noinspection PyBroadException
         try:
             e_armies = tdomain.armies.filter(land_id=tdomain.land.id)
             if not e_armies:
@@ -1925,7 +2385,7 @@ class Army(models.Model):
             result = battle.begin_combat()
             # returns True if result shows ATK_WIN, False otherwise
             return result == Battle.ATK_WIN
-        except:
+        except Exception:
             print "ERROR: Could not generate battle on domain."
             traceback.print_exc()
 
@@ -1938,7 +2398,7 @@ class Army(models.Model):
         self.plunder += loot
         self.save()
 
-    def pacify(self, target, week):
+    def pacify(self, target):
         percent = float(self.quantity)/target.total_serfs
         percent *= 100
         percent = int(percent)
@@ -1956,7 +2416,6 @@ class Army(models.Model):
         """
         bordering = None
         ruler = None
-        owner = None
         other_domains = None
         # send remaining armies to other domains
         if target.ruler:
@@ -1965,7 +2424,7 @@ class Army(models.Model):
             for army in target.armies.all():
                 army.domain = other_domains[0]
                 army.save()
-        else: # armies have nowhere to go, so having their owning domain wiped
+        else:  # armies have nowhere to go, so having their owning domain wiped
             target.armies.clear()
         for castle in target.castles.all():
             castle.garrison.clear()
@@ -1975,13 +2434,12 @@ class Army(models.Model):
                 castellan = None
                 if self.commander:
                     castellan = self.commander.player
-                owner = player.assets
-                ruler_list = Ruler.objects.filter(house_id=owner_id)
+                ruler_list = Ruler.objects.filter(house_id=self.owner)
                 if ruler_list:
                     ruler = ruler_list[0]
                 else:
                     ruler = Ruler.objects.create(house=self.owner, castellan=castellan)
-        # determine if we have a bordering domain that can absorb this
+            # determine if we have a bordering domain that can absorb this
         else:
             ruler = self.domain.ruler
             if ruler:
@@ -1994,7 +2452,7 @@ class Army(models.Model):
             else:
                 conqueror = bordering[0]
             conqueror.annex(target, week, self)
-        else: # no bordering domain. So domain intact, but changing owner
+        else:  # no bordering domain. So domain intact, but changing owner
             # set the domain's ruler
             target.ruler = ruler       
             target.lawlessness += 50
@@ -2003,6 +2461,7 @@ class Army(models.Model):
             self.domain = target
             self.save()
 
+    # noinspection PyUnusedLocal
     def do_weekly_adjustment(self, week, report=None):
         """
         Weekly maintenance for the army. Consume food.
@@ -2018,6 +2477,7 @@ class Army(models.Model):
             cost += unit.costs
         return cost
     costs = property(_get_costs)
+
     def _get_size(self):
         """
         Total size of our army
@@ -2027,16 +2487,20 @@ class Army(models.Model):
             size += unit.quantity
         return size
     size = property(_get_size)
+
     def __unicode__(self):
         return "%s (#%s)" % (self.name or "Unnamed army", self.id)
+
     def __repr__(self):
         return "<Army (#%s): %s>" % (self.id, self.name)
+
     def save(self, *args, **kwargs):
         super(Army, self).save(*args, **kwargs)
         try:
             self.owner.clear_cache()
-        except Exception:
+        except (AttributeError, ValueError, TypeError):
             pass
+
 
 class Orders(models.Model):
     """
@@ -2063,19 +2527,21 @@ class Orders(models.Model):
         (ENFORCE_ORDER, 'Enforce Order'),
         (BESIEGE, 'Besiege Castle'),
         (MARCH, 'March'),)
-    army = models.ForeignKey("Army", related_name="orders", null=True, blank=True)
-    target_domain = models.ForeignKey("Domain", related_name="incoming_attacks", null=True, blank=True)
+    army = models.ForeignKey("Army", related_name="orders", null=True, blank=True, db_index=True)
+    target_domain = models.ForeignKey("Domain", related_name="incoming_attacks", null=True, blank=True, db_index=True)
     target_land = models.ForeignKey("Land", related_name="incoming_army", null=True, blank=True)
-    type = models.PositiveSmallIntegerField(choices = ORDER_CHOICES, default = TRAIN)
+    type = models.PositiveSmallIntegerField(choices=ORDER_CHOICES, default=TRAIN)
     coin_cost = models.PositiveIntegerField(default=0, blank=0)
     food_cost = models.PositiveIntegerField(default=0, blank=0)
     # the week this order was given, so we can keep it as a history
     week = models.PositiveSmallIntegerField(default=0, blank=0)
     complete = models.BooleanField(default=False, blank=False)
+
     class Meta:
-        "Define Django meta options"
+        """Define Django meta options"""
         verbose_name_plural = "Army Orders"
     
+
 class MilitaryUnit(models.Model):
     """
     An individual unit belonging to an army for a domain. Each unit can have its own
@@ -2087,7 +2553,7 @@ class MilitaryUnit(models.Model):
     accured.
     """
     commander = models.ForeignKey("Member", on_delete=models.SET_NULL, related_name="units", blank=True, null=True)
-    army = models.ForeignKey("Army", related_name="units", blank=True, null=True)
+    army = models.ForeignKey("Army", related_name="units", blank=True, null=True, db_index=True)
     # type will be used to derive units and their stats elsewhere 
     unit_type = models.PositiveSmallIntegerField(default=0, blank=0)
     quantity = models.PositiveSmallIntegerField(default=1, blank=1)
@@ -2096,7 +2562,8 @@ class MilitaryUnit(models.Model):
     # can go negative, such as when adding new recruits to a unit
     xp = models.SmallIntegerField(default=0, blank=0)
     # if a hostile area has bandits or whatever, we're not part of an army, just that
-    hostile_area = models.ForeignKey("HostileArea", on_delete=models.SET_NULL, related_name="units", blank=True, null=True)
+    hostile_area = models.ForeignKey("HostileArea", on_delete=models.SET_NULL, related_name="units", blank=True,
+                                     null=True)
 
     def display(self):
         """
@@ -2137,6 +2604,7 @@ class MilitaryUnit(models.Model):
             self.xp -= cost
         self.save()
 
+    # noinspection PyMethodMayBeStatic
     def adjust_readiness(self, troops, training=0, equip=0):
         """
         Degrades the existing training and equipment level of our troops
@@ -2174,20 +2642,25 @@ class MilitaryUnit(models.Model):
     
     food_consumption = property(_get_food_consumption)
     costs = property(_get_costs)
+
     def _get_type_name(self):
         return unit_types.get_type_str(self.unit_type)
     type = property(_get_type_name)
+
     def __unicode__(self):
         return "%s %s" % (self.quantity, self.type)
+
     def __repr__(self):
         return "<Unit (#%s): %s %s>" % (self.id, self.quantity, self.type)
+
     def save(self, *args, **kwargs):
         super(MilitaryUnit, self).save(*args, **kwargs)
         try:
             self.army.owner.clear_cache()
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             pass
     
+
 class Member(models.Model):
     """
     Membership information for a character in an organization. This may or
@@ -2206,9 +2679,10 @@ class Member(models.Model):
     set up with their Organization.
     """  
     
-    player = models.ForeignKey('PlayerOrNpc', related_name='memberships', blank=True, null=True)
-    commanding_officer = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='subordinates', blank=True, null=True)
-    organization = models.ForeignKey('Organization', related_name='members', blank=True, null=True)
+    player = models.ForeignKey('PlayerOrNpc', related_name='memberships', blank=True, null=True, db_index=True)
+    commanding_officer = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='subordinates', blank=True,
+                                           null=True)
+    organization = models.ForeignKey('Organization', related_name='members', blank=True, null=True, db_index=True)
     
     work_this_week = models.PositiveSmallIntegerField(default=0, blank=0)
     work_total = models.PositiveSmallIntegerField(default=0, blank=0)
@@ -2222,7 +2696,7 @@ class Member(models.Model):
     rank = models.PositiveSmallIntegerField(blank=10, default=10)
     
     pc_exists = models.BooleanField(blank=True, default=True,
-        help_text="Whether this member is a player character in the database")
+                                    help_text="Whether this member is a player character in the database")
     # stuff that players may set for their members:
     desc = models.TextField(blank=True, default=True)
     public_notes = models.TextField(blank=True, default=True)
@@ -2234,6 +2708,7 @@ class Member(models.Model):
     def msg(self, *args, **kwargs):
         if self.player:
             self.player.msg(*args, **kwargs)
+
     def _get_char(self):
         if self.player and self.player.player and self.player.player.db.char_ob:
             return self.player.player.db.char_ob
@@ -2270,6 +2745,10 @@ class Member(models.Model):
         """
         self.deguilded = True
         self.save()
+        try:
+            self.organization.org_channel.disconnect(self.player.player)
+        except AttributeError:
+            pass
 
     def work(self, worktype):
         """
@@ -2281,8 +2760,8 @@ class Member(models.Model):
         self.work_this_week += 1
         self.work_total += 1
         self.save()
-        #self.player.assets.vault += 20
-        #self.organization.assets.vault += 20
+        # self.player.assets.vault += 20
+        # self.organization.assets.vault += 20
         if worktype == "military":
             self.player.assets.military += 1
             self.organization.assets.military += 1
@@ -2323,7 +2802,10 @@ class Member(models.Model):
             return 0
         total = self.organization.support_pool
         shares = 0
-        for member in self.organization.active_members:
+        active = self.organization.active_members
+        if self not in active:
+            return 0
+        for member in active:
             shares += calc_share(member.rank)
         myshare = calc_share(self.rank)
         myshare = (myshare*total)/shares
@@ -2340,15 +2822,24 @@ class Member(models.Model):
         return sum(sphere.usage.filter(Q(supporter__player=self.player) &
                                        Q(supporter__fake=False) &
                                        Q(week=week)).values_list('rating', flat=True))
-    @property
-    def total_points_used(self):
-        week = get_week()
+
+    def get_total_points_used(self, week):
         total = 0
         for sphere in self.organization.spheres.all():
             total += sum(sphere.usage.filter(Q(supporter__player=self.player) &
                                              Q(supporter__fake=False) &
                                              Q(week=week)).values_list('rating', flat=True))
         return total
+
+    @property
+    def total_points_used(self):
+        week = get_week()
+        total = self.get_total_points_used(week)
+        return total
+
+    @property
+    def current_points(self):
+        return self.pool_share - self.total_points_used
 
     def display(self):
         poolshare = self.pool_share
@@ -2384,12 +2875,12 @@ class Task(models.Model):
     A task that a guild creates and then assigns to members to carry out,
     to earn them and the members income. Used to create RP.
     """
-    name = models.CharField(blank=True, null=True, max_length=80)
-    org = models.ManyToManyField('Organization', related_name='tasks', blank=True)
+    name = models.CharField(blank=True, null=True, max_length=80, db_index=True)
+    org = models.ManyToManyField('Organization', related_name='tasks', blank=True, db_index=True)
     category = models.CharField(null=True, blank=True, max_length=80)
     room_echo = models.TextField(blank=True, null=True)
     active = models.BooleanField(default=False, blank=False)
-    week = models.PositiveSmallIntegerField(blank=0, default=0)
+    week = models.PositiveSmallIntegerField(blank=0, default=0, db_index=True)
     desc = models.TextField(blank=True, null=True)
     difficulty = models.PositiveSmallIntegerField(blank=0, default=0)
     results = models.TextField(blank=True, null=True)
@@ -2401,14 +2892,15 @@ class Task(models.Model):
     def reqs(self):
         return ", ".join(str(ob.category) for ob in self.requirements.all())
 
+
 class AssignedTask(models.Model):
     """
     A task assigned to a player.
     """
-    task = models.ForeignKey('Task', related_name='assigned_tasks', blank=True, null=True)
-    member = models.ForeignKey('Member', related_name='tasks', blank=True, null=True)
+    task = models.ForeignKey('Task', related_name='assigned_tasks', blank=True, null=True, db_index=True)
+    member = models.ForeignKey('Member', related_name='tasks', blank=True, null=True, db_index=True)
     finished = models.BooleanField(default=False, blank=False)
-    week = models.PositiveSmallIntegerField(blank=0, default=0)
+    week = models.PositiveSmallIntegerField(blank=0, default=0, db_index=True)
     notes = models.TextField(blank=True, null=True)
     observer_text = models.TextField(blank=True, null=True)
     alt_echo = models.TextField(blank=True, null=True)
@@ -2426,7 +2918,7 @@ class AssignedTask(models.Model):
 
     @property
     def member_amount(self):
-        "Reward amount for a player"
+        """Reward amount for a player"""
         base = 3 * self.task.difficulty
         oflow = self.overflow
         if oflow > 0:
@@ -2434,7 +2926,7 @@ class AssignedTask(models.Model):
         return base
 
     def get_org_amount(self, category):
-        "Reward amount for an org"
+        """Reward amount for an org"""
         try:
             mod = getattr(self.org, category+"_modifier") + 1
         except (TypeError, ValueError, AttributeError):
@@ -2442,6 +2934,8 @@ class AssignedTask(models.Model):
         base = self.task.difficulty * mod
         oflow = self.overflow
         if oflow > 0:
+            if mod > 2:
+                mod = 2
             base += (mod * oflow)/2
         return base
     
@@ -2452,7 +2946,23 @@ class AssignedTask(models.Model):
     @property
     def org(self):
         return self.member.organization
-    
+
+    @property
+    def dompc(self):
+        return self.member.player
+
+    @property
+    def player(self):
+        return self.dompc.player
+
+    def cleanup_request_list(self):
+        """Cleans the Attribute that lists who we requested support from"""
+        char = self.player.db.char_ob
+        try:
+            del char.db.asked_supporters[self.id]
+        except (AttributeError, KeyError, TypeError, ValueError):
+            pass
+           
     def payout_check(self, week):
         total = self.total
         category_list = self.task.category.split(",")
@@ -2463,6 +2973,7 @@ class AssignedTask(models.Model):
         total_rep = 0
         # set week to the week we finished
         self.week = week
+        self.cleanup_request_list()
         msg = "You have completed the task: %s\n" % self.task.name
         for category in category_list:
             category = category.strip().lower()
@@ -2474,23 +2985,24 @@ class AssignedTask(models.Model):
             amt /= div
             # calculate resources for org. We compare multiplier for org to player mod, calc through that
             orgres = self.get_org_amount(category)/div
-            memassets = self.member.player.assets
+            memassets = self.dompc.assets
             orgassets = org.assets
             current = getattr(memassets, category)
             setattr(memassets, category, current + amt)
             current = getattr(orgassets, category)
             setattr(orgassets, category, current + orgres)
-            self.member.player.gain_reputation(org, amt, amt)
+            # self.dompc.gain_reputation(org, amt, amt)
             self.save()
             memassets.save()
             orgassets.save()
             total_rep += rep
             msg += "%s Resources earned: %s\n" % (category, amt)
-        msg += "Reputation earned: %s\n" % total_rep
-        for support in self.supporters.all():
-            support.award_renown()
-        self.member.player.player.inform(msg, category="task", week=week,
+        # msg += "Reputation earned: %s\n" % total_rep
+        # for support in self.supporters.all():
+        #     support.award_renown()
+        self.player.inform(msg, category="task", week=week,
                                          append=True)
+
     @property
     def total(self):
         if self.finished:
@@ -2500,7 +3012,7 @@ class AssignedTask(models.Model):
             val = 0
             for sup in self.supporters.filter(fake=False):
                 val += sup.rating
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             val = 0
         self.cached_total = val
         return val
@@ -2541,40 +3053,17 @@ class TaskSupporter(models.Model):
     """
     A player that has pledged support to someone doing a task
     """
-    player = models.ForeignKey('PlayerOrNpc', related_name='supported_tasks', blank=True, null=True)
-    task = models.ForeignKey('AssignedTask', related_name='supporters', blank=True, null=True)
+    player = models.ForeignKey('PlayerOrNpc', related_name='supported_tasks', blank=True, null=True, db_index=True)
+    task = models.ForeignKey('AssignedTask', related_name='supporters', blank=True, null=True, db_index=True)
     fake = models.BooleanField(default=False)
-    spheres = models.ManyToManyField('SphereOfInfluence', related_name='supported_tasks', blank=True, 
-                                  through='SupportUsed')
+    spheres = models.ManyToManyField('SphereOfInfluence', related_name='supported_tasks', blank=True,
+                                     through='SupportUsed')
     observer_text = models.TextField(blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
+    additional_points = models.PositiveSmallIntegerField(default=0, blank=0)
     
     def __str__(self):
         return "%s supporting %s" % (self.player, self.task) or "Unknown supporter"
-
-    def award_renown(self):
-        "Give renown to both players."
-        targ = self.task.member.player
-        if not self.fake:
-            for char in (targ, self.player):
-                for inf in self.allocation.all():
-                    category = inf.sphere.category
-                    try:
-                        ren = char.renown.get(category=category)
-                    except Renown.DoesNotExist:
-                        ren = char.renown.create(category=category)
-                    ren.rating += inf.rating
-                    ren.save()
-        else: #we're an unreliable flake. We suffer penalties
-            for req in self.task.task.requirements.all():
-                category = req.category
-                try:
-                    char = self.player
-                    ren = char.renown.get(category=category)
-                except Renown.DoesNotExist:
-                    ren = char.renown.create(category=category)
-                ren.rating -= 1
-                ren.save()
 
     @property
     def rating(self):
@@ -2593,6 +3082,7 @@ class TaskSupporter(models.Model):
             total += 5
         for usage in self.allocation.all():
             total += usage.rating
+        total += self.additional_points
         return total
 
     @property
@@ -2611,8 +3101,6 @@ class TaskSupporter(models.Model):
             return 14
         
 
-    
-
 # helper classes for crafting recipe to simplify API - allow for 'recipe.materials.all()'
 class Mats(object):
     def __init__(self, mat, amount):
@@ -2621,11 +3109,14 @@ class Mats(object):
         self.type = mat
         self.amount = amount
 
+
 class MatList(object):
     def __init__(self):
         self.mats = []
+
     def all(self):
         return self.mats
+
 
 class CraftingRecipe(models.Model):
     """
@@ -2637,10 +3128,10 @@ class CraftingRecipe(models.Model):
     are used for wearable objects to denote the slot they're worn in and
     how many other objects may be worn in that slot, respectively.
     """
-    name = models.CharField(blank=True, null=True, max_length=255)
+    name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
     desc = models.TextField(blank=True, null=True)
     # organizations or players that know this recipe
-    known_by = models.ManyToManyField('AssetOwner', blank=True, related_name='recipes')
+    known_by = models.ManyToManyField('AssetOwner', blank=True, related_name='recipes', db_index=True)
     primary_materials = models.ManyToManyField('CraftingMaterialType', blank=True, related_name='recipes_primary')
     secondary_materials = models.ManyToManyField('CraftingMaterialType', blank=True, related_name='recipes_secondary')
     tertiary_materials = models.ManyToManyField('CraftingMaterialType', blank=True, related_name='recipes_tertiary')
@@ -2650,8 +3141,8 @@ class CraftingRecipe(models.Model):
     difficulty = models.PositiveSmallIntegerField(blank=0, default=0)
     additional_cost = models.PositiveIntegerField(blank=0, default=0)
     # the ability/profession that is used in creating this
-    ability = models.CharField(blank=True, null=True, max_length=80)
-    skill = models.CharField(blank=True, null=True, max_length=80)
+    ability = models.CharField(blank=True, null=True, max_length=80, db_index=True)
+    skill = models.CharField(blank=True, null=True, max_length=80, db_index=True)
     # the type of object we're creating
     type = models.CharField(blank=True, null=True, max_length=80)
     # level in ability this recipe corresponds to. 1 through 6, usually
@@ -2661,6 +3152,7 @@ class CraftingRecipe(models.Model):
     allow_adorn = models.BooleanField(default=True, blank=True)
     # lockstring
     lock_storage = models.TextField('locks', blank=True, help_text='defined in setup_utils')
+
     def __init__(self, *args, **kwargs):
         super(CraftingRecipe, self).__init__(*args, **kwargs)
         self.locks = LockHandler(self)
@@ -2696,7 +3188,7 @@ class CraftingRecipe(models.Model):
             return {}
         rlist = results.split(";")
         keyvalpairs = [pair.split(":") for pair in rlist]
-        keydict = {pair[0].strip():pair[1].strip() for pair in keyvalpairs if len(pair) == 2}
+        keydict = {pair[0].strip(): pair[1].strip() for pair in keyvalpairs if len(pair) == 2}
         return keydict
 
     def display_reqs(self, dompc=None, full=False):
@@ -2711,7 +3203,6 @@ class CraftingRecipe(models.Model):
         for tup in tups:
             if tup[0]:
                 msg += tup[1]
-                pcstr = ""
                 if dompc:
                     msglist = []
                     for mat in tup[2].all():
@@ -2743,6 +3234,11 @@ class CraftingRecipe(models.Model):
     def __unicode__(self):
         return self.name or "Unknown"
 
+    @property
+    def baseval(self):
+        return self.resultsdict.get("baseval", 0.0)
+
+
 class CraftingMaterialType(models.Model):
     """
     Different types of crafting materials. We have a silver value per unit
@@ -2752,11 +3248,11 @@ class CraftingMaterialType(models.Model):
     difficult it is to fake it as another material of the same category
     """
     # the type of material we are
-    name = models.CharField(max_length=80)
+    name = models.CharField(max_length=80, db_index=True)
     desc = models.TextField(blank=True, null=True)
     # silver value per unit
     value = models.PositiveIntegerField(blank=0, default=0)
-    category = models.CharField(blank=True, null=True, max_length=80)
+    category = models.CharField(blank=True, null=True, max_length=80, db_index=True)
     # Text we can parse for notes about cost modifiers for different orgs, locations to obtain, etc
     acquisition_modifiers = models.TextField(blank=True, null=True)
     
@@ -2768,6 +3264,7 @@ class CraftingMaterialType(models.Model):
     def __unicode__(self):
         return self.name or "Unknown"
 
+
 class CraftingMaterials(models.Model):
     """
     Materials used for crafting. Can be stored by an AssetOwner as part of their
@@ -2775,12 +3272,12 @@ class CraftingMaterials(models.Model):
     If it is used in a recipe, do NOT set it owned by any asset owner, or by changing
     the amount they'll change the amount required in a recipe!
     """
-    type = models.ForeignKey('CraftingMaterialType', blank=True, null=True)
+    type = models.ForeignKey('CraftingMaterialType', blank=True, null=True, db_index=True)
     amount = models.PositiveIntegerField(blank=0, default=0)
-    owner = models.ForeignKey('AssetOwner', blank=True, null=True, related_name='materials')
+    owner = models.ForeignKey('AssetOwner', blank=True, null=True, related_name='materials', db_index=True)
     
     class Meta:
-        "Define Django meta options"
+        """Define Django meta options"""
         verbose_name_plural = "Crafting Materials"
 
     def __unicode__(self):
@@ -2789,6 +3286,7 @@ class CraftingMaterials(models.Model):
     @property
     def value(self):
         return self.type.value * self.amount
+
 
 class RPEvent(models.Model):
     """
@@ -2814,19 +3312,21 @@ class RPEvent(models.Model):
         (EXTRAVAGANT, 'Extravagant'),
         (LEGENDARY, 'Legendary'),
         )
-    hosts = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_hosted')
-    name = models.CharField(max_length=255)
+    hosts = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_hosted', db_index=True)
+    name = models.CharField(max_length=255, db_index=True)
     desc = models.TextField(blank=True, null=True)
-    location = models.ForeignKey('objects.ObjectDB', blank=True, null=True, related_name='events_held')
+    location = models.ForeignKey('objects.ObjectDB', blank=True, null=True, related_name='events_held',
+                                 on_delete=models.SET_NULL)
     date = models.DateTimeField(blank=True, null=True)
-    participants = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_attended')
-    gms = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_gmd')
-    celebration_tier = models.PositiveSmallIntegerField(choices = LARGESSE_CHOICES, default = NONE)
+    participants = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_attended', db_index=True)
+    gms = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_gmd', db_index=True)
+    celebration_tier = models.PositiveSmallIntegerField(choices=LARGESSE_CHOICES, default=NONE)
     gm_event = models.BooleanField(default=False, blank=False)
     public_event = models.BooleanField(default=True, blank=True)
     finished = models.BooleanField(default=False, blank=False)
     results = models.TextField(blank=True, null=True)
     room_desc = models.TextField(blank=True, null=True)
+    crisis = models.ForeignKey("Crisis", blank=True, null=True, on_delete=models.SET_NULL, related_name="events")
 
     @property
     def prestige(self):
@@ -2847,15 +3347,19 @@ class RPEvent(models.Model):
     def display(self):
         msg = "{wName:{n %s\n" % self.name
         msg += "{wHosts:{n %s\n" % ", ".join(str(ob) for ob in self.hosts.all())
+        if self.gms.all():
+            msg += "{wGMs:{n %s\n" % ", ".join(str(ob) for ob in self.gms.all())
+        if not self.finished and not self.public_event:
+            msg += "{wInvited:{n %s\n" % ", ".join(str(ob) for ob in self.participants.all())
         msg += "{wLocation:{n %s\n" % self.location
         if not self.public_event:
-            msg += "{w*This event has been marked as private. Ask the host about attending.*{n\n"
+            msg += "{wPrivate:{n Yes\n"
         msg += "{wEvent Scale:{n %s\n" % self.get_celebration_tier_display()
-        msg += "{wDate:{n %s\n" % self.date.strftime("%x %X")
+        msg += "{wDate:{n %s\n" % self.date.strftime("%x %H:%M")
         msg += "{wDesc:{n\n%s\n" % self.desc
         webpage = PAGEROOT + self.get_absolute_url()
         msg += "{wEvent Page:{n %s\n" % webpage
-        comments = self.comments.filter(db_header__icontains="white_journal").order_by('-db_date_created')
+        comments = self.comments.filter(db_tags__db_key="white_journal").order_by('-db_date_created')
         if comments:
             from server.utils.prettytable import PrettyTable
             msg += "\n{wComments:{n"
@@ -2882,44 +3386,79 @@ class RPEvent(models.Model):
     def log(self):
         try:
             from typeclasses.scripts.event_manager import LOGPATH
-            filename = LOGPATH + "event_log_%s.txt" % (self.id)
+            filename = LOGPATH + "event_log_%s.txt" % self.id
             return open(filename, 'r').read()
-        except Exception:
+        except IOError:
             return ""
+
+    @property
+    def tagkey(self):
+        """
+        Tagkey MUST be unique. So we have to incorporate the ID of the event
+        for the tagkey in case of duplicate event names.
+        """
+        return "%s_%s" % (self.name.lower(), self.id)
+
+    @property
+    def tagdata(self):
+        return str(self.id)
 
     @property
     def comments(self):
         from evennia.comms.models import Msg
-        tagkey = self.name.lower()
-        tagdata = str(self.id)
-        return Msg.objects.filter(db_tags__db_key=tagkey,
-                                  db_tags__db_data=tagdata)
+        return Msg.objects.filter(db_tags__db_data=self.tagdata,
+                                  db_tags__db_category="event")
+
+    @property
+    def main_host(self):
+        from typeclasses.players import Player
+        try:
+            return Player.objects.get(db_tags__db_key=self.tagkey)
+        except (Player.DoesNotExist, Player.MultipleObjectsReturned):
+            try:
+                return self.hosts.first().player
+            except (PlayerOrNpc.DoesNotExist, AttributeError):
+                return None
+
+    def tag_obj(self, obj):
+        obj.tags.add(self.tagkey, data=self.tagdata, category="event")
+        return obj
 
     @property
     def public_comments(self):
-        return self.comments.filter(db_header__icontains="white_journal")
+        return self.comments.filter(db_tags__db_key="white_journal")
 
     def get_absolute_url(self):
         return reverse('dominion:display_event', kwargs={'pk': self.id})
+
+    @property
+    def characters(self):
+        return set(self.gms.all() | self.hosts.all() | self.participants.all())
     
 
 class InfluenceCategory(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255, unique=True, db_index=True)
     orgs = models.ManyToManyField("Organization", through="SphereOfInfluence")
     players = models.ManyToManyField("PlayerOrNpc", through="Renown")
     tasks = models.ManyToManyField("Task", through="TaskRequirement")
+
     class Meta:
-        "Define Django meta options"
+        """Define Django meta options"""
         verbose_name_plural = "Influence Categories"
+
     def __str__(self):
         return self.name
 
+
 class Renown(models.Model):
-    category = models.ForeignKey("InfluenceCategory")
-    player = models.ForeignKey("PlayerOrNpc", related_name="renown")
+    category = models.ForeignKey("InfluenceCategory", db_index=True)
+    player = models.ForeignKey("PlayerOrNpc", related_name="renown", db_index=True)
     rating = models.IntegerField(blank=0, default=0)
+
     class Meta:
         verbose_name_plural = "Renown"
+        unique_together = ("category", "player")
+
     def __str__(self):
         return "%s's rating in %s: %s" % (self.player, self.category, self.rating)
 
@@ -2938,14 +3477,19 @@ class Renown(models.Model):
             return 15 + (self.rating-4000)/1600
         return 20
 
+
 class SphereOfInfluence(models.Model):
-    category = models.ForeignKey("InfluenceCategory")
-    org = models.ForeignKey("Organization", related_name="spheres")
+    category = models.ForeignKey("InfluenceCategory", db_index=True)
+    org = models.ForeignKey("Organization", related_name="spheres", db_index=True)
     rating = models.IntegerField(blank=0, default=0)
+
     class Meta:
         verbose_name_plural = "Spheres of Influence"
+        unique_together = ("category", "org")
+
     def __str__(self):
         return "%s's rating in %s: %s" % (self.org, self.category, self.rating)
+
     # example idea for scaling
     @property
     def level(self):
@@ -2959,17 +3503,21 @@ class SphereOfInfluence(models.Model):
             return 35 + (self.rating-750)/80
         return 45 + (self.rating-1550)/100
 
+
 class TaskRequirement(models.Model):
-    category = models.ForeignKey("InfluenceCategory")
-    task = models.ForeignKey("Task", related_name="requirements")
+    category = models.ForeignKey("InfluenceCategory", db_index=True)
+    task = models.ForeignKey("Task", related_name="requirements", db_index=True)
     minimum_amount = models.PositiveSmallIntegerField(blank=0, default=0)
+
     def __str__(self):
         return "%s requirement: %s" % (self.task, self.category)
 
+
 class SupportUsed(models.Model):
     week = models.PositiveSmallIntegerField(default=0, blank=0)
-    supporter = models.ForeignKey("TaskSupporter", related_name="allocation")
-    sphere = models.ForeignKey("SphereOfInfluence", related_name="usage")
+    supporter = models.ForeignKey("TaskSupporter", related_name="allocation", db_index=True)
+    sphere = models.ForeignKey("SphereOfInfluence", related_name="usage", db_index=True)
     rating = models.PositiveSmallIntegerField(blank=0, default=0)
+
     def __str__(self):
         return "%s using %s of %s" % (self.supporter, self.rating, self.sphere)

@@ -7,7 +7,6 @@ among the available commands as to what should be included in the
 cmdset - this way you can often re-use the commands too.
 """
 
-import random
 from django.conf import settings
 from evennia import CmdSet, utils
 from server.utils import prettytable
@@ -16,9 +15,11 @@ from evennia.commands.default.muxcommand import MuxCommand
 # error return function, needed by wear/remove command
 AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
 
-#------------------------------------------------------------
+# ------------------------------------------------------------
 # Commands defined for wearable
-#------------------------------------------------------------
+# ------------------------------------------------------------
+
+
 class CmdWield(MuxCommand):
     """
     Chooses the method you use to attack.
@@ -36,8 +37,9 @@ class CmdWield(MuxCommand):
     key = "wield"
     locks = "cmd:all()"
     help_category = "Combat"
+
     def func(self):
-        "Look for object in inventory that matches args to wear"
+        """Look for object in inventory that matches args to wear"""
         caller = self.caller
         args = self.args
         if not args:
@@ -48,7 +50,7 @@ class CmdWield(MuxCommand):
         results = caller.search(args, location=caller, quiet=True)
         # now we send it into the error handler (this will output consistent
         # error messages if there are problems).
-        obj = AT_SEARCH_RESULT(results, caller, args,False,
+        obj = AT_SEARCH_RESULT(results, caller, args, False,
                                nofound_string="You don't carry %s." % args,
                                multimatch_string="You carry more than one %s:" % args)
         if not obj:
@@ -77,11 +79,13 @@ class CmdWield(MuxCommand):
                 for char in chars:
                     if char.sensing_check(obj, diff=obj.db.sensing_difficulty) < 1:
                         exclude.append(char)
-            caller.location.msg_contents("%s %s." % (caller.name, obj.db.ready_phrase),
+            msg = obj.db.ready_phrase or "wields %s" % obj.name
+            caller.location.msg_contents("%s %s." % (caller.name, msg),
                                          exclude=exclude)
             obj.at_post_wield(caller)
             return
-        
+
+
 class CmdWeaponList(MuxCommand):
     """
     Displays information about your weapons.
@@ -94,10 +98,10 @@ class CmdWeaponList(MuxCommand):
     key = "+weapons"
     locks = "cmd:all()"
     help_category = "Combat"
+
     def func(self):
-        "Look for object in inventory that matches args to wear"
+        """Look for object in inventory that matches args to wear"""
         caller = self.caller
-        args = self.args
         weaps = [ob for ob in caller.contents if ob.db.is_wieldable]
         weaps.sort()
         table = prettytable.PrettyTable(["Weapon",
@@ -114,6 +118,7 @@ class CmdWeaponList(MuxCommand):
                           weapon.db.attack_skill, weapon.db.damage_stat])
         caller.msg(table, formatted=True)
 
+
 class CmdUnwield(MuxCommand):
     """
     Removes a weapon from its current state of readiness.
@@ -127,8 +132,9 @@ class CmdUnwield(MuxCommand):
     key = "sheathe"
     aliases = ["unwield"]
     locks = "cmd:all()"
+
     def func(self):
-        "Look for object in inventory that matches args to wear"
+        """Look for object in inventory that matches args to wear"""
         caller = self.caller
         args = self.args
         if not args:
@@ -141,8 +147,8 @@ class CmdUnwield(MuxCommand):
         # now we send it into the error handler (this will output consistent
         # error messages if there are problems).
         obj = AT_SEARCH_RESULT(results, caller, args, False,
-                                nofound_string="You don't carry %s." % args,
-                                multimatch_string="You carry more than one %s:" % args)
+                               nofound_string="You don't carry %s." % args,
+                               multimatch_string="You carry more than one %s:" % args)
         if not obj:
             return
         if not obj.db.currently_wielded or obj.db.wielded_by != caller:
@@ -176,7 +182,7 @@ class DefaultCmdSet(CmdSet):
     duplicates = False
 
     def at_cmdset_creation(self):
-        "Init the cmdset"
+        """Init the cmdset"""
         self.add(CmdWield())
         self.add(CmdUnwield())
         self.add(CmdWeaponList())

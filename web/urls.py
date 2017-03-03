@@ -58,3 +58,14 @@ if settings.SERVE_MEDIA:
         (r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
         
     ]
+
+if settings.DEBUG:
+    try:
+        import debug_toolbar
+    except ImportError:
+        debug_toolbar = None
+        print "Django toolbar not installed. Please use pip install django-debug-toolbar"
+    if debug_toolbar:
+        urlpatterns += [
+            url(r'^__debug__/', include(debug_toolbar.urls)),
+    ]

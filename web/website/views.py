@@ -49,12 +49,12 @@ def page_index(request):
     except Chapter.DoesNotExist:
         chapter = None
     try:
-        events = RPEvent.objects.filter(finished=False).order_by('date')[:3]
+        events = RPEvent.objects.filter(finished=False, public_event=True).order_by('date')[:3]
     except Exception:
         events = []
 
     pagevars = {
-        "page_title": "Front Page",
+        "page_title": "After the Reckoning",
         "news_entries": news_entries,
         "players_connected_recent": recent_users,
         "num_players_connected": nsess or "noone",

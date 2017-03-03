@@ -2,19 +2,15 @@
 A basic inform, as well as other in-game messages.
 """
 
-from datetime import datetime
-from django.conf import settings
+
 from django.db import models
 
 
-
-
-
-#------------------------------------------------------------
+# ------------------------------------------------------------
 #
 # Inform
 #
-#------------------------------------------------------------
+# ------------------------------------------------------------
 
 class Inform(models.Model):
     """
@@ -42,6 +38,16 @@ class Inform(models.Model):
     is_unread = models.BooleanField(default=True)
     # allow for different types of informs/reports
     category = models.CharField(blank=True, null=True, max_length=80)
+
     class Meta:
         app_label = "msgs"
         db_table = "comms_inform"
+
+    @classmethod
+    def bulk_inform(cls, players, text, category):
+        bulk_list = []
+        for ob in players:
+            bulk_list.append(cls(player=ob, message=text, category=category))
+        cls.objects.bulk_create(bulk_list)
+        for player in players:
+            player.announce_informs()

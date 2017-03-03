@@ -7,35 +7,38 @@ exist in the game. All commands using it should be player commands, to allow
 players to peruse characters while OOC if they wish.
 
 """
-from django.conf import settings
 from evennia.utils import utils
 from server.utils import prettytable
-from server.utils.utils import inform_staff
+from server.utils.arx_utils import inform_staff
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from evennia.objects.models import ObjectDB
 from datetime import datetime
 from commands.commands.jobs import get_apps_manager
 from django.db.models import Q
 from web.character.models import Roster
-from evennia.utils import evmore
+from server.utils import arx_more
+from typeclasses.bulletin_board.bboard import BBoard
 
 
 # limit symbol import for API
 __all__ = ("CmdRosterList", "CmdAdminRoster", "CmdSheet", "CmdComment", "CmdRelationship")
 
-def get_roster_manager(caller):
+
+def get_roster_manager():
     """
     returns roster manager object
     """
     return Roster.objects
 
+
 def format_header(title):
-    message  = "\n{w" + "-"*60 + "{n\n"
+    message = "\n{w" + "-"*60 + "{n\n"
     message += "{:^60}".format("{w" + title + "{n")
     message += "\n{w" + "-"*60 + "{n"
     return message
 
-def list_characters(caller, character_list, type = "Active Characters", roster=None, titles=False, hidden_chars=None, display_afk=False):
+
+def list_characters(caller, character_list, roster_type="Active Characters", roster=None,
+                    titles=False, hidden_chars=None, display_afk=False, use_keys=True):
     """
     Formats lists of characters. If we're given a list of 'hidden_chars', we compare
     the list of names in character_list to that, and if any match, we use the data
@@ -43,19 +46,19 @@ def list_characters(caller, character_list, type = "Active Characters", roster=N
     the data fromt he roster object for the name match to propogate our fields.
     If display_afk is true, we list the idle timer for each character.
     """
-    #format
-    message  = format_header(type)
+    # format
+    message = format_header(roster_type)
     if not character_list or not roster:
         message += "\nNo characters found."
     else:
         if display_afk:
             table = prettytable.PrettyTable(["{wName #",
-                                         "{wSex",
-                                         "{wAge",
-                                         "{wFealty{n",
-                                         "{wConcept{n",
-                                         "{wSR{n",
-                                         "{wIdle{n"])
+                                             "{wSex",
+                                             "{wAge",
+                                             "{wFealty{n",
+                                             "{wConcept{n",
+                                             "{wSR{n",
+                                             "{wIdle{n"])
         else:
             table = prettytable.PrettyTable(["{wName #",
                                              "{wSex",
@@ -65,7 +68,10 @@ def list_characters(caller, character_list, type = "Active Characters", roster=N
                                              "{wSR{n"])
         for char in character_list:
             try:
-                name = char.name
+                if use_keys:
+                    name = char.key
+                else:
+                    name = char.name
                 charob = char
                 char = str(char)
             except AttributeError:
@@ -77,9 +83,11 @@ def list_characters(caller, character_list, type = "Active Characters", roster=N
             house = "-"
             concept = "-"
             srank = "-"
-            
+            afk = "-"
             # check if the name matches anything in the hidden characters list
             hide = False
+            if charob and hasattr(charob, 'is_disguised') and charob.is_disguised:
+                hide = True
             if not charob and hidden_chars:
                 # convert both to lower case for case-insensitive matching
                 match_list = [ob for ob in hidden_chars if ob.name.lower() == char.lower()]
@@ -87,26 +95,32 @@ def list_characters(caller, character_list, type = "Active Characters", roster=N
                     charob = match_list[0]
                     hide = True
             if charob:
-                if charob.name and name != charob.name and caller.check_permstring("Builders"):
-                    name = name + "{w(%s){n" % charob.name
+                if not use_keys and charob.name and name != charob.name and caller.check_permstring("Builders"):
+                    name += "{w(%s){n" % charob.name
                 if titles:
                     title = charob.db.longname
                     if title and not hide:
                         name = '{n' + title.replace(char, '{c' + char + '{n')
-                #yes, yes, I know they're not the same thing.
+                # yes, yes, I know they're not the same thing.
                 # sex is only 3 characters and gender is 5.
                 sex = charob.db.gender
-                if not sex or hide: sex = "-"
+                if not sex or hide:
+                    sex = "-"
                 sex = sex[0].capitalize()
                 age = charob.db.age
-                if not age or hide: age = "-"
+                if not age or hide:
+                    age = "-"
                 house = charob.db.fealty
-                if not house or hide: house = "-"
+                if not house or hide:
+                    house = "-"
                 concept = charob.db.concept
-                if not concept or hide: concept = "-"
+                if not concept or hide:
+                    concept = "-"
                 srank = charob.db.social_rank
-                if not srank or hide: srank = "-"
-                if not titles or hide: name = "{c" + name + "{n"
+                if not srank or hide:
+                    srank = "-"
+                if not titles or hide:
+                    name = "{c" + name + "{n"
                 if display_afk:
                     afk = utils.time_format(charob.idle_time)
             if display_afk:
@@ -115,28 +129,30 @@ def list_characters(caller, character_list, type = "Active Characters", roster=N
                 table.add_row([name, sex, age, house, concept[:30], srank])
         message += "\n%s" % table                
     message += "\n"
-    evmore.msg(caller, message, justify_kwargs=False)
+    arx_more.msg(caller, message, justify_kwargs=False)
 
-def change_email(player, email, caller=None, roster=None):
+
+def change_email(player, email, caller=None):
     from web.character.models import RosterEntry, PlayerAccount, AccountHistory
     try:
         entry = RosterEntry.objects.get(player__username__iexact=player)
     except RosterEntry.DoesNotExist:
         caller.msg("No player found by that name.")
         return
-    #entry.previous_emails += "%s\n" % entry.player.email
+    # entry.previous_emails += "%s\n" % entry.player.email
     entry.player.email = email
     entry.player.save()
     try:
         entry.current_account = PlayerAccount.objects.get(email=email)
-    except Exception:
+    except PlayerAccount.DoesNotExist:
         entry.current_account = PlayerAccount.objects.create(email=email)
     entry.save()
     date = datetime.now()
     if not AccountHistory.objects.filter(account=entry.current_account, entry=entry):
         AccountHistory.objects.create(entry=entry, account=entry.current_account, start_date=date)
 
-def add_note(player, note, caller=None, roster=None):
+
+def add_note(player, note, caller=None):
     from web.character.models import RosterEntry
     try:
         entry = RosterEntry.objects.get(player__username__iexact=player)
@@ -151,6 +167,7 @@ def add_note(player, note, caller=None, roster=None):
     entry.gm_notes += new_note
     entry.save()
 
+
 def create_comment(sender, receiver, message):
     """
     This helper function will be called both by the @comment command and the
@@ -161,6 +178,7 @@ def create_comment(sender, receiver, message):
     was written.
     """
     receiver.messages.add_comment(message, sender)
+
 
 class CmdRosterList(MuxPlayerCommand):
     """
@@ -212,15 +230,15 @@ class CmdRosterList(MuxPlayerCommand):
     locks = "cmd:all()"
 
     def func(self):
-        "Implement the command"
+        """Implement the command"""
         caller = self.caller
         args = self.args
-        roster = get_roster_manager(caller)
+        roster = get_roster_manager()
         switches = self.switches
         if not roster:
             return
         if not args:
-            #list all characters in active/available rosters
+            # list all characters in active/available rosters
             if 'all' in switches or 'active' in switches:
                 char_list = roster.get_all_active_characters()
                 list_characters(caller, char_list, "Active Characters", roster, False)
@@ -229,7 +247,8 @@ class CmdRosterList(MuxPlayerCommand):
             if 'all' in self.switches or not self.switches:
                 char_list = roster.get_all_available_characters()
                 list_characters(caller, char_list, "Available Characters", roster, False)
-            if caller.check_permstring("Immortals") or caller.check_permstring("Wizards") or caller.check_permstring("Builders"):
+            if caller.check_permstring("Immortals") or caller.check_permstring("Wizards") or \
+                    caller.check_permstring("Builders"):
                 if 'all' in self.switches or 'unavailable' in self.switches:
                     char_list = roster.get_all_unavailable_characters()
                     list_characters(caller, char_list, "Unavailable Characters", roster, False)
@@ -244,6 +263,21 @@ class CmdRosterList(MuxPlayerCommand):
             return
         if 'apply' in switches:
             # will call apps_manager.add_app(char_name, char_ob, email, app_string)
+            email = caller.email
+            if caller.is_guest():
+                # check for email
+                email = caller.ndb.email
+                if not email:
+                    char = caller.db.char
+                    if char:
+                        email = char.db.player_ob.email
+            if not email:
+                caller.msg("You have no defined email address, which is required to apply to play another character.")
+                if caller.is_guest():
+                    caller.msg("You can add an email address with {w@add/email <address>{n")
+                else:
+                    caller.msg("This account is not a guest, so contact a GM to fix your email.")
+                return
             char_name, app_string = self.lhs, self.rhs
             if not char_name or not app_string:
                 caller.msg("Usage: @roster/apply <character name>=<application>")
@@ -256,18 +290,6 @@ class CmdRosterList(MuxPlayerCommand):
             apps = get_apps_manager(caller)
             if not apps:
                 caller.msg("Application manager not found! Please inform the admins.")
-                return
-            email = caller.email
-            if caller.is_guest():
-                # check for email
-                email = caller.ndb.email
-                if not email:
-                    char = caller.db.char
-                    if char: email = char.db.player_ob.email
-            if not email:
-                caller.msg("You have no defined email address, which is required to apply to play another character.")
-                if caller.is_guest():
-                    caller.msg("You can add an email address with {w@add/email <address>{n")
                 return
             char_ob = roster.get_character(char_name)
             if not char_ob:
@@ -284,27 +306,24 @@ class CmdRosterList(MuxPlayerCommand):
             inform_staff(message)
             return
         if ('family' in args or 'fealty' in args or 'concept' in args) and not self.rhs:
-            caller.msg("The filters of 'family', 'fealty', 'social class', or 'concept' require an argument after an '='.")
+            caller.msg("The filters of 'family', 'fealty', 'social rank', " +
+                       "or 'concept' require an argument after an '='.")
             return
         if not self.rhs:
             filters = args.split(",")
             if 'all' in switches:
                 match_list = roster.search_by_filters(filters)
-                if match_list:
-                    match_list = [_char.key.capitalize() for _char in match_list]
                 list_characters(caller, match_list, "Active Characters", roster, False)
             match_list = roster.search_by_filters(filters, "available")
-            if match_list:
-                match_list = [_char.key.capitalize() for _char in match_list]
             list_characters(caller, match_list, "Available Characters", roster, False)
             return
         rhslist = self.rhslist
         lhslist = self.lhslist
         keynames = []
-        for filter in lhslist:
-            if filter in ['family', 'fealty', 'concept', 'social rank']:
-                keynames.append(filter)
-        if (len(keynames) != len(rhslist)):
+        for attr_filter in lhslist:
+            if attr_filter in ['family', 'fealty', 'concept', 'social rank']:
+                keynames.append(attr_filter)
+        if len(keynames) != len(rhslist):
             caller.msg("Not enough arguments provided for the given filters.")
             return
         filtdict = dict(zip(keynames, rhslist))
@@ -313,11 +332,12 @@ class CmdRosterList(MuxPlayerCommand):
         concept = filtdict.get('concept', "None")
         social_rank = filtdict.get('social rank', "None")
         if 'all' in switches:
-            match_list = roster.search_by_filters(lhslist,"active",concept, fealty, social_rank, family)
+            match_list = roster.search_by_filters(lhslist, "active", concept, fealty, social_rank, family)
             list_characters(caller, match_list, "Active Characters", roster, False)
-        match_list = roster.search_by_filters(lhslist,"available",concept, fealty, social_rank, family)
+        match_list = roster.search_by_filters(lhslist, "available", concept, fealty, social_rank, family)
         list_characters(caller, match_list, "Available Characters", roster, False)
         return
+
 
 class CmdAdminRoster(MuxPlayerCommand):
     """
@@ -328,13 +348,26 @@ class CmdAdminRoster(MuxPlayerCommand):
         @chroster/note   <entry>=<Added note>
         @chroster/email  <entry>=<new email>
         @chroster/retire <entry>=<notes>
+        @chroster/view <entry>
+        @chroster/markavailable <entry>
 
     Admin for roster commands. Added characters go in unavailable
-    and inactive section until moved to active section. 
+    and inactive section until moved to active section.
     """
     key = "@chroster"
     help_category = "Admin"
     locks = "cmd:perm(chroster) or perm(Wizards)"
+
+    @staticmethod
+    def award_alt_xp(alt, xp, history, current):
+        if xp > current.total_xp:
+            xp = current.total_xp
+        altchar = alt.entry.character
+        if xp > history.xp_earned:
+            xp = history.xp_earned
+        if not altchar.db.xp:
+            altchar.db.xp = 0
+        altchar.db.xp += xp
 
     def func(self):
         caller = self.caller
@@ -344,9 +377,44 @@ class CmdAdminRoster(MuxPlayerCommand):
             caller.msg("Usage: @chroster/switches <arguments>")
             return
         from web.character.models import RosterEntry, Roster, AccountHistory
-        if 'add' in switches:
+        if "markavailable" in switches:
             try:
                 entry = RosterEntry.objects.get(character__db_key__iexact=self.lhs)
+                if entry.roster.name == "Active":
+                    self.msg("They are currently played. Use /retire instead.")
+                    return
+                roster = Roster.objects.get(name__iexact="Available")
+                entry.roster = roster
+                entry.save()
+                try:
+                    bb = BBoard.objects.get(db_key__iexact="Roster Changes")
+                    msg = "%s has been placed on the roster and is now available for applications." % entry.character
+                    subject = "%s now available" % entry.character
+                    bb.bb_post(self.caller, msg, subject=subject, poster_name="Roster")
+                except BBoard.DoesNotExist:
+                    self.msg("Board not found for posting announcement")
+            except RosterEntry.DoesNotExist:
+                self.msg("Could not find a character by that name.")
+            # try to delete any apps
+            from .jobs import get_apps_manager
+            apps = get_apps_manager(caller)
+            if not apps:
+                return
+            apps_for_char = apps.view_all_apps_for_char(args)
+            if not apps_for_char:
+                caller.msg("No applications found.")
+                return
+            pend_list = [ob for ob in apps_for_char if ob[9]]
+            if not pend_list:
+                caller.msg("No pending applications found.")
+                return
+            for pending_app in pend_list:
+                app_num = pending_app[0]
+                apps.delete_app(caller, app_num)
+            return
+        if 'add' in switches:
+            try:
+                RosterEntry.objects.get(character__db_key__iexact=self.lhs)
                 caller.msg("Character already is in the roster.")
                 return
             except RosterEntry.DoesNotExist:
@@ -371,15 +439,18 @@ class CmdAdminRoster(MuxPlayerCommand):
             except Exception as err:
                 caller.msg("Move failed: %s" % err)
                 return
-        if 'retire' in switches:
+        if 'retire' in switches or 'gone' in self.switches:
             active = Roster.objects.get(name__iexact="active")
-            avail = Roster.objects.get(name__iexact="available")
+            if 'retire' in self.switches:
+                new_roster = Roster.objects.get(name__iexact="available")
+            else:  # character is dead/gone
+                new_roster = Roster.objects.get(name__iexact="gone")
             try:
                 entry = active.entries.get(character__db_key__iexact=self.lhs)
-            except Exception:
+            except RosterEntry.DoesNotExist:
                 caller.msg("Character not found in active roster.")
                 return
-            entry.roster = avail
+            entry.roster = new_roster
             current = entry.current_account 
             xp = entry.character.db.xp or 0
             try:
@@ -388,12 +459,7 @@ class CmdAdminRoster(MuxPlayerCommand):
                     xp = 0
                 try:
                     alt = AccountHistory.objects.get(Q(account=current) & ~Q(entry=entry))
-                    altchar = alt.entry.character
-                    if xp > history.xp_earned:
-                        xp = history.xp_earned
-                    if not altchar.db.xp:
-                        altchar.db.xp = 0
-                    altchar.db.xp += xp    
+                    self.award_alt_xp(alt, xp, history, current)
                 except AccountHistory.DoesNotExist:
                     if xp > current.total_xp:
                         xp = current.total_xp
@@ -403,7 +469,9 @@ class CmdAdminRoster(MuxPlayerCommand):
                     current.gm_notes += "\n\nUnspent xp: %s" % xp
                     current.save()
                 except AccountHistory.MultipleObjectsReturned:
-                    caller.msg("ERROR: Found more than one account. No xp transferred.")
+                    caller.msg("ERROR: Found more than one account. Using the first.")
+                    alt = AccountHistory.objects.filter(Q(account=current) & ~Q(entry=entry)).first()
+                    self.award_alt_xp(alt, xp, history, current)
                 except Exception as err:
                     import traceback
                     print "{rEncountered this error when trying to transfer xp{n:\n%s" % err
@@ -412,10 +480,6 @@ class CmdAdminRoster(MuxPlayerCommand):
                 entry.character.db.total_xp = 0
             except AccountHistory.DoesNotExist:
                 history = AccountHistory.objects.create(account=current, entry=entry)
-            except Exception:
-                import traceback
-                caller.msg("Error encountered:")
-                caller.msg(traceback.print_exc())
             entry.current_account = None
             entry.save()
             date = datetime.now()
@@ -425,7 +489,8 @@ class CmdAdminRoster(MuxPlayerCommand):
             elif self.rhs:
                 history.gm_notes += self.rhs
             history.save()
-            #set up password
+            # set up password
+            # noinspection PyBroadException
             try:
                 import string
                 import random
@@ -437,7 +502,15 @@ class CmdAdminRoster(MuxPlayerCommand):
                 import traceback
                 traceback.print_exc()
                 caller.msg("Error when setting new password. Logged.")
-            inform_staff("%s has returned %s to the available roster." % (caller, self.lhs))
+            inform_staff("%s has returned %s to the %s roster." % (caller, self.lhs, new_roster.name))
+            if "retire" in self.switches:
+                try:
+                    bb = BBoard.objects.get(db_key__iexact="Roster Changes")
+                    msg = "%s no longer has an active player and is now available for applications." % entry.character
+                    subject = "%s now available" % entry.character
+                    bb.bb_post(self.caller, msg, subject=subject, poster_name="Roster")
+                except BBoard.DoesNotExist:
+                    self.msg("Board not found for posting announcement")
             return
         if 'view' in switches:
             try:
@@ -453,10 +526,12 @@ class CmdAdminRoster(MuxPlayerCommand):
             caller.msg(line)
             line = "{wGM Notes:{n " + entry.gm_notes
             caller.msg(line)
-            caller.msg("{wCurrent Account:{n %s" % entry.current_account)
+            if entry.current_account:
+                caller.msg("{wCurrent Account:{n %s" % entry.current_account)
+                caller.msg("{wAlts:{n %s" % ", ".join(str(ob) for ob in entry.alts))
             return
         if 'email' in switches:
-            lhs,rhs = self.lhs, self.rhs
+            lhs, rhs = self.lhs, self.rhs
             if not lhs or not rhs:
                 caller.msg("Usage: @chroster/email user=email")
                 return
@@ -476,7 +551,6 @@ class CmdAdminRoster(MuxPlayerCommand):
             inform_staff("%s added a note to %s in roster." % (caller, lhs))
             caller.msg("New note added.")
             return
-            
 
 
 def display_header(caller, character, show_hidden=False):
@@ -541,7 +615,7 @@ def display_header(caller, character, show_hidden=False):
     marital_status = character.db.marital_status or "Single"
 
     header = \
-           """
+        """
 {w%(longname)s{n
 %(quote)s
 {w==================================================================={n
@@ -552,22 +626,16 @@ def display_header(caller, character, show_hidden=False):
 {wVocation:{n %(vocation)-23s {wHeight:{n %(height)-20s
 {wEye Color:{n %(eyecolor)-22s {wHair Color:{n %(haircolor)-20s
 {wSkin Tone:{n %(skintone)-22s {wMarital Status:{n %(marital_status)-20s
-           """ % {'longname': longname, 'quote': utils.fill(quote), 'srank': srank,
-                      'concept': concept, 'fealty':fealty, 'family': family,
-                      'gender': gender, 'age': age, 'birth': birth, 'religion': religion,
-                      'vocation': vocation, 'height':height, 'eyecolor':eyecolor,
-                      'haircolor': haircolor, 'skintone': skintone, 'marital_status': marital_status,
-                  }
+        """ % {'longname': longname, 'quote': utils.fill(quote), 'srank': srank,
+               'concept': concept, 'fealty': fealty, 'family': family,
+               'gender': gender, 'age': age, 'birth': birth, 'religion': religion,
+               'vocation': vocation, 'height': height, 'eyecolor': eyecolor,
+               'haircolor': haircolor, 'skintone': skintone, 'marital_status': marital_status,
+               }
     caller.msg(header)
     desc = character.desc
     if not desc:
         desc = "No description set."
-    background = character.db.background
-    if not background:
-        background = "No background written yet."
-    personality = character.db.personality
-    if not personality:
-        personality = "No personality written yet."
     if show_hidden:
         rconcept = character.db.real_concept
         rage = character.db.real_age
@@ -576,19 +644,17 @@ def display_header(caller, character, show_hidden=False):
             if rconcept:
                 mssg = "{w(Real Concept):{n %s \t\t\t" % rconcept
             if rage:
-                mssg = mssg + "{w(Real Age):{n %s" % rage
+                mssg += "{w(Real Age):{n %s" % rage
             caller.msg(mssg)
     caller.msg("{wDescription:{n \n%s\n" % desc)
-    # this was getting too long so decided to remove them for now
-    #caller.msg("{wBackground:{n %s\n" % background)
-    #caller.msg("{wPersonality:{n %s" % personality)
     return
 
-def display_attributes(caller, character):
+
+def display_stats(caller, character):
     """
     Display character attributes. Str, int, etc.
     """
-    title = "Attributes"
+    title = "Stats"
     title = title.center(60)
     # It might make more sense to have a 3 character variable for
     # strength named 'str', but rather not be identical to str cast
@@ -607,9 +673,9 @@ def display_attributes(caller, character):
     cmd = character.db.command
     if not cmd:
         cmd = 0
-    cmp = character.db.composure
-    if not cmp:
-        cmp = 0
+    comp = character.db.composure
+    if not comp:
+        comp = 0
     # As above for str, so for using intel for int
     intel = character.db.intellect
     if not intel:
@@ -622,7 +688,7 @@ def display_attributes(caller, character):
         wit = 0
         
     disp = \
-         """
+        """
 {w==================================================================={n
 {w%(title)s{n
 
@@ -631,10 +697,10 @@ def display_attributes(caller, character):
 {wStrength:{n %(stg)s            {wCharm:{n %(cha)s             {wIntellect:{n %(intel)s
 {wDexterity:{n %(dex)s           {wCommand:{n %(cmd)s           {wPerception:{n %(per)s
 {wStamina:{n %(sta)s             {wComposure:{n %(cmp)s         {wWits:{n %(wit)s
-         """ % {'title': title, 'stg': stg, 'cha': cha, 'intel': intel,
-                    'dex': dex, 'cmd': cmd, 'per': per, 'sta': sta, 'cmp': cmp,
-                    'wit': wit
-                }
+        """ % {'title': title, 'stg': stg, 'cha': cha, 'intel': intel,
+               'dex': dex, 'cmd': cmd, 'per': per, 'sta': sta, 'cmp': comp,
+               'wit': wit
+               }
     disp = disp.rstrip()
     caller.msg(disp)
     mana = character.db.mana
@@ -646,33 +712,35 @@ def display_attributes(caller, character):
     will = character.db.willpower
     if not will:
         will = 0
-    title = "Special Attributes"
+    title = "Special Stats"
     title = title.center(60)
     disp = \
-         """
+        """
 {w%(title)s{n
 
 {wMana:{n %(mana)s                {wLuck:{n %(luck)s             {wWillpower:{n %(will)s
-        """ % { 'title': title, 'mana': mana, 'luck': luck, 'will': will }
+        """ % {'title': title, 'mana': mana, 'luck': luck, 'will': will}
     disp = disp.rstrip()
     caller.msg(disp)
     pass
 
+
 def display_title(caller, title):
     title = title.center(60)
     disp = \
-         """
+        """
 {w==================================================================={n
 {w%(title)s{n
-        """ % { 'title': title }
+        """ % {'title': title}
     caller.msg(disp)
+
 
 def display_skills(caller, character):
     """
     Display skills the character knows.
     """
-    def format_skillstr(skill, value):
-        skstr = "{w%s: {n%s" %(skill.capitalize(), str(value))
+    def format_skillstr(skill_name, skill_value):
+        skstr = "{w%s: {n%s" % (skill_name.capitalize(), str(skill_value))
         skstr = "%-22s" % skstr
         return skstr
     title = "Skills"
@@ -684,10 +752,12 @@ def display_skills(caller, character):
         skills = character.db.skills.items()
         skills = sorted(skills)
         skills_count = 0
-        for skill,value in skills:
+        for skill, value in skills:
+            if value <= 0:
+                continue
             skills_count += 1           
-            skillstr += format_skillstr(skill,value)
-            #only have 4 skills per line for formatting
+            skillstr += format_skillstr(skill, value)
+            # only have 4 skills per line for formatting
             if skills_count % 4 == 0:
                 skillstr += "\n"
     display_title(caller, title)
@@ -712,6 +782,7 @@ def display_skills(caller, character):
     except AttributeError:
         pass
 
+
 def display_abilities(caller, character):
     """
     Display magical abilities and attributes tied to that.
@@ -725,23 +796,23 @@ def display_abilities(caller, character):
         abilities = character.db.abilities.items()
         abilities = sorted(abilities)
         abilities_count = 0
-        for ability,value in abilities:
+        for ability, value in abilities:
             abilities_count += 1
             abstr = "{w" + ability.capitalize() + ": {n" + str(value)
             abstr = "%-22s" % abstr
             abilstr += abstr
-            #only have 4 skills per line for formatting
+            # only have 4 skills per line for formatting
             if abilities_count % 4 == 0:
                 abilstr += "\n"
     display_title(caller, title)
     caller.msg(abilstr)
+
 
 def display_relationships(caller, character, show_hidden=False):
     """
     Display short version of relationships. Long will
     be done by @relationship command separately.
     """
-    name = ""
     if hasattr(character, 'get_fancy_name'):
         name = character.get_fancy_name(short=False)
     else:
@@ -757,15 +828,15 @@ def display_relationships(caller, character, show_hidden=False):
             caller.msg("{wProteges:{n %s" % ", ".join(str(ob) for ob in proteges))
     caller.msg("\n{wSocial circle for {c%s{n:\n------------------------------------" % name)
     
-    #relationship_short is a dict of types of relationships to a list of tuple of
-    #character name and a very brief (2-3 word) description enclosed in parens.
+    # relationship_short is a dict of types of relationships to a list of tuple of
+    # character name and a very brief (2-3 word) description enclosed in parens.
     # More detailed relationships will be in character.db.relationships
     relationships = character.db.relationship_short
     if not relationships:
         caller.msg("No relationships found.")
         return
     showed_matches = False
-    for rel_type,rel_value in sorted(relationships.items()):
+    for rel_type, rel_value in sorted(relationships.items()):
         # rel_type will be 'Parent', 'Sibling', 'Friend', 'Enemy', etc
         # display it either if it's not secret, or if show_hidden is True
         if rel_type != 'secret' or show_hidden:          
@@ -774,16 +845,17 @@ def display_relationships(caller, character, show_hidden=False):
                 disp = "{w%s: {n" % rel_type.capitalize()
                 entrylist = []
                 for entry in sorted(rel_value):
-                    name,desc = entry
+                    name, desc = entry
                     entrystr = "%s (%s)" % (name.title(), desc)
                     entrylist.append(entrystr)
                 value_str = ", ".join(entrylist)
                 disp += value_str
                 caller.msg(disp)
     if not showed_matches:
-        #everything was secret that we didn't display.
+        # everything was secret that we didn't display.
         caller.msg("No relationships found.")
     pass
+
 
 def display_comment_list(caller, character):
     """
@@ -804,6 +876,7 @@ def display_comment_list(caller, character):
     caller.msg("To see individual comments, use @sheet/comments <character>=<commenter>.")
     pass
 
+
 def display_secrets(caller, character):
     """
     Display secrets
@@ -815,8 +888,9 @@ def display_secrets(caller, character):
         caller.msg("No secrets to display.")
         return
     for num, secret in enumerate(secrets):
-        caller.msg("{w%s) {n%s" % ((num + 1),secret))
+        caller.msg("{w%s) {n%s" % ((num + 1), secret))
     return
+
 
 def display_visions(caller, character):
     """
@@ -829,15 +903,16 @@ def display_visions(caller, character):
         caller.msg("No visions to display.")
         return
     for vision in visions:
-        caller.msg(character.messages.disp_entry(vision), options={'box':True})
+        caller.msg(character.messages.disp_entry(vision), options={'box': True})
         vision.receivers = caller
 
+
+# noinspection PyUnusedLocal
 def display_timeline(caller, character):
     """
     Display character timeline
     """
     pass
-
 
 
 class CmdSheet(MuxPlayerCommand):
@@ -882,8 +957,8 @@ class CmdSheet(MuxPlayerCommand):
         args = self.args
         switches = self.switches
         show_hidden = False
-        #permissions = str(caller.permissions)
-        #if 'builders' in permissions or 'wizards' in permissions or 'immortals' in permissions:
+        # permissions = str(caller.permissions)
+        # if 'builders' in permissions or 'wizards' in permissions or 'immortals' in permissions:
         if caller.check_permstring("builders"):
             show_hidden = True
         if 'all' in switches:
@@ -906,7 +981,7 @@ class CmdSheet(MuxPlayerCommand):
                 return
             display_header(caller, charob, show_hidden)
             if show_hidden:
-                display_attributes(caller, charob)
+                display_stats(caller, charob)
                 display_skills(caller, charob)
                 display_abilities(caller, charob)            
                 display_secrets(caller, charob)
@@ -935,13 +1010,13 @@ class CmdSheet(MuxPlayerCommand):
             if not charob:
                 caller.msg("No character found to @sheet.")
                 return
-            if charob.db.npc and not show_hidden:
+            if charob.roster.roster.name not in ("Active", "Available", "Gone") and not show_hidden:
                 caller.msg("That character is an npc and cannot be viewed.")
                 return
             if 'stats' not in switches:
                 display_header(caller, charob, show_hidden)
             if show_hidden and 'desc' not in switches:
-                display_attributes(caller, charob)
+                display_stats(caller, charob)
                 display_skills(caller, charob)
                 display_abilities(caller, charob)                                
             return
@@ -986,6 +1061,9 @@ class CmdSheet(MuxPlayerCommand):
             if not charob:
                 caller.msg("No character found to @sheet.")
                 return
+            if charob.db.npc and not show_hidden:
+                caller.msg("That character is an npc and cannot be viewed.")
+                return
             if 'social' in switches:
                 display_relationships(caller, charob, show_hidden)
                 return
@@ -1004,8 +1082,8 @@ class CmdSheet(MuxPlayerCommand):
             return
         if 'comments' in switches or 'comment' in switches:
             # 3 use cases - no args, only lhs, and lhs=rhs
-            #first check for no args. If so, that's a character
-            #looking at their own comments list.
+            # first check for no args. If so, that's a character
+            # looking at their own comments list.
             if not args:
                 # just a list of who has left comments on the player
                 charob = caller.db.char_ob
@@ -1026,7 +1104,7 @@ class CmdSheet(MuxPlayerCommand):
                     if not charob:
                         caller.msg("No character found to @sheet.")
                         return
-                    #list of who has left comments on the player
+                    # list of who has left comments on the player
                     display_comment_list(caller, charob)
                     return
                 else:
@@ -1049,12 +1127,12 @@ class CmdSheet(MuxPlayerCommand):
                     if not comments:
                         caller.msg("No comments left on that character.")
                         return
-                    #comments is a dict of character_name: comments_list
+                    # comments is a dict of character_name: comments_list
                     match = comments.get(rhs)
                     if not match:
                         caller.msg("No comments found by that character.")
                         return
-                    #comments_list is a dict of date: comments
+                    # comments_list is a dict of date: comments
                     caller.msg("{wComments on %s by %s:{n" % (lhs.capitalize(), rhs.capitalize()))
                     for entry in match:
                         date, comment = charob.messages.get_date_from_header(entry), entry.message
@@ -1077,8 +1155,9 @@ class CmdSheet(MuxPlayerCommand):
             if not char:
                 caller.msg("No character found.")
                 return
-            journal = char.messages.white_relationships if not 'privaterels' in self.switches else char.messages.black_relationships
-            jname = "White Journal" if not 'privaterels' in self.switches else "Black Journal"
+            journal = char.messages.white_relationships if 'privaterels' not in self.switches else \
+                char.messages.black_relationships
+            jname = "White Journal" if 'privaterels' not in self.switches else "Black Journal"
             if not targ:
                 # we just display the most recent relationship status for each character
                 caller.msg("Relationships you are permitted to read in {c%s{n's %s:" % (char, jname))
@@ -1096,7 +1175,7 @@ class CmdSheet(MuxPlayerCommand):
             caller.msg("Relationship notes you are permitted to read for {c%s{n in {c%s{n's %s:" % (targ, char, jname))
             msglist = [_msg for _msg in journal.get(targ.key.lower(), []) if _msg.access(caller, 'read')]
             if not msglist:
-                caller.msg("No entries for %s." % name)
+                caller.msg("No entries for %s." % targ)
                 return
             for msg in msglist:
                 caller.msg("\n" + char.messages.disp_entry(msg))
@@ -1148,6 +1227,9 @@ class CmdRelationship(MuxPlayerCommand):
     aliases = ["+relationship", "@relationships", "+relationships"]
     help_category = "Social"
     locks = "cmd:all()"
+    typelist = ['parent', 'sibling', 'friend', 'enemy', 'frenemy', 'family', 'client', 'patron', 'protege',
+                'acquaintance', 'secret', 'rival', 'ally', 'spouse', 'The Crown', 'Crownlands', 'Oathlands',
+                'Lyceum', 'Mourning Isles', 'Northlands']
 
     def func(self):
         caller = self.caller
@@ -1157,7 +1239,8 @@ class CmdRelationship(MuxPlayerCommand):
         # builders can see /list info
         show_hidden = caller.check_permstring("builders")
         # check if it's a guest modifying their character
-        if not charob: charob = caller.ndb.char
+        if not charob:
+            charob = caller.ndb.char
         if not charob:
             caller.msg("No character found.")
             return
@@ -1186,7 +1269,7 @@ class CmdRelationship(MuxPlayerCommand):
                 rels = dict(charob.messages.white_relationships.items() + charob.messages.black_relationships.items())
             else:
                 rels = dict(charob.messages.white_relationships.items())
-            #display list of relationships
+            # display list of relationships
             if not rels:
                 caller.msg("No relationships found.")
             else:
@@ -1199,7 +1282,6 @@ class CmdRelationship(MuxPlayerCommand):
             caller.execute_cmd("@sheet/social %s" % charob.key)
             return
         if not switches:
-            name = None
             if not self.lhs and self.rhs:
                 char = charob
                 name = self.rhs.lower()
@@ -1222,7 +1304,7 @@ class CmdRelationship(MuxPlayerCommand):
                 caller.msg("No relationships found.")
                 return
             entries = rels.get(name, [])
-            entries = [msg for msg in entries if msg.access(caller, 'read') or 'white' in msg.header]
+            entries = [msg for msg in entries if msg.access(caller, 'read') or 'white_journal' in msg.tags.all()]
             if not entries:
                 caller.msg("No relationship found.")
                 return
@@ -1233,9 +1315,10 @@ class CmdRelationship(MuxPlayerCommand):
             sep = "{w-------------------------------------------------------------------{n"
             caller.msg(sep)
             for msg in entries:            
-                jname = "{wJournal:{n %s\n" % ("White Journal" if msg in white.get(self.rhs.lower() if self.rhs else self.args.lower(), [])
+                jname = "{wJournal:{n %s\n" % ("White Journal" if msg in white.get(self.rhs.lower() if self.rhs
+                                                                                   else self.args.lower(), [])
                                                else "Black Reflection")
-                caller.msg("\n" + jname + charob.messages.disp_entry(msg), options={'box':True})
+                caller.msg("\n" + jname + charob.messages.disp_entry(msg), options={'box': True})
                 msg.receivers = caller
             return
         lhs = self.lhs
@@ -1261,12 +1344,10 @@ class CmdRelationship(MuxPlayerCommand):
             if white:
                 charob.msg_watchlist("A character you are watching, {c%s{n, has updated their white journal." % caller)
             return
-        typelist = ['parent', 'sibling', 'friend', 'enemy', 'family',
-                    'acquaintance', 'secret', 'rival']
         if 'short' in switches:
             rhslist = self.rhslist          
-            if lhs not in typelist:
-                caller.msg("The type of relationship must be in %s." % str(typelist))
+            if lhs not in self.typelist:
+                caller.msg("The type of relationship must be in: %s." % ", ".join(self.typelist))
                 return
             if len(rhslist) < 2:
                 caller.msg("Usage: @relationship/short <type>=<name>,<desc>")
@@ -1301,8 +1382,8 @@ class CmdRelationship(MuxPlayerCommand):
                 caller.msg("No relationships in tree to change - use /short to add instead.")
                 return         
             oldtype, newtype = lhslist[0].lower(), lhslist[1].lower()
-            if newtype not in typelist:
-                caller.msg("Relationship must be one of the following: %s" % ", ".join(typelist))
+            if newtype not in self.typelist:
+                caller.msg("Relationship must be one of the following: %s" % ", ".join(self.typelist))
                 return
             name = rhslist[0].lower()
             desc = ", ".join(rhslist[1:])
@@ -1310,16 +1391,16 @@ class CmdRelationship(MuxPlayerCommand):
             if not typelist:
                 caller.msg("No relationships match the old type given.")
                 return
-            #now we go through the tuples in the list of that relationship type.
-            #if one matches the name, we'll remove it before we add the new one.
-            #Names are unique, so we stop with first instance we encounter
+            # now we go through the tuples in the list of that relationship type.
+            # if one matches the name, we'll remove it before we add the new one.
+            # Names are unique, so we stop with first instance we encounter
             for tups in typelist:
-                #each tups == (name, desc)
+                # each tups == (name, desc)
                 if tups[0].lower() == name:
                     # we got a match
                     typelist.remove(tups)
                     break
-            if not newtype in rels:
+            if newtype not in rels:
                 rels[newtype] = []
             name = name.title()
             name = name.rstrip()
@@ -1333,7 +1414,7 @@ class CmdRelationship(MuxPlayerCommand):
             if not rels:
                 caller.msg("No relationships to delete.")
                 return
-            #Go through every list, remove first match
+            # Go through every list, remove first match
             for sh_list in rels.values():
                 for tup in sh_list:
                     if tup[0].lower() == args:
@@ -1344,6 +1425,7 @@ class CmdRelationship(MuxPlayerCommand):
             return       
         caller.msg("Usage: @relationship/switches <arguments>")
         return
+
 
 class CmdComment(MuxPlayerCommand):
     """
@@ -1428,6 +1510,7 @@ class CmdComment(MuxPlayerCommand):
             playob.db.new_comments = True
         return
 
+
 class CmdHere(MuxCommand):
     """
     here - shows information about characters in current room
@@ -1445,18 +1528,20 @@ class CmdHere(MuxCommand):
 
     def func(self):
         caller = self.caller
-        roster = get_roster_manager(caller)
+        roster = get_roster_manager()
         disp_titles = False
         if not roster:
             return
         if not caller.location:
             return
-        if self.switches and 'titles' in self.switches: disp_titles = True
+        if self.switches and 'titles' in self.switches:
+            disp_titles = True
         vis_list = caller.location.get_visible_characters(caller)
         rname = caller.location.name
-        list_characters(caller, vis_list, rname, roster, disp_titles, hidden_chars=vis_list, display_afk=True)
+        list_characters(caller, vis_list, rname, roster, disp_titles, hidden_chars=vis_list, display_afk=True,
+                        use_keys=False)
         if caller.check_permstring("Builders"):
-            masks = [char for char in caller.location.get_visible_characters(caller) if char.key != char.name]
+            masks = [char for char in vis_list if hasattr(char, "is_disguised") and char.is_disguised]
             char_list = []
             rname = "{mMasked/Illusioned Characters{n"
             for char in masks:
@@ -1465,6 +1550,7 @@ class CmdHere(MuxCommand):
             char_list.sort()
             list_characters(caller, char_list, rname, roster, disp_titles)
     pass
+
 
 class CmdAddSecret(MuxPlayerCommand):
     """
@@ -1483,9 +1569,10 @@ class CmdAddSecret(MuxPlayerCommand):
     key = "@addsecret"
     help_category = "General"
     locks = "cmd:perm(addsecret) or perm(Wizards)"
+
     def func(self):
         caller = self.caller
-        roster = get_roster_manager(caller)
+        roster = get_roster_manager()
         lhs = self.lhs
         rhs = self.rhs
         switches = self.switches
@@ -1524,16 +1611,18 @@ class CmdAddSecret(MuxPlayerCommand):
         if 'list' in switches:
             secrets = charob.db.secrets
             caller.msg("Secrets:")
-            str = ""
+            secret_str = ""
             for num in range(len(secrets)):
-                str += "{w[%s]{n: " % (num + 1)
-                str += "%s\n" % secrets[num]
-            caller.msg(str)
+                secret_str += "{w[%s]{n: " % (num + 1)
+                secret_str += "%s\n" % secrets[num]
+            caller.msg(secret_str)
             return
-        if not charob.db.secrets: charob.db.secrets = []
+        if not charob.db.secrets:
+            charob.db.secrets = []
         charob.db.secrets.append(rhs)
         caller.msg("Secret '%s' added to %s." % (rhs, charob.name))
         return
+
 
 class CmdDelComment(MuxPlayerCommand):
     """
@@ -1548,6 +1637,7 @@ class CmdDelComment(MuxPlayerCommand):
     key = "@delcomment"
     help_category = "Admin"
     locks = "cmd:perm(addsecret) or perm(Wizards)"
+
     def func(self):
         caller = self.caller
         lhs = self.lhs
@@ -1569,6 +1659,7 @@ class CmdDelComment(MuxPlayerCommand):
             caller.msg("No more comments from %s. Removed from comments dict." % name)
         return
 
+
 class CmdAdmRelationship(MuxPlayerCommand):
     """
     Changes a player's relationship
@@ -1588,6 +1679,7 @@ class CmdAdmRelationship(MuxPlayerCommand):
     aliases = ["@admin_relationships"]
     help_category = "Builder"
     locks = "cmd:perm(Builders)"
+
     def func(self):
         caller = self.caller
         try:
@@ -1621,7 +1713,7 @@ class CmdAdmRelationship(MuxPlayerCommand):
             rel.append((targ, desc))
             relshort[rtype] = rel
             charob.db.relationship_short = relshort
-            caller.msg("%s' short rel to %s set to %s: %s." % (charob, targ, rtype, desc ))
+            caller.msg("%s' short rel to %s set to %s: %s." % (charob, targ, rtype, desc))
             return
         if "deleteshort" in self.switches:
             rtype = self.rhs
@@ -1645,7 +1737,3 @@ class CmdAdmRelationship(MuxPlayerCommand):
         msg = charob.messages.add_relationship(desc, targ, white)
         caller.msg("Entry added to %s:\n%s" % (jname, msg))
         return
-
-
-        
-        

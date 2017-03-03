@@ -6,10 +6,9 @@ work, I'm just going to build and change the fucking models by hand
 here.
 """
 from django.conf import settings
-from .utils import inform_staff
+from .arx_utils import inform_staff
 from datetime import datetime
 from web.helpdesk.models import Ticket, Queue, FollowUp
-
 
 
 def create_ticket(caller, message, priority=5, queue=settings.REQUEST_QUEUE_ID,
@@ -23,12 +22,17 @@ def create_ticket(caller, message, priority=5, queue=settings.REQUEST_QUEUE_ID,
         if send_email and caller.email != "dummy@dummy.com":
             email = caller.email
         if not optional_title:
-            optional_title = "<No title>"
+            optional_title = message if len(message) < 15 else "%s..." % message[:12]
+        try:
+            room = caller.db.char_ob.location
+        except AttributeError:
+            room = None
         ticket = Ticket(title=optional_title,
                         queue=q,
                         created=datetime.now(),
                         submitter_email=email,
                         submitting_player=caller,
+                        submitting_room=room,
                         description=message,
                         priority=priority,)
     except Exception as err:
@@ -45,6 +49,7 @@ def create_ticket(caller, message, priority=5, queue=settings.REQUEST_QUEUE_ID,
     caller.inform(player_msg, category="requests", append=False)
     return True
 
+
 def add_followup(caller, ticket, message, mail_player=True):
     """
     Add comment/response to a ticket. Since this is not a method to
@@ -58,11 +63,21 @@ def add_followup(caller, ticket, message, mail_player=True):
     except Exception as err:
         inform_staff("ERROR: Error when attempting to add followup to ticket: %s" % err)
         return False
-    inform_staff("{w[Requests]{n: %s has left a comment on ticket %s." % (caller.key, ticket.id))
+    inform_staff("{w[Requests]{n: %s has left a comment on ticket %s: %s" % (caller.key, ticket.id, message))
     if mail_player:
         header = "New comment on your ticket by %s.\n\n" % caller.key
         mail_update(ticket, message, header)
     return True
+
+
+def do_check(caller, ticket, stat, skill, difficulty, char):
+    from world.stats_and_skills import do_dice_check
+    result = do_dice_check(char, stat=stat, skill=skill, difficulty=difficulty)
+    msg = "%s has called for %s to check %s + %s at difficulty %s.\n" % (caller, char, stat, skill, difficulty)
+    msg += "The result is %s. A positive number is a success, a negative number is a failure." % result
+    if add_followup(caller, ticket, msg):
+        return msg
+
 
 def resolve_ticket(caller, ticket_id, message):
     """
@@ -70,7 +85,10 @@ def resolve_ticket(caller, ticket_id, message):
     """
     try:
         ticket = Ticket.objects.get(id=ticket_id)
-        ticket.resolution = message
+        if ticket.resolution:
+            ticket.resolution += "\n\n" + message
+        else:
+            ticket.resolution = message
         ticket.assigned_to_id = caller.id
         ticket.modified = datetime.now()
         ticket.status = ticket.CLOSED_STATUS
@@ -78,10 +96,11 @@ def resolve_ticket(caller, ticket_id, message):
     except Exception as err:
         inform_staff("ERROR: Error when attempting to close ticket: %s" % err)
         return False
-    inform_staff("{w[Requests]{n: %s has closed ticket %s." % (caller.key, ticket_id))
+    inform_staff("{w[Requests]{n: %s has closed ticket %s: %s" % (caller.key, ticket_id, message))
     header = "Your ticket has been closed by %s.\n\n" % caller.key
     mail_update(ticket, message, header)
     return True
+
 
 def mail_update(ticket, comments, header="New ticket activity\n"):
     player = ticket.submitting_player
@@ -90,4 +109,3 @@ def mail_update(ticket, comments, header="New ticket activity\n"):
     msg += "{wIssue:{n %s\n\n" % ticket.description
     msg += "{wGM comments:{n %s" % comments
     player.inform(msg, category="requests", append=False)
-    

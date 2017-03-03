@@ -2,106 +2,118 @@
 {% load app_filters %}
 {% block content %}
 <div class="container">
-	<ul class="nav nav-pills">
-		<li class={% if not read_is_active %}"active"{% endif %}><a data-toggle="pill" href="#unreadjournals">Unread Journals</a></li>
-		{% if user.is_authenticated and user.db.char_ob %}
-		<li class={% if read_is_active %}"active"{% endif %}><a data-toggle="pill" href="#readjournals">Read Journals</a></li>
-		<li> <a data-toggle="pill" href="#writejournal">Write Journal Entry</a></li>
-		{% endif %}
-	</ul>
-	<div class="tab-content">
-		<div id="unreadjournals" class="tab-pane fade{% if not read_is_active %} in active{% endif %}">
-		
-		{% for obj in object_list %}
-			<h2> Written By {{obj.senders.0}}{% if "black_journal" in obj.db_header %} in Black Journal{% endif %}</h2>
-			<p class="newsDate">{{obj.db_date_created}}</p>
-			{% if obj.db_receivers_objects.all.0 %}
-				<h2> Relationship Note on {{ obj.db_receivers_objects.all.0 }}</h2>
-			{% endif %}
-			<div class="well">{{obj.db_message|mush_to_html}}</div>
-			{% if user.is_authenticated and user.db.char_ob %}
-			<form action="." method="post">
-			{% csrf_token %}
-			<input type="hidden" value="{{obj.id}}" name="choice" />
-			<button class="btn btn-success" type="submit" name="mark_one_read">Mark journal as read</button>
-			</form>
-			{% endif %}
-			<hr />
-		
-		{% endfor %}
-		{% if is_paginated %}
-			<div class="pagination">
-			<span class="step-links">
-			<ul class="pagination nav navbar-nav">
-				{% if page_obj.has_previous %}
-					<li><a href="?page={{ page_obj.previous_page_number }}">previous</a></li>
-				{% endif %}
+    <div class="row">
+    <form method="get" action="." class="navbar-form pull-right">
+    <input type="text" id="searchBox" class="input-medium search-query" name="sender_name" placeholder="Written By">
+    <input type="text" id="searchBox" class="input-medium search-query" name="receiver_name" placeholder="Relationship Note On">
+    <input type="text" id="searchBox" class="input-medium search-query" name="search_text" placeholder="Journal Text">
+    <label><input type="checkbox" id="searchBox" class="input-medium search-query" name="favorites">Only Favorites</label>
+    <input type="submit" class="btn" value="Search" >
+    </form>
+    </div>
+    <ul class="nav nav-pills">
+        <li class="active"><a data-toggle="pill" href="#unreadjournals">Unread Journals</a></li>
+        {% if user.is_authenticated and user.db.char_ob %}
+        <li><a href="{% url 'msgs:list_read_journals' %}">Read Journals</a></li>
+        <li> <a data-toggle="pill" href="#writejournal">Write Journal Entry</a></li>
+        {% endif %}
+    </ul>
+    <div class="tab-content">
+        <div id="unreadjournals" class="tab-pane fade in active">
 
-				{% for page in page_obj.paginator.page_range %}
-					<li class="{% if page_obj.number == page  %}active{% endif %}"><a href="?page={{page }}">{{ page }}</a></li>
-				{% endfor %}
+        {% for obj in object_list %}
+            <h2> Written By {% if obj.senders.0.get_absolute_url %}
+            <a href="{{ obj.senders.0.get_absolute_url }}">{{ obj.senders.0 }}</a>
+                {% else %}{{ obj.senders.0 }}{% endif %}{% if "black_journal" in obj.tags.all %} in Black Journal{% endif %}</h2>
+            <p class="newsDate">{{obj.db_date_created}}</p>
+            {% if obj.db_receivers_objects.all.0 %}
+                <h2> Relationship Note on {% if obj.db_receivers_objects.all.0.get_absolute_url %}
+            <a href="{{ obj.db_receivers_objects.all.0.get_absolute_url }}">{{ obj.db_receivers_objects.all.0 }}</a>
+                {% else %}{{ obj.db_receivers_objects.all.0 }}{% endif %}</h2>
+            {% endif %}
+            <div class="well">{{obj.db_message|mush_to_html}}</div>
+            {% if user.is_authenticated and user.db.char_ob %}
+                <div class="row">
+                <div class="col-sm-3">
+                <form action="." method="post">
+                {% csrf_token %}
+                <input type="hidden" value="{{obj.id}}" name="choice" />
+                <button class="btn btn-default" type="submit" name="mark_one_read">Mark journal as read</button>
+                </form>
+                </div>
+                    <div class ="col-m-3">
+                    {% if fav_tag and fav_tag not in obj.tags.all %}
+                    <form action="." method="post">
+                    {% csrf_token %}
+                    <input type="hidden" value="{{obj.id}}" name="tagged" />
+                    <button class="btn btn-primary" type="submit" name="mark_favorite">Mark journal as favorite</button>
+                    </form>
+                    {% else %}
+                    <form action="." method="post">
+                    {% csrf_token %}
+                    <input type="hidden" value="{{obj.id}}" name="untagged" />
+                    <button class="btn btn-default" type="submit" name="remove_favorite">Remove journal as favorite</button>
+                    </form>
+                    {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+            <hr />
 
-				{% if page_obj.has_next %}
-					<li><a href="?page={{ page_obj.next_page_number }}">next</a></li>
-				{% endif %}
-			</ul>
-			</span>
-			</div>
-		{% endif %}
-		{% if user.is_authenticated and user.db.char_ob %}
-		<form action="." method="post">
-		{% csrf_token %}
-		{% for obj in object_list %}
-		<input type="hidden" value="{{obj.id}}" name="choices" />
-		{% endfor %}
-		<button class="btn btn-success" type="submit" name="mark_all_read">Mark all journals on this page as read</button>
-		</form>
-		{% endif %}
-		
-		</div> <!-- unread journals-->
-		
-		{% if user.is_authenticated and user.db.char_ob %}
-		<div id="readjournals" class="tab-pane fade{% if read_is_active %} in active{% endif %}">
-		{% for obj in read_journals %}
-			<h2> Written By {{obj.senders.0}}</h2>
-			<p class="newsDate">{{obj.db_date_created}}</p>
-			{% if obj.db_receivers_objects.all.0 %}
-				<h2> Relationship Note on {{ obj.db_receivers_objects.all.0 }}</h2>
-			{% endif %}
-			<div class="well">{{obj.db_message|mush_to_html}}</div>
-			<hr />
-		{% endfor %}
+        {% endfor %}
+        {% if is_paginated %}
+            <div class="pagination">
+            <ul class="pagination nav navbar-nav">
+                {% if page_obj.has_previous %}
+                    <li><a href="?page={{ page_obj.previous_page_number }}{{ search_tags }}">previous</a></li>
+                {% endif %}
+                {% for pnum in page_obj_begin %}
+                     <li class="{% if page_obj.number == pnum  %}active{% endif %}"><a href="?page={{ pnum }}{{ search_tags }}">{{ pnum }}</a></li>
+                {% endfor %}
+                {% if page_obj_middle %}
+                    <li><strong>...</strong></li>
 
-			<div class="pagination">
-			<span class="step-links">
-			<ul class="pagination nav navbar-nav">
-				{% if read_journals.has_previous %}
-					<li><a href="?read_page={{ read_journals.previous_page_number }}">previous</a></li>
-				{% endif %}
+                    {% for pnum in page_obj_middle %}
+                       <li class="{% if page_obj.number == pnum  %}active{% endif %}"><a href="?page={{ pnum }}{{ search_tags }}">{{ pnum }}</a></li>
+                    {% endfor %}
+                {% endif %}
 
-				{% for page in read_journals.paginator.page_range %}
-					<li class="{% if read_journals.number == page  %}active{% endif %}"><a href="?read_page={{page }}">{{ page }}</a></li>
-				{% endfor %}
+                {% if page_obj_end %}
+                    <li><strong>...</strong></li>
 
-				{% if read_journals.has_next %}
-					<li><a href="?read_page={{ read_journals.next_page_number }}">next</a></li>
-				{% endif %}
-			</ul>
-			</span>
-			</div>
-		</div> <!-- read journals-->
-		
-		<div id="writejournal" class="tab-pane fade">
-		<form action="." method="post">
+                    {% for pnum in page_obj_end %}
+                        <li class="{% if page_obj.number == pnum  %}active{% endif %}"><a href="?page={{ pnum }}{{ search_tags }}">{{ pnum }}</a></li>
+                    {% endfor %}
+                {% endif %}
+
+
+                {% if page_obj.has_next %}
+                    <li><a href="?page={{ page_obj.next_page_number }}{{ search_tags }}">next</a></li>
+                {% endif %}
+            </ul>
+            </div>
+        {% endif %}
+        {% if user.is_authenticated and user.db.char_ob %}
+        <form action="." method="post">
+        {% csrf_token %}
+        {% for obj in object_list %}
+        <input type="hidden" value="{{obj.id}}" name="choices" />
+        {% endfor %}
+        <button class="btn btn-success" type="submit" name="mark_all_read">Mark all journals on this page as read</button>
+        </form>
+        {% endif %}
+
+    </div>
+        <div id="writejournal" class="tab-pane fade">
+        <form action="." method="post">
             {% csrf_token %}
-			<table class="table-bordered">
-            {{ write_journal_form.as_table }}
-			</table>
+            <!--table class="table"-->
+            {{ write_journal_form.as_p }}
+            <!--/table-->
             <br><button class="btn btn-success" type="submit" name="write_journal">Submit Journal Entry</button>
-		</form>
-		</div> <!-- write journals-->
-		{% endif %}
-	</div> <!--tab content-->
+        </form>
+        </div> <!-- write journals-->
+
+    </div> <!--tab content-->
 </div> <!--container-->
-	
 {% endblock %}

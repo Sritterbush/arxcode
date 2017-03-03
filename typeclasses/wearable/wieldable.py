@@ -7,12 +7,12 @@ is a boolean saying our wielded state - True if being wielded,
 False if not wielded.
 """
 
-from django.conf import settings
 from typeclasses.objects import Object
 from cmdset_wieldable import DefaultCmdSet
 
 
-
+# noinspection PyMethodMayBeStatic
+# noinspection PyUnusedLocal
 class Wieldable(Object):
     """
     Class for wieldable objects
@@ -34,9 +34,8 @@ class Wieldable(Object):
         self.db.currently_wielded = False
         self.db.desc = "A weapon of some kind."
         # phrase that is seen when we equip it
-        self.db.ready_phrase = "wields %s" % self.name
-        self.db.stealth = False # whether it can be seen in character desc
-        self.db.sense_difficulty = 15 # default if stealth is set to true
+        self.db.stealth = False  # whether it can be seen in character desc
+        self.db.sense_difficulty = 15  # default if stealth is set to true
         self.db.attack_skill = "medium wpn"
         self.db.attack_stat = "dexterity"
         self.db.damage_stat = "strength"
@@ -57,11 +56,13 @@ class Wieldable(Object):
         self.db.can_be_parried = False
         self.db.can_parry = False
         self.db.can_riposte = False
+        self.db.attack_type = "ranged"
 
     def melee_mode(self):
         self.db.can_be_parried = True
         self.db.can_parry = True
         self.db.can_parry = True
+        self.db.attack_type = "melee"
 
     def sheathe(self, wielder):
         """
@@ -79,17 +80,27 @@ class Wieldable(Object):
         """
         if not self.at_pre_remove(wielder):
             return False
-        self.db.sheathed_by = None # in case we're dropped, no longer sheathed
+        self.db.sheathed_by = None  # in case we're dropped, no longer sheathed
         self.db.wielded_by = None
         self.db.currently_wielded = False
         wielder.db.weapon = None
         return True
 
+    def softdelete(self):
+        super(Wieldable, self).softdelete()
+        wielder = self.db.wielded_by
+        if wielder:
+            wielder.db.weapon = None
+        self.db.currently_wielded = False
+        self.db.wielded_by = None
+        self.db.sheathed_by = None
+
+    # noinspection PyAttributeOutsideInit
     def wield_by(self, wielder):
         """
         Puts item on the wielder
         """
-        #Assume any fail messages are written in at_pre_wield
+        # Assume any fail messages are written in at_pre_wield
         if not self.at_pre_wield(wielder):
             return False
         self.db.wielded_by = wielder
@@ -102,21 +113,21 @@ class Wieldable(Object):
         return True
 
     def at_after_move(self, source_location):
-        "If new location is not our wielder, remove."
+        """If new location is not our wielder, remove."""
         location = self.location
-        wielder = self.db.wielded_by
+        wielder = self.db.wielded_by or self.db.sheathed_by
         if not location:
             self.remove(wielder)
             return
-        if self.db.currently_wielded and wielder and location != wielder:
+        if wielder and location != wielder:
             self.remove(wielder)
 
     def at_pre_wield(self, wielder):
-        "Hook called before wielding for any checks."
+        """Hook called before wielding for any checks."""
         return True
 
     def at_post_wield(self, wielder):
-        "Hook called after wielding for any checks."
+        """Hook called after wielding for any checks."""
         cscript = wielder.location.ndb.combat_manager
         if cscript and wielder in cscript.ndb.combatants:
             cdat = cscript.get_fighter_data(wielder.id)
@@ -124,11 +135,11 @@ class Wieldable(Object):
         return True
 
     def at_pre_remove(self, wielder):
-        "Hook called before removing."
+        """Hook called before removing."""
         return True
 
     def at_post_remove(self, wielder):
-        "Hook called after removing."
+        """Hook called after removing."""
         cscript = wielder.location.ndb.combat_manager
         if cscript and wielder in cscript.ndb.combatants:
             cdat = cscript.get_fighter_data(wielder.id)
@@ -155,9 +166,13 @@ class Wieldable(Object):
         try:
             recipe = CraftingRecipe.objects.get(id=recipe_id)
         except CraftingRecipe.DoesNotExist:
-            return (self.db.damage_bonus or 0, diffmod, flat_damage_bonus)
+            return self.db.damage_bonus or 0, diffmod, flat_damage_bonus
         base = float(recipe.resultsdict.get("baseval", 0))
-        scaling = float(recipe.resultsdict.get("scaling", 0.2))
+        if quality >= 10:
+            crafter = self.db.crafted_by
+            if (recipe.level > 3) or not crafter or crafter.check_permstring("builders"):
+                base += 1
+        scaling = float(recipe.resultsdict.get("scaling", (base/20) or 0.2))
         if not base and not scaling:
             self.ndb.cached_damage_bonus = 0
             self.ndb.cached_difficulty_mod = diffmod
@@ -166,7 +181,7 @@ class Wieldable(Object):
                     self.ndb.cached_flat_damage_bonus)
         try:
             damage = int(round(base + (scaling * quality)))
-            diffmod -= int(round(scaling * quality))
+            diffmod -= int(round(0.2 * quality))
             flat_damage_bonus += (quality - 2) * 2
         except (TypeError, ValueError):
             print "Error setting up weapon ID: %s" % self.id
@@ -182,13 +197,13 @@ class Wieldable(Object):
         self.ndb.cached_damage_bonus = damage
         self.ndb.cached_difficulty_mod = diffmod
         self.ndb.cached_flat_damage_bonus = flat_damage_bonus
-        return (damage, diffmod, flat_damage_bonus)
+        return damage, diffmod, flat_damage_bonus
     
     def _get_damage_bonus(self):
         # if we have no recipe or we are set to ignore it, use armor_class
         if not self.db.recipe or self.db.ignore_crafted:
             return self.db.damage_bonus
-        if self.ndb.cached_damage_bonus != None:
+        if self.ndb.cached_damage_bonus is not None:
             return self.ndb.cached_damage_bonus
         return self.calc_weapon()[0]
     
@@ -203,20 +218,17 @@ class Wieldable(Object):
     def _get_difficulty_mod(self):
         if not self.db.recipe or self.db.ignore_crafted:
             return self.db.difficulty_mod or 0
-        if self.ndb.cached_difficulty_mod != None:
+        if self.ndb.cached_difficulty_mod is not None:
             return self.ndb.cached_difficulty_mod
         return self.calc_weapon()[1]
 
     def _get_flat_damage(self):
         if not self.db.recipe or self.db.ignore_crafted:
             return self.db.flat_damage_bonus or 0
-        if self.ndb.cached_flat_damage_bonus != None:
+        if self.ndb.cached_flat_damage_bonus is not None:
             return self.ndb.cached_flat_damage_bonus
         return self.calc_weapon()[2]
 
     damage_bonus = property(_get_damage_bonus, _set_damage_bonus)
     difficulty_mod = property(_get_difficulty_mod)
     flat_damage = property(_get_flat_damage)
-
-
-    

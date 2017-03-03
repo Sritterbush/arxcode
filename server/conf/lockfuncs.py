@@ -19,9 +19,9 @@ Lock functions in this module extend (and will overload same-named)
 lock functions from evennia.locks.lockfuncs.
 
 """
-from world.dominion.models import Organization
+from world.dominion.models import Organization, Member
 
-#def myfalse(accessing_obj, accessed_obj, *args, **kwargs):
+# def myfalse(accessing_obj, accessed_obj, *args, **kwargs):
 #    """
 #    called in lockstring with myfalse().
 #    A simple logger that always returns false. Prints to stdout
@@ -32,6 +32,8 @@ from world.dominion.models import Organization
 
 # Dominion-specific lockfuncs: rank in an organization, or mere membership
 
+
+# noinspection PyUnusedLocal
 def rank(accessing_obj, accessed_obj, *args, **kwargs):
     """
     Use rank in an organization to see if we pass. If orgname
@@ -47,20 +49,22 @@ def rank(accessing_obj, accessed_obj, *args, **kwargs):
         accessing_obj = accessing_obj.db.player_ob
     if hasattr(accessing_obj, 'dbobj'):
         accessing_obj = accessing_obj.dbobj
-    rank = int(args[0])
+    rank_num = int(args[0])
     if len(args) == 1:
-        org = accessed_obj
+        org_obj = accessed_obj
     else:
         try:
-            org = Organization.objects.get(name__iexact=args[1])
+            org_obj = Organization.objects.get(name__iexact=args[1])
         except Organization.DoesNotExist:
             return False
     try:
-        member = accessing_obj.Dominion.memberships.get(organization=org)
-        return member.rank <= rank
-    except:
+        member = accessing_obj.Dominion.memberships.get(organization=org_obj, deguilded=False)
+        return member.rank <= rank_num
+    except (AttributeError, Member.DoesNotExist):
         return False
 
+
+# noinspection PyUnusedLocal
 def organization(accessing_obj, accessed_obj, *args, **kwargs):
     """
     Check if accessing_obj is a member of the Organization given
@@ -71,32 +75,35 @@ def organization(accessing_obj, accessed_obj, *args, **kwargs):
     if not args:
         return False
     # if we're accessing as a character, set it to be the player object
+    # noinspection PyBroadException
     try:
         if accessing_obj.db.player_ob:
             accessing_obj = accessing_obj.db.player_ob
     except Exception:
         import traceback
         traceback.print_exc()
-        print "Error in lockfunc: accessing_obj is %s\n" % accessing_obj
-        print "Accessed_obj is %s\n" % accessed_obj
+        print("Error in lockfunc: accessing_obj is %s\n" % accessing_obj)
+        print("Accessed_obj is %s\n" % accessed_obj)
     if hasattr(accessing_obj, 'dbobj'):
         accessing_obj = accessing_obj.dbobj
     try:
         
-        org = Organization.objects.get(name__iexact=args[0])
+        org_obj = Organization.objects.get(name__iexact=args[0])
     except Organization.DoesNotExist:
         return False
     try:
-        member = accessing_obj.Dominion.memberships.get(organization=org)
+        accessing_obj.Dominion.memberships.get(organization=org_obj, deguilded=False)
         # if get fails we get Member.DoesNotExist exception, and won't execute return True
         return True
-    except:
+    except (AttributeError, Member.DoesNotExist):
         # we weren't a member of the organization
         return False
 
-#alias for organization lockfunc
+# alias for organization lockfunc
 org = organization
 
+
+# noinspection PyUnusedLocal
 def ability(accessing_obj, accessed_obj, *args, **kwargs):
     """
     Check accessing_obj's rank in an ability to determine lock.
@@ -117,17 +124,22 @@ def ability(accessing_obj, accessed_obj, *args, **kwargs):
         name = args[0]
         val = int(args[1])
     if name == "all":
-        from game.gamesrc.objects.stats_and_skills import _crafting_abilities_
-        ability_list = _crafting_abilities_
+        from world.stats_and_skills import CRAFTING_ABILITIES
+        ability_list = CRAFTING_ABILITIES
     else:
         ability_list = name.split(",")
-    for ability in ability_list:
-        ability = ability.lower().strip()
-        pab = accessing_obj.db.abilities.get(ability, 0)
+    for ability_name in ability_list:
+        ability_name = ability_name.lower().strip()
+        try:
+            pab = accessing_obj.db.abilities.get(ability_name, 0)
+        except AttributeError:
+            return False
         if pab >= val:
             return True
     return False
 
+
+# noinspection PyUnusedLocal
 def skill(accessing_obj, accessed_obj, *args, **kwargs):
     """
     Check accessing_obj's rank in an skill to determine lock.
@@ -148,17 +160,24 @@ def skill(accessing_obj, accessed_obj, *args, **kwargs):
         name = args[0]
         val = int(args[1])
     if name == "all":
-        from world.stats_and_skills import _crafting_skills_
-        skill_list = _crafting_skills_
+        from world.stats_and_skills import CRAFTING_SKILLS
+        skill_list = CRAFTING_SKILLS
     else:
         skill_list = name.split(",")
-    for skill in skill_list:
-        skill = skill.lower().strip()
-        pab = accessing_obj.db.skills.get(skill, 0)
-        if pab >= val:
-            return True
+    if accessing_obj.db.char_ob:
+        accessing_obj = accessing_obj.db.char_ob
+    for skill_name in skill_list:
+        skill_name = skill_name.lower().strip()
+        try:
+            pab = accessing_obj.db.skills.get(skill_name, 0)
+            if pab >= val:
+                return True
+        except AttributeError:
+            return False
     return False
 
+
+# noinspection PyUnusedLocal
 def roomkey(accessing_obj, accessed_obj, *args, **kwargs):
     """
     A key to a room.
@@ -167,9 +186,14 @@ def roomkey(accessing_obj, accessed_obj, *args, **kwargs):
         return False
     roomid = int(args[0])
     keylist = accessing_obj.db.keylist or []
-    keylist = [room.id for room in keylist]
+    valid = [ob for ob in keylist if hasattr(ob, 'tags')]
+    keylist = [room.id for room in valid]
+    if valid:
+        accessing_obj.db.keylist = valid
     return roomid in keylist
 
+
+# noinspection PyUnusedLocal
 def chestkey(accessing_obj, accessed_obj, *args, **kwargs):
     """
     A key to a chest. Needs to be stored in a different attr than
@@ -179,9 +203,15 @@ def chestkey(accessing_obj, accessed_obj, *args, **kwargs):
         return False
     chestid = int(args[0])
     keylist = accessing_obj.db.chestkeylist or []
-    keylist = [chest.id for chest in keylist]
+    valid = [ob for ob in keylist if hasattr(ob, 'tags')]
+    keylist = [chest.id for chest in valid]
+    if valid:
+        accessing_obj.db.chestkeylist = valid
     return chestid in keylist
 
+
+# noinspection PyBroadException
+# noinspection PyUnusedLocal
 def cattr(accessing_obj, accessed_obj, *args, **kwargs):
     """
     Checks attr in the character object of the accessing_obj, which

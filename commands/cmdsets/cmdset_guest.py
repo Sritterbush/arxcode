@@ -5,9 +5,11 @@ commandset, with unique commands for the tutorial.
 """
 
 from evennia.commands.cmdset import CmdSet
-from evennia.commands.default import help, comms, admin, system
-from evennia.commands.default import building, player
-import sys, traceback
+from evennia.commands.default import comms
+from evennia.commands.default import player
+import sys
+import traceback
+from commands.commands import help
 
 
 class GuestCmdSet(CmdSet):
@@ -19,7 +21,7 @@ class GuestCmdSet(CmdSet):
     # priority = -5
 
     def at_cmdset_creation(self):
-        "Populates the cmdset"
+        """Populates the cmdset"""
 
         # Player-specific commands
         try:
@@ -27,7 +29,8 @@ class GuestCmdSet(CmdSet):
             from commands.commands import overrides
             self.add(overrides.CmdWho())
             self.add(player.CmdQuit())
-            self.add(player.CmdColorTest())       
+            self.add(player.CmdColorTest())
+            self.add(player.CmdOption())
             # Help command
             self.add(help.CmdHelp())
             # Comm commands
@@ -59,9 +62,8 @@ class GuestCmdSet(CmdSet):
             from commands.commands import social
             self.add(social.CmdWhere())
             self.add(social.CmdFinger())
+            self.add(social.CmdCensus())
         except Exception as err:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             traceback.print_tb(exc_traceback, limit=5, file=sys.stdout)
             print("Error encountered in loading Guest commandset: %s" % err)
-
-

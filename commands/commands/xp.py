@@ -10,11 +10,11 @@ other players xp awards for good roleplay.
 """
 
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from django.conf import settings
 from world import stats_and_skills
-from server.utils.utils import inform_staff
+from server.utils.arx_utils import inform_staff
 from evennia.utils.utils import list_to_string
 from evennia.players.models import PlayerDB
+
 
 class CmdUseXP(MuxCommand):
     """
@@ -29,76 +29,90 @@ class CmdUseXP(MuxCommand):
     and allows you to spend xp to increase stats or skills with the
     /spend switch. Costs can be reduced by finding a teacher who is willing
     to use the '{wtrain{n' command on you, and has a skill or stat of the
-    appropriate rank you're trying to achieve. Any training bonus is lost
-    after the first time xp is spent in a week.
+    appropriate rank you're trying to achieve. The training bonus vanishes
+    when xp is spent.
 
     Dominion influence is bought with 'resources' rather than xp. The
     'learn' command is the same as 'xp/spend'.
+
     """
     key = "xp"
     aliases = ["+xp", "experience", "learn"]
     locks = "cmd:all()"
     help_category = "Progression"
+
+    # noinspection PyUnresolvedReferences
     def func(self):
         """
         Allows the character to check their xp, and spend it if they use
         the /spend switch and meet the requirements.
         """
         caller = self.caller
+        dompc = None
+        resource = None
+        set_specialization = False
+        spec_warning = False
         if self.cmdstring == "learn":
             self.switches.append("spend")
         if not self.args:
             # Just display our xp
+            caller.msg("{wCurrent Teacher:{n %s" % caller.db.trainer)
             caller.msg("{wUnspent XP:{n %s" % caller.db.xp)
             caller.msg("{wLifetime Earned XP:{n %s" % caller.db.total_xp)
-            all_stats = ", ".join(stat for stat in stats_and_skills._valid_stats_)
+            all_stats = ", ".join(stat for stat in stats_and_skills.VALID_STATS)
             caller.msg("\n{wStat names:{n")
             caller.msg(all_stats)
             caller.msg("\n{wSkill names:{n")
-            caller.msg(", ".join(skill for skill in stats_and_skills._valid_skills_))
+            caller.msg(", ".join(skill for skill in stats_and_skills.VALID_SKILLS))
             caller.msg("\n{wDominion skill names:{n")
-            caller.msg(", ".join(skill for skill in stats_and_skills._domskills_))
+            caller.msg(", ".join(skill for skill in stats_and_skills.DOM_SKILLS))
             caller.msg("\n{wAbility names:{n")
-            crafting = stats_and_skills._crafting_abilities_
+            crafting = stats_and_skills.CRAFTING_ABILITIES
             abilities = caller.db.abilities or {}
             abilities = set(abilities.keys()) | set(crafting)
             if caller.check_permstring("builder"):
-                caller.msg(", ".join(ability for ability in stats_and_skills._valid_abilities_))
+                caller.msg(", ".join(ability for ability in stats_and_skills.VALID_ABILITIES))
             else:
                 caller.msg(", ".join(ability for ability in abilities))
             return
         args = self.args.lower()
         # get cost already factors in if we have a trainer, so no need to check
-        if args in stats_and_skills._valid_stats_:
+        if args in stats_and_skills.VALID_STATS:
             cost = stats_and_skills.get_stat_cost(caller, args)
-            if caller.attributes.get(args) >= 5:
+            current = caller.attributes.get(args)
+            if current >= 5:
                 caller.msg("%s is already at its maximum." % args)
                 return
             stype = "stat"
-        elif args in stats_and_skills._valid_skills_:
-            if not caller.db.skills: caller.db.skills = {}
-            if caller.db.skills.get(args, 0) >= 6:
+        elif args in stats_and_skills.VALID_SKILLS:
+            if not caller.db.skills:
+                caller.db.skills = {}
+            current = caller.db.skills.get(args, 0)
+            if current >= 6:
                 caller.msg("%s is already at its maximum." % args)
                 return
             cost = stats_and_skills.get_skill_cost(caller, args)
             stype = "skill"
-        elif args in stats_and_skills._domskills_:
+        elif args in stats_and_skills.DOM_SKILLS:
             try:
                 dompc = caller.player.Dominion
                 current = getattr(dompc, args)
                 resource = stats_and_skills.get_dom_resource(args)
-                if getattr(dompc, args) >= 10:
+                if current >= 10:
                     caller.msg("%s is already at its maximum." % args)
                     return
                 cost = stats_and_skills.get_dom_cost(caller, args)
                 stype = "dom"
-            except Exception:
+            except AttributeError:
                 caller.msg("Dominion object not found.")
                 return
-        elif args in stats_and_skills._valid_abilities_:
+        elif args in stats_and_skills.VALID_ABILITIES:
+            if not caller.db.abilities:
+                caller.db.abilities = {}
             # if we don't have it, determine if we can learn it
-            if not caller.db.abilities.get(args, 0):
-                if args in stats_and_skills._crafting_abilities_:
+            current = caller.db.abilities.get(args, 0)
+            if not current:
+                if args in stats_and_skills.CRAFTING_ABILITIES:
                     # check if we have valid skill:
                     if args == "tailor" and "sewing" not in caller.db.skills:
                         caller.msg("You must have sewing to be a tailor.")
@@ -124,13 +138,13 @@ class CmdUseXP(MuxCommand):
                     return
                 else:
                     spec_warning = False
-            if caller.db.abilities.get(args, 0) >= 6:
+            if current >= 6:
                 caller.msg("%s is already at its maximum." % args)
                 return
-            set_specialization = False
-            if args in stats_and_skills._crafting_abilities_:
+
+            if args in stats_and_skills.CRAFTING_ABILITIES:
                 spec_warning = True
-            if caller.db.abilities.get(args, 0) == 5:
+            if current == 5:
                 if caller.db.crafting_profession:
                     caller.msg("You have already chosen a crafting specialization.")
                     return
@@ -142,15 +156,20 @@ class CmdUseXP(MuxCommand):
         else:
             caller.msg("%s wasn't identified as either a stat, ability, or a skill." % args)
             return
-        if "cost" in self.switches:           
+        if "cost" in self.switches:
             caller.msg("Cost for %s: %s" % (self.args, cost))
             return
         if "spend" in self.switches:
-            if stype == "dom" and cost > getattr(dompc.assets, resource):
-                msg = "Unable to buy influence in %s. The cost is %s, " % (args, cost)
-                msg += "and you have %s %s resources available." % (getattr(dompc.assets, resource), resource)
-                caller.msg(msg)
-                return
+            # ap_cost = 5 * (current + 1)
+            # if not self.player.pay_action_points(ap_cost):
+            #     self.msg("You do not have enough action points to spend xp on that.")
+            #     return
+            if stype == "dom":
+                if cost > getattr(dompc.assets, resource):
+                    msg = "Unable to buy influence in %s. The cost is %s, " % (args, cost)
+                    msg += "and you have %s %s resources available." % (getattr(dompc.assets, resource), resource)
+                    caller.msg(msg)
+                    return
             elif cost > caller.db.xp:
                 caller.msg("Unable to raise %s. The cost is %s, and you have %s xp." % (args, cost, caller.db.xp))
                 return
@@ -189,12 +208,16 @@ class CmdUseXP(MuxCommand):
                 # charge them influence
                 setattr(dompc.assets, resource, getattr(dompc.assets, resource) - cost)
                 stats_and_skills.adjust_dom(caller, args)
-                caller.msg("You have increased your %s influence for a cost of %s %s resources." % (args, resource, cost))
+                caller.msg("You have increased your %s influence for a cost of %s %s resources." % (args, resource,
+                                                                                                    cost))
                 dompc.assets.save()
+                dompc.save()
+                caller.refresh_from_db()
                 return
             return
         # invalid or no switch + arguments
         caller.msg("Usage: xp/spend <stat, ability or skill>")
+
 
 class CmdTrain(MuxCommand):
     """
@@ -203,63 +226,184 @@ class CmdTrain(MuxCommand):
     Usage:
         train/stat  <trainee>=<stat>
         train/skill <trainee>=<skill>
+        train/ability <trainee>=<ability>
+        train/retainer <owner>=<npc name or ID number>
 
     Allows you to flag a character as being trained with you, imparting a
     temporary xp cost reduction to the appropriate stat or skill. This bonus
     only lasts until they log out or the server reboots, so it should be
     used promptly.
 
-    You may only train one character a week.
+    You can train up to a max number of players depending on your teaching
+    or animal ken skill without expending action points: 1 for skill 0-2,
+    2 for 3-4, 3 for 5.
+
+    Action points used for training is 100 - 15 * skill, where skill is the
+    higher of animal ken or teaching.
     """
     key = "train"
     aliases = ["+train", "teach", "+teach"]
     locks = "cmd:all()"
     help_category = "Progression"
-    def func(self):
-        "Execute command."
-        MAX_TRAINEES = 1
+
+    # noinspection PyAttributeOutsideInit
+    def get_help(self, caller, cmdset):
+        if caller.db.char_ob:
+            caller = caller.db.char_ob
+        self.caller = caller
+        msg = self.__doc__ + "\n\nYou can train {w%s{n people per week." % self.max_trainees
+        trained = ", ".join(ob.key for ob in self.currently_training)
+        if trained:
+            msg += "\nYou have trained %s this week." % trained
+        msg += "\nYour current cost to train another character is {w%s{n AP." % self.action_point_cost
+        return msg
+
+    @property
+    def max_trainees(self):
+        max_skill = self.max_skill
+        if max_skill < 3:
+            return 1
+        if max_skill < 5:
+            return 2
+        if max_skill < 6:
+            return 3
+        return 13
+
+    @property
+    def max_skill(self):
+        skills_to_check = ("animal ken", "teaching")
+        max_skill = 0
+        for skill in skills_to_check:
+            val = self.caller.db.skills.get(skill, 0)
+            if val > max_skill:
+                max_skill = val
+        return max_skill
+
+    @property
+    def action_point_cost(self):
+        """Redundant attribute to try to resolve sync/caching errors."""
+        num_trained = self.caller.db.num_trained
+        if num_trained < len(self.currently_training):
+            num_trained = len(self.currently_training)
+        if num_trained < self.max_trainees:
+            return 0
+        return 100 - 15 * self.max_skill
+
+    def post_training(self, targ):
+        """Set attributes after training checks."""
         caller = self.caller
-        switches = self.switches
-        if not self.lhs or not self.rhs or not self.switches:
-            caller.msg("Usage: train/[stat or skill] <character to train>=<name of stat or skill to train>")
-            return
-        targ = caller.search(self.lhs)
-        currently_training = caller.db.currently_training or []
-        if len(currently_training) > MAX_TRAINEES:
-            caller.msg("You are training as many people as you can handle.")
-            return
-        if not targ:
-            caller.msg("No one to train by the name of %s." % self.lhs)
-            return
-        if "stat" in switches:
-            stat = self.rhs.lower()
-            if stat not in stats_and_skills._valid_stats_:
-                caller.msg("%s is not a valid stat." % self.rhs)
-                return
-            if caller.attributes.get(stat) <= targ.attributes.get(stat) + 1:
-                caller.msg("Your %s is not high enough to train %s." % (stat, targ.name))
-                return
-        elif "skill" in switches:
-            skill = self.rhs.lower()
-            if skill not in stats_and_skills._valid_skills_:
-                caller.msg("%s is not a valid skill." % self.rhs)
-                return
-            if caller.db.skills.get(skill, 0) <= targ.db.skills.get(skill, 0) + 1:
-                caller.msg("Your %s is not high enough to train %s." % (skill, targ.name))
-                return
-            stat = skill
-        else:
-            caller.msg("Usage: train/[stat or skill] <character>=<stat or skill name>")
-            return
+        currently_training = self.currently_training
+        # num_trained is redundancy to attempt to prevent cache errors.
+        num_trained = caller.db.num_trained or len(currently_training)
+        num_trained += 1
         targ.db.trainer = caller
         currently_training.append(targ)
         caller.db.currently_training = currently_training
-        caller.msg("You have provided training to %s for them to increase their %s." % (targ.name, stat))
-        targ.msg("%s has provided you training, helping you increase your %s." % (caller.name, stat))
+        caller.db.num_trained = num_trained
+
+    @property
+    def currently_training(self):
+        self.caller.refresh_from_db()
+        return self.caller.db.currently_training or []
+
+    def pay_ap_cost(self):
+        cost = self.action_point_cost
+        if not cost:
+            return True
+        if not self.caller.ndb.training_cost_confirmation:
+            self.msg("It will use %s action points to train. Repeat the command to confirm." % cost)
+            self.caller.ndb.training_cost_confirmation = True
+            return
+        self.caller.ndb.training_cost_confirmation = False
+        if self.caller.player.pay_action_points(cost):
+            return True
+        self.msg("You don't have enough action points to train another.")
+
+    def check_attribute_name(self, valid_list, attr_type):
+        if self.rhs.lower() not in valid_list:
+            self.msg("%s is not a valid %s." % (self.rhs, attr_type))
+            return False
+        return True
+
+    def check_attribute_value(self, trainer_attr, target_attr):
+        if trainer_attr <= target_attr + 1:
+            self.msg("Your %s is not high enough to train %s." % (self.rhs, self.lhs))
+            return False
+        return True
+
+    # noinspection PyProtectedMember
+    def func(self):
+        """Execute command."""
+        caller = self.caller
+        switches = self.switches
+        # try to handle possible caching errors
+        caller.attributes._cache.pop('currently_training-None', None)
+        caller.attributes._cache.pop('num_trained-None', None)
+        if not self.args:
+            self.msg("Currently training: %s" % ", ".join(str(ob) for ob in self.currently_training))
+            self.msg("You can train %s targets." % self.max_trainees)
+            return
+        if not self.lhs or not self.rhs or not self.switches:
+            caller.msg("Usage: train/[stat or skill] <character to train>=<name of stat or skill to train>")
+            return
+        if "retainer" in self.switches:
+            player = caller.player.search(self.lhs)
+            from world.dominion.models import Agent
+            try:
+                if self.rhs.isdigit():
+                    targ = player.retainers.get(id=self.rhs).dbobj
+                else:
+                    targ = player.retainers.get(name__iexact=self.rhs).dbobj
+            except (Agent.DoesNotExist, AttributeError):
+                self.msg("Could not find %s's retainer named %s." % (player, self.rhs))
+                return
+            if not targ.can_train(caller):
+                return
+            if not self.pay_ap_cost():
+                return
+            targ.train_agent(caller)
+            return
+        else:
+            targ = caller.search(self.lhs)
+        if not targ:
+            caller.msg("No one to train by the name of %s." % self.lhs)
+            return
+        if not targ.player:
+            caller.msg("Use the /retainer switch to train non-player-characters.")
+            return
+        if "stat" in switches:
+            stat = self.rhs.lower()
+            if not self.check_attribute_name(stats_and_skills.VALID_STATS, "stat"):
+                return
+            if not self.check_attribute_value(caller.attributes.get(stat), targ.attributes.get(stat)):
+                return
+        elif "skill" in switches:
+            skill = self.rhs.lower()
+            if not self.check_attribute_name(stats_and_skills.VALID_SKILLS, "skill"):
+                return
+            if not self.check_attribute_value(caller.db.skills.get(skill, 0), targ.db.skills.get(skill, 0)):
+                return
+        elif "ability" in switches:
+            ability = self.rhs.lower()
+            if not self.check_attribute_name(stats_and_skills.VALID_ABILITIES, "ability"):
+                return
+            if not caller.db.abilities:
+                caller.db.abilities = {}
+            if not targ.db.abilities:
+                targ.db.abilities = {}
+            if not self.check_attribute_value(caller.db.abilities.get(ability, 0), targ.db.abilities.get(ability, 0)):
+                return
+        else:
+            caller.msg("Usage: train/[stat or skill] <character>=<stat or skill name>")
+            return
+        if not self.pay_ap_cost():
+            return
+        self.post_training(targ)
+        caller.msg("You have provided training to %s for them to increase their %s." % (targ.name, self.rhs))
+        targ.msg("%s has provided you training, helping you increase your %s." % (caller.name, self.rhs))
         return
          
         
-
 class CmdAwardXP(MuxPlayerCommand):
     """
     @awardxp
@@ -272,8 +416,9 @@ class CmdAwardXP(MuxPlayerCommand):
     key = "@awardxp"
     locks = "cmd:perm(Wizards)"
     help_category = "Progression"
+
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         targ = caller.search(self.lhs)
         val = self.rhs
@@ -289,8 +434,8 @@ class CmdAwardXP(MuxPlayerCommand):
             return
         char.adjust_xp(int(val))
         caller.msg("Giving %s xp to %s." % (val, char))
-        if not caller.check_permstring("immortals"):
-            inform_staff("%s has adjusted %s's xp by %s." % (caller, char, val))
+        inform_staff("%s has adjusted %s's xp by %s." % (caller, char, val))
+
 
 class CmdAdjustSkill(MuxPlayerCommand):
     """
@@ -316,16 +461,24 @@ class CmdAdjustSkill(MuxPlayerCommand):
     locks = "cmd:perm(Wizards)"
     help_category = "Progression"
     aliases = ["@adjustskills", "@adjustability", "@adjustabilities"]
+
+    # noinspection PyUnresolvedReferences
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
-        ability = "ability" in self.switches or self.cmdstring == "@adjustability" or self.cmdstring == "@adjustabilities"
+        ability = "ability" in self.switches or self.cmdstring == "@adjustability" \
+                  or self.cmdstring == "@adjustabilities"
+        char = None
         if "reset" in self.switches or "refund" in self.switches:
             try:
                 char = caller.search(self.lhs).db.char_ob
             except (AttributeError, ValueError, TypeError):
                 caller.msg("No player by that name.")
                 return
+            if char.db.abilities is None:
+                char.db.abilities = {}
+            if char.db.xp is None:
+                char.db.xp = 0
             if "reset" in self.switches:
                 try:
                     from commands.commands.guest import setup_voc, XP_BONUS_BY_SRANK
@@ -337,7 +490,7 @@ class CmdAdjustSkill(MuxPlayerCommand):
                     xp = XP_BONUS_BY_SRANK[char.db.social_rank]
                     xp += total_xp
                     char.db.xp = xp
-                    caller.msg("%s has had their skills and stats set up as a %s." % (char,rhs))
+                    caller.msg("%s has had their skills and stats set up as a %s." % (char, rhs))
                     return
                 except (AttributeError, ValueError, TypeError, KeyError):
                     caller.msg("Could not set %s to %s vocation." % (char, self.rhs))
@@ -351,13 +504,13 @@ class CmdAdjustSkill(MuxPlayerCommand):
                     cost = skill_list.pop()
                     skill_history[self.rhs] = skill_list
                     char.db.skill_history = skill_history
-                except (KeyError, IndexError):
+                except (KeyError, IndexError, TypeError):
                     try:
                         current = char.db.skills[self.rhs]
                     except KeyError:
                         caller.msg("No such skill.")
                         return
-                    cost = stats_and_skills.cost_at_rank(char, self.rhs, current - 1, current)
+                    cost = stats_and_skills.cost_at_rank(self.rhs, current - 1, current)
                 if current <= 0:
                     caller.msg("That would give them a negative skill.")
                     return
@@ -371,19 +524,19 @@ class CmdAdjustSkill(MuxPlayerCommand):
                     cost = ability_list.pop()
                     ability_history[self.rhs] = ability_list
                     char.db.ability_history = ability_history
-                except (KeyError, IndexError):
+                except (KeyError, IndexError, TypeError):
                     try:
                         current = char.db.abilities[self.rhs]
-                    except KeyError:
+                    except (KeyError, TypeError):
                         caller.msg("No such ability.")
                         return
-                    cost = stats_and_skills.cost_at_rank(char, self.rhs, current - 1, current)
+                    cost = stats_and_skills.cost_at_rank(self.rhs, current - 1, current)
                 if current <= 0:
                     caller.msg("That would give them a negative rating.")
                     return
                 char.db.abilities[self.rhs] -= 1
                 char.db.xp += cost
-            caller.msg("%s had %s reduced by 1 and was refunded %s xp." %(char, self.rhs, cost))
+            caller.msg("%s had %s reduced by 1 and was refunded %s xp." % (char, self.rhs, cost))
             return
         try:
             player, skill = self.lhs.strip().split("/")
@@ -402,8 +555,10 @@ class CmdAdjustSkill(MuxPlayerCommand):
         if rhs <= 0:
             try:
                 if ability:
-                    del char.db.abilities[skill]
-                    caller.msg("Removed ability %s from %s." % (skill, char))
+
+                    if skill in char.db.abilities:
+                        del char.db.abilities[skill]
+                        caller.msg("Removed ability %s from %s." % (skill, char))
                 else:
                     del char.db.skills[skill]
                     caller.msg("Removed skill %s from %s." % (skill, char))
@@ -433,6 +588,8 @@ class CmdVoteXP(MuxPlayerCommand):
     this week due to excellent RP. Please vote for players who have
     impressed you in RP, rather than just your friends. Voting for your
     alts is obviously against the rules.
+
+    Using vote with no arguments displays your votes.
     """
     key = "vote"
     aliases = ["+vote", "@vote", "unvote"]
@@ -442,15 +599,31 @@ class CmdVoteXP(MuxPlayerCommand):
     @property
     def caller_alts(self):
         return PlayerDB.objects.filter(roster__current_account__isnull=False,
-                                roster__roster__name="Active",
-                                roster__current_account=self.caller.roster.current_account)
+                                       roster__roster__name="Active",
+                                       roster__current_account=self.caller.roster.current_account)
+
     def count_votes(self):
         num_votes = 0
         for player in self.caller_alts:
             votes = player.db.votes or []
             num_votes += len(votes)
         return num_votes
-    
+
+    @property
+    def max_votes(self):
+        # import datetime
+        base = 10
+        # # only get events after the previous Sunday
+        # diff = 7 - datetime.datetime.now().isoweekday()
+        # recent_date = datetime.datetime.now() - datetime.timedelta(days=7-diff)
+        # for alt in self.caller_alts:
+        #     try:
+        #         base += alt.Dominion.events_attended.filter(finished=True, date__gte=recent_date).count()
+        #     except AttributeError:
+        #         continue
+        return base
+
+    # noinspection PyUnresolvedReferences
     def func(self):
         """
         Stores a vote for the player in the caller's player object, to allow
@@ -465,7 +638,7 @@ class CmdVoteXP(MuxPlayerCommand):
         if not self.args:
             votes = caller.db.votes or []
             voted_for = list_to_string(votes) or "no one"        
-            remaining = 10 - self.count_votes()
+            remaining = self.max_votes - self.count_votes()
             caller.msg("You have voted for %s, and have %s votes remaining." % (voted_for, remaining))
             return
         targ = caller.search(self.args)
@@ -495,7 +668,7 @@ class CmdVoteXP(MuxPlayerCommand):
                 caller.msg("You are not currently voting for %s." % targ)
                 return
         num_votes = self.count_votes()
-        if num_votes >= 10:
+        if num_votes >= self.max_votes:
             caller.msg("You have voted %s times, which is the maximum." % num_votes)
             return  
         votes.append(targ)
