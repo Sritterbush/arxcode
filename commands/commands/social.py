@@ -2382,7 +2382,7 @@ class CmdRPHooks(MuxPlayerCommand):
     Sets or searches RP hook tags
 
     Usage:
-        +rphooks
+        +rphooks <character>
         +rphooks/search <tag>
         +rphooks/add <searchable title>[=<optional description>]
         +rphooks/rm <searchable title>
@@ -2392,11 +2392,16 @@ class CmdRPHooks(MuxPlayerCommand):
     aliases = ["rphooks"]
 
     def func(self):
-        if not self.args:
-
-            hooks = self.caller.tags.get(category="rp hooks")
+        if not self.switches:
+            if not self.args:
+                targ = self.caller
+            else:
+                targ = self.caller.search(self.args)
+                if not targ:
+                    return
+            hooks = targ.tags.get(category="rp hooks")
             hooks = make_iter(hooks)
-            hook_descs = self.caller.db.hook_descs or {}
+            hook_descs = targ.db.hook_descs or {}
             table = EvTable("Hook", "Desc", width=78, border="cells")
             for hook in hooks:
                 table.add_row(hook, hook_descs.get(hook, ""))

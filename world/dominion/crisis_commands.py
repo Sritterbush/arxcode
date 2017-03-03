@@ -201,6 +201,7 @@ class CmdCrisisAction(MuxPlayerCommand):
         +crisis/togglesecret <action #>
         +crisis/inviteassistant <action #>=<player>
         +crisis/assist <action #>=<action you are taking>
+        +crisis/decline <action #>
 
     Takes an action for a given crisis that is currently going on.
     Actions are queued in and then all simultaneously resolved by
@@ -476,5 +477,20 @@ class CmdCrisisAction(MuxPlayerCommand):
             return
         if "assist" in self.switches:
             self.assist_action()
+            return
+        if "decline" in self.switches:
+            try:
+                act_id = int(self.args)
+            except ValueError:
+                self.msg("Must supply an action number.")
+                return
+            invitations = self.caller.db.crisis_action_invitations or []
+            if act_id in invitations:
+                invitations.remove(act_id)
+            if invitations:
+                self.caller.db.crisis_action_invitations = invitations
+            else:
+                self.caller.attributes.remove("crisis_action_invitations")
+            self.msg("Your remaining invitations: %s" % ", ".join(str(ob) for ob in invitations))
             return
         self.msg("Invalid switch")
