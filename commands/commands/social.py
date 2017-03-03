@@ -8,6 +8,7 @@ from django.conf import settings
 from commands.commands.roster import format_header
 from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
+from evennia.utils.utils import make_iter
 import time
 from datetime import datetime, timedelta
 from world.dominion import setup_utils
@@ -284,6 +285,11 @@ class CmdFinger(MuxPlayerCommand):
                 org_str += "%s%s: %s\n" % (s_buffer, org.name, pageroot + org.get_absolute_url())
                 apply_buffer = True
             msg += "{wOrganizations:{n %s" % org_str
+        hooks = player.tags.get(category="rp hooks")
+        if hooks:
+            hooks = make_iter(hooks)
+            hook_descs = player.db.hook_descs or {}
+            msg += "{wRP Hooks:{n\n%s" % "\n".join("%s: %s" % (hook, hook_descs.get(hook, "")) for hook in hooks)
         caller.msg(msg, options={'box': True})
         
 
@@ -2369,3 +2375,68 @@ class CmdIAmHelping(MuxPlayerCommand):
         self.msg("You have given %s %s AP." % (targ, receive_amt))
         msg = "%s has given you %s AP." % (self.caller, receive_amt)
         targ.inform(msg, category=msg)
+
+
+class CmdRPHooks(MuxPlayerCommand):
+    """
+    Sets or searches RP hook tags
+
+    Usage:
+        +rphooks
+        +rphooks/search <tag>
+        +rphooks/add <searchable title>[=<optional description>]
+        +rphooks/rm <searchable title>
+    """
+    key = "+rphooks"
+    help_category = "Social"
+    aliases = ["rphooks"]
+
+    def func(self):
+        if not self.args:
+
+            hooks = self.caller.tags.get(category="rp hooks")
+            hooks = make_iter(hooks)
+            hook_descs = self.caller.db.hook_descs or {}
+            table = EvTable("Hook", "Desc", width=78, border="cells")
+            for hook in hooks:
+                table.add_row(hook, hook_descs.get(hook, ""))
+            self.msg(table)
+            return
+        if "add" in self.switches:
+            title = self.lhs.lower()
+            if len(title) > 255:
+                self.msg("Title must be under 255 characters.")
+                return
+            data = self.rhs
+            hook_descs = self.caller.db.hook_descs or {}
+            self.caller.tags.add(title, category="rp hooks")
+            if data:
+                hook_descs[title] = data
+                self.caller.db.hook_descs = hook_descs
+            data_str = (": %s" % data) if data else ""
+            self.msg("Added rphook tag: %s%s." % (title, data_str))
+            return
+        if "search" in self.switches:
+            from evennia.typeclasses.tags import Tag
+            table = EvTable("Name", "RPHook", "Details")
+            tags = Tag.objects.filter(db_key__icontains=self.args, db_category="rp hooks")
+            for tag in tags:
+                for pc in tag.playerdb_set.all():
+                    hook_desc = pc.db.hook_descs or {}
+                    desc = hook_desc.get(tag.db_key, "")
+                    table.add_row(pc, tag.db_key, desc)
+            self.msg(table)
+            return
+        if "rm" in self.switches:
+            args = self.args.lower()
+            hook_descs = self.caller.db.hook_descs or {}
+            if args in hook_descs:
+                del hook_descs[args]
+                if not hook_descs:
+                    self.caller.attributes.remove("hook_descs")
+                else:
+                    self.caller.db.hook_descs = hook_descs
+            self.caller.tags.remove(args, category="rp hooks")
+            self.msg("Removed.")
+            return
+        self.msg("Invalid switch.")

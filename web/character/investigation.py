@@ -1152,6 +1152,8 @@ class CmdListClues(MuxPlayerCommand):
                     self.msg("You can only share clues with someone in the same room. Please don't share clues without "
                              "at least some RP talking about it.")
                     continue
+                for clue in clues_to_share:
+                    clue.share(pc)
                 shared_names.append(str(pc.roster))
             if shared_names:
                 self.caller.pay_action_points(cost)
@@ -1336,6 +1338,7 @@ class CmdTheories(MuxPlayerCommand):
                         if clue.clue.allow_trauma:
                             self.msg("%s cannot be shared. Skipping." % clue.clue)
                             continue
+                        clue.share(targ.roster)
                         self.msg("Shared clue %s with %s" % (clue.name, targ))
                     self.caller.pay_action_points(cost)
                 if theory in targ.known_theories.all():
