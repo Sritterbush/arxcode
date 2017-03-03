@@ -1121,7 +1121,9 @@ class CmdCalendar(MuxPlayerCommand):
     values, do '@cal/largesse'. All times are in EST.
 
     To mark an event as a player-run-plot, use /addgm to designate a
-    player as the storyteller for the event.
+    player as the storyteller for the event. Please only use this for a
+    player who is actually running an event with some form of plot that
+    requires checks to influence the outcome.
 
     When starting an event early, you can specify '=here' to start it in
     your current room rather than its previous location.
@@ -1354,11 +1356,15 @@ class CmdCalendar(MuxPlayerCommand):
             return
         if "addgm" in self.switches:
             gms = proj[8] or []
-            gm = caller.search(self.lhs)
-            if not gm:
+            if self.lhs:
+                gm = caller.search(self.lhs)
+            else:  # no args, remove GMs
+                gms = []
+                proj[8] = gms
+                caller.ndb.event_creation = proj
+                self.msg("GMs removed.")
                 return
-            if gm in gms:
-                caller.msg("GM is already listed.")
+            if not gm:
                 return
             try:
                 gm = gm.Dominion
@@ -1368,9 +1374,18 @@ class CmdCalendar(MuxPlayerCommand):
                     caller.msg("GM does not have a character.")
                     return
                 gm = setup_utils.setup_dom_for_char(char)
+            if gm in gms:
+                caller.msg("GM is already listed.")
+                return
+            if len(gms) >= 2:
+                self.msg("Please limit yourself to one or two designated GMs.")
+                return
             gms.append(gm)
             caller.msg("%s added to GMs." % gm)
             caller.msg("GMs are: %s" % ", ".join(str(gm) for gm in gms))
+            caller.msg("Reminder - please only add a GM for an event if it's an actual player-run plot. Tagging a "
+                       "social event as a PRP is strictly prohibited. If you tagged this as a PRP in error, use "
+                       "addgm with no arguments to remove GMs.")
             proj[8] = gms
             caller.ndb.event_creation = proj
             return
