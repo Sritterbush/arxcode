@@ -156,7 +156,7 @@ class WearableContainer(Wearable, Container):
         Wearable.at_object_creation(self)
         Container.at_object_creation(self)
     
-    def at_cmdset_get(self):
+    def at_cmdset_get(self, **kwargs):
         """
         Called when the cmdset is requested from this object, just before the
         cmdset is actually extracted. If no container-cmdset is cached, create

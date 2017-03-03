@@ -89,7 +89,7 @@ class Container(LockMixins, DefaultObject):
         container_cmdset.add(CmdChestKey(obj=contdbobj))
         return container_cmdset
     
-    def at_cmdset_get(self):
+    def at_cmdset_get(self, **kwargs):
         """
         Called when the cmdset is requested from this object, just before the
         cmdset is actually extracted. If no container-cmdset is cached, create
