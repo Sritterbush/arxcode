@@ -1094,7 +1094,7 @@ class CmdListClues(MuxPlayerCommand):
         try:
             return self.caller.roster.finished_clues
         except AttributeError:
-            return []
+            return ClueDiscovery.objects.none()
     
     def disp_clue_table(self):
         caller = self.caller
@@ -1153,7 +1153,7 @@ class CmdListClues(MuxPlayerCommand):
                              "at least some RP talking about it.")
                     continue
                 for clue in clues_to_share:
-                    clue.share(pc)
+                    clue.share(pc.roster)
                 shared_names.append(str(pc.roster))
             if shared_names:
                 self.caller.pay_action_points(cost)
