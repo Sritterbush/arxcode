@@ -542,7 +542,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             total += self.db.command
             total += self.db.composure
             skills = self.db.skills
-            total += sum(skills.get(attr, 0) for attr in SOCIAL_SKILLS)
+            total += sum(skills.get(attr, 0) for attr in SOCIAL_SKILLS)  * 2
             return total / 3
         except (TypeError, ValueError, AttributeError):
             return total / 3
