@@ -303,6 +303,13 @@ class CmdCrisisAction(MuxPlayerCommand):
     def assist_action(self):
         invitations = self.caller.db.crisis_action_invitations or []
         if not self.rhs:
+            try:
+                actions = [CrisisAction.objects.get(id=act_id) for act_id in invitations]
+                for act in actions:
+                    if act.crisis.end_date < datetime.now() or act.sent:
+                        invitations.remove(act.id)
+            except (CrisisAction.DoesNotExist, ValueError, TypeError, AttributeError):
+                pass
             self.msg("You have the following invitations: %s" % ", ".join(str(ob) for ob in invitations))
             return
         try:
