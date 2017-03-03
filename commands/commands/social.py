@@ -2418,7 +2418,7 @@ class CmdRPHooks(MuxPlayerCommand):
             return
         if "search" in self.switches:
             from evennia.typeclasses.tags import Tag
-            table = EvTable("Name", "RPHook", "Details")
+            table = EvTable("Name", "RPHook", "Details", width=78, border="cells")
             tags = Tag.objects.filter(db_key__icontains=self.args, db_category="rp hooks")
             for tag in tags:
                 for pc in tag.playerdb_set.all():
