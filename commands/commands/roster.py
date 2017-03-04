@@ -1345,8 +1345,9 @@ class CmdRelationship(MuxPlayerCommand):
                 charob.msg_watchlist("A character you are watching, {c%s{n, has updated their white journal." % caller)
             return
         if 'short' in switches:
-            rhslist = self.rhslist          
-            if lhs not in self.typelist:
+            rhslist = self.rhslist
+            rel_types = [ob.lower for ob in self.typelist]
+            if lhs not in rel_types:
                 caller.msg("The type of relationship must be in: %s." % ", ".join(self.typelist))
                 return
             if len(rhslist) < 2:
