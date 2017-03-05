@@ -1346,7 +1346,7 @@ class CmdRelationship(MuxPlayerCommand):
             return
         if 'short' in switches:
             rhslist = self.rhslist
-            rel_types = [ob.lower for ob in self.typelist]
+            rel_types = [ob.lower() for ob in self.typelist]
             if lhs not in rel_types:
                 caller.msg("The type of relationship must be in: %s." % ", ".join(self.typelist))
                 return
