@@ -179,7 +179,7 @@ class WeeklyEvents(Script):
                     # if we're a unique retainer, wipe the agent object as well
                     if hasattr(ob, 'agentob'):
                         if ob.agentob.agent_class.unique:
-                            ob.agent_class.delete()
+                            ob.agentob.agent_class.delete()
                     ob.delete()
         except Exception as err:
             traceback.print_exc()
