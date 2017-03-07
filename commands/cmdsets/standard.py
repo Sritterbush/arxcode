@@ -97,6 +97,11 @@ try:
 except Exception as err:
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in consumable commands: %s" % err)
+try:
+    from typeclasses.gambling.cmdset_gambling as gambling
+except Exception as err:
+    traceback.print_exc()
+    print("<<ERROR>>: Error encountered in gambling commands: %s" % err)
 from evennia.commands.cmdset import CmdSet
 
 
@@ -206,6 +211,7 @@ class MobileCmdSet(CmdSet):
         self.add(investigation.CmdAssistInvestigation())
         self.add(general.CmdUndress())
         self.add(CmdApplyConsumable())
+        self.add(gambling.CmdRoll())
 
 
 class StaffCmdSet(CmdSet):
