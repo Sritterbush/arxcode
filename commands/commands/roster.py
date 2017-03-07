@@ -520,6 +520,7 @@ class CmdAdminRoster(MuxPlayerCommand):
                 return
             caller.msg("{w" + "-"*20 + "{n")
             caller.msg("{wPlayer Object:{n %s {wID:{n %s" % (entry.player.key, entry.player.id))
+            caller.msg("{wEmail{n: %s" % entry.player.email)
             line = "{wCharacter: {n"
             line += entry.character.key
             line += " {wID:{n %s" % entry.character.id
