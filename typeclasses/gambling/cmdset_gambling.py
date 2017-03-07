@@ -26,6 +26,7 @@ class CmdRoll(MuxCommand):
         roll <number of dice>=<size of die>
 
     Rolls dice for random checks. You can specify dice of any number of sides,
+    and between 1 and 50 dice.
     """
     key = "roll"
     locks = "cmd:all()"
@@ -47,7 +48,9 @@ class CmdRoll(MuxCommand):
             return
         for x in range(num_dice):
             roll = random.randint(1, sides)
-            rolls.append(str(roll))
+            rolls.append(roll)
+        rolls.sort()
+        rolls = [str(ob) for ob in rolls]
         caller.msg("You have rolled: %s" % ", ".join(rolls))
         caller.location.msg_contents("%s has rolled %s %s-sided dice: %s" % (caller.name,
             num_dice, sides, ", ".join(rolls)), exclude=caller, options={"roll": True})
