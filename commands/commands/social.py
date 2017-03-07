@@ -260,9 +260,9 @@ class CmdFinger(MuxPlayerCommand):
         name = char.db.longname or char.key
         msg = "\n{wName:{n %s\n" % name
         if "rostercg" in char.tags.all():
-            msg += "{wOriginal Character{n\n"
-        else:
             msg += "{wRoster Character{n\n"
+        else:
+            msg += "{wOriginal Character{n\n"
         if show_hidden:
             msg += "{wCharID:{n %s, {wPlayerID:{n %s\n" % (char.id, player.id)
         session = player.get_all_sessions() and player.get_all_sessions()[0]
