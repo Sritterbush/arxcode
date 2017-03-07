@@ -60,6 +60,7 @@ class CmdGameSettings(MuxPlayerCommand):
         @settings/ignore_bboard_notifications
         @settings/quote_color <color string>
         @settings/name_color <color string>
+        @settings/verbose_where
 
     Toggles different settings. Brief suppresses room descs when
     moving through rooms. Posebreak adds a newline between poses
@@ -78,7 +79,7 @@ class CmdGameSettings(MuxPlayerCommand):
     locks = "cmd:all()"
     help_category = "Settings"
     aliases = ["lrp"]
-    valid_switches = ('brief', 'posebreak', 'stripansinames', 'no_ascii', 'lrp',
+    valid_switches = ('brief', 'posebreak', 'stripansinames', 'no_ascii', 'lrp', 'verbose_where',
                       'afk', 'nomessengerpreview', 'bbaltread', 'ignore_messenger_notifications',
                       'ignore_messenger_deliveries', 'newline_on_messages', 'private_mode',
                       'ic_only', 'ignore_bboard_notifications', 'quote_color', 'name_color')
