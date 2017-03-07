@@ -4,6 +4,7 @@ will be character commands, since they'll deal with the grid.
 """
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.objects.models import ObjectDB
+from evennia.typeclasses.tags import Tag
 from django.conf import settings
 from commands.commands.roster import format_header
 from server.utils.prettytable import PrettyTable
@@ -2417,6 +2418,11 @@ class CmdRPHooks(MuxPlayerCommand):
     help_category = "Social"
     aliases = ["rphooks"]
 
+    def list_valid_tags(self):
+        tags = Tag.objects.filter(db_category="rp hooks").order_by('db_key')
+        self.msg("Categories: %s" % "; ".join(tag.db_key for tag in tags))
+        return
+
     def func(self):
         if not self.switches:
             if not self.args:
@@ -2424,6 +2430,7 @@ class CmdRPHooks(MuxPlayerCommand):
             else:
                 targ = self.caller.search(self.args)
                 if not targ:
+                    self.list_valid_tags()
                     return
             hooks = targ.tags.get(category="rp hooks")
             hooks = make_iter(hooks)
@@ -2431,7 +2438,11 @@ class CmdRPHooks(MuxPlayerCommand):
             table = EvTable("Hook", "Desc", width=78, border="cells")
             for hook in hooks:
                 table.add_row(hook, hook_descs.get(hook, ""))
+            table.reformat_column(0, width=20)
+            table.reformat_column(1, width=58)
             self.msg(table)
+            if not hooks:
+                self.list_valid_tags()
             return
         if "add" in self.switches:
             title = self.lhs.lower()
@@ -2448,20 +2459,19 @@ class CmdRPHooks(MuxPlayerCommand):
             self.msg("Added rphook tag: %s%s." % (title, data_str))
             return
         if "search" in self.switches:
-            from evennia.typeclasses.tags import Tag
             table = EvTable("Name", "RPHook", "Details", width=78, border="cells")
             if not self.args:
-                tags = Tag.objects.filter(db_category="rp hooks").order_by('db_key')
-                self.msg("Categories: %s" % "; ".join(tag.db_key for tag in tags))
+                self.list_valid_tags()
                 return
-            tags = Tag.objects.filter(db_key__iexact=self.args, db_category="rp hooks")
+            tags = Tag.objects.filter(db_key__icontains=self.args, db_category="rp hooks")
             for tag in tags:
                 for pc in tag.playerdb_set.all():
                     hook_desc = pc.db.hook_descs or {}
                     desc = hook_desc.get(tag.db_key, "")
                     table.add_row(pc, tag.db_key, desc)
-            table.reformat_column(0, 10)
-            table.reformat_column(1, 20)
+            table.reformat_column(0, width=10)
+            table.reformat_column(1, width=20)
+            table.reformat_column(2, width=48)
             self.msg(table)
             return
         if "rm" in self.switches:
