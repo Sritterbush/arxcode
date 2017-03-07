@@ -68,9 +68,11 @@ class CmdWhere(MuxPlayerCommand):
         +where [<character>,<character 2>,...]
         +where/shops
         +where/randomscene
+        +where/watch
 
     Displays a list of characters in public rooms. The /shops switch
-    lets you see a list of shops.
+    lets you see a list of shops. /watch filters results by characters in
+    your watchlist, while /randomscene filters by characters you can claim.
     """
     key = "+where"
     locks = "cmd:all()"
@@ -120,6 +122,7 @@ class CmdWhere(MuxPlayerCommand):
             cmd = CmdRandomScene()
             cmd.caller = self.caller.db.char_ob
             scene_chars = list(cmd.scenelist) + [ob for ob in cmd.newbies if ob not in cmd.claimlist]
+        
         for room in rooms:
             def char_name(character_object):
                 cname = character_object.name
@@ -133,6 +136,9 @@ class CmdWhere(MuxPlayerCommand):
             charlist = sorted(room.get_visible_characters(caller), key=lambda x: x.name)
             if "randomscene" in self.switches:
                 charlist = [ob for ob in charlist if ob in scene_chars]
+            if "watch" in self.switches:
+                watching = caller.db.watching or []
+                charlist = [ob for ob in charlist if ob in watching]
             char_names = ", ".join(char_name(char) for char in charlist if char.player
                                    and (not char.player.db.hide_from_watch or caller.check_permstring("builders")))
             if not char_names:
@@ -253,6 +259,10 @@ class CmdFinger(MuxPlayerCommand):
             return
         name = char.db.longname or char.key
         msg = "\n{wName:{n %s\n" % name
+        if "rostercg" in char.tags.all():
+            msg += "{wOriginal Character{n\n"
+        else:
+            msg += "{wRoster Character{n\n"
         if show_hidden:
             msg += "{wCharID:{n %s, {wPlayerID:{n %s\n" % (char.id, player.id)
         session = player.get_all_sessions() and player.get_all_sessions()[0]
