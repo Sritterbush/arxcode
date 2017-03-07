@@ -98,7 +98,7 @@ except Exception as err:
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in consumable commands: %s" % err)
 try:
-    from typeclasses.gambling.cmdset_gambling as gambling
+    from typeclasses.gambling import cmdset_gambling as gambling
 except Exception as err:
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in gambling commands: %s" % err)
