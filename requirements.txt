@@ -6,7 +6,6 @@ Django==1.9.9
 django-bootstrap-form==3.2.1
 django-debug-toolbar==1.6
 django-markdown-deux==1.0.5
--e git+https://github.com/TehomCD/evennia.git@b64e93384811790bd524f01f122c0d8f2d7d8641#egg=evennia
 funcsigs==1.0.2
 future==0.15.2
 humanize==0.5.1
