@@ -375,6 +375,7 @@ class CmdSendVision(MuxPlayerCommand):
 
     Usage:
         @sendvision
+        @sendvision/global <what they see>
         @sendvision <character>
         @sendvision <character>=<What they see>
         @sendclue <character>,<character2, etc>=<clue ID>/<message>
@@ -400,7 +401,12 @@ class CmdSendVision(MuxPlayerCommand):
             caller.msg("{wCharacters who have the 'visions' @tag:{n")
             caller.msg(str(table))
             return
-        targlist = [caller.search(arg) for arg in self.lhslist if caller.search(arg)]
+        if "global" in self.switches:
+            targlist = PlayerDB.objects.filter(roster__roster__name="Active")
+            rhs = self.args
+        else:
+            targlist = [caller.search(arg) for arg in self.lhslist if caller.search(arg)]
+            rhs = self.rhs
         if not targlist:
             return
         if self.cmdstring == "@sendclue":
@@ -432,21 +438,21 @@ class CmdSendVision(MuxPlayerCommand):
         for targ in targlist:
             char = targ.db.char_ob
             if not char:
-                caller.msg("No valid character.")
-                return
+                caller.msg("No valid character for %s." % targ)
+                continue
             visions = char.messages.visions
-            if not self.rhs:
+            if not rhs:
                 table = evtable.EvTable("{wVisions{n", width=78)
                 for vision in visions:
                     table.add_row(char.messages.disp_entry(vision))
                 caller.msg(str(table))
                 return
             # use the same vision object for all of them once it's created
-            vision_object = char.messages.add_vision(self.rhs, caller, vision_object)
-            caller.msg("Vision added to %s: %s" % (char, self.rhs))
-            msg = "{rYou have experienced a vision!{n\n%s" % self.rhs
+            vision_object = char.messages.add_vision(rhs, caller, vision_object)
+            msg = "{rYou have experienced a vision!{n\n%s" % rhs
             targ.send_or_queue_msg(msg)
             targ.inform("Your character has experienced a vision. Use @sheet/visions to view it.", category="Vision")
+        caller.msg("Vision added to %s: %s" % (", ".join(str(ob) for ob in targlist), rhs))
         return
 
 

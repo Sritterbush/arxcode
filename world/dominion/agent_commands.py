@@ -409,6 +409,10 @@ class CmdRetainers(MuxPlayerCommand):
         agent.assign(caller.db.char_ob, 1)
         caller.msg("Assigning %s to you." % aname)
         self.msg("You now have a new agent. You can return to your home to summon them with the +guard command.")
+        # strip ansi from the key
+        agent.name = strip_ansi(aname)
+        agent.dbobj.name = aname
+        agent.save()
         return
 
     def train_retainer(self):

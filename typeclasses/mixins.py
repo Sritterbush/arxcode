@@ -502,6 +502,9 @@ class MsgMixins(object):
         :param options: dict
         :param kwargs: dict
         """
+        # if we have nothing to receive message, we're done.
+        if not self.sessions.all():
+            return
         options = options or {}
         options.update(kwargs.get('options', {}))
         try:

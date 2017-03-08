@@ -23,9 +23,10 @@ class CmdRoll(MuxCommand):
     rolls dice
 
     Usage:
-        roll <number of dice>
+        roll <number of dice>=<size of die>
 
-    Rolls the dice.
+    Rolls dice for random checks. You can specify dice of any number of sides,
+    and between 1 and 50 dice.
     """
     key = "roll"
     locks = "cmd:all()"
@@ -34,12 +35,25 @@ class CmdRoll(MuxCommand):
         "Implements command"
         caller = self.caller
         rolls = []
-        for x in range(5):
-            roll = random.randint(1, 6)
-            rolls.append(str(roll))
+        try:
+            num_dice = int(self.lhs)
+            sides = int(self.rhs)
+            if sides <= 0:
+                raise ValueError
+        except ValueError:
+            self.msg("Please enter positive numbers for number of dice and sides.")
+            return
+        if num_dice < 1 or num_dice > 50:
+            self.msg("Please specify a number of dice between 1 and 50.")
+            return
+        for x in range(num_dice):
+            roll = random.randint(1, sides)
+            rolls.append(roll)
+        rolls.sort()
+        rolls = [str(ob) for ob in rolls]
         caller.msg("You have rolled: %s" % ", ".join(rolls))
-        caller.location.msg_contents("%s has rolled five dice: %s" % (caller.name, ", ".join(rolls)),
-                                     exclude=caller)
+        caller.location.msg_contents("%s has rolled %s %s-sided dice: %s" % (caller.name,
+            num_dice, sides, ", ".join(rolls)), exclude=caller, options={"roll": True})
         return
 
         

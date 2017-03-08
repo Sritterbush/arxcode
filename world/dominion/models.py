@@ -2035,7 +2035,7 @@ class Agent(models.Model):
         if not self.unique:
             msg += " {wUnassigned:{n %s\n" % self.quantity
         else:
-            msg += "  {wXP:{n %s {wLoyalty{n: %s\n" % (self.xp, self.loyalty)
+            msg += "  {wXP:{n %s {wLoyalty{n: %s {wLevel{n: %s\n" % (self.xp, self.loyalty, self.quality)
         if not show_assignments:
             return msg
         for agent in self.agent_objects.all():

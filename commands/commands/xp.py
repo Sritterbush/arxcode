@@ -24,6 +24,7 @@ class CmdUseXP(MuxCommand):
         xp
         xp/spend  <stat or skill name>
         xp/cost   <stat or skill name>
+        xp/transfer <alt>=<amount>
 
     Displays how much xp you have available when used with no arguments,
     and allows you to spend xp to increase stats or skills with the
@@ -74,6 +75,32 @@ class CmdUseXP(MuxCommand):
                 caller.msg(", ".join(ability for ability in stats_and_skills.VALID_ABILITIES))
             else:
                 caller.msg(", ".join(ability for ability in abilities))
+            return
+        if "transfer" in self.switches:
+            targ = self.caller.player.search(self.lhs)
+            if not targ:
+                return
+            alt = targ.db.char_ob
+            account = self.caller.roster.current_account
+            if alt.roster.current_account != account:
+                self.msg("%s is not an alt of yours." % alt)
+                return
+            try:
+                amt = int(self.rhs)
+                if amt <= 0:
+                    raise ValueError
+            except ValueError:
+                self.msg("Amount must be a positive number.")
+                return
+            history = self.caller.roster.accounthistory_set.get(account=account)
+            if amt > history.xp_earned:
+                self.msg("You cannot transfer more xp than you've earned since playing the character.")
+                return
+            self.caller.db.xp -= amt
+            if alt.db.xp is None:
+                alt.db.xp = 0
+            alt.db.xp += amt
+            self.msg("Transferred %s xp to %s." % (amt, alt))
             return
         args = self.args.lower()
         # get cost already factors in if we have a trainer, so no need to check
