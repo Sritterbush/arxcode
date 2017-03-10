@@ -39,7 +39,8 @@ def list_topics(request):
             except AttributeError:
                 continue
         all_topics = sorted(all_topics, key=lambda entry: entry.key.lower())
-        all_categories = list(set([topic_ob.help_category.capitalize() for topic_ob in all_topics]))
+        all_categories = list(set([topic_ob.help_category.capitalize() for topic_ob in all_topics
+                                   if topic_ob.access(user, "view")]))
         all_categories = sorted(all_categories)
     except IndexError:
         raise Http404("Error in compiling topic list.")
