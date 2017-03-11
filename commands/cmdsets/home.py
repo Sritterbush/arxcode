@@ -341,11 +341,12 @@ class CmdBuildRoom(CmdDig):
                 caller.msg("Deposit resources into the account of %s." % noun)
             return
         tagname = "%s_owned_room" % str(assets)
-        if tagname not in loc.tags.all() and (ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_ROOM_TYPECLASS)
-                                                                      & Q(db_tags__db_key__iexact=tagname)
-                                                                      ).count() > max_rooms):
-            caller.msg("You have as many rooms as you are allowed.")
-            return
+        # because who fucking cares
+        # if tagname not in loc.tags.all() and (ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_ROOM_TYPECLASS)
+        #                                                               & Q(db_tags__db_key__iexact=tagname)
+        #                                                               ).count() > max_rooms):
+        #     caller.msg("You have as many rooms as you are allowed.")
+        #     return
         if not self.rhs or len(self.rhslist) < 2:
             caller.msg("You must specify an exit and return exit for the new room.")
             return
