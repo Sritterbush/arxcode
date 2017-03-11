@@ -13,7 +13,7 @@ markdown2==2.3.1
 mock==2.0.0
 pbr==1.10.0
 Pillow==2.9.0
-pypiwin32==219
+pypiwin32==219; sys.platform == 'win32'
 pytz==2016.6.1
 RunSnakeRun==2.0.4
 singledispatch==3.4.0.3
