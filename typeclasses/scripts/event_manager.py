@@ -213,6 +213,14 @@ class EventManager(Script):
             traceback.print_exc()
         self.delete_event_post(event)
 
+    def move_event(self, event, new_location):
+        if event.location:
+            event.location.stop_event_logging()
+        event.location = new_location
+        event.save()
+        if event.id in self.db.active_events:
+            new_location.start_event_logging(event)
+
     def add_msg(self, eventid, msg, sender=None):
         # reset idle timer for event
         msg = parse_ansi(msg, strip_ansi=True)

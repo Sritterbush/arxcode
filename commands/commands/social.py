@@ -1119,6 +1119,7 @@ class CmdCalendar(MuxPlayerCommand):
         @cal/endevent <event number>
         @cal/reschedule <event number>=<new date>
         @cal/cancel <event number>
+        @cal/movehere <event number>
         @cal/changeroomdesc <event number>=<new desc>
         @cal/toggleprivate <finished event number>
         @cal/old
@@ -1137,7 +1138,8 @@ class CmdCalendar(MuxPlayerCommand):
     requires checks to influence the outcome.
 
     When starting an event early, you can specify '=here' to start it in
-    your current room rather than its previous location.
+    your current room rather than its previous location. /movehere allows
+    an event to be moved to the new room you occupy while in progress.
 
     If you want to mark an event private or public after finishing hosting
     it so that it can be viewed by people who didn't attend it on the web,
@@ -1553,6 +1555,11 @@ class CmdCalendar(MuxPlayerCommand):
             event.room_desc = self.rhs
             event.save()
             caller.msg("Event's room desc is now:\n%s" % self.rhs)
+            return
+        if "movehere" in self.switches:
+            loc = caller.db.char_ob.location
+            event_manager.move_event(event, loc)
+            self.msg("Event moved to your room.")
             return
         if "cancel" in self.switches:
             if event.id in event_manager.db.active_events:
