@@ -282,7 +282,7 @@ class CmdBuildRoom(CmdDig):
         dompc = caller.db.player_ob.Dominion
 
         if "org" in self.switches:
-            max_rooms = 100
+            # max_rooms = 100
             try:
                 largs = self.lhs.split("/")
                 orgname = largs[0]
@@ -314,7 +314,7 @@ class CmdBuildRoom(CmdDig):
                 caller.msg("No org by that name: %s." % orgname)
                 return
         else:
-            max_rooms = 3
+            # max_rooms = 3
             assets = dompc.assets
             if assets.id in permits:
                 cost = permits[assets.id]
@@ -342,7 +342,8 @@ class CmdBuildRoom(CmdDig):
             return
         tagname = "%s_owned_room" % str(assets)
         # because who fucking cares
-        # if tagname not in loc.tags.all() and (ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_ROOM_TYPECLASS)
+        # if tagname not in loc.tags.all() and (
+        # ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_ROOM_TYPECLASS)
         #                                                               & Q(db_tags__db_key__iexact=tagname)
         #                                                               ).count() > max_rooms):
         #     caller.msg("You have as many rooms as you are allowed.")

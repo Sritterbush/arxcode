@@ -1822,7 +1822,7 @@ class CmdOrganization(MuxPlayerCommand):
             caller.msg("%s is not a member of %s." % (player, org))
             return
         if 'boot' in self.switches:
-            if not org.access(caller, 'boot'):
+            if not org.access(caller, 'boot') and tarmember != member:
                 caller.msg("You do not have permission to boot players.")
                 return
             if tarmember.rank <= member.rank:
