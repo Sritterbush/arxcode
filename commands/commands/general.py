@@ -1351,6 +1351,7 @@ class CmdInform(MuxPlayerCommand):
         @inform
         @inform <number>[=<end number>]
         @inform/del <number>[=<end number>]
+        @inform/delmatches <string to match in categories>
         @inform/shopminimum <number>
 
     Displays your informs. /shopminimum sets a minimum amount that must be paid
@@ -1427,6 +1428,14 @@ class CmdInform(MuxPlayerCommand):
             table.reformat_column(index=1, width=52)
             table.reformat_column(index=2, width=19)
             caller.msg(table)
+            return
+        if "delmatches" in self.switches:
+            informs = caller.informs.filter(category__icontains=self.args)
+            if informs:
+                informs.delete()
+                self.msg("Informs deleted.")
+                return
+            self.msg("No matches.")
             return
         if not self.rhs:
             inform = self.get_inform(self.lhs)
