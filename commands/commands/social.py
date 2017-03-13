@@ -67,7 +67,7 @@ class CmdWhere(MuxPlayerCommand):
     Usage:
         +where
         +where [<character>,<character 2>,...]
-        +where/shops
+        +where/shops [<ability>]
         +where/randomscene
         +where/watch
 
@@ -93,6 +93,11 @@ class CmdWhere(MuxPlayerCommand):
         self.msg("{wList of shops:\n")
         for room in rooms:
             owner = room.db.shopowner
+            if self.args and owner:
+                if not owner.db.abilities:
+                    continue
+                if self.args.lower() not in owner.db.abilities:
+                    continue
             name = str(owner)
             if owner and not owner.roster.roster.name == "Active":
                 name += " {w(Inactive){n"
