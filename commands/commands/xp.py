@@ -96,6 +96,9 @@ class CmdUseXP(MuxCommand):
             if amt > history.xp_earned:
                 self.msg("You cannot transfer more xp than you've earned since playing the character.")
                 return
+            if amt > self.caller.db.xp:
+                self.msg("You do not have enough xp remaining.")
+                return
             self.caller.db.xp -= amt
             if alt.db.xp is None:
                 alt.db.xp = 0
