@@ -1490,7 +1490,8 @@ class CmdCalendar(MuxPlayerCommand):
         # get the events they're hosting
         events = dompc.events_hosted.filter(finished=False)
         if not events:
-            caller.msg("You are not hosting any events that are unfinished.")
+            caller.msg("You are not hosting any events that have yet to occur. If you are currently designing "
+                       "an event, submit it first.")
             return
         # make sure caller input an integer
         try:
