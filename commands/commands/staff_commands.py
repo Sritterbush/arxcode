@@ -864,6 +864,7 @@ class CmdGMEvent(MuxCommand):
     """
     key = "@gmevent"
     locks = "cmd:perm(builders)"
+    help_category = "GMing"
 
     def func(self):
         form = self.caller.db.gm_event_form
@@ -943,6 +944,7 @@ class CmdGMNotes(MuxPlayerCommand):
     key = "@gmnotes"
     aliases = ["@gmnote"]
     locks = "cmd: perm(builders)"
+    help_category = "GMing"
 
     def list_all_tags(self):
         from evennia.utils.evtable import EvTable
@@ -1009,6 +1011,7 @@ class CmdJournalAdminForDummies(MuxPlayerCommand):
     """
     key = "@admin_journal"
     locks = "cmd: perm(builders)"
+    help_category = "Admin"
 
     def func(self):
         player = self.caller.search(self.lhs)
@@ -1084,6 +1087,7 @@ class CmdTransferKeys(MuxPlayerCommand):
     """
     key = "@transferkeys"
     locks = "cmd: perm(builders)"
+    help_category = "Building"
 
     def func(self):
         source = self.caller.search(self.lhs)
@@ -1106,3 +1110,29 @@ class CmdTransferKeys(MuxPlayerCommand):
         targ.db.keylist = list(set(t_room_keys))
         self.msg("Keys transferred.")
 
+
+class CmdRelocateExit(MuxCommand):
+    """
+    Moves an exit to a new location
+
+    Usage:
+        @relocate_exit <exit>=<new room>
+
+    This moves an exit to a new location. While you could do so
+    with @tel, this also makes the reverse exit in the room this
+    exit points to now correctly point to the new room.
+    """
+    key = "@relocate_exit"
+    locks = "cmd: perm(builders)"
+    help_category = "Building"
+    
+    def func(self):
+        from typeclasses.rooms import ArxRoom
+        exit_obj = self.caller.search(self.lhs)
+        if not exit_obj:
+            return
+        new_room = self.caller.search(self.rhs, typeclass=ArxRoom, global_search=True)
+        if not new_room:
+            return
+        exit_obj.relocate(new_room)
+        self.msg("Moved %s to %s." % (exit_obj, new_room))
