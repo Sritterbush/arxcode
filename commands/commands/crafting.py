@@ -666,7 +666,8 @@ class CmdCraft(MuxCommand):
                 pmat.amount -= mats[mat]
                 pmat.save()
             # determine difficulty modifier if we tossed in more money
-            diffmod = get_difficulty_mod(recipe, invest, action_points)
+            ability = get_ability_val(crafter, recipe)
+            diffmod = get_difficulty_mod(recipe, invest, action_points, ability)
             # do crafting roll
             roll = do_crafting_roll(crafter, recipe, diffmod, room=caller.location)
             # get type from recipe
