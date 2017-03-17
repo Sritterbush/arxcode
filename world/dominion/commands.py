@@ -2598,7 +2598,7 @@ class CmdSupport(MuxCommand):
                     caller.msg(msg)            
                 caller.msg("Notes:\n%s" % form[3])
                 caller.msg("Rumors:\n%s" % form[4])       
-                caller.msg("Once all fields are finished, use /finish to commit.")
+                caller.msg("Once all fields are finished, use support/finish to commit.")
             except (TypeError, KeyError, IndexError):
                 caller.msg("{rEncountered a supportform with invalid structure. Resetting the attribute." +
                            " Please start over.{n")
