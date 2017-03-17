@@ -503,16 +503,16 @@ def update_ticket(request, ticket_id, public=False):
         else:
             template_staff = 'updated_owner'
 
-        if (not reassigned or ( reassigned and ticket.assigned_to.usersettings.settings.get('email_on_ticket_assign', False))) or (not reassigned and ticket.assigned_to.usersettings.settings.get('email_on_ticket_change', False)):
-            send_templated_mail(
-                template_staff,
-                context,
-                recipients=ticket.assigned_to.email,
-                sender=ticket.queue.from_address,
-                fail_silently=True,
-                files=files,
-                )
-            messages_sent_to.append(ticket.assigned_to.email)
+        # if (not reassigned or ( reassigned and ticket.assigned_to.usersettings.settings.get('email_on_ticket_assign', False))) or (not reassigned and ticket.assigned_to.usersettings.settings.get('email_on_ticket_change', False)):
+        #     send_templated_mail(
+        #         template_staff,
+        #         context,
+        #         recipients=ticket.assigned_to.email,
+        #         sender=ticket.queue.from_address,
+        #         fail_silently=True,
+        #         files=files,
+        #         )
+        #     messages_sent_to.append(ticket.assigned_to.email)
 
     if ticket.queue.updated_ticket_cc and ticket.queue.updated_ticket_cc not in messages_sent_to:
         if reassigned:
@@ -787,7 +787,8 @@ def ticket_list(request):
         }
         ticket_qs = apply_query(Ticket.objects.select_related(), query_params)
 
-    ticket_paginator = paginator.Paginator(ticket_qs, request.user.usersettings.settings.get('tickets_per_page') or 20)
+    ticket_paginator = paginator.Paginator(ticket_qs, # request.user.usersettings.settings.get('tickets_per_page') or
+                                           20)
     try:
         page = int(request.GET.get('page', '1'))
     except ValueError:
@@ -862,8 +863,8 @@ def create_ticket(request):
             return HttpResponseRedirect(ticket.get_absolute_url())
     else:
         initial_data = {}
-        if request.user.usersettings.settings.get('use_email_as_submitter', False) and request.user.email:
-            initial_data['submitter_email'] = request.user.email
+        # if request.user.usersettings.settings.get('use_email_as_submitter', False) and request.user.email:
+        #     initial_data['submitter_email'] = request.user.email
         if request.GET.has_key('queue'):
             initial_data['queue'] = request.GET['queue']
 
@@ -1151,18 +1152,18 @@ delete_saved_query = staff_member_required(delete_saved_query)
 
 
 def user_settings(request):
-    s = request.user.usersettings
-    if request.POST:
-        form = UserSettingsForm(request.POST)
-        if form.is_valid():
-            s.settings = form.cleaned_data
-            s.save()
-    else:
-        form = UserSettingsForm(s.settings)
+    # s = request.user.usersettings
+    # if request.POST:
+    #     form = UserSettingsForm(request.POST)
+    #     if form.is_valid():
+    #         s.settings = form.cleaned_data
+    #         s.save()
+    # else:
+    #     form = UserSettingsForm(s.settings)
 
     return render_to_response('helpdesk/user_settings.html',
         RequestContext(request, {
-            'form': form,
+            # 'form': form,
         }))
 user_settings = staff_member_required(user_settings)
 
