@@ -1111,6 +1111,76 @@ class CmdTransferKeys(MuxPlayerCommand):
         self.msg("Keys transferred.")
 
 
+class CmdAdminKey(MuxCommand):
+    """
+    Grants a player a key to a container or room
+
+    Usage:
+        @admin_key <character>
+        @admin_key/add/room <character>=<room>
+        @admin_key/add/chest <character>=<chest>
+        @admin_key/rm/room <character>=<room>
+        @admin_key/rm/chest <character>=<chest>
+    """
+    key = "@admin_key"
+    locks = "cmd: perm(builders)"
+    help_category = "Admin"
+
+    def display_keys(self, pc):
+        chest_keys = pc.db.chestkeylist or []
+        room_keys = pc.db.keylist or []
+        self.msg("\n{c%s's {wchest keys:{n %s" % (pc, ", ".join(str(ob) for ob in chest_keys)))
+        self.msg("\n{c%s's {wroom keys:{n %s" % (pc, ", ".join(str(ob) for ob in room_keys)))
+
+    def func(self):
+        from typeclasses.rooms import ArxRoom
+        from typeclasses.characters import Character
+        from typeclasses.wearable.wearable import WearableContainer
+        from typeclasses.containers.container import Container
+        pc = self.caller.search(self.lhs, global_search=True, typeclass=Character)
+        if not pc:
+            return
+        chest_keys = pc.db.chestkeylist or []
+        room_keys = pc.db.keylist or []
+        if not self.rhs:
+            self.display_keys(pc)
+            return
+        if "room" in self.switches:
+            room = self.caller.search(self.rhs, global_search=True, typeclass=ArxRoom)
+            if not room:
+                return
+            if "add" in self.switches:
+                if room not in room_keys:
+                    room_keys.append(room)
+                    pc.db.keylist = room_keys
+                self.msg("{yAdded.")
+                self.display_keys(pc)
+                return
+            if room in room_keys:
+                room_keys.remove(room)
+                pc.db.keylist = room_keys
+            self.msg("{rRemoved.")
+            self.display_keys(pc)
+            return
+        if "chest" in self.switches:
+            chest = self.caller.search(self.rhs, global_search=True, typeclass=[Container, WearableContainer])
+            if not chest:
+                return
+            if "add" in self.switches:
+                if chest not in chest_keys:
+                    chest_keys.append(chest)
+                    pc.db.chestkeylist = chest_keys
+                self.msg("{yAdded.")
+                self.display_keys(pc)
+                return
+            if chest in chest_keys:
+                chest_keys.remove(chest)
+                pc.db.chestkeylist = chest_keys
+            self.msg("{rRemoved.")
+            self.display_keys(pc)
+            return
+
+
 class CmdRelocateExit(MuxCommand):
     """
     Moves an exit to a new location

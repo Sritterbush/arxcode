@@ -272,6 +272,7 @@ class StaffCmdSet(CmdSet):
         self.add(staff_commands.CmdGMDisguise())
         self.add(staff_commands.CmdGMEvent())
         self.add(staff_commands.CmdRelocateExit())
+        self.add(staff_commands.CmdAdminKey())
         self.add(extended_room.CmdExtendedDesc())
         self.add(xp.CmdAdjustSkill())
         self.add(xp.CmdAwardXP())
