@@ -1591,7 +1591,7 @@ class CmdTidyUp(MuxCommand):
 
     This removes any character who has been idle for at least
     one hour in your current room, provided that the room is
-    public.
+    public or a room you own.
     """
     key = "+tidy"
     locks = "cmd:all()"
@@ -1599,9 +1599,11 @@ class CmdTidyUp(MuxCommand):
     def func(self):
         caller = self.caller
         loc = caller.location
-        if "private" in loc.tags.all():
-            self.msg("This is a private room.")
-            return
+        if "private" in loc.tags.all() and not caller.check_permstring("builders"):
+            owners = loc.db.owners or []
+            if caller not in owners:
+                self.msg("This is a private room.")
+                return
         from typeclasses.characters import Character
         # can only boot Player Characters
         chars = Character.objects.filter(db_location=loc, roster__roster__name="Active")
