@@ -1453,6 +1453,11 @@ class CmdCalendar(MuxPlayerCommand):
                                            room_desc=room_desc)
             for host in hosts:
                 event.hosts.add(host)
+                player = host.player
+                if player != caller:
+                    msg = "You have been invited to host {c%s{n." % event.name
+                    msg += "\nFor details about this event, use {w@cal %s{n" % event.id
+                    player.inform(msg, category="Invitation", append=False)
             for gm in gms:
                 event.gms.add(gm)
             post = self.display_project(proj)
