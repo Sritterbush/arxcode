@@ -217,7 +217,7 @@ class NameMixins(object):
 
 class AppearanceMixins(object):
     def return_contents(self, pobject, detailed=True, show_ids=False,
-                        strip_ansi=False, show_places=True):
+                        strip_ansi=False, show_places=True, sep=", "):
         """
         Returns contents of the object, used in formatting our description,
         as well as when in 'brief mode' and skipping a description, but
@@ -229,6 +229,7 @@ class AppearanceMixins(object):
         :param show_ids: bool
         :param strip_ansi: bool
         :param show_places: bool
+        :param sep: str
         """
 
         def get_key(ob):
@@ -302,7 +303,7 @@ class AppearanceMixins(object):
                 string += "\n{wCharacters:{n " + ", ".join(users + [get_key(ob) for ob in npcs])
             if things:
                 things = sorted(things, key=lambda x: x.db.put_time)
-                string += "\n{wObjects:{n " + ", ".join([get_key(ob) for ob in things])
+                string += "\n{wObjects:{n " + sep.join([get_key(ob) for ob in things])
             if currency:
                 string += "\n{wMoney:{n %s" % currency
         return string
