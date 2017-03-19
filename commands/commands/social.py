@@ -1050,7 +1050,16 @@ class CmdMessenger(MuxCommand):
             for arg in self.lhslist:
                 targ = caller.player.search(arg)
                 if targ:
-                    if targ.db.char_ob and "no_messengers" in targ.db.char_ob.tags.all():
+                    can_deliver = True
+                    if not targ.db.char_ob:
+                        can_deliver = False
+                    elif "no_messengers" in targ.db.char_ob.tags.all():
+                        can_deliver = False
+                    elif not hasattr(targ, 'roster') or not targ.roster.roster:
+                        can_deliver = False
+                    elif targ.roster.roster.name not in ("Active", "Unavailable", "Available"):
+                        can_deliver = False
+                    if not can_deliver:
                         self.msg("%s cannot receive messengers." % targ)
                         continue
                     targs.append(targ)
