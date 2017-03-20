@@ -480,6 +480,9 @@ class CmdManageRoom(MuxCommand):
             caller.msg("%s changed to %s." % (old, exit_object))
             return
         if set(self.switches) & set(self.desc_switches):
+            if "player_made_room" not in loc.tags.all():
+                self.msg("You cannot change the description to a room that was made by a GM.")
+                return
             if loc.desc:
                 cost = loc.db.desc_cost or DESC_COST
             else:
@@ -1018,6 +1021,9 @@ class CmdBuyFromShop(CmdCraft):
         caller = self.caller
         loc = caller.location
         self.crafter = loc.db.shopowner
+        if not self.crafter:
+            self.msg("No shop owner is defined.")
+            return
         if self.check_blacklist():
             caller.msg("You are not permitted to buy from this shop.")
             return
