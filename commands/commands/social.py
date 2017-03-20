@@ -1057,7 +1057,7 @@ class CmdMessenger(MuxCommand):
                         can_deliver = False
                     elif not hasattr(targ, 'roster') or not targ.roster.roster:
                         can_deliver = False
-                    elif targ.roster.roster.name not in ("Active", "Unavailable", "Available"):
+                    elif targ.roster.roster.name not in ("Active", "Unavailable", "Available", "Inactive"):
                         can_deliver = False
                     if not can_deliver:
                         self.msg("%s cannot receive messengers." % targ)
