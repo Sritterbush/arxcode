@@ -124,6 +124,9 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         exit_cmdset.add(knockcmd)
         return exit_cmdset
 
+    def check_banned(self, character):
+        return self.destination.check_banned(character)
+
     def at_traverse(self, traversing_object, target_location, key_message=True, special_entrance=None, quiet=False,
                     allow_follow=True):
         """
