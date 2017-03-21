@@ -495,7 +495,8 @@ class CmdManageRoom(MuxCommand):
                 exit_object.flush_from_cache()
             caller.msg("%s changed to %s." % (old, exit_object))
             return
-        if "addbouncer" in self.switches or "rmbouncer" in self.switches or (if set(self.switches) & set(self.bouncer_switches)):
+        if "addbouncer" in self.switches or "rmbouncer" in self.switches or (
+                    set(self.switches) & set(self.bouncer_switches)):
             targ = self.caller.player.search(self.lhs)
             if not targ:
                 return
@@ -518,16 +519,21 @@ class CmdManageRoom(MuxCommand):
                 return
             if "boot" in self.switches:
                 from typeclasses.exits import Exit
-                exit = self.caller.search(self.rhs, typeclass=Exit)
-                if not exit:
+                exit_obj = self.caller.search(self.rhs, typeclass=Exit)
+                if not exit_obj:
                     return
-                if not exit.can_traverse(targ):
+                if not exit_obj.can_traverse(targ):
                     self.msg("They cannot move through that exit.")
                     return
-                exit.at_traverse(targ)
+                exit_obj.at_traverse(targ, exit_obj.destination)
                 self.msg("You have kicked out %s." % targ)
                 targ.msg("You have been kicked out by %s." % self.caller)
                 return
+        try:
+            owner = AssetOwner.objects.get(id=loc.db.room_owner)
+        except AssetOwner.DoesNotExist:
+            caller.msg("No owner is defined here.")
+            return
         if set(self.switches) & set(self.desc_switches):
             if "player_made_room" not in loc.tags.all():
                 self.msg("You cannot change the description to a room that was made by a GM.")
