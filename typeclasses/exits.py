@@ -36,6 +36,25 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
                                         not be called if the attribute `err_traverse` is
                                         defined, in which case that will simply be echoed.
     """
+    def can_traverse(self, character):
+        if self.destination.check_banned(character):
+            character.msg("You have been banned from entering there.")
+            return
+        if self.access(character, 'traverse'):
+            # we may traverse the exit.
+            return True
+        elif character.db.bypass_locked_doors:
+            msg = character.db.bypass_locked_doors or "You ignore the locked door."
+            character.msg(msg)
+            return True
+        else:
+            # exit is locked
+            if self.db.err_traverse:
+                # if exit has a better error message, let's use it.
+                character.msg(self.db.err_traverse)
+            else:
+                # No shorthand error message. Call hook.
+                self.at_failed_traverse(character)
 
     def create_exit_cmdset(self, exidbobj):
         """
@@ -62,21 +81,8 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
 
             def func(self):
                 """Default exit traverse if no syscommand is defined."""
-                if self.obj.access(self.caller, 'traverse'):
-                    # we may traverse the exit.
+                if self.obj.can_traverse(self.caller):
                     self.obj.at_traverse(self.caller, self.obj.destination)
-                elif self.caller.db.bypass_locked_doors:
-                    msg = self.caller.db.bypass_locked_doors or "You ignore the locked door."
-                    self.caller.msg(msg)
-                    self.obj.at_traverse(self.caller, self.obj.destination)
-                else:
-                    # exit is locked
-                    if self.obj.db.err_traverse:
-                        # if exit has a better error message, let's use it.
-                        self.caller.msg(self.obj.db.err_traverse)
-                    else:
-                        # No shorthand error message. Call hook.
-                        self.obj.at_failed_traverse(self.caller)
 
         # noinspection PyUnresolvedReferences
         class PassExit(command.Command):

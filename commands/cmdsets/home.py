@@ -402,6 +402,11 @@ class CmdManageRoom(MuxCommand):
         +manageroom/rmshop <owner>
         +manageroom/toggleprivate
         +manageroom/setbarracks
+        +manageroom/addbouncer <character>
+        +manageroom/rmbouncer <character>
+        +manageroom/ban <character>
+        +manageroom/unban <character>
+        +manageroom/boot <character>=<exit>
 
     Flags your current room as permitting characters to build there.
     Cost is 100 economic resources unless specified otherwise.
@@ -425,11 +430,14 @@ class CmdManageRoom(MuxCommand):
     locks = "cmd:all()"
     help_category = "Home"
     desc_switches = ("desc", "winterdesc", "springdesc", "summerdesc", "falldesc")
-
-    def func(self):
-        """Execute command."""
+    bouncer_switches = ("ban", "unban", "boot")
+    
+    def check_perms(self):
         caller = self.caller
         loc = caller.location
+        if set(self.switches) & set(self.bouncer_switches):
+            if caller in loc.bouncers:
+                return True
         try:
             owner = AssetOwner.objects.get(id=loc.db.room_owner)
         except AssetOwner.DoesNotExist:
@@ -444,6 +452,14 @@ class CmdManageRoom(MuxCommand):
         if org and not (org.access(caller, 'build') or ('confirmhome' in self.switches or
                                                         'confirmshop' in self.switches)):
             caller.msg("You do not have permission to build here.")
+            return
+        return True
+
+    def func(self):
+        """Execute command."""
+        caller = self.caller
+        loc = caller.location
+        if not self.check_perms():
             return
         if not self.switches:
             # display who has a home here, who has a shop here
@@ -479,6 +495,39 @@ class CmdManageRoom(MuxCommand):
                 exit_object.flush_from_cache()
             caller.msg("%s changed to %s." % (old, exit_object))
             return
+        if "addbouncer" in self.switches or "rmbouncer" in self.switches or (if set(self.switches) & set(self.bouncer_switches)):
+            targ = self.caller.player.search(self.lhs)
+            if not targ:
+                return
+            targ = targ.db.char_ob
+            if "addbouncer" in self.switches:
+                loc.add_bouncer(targ)
+                self.msg("%s is now a bouncer." % targ)
+                return
+            if "rmbouncer" in self.switches:
+                loc.remove_bouncer(targ)
+                self.msg("%s is no longer a bouncer." % targ)
+                return
+            if "unban" in self.switches:
+                loc.unban_character(targ)
+                self.msg("%s is no longer banned from entering." % targ)
+                return
+            if "ban" in self.switches:
+                loc.ban_character(targ)
+                self.msg("%s is now prevented from entering." % targ)
+                return
+            if "boot" in self.switches:
+                from typeclasses.exits import Exit
+                exit = self.caller.search(self.rhs, typeclass=Exit)
+                if not exit:
+                    return
+                if not exit.can_traverse(targ):
+                    self.msg("They cannot move through that exit.")
+                    return
+                exit.at_traverse(targ)
+                self.msg("You have kicked out %s." % targ)
+                targ.msg("You have been kicked out by %s." % self.caller)
+                return
         if set(self.switches) & set(self.desc_switches):
             if "player_made_room" not in loc.tags.all():
                 self.msg("You cannot change the description to a room that was made by a GM.")
