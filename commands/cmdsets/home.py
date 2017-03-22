@@ -467,6 +467,8 @@ class CmdManageRoom(MuxCommand):
             caller.msg("{wHome Owners:{n %s" % ", ".join(str(ob) for ob in owners))
             shops = loc.db.shopowner
             caller.msg("{wShop Owners:{n %s" % shops)
+            self.msg("{wBouncers:{n %s" % ", ".join(str(ob) for ob in loc.bouncers))
+            self.msg("{wBanned:{n %s" % ", ".join(str(ob) for ob in loc.banlist))
             return
         if "name" in self.switches:
             loc.name = self.args or loc.name
