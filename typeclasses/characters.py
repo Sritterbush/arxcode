@@ -798,3 +798,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
                 return False
         except AttributeError:
             return False
+
+    @property
+    def titles(self):
+        full_titles = self.db.titles or []
+        return ", ".join(str(ob) for ob in full_titles)

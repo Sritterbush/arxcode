@@ -265,6 +265,9 @@ class CmdFinger(MuxPlayerCommand):
             return
         name = char.db.longname or char.key
         msg = "\n{wName:{n %s\n" % name
+        titles = char.titles
+        if titles:
+            msg += "{wFull Titles:{n %s\n" % titles
         if "rostercg" in char.tags.all():
             msg += "{wRoster Character{n\n"
         else:

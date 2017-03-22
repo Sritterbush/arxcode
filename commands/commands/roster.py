@@ -634,6 +634,9 @@ def display_header(caller, character, show_hidden=False):
                'haircolor': haircolor, 'skintone': skintone, 'marital_status': marital_status,
                }
     caller.msg(header)
+    full_titles = character.titles
+    if full_titles:
+        caller.msg("{wFull titles:{n %s" % full_titles)
     desc = character.desc
     if not desc:
         desc = "No description set."

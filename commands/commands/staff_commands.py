@@ -1206,3 +1206,42 @@ class CmdRelocateExit(MuxCommand):
             return
         exit_obj.relocate(new_room)
         self.msg("Moved %s to %s." % (exit_obj, new_room))
+
+
+class CmdAdminTitles(MuxPlayerCommand):
+    """
+    Adds or removes titles from a character
+
+    Usage:
+        @admin_titles <character>
+        @admin_titles/add <character>=<title>
+        @admin_titles/remove <character>=<title>
+    """
+    key = "@admin_titles"
+    locks = "cmd: perm(builders)"
+    help_category = "GMing"
+
+    def display_titles(self, targ):
+        titles = targ.db.titles or []
+        self.msg("%s's titles: %s" % (targ, "; ".join(str(ob) for ob in titles)))
+
+    def func(self):
+        targ = self.caller.search(self.lhs)
+        if not targ:
+            return
+        targ = targ.db.char_ob
+        titles = targ.db.titles or []
+        if not self.rhs:
+            self.display_titles(targ)
+            return
+        if "add":
+            if self.rhs not in titles:
+                titles.append(self.rhs)
+                targ.db.titles = titles
+            self.display_titles(targ)
+            return
+        if "remove":
+            if self.rhs in titles:
+                titles.remove(self.rhs)
+                targ.db.titles = titles
+            self.display_titles(targ)
