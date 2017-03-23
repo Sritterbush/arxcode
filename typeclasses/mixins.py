@@ -512,6 +512,7 @@ class MsgMixins(object):
             text = str(text)
         except (TypeError, UnicodeDecodeError, ValueError):
             pass
+        text += "{n"
         text = sub_old_ansi(text)
         if from_obj and isinstance(from_obj, dict):
             # somehow our from_obj had a dict passed to it. Fix it up.
