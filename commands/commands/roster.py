@@ -86,7 +86,7 @@ def list_characters(caller, character_list, roster_type="Active Characters", ros
             afk = "-"
             # check if the name matches anything in the hidden characters list
             hide = False
-            if charob and hasattr(charob, 'is_disguised') and charob.is_disguised:
+            if charob and not use_keys and hasattr(charob, 'is_disguised') and charob.is_disguised:
                 hide = True
             if not charob and hidden_chars:
                 # convert both to lower case for case-insensitive matching
