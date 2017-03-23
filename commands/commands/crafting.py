@@ -51,12 +51,8 @@ def create_weapon(recipe, roll, proj, caller):
 
 
 def create_wearable(recipe, roll, proj, caller):
-    slot = recipe.resultsdict.get("slot", None)
-    slot_limit = int(recipe.resultsdict.get("slot_limit", 0))
     quality = get_quality_lvl(roll, recipe.difficulty)
     obj = create_obj(WEAR, proj[1], caller, caller, quality)
-    obj.db.slot = slot
-    obj.db.slot_limit = slot_limit
     return obj, quality
 
 

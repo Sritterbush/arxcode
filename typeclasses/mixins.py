@@ -216,6 +216,17 @@ class NameMixins(object):
 
 
 class AppearanceMixins(object):
+
+    @property
+    def recipe(self):
+        if self.db.recipe:
+            from world.dominion.models import CraftingRecipe
+            try:
+                recipe = CraftingRecipe.objects.get(id=self.db.recipe)
+                return recipe
+            except CraftingRecipe.DoesNotExist:
+                pass
+
     def return_contents(self, pobject, detailed=True, show_ids=False,
                         strip_ansi=False, show_places=True, sep=", "):
         """
@@ -403,13 +414,9 @@ class AppearanceMixins(object):
                 adorn_strs.append("%s %s" % (amt, mat.name))
             string += "\nAdornments: %s" % ", ".join(adorn_strs)
         # recipe is an integer matching the CraftingRecipe ID
-        if self.db.recipe:
-            from world.dominion.models import CraftingRecipe
-            try:
-                recipe = CraftingRecipe.objects.get(id=self.db.recipe)
-                string += "\nIt is a %s." % recipe.name
-            except CraftingRecipe.DoesNotExist:
-                pass
+        recipe = self.recipe
+        if recipe:
+            string += "\nIt is a %s." % recipe.name
         # quality_level is an integer, we'll get a name from crafter file's dict
         string += self.get_quality_appearance()
         if self.db.translation:
@@ -512,7 +519,8 @@ class MsgMixins(object):
             text = str(text)
         except (TypeError, UnicodeDecodeError, ValueError):
             pass
-        text += "{n"
+        if text.endswith("|"):
+            text += "{n"
         text = sub_old_ansi(text)
         if from_obj and isinstance(from_obj, dict):
             # somehow our from_obj had a dict passed to it. Fix it up.

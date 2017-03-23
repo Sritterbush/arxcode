@@ -27,8 +27,6 @@ class Wearable(Object):
         self.db.currently_worn = False
         self.db.desc = "A piece of clothing or armor."
         self.db.armor_class = 0
-        self.db.slot = None
-        self.db.slot_limit = 1
         self.at_init()
 
     def remove(self, wearer):
@@ -148,6 +146,20 @@ class Wearable(Object):
             return self.ndb.cached_penalty_value
         return self.calc_armor()[1]
     penalty = property(_get_penalty)
+
+    @property
+    def slot(self):
+        recipe = self.recipe
+        if not recipe:
+            return self.db.slot
+        return recipe.resultsdict.get("slot", None)
+
+    @property
+    def slot_limit(self):
+        recipe = self.recipe
+        if not recipe:
+            return self.db.slot_limit or 0
+        return recipe.resultsdict.get("slot_limit", 1)
 
 
 # noinspection PyMethodMayBeStatic
