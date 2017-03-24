@@ -274,14 +274,17 @@ class CmdFinger(MuxPlayerCommand):
             msg += "{wOriginal Character{n\n"
         if show_hidden:
             msg += "{wCharID:{n %s, {wPlayerID:{n %s\n" % (char.id, player.id)
-        session = player.get_all_sessions() and player.get_all_sessions()[0]
-        if session and (not player.db.hide_from_watch or caller.check_permstring("builders")):
-            idle_time = time.time() - session.cmd_last_visible
-            idle = "Online and is idle" if idle_time > 1200 else "Online, not idle"
-            msg += "{wStatus:{n %s\n" % idle
+        if char.db.obituary:
+            msg += "{wObituary:{n %s\n" % char.db.obituary
         else:
-            last_online = player.last_login and player.last_login.strftime("%m-%d-%y") or "Never"
-            msg += "{wStatus:{n Last logged in: %s\n" % last_online
+            session = player.get_all_sessions() and player.get_all_sessions()[0]
+            if session and (not player.db.hide_from_watch or caller.check_permstring("builders")):
+                idle_time = time.time() - session.cmd_last_visible
+                idle = "Online and is idle" if idle_time > 1200 else "Online, not idle"
+                msg += "{wStatus:{n %s\n" % idle
+            else:
+                last_online = player.last_login and player.last_login.strftime("%m-%d-%y") or "Never"
+                msg += "{wStatus:{n Last logged in: %s\n" % last_online
         fealty = char.db.fealty or "None"
         msg += "{wFealty:{n %s\n" % fealty
         pageroot = "http://play.arxgame.org"

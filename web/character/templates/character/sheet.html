@@ -54,6 +54,8 @@
 	</div>
 	</div>
 	</div>
+    {% if character.db.obituary %}
+    <p><b>Obituary:</b> {{ character.db.obituary|mush_to_html }}</p>{% endif %}
     <p><b>Description:</b> {{ character.desc|mush_to_html }}</p>
 
     <p><b>Personality:</b> {{ character.db.personality|mush_to_html }}</p>
