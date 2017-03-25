@@ -1128,7 +1128,7 @@ class CmdBuyFromShop(CmdCraft):
                 return
             caller.msg(obj.return_appearance(caller))
             return
-        if set(self.switches) & set(self.crafting_switches):
+        if set(self.switches) & set(self.crafting_switches + ("craft",)):
             return CmdCraft.func(self)
         caller.msg("Invalid switch.")
 
