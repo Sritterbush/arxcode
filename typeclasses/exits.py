@@ -37,6 +37,9 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
                                         defined, in which case that will simply be echoed.
     """
     def can_traverse(self, character):
+        if character.db.mask and "private" not in self.destination.tags.all():
+            character.msg("The guards of %s inform you that such masks are forbidden in public, per Decree 47c Appendix L of Queen Alaricetta the Prudent." % self.destination)
+            return
         if self.destination.check_banned(character):
             character.msg("You have been banned from entering there.")
             return

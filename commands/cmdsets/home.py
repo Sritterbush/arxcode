@@ -947,12 +947,12 @@ class CmdBuyFromShop(CmdCraft):
         +shop/changename <object>=<new name>
         +shop/viewdesigns [<key>]
 
-    Allows you to buy objects from a shop. +shop/craft allows you to use a
-    crafter's skills to create an item. You must provide the materials
-    yourself. Similarly, +shop/refine lets you use a crafter's skills to
-    attempt to improve a crafted object. All costs are covered by you.
-    +shop/design lets you see pre-made descriptions that the crafter has
-    created that you can copy for items you create.
+    Allows you to buy objects from a shop. +shop/craft allows you to use a 
+    crafter's skills to create an item. Check 'help craft' to see the full list 
+    of switches, all of which can be used with +shop. Similarly, +shop/refine 
+    lets you use a crafter's skills to attempt to improve a crafted object. All 
+    costs and materials are covered by you. +shop/viewdesigns lets you see the 
+    crafter's pre-made descriptions that you can copy for items you create.
     """
     key = "+shop"
     aliases = ["@shop", "shop"]
@@ -1128,10 +1128,7 @@ class CmdBuyFromShop(CmdCraft):
                 return
             caller.msg(obj.return_appearance(caller))
             return
-        if ("craft" in self.switches or "refine" in self.switches or
-                "desc" in self.switches or "adorn" in self.switches or
-                "finish" in self.switches or "name" in self.switches or
-                "abandon" in self.switches or "changename" in self.switches):
+        if set(self.switches) & set(self.crafting_switches):
             return CmdCraft.func(self)
         caller.msg("Invalid switch.")
 

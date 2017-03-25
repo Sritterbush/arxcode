@@ -36,13 +36,14 @@ class Wearable(Object):
         if not self.at_pre_remove(wearer):
             return False
         self.db.currently_worn = False
-        # TODO it could be worth moving self.at_post_remove to this point rather than have separate calls
-        # outside the function. Be sure to search for all instances of the usage of at_post_remove.
+        self.at_post_remove(wearer)
         return True
 
     def softdelete(self):
+        wearer = self.location
         super(Wearable, self).softdelete()
         self.db.currently_worn = False
+        self.at_post_remove(wearer)
 
     # noinspection PyAttributeOutsideInit
     def wear(self, wearer):
@@ -57,6 +58,7 @@ class Wearable(Object):
             self.location = wearer
         self.db.worn_time = time()
         self.calc_armor()
+        self.at_post_wear(wearer)
         return True
 
     def at_after_move(self, source_location):

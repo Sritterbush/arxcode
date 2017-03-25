@@ -66,7 +66,6 @@ class CmdWear(MuxCommand):
                 return
         if obj.wear(caller):
             caller.msg("You put on %s." % obj.name)
-            obj.at_post_wear(caller)
             return
 
 
@@ -105,7 +104,6 @@ class CmdRemove(MuxCommand):
             return
         if obj.remove(caller):
             caller.msg("You take off %s." % obj.name)
-            obj.at_post_remove(caller)
             return
         pass
 

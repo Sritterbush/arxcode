@@ -1,6 +1,7 @@
 from server.utils.arx_utils import sub_old_ansi
 import re
 from evennia.utils.utils import lazy_property
+from evennia.utils.ansi import parse_ansi
 
 
 class DescMixins(object):
@@ -178,7 +179,9 @@ class NameMixins(object):
         old = self.db.false_name
         self.db.false_name = val
         if old:
+            old = parse_ansi(old, strip_ansi=True)
             self.aliases.remove(old)
+        val = parse_ansi(val, strip_ansi=True)
         self.aliases.add(val)
 
     @fakename.deleter
@@ -188,6 +191,7 @@ class NameMixins(object):
         """
         old = self.db.false_name
         if old:
+            old = parse_ansi(old, strip_ansi=True)
             self.aliases.remove(old)
         self.attributes.remove("false_name")
 
@@ -203,7 +207,6 @@ class NameMixins(object):
         """
         :type self: ObjectDB
         """
-        from evennia.utils.ansi import parse_ansi
         # convert color codes
         val = sub_old_ansi(val)
         self.db.colored_name = val
@@ -250,7 +253,6 @@ class AppearanceMixins(object):
                 object_key = ob.name
             if strip_ansi:
                 try:
-                    from evennia.utils.ansi import parse_ansi
                     object_key = parse_ansi(object_key, strip_ansi=True)
                 except (AttributeError, TypeError, ValueError):
                     pass
@@ -378,7 +380,6 @@ class AppearanceMixins(object):
             desc = self.desc
         if strip_ansi:
             try:
-                from evennia.utils.ansi import parse_ansi
                 desc = parse_ansi(desc, strip_ansi=True)
             except (AttributeError, ValueError, TypeError):
                 pass
