@@ -51,7 +51,7 @@ class CmdWear(MuxCommand):
         if not obj:
             return
 
-        if not obj.db.is_wearable:
+        if not hasattr(obj, 'wear'):
             caller.msg("You can't wear that.")
             return
         if obj.db.currently_worn:

@@ -4,6 +4,7 @@ Disguises and Masks
 from typeclasses.wearable.wearable import Wearable
 from typeclasses.consumable.consumable import Consumable
 
+
 class Mask(Wearable):
     """
     Wearable mask that replaces name with 'A <gender> wearing <short desc> mask'. 
@@ -41,12 +42,15 @@ class Mask(Wearable):
         # TODO if show_alias = True, add check here for rapsheet
         # Then can don alias by putting on any mask maybe?
         gender = "Someone"
-        if wearer.gender.lower().startswith("f"):
-            gender = "A Lady"
-        if wearer.gender.lower().startswith("m"):
-            gender = "A Man"
+        try:
+            if wearer.db.gender.lower().startswith("f"):
+                gender = "A Lady"
+            if wearer.db.gender.lower().startswith("m"):
+                gender = "A Man"
+        except AttributeError:
+            pass
         wearer.db.mask = self
-        wearer.fakename = "{c%s wearing %s{n" % (gender, self.key)
+        wearer.fakename = "{c%s wearing %s{n" % (gender, self)
         wearer.temp_desc = self.db.maskdesc
         return
     
@@ -58,7 +62,6 @@ class Mask(Wearable):
         return
     
     
-    
 class DisguiseKit(Consumable):
     """
     morestoof
@@ -67,4 +70,5 @@ class DisguiseKit(Consumable):
         """
         Determines if a target is valid.
         """
+        from evennia.utils.utils import inherits_from
         return inherits_from(target, self.valid_typeclass_path)

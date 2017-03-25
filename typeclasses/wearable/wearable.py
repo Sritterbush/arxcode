@@ -23,7 +23,6 @@ class Wearable(Object):
         """
         Run at Wearable creation.
         """
-        self.db.is_wearable = True
         self.db.currently_worn = False
         self.db.desc = "A piece of clothing or armor."
         self.db.armor_class = 0

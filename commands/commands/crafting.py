@@ -121,12 +121,14 @@ def create_consumable(recipe, roll, proj, caller, typeclass):
                      caller, quality)
     return obj, quality
 
+
 def create_mask(recipe, roll, proj, caller, maskdesc):
     quality = get_quality_lvl(roll, recipe.difficulty)
     obj = create_obj(MASK, proj[1], caller,
                      caller, quality)
     obj.db.maskdesc = maskdesc
     return obj, quality
+
 
 def create_obj(typec, key, loc, home, quality):
     if "{" in key and not key.endswith("{n"):
@@ -280,7 +282,8 @@ class CmdCraft(MuxCommand):
     locks = "cmd:all()"
     help_category = "Crafting"
     crafter = None
-    crafting_switches = ("name", "desc", "altdesc", "adorn", "translated_text", "forgery", "finish", "abandon", "refine", "changename")
+    crafting_switches = ("name", "desc", "altdesc", "adorn", "translated_text", "forgery", "finish", "abandon",
+                         "refine", "changename")
 
     def get_refine_price(self, base):
         return 0
