@@ -1003,9 +1003,19 @@ class CmdHarm(MuxCommand):
             return
         except IndexError:
             pass
-        charlist = [self.caller.search(arg) for arg in self.lhslist if self.caller.search(arg)]
+        players = []
+        for arg in self.lhslist:
+            player = self.caller.player.search(arg)
+            if player:
+                players.append(player)
+        charlist = [ob.db.char_ob for ob in players if ob.db.char_ob]
+        if not charlist:
+            return
         for obj in charlist:
-            obj.msg(message)
+            if obj.player:
+                obj.msg(message)
+            else:
+                obj.db.player_ob.inform(message, category="Damage")
             obj.dmg += amt
         self.msg("You inflicted %s damage on %s" % (amt, ", ".join(str(obj) for obj in charlist)))
 
