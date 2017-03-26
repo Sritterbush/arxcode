@@ -13,6 +13,7 @@ class TicketAdmin(admin.ModelAdmin):
     list_filter = ('status', 'queue', 'priority')
     search_fields = ('id', 'title', 'assigned_to__username', 'submitting_player__username', 'description',
                      'resolution')
+    raw_id_fields = ('assigned_to', 'submitting_player', 'submitting_room')
 
 class TicketChangeInline(admin.StackedInline):
     model = TicketChange
