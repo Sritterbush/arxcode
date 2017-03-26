@@ -435,7 +435,7 @@ class CmdManageRoom(MuxCommand):
     def check_perms(self):
         caller = self.caller
         loc = caller.location
-        if set(self.switches) & set(self.bouncer_switches):
+        if not self.switches or set(self.switches) & set(self.bouncer_switches):
             if caller in loc.bouncers:
                 return True
         try:
