@@ -791,6 +791,9 @@ class CmdInvestigate(InvestigationFormCommand):
                 caller.msg(ob.display())
                 return
             if "active" in self.switches:
+                if ob.active:
+                    self.msg("It is already active.")
+                    return
                 try:
                     current_active = entry.investigations.get(active=True)
                 except Investigation.DoesNotExist:
