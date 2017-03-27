@@ -248,6 +248,11 @@ class EventManager(Script):
             log.write(msg)
         except Exception:
             traceback.print_exc()
+            
+    def add_gemit(self, msg):
+        msg = parse_ansi(msg, strip_ansi=True)
+        for event_id in self.db.active_events:
+            self.add_msg(event_id, msg)
 
     @staticmethod
     def do_awards(event):

@@ -83,7 +83,9 @@ class CmdGemit(MuxPlayerCommand):
 
     Announces a message to all connected players.
     Unlike @wall, this command will only send the text,
-    without "soandso shouts:" attached.
+    without "soandso shouts:" attached. It will also be logged to 
+    all actively running events. Text will be sent in green by 
+    default.
     """
     key = "@gemit"
     locks = "cmd:perm(gemit) or perm(Wizards)"
@@ -97,6 +99,8 @@ class CmdGemit(MuxPlayerCommand):
             return
         if "norecord" in self.switches:
             self.msg("Announcing to all connected players ...")
+            if not self.args.startswith("{") and not self.args.startswith("|"):
+                self.args = "|g" + self.args
             broadcast(self.args, format_announcement=False)
             return
 
@@ -121,6 +125,8 @@ class CmdGemit(MuxPlayerCommand):
         StoryEmit.objects.create(episode=episode, chapter=chapter, text=msg,
                                  sender=caller)
         self.msg("Announcing to all connected players ...")
+        if not msg.startswith("{") and not msg.startswith("|"):
+            msg = "|g" + msg
         broadcast(msg, format_announcement=False)
         # get board and post
         from typeclasses.bulletin_board.bboard import BBoard
