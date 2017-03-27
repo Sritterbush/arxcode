@@ -1280,9 +1280,13 @@ class Domain(models.Model):
         mssg += "{wLand{n: %s\n" % self.land
         mssg += "{wHouse{n: %s\n" % str(self.ruler)
         mssg += "{wLiege{n: %s\n" % str(liege)
-        mssg += "{wRuler{n: %s\n" % castellan
-        for minister in ministers:
-            mssg += "{wMinister of %s{n: %s\n" % (minister.get_category_display(), minister.player)
+        mssg += "{wRuler{n: {c%s{n\n" % castellan
+        if ministers:
+            mssg += "{wMinisters:{n\n"
+            for minister in ministers:
+                mssg += "  {c%s{n   {wCategory:{n %s  {wTitle:{n %s\n" % (minister.player,
+                                                                          minister.get_category_display(),
+                                                                          minister.title)
         mssg += "{wDesc{n: %s\n" % self.desc
         mssg += "{wArea{n: %s {wFarms{n: %s {wHousing{n: %s " % (self.area, self.num_farms, self.num_housing)
         mssg += "{wMines{n: %s {wLumber{n: %s {wMills{n: %s\n" % (self.num_mines, self.num_lumber_yards, self.num_mills)
@@ -1481,6 +1485,9 @@ class Minister(models.Model):
     player = models.ForeignKey("PlayerOrNpc", related_name="appointments", blank=True, null=True, db_index=True)
     ruler = models.ForeignKey("Ruler", related_name="ministers", blank=True, null=True, db_index=True)
     category = models.PositiveSmallIntegerField(choices=MINISTER_TYPES, default=INCOME)
+
+    def __str__(self):
+        return "%s acting as %s minister for %s" % (self.player, self.get_category_display(), self.ruler)
 
 
 class Ruler(models.Model):

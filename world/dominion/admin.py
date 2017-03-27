@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb,
+from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister,
                      AssetOwner, Region, Land, DomainProject, Castle,
                      Ruler, Army, Orders, MilitaryUnit, Member, Task,
                      CraftingRecipe, CraftingMaterialType, CraftingMaterials, CrisisActionAssistant,
@@ -125,11 +125,18 @@ class UnitAdmin(DomAdmin):
     list_filter = ('army',)
 
 
+class MinisterInline(admin.TabularInline):
+    model = Minister
+    raw_id_fields = ('player', 'ruler')
+    extra = 0
+
+
 class RulerAdmin(DomAdmin):
     list_display = ('id', 'house', 'liege', 'castellan')
     ordering = ['house']
     search_fields = ['house__organization_owner__name']
-    raw_id_fields = ('castellan', 'house')
+    raw_id_fields = ('castellan', 'house', 'liege')
+    inlines = (MinisterInline,)
 
 
 class DomainAdmin(DomAdmin):

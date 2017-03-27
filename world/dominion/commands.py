@@ -1237,6 +1237,7 @@ class CmdDomain(MuxPlayerCommand):
         @domain/minister <domain ID>=<player>,<category>
         @domain/resign <domain ID>
         @domain/strip <domain ID>=<player>
+        @domain/title <domain ID>=<minister>,<title>
 
     Commands to view and control your domain.
 
@@ -1369,26 +1370,40 @@ class CmdDomain(MuxPlayerCommand):
                 return
             self.msg("You are not a ruler or minister of %s." % dom)
             return
-        if "strip" in self.switches:
+        if "strip" in self.switches or "title" in self.switches:
             if dom not in (self.org_domains | self.ruled_domains).distinct():
-                self.msg("You do not have the authority to strip someone of their position.")
+                self.msg("You do not have the authority to strip someone of their position or grant a title.")
                 return
-            targ = self.caller.search(self.rhs)
+            if "strip" in self.switches:
+                rhs = self.rhs
+            else:
+                rhs = self.rhslist[0]
+            targ = self.caller.search(rhs)
             if not targ:
                 return
             dompc = targ.Dominion
-            if dom.ruler.castellan == dompc:
-                self.msg("Removing %s as castellan.")
-                dom.ruler.castellan = None
-                dom.ruler.save()
+            if "strip" in self.switches:
+                if dom.ruler.castellan == dompc:
+                    self.msg("Removing %s as castellan.")
+                    dom.ruler.castellan = None
+                    dom.ruler.save()
+                    return
+                try:
+                    minister = dom.ruler.ministers.get(player=dompc)
+                    minister.delete()
+                    self.msg("You have removed %s as a minister." % dompc)
+                except Minister.DoesNotExist:
+                    self.msg("They are neither a minister nor castellan for that domain.")
                 return
-            try:
-                minister = dom.ruler.ministers.get(player=dompc)
-                minister.delete()
-                self.msg("You have removed %s as a minister." % dompc)
-            except Minister.DoesNotExist:
-                self.msg("They are neither a minister nor castellan for that domain.")
-            return
+            else:
+                try:
+                    minister = dom.ruler.ministers.get(player=dompc)
+                    minister.title = self.rhslist[1]
+                    minister.save()
+                    self.msg("Setting title of %s to be: %s" % (dompc, self.rhslist[1]))
+                except Minister.DoesNotExist:
+                    self.msg("They are neither a minister nor castellan for that domain.")
+                return
         self.msg("Invalid switch.")
 
 
