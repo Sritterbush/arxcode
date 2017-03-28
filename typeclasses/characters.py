@@ -304,6 +304,9 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         caller's hands to trigger other checks - death checks if we got
         worse, unconsciousness checks, whatever.
         """
+        # no helping us if we're dead
+        if self.db.health_status == "dead":
+            return
         diff = 0 + diff_mod
         roll = do_dice_check(self, stat_list=["willpower", "stamina"], difficulty=diff)
         wound = float(abs(roll))/float(self.max_hp)
@@ -324,6 +327,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         self.dmg -= roll
         if not free:
             self.db.last_recovery_test = time.time()
+        if self.dmg <= self.max_hp and self.db.sleep_status != "awake":
+            self.wake_up()
         return roll
 
     def sensing_check(self, difficulty=15, invis=False, allow_wake=False):

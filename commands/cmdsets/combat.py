@@ -1089,9 +1089,16 @@ class CmdHeal(MuxCommand):
             heal_roll = do_dice_check(caller, stat="intellect", skill="medicine", difficulty=15)
         caller.msg("You rolled a %s on your heal roll." % heal_roll)
         targ.msg("%s tends to your wounds, rolling %s on their heal roll." % (caller, heal_roll))
+        script = targ.scripts.get("Recovery")
+        if script:
+            script = script[0]
+            max_heal = script.db.max_healing or 0
+            if heal_roll < max_heal:
+                caller.msg("They have received better care already. You can't help them.")
+                targ.msg("You have received better care already. %s isn't able to help you." % caller)
+                return
+            script.db.max_healing = heal_roll
         targ.recovery_test(diff_mod=-heal_roll)
-        if heal_roll > 0 and targ.db.sleep_status != "awake":
-            targ.wake_up()
 
 
 class CmdStandYoAssUp(MuxCommand):
