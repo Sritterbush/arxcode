@@ -255,9 +255,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         if self.location:
             if not quiet and not self.conscious:
                 self.location.msg_contents("%s wakes up." % self.name)
-            combat = self.location.ndb.combat_manager
-            if combat and self in combat.ndb.combatants:
-                combat.wake_up(self)
+            self.combat.wake_up(self)
         try:
             from commands.cmdsets import sleep
             self.cmdset.delete(sleep.SleepCmdSet)
@@ -737,17 +735,17 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         from django.core.urlresolvers import reverse
         return reverse('character:sheet', kwargs={'object_id': self.id})
 
-    @property
-    def combat_data(self):
-        from typeclasses.scripts.combat.combatant import CharacterCombatData
-        return CharacterCombatData(self, None)
+    @lazy_property
+    def combat(self):
+        from typeclasses.scripts.combat.combatant import CombatHandler
+        return CombatHandler(self, None)
 
     def view_stats(self, viewer, combat=False):
         from commands.commands.roster import display_stats, display_skills
         display_stats(viewer, self)
         display_skills(viewer, self)
         if combat:
-            viewer.msg(self.combat_data.display_stats())
+            viewer.msg(self.combat.display_stats())
 
     @property
     def posecount(self):

@@ -117,8 +117,6 @@ class CombatManager(BaseScript):
         self.start_delay = True
         self.ndb.combatants = []  # those actively involved in fight
         self.ndb.observers = []  # sent combat data, but cannot act
-        self.ndb.incapacitated = []  # in combat, but with few valid actions
-        self.ndb.fighter_data = {}  # dict of char.id to CharacterCombatData
         self.ndb.combat_location = self.obj  # room of the fight
         self.ndb.initiative_list = []  # CharacterCombatData of characters in order of initiative
         self.ndb.active_character = None  # who is currently acting during phase 2
@@ -146,9 +144,6 @@ class CombatManager(BaseScript):
             self.ready_check()
         self.display_phase_status_to_all()
 
-    def get_fighter_data(self, f_id):
-        return self.ndb.fighter_data.get(f_id, None)
-    
     def is_valid(self):
         """
         Check if still has combatants. Incapacitated characters are still
@@ -217,7 +212,7 @@ class CombatManager(BaseScript):
     def build_status_table(self):
         table = PrettyTable(["{wName{n", "{wDamage{n", "{wFatigue{n", "{wAction{n", "{wReady?{n"])
         for char in self.ndb.combatants:
-            com = self.ndb.fighter_data.get(char.id, None)
+            com = char.combat
             if not com:
                 continue
             name = com.name
@@ -265,10 +260,9 @@ class CombatManager(BaseScript):
         if self.ndb.phase != 2:
             raise CombatError("Attempted to attack in wrong phase.")
         self.remove_afk(attacker)
-        fite = self.ndb.fighter_data
-        a_fite = fite[attacker.id]
+        a_fite = attacker.combat
         weapon = a_fite.weapon
-        d_fite = fite[target.id]
+        d_fite = target.combat
         # modifiers from our stance (aggressive, defensive, etc)
         attack_penalty += combat_settings.STANCE_ATK_MOD[a_fite.stance]
         defense_penalty += combat_settings.STANCE_DEF_MOD[d_fite.stance]
@@ -277,8 +271,8 @@ class CombatManager(BaseScript):
             attack_penalty += 5
         if d_fite.covering_targs:
             defense_penalty += 5
-        a_roll = a_fite.roll_attack(d_fite, attack_penalty)
-        d_roll = d_fite.roll_defense(a_fite, weapon, defense_penalty, a_roll)
+        a_roll = a_fite.roll_attack(target, attack_penalty)
+        d_roll = d_fite.roll_defense(attacker, weapon, defense_penalty, a_roll)
         message = "%s attempts to attack %s. " % (a_fite, d_fite)
         self.msg("%s rolls %s to attack, %s rolls %s to defend." % (a_fite, a_roll, d_fite, d_roll))
         # check if we were sleeping
@@ -291,9 +285,10 @@ class CombatManager(BaseScript):
         if a_roll < 0 and result < -30 and allow_botch:
             self.msg(message, options={'roll': True})
             can_riposte = a_fite.can_be_parried and d_fite.can_riposte
-            if target in self.ndb.incapacitated or awake != "awake":
+            if not target.conscious:
                 can_riposte = False
-            if target not in self.ndb.incapacitated and awake == "asleep":
+            # asleep is very specific, being unconscious doesn't apply here
+            if awake == "asleep":
                 target.wake_up()
             self.handle_botch(attacker, a_roll, can_riposte, target, attack_penalty, defense_penalty,
                               dmg_penalty, free_attack)
@@ -316,8 +311,8 @@ class CombatManager(BaseScript):
         else:
             message += "%s %s the attack." % (d_fite, d_fite.last_defense_method)
             self.msg(message)
-        # if we were asleep before the attack and aren't incapacitated, we wake up
-        if target not in self.ndb.incapacitated and awake == "asleep":
+        # asleep is very specific, being unconscious doesn't apply here
+        if awake == "asleep":
             target.wake_up()
         if not free_attack:  # situations where a character gets a 'free' attack
             a_fite.remaining_attacks -= 1
@@ -330,7 +325,7 @@ class CombatManager(BaseScript):
         """
         Processes the results of botching a roll.
         """
-        b_fite = self.ndb.fighter_data[botcher.id]
+        b_fite = botcher.combat
         if can_riposte and target:
             self.msg("%s {rbotches{n their attack, leaving themselves open to a riposte." % b_fite)
             self.do_attack(target, botcher, attack_penalty, defense_penalty, dmg_penalty,
@@ -359,15 +354,14 @@ class CombatManager(BaseScript):
         situations. NPCs, on the other hand, can be killed outright.
         """
         # stuff to mitigate damage here
-        fite = self.ndb.fighter_data
-        a_fite = fite[attacker.id]
-        d_fite = fite[target.id]
+        a_fite = attacker.combat
+        d_fite = target.combat
         # if damage is increased, it's pre-mitigation
         if dmgmult > 1.0:
-            dmg = a_fite.roll_damage(d_fite, dmg_penalty, dmgmult)
+            dmg = a_fite.roll_damage(target, dmg_penalty, dmgmult)
         else:
-            dmg = a_fite.roll_damage(d_fite, dmg_penalty)
-        mit = d_fite.roll_mitigation(a_fite, weapon, roll)
+            dmg = a_fite.roll_damage(target, dmg_penalty)
+        mit = d_fite.roll_mitigation(attacker, weapon, roll)
         self.msg("%s rolled %s damage against %s's %s mitigation." % (a_fite, dmg, d_fite, mit))
         dmg -= mit
         # if damage is reduced by multiplier, it's post mitigation
@@ -398,7 +392,7 @@ class CombatManager(BaseScript):
         grace_period = False  # one round delay between incapacitation and death for PCs
         if target.dmg > target.max_hp:
             # if we're not incapacitated, we start making checks for it
-            if target not in self.ndb.incapacitated:
+            if target.conscious:
                 # check is sta + willpower against dmg past uncon to stay conscious
                 diff = target.dmg - target.max_hp
                 consc_check = do_dice_check(target, stat_list=["stamina", "willpower"], skill="survival",
@@ -412,7 +406,7 @@ class CombatManager(BaseScript):
                     self.msg(message)
                 else:
                     message = "%s is incapacitated from their wounds." % d_fite
-                    self.incapacitate(target)
+                    target.fall_asleep(uncon=True)
                 # for PCs who were knocked unconscious this round
                 if not target.db.npc and not grace_period:
                     grace_period = True  # always a one round delay before you can kill a player
@@ -440,34 +434,8 @@ class CombatManager(BaseScript):
                     if self.ndb.lethal:
                         target.death_process()
                     else:
-                        self.incapacitate(target)
+                        target.fall_asleep(uncon=True)
                     
-    def incapacitate(self, character):
-        """
-        Character falls unconscious due to wounds.
-        """
-        ifite = self.ndb.fighter_data[character.id]   
-        if not ifite.multiple:
-            self.ndb.incapacitated.append(character)        
-            ifite.status = "incapacitated"
-            if hasattr(character, "fall_asleep"):
-                character.fall_asleep(uncon=True)
-        else:
-            ifite.num -= 1
-            if ifite.num <= 0:
-                self.remove_combatant(character)
-            self.msg("There are %s remaining." % ifite.num)
-
-    def wake_up(self, character):
-        """
-        Called by character.wake_up() to update us in combat. When
-        trying to wake up a character, calls should go there, not
-        here.
-        """
-        if character in self.ndb.incapacitated:
-            self.ndb.incapacitated.remove(character)
-        self.ndb.fighter_data[character.id].status = "active"
-        
     def do_flank(self, attacker, target, sneaking=False, invis=False, attack_guard=True):
         """
         Attempts to circle around a character. If successful, we get an
@@ -815,7 +783,7 @@ class CombatManager(BaseScript):
         if not self or not self.pk or self.ndb.shutting_down:
             self.end_combat()
             return
-        active_combatants = [ob for ob in self.ndb.combatants if ob not in self.ndb.incapacitated]
+        active_combatants = [ob for ob in self.ndb.combatants if ob.conscious]
         active_fighters = [self.ndb.fighter_data[ob.id] for ob in active_combatants if ob.id in self.ndb.fighter_data]
         active_fighters = [ob for ob in active_fighters if not (ob.automated and ob.queued_action.qtype == "Pass")]
         if not active_fighters:
@@ -825,7 +793,7 @@ class CombatManager(BaseScript):
         for char in self.ndb.combatants:
             if self.ndb.fighter_data[char.id].ready:
                 ready.append(char)
-            elif char in self.ndb.incapacitated:
+            elif not char.conscious:
                 ready.append(char)
             else:
                 not_ready.append(char)

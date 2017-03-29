@@ -19,7 +19,7 @@ class QueuedAction(object):
         return self.qtype or "None"
 
 
-class CharacterCombatData(object):
+class CombatHandler(object):
     """
     Stores information about the character in this particular
     fight - where they're standing (rank), how they might be
@@ -517,8 +517,7 @@ class CharacterCombatData(object):
     # noinspection PyUnusedLocal
     def roll_attack(self, targ, penalty=0):
         """
-        Returns our roll to hit with an attack. Targ is not a charater
-        object, but CombatData object. Half of our roll is randomized.
+        Returns our roll to hit with an attack. Half of our roll is randomized.
         """
         diff = 2  # base difficulty before mods
         self.roll_fatigue()
@@ -531,11 +530,10 @@ class CharacterCombatData(object):
         return (roll/2) + randint(0, (roll/2))
 
     # noinspection PyUnusedLocal
-    def roll_defense(self, att, weapon=None, penalty=0, a_roll=None):
+    def roll_defense(self, attacker, weapon=None, penalty=0, a_roll=None):
         """
-        Returns our roll to avoid being hit. Att is not character, but
-        CombatData object. We use the highest roll out of parry, block,
-        and dodge. Half of our roll is then randomized.
+        Returns our roll to avoid being hit. We use the highest roll out of 
+        parry, block, and dodge. Half of our roll is then randomized.
         """
         # making defense easier than attack to slightly lower combat lethality
         diff = -2  # base difficulty before mods
@@ -546,6 +544,7 @@ class CharacterCombatData(object):
         diff += self.times_attacked * 10
         self.times_attacked += 1
         total = None
+        att = attacker.combat
         if att.can_be_parried and self.can_parry:
             parry_diff = diff + 10
             parry_roll = int(do_dice_check(self.char, stat=self.attack_stat, skill=self.attack_skill,
@@ -731,3 +730,11 @@ class CharacterCombatData(object):
         sense = self.char.sensing_check(difficulty=0, invis=invis)
         stealth = do_dice_check(attacker, stat="dexterity", skill="stealth")
         return sense - stealth
+        
+    def wake_up(self):
+        if self.combat:
+            self.combat.wake_up(self.char)
+            
+    def fall_asleep(self):
+        if self.combat:
+            self.combat.incapacitate(self.char)
