@@ -92,10 +92,17 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         # noinspection PyUnresolvedReferences
         class PassExit(command.Command):
             def func(self):
-                if self.obj.db.locked and not self.obj.access(self.caller, 'usekey'):
-                    self.caller.msg("You don't have a key to this exit.")
-                    return
-                self.obj.at_traverse(self.caller, self.obj.destination)
+                # iff locked, then we can pass through it if we have a key
+                if self.obj.db.locked:
+                    if not self.obj.access(self.caller, 'usekey'):
+                        self.caller.msg("You don't have a key to this exit.")
+                        return
+                    else:
+                        self.obj.at_traverse(self.caller, self.obj.destination)
+                        return
+                # normal checks for non-locked doors
+                if self.obj.can_traverse(self.caller):
+                    self.obj.at_traverse(self.caller, self.obj.destination)
 
         # noinspection PyUnresolvedReferences
         class KnockExit(command.Command):
