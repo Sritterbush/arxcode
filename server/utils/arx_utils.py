@@ -156,10 +156,16 @@ def strip_ansi(text):
 
 def broadcast(txt, format_announcement=True):
     from evennia.server.sessionhandler import SESSION_HANDLER
+    from evennia.scripts.models import ScriptDB
     if format_announcement:
         txt = "{wServer Announcement{n: %s" % txt
     txt = sub_old_ansi(txt)
     SESSION_HANDLER.announce_all(txt)
+    try:
+        events = ScriptDB.objects.get(db_key="Event Manager")
+        events.add_gemit(txt)
+    except ScriptDB.DoesNotExist:
+        pass
 
 
 def raw(text):

@@ -159,17 +159,27 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         :param pobject: Character
         :return:
         """
-        hair = self.db.haircolor or ""
+        mask = self.db.mask
+        if not mask:
+            hair = self.db.haircolor or ""
+            eyes = self.db.eyecolor or ""
+            skin = self.db.skintone or ""
+            height = self.db.height or ""
+            species = self.species
+            gender = self.db.gender or ""
+            age = self.db.age
+        else:
+            hair = mask.db.haircolor or "--"
+            eyes = mask.db.eyecolor or "--"
+            skin = mask.db.skintone or "--"
+            height = mask.db.height or self.db.height or ""
+            species = mask.db.species or "--"
+            gender = mask.db.gender or "--"
+            age = mask.db.age or "--"
         hair = hair.capitalize()
-        eyes = self.db.eyecolor or ""
         eyes = eyes.capitalize()
-        skin = self.db.skintone or ""
         skin = skin.capitalize()
-        height = self.db.height or ""
-        species = self.species
-        gender = self.db.gender or ""
         gender = gender.capitalize()
-        age = self.db.age
         if pobject.check_permstring("builders"):
             true_age = self.db.real_age
             if true_age and true_age != age:
@@ -304,6 +314,9 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         caller's hands to trigger other checks - death checks if we got
         worse, unconsciousness checks, whatever.
         """
+        # no helping us if we're dead
+        if self.db.health_status == "dead":
+            return
         diff = 0 + diff_mod
         roll = do_dice_check(self, stat_list=["willpower", "stamina"], difficulty=diff)
         wound = float(abs(roll))/float(self.max_hp)
@@ -324,6 +337,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         self.dmg -= roll
         if not free:
             self.db.last_recovery_test = time.time()
+        if self.dmg <= self.max_hp and self.db.sleep_status != "awake":
+            self.wake_up()
         return roll
 
     def sensing_check(self, difficulty=15, invis=False, allow_wake=False):
@@ -798,3 +813,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
                 return False
         except AttributeError:
             return False
+
+    @property
+    def titles(self):
+        full_titles = self.db.titles or []
+        return ", ".join(str(ob) for ob in full_titles)

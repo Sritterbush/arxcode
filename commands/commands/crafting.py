@@ -23,6 +23,7 @@ CONTAINER = "typeclasses.containers.container.Container"
 WEARABLE_CONTAINER = "typeclasses.wearable.wearable.WearableContainer"
 BAUBLE = "typeclasses.bauble.Bauble"
 PERFUME = "typeclasses.consumable.perfume.Perfume"
+MASK = "typeclasses.disguises.disguises.Mask"
 
 QUALITY_LEVELS = {
     0: '{rawful{n',
@@ -51,12 +52,8 @@ def create_weapon(recipe, roll, proj, caller):
 
 
 def create_wearable(recipe, roll, proj, caller):
-    slot = recipe.resultsdict.get("slot", None)
-    slot_limit = int(recipe.resultsdict.get("slot_limit", 0))
     quality = get_quality_lvl(roll, recipe.difficulty)
     obj = create_obj(WEAR, proj[1], caller, caller, quality)
-    obj.db.slot = slot
-    obj.db.slot_limit = slot_limit
     return obj, quality
 
 
@@ -122,6 +119,14 @@ def create_consumable(recipe, roll, proj, caller, typeclass):
     quality = get_quality_lvl(roll, recipe.difficulty)
     obj = create_obj(typeclass, proj[1], caller,
                      caller, quality)
+    return obj, quality
+
+
+def create_mask(recipe, roll, proj, caller, maskdesc):
+    quality = get_quality_lvl(roll, recipe.difficulty)
+    obj = create_obj(MASK, proj[1], caller,
+                     caller, quality)
+    obj.db.maskdesc = maskdesc
     return obj, quality
 
 
@@ -238,6 +243,7 @@ class CmdCraft(MuxCommand):
         craft <recipe name>
         craft/name <name>
         craft/desc <description>
+        craft/altdesc <description>
         craft/adorn <material type>=<amount>
         craft/translated_text <language>=<text>
         craft/forgery <real material>=<type it's faking as>
@@ -246,35 +252,38 @@ class CmdCraft(MuxCommand):
         craft/refine <object>[=<additional silver to spend>, <action points>]
         craft/changename <object>=<new name>
 
-    Crafts an object. To start crafting, you must know recipes
-    related to your crafting profession. Select a recipe, then
-    describe the object with /name and /desc. To add more materials
-    to an object, such as gemstones, use /adorn, or /forgery for
-    if you are a highly unethical crafter and wish to pretend materials
-    are something else. No materials or silver are used until you
-    are ready to /finish the project and make the roll for its quality.
-    Once you /finish an object, it can no longer have materials added
-    to it, only be /refine'd for a better quality level. Additional
-    money spent when finishing gives a bonus to the roll. For things
-    such as perfume, the desc is the description that appears on the
-    character, not the description of the bottle.
+    Crafts an object. To start crafting, you must know recipes related to your 
+    crafting profession. Select a recipe, then describe the object with /name 
+    and /desc. To add more materials to an object, such as gemstones, use 
+    /adorn, or /forgery for if you are a highly unethical crafter and wish to 
+    pretend materials are something else. No materials or silver are used until 
+    you are ready to /finish the project and make the roll for its quality.
+    Once you /finish an object, it can no longer have materials added to it, 
+    only be /refine'd for a better quality level. Additional money spent when 
+    finishing gives a bonus to the roll. 
     
-    If the item should contain script in a foreign tongue that you know, 
-    use translated_text to display what the language actually says.
+    For things such as perfume, the desc is the description that appears on the 
+    character, not a description of the bottle. When crafting masks, the name is 
+    used to identify its wearer: "A Fox Mask" will bestow "A Lady wearing A Fox 
+    Mask" upon its wearer, and the altdesc switch is used for her temporary 
+    description.
+    
+    If the item should contain script in a foreign tongue that you know, use 
+    translated_text to display what the language actually says.
 
-    To finish a project, use /finish, or /abandon if you wish to stop
-    and do something else. To attempt to change the quality level of
-    a finished object, use /refine to attempt to improve it, for a
-    price based on how much it took to create. Refining can never
-    make the object worse.
+    To finish a project, use /finish, or /abandon if you wish to stop and do 
+    something else. To attempt to change the quality level of a finished object, 
+    use /refine to attempt to improve it, for a price based on how much it took 
+    to create. Refining can never make the object worse.
 
-    Craft with no arguments will display the status of a current
-    project.
+    Craft with no arguments will display the status of a current project.
     """
     key = "craft"
     locks = "cmd:all()"
     help_category = "Crafting"
     crafter = None
+    crafting_switches = ("name", "desc", "altdesc", "adorn", "translated_text", "forgery", "finish", "abandon",
+                         "refine", "changename")
 
     def get_refine_price(self, base):
         return 0
@@ -296,6 +305,8 @@ class CmdCraft(MuxCommand):
         msg = "{wRecipe:{n %s\n" % recipe.name
         msg += "{wName:{n %s\n" % proj[1]
         msg += "{wDesc:{n %s\n" % proj[2]
+        if len(proj) > 6 and proj[6]:
+            msg += "{wAlt Desc:{n %s\n" % proj[6]
         adorns, forgery = proj[3], proj[4]
         if adorns:
             msg += "{wAdornments:{n %s\n" % ", ".join("%s: %s" % (CraftingMaterialType.objects.get(id=mat).name, amt)
@@ -355,7 +366,7 @@ class CmdCraft(MuxCommand):
                 caller.msg("That recipe does not have a price defined.")
                 return
             # proj = [id, name, desc, adorns, forgery, translation]
-            proj = [recipe.id, "", "", {}, {}, {}]
+            proj = [recipe.id, "", "", {}, {}, {}, ""]
             caller.db.crafting_project = proj
             stmsg = "You have" if caller == crafter else "%s has" % crafter
             caller.msg("{w%s started to craft:{n %s." % (stmsg, recipe.name))
@@ -492,7 +503,7 @@ class CmdCraft(MuxCommand):
             return
         if "desc" in self.switches:
             if not self.args:
-                caller.msg("Name it what?")
+                caller.msg("Describe it how?")
                 return
             proj[2] = self.args
             caller.db.crafting_project = proj
@@ -513,6 +524,13 @@ class CmdCraft(MuxCommand):
             proj[5].update({lhs: self.rhs})
             caller.db.crafting_project = proj
             self.display_project(proj)
+            return
+        if "altdesc" in self.switches:
+            if not self.args:
+                caller.msg("Describe them how? This is only used for disguise recipes.")
+                return
+            proj[6] = self.args
+            caller.msg("This is only used for disguise recipes. Alternate description set to:\n%s" % self.args)
             return
         if "adorn" in self.switches:
             if not (self.lhs and self.rhs):
@@ -606,6 +624,10 @@ class CmdCraft(MuxCommand):
             except CraftingRecipe.DoesNotExist:
                 caller.msg("You lack the ability to finish that recipe.")
                 return
+            if recipe.type == "disguise":
+                if not proj[6]:
+                    caller.msg("This kind of item requires craft/altdesc before it can be finished.")
+                    return
             for mat in recipe.materials.all():
                 mats[mat.id] = mats.get(mat.id, 0) + mat.amount
             for adorn in proj[3]:
@@ -666,7 +688,8 @@ class CmdCraft(MuxCommand):
                 pmat.amount -= mats[mat]
                 pmat.save()
             # determine difficulty modifier if we tossed in more money
-            diffmod = get_difficulty_mod(recipe, invest, action_points)
+            ability = get_ability_val(crafter, recipe)
+            diffmod = get_difficulty_mod(recipe, invest, action_points, ability)
             # do crafting roll
             roll = do_crafting_roll(crafter, recipe, diffmod, room=caller.location)
             # get type from recipe
@@ -688,6 +711,8 @@ class CmdCraft(MuxCommand):
                 obj, quality = create_wearable_container(recipe, roll, proj, caller)
             elif otype == "perfume":
                 obj, quality = create_consumable(recipe, roll, proj, caller, PERFUME)
+            elif otype == "disguise":
+                obj, quality = create_mask(recipe, roll, proj, caller, proj[6])
             else:
                 obj, quality = create_generic(recipe, roll, proj, caller)
             # finish stuff universal to all crafted objects

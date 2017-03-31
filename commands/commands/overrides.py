@@ -758,7 +758,7 @@ class CmdWho(MuxPlayerCommand):
                     already_counted.append(pc)
                     nplayers -= 1
                     continue
-                delta_cmd = time.time() - session.cmd_last_visible
+                delta_cmd = pc.idle_time
                 if "active" in self.switches and delta_cmd > 1200:
                     already_counted.append(pc)
                     nplayers -= 1
@@ -806,7 +806,7 @@ class CmdWho(MuxPlayerCommand):
                     already_counted.append(pc)
                     nplayers -= 1
                     continue
-                delta_cmd = time.time() - session.cmd_last_visible
+                delta_cmd = pc.idle_time
                 if "active" in self.switches and delta_cmd > 1200:
                     already_counted.append(pc)
                     nplayers -= 1

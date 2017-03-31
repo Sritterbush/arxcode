@@ -56,7 +56,7 @@
    <div class="oneThird">
 	  <h1>Upcoming Events</h1>
 	  {% for event in events %}
-	  <a href="{% url 'dominion:display_event' event.id %}" class="newsHeading">{{event.name}}</a>
+	  <a href="{% url 'dominion:display_event' event.id %}" class="newsHeading">{{event.name|mush_to_html}}</a>
 	  <p class="newsDate">{{event.date}}</p>
 	  <p class="newsSummary">{{event.desc|mush_to_html|truncatewords:20}}</p>
 	  {% endfor %}

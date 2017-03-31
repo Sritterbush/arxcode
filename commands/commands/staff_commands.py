@@ -83,7 +83,9 @@ class CmdGemit(MuxPlayerCommand):
 
     Announces a message to all connected players.
     Unlike @wall, this command will only send the text,
-    without "soandso shouts:" attached.
+    without "soandso shouts:" attached. It will also be logged to 
+    all actively running events. Text will be sent in green by 
+    default.
     """
     key = "@gemit"
     locks = "cmd:perm(gemit) or perm(Wizards)"
@@ -97,6 +99,8 @@ class CmdGemit(MuxPlayerCommand):
             return
         if "norecord" in self.switches:
             self.msg("Announcing to all connected players ...")
+            if not self.args.startswith("{") and not self.args.startswith("|"):
+                self.args = "|g" + self.args
             broadcast(self.args, format_announcement=False)
             return
 
@@ -121,6 +125,8 @@ class CmdGemit(MuxPlayerCommand):
         StoryEmit.objects.create(episode=episode, chapter=chapter, text=msg,
                                  sender=caller)
         self.msg("Announcing to all connected players ...")
+        if not msg.startswith("{") and not msg.startswith("|"):
+            msg = "|g" + msg
         broadcast(msg, format_announcement=False)
         # get board and post
         from typeclasses.bulletin_board.bboard import BBoard
@@ -864,6 +870,7 @@ class CmdGMEvent(MuxCommand):
     """
     key = "@gmevent"
     locks = "cmd:perm(builders)"
+    help_category = "GMing"
 
     def func(self):
         form = self.caller.db.gm_event_form
@@ -943,6 +950,7 @@ class CmdGMNotes(MuxPlayerCommand):
     key = "@gmnotes"
     aliases = ["@gmnote"]
     locks = "cmd: perm(builders)"
+    help_category = "GMing"
 
     def list_all_tags(self):
         from evennia.utils.evtable import EvTable
@@ -1009,6 +1017,7 @@ class CmdJournalAdminForDummies(MuxPlayerCommand):
     """
     key = "@admin_journal"
     locks = "cmd: perm(builders)"
+    help_category = "Admin"
 
     def func(self):
         player = self.caller.search(self.lhs)
@@ -1084,6 +1093,7 @@ class CmdTransferKeys(MuxPlayerCommand):
     """
     key = "@transferkeys"
     locks = "cmd: perm(builders)"
+    help_category = "Building"
 
     def func(self):
         source = self.caller.search(self.lhs)
@@ -1106,3 +1116,138 @@ class CmdTransferKeys(MuxPlayerCommand):
         targ.db.keylist = list(set(t_room_keys))
         self.msg("Keys transferred.")
 
+
+class CmdAdminKey(MuxCommand):
+    """
+    Grants a player a key to a container or room
+
+    Usage:
+        @admin_key <character>
+        @admin_key/add/room <character>=<room>
+        @admin_key/add/chest <character>=<chest>
+        @admin_key/rm/room <character>=<room>
+        @admin_key/rm/chest <character>=<chest>
+    """
+    key = "@admin_key"
+    locks = "cmd: perm(builders)"
+    help_category = "Admin"
+
+    def display_keys(self, pc):
+        chest_keys = pc.db.chestkeylist or []
+        room_keys = pc.db.keylist or []
+        self.msg("\n{c%s's {wchest keys:{n %s" % (pc, ", ".join(str(ob) for ob in chest_keys)))
+        self.msg("\n{c%s's {wroom keys:{n %s" % (pc, ", ".join(str(ob) for ob in room_keys)))
+
+    def func(self):
+        from typeclasses.rooms import ArxRoom
+        from typeclasses.characters import Character
+        from typeclasses.wearable.wearable import WearableContainer
+        from typeclasses.containers.container import Container
+        pc = self.caller.search(self.lhs, global_search=True, typeclass=Character)
+        if not pc:
+            return
+        chest_keys = pc.db.chestkeylist or []
+        room_keys = pc.db.keylist or []
+        if not self.rhs:
+            self.display_keys(pc)
+            return
+        if "room" in self.switches:
+            room = self.caller.search(self.rhs, global_search=True, typeclass=ArxRoom)
+            if not room:
+                return
+            if "add" in self.switches:
+                if room not in room_keys:
+                    room_keys.append(room)
+                    pc.db.keylist = room_keys
+                self.msg("{yAdded.")
+                self.display_keys(pc)
+                return
+            if room in room_keys:
+                room_keys.remove(room)
+                pc.db.keylist = room_keys
+            self.msg("{rRemoved.")
+            self.display_keys(pc)
+            return
+        if "chest" in self.switches:
+            chest = self.caller.search(self.rhs, global_search=True, typeclass=[Container, WearableContainer])
+            if not chest:
+                return
+            if "add" in self.switches:
+                if chest not in chest_keys:
+                    chest_keys.append(chest)
+                    pc.db.chestkeylist = chest_keys
+                self.msg("{yAdded.")
+                self.display_keys(pc)
+                return
+            if chest in chest_keys:
+                chest_keys.remove(chest)
+                pc.db.chestkeylist = chest_keys
+            self.msg("{rRemoved.")
+            self.display_keys(pc)
+            return
+
+
+class CmdRelocateExit(MuxCommand):
+    """
+    Moves an exit to a new location
+
+    Usage:
+        @relocate_exit <exit>=<new room>
+
+    This moves an exit to a new location. While you could do so
+    with @tel, this also makes the reverse exit in the room this
+    exit points to now correctly point to the new room.
+    """
+    key = "@relocate_exit"
+    locks = "cmd: perm(builders)"
+    help_category = "Building"
+    
+    def func(self):
+        from typeclasses.rooms import ArxRoom
+        exit_obj = self.caller.search(self.lhs)
+        if not exit_obj:
+            return
+        new_room = self.caller.search(self.rhs, typeclass=ArxRoom, global_search=True)
+        if not new_room:
+            return
+        exit_obj.relocate(new_room)
+        self.msg("Moved %s to %s." % (exit_obj, new_room))
+
+
+class CmdAdminTitles(MuxPlayerCommand):
+    """
+    Adds or removes titles from a character
+
+    Usage:
+        @admin_titles <character>
+        @admin_titles/add <character>=<title>
+        @admin_titles/remove <character>=<title>
+    """
+    key = "@admin_titles"
+    locks = "cmd: perm(builders)"
+    help_category = "GMing"
+
+    def display_titles(self, targ):
+        titles = targ.db.titles or []
+        self.msg("%s's titles: %s" % (targ, "; ".join(str(ob) for ob in titles)))
+
+    def func(self):
+        targ = self.caller.search(self.lhs)
+        if not targ:
+            return
+        targ = targ.db.char_ob
+        titles = targ.db.titles or []
+        if not self.rhs:
+            self.display_titles(targ)
+            return
+        if "add":
+            if self.rhs not in titles:
+                titles.append(self.rhs)
+                targ.db.titles = titles
+            self.display_titles(targ)
+            return
+        if "remove":
+            if self.rhs in titles:
+                titles.remove(self.rhs)
+                targ.db.titles = titles
+            self.display_titles(targ)

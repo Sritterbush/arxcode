@@ -67,7 +67,7 @@ class CmdWhere(MuxPlayerCommand):
     Usage:
         +where
         +where [<character>,<character 2>,...]
-        +where/shops
+        +where/shops [<ability>]
         +where/randomscene
         +where/watch
 
@@ -93,6 +93,11 @@ class CmdWhere(MuxPlayerCommand):
         self.msg("{wList of shops:\n")
         for room in rooms:
             owner = room.db.shopowner
+            if self.args and owner:
+                if not owner.db.abilities:
+                    continue
+                if self.args.lower() not in owner.db.abilities:
+                    continue
             name = str(owner)
             if owner and not owner.roster.roster.name == "Active":
                 name += " {w(Inactive){n"
@@ -260,20 +265,26 @@ class CmdFinger(MuxPlayerCommand):
             return
         name = char.db.longname or char.key
         msg = "\n{wName:{n %s\n" % name
+        titles = char.titles
+        if titles:
+            msg += "{wFull Titles:{n %s\n" % titles
         if "rostercg" in char.tags.all():
             msg += "{wRoster Character{n\n"
         else:
             msg += "{wOriginal Character{n\n"
         if show_hidden:
             msg += "{wCharID:{n %s, {wPlayerID:{n %s\n" % (char.id, player.id)
-        session = player.get_all_sessions() and player.get_all_sessions()[0]
-        if session and (not player.db.hide_from_watch or caller.check_permstring("builders")):
-            idle_time = time.time() - session.cmd_last_visible
-            idle = "Online and is idle" if idle_time > 1200 else "Online, not idle"
-            msg += "{wStatus:{n %s\n" % idle
+        if char.db.obituary:
+            msg += "{wObituary:{n %s\n" % char.db.obituary
         else:
-            last_online = player.last_login and player.last_login.strftime("%m-%d-%y") or "Never"
-            msg += "{wStatus:{n Last logged in: %s\n" % last_online
+            session = player.get_all_sessions() and player.get_all_sessions()[0]
+            if session and (not player.db.hide_from_watch or caller.check_permstring("builders")):
+                idle_time = time.time() - session.cmd_last_visible
+                idle = "Online and is idle" if idle_time > 1200 else "Online, not idle"
+                msg += "{wStatus:{n %s\n" % idle
+            else:
+                last_online = player.last_login and player.last_login.strftime("%m-%d-%y") or "Never"
+                msg += "{wStatus:{n Last logged in: %s\n" % last_online
         fealty = char.db.fealty or "None"
         msg += "{wFealty:{n %s\n" % fealty
         pageroot = "http://play.arxgame.org"
@@ -1045,7 +1056,16 @@ class CmdMessenger(MuxCommand):
             for arg in self.lhslist:
                 targ = caller.player.search(arg)
                 if targ:
-                    if targ.db.char_ob and "no_messengers" in targ.db.char_ob.tags.all():
+                    can_deliver = True
+                    if not targ.db.char_ob:
+                        can_deliver = False
+                    elif "no_messengers" in targ.db.char_ob.tags.all():
+                        can_deliver = False
+                    elif not hasattr(targ, 'roster') or not targ.roster.roster:
+                        can_deliver = False
+                    elif targ.roster.roster.name not in ("Active", "Unavailable", "Available", "Inactive"):
+                        can_deliver = False
+                    if not can_deliver:
                         self.msg("%s cannot receive messengers." % targ)
                         continue
                     targs.append(targ)
@@ -1119,6 +1139,7 @@ class CmdCalendar(MuxPlayerCommand):
         @cal/endevent <event number>
         @cal/reschedule <event number>=<new date>
         @cal/cancel <event number>
+        @cal/movehere <event number>
         @cal/changeroomdesc <event number>=<new desc>
         @cal/toggleprivate <finished event number>
         @cal/old
@@ -1137,7 +1158,8 @@ class CmdCalendar(MuxPlayerCommand):
     requires checks to influence the outcome.
 
     When starting an event early, you can specify '=here' to start it in
-    your current room rather than its previous location.
+    your current room rather than its previous location. /movehere allows
+    an event to be moved to the new room you occupy while in progress.
 
     If you want to mark an event private or public after finishing hosting
     it so that it can be viewed by people who didn't attend it on the web,
@@ -1446,6 +1468,11 @@ class CmdCalendar(MuxPlayerCommand):
                                            room_desc=room_desc)
             for host in hosts:
                 event.hosts.add(host)
+                player = host.player
+                if player != caller:
+                    msg = "You have been invited to host {c%s{n." % event.name
+                    msg += "\nFor details about this event, use {w@cal %s{n" % event.id
+                    player.inform(msg, category="Invitation", append=False)
             for gm in gms:
                 event.gms.add(gm)
             post = self.display_project(proj)
@@ -1483,7 +1510,8 @@ class CmdCalendar(MuxPlayerCommand):
         # get the events they're hosting
         events = dompc.events_hosted.filter(finished=False)
         if not events:
-            caller.msg("You are not hosting any events that are unfinished.")
+            caller.msg("You are not hosting any events that have yet to occur. If you are currently designing "
+                       "an event, submit it first.")
             return
         # make sure caller input an integer
         try:
@@ -1553,6 +1581,11 @@ class CmdCalendar(MuxPlayerCommand):
             event.room_desc = self.rhs
             event.save()
             caller.msg("Event's room desc is now:\n%s" % self.rhs)
+            return
+        if "movehere" in self.switches:
+            loc = caller.db.char_ob.location
+            event_manager.move_event(event, loc)
+            self.msg("Event moved to your room.")
             return
         if "cancel" in self.switches:
             if event.id in event_manager.db.active_events:
@@ -2281,6 +2314,7 @@ class CmdLanguages(MuxCommand):
         known = [ob.capitalize() for ob in self.caller.languages.known_languages]
         known += ["Arvani"]
         self.msg("{wYou can currently speak:{n %s" % ", ".join(known))
+        self.msg("You can learn %s additional languages." % (self.caller.languages.max_languages - (len(known) - 1)))
 
     def func(self):
         if not self.args:
@@ -2340,7 +2374,7 @@ class CmdLanguages(MuxCommand):
                 self.msg("You do not know %s." % lang)
                 self.list_languages()
                 return
-            if targ.db.skills.get("linguistics", 0) <= len(targ.languages.known_languages):
+            if targ.languages.max_languages <= len(targ.languages.known_languages):
                 self.msg("They know as many languages as they can learn.")
                 return
             targ.languages.add_language(lang)

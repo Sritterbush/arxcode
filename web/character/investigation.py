@@ -294,7 +294,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
 
     def disp_invites(self):
         invites = self.caller.db.investigation_invitations or []
-        investigations = Investigation.objects.filter(id__in=invites, ongoing=True)
+        investigations = Investigation.objects.filter(id__in=invites, ongoing=True, active=True)
         investigations = investigations | self.caller.roster.investigations.filter(ongoing=True)
         self.msg("You are permitted to help the following investigations:\n%s" % "\n".join(
             "  %s (ID: %s)" % (str(ob), ob.id) for ob in investigations))
@@ -791,6 +791,9 @@ class CmdInvestigate(InvestigationFormCommand):
                 caller.msg(ob.display())
                 return
             if "active" in self.switches:
+                if ob.active:
+                    self.msg("It is already active.")
+                    return
                 try:
                     current_active = entry.investigations.get(active=True)
                 except Investigation.DoesNotExist:

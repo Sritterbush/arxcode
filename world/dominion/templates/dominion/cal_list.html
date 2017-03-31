@@ -30,7 +30,7 @@
     </tr>
     {% for obj in view.unfinished %}
         <tr>
-        <td width="25%"><a href="{% url 'dominion:display_event' obj.id %}">{{ obj.name }}</a></td>
+        <td width="25%"><a href="{% url 'dominion:display_event' obj.id %}">{{ obj.name|mush_to_html }}</a></td>
         <td width="25%">{{ obj.date }}</td>
         <td width="25%">{{ obj.location.key|mush_to_html }}</td>
         <td width="25%">{{ obj.get_celebration_tier_display }}</td>
@@ -48,7 +48,7 @@
     </tr>
     {% for obj in object_list %}
         <tr>
-        <td width="25%"><a href="{% url 'dominion:display_event' obj.id %}">{{ obj.name }}</a></td>
+        <td width="25%"><a href="{% url 'dominion:display_event' obj.id %}">{{ obj.name|mush_to_html }}</a></td>
         <td width="25%">{{ obj.date }}</td>
         <td width="25%">{{ obj.location.key|mush_to_html }}</td>
         <td width="25%">{{ obj.get_celebration_tier_display }}</td>

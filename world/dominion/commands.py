@@ -1237,6 +1237,7 @@ class CmdDomain(MuxPlayerCommand):
         @domain/minister <domain ID>=<player>,<category>
         @domain/resign <domain ID>
         @domain/strip <domain ID>=<player>
+        @domain/title <domain ID>=<minister>,<title>
 
     Commands to view and control your domain.
 
@@ -1369,26 +1370,40 @@ class CmdDomain(MuxPlayerCommand):
                 return
             self.msg("You are not a ruler or minister of %s." % dom)
             return
-        if "strip" in self.switches:
+        if "strip" in self.switches or "title" in self.switches:
             if dom not in (self.org_domains | self.ruled_domains).distinct():
-                self.msg("You do not have the authority to strip someone of their position.")
+                self.msg("You do not have the authority to strip someone of their position or grant a title.")
                 return
-            targ = self.caller.search(self.rhs)
+            if "strip" in self.switches:
+                rhs = self.rhs
+            else:
+                rhs = self.rhslist[0]
+            targ = self.caller.search(rhs)
             if not targ:
                 return
             dompc = targ.Dominion
-            if dom.ruler.castellan == dompc:
-                self.msg("Removing %s as castellan.")
-                dom.ruler.castellan = None
-                dom.ruler.save()
+            if "strip" in self.switches:
+                if dom.ruler.castellan == dompc:
+                    self.msg("Removing %s as castellan.")
+                    dom.ruler.castellan = None
+                    dom.ruler.save()
+                    return
+                try:
+                    minister = dom.ruler.ministers.get(player=dompc)
+                    minister.delete()
+                    self.msg("You have removed %s as a minister." % dompc)
+                except Minister.DoesNotExist:
+                    self.msg("They are neither a minister nor castellan for that domain.")
                 return
-            try:
-                minister = dom.ruler.ministers.get(player=dompc)
-                minister.delete()
-                self.msg("You have removed %s as a minister." % dompc)
-            except Minister.DoesNotExist:
-                self.msg("They are neither a minister nor castellan for that domain.")
-            return
+            else:
+                try:
+                    minister = dom.ruler.ministers.get(player=dompc)
+                    minister.title = self.rhslist[1]
+                    minister.save()
+                    self.msg("Setting title of %s to be: %s" % (dompc, self.rhslist[1]))
+                except Minister.DoesNotExist:
+                    self.msg("They are neither a minister nor castellan for that domain.")
+                return
         self.msg("Invalid switch.")
 
 
@@ -1822,12 +1837,13 @@ class CmdOrganization(MuxPlayerCommand):
             caller.msg("%s is not a member of %s." % (player, org))
             return
         if 'boot' in self.switches:
-            if not org.access(caller, 'boot'):
-                caller.msg("You do not have permission to boot players.")
-                return
-            if tarmember.rank <= member.rank:
-                caller.msg("You cannot boot someone who is equal or higher rank.")
-                return
+            if tarmember != member:
+                if not org.access(caller, 'boot'):
+                    caller.msg("You do not have permission to boot players.")
+                    return
+                if tarmember.rank <= member.rank:
+                    caller.msg("You cannot boot someone who is equal or higher rank.")
+                    return
             tarmember.fake_delete()
             caller.msg("Booted %s from %s." % (player, org))
             player.msg("You have been removed from %s by %s." % (org, caller))
@@ -2597,7 +2613,7 @@ class CmdSupport(MuxCommand):
                     caller.msg(msg)            
                 caller.msg("Notes:\n%s" % form[3])
                 caller.msg("Rumors:\n%s" % form[4])       
-                caller.msg("Once all fields are finished, use /finish to commit.")
+                caller.msg("Once all fields are finished, use support/finish to commit.")
             except (TypeError, KeyError, IndexError):
                 caller.msg("{rEncountered a supportform with invalid structure. Resetting the attribute." +
                            " Please start over.{n")

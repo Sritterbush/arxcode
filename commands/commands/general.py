@@ -982,7 +982,7 @@ class CmdDiceCheck(MuxCommand):
             else:
                 roll_msg = "checked %s + %s against difficulty %s, %s{n." % (stat, skill, difficulty, resultstr)
             caller.msg("You " + roll_msg)
-            roll_msg = caller.key.capitalize() + " " + roll_msg
+            roll_msg = caller.name + " " + roll_msg
             # if they have a recipient list, only tell those people (and GMs)
             if self.rhs:
                 namelist = [name.strip() for name in self.rhs.split(",")]
@@ -1351,6 +1351,7 @@ class CmdInform(MuxPlayerCommand):
         @inform
         @inform <number>[=<end number>]
         @inform/del <number>[=<end number>]
+        @inform/delmatches <string to match in categories>
         @inform/shopminimum <number>
 
     Displays your informs. /shopminimum sets a minimum amount that must be paid
@@ -1427,6 +1428,14 @@ class CmdInform(MuxPlayerCommand):
             table.reformat_column(index=1, width=52)
             table.reformat_column(index=2, width=19)
             caller.msg(table)
+            return
+        if "delmatches" in self.switches:
+            informs = caller.informs.filter(category__icontains=self.args)
+            if informs:
+                informs.delete()
+                self.msg("Informs deleted.")
+                return
+            self.msg("No matches.")
             return
         if not self.rhs:
             inform = self.get_inform(self.lhs)
@@ -1582,7 +1591,7 @@ class CmdTidyUp(MuxCommand):
 
     This removes any character who has been idle for at least
     one hour in your current room, provided that the room is
-    public.
+    public or a room you own.
     """
     key = "+tidy"
     locks = "cmd:all()"
@@ -1590,9 +1599,11 @@ class CmdTidyUp(MuxCommand):
     def func(self):
         caller = self.caller
         loc = caller.location
-        if "private" in loc.tags.all():
-            self.msg("This is a private room.")
-            return
+        if "private" in loc.tags.all() and not caller.check_permstring("builders"):
+            owners = loc.db.owners or []
+            if caller not in owners:
+                self.msg("This is a private room.")
+                return
         from typeclasses.characters import Character
         # can only boot Player Characters
         chars = Character.objects.filter(db_location=loc, roster__roster__name="Active")

@@ -282,7 +282,7 @@ class CmdBuildRoom(CmdDig):
         dompc = caller.db.player_ob.Dominion
 
         if "org" in self.switches:
-            max_rooms = 100
+            # max_rooms = 100
             try:
                 largs = self.lhs.split("/")
                 orgname = largs[0]
@@ -314,7 +314,7 @@ class CmdBuildRoom(CmdDig):
                 caller.msg("No org by that name: %s." % orgname)
                 return
         else:
-            max_rooms = 3
+            # max_rooms = 3
             assets = dompc.assets
             if assets.id in permits:
                 cost = permits[assets.id]
@@ -341,11 +341,13 @@ class CmdBuildRoom(CmdDig):
                 caller.msg("Deposit resources into the account of %s." % noun)
             return
         tagname = "%s_owned_room" % str(assets)
-        if tagname not in loc.tags.all() and (ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_ROOM_TYPECLASS)
-                                                                      & Q(db_tags__db_key__iexact=tagname)
-                                                                      ).count() > max_rooms):
-            caller.msg("You have as many rooms as you are allowed.")
-            return
+        # because who fucking cares
+        # if tagname not in loc.tags.all() and (
+        # ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_ROOM_TYPECLASS)
+        #                                                               & Q(db_tags__db_key__iexact=tagname)
+        #                                                               ).count() > max_rooms):
+        #     caller.msg("You have as many rooms as you are allowed.")
+        #     return
         if not self.rhs or len(self.rhslist) < 2:
             caller.msg("You must specify an exit and return exit for the new room.")
             return
@@ -400,6 +402,11 @@ class CmdManageRoom(MuxCommand):
         +manageroom/rmshop <owner>
         +manageroom/toggleprivate
         +manageroom/setbarracks
+        +manageroom/addbouncer <character>
+        +manageroom/rmbouncer <character>
+        +manageroom/ban <character>
+        +manageroom/unban <character>
+        +manageroom/boot <character>=<exit>
 
     Flags your current room as permitting characters to build there.
     Cost is 100 economic resources unless specified otherwise.
@@ -423,11 +430,14 @@ class CmdManageRoom(MuxCommand):
     locks = "cmd:all()"
     help_category = "Home"
     desc_switches = ("desc", "winterdesc", "springdesc", "summerdesc", "falldesc")
-
-    def func(self):
-        """Execute command."""
+    bouncer_switches = ("ban", "unban", "boot")
+    
+    def check_perms(self):
         caller = self.caller
         loc = caller.location
+        if not self.switches or set(self.switches) & set(self.bouncer_switches):
+            if caller in loc.bouncers:
+                return True
         try:
             owner = AssetOwner.objects.get(id=loc.db.room_owner)
         except AssetOwner.DoesNotExist:
@@ -443,12 +453,22 @@ class CmdManageRoom(MuxCommand):
                                                         'confirmshop' in self.switches)):
             caller.msg("You do not have permission to build here.")
             return
+        return True
+
+    def func(self):
+        """Execute command."""
+        caller = self.caller
+        loc = caller.location
+        if not self.check_perms():
+            return
         if not self.switches:
             # display who has a home here, who has a shop here
             owners = loc.db.owners or []
             caller.msg("{wHome Owners:{n %s" % ", ".join(str(ob) for ob in owners))
             shops = loc.db.shopowner
             caller.msg("{wShop Owners:{n %s" % shops)
+            self.msg("{wBouncers:{n %s" % ", ".join(str(ob) for ob in loc.bouncers))
+            self.msg("{wBanned:{n %s" % ", ".join(str(ob) for ob in loc.banlist))
             return
         if "name" in self.switches:
             loc.name = self.args or loc.name
@@ -477,7 +497,49 @@ class CmdManageRoom(MuxCommand):
                 exit_object.flush_from_cache()
             caller.msg("%s changed to %s." % (old, exit_object))
             return
+        if "addbouncer" in self.switches or "rmbouncer" in self.switches or (
+                    set(self.switches) & set(self.bouncer_switches)):
+            targ = self.caller.player.search(self.lhs)
+            if not targ:
+                return
+            targ = targ.db.char_ob
+            if "addbouncer" in self.switches:
+                loc.add_bouncer(targ)
+                self.msg("%s is now a bouncer." % targ)
+                return
+            if "rmbouncer" in self.switches:
+                loc.remove_bouncer(targ)
+                self.msg("%s is no longer a bouncer." % targ)
+                return
+            if "unban" in self.switches:
+                loc.unban_character(targ)
+                self.msg("%s is no longer banned from entering." % targ)
+                return
+            if "ban" in self.switches:
+                loc.ban_character(targ)
+                self.msg("%s is now prevented from entering." % targ)
+                return
+            if "boot" in self.switches:
+                from typeclasses.exits import Exit
+                exit_obj = self.caller.search(self.rhs, typeclass=Exit)
+                if not exit_obj:
+                    return
+                if not exit_obj.can_traverse(targ):
+                    self.msg("They cannot move through that exit.")
+                    return
+                exit_obj.at_traverse(targ, exit_obj.destination)
+                self.msg("You have kicked out %s." % targ)
+                targ.msg("You have been kicked out by %s." % self.caller)
+                return
+        try:
+            owner = AssetOwner.objects.get(id=loc.db.room_owner)
+        except AssetOwner.DoesNotExist:
+            caller.msg("No owner is defined here.")
+            return
         if set(self.switches) & set(self.desc_switches):
+            if "player_made_room" not in loc.tags.all():
+                self.msg("You cannot change the description to a room that was made by a GM.")
+                return
             if loc.desc:
                 cost = loc.db.desc_cost or DESC_COST
             else:
@@ -885,12 +947,12 @@ class CmdBuyFromShop(CmdCraft):
         +shop/changename <object>=<new name>
         +shop/viewdesigns [<key>]
 
-    Allows you to buy objects from a shop. +shop/craft allows you to use a
-    crafter's skills to create an item. You must provide the materials
-    yourself. Similarly, +shop/refine lets you use a crafter's skills to
-    attempt to improve a crafted object. All costs are covered by you.
-    +shop/design lets you see pre-made descriptions that the crafter has
-    created that you can copy for items you create.
+    Allows you to buy objects from a shop. +shop/craft allows you to use a 
+    crafter's skills to create an item. Check 'help craft' to see the full list 
+    of switches, all of which can be used with +shop. Similarly, +shop/refine 
+    lets you use a crafter's skills to attempt to improve a crafted object. All 
+    costs and materials are covered by you. +shop/viewdesigns lets you see the 
+    crafter's pre-made descriptions that you can copy for items you create.
     """
     key = "+shop"
     aliases = ["@shop", "shop"]
@@ -1016,6 +1078,9 @@ class CmdBuyFromShop(CmdCraft):
         caller = self.caller
         loc = caller.location
         self.crafter = loc.db.shopowner
+        if not self.crafter:
+            self.msg("No shop owner is defined.")
+            return
         if self.check_blacklist():
             caller.msg("You are not permitted to buy from this shop.")
             return
@@ -1063,10 +1128,7 @@ class CmdBuyFromShop(CmdCraft):
                 return
             caller.msg(obj.return_appearance(caller))
             return
-        if ("craft" in self.switches or "refine" in self.switches or
-                "desc" in self.switches or "adorn" in self.switches or
-                "finish" in self.switches or "name" in self.switches or
-                "abandon" in self.switches or "changename" in self.switches):
+        if set(self.switches) & set(self.crafting_switches + ("craft",)):
             return CmdCraft.func(self)
         caller.msg("Invalid switch.")
 

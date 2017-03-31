@@ -149,16 +149,30 @@ class WeeklyEvents(Script):
     @staticmethod
     def do_cleanup():
         # cleanup old informs
+        date = datetime.now()
+        offset = timedelta(days=-30)
+        date = date + offset
         try:
             from world.msgs.models import Inform
-            date = datetime.now()
-            offset = timedelta(days=-30)
-            date = date + offset
             qs = Inform.objects.filter(date_sent__lte=date)
             qs.delete()
         except Exception as err:
             traceback.print_exc()
-            print "Error in cleanup: %s" % err
+            print "Error in cleaning informs: %s" % err
+        # cleanup old tickets
+        try:
+            from web.helpdesk.models import Ticket, Queue
+            try:
+                queue = Queue.objects.get(slug__iexact="story")
+                qs = Ticket.objects.filter(status__in=(Ticket.RESOLVED_STATUS, Ticket.CLOSED_STATUS),
+                                           modified__lte=date
+                                           ).exclude(queue=queue)
+                qs.delete()
+            except Queue.DoesNotExist:
+                pass
+        except Exception as err:
+            traceback.print_exc()
+            print "Error in cleaning tickets: %s" % err
         # cleanup soft-deleted objects
         try:
             import time

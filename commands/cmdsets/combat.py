@@ -1003,9 +1003,19 @@ class CmdHarm(MuxCommand):
             return
         except IndexError:
             pass
-        charlist = [self.caller.search(arg) for arg in self.lhslist if self.caller.search(arg)]
+        players = []
+        for arg in self.lhslist:
+            player = self.caller.player.search(arg)
+            if player:
+                players.append(player)
+        charlist = [ob.db.char_ob for ob in players if ob.db.char_ob]
+        if not charlist:
+            return
         for obj in charlist:
-            obj.msg(message)
+            if obj.player:
+                obj.msg(message)
+            else:
+                obj.db.player_ob.inform(message, category="Damage")
             obj.dmg += amt
         self.msg("You inflicted %s damage on %s" % (amt, ", ".join(str(obj) for obj in charlist)))
 
@@ -1079,9 +1089,16 @@ class CmdHeal(MuxCommand):
             heal_roll = do_dice_check(caller, stat="intellect", skill="medicine", difficulty=15)
         caller.msg("You rolled a %s on your heal roll." % heal_roll)
         targ.msg("%s tends to your wounds, rolling %s on their heal roll." % (caller, heal_roll))
+        script = targ.scripts.get("Recovery")
+        if script:
+            script = script[0]
+            max_heal = script.db.max_healing or 0
+            if heal_roll < max_heal:
+                caller.msg("They have received better care already. You can't help them.")
+                targ.msg("You have received better care already. %s isn't able to help you." % caller)
+                return
+            script.db.max_healing = heal_roll
         targ.recovery_test(diff_mod=-heal_roll)
-        if heal_roll > 0 and targ.db.sleep_status != "awake":
-            targ.wake_up()
 
 
 class CmdStandYoAssUp(MuxCommand):

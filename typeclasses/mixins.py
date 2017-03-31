@@ -1,6 +1,7 @@
 from server.utils.arx_utils import sub_old_ansi
 import re
 from evennia.utils.utils import lazy_property
+from evennia.utils.ansi import parse_ansi
 
 
 class DescMixins(object):
@@ -178,7 +179,9 @@ class NameMixins(object):
         old = self.db.false_name
         self.db.false_name = val
         if old:
+            old = parse_ansi(old, strip_ansi=True)
             self.aliases.remove(old)
+        val = parse_ansi(val, strip_ansi=True)
         self.aliases.add(val)
 
     @fakename.deleter
@@ -188,6 +191,7 @@ class NameMixins(object):
         """
         old = self.db.false_name
         if old:
+            old = parse_ansi(old, strip_ansi=True)
             self.aliases.remove(old)
         self.attributes.remove("false_name")
 
@@ -203,7 +207,6 @@ class NameMixins(object):
         """
         :type self: ObjectDB
         """
-        from evennia.utils.ansi import parse_ansi
         # convert color codes
         val = sub_old_ansi(val)
         self.db.colored_name = val
@@ -216,8 +219,19 @@ class NameMixins(object):
 
 
 class AppearanceMixins(object):
+
+    @property
+    def recipe(self):
+        if self.db.recipe:
+            from world.dominion.models import CraftingRecipe
+            try:
+                recipe = CraftingRecipe.objects.get(id=self.db.recipe)
+                return recipe
+            except CraftingRecipe.DoesNotExist:
+                pass
+
     def return_contents(self, pobject, detailed=True, show_ids=False,
-                        strip_ansi=False, show_places=True):
+                        strip_ansi=False, show_places=True, sep=", "):
         """
         Returns contents of the object, used in formatting our description,
         as well as when in 'brief mode' and skipping a description, but
@@ -229,6 +243,7 @@ class AppearanceMixins(object):
         :param show_ids: bool
         :param strip_ansi: bool
         :param show_places: bool
+        :param sep: str
         """
 
         def get_key(ob):
@@ -238,7 +253,6 @@ class AppearanceMixins(object):
                 object_key = ob.name
             if strip_ansi:
                 try:
-                    from evennia.utils.ansi import parse_ansi
                     object_key = parse_ansi(object_key, strip_ansi=True)
                 except (AttributeError, TypeError, ValueError):
                     pass
@@ -302,7 +316,7 @@ class AppearanceMixins(object):
                 string += "\n{wCharacters:{n " + ", ".join(users + [get_key(ob) for ob in npcs])
             if things:
                 things = sorted(things, key=lambda x: x.db.put_time)
-                string += "\n{wObjects:{n " + ", ".join([get_key(ob) for ob in things])
+                string += "\n{wObjects:{n " + sep.join([get_key(ob) for ob in things])
             if currency:
                 string += "\n{wMoney:{n %s" % currency
         return string
@@ -366,7 +380,6 @@ class AppearanceMixins(object):
             desc = self.desc
         if strip_ansi:
             try:
-                from evennia.utils.ansi import parse_ansi
                 desc = parse_ansi(desc, strip_ansi=True)
             except (AttributeError, ValueError, TypeError):
                 pass
@@ -402,13 +415,9 @@ class AppearanceMixins(object):
                 adorn_strs.append("%s %s" % (amt, mat.name))
             string += "\nAdornments: %s" % ", ".join(adorn_strs)
         # recipe is an integer matching the CraftingRecipe ID
-        if self.db.recipe:
-            from world.dominion.models import CraftingRecipe
-            try:
-                recipe = CraftingRecipe.objects.get(id=self.db.recipe)
-                string += "\nIt is a %s." % recipe.name
-            except CraftingRecipe.DoesNotExist:
-                pass
+        recipe = self.recipe
+        if recipe:
+            string += "\nIt is a %s." % recipe.name
         # quality_level is an integer, we'll get a name from crafter file's dict
         string += self.get_quality_appearance()
         if self.db.translation:
@@ -511,6 +520,8 @@ class MsgMixins(object):
             text = str(text)
         except (TypeError, UnicodeDecodeError, ValueError):
             pass
+        if text.endswith("|"):
+            text += "{n"
         text = sub_old_ansi(text)
         if from_obj and isinstance(from_obj, dict):
             # somehow our from_obj had a dict passed to it. Fix it up.

@@ -51,20 +51,21 @@ class CmdWear(MuxCommand):
         if not obj:
             return
 
-        if not obj.db.is_wearable:
+        if not hasattr(obj, 'wear'):
             caller.msg("You can't wear that.")
             return
         if obj.db.currently_worn:
             caller.msg("You're already wearing %s." % obj.name)
             return
-        if obj.db.slot_limit and obj.db.slot:
-            worn = [ob for ob in caller.contents if ob.db.currently_worn and ob.db.slot == obj.db.slot]
-            if len(worn) >= obj.db.slot_limit:
-                caller.msg("You are wearing too many things on your %s for it to fit." % obj.db.slot)
+        slot_limit = obj.slot_limit
+        slot = obj.slot
+        if slot_limit and slot:
+            worn = [ob for ob in caller.contents if ob.db.currently_worn and ob.slot == slot]
+            if len(worn) >= slot_limit:
+                caller.msg("You are wearing too many things on your %s for it to fit." % slot)
                 return
         if obj.wear(caller):
             caller.msg("You put on %s." % obj.name)
-            obj.at_post_wear(caller)
             return
 
 
@@ -103,7 +104,6 @@ class CmdRemove(MuxCommand):
             return
         if obj.remove(caller):
             caller.msg("You take off %s." % obj.name)
-            obj.at_post_remove(caller)
             return
         pass
 

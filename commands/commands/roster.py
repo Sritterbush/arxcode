@@ -86,7 +86,7 @@ def list_characters(caller, character_list, roster_type="Active Characters", ros
             afk = "-"
             # check if the name matches anything in the hidden characters list
             hide = False
-            if charob and hasattr(charob, 'is_disguised') and charob.is_disguised:
+            if charob and not use_keys and hasattr(charob, 'is_disguised') and charob.is_disguised:
                 hide = True
             if not charob and hidden_chars:
                 # convert both to lower case for case-insensitive matching
@@ -634,6 +634,11 @@ def display_header(caller, character, show_hidden=False):
                'haircolor': haircolor, 'skintone': skintone, 'marital_status': marital_status,
                }
     caller.msg(header)
+    full_titles = character.titles
+    if full_titles:
+        caller.msg("{wFull titles:{n %s" % full_titles)
+    if character.db.obituary:
+        caller.msg("{wObituary{n: %s" % character.db.obituary)
     desc = character.desc
     if not desc:
         desc = "No description set."
@@ -1230,7 +1235,7 @@ class CmdRelationship(MuxPlayerCommand):
     locks = "cmd:all()"
     typelist = ['parent', 'sibling', 'friend', 'enemy', 'frenemy', 'family', 'client', 'patron', 'protege',
                 'acquaintance', 'secret', 'rival', 'ally', 'spouse', 'The Crown', 'Crownlands', 'Oathlands',
-                'Lyceum', 'Mourning Isles', 'Northlands']
+                'Lyceum', 'Mourning Isles', 'Northlands', 'deceased']
 
     def func(self):
         caller = self.caller

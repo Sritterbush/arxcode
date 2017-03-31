@@ -357,6 +357,37 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
                 if from_obj:
                     from_obj.msg("Error: Event Manager not found.")
         super(ArxRoom, self).msg_contents(message, exclude=exclude, from_obj=from_obj, mapping=mapping, **kwargs)
+        
+    def ban_character(self, character):
+        if character not in self.banlist:
+            self.banlist.append(character)
+            
+    def unban_character(self, character):
+        if character in self.banlist:
+            self.banlist.remove(character)
+            
+    @property
+    def banlist(self):
+        if self.db.banlist is None:
+            self.db.banlist = []
+        return self.db.banlist
+        
+    def check_banned(self, character):
+        return character in self.banlist
+        
+    def add_bouncer(self, character):
+        if character not in self.bouncers:
+            self.bouncers.append(character)
+            
+    def remove_bouncer(self, character):
+        if character in self.bouncers:
+            self.bouncers.remove(character)
+            
+    @property
+    def bouncers(self):
+        if self.db.bouncers is None:
+            self.db.bouncers = []
+        return self.db.bouncers
 
 
 class CmdExtendedLook(default_cmds.CmdLook):
