@@ -982,7 +982,7 @@ class CmdDiceCheck(MuxCommand):
             else:
                 roll_msg = "checked %s + %s against difficulty %s, %s{n." % (stat, skill, difficulty, resultstr)
             caller.msg("You " + roll_msg)
-            roll_msg = caller.key.capitalize() + " " + roll_msg
+            roll_msg = caller.name + " " + roll_msg
             # if they have a recipient list, only tell those people (and GMs)
             if self.rhs:
                 namelist = [name.strip() for name in self.rhs.split(",")]
