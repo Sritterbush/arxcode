@@ -151,7 +151,6 @@ class CmdAutoattack(MuxCommand):
     def func(self):
         """Execute command."""
         caller = self.caller
-        combat = check_combat(caller, quiet=True)
         autoattack_on = False
         if not self.switches:
             if not caller.db.autoattack:
@@ -164,8 +163,7 @@ class CmdAutoattack(MuxCommand):
             caller.db.autoattack = False
             caller.msg("Autoattack is now set to be off.")
             autoattack_on = False
-        if combat and caller in combat.ndb.combatants:
-            combat.get_fighter_data(caller.id).autoattack = autoattack_on
+        caller.combat.autoattack = autoattack_on
 
 
 class CmdProtect(MuxCommand):
@@ -206,7 +204,6 @@ class CmdProtect(MuxCommand):
         """
         caller = self.caller
         current = caller.db.guarding
-        combat = caller.location.ndb.combat_manager
         if "stop" in self.switches:
             caller.db.guarding = None
             if current:
@@ -217,8 +214,7 @@ class CmdProtect(MuxCommand):
                     #  are python lists/dicts/etc
                     deflist.remove(caller)
                     current.db.defenders = deflist
-                    if combat:
-                        combat.remove_defender(current, caller)
+                    current.combat.remove_defender(caller)
                 return
             caller.msg("You weren't guarding anyone.")
             return
@@ -246,8 +242,7 @@ class CmdProtect(MuxCommand):
         to_guard.db.defenders = dlist
         caller.msg("You start guarding %s." % to_guard.name)
         # now check if they're in combat. if so, we join in heroically.
-        if combat and to_guard in combat.ndb.combatants:
-            combat.add_defender(to_guard, caller)
+        to_guard.combat.add_defender(caller)
         return
 
 
@@ -376,7 +371,7 @@ class CmdAttack(MuxCommand):
             message += "you must use the {w+coupdegrace{n command."
             caller.msg(message)
             return
-        defenders = combat.get_defenders(targ)
+        defenders = targ.combat.get_defenders()
         diff = 0
         mod = 0
         mssg = "{rAttacking{n %s: " % targ.name
@@ -406,10 +401,10 @@ class CmdAttack(MuxCommand):
                 self.msg("Combat is shutting down. Unqueuing command.")
                 return
             caller.msg("Queuing this action for later.")
-            combat.get_fighter_data(caller.id).set_queued_action("attack", targ, mssg, diff, mod)      
+            caller.combat.set_queued_action("attack", targ, mssg, diff, mod)
             return
         caller.msg(mssg)
-        combat.do_attack(caller, targ, attack_penalty=diff, dmg_penalty=-mod)
+        caller.combat.do_attack(targ, attack_penalty=diff, dmg_penalty=-mod)
             
 
 class CmdSlay(CmdAttack):
@@ -476,14 +471,14 @@ class CmdPassTurn(MuxCommand):
                     mssg = "You pass your turn."
                     caller.combat.set_queued_action("pass", None, mssg) 
                     return
-                combat.do_pass(caller)
+                caller.combat.do_pass()
                 return
             else:
                 caller.msg("Please use '{wpass{n' to pass your turn during combat resolution.")
                 return
         # phase 1, mark us ready to proceed for phase 2
         if combat and not combat.ndb.shutting_down:
-            caller.character_ready()
+            caller.combat.character_ready()
         return
 
 
@@ -515,7 +510,7 @@ class CmdFlee(MuxCommand):
         if not exit_obj.is_exit:
             caller.msg("That is not an exit.")
             return
-        combat.do_flee(caller, exit_obj)
+        caller.combat.do_flee(exit_obj)
         return
 
 
@@ -557,7 +552,7 @@ class CmdFlank(MuxCommand):
         # Check whether we attack guards
         attack_guards = "only" not in self.switches
         # to do later - adding in sneaking/invisibility into game
-        combat.do_flank(caller, targ, sneaking=False, invis=False, attack_guard=attack_guards)
+        caller.combat.do_flank(targ, sneaking=False, invis=False, attack_guard=attack_guards)
         return
 
 
@@ -589,14 +584,10 @@ class CmdCombatStance(MuxCommand):
             caller.msg(message)
             return
         combat = check_combat(caller)
-        if not combat:
-            caller.db.combat_stance = self.args
-            self.msg("Stance is now %s." % self.args)
-            return
-        if combat.ndb.phase != 1:
+        if combat and combat.ndb.phase != 1:
             self.msg("Can only change stance between rounds.")
             return
-        combat.change_stance(caller, self.args)       
+        caller.combat.change_stance(self.args)
         return
 
 
@@ -625,7 +616,7 @@ class CmdCatch(MuxCommand):
         targ = caller.search(self.args)
         if not check_targ(caller, targ, "Catch"):
             return
-        combat.do_stop_flee(caller, targ)
+        caller.combat.do_stop_flee(targ)
         return
 
 
@@ -657,7 +648,7 @@ class CmdCoverRetreat(MuxCommand):
             caller.msg("You may only perform this action on your turn.")
             return
         if "stop" in self.switches and not self.args:
-            combat.stop_covering(caller, quiet=False)
+            caller.combat.stop_covering(quiet=False)
             return
         arglist = self.args.split(",")
         targlist = [caller.search(arg) for arg in arglist]
@@ -667,9 +658,9 @@ class CmdCoverRetreat(MuxCommand):
             return
         if "stop" in self.switches:
             for targ in targlist:
-                combat.stop_covering(caller, targ)
+                caller.combat.stop_covering(targ)
         else:
-            combat.begin_covering(caller, targlist)
+            caller.combat.begin_covering(targlist)
 
 
 class CmdVoteAFK(MuxCommand):
@@ -729,12 +720,7 @@ class CmdCombatStats(MuxCommand):
             char = pc.db.char_ob
         else:
             char = caller
-        combat = check_combat(char, quiet=True)
-        if not combat or char not in combat.ndb.combatants:
-            from typeclasses.scripts.combat.combatant import CharacterCombatData
-            fighter = CharacterCombatData(char, None)
-        else:
-            fighter = combat.get_fighter_data(char.id)
+        fighter = char.combat
         msg = "\n{c%s{w's Combat Stats\n" % char
         self.msg(msg + fighter.display_stats())
 
