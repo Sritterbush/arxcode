@@ -159,17 +159,27 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         :param pobject: Character
         :return:
         """
-        hair = self.db.haircolor or ""
+        mask = self.db.mask
+        if not mask:
+            hair = self.db.haircolor or ""
+            eyes = self.db.eyecolor or ""
+            skin = self.db.skintone or ""
+            height = self.db.height or ""
+            species = self.species
+            gender = self.db.gender or ""
+            age = self.db.age
+        else:
+            hair = mask.db.haircolor or "--"
+            eyes = mask.db.eyecolor or "--"
+            skin = mask.db.skintone or "--"
+            height = mask.db.height or self.db.height or ""
+            species = mask.db.species or "--"
+            gender = mask.db.gender or "--"
+            age = mask.db.age or "--"
         hair = hair.capitalize()
-        eyes = self.db.eyecolor or ""
         eyes = eyes.capitalize()
-        skin = self.db.skintone or ""
         skin = skin.capitalize()
-        height = self.db.height or ""
-        species = self.species
-        gender = self.db.gender or ""
         gender = gender.capitalize()
-        age = self.db.age
         if pobject.check_permstring("builders"):
             true_age = self.db.real_age
             if true_age and true_age != age:
