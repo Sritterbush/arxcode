@@ -2,6 +2,7 @@ from random import randint, choice
 import combat_settings
 from world.stats_and_skills import do_dice_check
 
+from combat_settings import CombatError
 
 class QueuedAction(object):
     """
@@ -133,6 +134,12 @@ class CombatHandler(object):
         self.fatigue_gained_this_turn = 0
         self.num_actions = 0  # used for fatigue calculation
         self.changed_stance = False
+        
+    def join_combat(self, combat):
+        pass
+    
+    def leave_combat(self, combat):
+        pass
 
     # noinspection PyAttributeOutsideInit
     def setup_weapon(self, weapon=None):
@@ -738,3 +745,471 @@ class CombatHandler(object):
     def fall_asleep(self):
         if self.combat:
             self.combat.incapacitate(self.char)
+
+    def character_ready(self):
+        """
+        Character is ready to proceed from phase 1. Once all
+        characters hit ready, we move to phase 2.
+        """
+        character = self.char
+        combat = self.combat
+        if character not in combat.ndb.combatants:
+            return
+        if combat.ndb.phase == 2:
+            combat.remove_afk(character)
+            return
+        if character.combat.ready:
+            combat.ready_check(character)
+            return
+        combat.remove_afk(character)
+        self.ready = True
+        character.msg("You have marked yourself as ready to proceed.")
+        combat.ready_check()
+
+    def do_attack(self, target, attack_penalty=0, defense_penalty=0,
+                  dmg_penalty=0, allow_botch=True, free_attack=False):
+        """
+        Processes an attack between a single attacker and a defender. This
+        method is caller by the combat command set, via an attack command.
+        Mods are determined by switches in the attack command or other
+        attributes set in the attacker, target, or the environment when
+        the attack command is used. By the time we're here, the final target
+        has been determined and the mods have been calculated. All penalties
+        are positive numbers as they increase the difficulty of checks. Bonuses
+        are negative values, as they reduce difficulties to 0 or less.
+        """
+        attacker = self.char
+        combat = self.combat
+        if combat.ndb.phase != 2:
+            raise CombatError("Attempted to attack in wrong phase.")
+        combat.remove_afk(attacker)
+        weapon = self.weapon
+        d_fite = target.combat
+        # modifiers from our stance (aggressive, defensive, etc)
+        attack_penalty += combat_settings.STANCE_ATK_MOD[self.stance]
+        defense_penalty += combat_settings.STANCE_DEF_MOD[d_fite.stance]
+        # modifier if we're covering anyone's retreat
+        if self.covering_targs:
+            attack_penalty += 5
+        if d_fite.covering_targs:
+            defense_penalty += 5
+        # attack roll so attacker is assumed
+        a_roll = self.roll_attack(target, attack_penalty)
+        # this is a defense roll so defender is assumed
+        d_roll = d_fite.roll_defense(attacker, weapon, defense_penalty, a_roll)
+        message = "%s attempts to attack %s. " % (self, d_fite)
+        combat.msg("%s rolls %s to attack, %s rolls %s to defend." % (self, a_roll, d_fite, d_roll))
+        # check if we were sleeping
+        awake = target.db.sleep_status or "awake"
+        if awake != "awake":
+            message += "%s is %s and cannot stop the attack. " % (d_fite, awake)
+            d_roll = -1000   
+        result = a_roll - d_roll
+        # handle botches. One botch per -10
+        if a_roll < 0 and result < -30 and allow_botch:
+            combat.msg(message, options={'roll': True})
+            can_riposte = self.can_be_parried and d_fite.can_riposte
+            if not target.conscious:
+                can_riposte = False
+            # asleep is very specific, being unconscious doesn't apply here
+            if awake == "asleep":
+                target.wake_up()
+            self.handle_botch(a_roll, can_riposte, target, attack_penalty, defense_penalty,
+                              dmg_penalty, free_attack)
+            return
+        if result > -16:
+            if -5 > result >= -15:
+                dmgmult = 0.25
+                message += "Attack barely successful."
+            elif 5 > result >= -5:
+                dmgmult = 0.5
+                message += "Attack slightly successful."
+            elif 15 > result >= 5:
+                dmgmult = 0.75
+                message += "Attack somewhat successful."
+            else:  # 15 or higher over defense roll
+                dmgmult = 1.0
+                message += "Attack successful."
+            combat.msg(message)
+            self.assign_damage(target, result, weapon, dmg_penalty, dmgmult)
+        else:
+            message += "%s %s the attack." % (d_fite, d_fite.last_defense_method)
+            combat.msg(message)
+        # asleep is very specific, being unconscious doesn't apply here
+        if awake == "asleep":
+            target.wake_up()
+        if not free_attack:  # situations where a character gets a 'free' attack
+            self.remaining_attacks -= 1
+            if self.remaining_attacks <= 0:
+                combat.next_character_turn()
+
+    # noinspection PyUnusedLocal
+    def handle_botch(self, roll, can_riposte=True, target=None,
+                     attack_penalty=0, defense_penalty=0, dmg_penalty=0, free_attack=False):
+        """
+        Processes the results of botching a roll.
+        """
+        botcher = self.char
+        combat = self.combat
+        if can_riposte and target:
+            combat.msg("%s {rbotches{n their attack, leaving themselves open to a riposte." % self)
+            target.do_attack(botcher, attack_penalty, defense_penalty, dmg_penalty,
+                           allow_botch=False, free_attack=True)
+            if not free_attack:
+                combat.next_character_turn()
+            return        
+        self.lost_turn_counter += 1
+        combat.msg("%s {rbotches{n their attack, losing their next turn while recovering." % self)
+        if not free_attack:
+            self.remaining_attacks -= 1
+            if self.remaining_attacks <= 0:
+                combat.next_character_turn()
+
+    # -------------- kamda start refactoring stuff here :) -------------------
+    # ----- needs to shift references and assume 'self' ----------------------
+    def assign_damage(self, attacker, target, roll, weapon=None, dmg_penalty=0, dmgmult=1.0):
+        """
+        Assigns damage after a successful attack. During this stage, all
+        attempts to avoid damage entirely have failed, and not damage will
+        be reduced, and its effects on the character will be explored,
+        including possible death. Characters who are incapacitated are
+        moved to the appropriate dictionary. Health rating is 10xsta + 10.
+        Unconsciousness checks are after health rating is exceeded. When
+        damage is double health rating, death checks begin. Player characters
+        will always fall unconscious first, then be required to make death
+        checks after further damage, with the exception of extraordinary
+        situations. NPCs, on the other hand, can be killed outright.
+        """
+        # stuff to mitigate damage here
+        a_fite = attacker.combat
+        d_fite = target.combat
+        # if damage is increased, it's pre-mitigation
+        if dmgmult > 1.0:
+            dmg = a_fite.roll_damage(target, dmg_penalty, dmgmult)
+        else:
+            dmg = a_fite.roll_damage(target, dmg_penalty)
+        mit = d_fite.roll_mitigation(attacker, weapon, roll)
+        self.msg("%s rolled %s damage against %s's %s mitigation." % (a_fite, dmg, d_fite, mit))
+        dmg -= mit
+        # if damage is reduced by multiplier, it's post mitigation
+        if dmgmult < 1.0:
+            dmg = int(dmg * dmgmult)
+        if dmg <= 0:
+            message = "%s fails to inflict any harm on %s." % (a_fite, d_fite)
+            self.msg(message, options={'roll': True})
+            return
+        # max hp is (stamina * 10) + 10
+        max_hp = target.max_hp
+        wound = float(dmg)/float(max_hp)
+        if wound <= 0.1:
+            wound_desc = "minor"
+        elif 0.1 < wound <= 0.25:
+            wound_desc = "moderate"
+        elif 0.25 < wound <= 0.5:
+            wound_desc = "serious"
+        elif 0.5 < wound <= 0.75:
+            wound_desc = "very serious"
+        elif 0.75 < wound < 2.0:
+            wound_desc = "critical"
+        else:
+            wound_desc = "extremely critical"
+        message = "%s inflicts {r%s{n damage to %s." % (a_fite, wound_desc, d_fite)
+        self.obj.msg_contents(message, options={'roll': True})
+        target.dmg += dmg
+        grace_period = False  # one round delay between incapacitation and death for PCs
+        if target.dmg > target.max_hp:
+            # if we're not incapacitated, we start making checks for it
+            if target.conscious:
+                # check is sta + willpower against dmg past uncon to stay conscious
+                diff = target.dmg - target.max_hp
+                consc_check = do_dice_check(target, stat_list=["stamina", "willpower"], skill="survival",
+                                            stat_keep=True, difficulty=diff)
+                self.msg("%s rolls stamina+willpower+survival against difficulty %s, getting %s." % (d_fite, diff,
+                                                                                                     consc_check))
+                if consc_check > 0:
+                    message = "%s remains capable of fighting despite their wounds." % d_fite
+                    grace_period = True  # even npc can't be killed if they make the first check
+                    # we're done, so send the message for the attack
+                    self.msg(message)
+                else:
+                    message = "%s is incapacitated from their wounds." % d_fite
+                    target.fall_asleep(uncon=True)
+                # for PCs who were knocked unconscious this round
+                if not target.db.npc and not grace_period:
+                    grace_period = True  # always a one round delay before you can kill a player
+                    self.msg(message)
+            # PC/NPC who was already unconscious before attack, or an NPC who was knocked unconscious by our attack
+            if not grace_period:  # we are allowed to kill the character
+                diff = target.dmg - (2 * target.max_hp)
+                if diff < 0:
+                    diff = 0
+                if do_dice_check(target, stat_list=["stamina", "willpower"], skill="survival",
+                                 stat_keep=True, difficulty=diff) > 0:
+                    message = "%s remains alive, but close to death." % d_fite
+                    self.msg(message)
+                    if d_fite.multiple:
+                        # was incapaciated but not killed, but out of fight and now we're on another targ
+                        target.db.damage = 0
+                elif not d_fite.multiple:
+                    self.msg(message)
+                    if self.ndb.lethal:
+                        target.death_process()
+                    else:
+                        target.db.damage = 0
+                    self.remove_combatant(target)
+                else:
+                    if self.ndb.lethal:
+                        target.death_process()
+                    else:
+                        target.fall_asleep(uncon=True)
+                    
+    def do_flank(self, attacker, target, sneaking=False, invis=False, attack_guard=True):
+        """
+        Attempts to circle around a character. If successful, we get an
+        attack with a bonus.
+        """
+        self.remove_afk(attacker)
+        defenders = self.get_defenders(target)
+        message = "%s attempts to move around %s to attack them while they are vulnerable. " % (attacker.name,
+                                                                                                target.name)
+        if defenders:
+            # guards, have to go through them first
+            for guard in defenders:
+                g_fite = guard.combat
+                if g_fite.sense_ambush(attacker, sneaking, invis) > 0:
+                    if not attack_guard:
+                        message += "%s sees them, and they back off." % guard.name
+                        self.msg(message)
+                        self.next_character_turn()
+                        return
+                    message += "%s stops %s but is attacked." % (guard.name, attacker.name)
+                    self.msg(message)
+                    def_pen = -5 + combat_settings.STANCE_DEF_MOD[g_fite.stance]
+                    self.do_attack(attacker, guard, attack_penalty=5, defense_penalty=def_pen)
+                    return
+        t_fite = target.combat
+        if t_fite.sense_ambush(attacker, sneaking, invis) > 0:
+            message += "%s moves in time to not be vulnerable." % target
+            self.msg(message)
+            def_pen = -5 + combat_settings.STANCE_DEF_MOD[t_fite.stance]
+            self.do_attack(attacker, target, attack_penalty=5, defense_penalty=def_pen)
+            return
+        message += "They succeed."
+        self.msg(message)
+        def_pen = 5 + combat_settings.STANCE_DEF_MOD[t_fite.stance]
+        self.do_attack(attacker, target, attack_penalty=-5, defense_penalty=def_pen)
+
+    def check_char_active(self, character):
+        """
+        Returns True if the character is in our fighter data
+        and has a status of True, False otherwise.
+        """
+        g_fite = character.combat
+        if g_fite.status == "active":
+            if character.location != self.obj:
+                return False
+            if not character.conscious:
+                return False
+            return True
+
+    def do_pass(self, character):
+        """
+        Passes a combat turn for character. If it's their turn, next character goes.
+        If it's not their turn, remove them from initiative list if they're in there
+        so they don't get a turn when it comes up.
+        """
+        self.remove_afk(character)
+        self.msg("%s passes their turn." % character.name)
+        if self.ndb.active_character == character:
+            self.next_character_turn()
+            return
+        c_data = character.combat
+        if c_data in self.ndb.initiative_list:
+            self.ndb.initiative_list.remove(c_data)
+
+    def do_flee(self, character, exit_obj):
+        """
+        Character attempts to flee from combat. If successful, they are
+        removed from combat and leave the room. Because of the relatively
+        unlimited travel system we have out of combat in Arx, we want to
+        restrict movement immediately at the start of combat, as otherwise
+        simply leaving is trivial. Currently we don't support combat with
+        characters in other spaces, and require a new combat to start every
+        time you chase someone down in some extended chase scene. This may
+        not be the best implementation, but it's what we're going with for
+        now.
+        Flee works by flagging the character as attempting to flee. They're
+        added to an attempting to flee list. If someone stops them, they're
+        removed from the list. Executing the command when already in the
+        list will complete it successfully.
+        """
+        self.remove_afk(character)
+        if character.combat.covering_targs:
+            character.msg("You cannot attempt to run while covering others' retreat.")
+            character.msg("Stop covering them first if you wish to try to run.")
+            return
+        if character not in self.ndb.flee_success:
+            if character in self.ndb.fleeing:
+                character.msg("You are already attempting to flee. If no one stops you, executing "
+                              "flee next turn will let you get away.")
+                return
+            self.ndb.fleeing.append(character)
+            character.msg("If no one is able to stop you, executing flee next turn will let you run away.")
+            character.msg("Attempting to flee does not take your action this turn. You may still take an action.")
+            self.msg("%s begins to try to withdraw from combat." % character.name, exclude=[character])
+            self.character.combat.flee_exit = exit_obj
+            return
+        # we can flee for the hills
+        if not exit_obj.access(character, 'traverse'):
+            character.msg("You are not permitted to flee that way.")
+            return
+        # this is the command that exit_obj commands use
+        exit_obj.at_traverse(character, exit_obj.destination, allow_follow=False)
+        self.msg("%s has fled from combat." % character.name)
+        self.remove_combatant(character)
+  
+    def do_stop_flee(self, character, target):
+        """
+        Try to stop a character from fleeing. Lists of who is stopping who from running
+        are all stored in lists inside the CombataData objects for every character
+        in the fighter_data dict. Whether attempts to stop players from running works
+        is determined at the start of each round when initiative is rolled. The person
+        attempting to flee must evade every person attempting to stop them.
+        """
+        self.remove_afk(character)
+        a_fite = character.combat
+        t_fite = target.combat
+        if a_fite.block_flee == target:
+            character.msg("You are already attempting to stop them from fleeing.")
+            return
+        if target in a_fite.covering_targs:
+            character.msg("It makes no sense to try to stop the retreat of someone you are covering.")
+            return
+        # check who we're currently blocking. we're switching from them
+        prev_blocked = a_fite.block_flee
+        if prev_blocked:
+            # if they're still in combat (in fighter data), we remove character from blocking them
+            prev_blocked = prev_blocked.combat
+            if prev_blocked:
+                if character in prev_blocked.blocker_list:
+                    prev_blocked.blocker_list.remove(character)
+        # new person we're blocking
+        a_fite.block_flee = target
+        if character not in t_fite.blocker_list:
+            # add character to list of people blocking them
+            t_fite.blocker_list.append(character)
+        self.msg("%s moves to stop %s from being able to flee." % (character.name, target.name))
+
+    def add_defender(self, protected, guard):
+        """
+        add_defender can be called as a way to enter combat, so we'll
+        be handling a lot of checks and messaging here. If checks are
+        successful, we add the guard to combat, and set them to protect the
+        protected character.
+        """
+        if not protected or not guard:
+            return
+        if protected.location != self.ndb.combat_location or guard.location != self.ndb.combat_location:
+            return
+        if guard.db.passive_guard:
+            return
+        if not guard.conscious:
+            return
+        if guard not in self.ndb.combatants:
+            self.add_combatant(guard)
+            guard.msg("{rYou enter combat to protect %s.{n" % protected.name)
+        fdata = protected.combat
+        if fdata and guard not in fdata.defenders:
+            fdata.defenders.append(guard)
+            self.msg("%s begins protecting %s." % (guard.name, protected.name))
+        fdata = guard.combat
+        if fdata:
+            fdata.guarding = protected
+
+    def remove_defender(self, protected, guard):
+        """
+        If guard is currently guarding protected, make him stop doing so.
+        Currently not having this remove someone from a .db.defenders
+        attribute - these changes are on a per combat basis, which include
+        removal for temporary reasons like incapacitation.
+        """
+        if not protected or not guard:
+            return
+        fdata = protected.combat
+        if fdata and guard in fdata.defenders:
+            fdata.defenders.remove(guard)
+            self.msg("%s is no longer protecting %s." % (guard.name, protected.name))
+
+    def get_defenders(self, target):
+        """
+        Returns list of defenders of a target.
+        """
+        return [ob for ob in target.combat.defenders if self.check_char_active(ob)]
+
+    def clear_blocked_by_list(self, character):
+        """
+        Removes us from defending list for everyone defending us.
+        """
+        c_fite = character.combat
+        if c_fite and c_fite.blocker_list:
+            for ob in c_fite.blocker_list:
+                ob = ob.combat
+                if ob:
+                    ob.block_flee = None
+    
+    def change_stance(self, character, new_stance):
+        """
+        Updates character's combat stance
+        """
+        character.msg("Stance changed to %s." % new_stance)
+        fighter = character.combat
+        fighter.stance = new_stance
+        fighter.changed_stance = True
+
+    def begin_covering(self, character, targlist):
+        """
+        Character covers the retreat of characters in targlist, represented by
+        CharacterCombatData.covering_targs list and CharacterCombatData.covered_by
+        list. Covered characters will succeed in fleeing automatically, but there
+        are a number of restrictions. A covering character cannot be covered by
+        anyone else.
+        """
+        c_data = character.combat
+        for targ in targlist:
+            if targ in c_data.covered_by:
+                character.msg("%s is already covering you. You cannot cover their retreat." % targ.name)
+            elif targ in c_data.covering_targs:
+                character.msg("You are already covering %s's retreat." % targ.name)
+            elif targ == c_data.block_flee:
+                character.msg("Why would you cover the retreat of someone you are trying to catch?")
+            else:
+                c_data.covering_targs.append(targ)
+                targ.combat.covered_by.append(character)
+                character.msg("You begin covering %s's retreat." % targ.name)
+    
+    def stop_covering(self, character, targ=None, quiet=True):
+        """
+        If target is not specified, remove everyone we're covering. Otherwise
+        remove targ.
+        """
+        if not targ:
+            if character.combat.covering_targs:
+                character.msg("You will no longer cover anyone's retreat.")
+                character.combat.covering_targs = []
+                return
+            if not quiet:
+                character.msg("You aren't covering anyone's retreat currently.")
+            return
+        character.combat.covering_targs.remove(targ)
+        character.msg("You no longer cover %s's retreat." % targ.name)
+
+    def clear_covered_by_list(self, character):
+        """
+        Removes us from list of anyone covering us.
+        """
+        c_fite = character.combat
+        if c_fite and c_fite.covered_by:
+            for covered_by_charob in c_fite.covered_by:
+                cov_data = covered_by_charob.combat
+                if cov_data and cov_data.covering_targs:
+                    self.stop_covering(covered_by_charob, character)

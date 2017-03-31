@@ -474,7 +474,7 @@ class CmdPassTurn(MuxCommand):
                 if combat.ndb.active_character != caller:
                     caller.msg("Queuing this action for later.")
                     mssg = "You pass your turn."
-                    combat.get_fighter_data(caller.id).set_queued_action("pass", None, mssg) 
+                    caller.combat.set_queued_action("pass", None, mssg) 
                     return
                 combat.do_pass(caller)
                 return
@@ -483,7 +483,7 @@ class CmdPassTurn(MuxCommand):
                 return
         # phase 1, mark us ready to proceed for phase 2
         if combat and not combat.ndb.shutting_down:
-            combat.character_ready(caller)
+            caller.character_ready()
         return
 
 
