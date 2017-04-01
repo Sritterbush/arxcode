@@ -1669,6 +1669,7 @@ class CmdOrganization(MuxPlayerCommand):
                 org.org_channel.connect(caller)
             except AttributeError:
                 pass
+            caller.ndb.orginvite = None
             return
         if 'decline' in self.switches:
             org = caller.ndb.orginvite

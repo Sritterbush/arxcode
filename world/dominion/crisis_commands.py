@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from evennia.commands.default.muxcommand import MuxPlayerCommand
-from .models import Crisis, CrisisAction, ActionOOCQuestion
+from .models import Crisis, CrisisAction, ActionOOCQuestion, CrisisActionAssistant
 from evennia.utils.evtable import EvTable
 from server.utils.arx_utils import inform_staff, get_week
 from django.db.models import Q
@@ -195,8 +195,10 @@ class CmdCrisisAction(MuxPlayerCommand):
         +crisis/secretaction <crisis #>=<action you are taking>
         +crisis/viewaction <action #>
         +crisis/appendaction <action #>=<new text to add>
+        +crisis/assistant/appendaction <action #>=<new text to add>
         +crisis/addpoints <action #>=<points to add>
         +crisis/cancelaction <action #>
+        +crisis/assistant/cancelaction <action #>
         +crisis/question <action #>=<question>
         +crisis/togglesecret <action #>
         +crisis/inviteassistant <action #>=<player>
@@ -367,13 +369,20 @@ class CmdCrisisAction(MuxPlayerCommand):
         inform_staff("%s has created a new crisis action for crisis %s: %s" % (self.caller, crisis, self.rhs))
 
     def get_action(self, get_all=False, get_assisted=False):
+        dompc = self.caller.Dominion
         if not get_all and not get_assisted:
             qs = self.current_actions
         else:
-            dompc = self.caller.Dominion
             qs = CrisisAction.objects.filter(Q(dompc=dompc) | Q(assistants=dompc)).distinct()
         try:
-            return qs.get(id=self.lhs)
+            action = qs.get(id=self.lhs)
+            if "assistant" in self.switches:
+                try:
+                    return action.assisting_actions.get(dompc=dompc)
+                except CrisisActionAssistant.DoesNotExist:
+                    self.msg("You are not assisting that crisis action.")
+                    return
+            return action
         except (CrisisAction.DoesNotExist, ValueError):
             self.msg("No action found by that id. Remember to specify the number of the action, not the crisis.")
             return
@@ -388,17 +397,21 @@ class CmdCrisisAction(MuxPlayerCommand):
         self.msg(msg)
 
     def cancel_action(self):
-        action = self.get_action()
+        action = self.get_action(get_assisted=True)
         if not action:
             return
-        if action.story:
+        if hasattr(action, 'crisis_action'):
+            parent = action.crisis_action
+        else:
+            parent = action
+        if parent.story:
             self.msg("That has already had GM action taken.")
             return
         action.delete()
         self.msg("Action deleted.")
 
     def append_action(self):
-        action = self.get_action()
+        action = self.get_action(get_assisted=True)
         if not action:
             return
         action.action += "\n%s" % self.rhs
