@@ -1,6 +1,7 @@
 from random import randint, choice
 import combat_settings
 from world.stats_and_skills import do_dice_check
+from commands.cmdsets.combat import CombatCmdSet
 
 from combat_settings import CombatError
 
@@ -54,11 +55,9 @@ class CombatHandler(object):
     roll_mitigation(att, weapon=None, roll=0) - returns self.char's mitigation roll
     roll_flee_success() - returns True or False, whether we succeed in fleeing
     """
-    def __init__(self, character, combat):
+    def __init__(self, character, combat=None):
         self.combat = combat
         self.char = character
-        # for healing us to how we were before in nonlethal fights
-        self.prefight_damage = character.db.damage or 0
         if character.db.num_living:
             self.multiple = True
             self.num = character.db.num_living
@@ -80,6 +79,25 @@ class CombatHandler(object):
         if not character.player:
             self.automated = True
             self.autoattack = True
+        self._ready = False
+        self.lethal = True
+        self.initialize_values()
+        self.reset()
+
+    @property
+    def stance(self):
+        _stance = self.char.db.combat_stance
+        if _stance not in combat_settings.COMBAT_STANCES:
+            return "balanced"
+        return _stance
+
+    @stance.setter
+    def stance(self, val):
+        self.char.db.combat_stance = val
+
+    # noinspection PyAttributeOutsideInit
+    def initialize_values(self):
+        character = self.char
         self.rank = 1  # combat rank/position. 1 is 'front line'
         self.shield = character.db.shield
         if hasattr(character, 'weapondata'):
@@ -87,7 +105,7 @@ class CombatHandler(object):
             self.setup_weapon(character.weapondata)
             print "weapon = %s" % self.weapon
         else:
-            self.setup_weapon()     
+            self.setup_weapon()
         self.defenders = character.db.defenders or []  # can be guarded by many
         if self.defenders:
             self.rank += 1
@@ -111,11 +129,7 @@ class CombatHandler(object):
         self.foelist = []
         self.friendlist = []
         self._ready = False  # ready to move on from phase 1
-        self.stance = character.db.combat_stance  # defensive, aggressive, etc
-        if self.stance not in combat_settings.COMBAT_STANCES:
-            self.stance = "balanced"
         self.last_defense_method = None  # how we avoided the last attack we stopped
-        
         self.status = "active"
         # eventually may have a grid system, but won't use it yet
         # self.position = (0,0,0)
@@ -137,10 +151,35 @@ class CombatHandler(object):
         self.changed_stance = False
         
     def join_combat(self, combat):
-        pass
-    
+        character = self.char
+        self.combat = combat
+        self.initialize_values()
+        character.cmdset.add(CombatCmdSet, permanent=False)
+        # add defenders/guards
+        if character.db.defenders:
+            for ob in character.db.defenders:
+                self.add_defender(ob)
+        if character.db.assigned_guards:
+            for ob in character.db.assigned_guards:
+                self.add_defender(ob)
+        if combat:
+            self.lethal = combat.ndb.lethal
+
     def leave_combat(self, combat):
-        pass
+        character = self.char
+        # nonlethal combat leaves no lasting harm
+        self.char.temp_dmg = 0
+        if not self.lethal:
+            character.wake_up(quiet=True)
+        self.stop_covering()
+        self.clear_blocked_by_list()
+        self.clear_covered_by_list()
+        guarding = self.guarding
+        if guarding:
+            guarding.remove_defender(character)
+        combat.msg("%s has left the fight." % character.name)
+        character.cmdset.delete(CombatCmdSet)
+        self.combat = None
 
     # noinspection PyAttributeOutsideInit
     def setup_weapon(self, weapon=None):
@@ -277,7 +316,7 @@ class CombatHandler(object):
     def ready(self):
         # if we're an automated npc, we are ALWAYS READY TO ROCK. BAM.
         return self.automated or self._ready
-    
+
     @ready.setter
     def ready(self, value):
         # set whether or not a sissy-man non-npc is ready. Unlike npcs, which are ALWAYS READY. BOOYAH.
@@ -329,6 +368,7 @@ class CombatHandler(object):
             val += self.char.db.skills.get("survival", 0)
         return val
 
+    # noinspection PyAttributeOutsideInit
     def reset(self):
         self.times_attacked = 0
         self.ready = False
@@ -353,7 +393,7 @@ class CombatHandler(object):
                 if not targ:
                     targ = choice(self.targets)
                 mssg = "{rYou attack %s.{n" % targ
-                defenders = self.combat.get_defenders(targ)
+                defenders = targ.combat.get_defenders()
                 if defenders:
                     targ = choice(defenders)
                     mssg += " But {c%s{n gets in your way, and you attack them instead."
@@ -368,6 +408,7 @@ class CombatHandler(object):
                     ready = True
                 self.set_queued_action("pass", do_ready=ready)
 
+    # noinspection PyAttributeOutsideInit
     def validate_targets(self, lethal=False):
         """
         builds a list of targets from our foelist, making sure each
@@ -376,11 +417,11 @@ class CombatHandler(object):
         """
         guarding = self.char.db.guarding
         if guarding:
-            gdata = self.combat.get_fighter_data(guarding.id)
+            gdata = guarding.combat
             if gdata:
                 for foe in gdata.foelist:
                     self.add_foe(foe)
-        fighters = [self.combat.get_fighter_data(ob.id) for ob in self.foelist if self.combat.get_fighter_data(ob.id)]
+        fighters = [ob.combat for ob in self.foelist]
         if not lethal:
             self.targets = [fighter.char for fighter in fighters if fighter.status == 'active']
         else:
@@ -419,7 +460,8 @@ class CombatHandler(object):
             # YOU'RE WITH HIM? OKAY, YOU'RE COOL
             if defender not in self.foelist and self.char != defender:
                 self.add_friend(defender)
-    
+
+    # noinspection PyAttributeOutsideInit
     def set_queued_action(self, qtype=None, targ=None, msg="", atk_pen=0, dmg_mod=0, do_ready=True):
         """
         Setup our type of queued action, remember targets,
@@ -432,12 +474,15 @@ class CombatHandler(object):
         if do_ready:
             self.character_ready()
 
+    # noinspection PyAttributeOutsideInit
     def do_turn_actions(self, took_actions=False):
         """
         Takes any queued action we have and returns a result. If we have no
         queued action, return None. If our queued action can no longer be
         completed, return None. Otherwise, return a result.
         """
+        if not self.combat:
+            return
         if self.combat.ndb.phase != 2:
             return False
         remaining_attacks = self.remaining_attacks
@@ -485,20 +530,20 @@ class CombatHandler(object):
                         targ = choice(self.targets)
                     # add them back so our next attack could be the last guy
                     self.targets.append(self.prev_targ)
-                defenders = self.combat.get_defenders(targ)
+                defenders = targ.combat.get_defenders()
                 # if our target selection has defenders, we hit one of them instead
                 if defenders:
                     targ = choice(defenders)
             # set who we attacked
             self.prev_targ = targ
-            self.combat.do_attack(self.char, targ, attack_penalty=q.atk_pen, dmg_penalty=-q.dmg_mod)
+            self.do_attack(targ, attack_penalty=q.atk_pen, dmg_penalty=-q.dmg_mod)
         # check to make sure that remaining attacks was decremented by attacking
         if self.remaining_attacks == remaining_attacks:
             self.remaining_attacks -= 1
         if self.remaining_attacks > 0:
             return self.do_turn_actions(took_actions=True)
         else:
-            if self.combat.ndb.active_char == self.char:
+            if self.combat and self.combat.ndb.active_char == self.char:
                 self.combat.next_character_turn()
             return True
 
@@ -516,7 +561,8 @@ class CombatHandler(object):
         our defenders.
         """
         pass
-        
+
+    # noinspection PyAttributeOutsideInit
     def roll_initiative(self):
         """Rolls and stores initiative for the character."""
         self.initiative = do_dice_check(self.char, stat_list=["dexterity", "composure"], stat_keep=True, difficulty=0)
@@ -538,6 +584,7 @@ class CombatHandler(object):
         return (roll/2) + randint(0, (roll/2))
 
     # noinspection PyUnusedLocal
+    # noinspection PyAttributeOutsideInit
     def roll_defense(self, attacker, weapon=None, penalty=0, a_roll=None):
         """
         Returns our roll to avoid being hit. We use the highest roll out of 
@@ -754,6 +801,8 @@ class CombatHandler(object):
         """
         character = self.char
         combat = self.combat
+        if not combat:
+            return
         if character not in combat.ndb.combatants:
             return
         if combat.ndb.phase == 2:
@@ -885,6 +934,7 @@ class CombatHandler(object):
         combat = self.combat
         # stuff to mitigate damage here
         d_fite = target.combat
+        lethal = combat.ndb.lethal
         # if damage is increased, it's pre-mitigation
         if dmgmult > 1.0:
             dmg = self.roll_damage(target, dmg_penalty, dmgmult)
@@ -900,9 +950,18 @@ class CombatHandler(object):
             message = "%s fails to inflict any harm on %s." % (self, d_fite)
             combat.msg(message, options={'roll': True})
             return
+        target.combat.take_damage(dmg, lethal)
+
+    def take_damage(self, dmg, lethal=True, allow_one_shot=False):
+        target = self.char
+        loc = target.location
+        # some flags so messaging is in proper order
+        knock_uncon = False
+        kill = False
+        remove = False
         # max hp is (stamina * 10) + 10
         max_hp = target.max_hp
-        wound = float(dmg)/float(max_hp)
+        wound = float(dmg) / float(max_hp)
         if wound <= 0.1:
             wound_desc = "minor"
         elif 0.1 < wound <= 0.25:
@@ -915,9 +974,11 @@ class CombatHandler(object):
             wound_desc = "critical"
         else:
             wound_desc = "extremely critical"
-        message = "%s inflicts {r%s{n damage to %s." % (self, wound_desc, d_fite)
-        combat.obj.msg_contents(message, options={'roll': True})
-        target.dmg += dmg
+        message = "%s takes {r%s{n damage." % (self, wound_desc)
+        if lethal:
+            target.dmg += dmg
+        else:
+            target.temp_dmg += dmg
         grace_period = False  # one round delay between incapacitation and death for PCs
         if target.dmg > target.max_hp:
             # if we're not incapacitated, we start making checks for it
@@ -926,20 +987,18 @@ class CombatHandler(object):
                 diff = target.dmg - target.max_hp
                 consc_check = do_dice_check(target, stat_list=["stamina", "willpower"], skill="survival",
                                             stat_keep=True, difficulty=diff)
-                combat.msg("%s rolls stamina+willpower+survival against difficulty %s, getting %s." % (d_fite, diff,
-                                                                                                       consc_check))
+                message += "%s rolls stamina+willpower+survival against difficulty %s, getting %s." % (self, diff,
+                                                                                                       consc_check)
                 if consc_check > 0:
-                    message = "%s remains capable of fighting despite their wounds." % d_fite
+                    message += "%s remains capable of fighting despite their wounds." % self
                     grace_period = True  # even npc can't be killed if they make the first check
                     # we're done, so send the message for the attack
-                    combat.msg(message)
                 else:
-                    message = "%s is incapacitated from their wounds." % d_fite
-                    target.fall_asleep(uncon=True)
+                    message += "%s is incapacitated from their wounds." % self
+                    knock_uncon = True
                 # for PCs who were knocked unconscious this round
-                if not target.db.npc and not grace_period:
+                if not target.db.npc and not grace_period and not allow_one_shot:
                     grace_period = True  # always a one round delay before you can kill a player
-                    combat.msg(message)
             # PC/NPC who was already unconscious before attack, or an NPC who was knocked unconscious by our attack
             if not grace_period:  # we are allowed to kill the character
                 diff = target.dmg - (2 * target.max_hp)
@@ -947,23 +1006,28 @@ class CombatHandler(object):
                     diff = 0
                 if do_dice_check(target, stat_list=["stamina", "willpower"], skill="survival",
                                  stat_keep=True, difficulty=diff) > 0:
-                    message = "%s remains alive, but close to death." % d_fite
-                    combat.msg(message)
-                    if d_fite.multiple:
+                    message = "%s remains alive, but close to death." % self
+                    if self.multiple:
                         # was incapacitated but not killed, but out of fight and now we're on another targ
                         target.db.damage = 0
-                elif not d_fite.multiple:
-                    combat.msg(message)
-                    if combat.ndb.lethal:
-                        target.death_process()
-                    else:
-                        target.db.damage = 0
-                    combat.remove_combatant(target)
+                elif not self.multiple:
+                    if lethal:
+                        kill = True
+                    # remove a 'killed' character from combat whether it was a real death or fake
+                    remove = True
                 else:
-                    if combat.ndb.lethal:
-                        target.death_process()
+                    if lethal:
+                        kill = True
                     else:
-                        target.fall_asleep(uncon=True)
+                        knock_uncon = True
+        if loc:
+            loc.msg_contents(message, options={'roll': True})
+        if knock_uncon:
+            target.fall_asleep(uncon=True)
+        if kill:
+            target.death_process()
+        if self.combat and remove:
+            self.combat.remove_combatant(target)
                     
     def do_flank(self, target, sneaking=False, invis=False, attack_guard=True):
         """
@@ -1032,6 +1096,7 @@ class CombatHandler(object):
         if self in combat.ndb.initiative_list:
             combat.ndb.initiative_list.remove(self)
 
+    # noinspection PyAttributeOutsideInit
     def do_flee(self, exit_obj):
         """
         Character attempts to flee from combat. If successful, they are
@@ -1074,7 +1139,8 @@ class CombatHandler(object):
         exit_obj.at_traverse(character, exit_obj.destination, allow_follow=False)
         combat.msg("%s has fled from combat." % character.name)
         combat.remove_combatant(character)
-  
+
+    # noinspection PyAttributeOutsideInit
     def do_stop_flee(self, target):
         """
         Try to stop a character from fleeing. Lists of who is stopping who from running
@@ -1130,9 +1196,8 @@ class CombatHandler(object):
         if guard not in combat.ndb.combatants:
             combat.add_combatant(guard)
             guard.msg("{rYou enter combat to protect %s.{n" % protected.name)
-        fdata = protected.combat
-        if fdata and guard not in fdata.defenders:
-            fdata.defenders.append(guard)
+        if guard not in self.defenders:
+            self.defenders.append(guard)
             combat.msg("%s begins protecting %s." % (guard.name, protected.name))
         fdata = guard.combat
         if fdata:
@@ -1168,7 +1233,8 @@ class CombatHandler(object):
                 ob = ob.combat
                 if ob:
                     ob.block_flee = None
-    
+
+    # noinspection PyAttributeOutsideInit
     def change_stance(self, new_stance):
         """
         Updates character's combat stance

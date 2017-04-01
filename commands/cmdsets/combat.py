@@ -287,7 +287,7 @@ def check_targ(caller, target, verb="Attack"):
     if not target.db.attackable:
         caller.msg("%s is not attackable and cannot enter combat." % target.name)
         return False
-    if not target.ndb.combat_manager or target.ndb.combat_manager != caller.ndb.combat_manager:
+    if target.combat.combat != caller.combat.combat:
         caller.msg("%s is not in combat with you." % target.name)
         return False
     return True
@@ -365,7 +365,7 @@ class CmdAttack(MuxCommand):
         can_kill = self.can_kill
         if targ.db.npc:
             can_kill = True
-        if targ in combat.ndb.incapacitated and not can_kill:
+        if not targ.conscious and not can_kill:
             message = "%s is incapacitated. " % targ.name
             message += "To kill an incapacitated character, "
             message += "you must use the {w+coupdegrace{n command."
@@ -546,7 +546,7 @@ class CmdFlank(MuxCommand):
         targ = caller.search(self.args)
         if not check_targ(caller, targ):
             return
-        if targ in combat.ndb.incapacitated and not targ.db.npc:
+        if not targ.conscious and not targ.db.npc:
             caller.msg("You must use '{w+coupdegrace{n' to kill characters.")
             return
         # Check whether we attack guards
@@ -969,7 +969,13 @@ class CmdHarm(MuxCommand):
     Harms characters and sends them a message
 
     Usage:
-        @harm <character1, character2, etc>=amount,<message>
+        @harm <character1, character2, etc>=amount/<message>
+        @harm/mercy <character1, character2>=amount/<message>
+
+    Causes damage to the characters listed. If the mercy switch is
+    specified, a character cannot be killed instantly. Otherwise, they can
+    only be killed if they're already unconscious. <message> is broadcast
+    to the room if specified.
     """
     key = "@harm"
     locks = "cmd:perm(Wizards)"
@@ -979,11 +985,13 @@ class CmdHarm(MuxCommand):
         if not self.lhslist:
             self.msg("Must provide one or more character names.")
             return
-        message = "You feel worse."
+        message = ""
         amt = None
+        one_shot = "mercy" not in self.switches
+        rhslist = self.rhs.split("/")
         try:
-            amt = int(self.rhslist[0])
-            message = self.rhslist[1]
+            amt = int(rhslist[0])
+            message = rhslist[1]
         except (TypeError, ValueError):
             self.msg("Must provide a number amount.")
             return
@@ -997,12 +1005,16 @@ class CmdHarm(MuxCommand):
         charlist = [ob.db.char_ob for ob in players if ob.db.char_ob]
         if not charlist:
             return
+        if message:
+            rooms = set([ob.location for ob in charlist if ob.location])
+            for room in rooms:
+                room.msg_contents(message)
         for obj in charlist:
-            if obj.player:
-                obj.msg(message)
-            else:
+            if not obj.location:
+                if not message:
+                    message = "You have taken damage."
                 obj.db.player_ob.inform(message, category="Damage")
-            obj.dmg += amt
+            obj.combat.take_damage(amt, lethal=True, allow_one_shot=one_shot)
         self.msg("You inflicted %s damage on %s" % (amt, ", ".join(str(obj) for obj in charlist)))
 
 

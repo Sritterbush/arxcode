@@ -39,14 +39,11 @@ for the following turn to be allowed a legal action.
 from typeclasses.scripts.scripts import Script as BaseScript
 from evennia.utils.utils import fill, dedent, list_to_string
 from server.utils.prettytable import PrettyTable
-from commands.cmdsets.combat import CombatCmdSet
-from world.stats_and_skills import do_dice_check
 from twisted.internet import reactor
 
 from operator import attrgetter
 import time
 import combat_settings
-from combatant import CharacterCombatData
 from world.dominion.battle import Formation
 
 
@@ -252,10 +249,10 @@ class CombatManager(BaseScript):
         in defending or so on, and messages will be sent from elsewhere.
         """
         # if we're already fighting, nothing happens
+        cdata = character.combat
         if character in self.ndb.combatants:
             if character == adder:
                 return "You are already in the fight."
-            cdata = character.combat
             if cdata and adder:
                 cdata.add_foe(adder)
                 adata = adder.combat
@@ -271,13 +268,7 @@ class CombatManager(BaseScript):
         self.remove_observer(character)
         self.send_intro_message(character, combatant=True)
         self.ndb.combatants.append(character)
-        character.cmdset.add(CombatCmdSet, permanent=False)
-        if character.db.defenders:
-            for ob in character.db.defenders:
-                self.add_defender(character, ob)
-        if character.db.assigned_guards:
-            for ob in character.db.assigned_guards:
-                self.add_defender(character, ob)
+        cdata.join_combat(self)
         reactor.callLater(1, cdata.reset)
         if character == adder:
             return "{rYou have entered combat.{n"
@@ -414,7 +405,6 @@ class CombatManager(BaseScript):
         Remove a character from combat altogether. Do a ready check if
         we're in phase one.
         """
-        self.stop_covering(character)
         c_fite = character.combat
         if character in self.ndb.combatants:
             self.ndb.combatants.remove(character)
@@ -422,23 +412,7 @@ class CombatManager(BaseScript):
             self.ndb.fleeing.remove(character)
         if character in self.ndb.afk_check:
             self.ndb.afk_check.remove(character)
-        self.clear_blocked_by_list(character)
-        self.clear_covered_by_list(character)
-        guarding = c_fite.guarding
-        if guarding:
-            self.remove_defender(guarding, character)
-        self.msg("%s has left the fight." % character.name)
-        character.cmdset.delete(CombatCmdSet)
-        character.ndb.combat_manager = None
-        character.ndb.charcombatdata = []
-        # nonlethal combat leaves no lasting harm
-        if not self.ndb.lethal:
-            # set them to what they were before the fight and wake them up
-            character.dmg = c_fite.prefight_damage
-            try:
-                character.wake_up(quiet=True)
-            except AttributeError:
-                pass
+        c_fite.leave_combat(self)
         # if we're already shutting down, avoid redundant messages
         if len(self.ndb.combatants) < 2 and not in_shutdown:
             # We weren't shutting down and don't have enough fighters to continue. end the fight.

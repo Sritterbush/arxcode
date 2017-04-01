@@ -265,7 +265,6 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         if self.location:
             if not quiet and not self.conscious:
                 self.location.msg_contents("%s wakes up." % self.name)
-            self.combat.wake_up(self)
         try:
             from commands.cmdsets import sleep
             self.cmdset.delete(sleep.SleepCmdSet)
@@ -400,6 +399,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     def _get_current_damage(self):
         """Returns how much damage we've taken."""
         dmg = self.db.damage or 0
+        dmg += self.temp_dmg
         return dmg
 
     def _set_current_damage(self, dmg):
@@ -407,6 +407,16 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             dmg = 0
         self.db.damage = dmg
         self.start_recovery_script()
+
+    @property
+    def temp_dmg(self):
+        if self.ndb.temp_dmg is None:
+            self.ndb.temp_dmg = 0
+        return self.ndb.temp_dmg
+
+    @temp_dmg.setter
+    def temp_dmg(self, val):
+        self.ndb.temp_dmg = val
 
     def start_recovery_script(self):
         # start the script if we have damage
