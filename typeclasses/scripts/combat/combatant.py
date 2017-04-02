@@ -176,7 +176,7 @@ class CombatHandler(object):
         self.clear_covered_by_list()
         guarding = self.guarding
         if guarding:
-            guarding.remove_defender(character)
+            guarding.combat.remove_defender(character)
         combat.msg("%s has left the fight." % character.name)
         character.cmdset.delete(CombatCmdSet)
         self.combat = None
