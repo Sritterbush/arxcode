@@ -433,14 +433,18 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                     return
             else:
                 char = self.caller
+            refund = 0
             for ob in char.assisted_investigations.filter(currently_helping=True):
                 ob.currently_helping = False
                 ob.save()
+                refund += self.ap_cost
             self.msg("%s stopped assisting investigations." % char)
+            if refund:
+                self.caller.roster.action_points += refund
+                self.caller.roster.save()
             return
         if "resume" in self.switches:
             if "retainer" in self.switches:
-
                 try:
                     if self.rhs.isdigit():
                         char = self.caller.player.retainers.get(id=self.rhs).dbobj
