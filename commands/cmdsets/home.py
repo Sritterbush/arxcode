@@ -964,10 +964,11 @@ class CmdBuyFromShop(CmdCraft):
         loc = self.caller.location
         char_discounts = loc.db.char_discounts or {}
         discount = 0.0
+        discounts = loc.db.discounts or {}
         if self.caller in char_discounts:
             return char_discounts[self.caller]
         for org in self.caller.db.player_ob.Dominion.current_orgs:
-            odiscount = loc.db.discounts.get(org.name, 0.0)
+            odiscount = discounts.get(org.name, 0.0)
             if odiscount and not discount:
                 discount = odiscount
             if odiscount and discount and odiscount > discount:
@@ -997,10 +998,11 @@ class CmdBuyFromShop(CmdCraft):
         loc = self.caller.location
         base = recipe.value
         price = 0
-        if recipe.id in loc.db.crafting_prices:
-            price = (base * loc.db.crafting_prices[recipe.id]) / 100.0
-        elif "all" in loc.db.crafting_prices:
-            price = (base * loc.db.crafting_prices["all"]) / 100.0
+        crafting_prices = loc.db.crafting_prices or {}
+        if recipe.id in crafting_prices:
+            price = (base * crafting_prices[recipe.id]) / 100.0
+        elif "all" in crafting_prices:
+            price = (base * crafting_prices["all"]) / 100.0
         if price is not None:
             price -= (price * self.get_discount() / 100.0)
             if price < 0:

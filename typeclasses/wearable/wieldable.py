@@ -130,7 +130,7 @@ class Wieldable(Object):
         """Hook called after wielding for any checks."""
         cscript = wielder.location.ndb.combat_manager
         if cscript and wielder in cscript.ndb.combatants:
-            cdat = cscript.get_fighter_data(wielder.id)
+            cdat = wielder.combat
             cdat.setup_weapon(wielder.weapondata)     
         return True
 
@@ -142,7 +142,7 @@ class Wieldable(Object):
         """Hook called after removing."""
         cscript = wielder.location.ndb.combat_manager
         if cscript and wielder in cscript.ndb.combatants:
-            cdat = cscript.get_fighter_data(wielder.id)
+            cdat = wielder.combat
             cdat.setup_weapon(wielder.weapondata)
         return True
     
