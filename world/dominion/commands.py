@@ -1601,7 +1601,7 @@ class CmdOrganization(MuxPlayerCommand):
             entry.discover_clue(clue=clue, method="Briefing")
             entry.investigations.filter(clue_target=clue).update(clue_target=None)
             text = "You have been briefed and learned a clue. Use @clue to view them: %s" % clue
-            tarmember.player.player.msg("%s has briefed you on %s's secrets." % (caller, org))
+            tarmember.player.player.msg("%s has briefed you on %s's secrets." % (caller.db.char_ob, org))
             tarmember.player.player.inform(text, category="%s briefing" % org)
             self.msg("You have briefed %s on your organization's secrets." % tarmember)
             return
@@ -1641,7 +1641,8 @@ class CmdOrganization(MuxPlayerCommand):
                 return
             ClueForOrg.objects.create(clue=clue, org=org, revealed_by=caller.roster)
             category = "%s: Clue Added" % org
-            text = "%s has shared the clue {w%s{n to {c%s{n. It can now be used in a /briefing." % (caller, clue, org)
+            text = "%s has shared the clue {w%s{n to {c%s{n. It can now be used in a /briefing." % (caller.db.char_ob,
+                                                                                                    clue, org)
             org.inform_members(text, category)
             return
         if 'accept' in self.switches:
@@ -1790,7 +1791,7 @@ class CmdOrganization(MuxPlayerCommand):
             tarmember.rank = rank
             tarmember.save()
             caller.msg("You have set %s's rank to %s." % (player, rank))
-            player.msg("Your rank has been set to %s by %s." % (rank, caller))
+            player.msg("Your rank has been set to %s by %s." % (rank, caller.db.char_ob))
             return
         # other switches can omit the org name if we're only a member of one org   
         if not self.rhs:
@@ -1828,7 +1829,7 @@ class CmdOrganization(MuxPlayerCommand):
                 return
             player.ndb.orginvite = org
             caller.msg("You have invited %s to %s." % (char, org.name))
-            msg = "You have been invited by %s to join %s.\n" % (caller, org.name)
+            msg = "You have been invited to join %s by %s.\n" % (org.name, caller.db.char_ob)
             msg += "To accept, type {w@org/accept %s{n. To decline, type {worg/decline %s{n." % (org.name, org.name)
             player.inform(msg, category="Invitation")
             return
@@ -1847,7 +1848,7 @@ class CmdOrganization(MuxPlayerCommand):
                     return
             tarmember.fake_delete()
             caller.msg("Booted %s from %s." % (player, org))
-            player.msg("You have been removed from %s by %s." % (org, caller))
+            player.msg("You have been removed from %s by %s." % (org, caller.db.char_ob))
             return
         if 'memberview' in self.switches:
             if org.secret and not org.access(caller, 'view'):
@@ -1856,7 +1857,6 @@ class CmdOrganization(MuxPlayerCommand):
             caller.msg("{wMember info for {c%s{n" % tarmember)
             caller.msg(tarmember.display())
             return
-
         if 'secret' in self.switches:
             if not org.access(caller, 'setrank'):
                 caller.msg("You do not have permission to change member status.")
