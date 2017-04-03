@@ -887,7 +887,8 @@ class CmdGuards(MuxCommand):
             caller.msg("You have no guards assigned to you.")
             return
         if not self.args and not self.switches:
-            self.msg("{WYour guards:{n\n%s" % "".join(guard.agent.display() for guard in guards), options={'box': True})
+            self.msg("{WYour guards:{n\n%s" % "".join(guard.agent.display() if guard.agent.unique else guard.display()
+                                                      for guard in guards), options={'box': True})
             return
         if self.args:
             guard = ObjectDB.objects.object_search(self.lhs, candidates=guards, exact=False)
