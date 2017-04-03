@@ -333,7 +333,6 @@ class CmdTrain(MuxCommand):
 
     @property
     def currently_training(self):
-        self.caller.refresh_from_db()
         return self.caller.db.currently_training or []
 
     def pay_ap_cost(self):
@@ -369,6 +368,7 @@ class CmdTrain(MuxCommand):
         # try to handle possible caching errors
         caller.attributes._cache.pop('currently_training-None', None)
         caller.attributes._cache.pop('num_trained-None', None)
+        caller.refresh_from_db()
         if not self.args:
             self.msg("Currently training: %s" % ", ".join(str(ob) for ob in self.currently_training))
             self.msg("You can train %s targets." % self.max_trainees)

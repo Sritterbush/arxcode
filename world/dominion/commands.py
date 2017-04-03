@@ -2611,7 +2611,8 @@ class CmdSupport(MuxCommand):
                 for s_id in form[2]:
                     sphere = SphereOfInfluence.objects.get(id=s_id)
                     msg = "Organization: %s, Category: %s, Amount: %s" % (sphere.org, sphere.category, form[2][s_id])
-                    caller.msg(msg)            
+                    caller.msg(msg)
+                caller.msg("Total support: %s" % self.supportform_total())
                 caller.msg("Notes:\n%s" % form[3])
                 caller.msg("Rumors:\n%s" % form[4])       
                 caller.msg("Once all fields are finished, use support/finish to commit.")
@@ -2621,6 +2622,13 @@ class CmdSupport(MuxCommand):
                 print("%s had an invalid supportform. Wiping the attribute." % caller)
                 caller.attributes.remove("supportform")
                 return
+
+    def supportform_total(self):
+        caller = self.caller
+        form = caller.db.supportform
+        if not form or not form[2]:
+            return 0
+        return sum(form[2].values())
 
     def get_support_table(self):
         caller = self.caller
@@ -2932,6 +2940,11 @@ class CmdSupport(MuxCommand):
             self.disp_supportform()
             return
         if "finish" in self.switches:
+            used = self.supportform_total()
+            if used > remaining:
+                self.msg("You would use %s points and you only have %s remaining. Please change them." % (used,
+                                                                                                          remaining))
+                return
             points = 0
             char = form[0]
             fake = form[1]

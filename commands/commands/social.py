@@ -367,7 +367,7 @@ class CmdJournal(MuxCommand):
         for entry in j_list:
             try:
                 event = character.messages.get_event(entry)
-                name = ", ".join(str(ob) for ob in entry.db_receivers_objects.all())       
+                name = ", ".join(ob.key for ob in entry.db_receivers_objects.all())
                 if event and not name:
                     name = event.name[:25]
                 if fav_tag in entry.tags.all():
