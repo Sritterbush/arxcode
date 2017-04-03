@@ -11,7 +11,6 @@ respectively. So while you can do
 char.db.strength, you would have to access
 a skill by char.db.skills.get('brawl', 0), for example.
 """
-from random import randint
 from .roll import Roll
 
 
@@ -48,7 +47,6 @@ _parent_abilities_ = {'sewing': ['tailor'], 'smithing': ['weaponsmith', 'armorsm
 DIFF_DEFAULT = 15
 
 
-
 # Base Costs for things:
 # cost for stats are always 100, regardless of current value
 NEW_STAT_COST = 100
@@ -75,7 +73,6 @@ def get_partial_match(args, s_type):
     return matches
 
 
-
 def do_dice_check(caller, stat=None, skill=None, difficulty=DIFF_DEFAULT, stat_list=None,
                   skill_list=None, skill_keep=True, stat_keep=False, quiet=True, announce_room=None,
                   keep_override=None, bonus_dice=0, divisor=1, average_lists=False, can_crit=True,
@@ -88,9 +85,10 @@ def do_dice_check(caller, stat=None, skill=None, difficulty=DIFF_DEFAULT, stat_l
                 announce_room=announce_room, keep_override=keep_override, bonus_dice=bonus_dice,
                 divisor=divisor, average_lists=average_lists, can_crit=can_crit,
                 average_stat_list=average_stat_list, average_skill_list=average_skill_list)
-    caller.nbd.last_roll = roll
+    caller.ndb.last_roll = roll
     roll.roll()
     return roll.result
+
 
 def get_stat_cost(caller, stat):
     """Currently all stats cost 100, but this could change."""

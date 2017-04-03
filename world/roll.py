@@ -8,7 +8,6 @@ attribute.
 from random import randint
 
 
-
 # The number of 'keep dice' all rolls have as a default. The higher
 # this number is, the less significant the difference between a highly
 # skilled and unskilled character is.
@@ -20,10 +19,10 @@ class Roll(object):
     EXPLODE_VAL = 10
     
     def __init__(self, caller=None, stat=None, skill=None, difficulty=15, stat_list=None,
-                  skill_list=None, skill_keep=True, stat_keep=False, quiet=True, announce_room=None,
-                  keep_override=None, bonus_dice=0, divisor=1, average_lists=False, can_crit=True,
-                  average_stat_list=False, average_skill_list=False):
-        self.caller = caller
+                 skill_list=None, skill_keep=True, stat_keep=False, quiet=True, announce_room=None,
+                 keep_override=None, bonus_dice=0, divisor=1, average_lists=False, can_crit=True,
+                 average_stat_list=False, average_skill_list=False):
+        self.character = caller
         self.difficulty = difficulty
         self.skill_keep = skill_keep
         self.stat_keep = stat_keep
@@ -43,8 +42,8 @@ class Roll(object):
         self.result = 0
         self.crit_mult = 1
         self.msg = ""
-        self.caller_name = ""
-        if self.caller:
+        self.character_name = ""
+        if self.character:
             # None isn't iterable so make an empty set of stats
             stat_list = stat_list or []
             # add individual stat to the list
@@ -52,7 +51,7 @@ class Roll(object):
                 stat_list.append(stat)
             # look up each stat from supplied caller, adds to stats dict
             for somestat in stat_list:
-                self.stats[somestat] = self.caller.attributes.get(somestat, 0)
+                self.stats[somestat] = self.character.attributes.get(somestat, 0)
             # None isn't iterable so make an empty set of skills
             skill_list = skill_list or []
             # add individual skill to the list
@@ -65,8 +64,7 @@ class Roll(object):
                 self.skills[someskill] = skills.get(someskill, 0)
             self.bonus_crit_chance = caller.db.bonus_crit_chance or 0
             self.bonus_crit_mult = caller.db.bonus_crit_mult or 0
-            self.caller_name = caller.name
-                
+            self.character_name = caller.name
 
     def roll(self):
         """
@@ -77,8 +75,8 @@ class Roll(object):
         matches for them.
         """
         announce_room = self.announce_room
-        if not announce_room and self.caller:
-            announce_room = self.caller.location
+        if not announce_room and self.character:
+            announce_room = self.character.location
         statval = sum(self.stats.values())
         if self.average_lists or self.average_stat_list:
             statval /= len(self.stats)
@@ -105,8 +103,7 @@ class Roll(object):
         rolls.sort()
         rolls = rolls[-keep_dice:]
         result = sum(rolls)
-        if not self.divisor:
-            divisor = 1
+        divisor = self.divisor or 1
         result /= divisor
         # crit chance is determined here. If we can't crit, we just set the multiplier to be 1
         crit_mult = self.check_crit_mult()
@@ -160,11 +157,13 @@ class Roll(object):
             return 1
 
     def build_msg(self):
-        name = self.caller_name
+        name = self.character_name
         if self.result + self.difficulty >= self.difficulty:
-            resultstr = "resulting in %s, %s {whigher{n than the difficulty" % (self.result + self.difficulty, self.result)
+            resultstr = "resulting in %s, %s {whigher{n than the difficulty" % (self.result + self.difficulty,
+                                                                                self.result)
         else:
-            resultstr = "resulting in %s, %s {rlower{n than the difficulty" % (self.result + self.difficulty, -self.result)
+            resultstr = "resulting in %s, %s {rlower{n than the difficulty" % (self.result + self.difficulty,
+                                                                               -self.result)
         msg = ""
         if self.stats:
             stat_str = ", ".join(self.stats.keys())
@@ -175,7 +174,8 @@ class Roll(object):
         else:
             skill_str = ""
         if not stat_str or not skill_str:
-            roll_msg = "%s checked %s against difficulty %s, %s{n." % (name, stat_str or skill_str, self.difficulty, resultstr)
+            roll_msg = "%s checked %s against difficulty %s, %s{n." % (name, stat_str or skill_str, self.difficulty,
+                                                                       resultstr)
         else:
             roll_msg = "%s checked %s + %s against difficulty %s, %s{n." % (name, stat_str, skill_str, self.difficulty,
                                                                             resultstr)
