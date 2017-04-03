@@ -173,6 +173,13 @@ class WeeklyEvents(Script):
         except Exception as err:
             traceback.print_exc()
             print "Error in cleaning tickets: %s" % err
+        try:
+            from django.contrib.admin.models import LogEntry
+            qs = LogEntry.objects.filter(action_time__lte=date)
+            qs.delete()
+        except Exception as err:
+            traceback.print_exc()
+            print "Error in cleaning Django Admin Change History: %s" % err
         # cleanup soft-deleted objects
         try:
             import time
