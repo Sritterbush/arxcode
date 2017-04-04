@@ -2160,6 +2160,8 @@ class CmdRandomScene(MuxCommand):
         requests = targ.db.scene_requests or {}
         tup = (self.caller, self.rhs)
         name = self.caller.name
+        from server.utils.arx_utils import strip_ansi
+        name = strip_ansi(name)
         requests[name.lower()] = tup
         targ.db.scene_requests = requests
         msg = "%s has submitted a RP scene that included you, for which you have received xp. " % name
