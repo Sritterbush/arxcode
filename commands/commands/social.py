@@ -736,10 +736,10 @@ class CmdMessenger(MuxCommand):
         targ.db.pending_messengers = unread
         targ.messenger_notification(2)
         if caller.db.player_ob.db.nomessengerpreview or caller.ndb.already_previewed:
-            caller.msg("You dispatch %s to {c%s{n." % (m_name or "a messenger", targ))
+            caller.msg("You dispatch %s to {c%s{n." % (m_name or "a messenger", targ.key))
         else:
             caller.msg("You dispatch %s to {c%s{n with the following message:\n\n'%s'\n" % (
-                m_name or "a messenger", targ, msg.db_message))
+                m_name or "a messenger", targ.key, msg.db_message))
             caller.ndb.already_previewed = True
         deliver_str = m_name or "Your messenger"
         if delivery:
