@@ -128,10 +128,8 @@ class Wieldable(Object):
 
     def at_post_wield(self, wielder):
         """Hook called after wielding for any checks."""
-        cscript = wielder.location.ndb.combat_manager
-        if cscript and wielder in cscript.ndb.combatants:
-            cdat = wielder.combat
-            cdat.setup_weapon(wielder.weapondata)     
+        cdat = wielder.combat
+        cdat.setup_weapon(wielder.weapondata)     
         return True
 
     def at_pre_remove(self, wielder):
@@ -140,10 +138,8 @@ class Wieldable(Object):
 
     def at_post_remove(self, wielder):
         """Hook called after removing."""
-        cscript = wielder.location.ndb.combat_manager
-        if cscript and wielder in cscript.ndb.combatants:
-            cdat = wielder.combat
-            cdat.setup_weapon(wielder.weapondata)
+        cdat = wielder.combat
+        cdat.setup_weapon(wielder.weapondata)
         return True
     
     def calc_weapon(self):
