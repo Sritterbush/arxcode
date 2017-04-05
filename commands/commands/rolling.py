@@ -175,7 +175,7 @@ class CmdSpoofCheck(MuxCommand):
     def func(self):
         maximum_difference = 100
         crit = "can_crit" in self.switches
-        roll = Roll(can_crit=crit, quiet=False, announce_room=self.caller.location)
+        roll = Roll(can_crit=crit, quiet=False, announce_room=self.caller.location, announce_values=True)
         try:
             # rest of the command here. PS, I love you. <3
             # checks to see if difficulty exists. PPS Love you too!
@@ -194,18 +194,17 @@ class CmdSpoofCheck(MuxCommand):
                 skilltup = self.get_value_pair(other_list[1])
                 if not skilltup:
                     return
-                roll.skills = { skilltup[0] : skilltup[1] }
+                roll.skills = {skilltup[0]: skilltup[1]}
             else:
                 roll.stat_keep = True
                 roll.skill_keep = False
             stattup = self.get_value_pair(other_list[0])
             if not stattup:
                 return
-            roll.stats = { stattup[0] : stattup[1] }
+            roll.stats = {stattup[0]: stattup[1]}
             roll.character_name = "%s GM Roll" % self.caller
             # Just so you know, you are beautiful and I love you. <3
             roll.roll()
         except IndexError:
             self.msg("usage: @gmcheck <stat>/<value>[+<skill>/<value>] at <difficulty number>")
             return
-     
