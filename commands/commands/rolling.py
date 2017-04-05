@@ -151,10 +151,10 @@ class CmdSpoofCheck(MuxCommand):
         @gmcheck <stat>/<value>[+<skill>/<value>][ at <difficulty>]
         @gmcheck/can_crit <stat>/<value>[+<skill>/<value>][ at <difficulty>]
         
-     Performs a stat + skill at difficulty check with specified values. If no
-     difficulty is set, default is used. Intended for GMs to make rolls for NPCs 
-     that don't necessarily exist as characters in-game. The /can_crit switch
-     allows the roll to crit.
+    Performs a stat + skill at difficulty check with specified values. If no
+    difficulty is set, default is used. Intended for GMs to make rolls for NPCs 
+    that don't necessarily exist as characters in-game. The /can_crit switch
+    allows the roll to crit.
     """
     
     key = "@gmcheck"
@@ -176,7 +176,7 @@ class CmdSpoofCheck(MuxCommand):
     def func(self):
         maximum_difference = 100
         crit = "can_crit" in self.switches
-        roll = Roll(can_crit=crit, quiet=False, announce_room=self.caller.location)
+        roll = Roll(can_crit=crit, quiet=False, announce_room=self.caller.location, announce_values=True)
         try:
             # rest of the command here. PS, I love you. <3
             # checks to see if difficulty exists. PPS Love you too!
