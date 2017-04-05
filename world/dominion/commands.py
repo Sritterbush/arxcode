@@ -1776,7 +1776,8 @@ class CmdOrganization(MuxPlayerCommand):
             # 'setrank' now
             if not org.access(caller, 'setrank'):
                 caller.msg("You do not have permission to change ranks.")
-                return           
+                return
+            # this check also prevents promoting yourself
             if rank < member.rank:
                 caller.msg("You cannot set someone to be higher rank than yourself.")
                 return
@@ -1785,7 +1786,8 @@ class CmdOrganization(MuxPlayerCommand):
             except Member.DoesNotExist:
                 caller.msg("%s is not a member of %s." % (player, org))
                 return
-            if tarmember.rank <= member.rank:
+            # can demote yourself, but otherwise only people lower than yourself
+            if tarmember.rank <= member.rank and tarmember != member:
                 caller.msg("You cannot change the rank of someone equal to you or higher.")
                 return
             tarmember.rank = rank
