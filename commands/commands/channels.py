@@ -117,8 +117,8 @@ class ArxChannelCommand(command.Command):
             def send_msg(lines):
                 msgs = "".join(line for line in lines)
                 arx_more.msg(caller, msgs, justify_kwargs=False)
-            # if self.num_messages > 200:
-            #     self.num_messages = 200
+            if self.num_messages > 200:
+                self.num_messages = 200
             self.msg("{wChannel history for %s:{n" % self.key)
             tail_log_file(log_file, 0, self.num_messages, callback=send_msg)
             return
