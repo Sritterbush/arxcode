@@ -82,7 +82,7 @@ class CombatHandler(object):
         self._ready = False
         self.lethal = True
         self.initialize_values()
-        self.reset()
+        
 
     @property
     def stance(self):
@@ -164,6 +164,7 @@ class CombatHandler(object):
                 self.add_defender(ob)
         if combat:
             self.lethal = combat.ndb.lethal
+        self.reset()
 
     def leave_combat(self, combat):
         character = self.char

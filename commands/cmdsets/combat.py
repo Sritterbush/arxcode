@@ -792,6 +792,7 @@ class CmdAdminCombat(MuxCommand):
         @admin_combat/stopfight - ends combat completely
         @admin_combat/afk <character> - Moves AFK player to observers
         @admin_combat/view <character> - shows combat stats
+        @admin_combat/readyall - Marks all characters ready
 
     A few commands to allow a GM to move combat along by removing AFK or
     stalling characters or forcing them to pass their turn or ending a
@@ -816,6 +817,12 @@ class CmdAdminCombat(MuxCommand):
         if "stopfight" in switches:
             combat.msg("%s has ended the fight." % caller.key)
             combat.end_combat()
+            return
+        if "readyall" in switches:
+            if combat.ndb.phase == 2:
+                self.msg("They are already in phase 2.")
+                return
+            combat.start_phase_2()
             return
         targ = caller.search(self.args)
         if not check_targ(caller, targ, "Admin"):

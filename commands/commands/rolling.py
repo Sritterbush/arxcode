@@ -195,18 +195,17 @@ class CmdSpoofCheck(MuxCommand):
                 skilltup = self.get_value_pair(other_list[1])
                 if not skilltup:
                     return
-                roll.skills = { skilltup[0] : skilltup[1] }
+                roll.skills = {skilltup[0]: skilltup[1]}
             else:
                 roll.stat_keep = True
                 roll.skill_keep = False
             stattup = self.get_value_pair(other_list[0])
             if not stattup:
                 return
-            roll.stats = { stattup[0] : stattup[1] }
+            roll.stats = {stattup[0]: stattup[1]}
             roll.character_name = "%s GM Roll" % self.caller
             # Just so you know, you are beautiful and I love you. <3
             roll.roll()
         except IndexError:
             self.msg("usage: @gmcheck <stat>/<value>[+<skill>/<value>] at <difficulty number>")
             return
-     
