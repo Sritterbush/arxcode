@@ -787,7 +787,7 @@ class CmdPage(MuxPlayerCommand):
                 r_strings.append("You are not allowed to page %s." % pobj)
                 continue
             if "ic_only" in caller.tags.all() and pobj not in caller.allow_list:
-                msg = "%s is not in your allow list, and you are IC Only. " % caller
+                msg = "%s is not in your allow list, and you are IC Only. " % pobj
                 msg += "Allow them to send a page, or disable the IC Only @setting."
                 self.msg(msg)
                 continue
