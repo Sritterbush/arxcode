@@ -7,7 +7,6 @@ from evennia.comms.models import TempMsg
 from evennia.utils import utils, evtable
 from server.utils import prettytable
 from evennia.utils.utils import make_iter, variable_from_module
-from world import stats_and_skills
 from evennia.objects.models import ObjectDB
 from evennia.utils.ansi import raw
 
