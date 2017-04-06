@@ -1217,7 +1217,8 @@ class CombatHandler(object):
             return
         if guard in self.defenders:
             self.defenders.remove(guard)
-            combat.msg("%s is no longer protecting %s." % (guard.name, protected.name))
+            if combat:
+                combat.msg("%s is no longer protecting %s." % (guard.name, protected.name))
 
     def get_defenders(self):
         """
