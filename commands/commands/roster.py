@@ -458,7 +458,7 @@ class CmdAdminRoster(MuxPlayerCommand):
                 if xp < 0:
                     xp = 0
                 try:
-                    alt = AccountHistory.objects.get(Q(account=current) & ~Q(entry=entry))
+                    alt = AccountHistory.objects.get(Q(account=current) & ~Q(entry=entry) & Q(end_date__isnull=True))
                     self.award_alt_xp(alt, xp, history, current)
                 except AccountHistory.DoesNotExist:
                     if xp > current.total_xp:
@@ -470,7 +470,8 @@ class CmdAdminRoster(MuxPlayerCommand):
                     current.save()
                 except AccountHistory.MultipleObjectsReturned:
                     caller.msg("ERROR: Found more than one account. Using the first.")
-                    alt = AccountHistory.objects.filter(Q(account=current) & ~Q(entry=entry)).first()
+                    alt = AccountHistory.objects.filter(Q(account=current) & ~Q(entry=entry)).exclude(
+                        end_date__isnull=False).first()
                     self.award_alt_xp(alt, xp, history, current)
                 except Exception as err:
                     import traceback
