@@ -423,8 +423,8 @@ class CmdGive(MuxCommand):
                 caller.msg("You do not have that much money to give.")
                 return
             caller.pay_money(val, target)
-            caller.msg("You give coins worth %s silver pieces to %s." % (val, target.name))
-            target.msg("%s has given you coins worth %s silver pieces." % (caller.name, val))
+            caller.msg("You give coins worth %s silver pieces to %s." % (val, target))
+            target.msg("%s has given you coins worth %s silver pieces." % (caller, val))
             return
         # if we didn't find a match in currency that we're giving
         if not to_give:
@@ -443,8 +443,8 @@ class CmdGive(MuxCommand):
             return
         # give object
         to_give.move_to(target, quiet=True)
-        caller.msg("You give %s to %s." % (to_give.key, target.key))
-        target.msg("%s gives you %s." % (caller.key, to_give.key))
+        caller.msg("You give %s to %s." % (to_give.key, target))
+        target.msg("%s gives you %s." % (caller, to_give.key))
         to_give.at_get(target)
 
 
