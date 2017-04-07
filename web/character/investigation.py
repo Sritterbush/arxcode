@@ -1385,7 +1385,7 @@ class CmdTheories(MuxPlayerCommand):
                 self.msg("%s added as an editor." % player)
                 return
         try:
-            theory = Theory.objects.filter(Q(can_edit=self.caller) | Q(creator=self.caller)).get(id=self.lhs)
+            theory = Theory.objects.filter(Q(can_edit=self.caller) | Q(creator=self.caller)).distinct().get(id=self.lhs)
         except (Theory.DoesNotExist, ValueError):
             self.msg("You cannot edit a theory by that number.")
             return
