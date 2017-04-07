@@ -172,7 +172,7 @@ def character_list(request):
             'hair_color': char.db.haircolor,
             'eye_color': char.db.eyecolor,
             'skintone': char.db.skintone,
-            'description': char.desc,
+            'description': char.perm_desc,
             'personality': char.db.personality,
             'background': char.db.background,
             'status': char.roster.roster.name,
