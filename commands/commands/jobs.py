@@ -244,7 +244,7 @@ class CmdJob(MuxPlayerCommand):
             else:
                 caller.msg("Ticket closure failed for unknown reason.")
                 return
-        if 'followup' in switches or 'update' in switches:
+        if 'followup' in switches or 'update' in switches or "follow" in switches:
             lhs = self.lhs
             rhs = self.rhs
             if not lhs or not rhs:
