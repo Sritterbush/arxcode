@@ -1643,7 +1643,7 @@ class CmdOrganization(MuxPlayerCommand):
             category = "%s: Clue Added" % org
             text = "%s has shared the clue {w%s{n to {c%s{n. It can now be used in a /briefing." % (caller.db.char_ob,
                                                                                                     clue, org)
-            org.inform_members(text, category)
+            org.inform_members(text, category, access="briefing")
             return
         if 'accept' in self.switches:
             org = caller.ndb.orginvite
@@ -1689,7 +1689,8 @@ class CmdOrganization(MuxPlayerCommand):
                     self.disp_org_locks(caller, myorgs[0])
                     return
                 member = caller.Dominion.memberships.get(organization=myorgs[0])
-                caller.msg(myorgs[0].display(member), options={'box': True})
+                display_clues = myorgs[0].access(caller, "briefing") or caller.check_permstring("builders")
+                caller.msg(myorgs[0].display(member, display_clues=display_clues), options={'box': True})
                 return
             caller.msg("Your organizations: %s" % ", ".join(org.name for org in myorgs))
             return

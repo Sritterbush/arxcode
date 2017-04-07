@@ -284,6 +284,7 @@ class AccountHistory(models.Model):
             end = self.end_date.strftime("%x")
         return "%s playing %s from %s to %s" % (self.account, self.entry, start, end)
 
+
 class RPScene(models.Model):
     """
     Player-uploaded, non-GM'd scenes, for them posting logs and the like.

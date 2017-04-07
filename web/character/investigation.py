@@ -24,7 +24,7 @@ class InvestigationFormCommand(MuxCommand):
     def check_ap_cost(self, cost=None):
         if not cost:
             cost = self.ap_cost
-        if self.caller.player.pay_action_points(cost):
+        if self.caller.db.player_ob.pay_action_points(cost):
             return True
         else:
             self.msg("You cannot afford to do that action.")
@@ -698,7 +698,7 @@ class CmdInvestigate(InvestigationFormCommand):
         if not (self.related_manager.filter(active=True) or
                 self.caller.assisted_investigations.filter(currently_helping=True)):
             if not self.caller.assisted_investigations.filter(currently_helping=True):
-                if self.caller.player.pay_action_points(self.ap_cost):
+                if self.caller.db.player_ob.pay_action_points(self.ap_cost):
                     created_object.active = True
                     self.msg("New investigation created. This has been set as your active investigation " +
                              "for the week, and you may add resources/silver to increase its chance of success.")

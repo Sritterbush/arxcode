@@ -121,7 +121,7 @@ class CmdInventory(MuxCommand):
                 char.roster.refresh_from_db(fields=("action_points",))
                 char.db.player_ob.roster.refresh_from_db(fields=("action_points",))
                 char.ndb.stale_ap = False
-            ap = char.roster.action_points
+            ap = char.db.player_ob.roster.action_points
         except AttributeError:
             pass
         self.caller.msg("\n{w%s currently %s {c%s {wxp and {c%s{w ap." % ("You" if not show_other else char.key,

@@ -1875,7 +1875,7 @@ class Organization(models.Model):
         msg += "{wWebpage{n: %s\n" % webpage
         return msg
     
-    def display(self, viewing_member=None):
+    def display(self, viewing_member=None, display_clues=False):
         if hasattr(self, 'assets'):
             money = self.assets.vault
             prestige = self.assets.prestige
@@ -1906,7 +1906,7 @@ class Organization(models.Model):
         msg += "{wSpheres of Influence:{n %s\n" % ", ".join("{w%s{n: %s" % (ob.category, ob.rating)
                                                             for ob in self.spheres.all())
         clues = self.clues.all()
-        if clues:
+        if clues and display_clues:
             msg += "\n{wClues Known:{n %s\n" % "; ".join(str(ob) for ob in clues)
         if holdings:
             msg += "{wHoldings{n: %s\n" % ", ".join(ob.name for ob in holdings)
@@ -1965,11 +1965,14 @@ class Organization(models.Model):
         except Channel.DoesNotExist:
             return None
 
-    def inform_members(self, text, category=None):
+    def inform_members(self, text, category=None, access=None):
         from world.msgs.models import Inform
         if not category:
             category = self.name
-        players = [ob.player.player for ob in self.active_members]
+        if not access:
+            players = [ob.player.player for ob in self.active_members]
+        else:
+            players = [ob.player.player for ob in self.active_members if self.access(ob.player.player, access)]
         Inform.bulk_inform(players, text=text, category=category)
 
 
