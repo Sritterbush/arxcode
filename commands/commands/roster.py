@@ -640,7 +640,7 @@ def display_header(caller, character, show_hidden=False):
         caller.msg("{wFull titles:{n %s" % full_titles)
     if character.db.obituary:
         caller.msg("{wObituary{n: %s" % character.db.obituary)
-    desc = character.desc
+    desc = character.perm_desc
     if not desc:
         desc = "No description set."
     if show_hidden:
