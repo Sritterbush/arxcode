@@ -34,8 +34,8 @@
             <p class="newsDate">{{obj.db_date_created}}</p>
             {% if obj.db_receivers_objects.all.0 %}
                 <h2> Relationship Note on {% if obj.db_receivers_objects.all.0.get_absolute_url %}
-            <a href="{{ obj.db_receivers_objects.all.0.get_absolute_url }}">{{ obj.db_receivers_objects.all.0 }}</a>
-                {% else %}{{ obj.db_receivers_objects.all.0 }}{% endif %}</h2>
+            <a href="{{ obj.db_receivers_objects.all.0.get_absolute_url }}">{{ obj.db_receivers_objects.all.0.key }}</a>
+                {% else %}{{ obj.db_receivers_objects.all.0.key }}{% endif %}</h2>
             {% endif %}
             <div class="well">{{obj.db_message|mush_to_html}}</div>
                 {% if fav_tag and fav_tag not in obj.tags.all %}
