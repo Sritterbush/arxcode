@@ -91,6 +91,7 @@ class CmdGemit(MuxPlayerCommand):
     locks = "cmd:perm(gemit) or perm(Wizards)"
     help_category = "GMing"
 
+    # noinspection PyAttributeOutsideInit
     def func(self):
         """Implements command"""
         caller = self.caller
@@ -127,6 +128,11 @@ class CmdGemit(MuxPlayerCommand):
         self.msg("Announcing to all connected players ...")
         if not msg.startswith("{") and not msg.startswith("|"):
             msg = "|g" + msg
+        # save this non-formatted version for posting to BB
+        post_msg = msg
+        # format msg for logs and announcement
+        box_chars = '\n{w' + '*' * 70 + '{n\n'
+        msg = box_chars + msg + box_chars
         broadcast(msg, format_announcement=False)
         # get board and post
         from typeclasses.bulletin_board.bboard import BBoard
@@ -136,7 +142,7 @@ class CmdGemit(MuxPlayerCommand):
             subject = "Episode: %s" % episode.name
         elif chapter:
             subject = "Chapter: %s" % chapter.name
-        bboard.bb_post(poster_obj=caller, msg=msg, subject=subject, poster_name="Story")
+        bboard.bb_post(poster_obj=caller, msg=post_msg, subject=subject, poster_name="Story")
         
             
 class CmdWall(MuxCommand):
@@ -1129,6 +1135,7 @@ class CmdAdminKey(MuxCommand):
         @admin_key/rm/chest <character>=<chest>
     """
     key = "@admin_key"
+    aliases = ["@admin_keys"]
     locks = "cmd: perm(builders)"
     help_category = "Admin"
 
@@ -1224,6 +1231,7 @@ class CmdAdminTitles(MuxPlayerCommand):
         @admin_titles/remove <character>=<title>
     """
     key = "@admin_titles"
+    aliases = ["@admin_title"]
     locks = "cmd: perm(builders)"
     help_category = "GMing"
 
@@ -1251,3 +1259,75 @@ class CmdAdminTitles(MuxPlayerCommand):
                 titles.remove(self.rhs)
                 targ.db.titles = titles
             self.display_titles(targ)
+
+
+class CmdAdminWrit(MuxPlayerCommand):
+    """
+    Sets or views a character's writs
+
+    Usage:
+        @admin_writ <character>
+        @admin_writ/set <character>=<holder>,<value>,<notes>
+        @admin_writ/remove <character>=<holder>
+    """
+    key = "@admin_writ"
+    aliases = ["@admin_writs"]
+    help_category = "GMing"
+    locks = "cmd:perm(builders)"
+
+    def display_writbound(self):
+        qs = Character.objects.filter(db_tags__db_key="has_writ")
+        self.msg("{wCharacters with writs:{n %s" % ", ".join(ob.key for ob in qs))
+
+    def func(self):
+        if not self.args:
+            self.display_writbound()
+            return
+        targ = self.caller.search(self.lhs)
+        if not targ:
+            self.display_writbound()
+            return
+        targ = targ.db.char_ob
+        writs = targ.db.writs or {}
+        if not self.rhs:
+            from evennia.utils.evtable import EvTable
+            self.msg("{wWrits of %s{n" % targ)
+            table = EvTable("{wMaster{n", "{wValue{n", "{wNotes{n", width=78, border="cells")
+            for holder, writ in writs.items():
+                table.add_row(holder.capitalize(), writ[0], writ[1])
+            table.reformat_column(0, width=15)
+            table.reformat_column(1, width=9)
+            table.reformat_column(2, width=54)
+            self.msg(str(table))
+            return
+        if "set" in self.switches or "add" in self.switches:
+            try:
+                holder = self.rhslist[0].lower()
+                value = int(self.rhslist[1])
+                if len(self.rhslist) > 2:
+                    notes = ", ".join(self.rhslist[2:])
+                else:
+                    notes = ""
+            except (IndexError, ValueError, TypeError):
+                self.msg("Invalid syntax.")
+                return
+            writs[holder] = [value, notes]
+            targ.db.writs = writs
+            targ.tags.add("has_writ")
+            self.msg("%s's writ to %s set to a value of %s, notes: %s" % (targ.key, holder, value, notes))
+            return
+        if "remove" in self.switches:
+            holder = self.rhs.lower()
+            try:
+                del writs[holder]
+            except KeyError:
+                self.msg("No writ found to %s" % holder)
+                return
+            if not writs:
+                targ.tags.remove("has_writ")
+                targ.attributes.remove("writs")
+            else:
+                targ.db.writs = writs
+            self.msg("%s's writ to %s removed." % (targ, holder))
+            return
+        self.msg("Invalid switch.")
