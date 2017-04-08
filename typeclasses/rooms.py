@@ -356,7 +356,7 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
             except ScriptDB.DoesNotExist:
                 if from_obj:
                     from_obj.msg("Error: Event Manager not found.")
-        super(ArxRoom, self).msg_contents(message, exclude=exclude, from_obj=from_obj, mapping=mapping, **kwargs)
+        super(ArxRoom, self).msg_contents(text=message, exclude=exclude, from_obj=from_obj, mapping=mapping, **kwargs)
         
     def ban_character(self, character):
         if character not in self.banlist:

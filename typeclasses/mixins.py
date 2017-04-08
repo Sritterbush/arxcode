@@ -508,7 +508,7 @@ class MsgMixins(object):
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):
         """
         :type self: ObjectDB
-        :param text: str
+        :param text: str or tuple
         :param from_obj: ObjectDB
         :param session: Session
         :param options: dict
@@ -517,6 +517,9 @@ class MsgMixins(object):
         # if we have nothing to receive message, we're done.
         if not self.sessions.all():
             return
+        # compatibility change for Evennia changing text to be either str or tuple
+        if hasattr(text, '__iter__'):
+            text = text[0]
         options = options or {}
         options.update(kwargs.get('options', {}))
         try:
