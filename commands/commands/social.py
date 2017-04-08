@@ -212,7 +212,7 @@ class CmdWatch(MuxPlayerCommand):
         watchlist = caller.db.watching or []
         if 'stop' in self.switches:
             if char not in watchlist:
-                caller.msg("You are not watching %s." % char)
+                caller.msg("You are not watching %s." % char.key)
                 return
             # stop watching them
             watchlist.remove(char)
@@ -221,10 +221,10 @@ class CmdWatch(MuxPlayerCommand):
             if caller in watched:
                 watched.remove(caller)
                 char.db.watched_by = watched
-            caller.msg("Stopped watching %s." % char)
+            caller.msg("Stopped watching %s." % char.key)
             return
         if char in watchlist:
-            caller.msg("You are already watching %s." % char)
+            caller.msg("You are already watching %s." % char.key)
             return
         watched = char.db.watched_by or []
         if caller not in watched:
@@ -232,7 +232,7 @@ class CmdWatch(MuxPlayerCommand):
             char.db.watched_by = watched
         watchlist.append(char)
         caller.db.watching = watchlist
-        caller.msg("You start watching %s." % char)
+        caller.msg("You start watching %s." % char.key)
 
 
 class CmdFinger(MuxPlayerCommand):
