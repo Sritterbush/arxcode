@@ -1520,6 +1520,17 @@ class CmdOrganization(MuxPlayerCommand):
 
     @staticmethod
     def get_org_and_member(caller, myorgs, args):
+        """
+        Returns an organization and member for caller
+
+        Args:
+            caller: Player
+            myorgs: Organization
+            args: str
+
+        Returns:
+            :rtype: (Organization, Member)
+        """
         org = myorgs.get(name__iexact=args)
         member = caller.Dominion.memberships.get(organization=org)
         return org, member
@@ -1697,7 +1708,8 @@ class CmdOrganization(MuxPlayerCommand):
         if not self.switches:
             try:
                 org, member = self.get_org_and_member(caller, myorgs, self.lhs)
-                caller.msg(org.display(member), options={'box': True})
+                display_clues = org.access(caller, "briefing") or caller.check_permstring("builders")
+                caller.msg(org.display(member, display_clues=display_clues), options={'box': True})
                 return
             except Organization.DoesNotExist:
                 caller.msg("You are not a member of any organization named %s." % self.lhs)
