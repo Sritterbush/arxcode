@@ -1,9 +1,12 @@
 import string
-from django.core.paginator import InvalidPage, EmptyPage
+from django.core.paginator import InvalidPage
+
 
 class NamePaginator(object):
     """Pagination for string-based objects"""
 
+    # noinspection PyUnusedLocal
+    # noinspection PyProtectedMember
     def __init__(self, queryset, paginate_by=25, orphans=0, allow_empty_first_page=True):
         # We ignore allow_empty_first_page and orphans, just here for compliance
         self.pages = []
@@ -15,22 +18,28 @@ class NamePaginator(object):
 
         # we sort them by the first model ordering key
         for obj in self.object_list:
-            if queryset and obj._meta.ordering: obj_str = unicode(getattr(obj, obj._meta.ordering[0]))
-            else: obj_str = unicode(obj)
+            if queryset and obj._meta.ordering:
+                obj_str = unicode(getattr(obj, obj._meta.ordering[0]))
+            else:
+                if hasattr(obj, 'key'):
+                    obj_str = obj.key
+                else:
+                    obj_str = unicode(obj)
 
             # some of my models had "first_name" "last_name" sorting, and some first_names
             # were empty so if it fails you can try sorting by the second ordering key
             # which worked for me but do your own thing
             try:
                 letter = unicode.upper(obj_str[0])
-            except:
+            except (AttributeError, IndexError):
                 if obj._meta.ordering:
                     obj_str = unicode(getattr(obj, obj._meta.ordering[1]))
                 else:
                     obj_str = unicode(obj)
                 letter = unicode.upper(obj_str[1])
 
-            if letter not in chunks: chunks[letter] = []
+            if letter not in chunks:
+                chunks[letter] = []
 
             chunks[letter].append(obj)
 
@@ -42,7 +51,7 @@ class NamePaginator(object):
                 current_page.add([], letter)
                 continue
 
-            sub_list = chunks[letter] # the items in object_list starting with this letter
+            sub_list = chunks[letter]  # the items in object_list starting with this letter
 
             new_page_count = len(sub_list) + current_page.count
             # first, check to see if sub_list will fit or it needs to go onto a new page.
@@ -59,13 +68,14 @@ class NamePaginator(object):
             current_page.add(sub_list, letter)
 
         # if we finished the for loop with a page that isn't empty, add it
-        if current_page.count > 0: self.pages.append(current_page)
+        if current_page.count > 0:
+            self.pages.append(current_page)
 
     def page(self, num):
         """Returns a Page object for the given 1-based page number."""
         if len(self.pages) == 0:
             return None
-        elif num > 0 and num <= len(self.pages):
+        elif 0 < num <= len(self.pages):
             return self.pages[num-1]
         else:
             raise InvalidPage
@@ -74,6 +84,7 @@ class NamePaginator(object):
     def num_pages(self):
         """Returns the total number of pages"""
         return len(self.pages)
+
 
 class NamePage(object):
     def __init__(self, paginator):
@@ -90,14 +101,16 @@ class NamePage(object):
         if len(self.letters) > 0:
             self.letters.sort(key=str.upper)
             return self.letters[0]
-        else: return None
+        else:
+            return None
 
     @property
     def end_letter(self):
         if len(self.letters) > 0:
             self.letters.sort(key=str.upper)
             return self.letters[-1]
-        else: return None
+        else:
+            return None
 
     @property
     def number(self):
@@ -121,8 +134,10 @@ class NamePage(object):
         return self.paginator.pages.index(self)
 
     def add(self, new_list, letter=None):
-        if len(new_list) > 0: self.object_list = self.object_list + new_list
-        if letter: self.letters.append(letter)
+        if len(new_list) > 0:
+            self.object_list = self.object_list + new_list
+        if letter:
+            self.letters.append(letter)
 
     def __repr__(self):
         if self.start_letter == self.end_letter:
