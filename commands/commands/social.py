@@ -23,12 +23,32 @@ from typeclasses.rooms import ArxRoom
 import random
 
 
+def char_name(character_object, verbose_where=False):
+    cname = character_object.name
+    if character_object.db.player_ob and character_object.db.player_ob.db.lookingforrp:
+        cname += "|R+|n"
+    if not verbose_where:
+        return cname
+    if character_object.db.room_title:
+        cname += "{w(%s){n" % character_object.db.room_title
+    return cname
+
+
+def get_char_names(charlist, caller):
+    verbose_where = False
+    if caller.tags.get("verbose_where"):
+        verbose_where = True
+    return ", ".join(char_name(char, verbose_where) for char in charlist if char.player
+                     and (not char.player.db.hide_from_watch or caller.check_permstring("builders")))
+
+
 class CmdHangouts(MuxCommand):
     """
     +hangouts
 
     Usage:
         +hangouts
+        +hangouts/all
 
     Shows the public rooms marked as hangouts, displaying the players
     there. They are the rooms players gather in when they are seeking
@@ -42,22 +62,25 @@ class CmdHangouts(MuxCommand):
     def func(self):
         """Execute command."""
         caller = self.caller
-        oblist = ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_ROOM_TYPECLASS) &
-                                         Q(locations_set__db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS) &
-                                         Q(db_tags__db_key="hangouts")).distinct()
+        oblist = ArxRoom.objects.filter(db_tags__db_key="hangouts")
+        if "all" not in self.switches:
+            oblist = oblist.filter(locations_set__db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS)
+        oblist = oblist.distinct()
         caller.msg(format_header("Hangouts"))
+        self.msg("Players who are currently LRP have a |R+|n by their name.")
         if not oblist:
             caller.msg("No hangouts are currently occupied.")
             return
         for room in oblist:
-            num_char = len(room.get_visible_characters(caller))
-            if num_char > 0:
+            char_names = get_char_names(room.get_visible_characters(caller), caller)
+            if char_names or 'all' in self.switches:
                 name = room.name
-                if room.db.x_coord is None and room.db.y_coord is None:
+                if room.db.x_coord is not None and room.db.y_coord is not None:
                     pos = (room.db.x_coord, room.db.y_coord)
                     name = "%s %s" % (name, str(pos))
-                caller.msg("\n" + name)
-                caller.msg("Number of characters: %s" % num_char)        
+                if char_names:
+                    name += ": %s" % char_names
+                caller.msg(name)
 
 
 class CmdWhere(MuxPlayerCommand):
@@ -119,34 +142,21 @@ class CmdWhere(MuxPlayerCommand):
             caller.msg("No visible characters found.")
             return
         caller.msg("{wLocations of players:\n")
-        verbose_where = False
-        if caller.tags.get("verbose_where"):
-            verbose_where = True
+
         self.msg("Players who are currently LRP have a |R+|n by their name.")
         scene_chars = []
         if "randomscene" in self.switches:
             cmd = CmdRandomScene()
             cmd.caller = self.caller.db.char_ob
             scene_chars = list(cmd.scenelist) + [ob for ob in cmd.newbies if ob not in cmd.claimlist]
-        
         for room in rooms:
-            def char_name(character_object):
-                cname = character_object.name
-                if character_object.db.player_ob and character_object.db.player_ob.db.lookingforrp:
-                    cname += "|R+|n"
-                if not verbose_where:
-                    return cname
-                if character_object.db.room_title:
-                    cname += "{w(%s){n" % character_object.db.room_title
-                return cname
             charlist = sorted(room.get_visible_characters(caller), key=lambda x: x.name)
             if "randomscene" in self.switches:
                 charlist = [ob for ob in charlist if ob in scene_chars]
             if "watch" in self.switches:
                 watching = caller.db.watching or []
                 charlist = [ob for ob in charlist if ob in watching]
-            char_names = ", ".join(char_name(char) for char in charlist if char.player
-                                   and (not char.player.db.hide_from_watch or caller.check_permstring("builders")))
+            char_names = get_char_names(charlist, caller)
             if not char_names:
                 continue
             name = self.get_room_str(room)
