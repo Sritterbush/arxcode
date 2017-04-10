@@ -178,7 +178,7 @@ class CmdGameSettings(MuxPlayerCommand):
             self.set_name_color(char)
             return
         if "emit_label" in switches:
-            self.togglesetting(caller, "emit_label", tag=True)
+            self.togglesetting(char, "emit_label", tag=True)
             return
         caller.msg("Invalid switch. Valid switches are: %s" % ", ".join(self.valid_switches))
 

@@ -779,6 +779,7 @@ class CmdFightStatus(MuxCommand):
         combat = check_combat(self.caller)
         if not combat:
             return
+        combat.build_status_table()
         combat.display_phase_status(self.caller, disp_intro=False)
 
 
