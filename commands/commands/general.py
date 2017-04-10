@@ -585,7 +585,7 @@ class CmdPage(MuxPlayerCommand):
       page/list <number>
       page/noeval
       page/allow <name>
-      page/unallow <name>
+      page/block <name>
 
     Switch:
       last - shows who you last messaged
@@ -597,7 +597,8 @@ class CmdPage(MuxPlayerCommand):
     saved for your current session. Sending pages to multiple receivers
     accepts the names either separated by commas or whitespaces.
 
-    /allow and /unallow sets who may page you when you use @settings/ic_only.
+    /allow toggles whether someone may page you when you use @settings/ic_only.
+    /block toggles whether all pages are blocked from someone.
     """
 
     key = "page"
@@ -608,13 +609,14 @@ class CmdPage(MuxPlayerCommand):
 
     def disp_allow(self):
         self.msg("People on allow list: %s" % ", ".join(ob.key for ob in self.caller.allow_list))
+        self.msg("People on block list: %s" % ", ".join(ob.key for ob in self.caller.block_list))
 
     def func(self):
         """Implement function using the Msg methods"""
 
         # this is a MuxPlayerCommand, which means caller will be a Player.
         caller = self.caller
-        if "allow" in self.switches or "unallow" in self.switches:
+        if "allow" in self.switches or "block" in self.switches:
             if not self.args:
                 self.disp_allow()
                 return
@@ -624,9 +626,19 @@ class CmdPage(MuxPlayerCommand):
             if "allow" in self.switches:
                 if targ not in caller.allow_list:
                     caller.allow_list.append(targ)
-            if "unallow" in self.switches:
-                if targ in caller.allow_list:
+                    # allowing someone removes them from the block list
+                    if targ in caller.block_list:
+                        caller.block_list.remove(targ)
+                else:
                     caller.allow_list.remove(targ)
+            if "block" in self.switches:
+                if targ not in caller.block_list:
+                    caller.block_list.append(targ)
+                    # blocking someone removes them from the allow list
+                    if targ in caller.allow_list:
+                        caller.allow_list.remove(targ)
+                else: 
+                    caller.block_list.remove(targ)
             self.disp_allow()
             return
         # get the messages we've sent (not to channels)
@@ -731,11 +743,11 @@ class CmdPage(MuxPlayerCommand):
                     # players should always have is_connected, but just in case
                     if not hasattr(findpobj, 'is_connected'):
                         # only allow online tells
-                        self.msg("%s is not online." % findpobj.key)
+                        self.msg("%s is not online." % findpobj)
                         continue
                     elif findpobj.character:
                         if hasattr(findpobj.character, 'player') and not findpobj.character.player:
-                            self.msg("%s is not online." % findpobj.key)
+                            self.msg("%s is not online." % findpobj)
                         else:
                             pobj = findpobj.character
                     elif not findpobj.character:
@@ -743,14 +755,17 @@ class CmdPage(MuxPlayerCommand):
                         if hasattr(findpobj, 'is_connected') and findpobj.is_connected:
                             pobj = findpobj
                         else:
-                            self.msg("%s is not online." % findpobj.key.capitalize())
+                            self.msg("%s is not online." % findpobj)
                 else:
                     # Offline players do not have the character attribute
-                    self.msg("%s is not online." % findpobj.key)
+                    self.msg("%s is not online." % findpobj)
                     continue
-                if findpobj.tags.get("ic_only") and not caller.check_permstring("builders"):
+                if findpobj in caller.block_list:
+                    self.msg("%s is in your block list and would not be able to reply to your page." % findpobj)
+                    continue
+                if (findpobj.tags.get("ic_only") or caller in findpobj.block_list) and not caller.check_permstring("builders"):
                     if caller not in findpobj.allow_list:
-                        self.msg("%s is IC only and can not be sent pages." % findpobj)
+                        self.msg("%s is IC only and cannot be sent pages." % findpobj)
                         continue
             else:
                 continue
