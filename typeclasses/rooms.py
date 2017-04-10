@@ -160,7 +160,7 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
         super(ArxRoom, self).return_appearance(looker)
         # return updated desc plus other stuff
         return (AppearanceMixins.return_appearance(self, looker, detailed, format_desc)
-                + self.command_string() + self.mood_string + self.event_string())
+                + self.command_string() + self.mood_string + self.event_string() + self.combat_string(looker))
     
     def _current_event(self):
         if not self.db.current_event:
@@ -175,6 +175,14 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
     def _entrances(self):
         return ObjectDB.objects.filter(db_destination=self)
     entrances = property(_entrances)
+    
+    def combat_string(self, looker):
+        try:
+            if looker.combat.combat:
+                return "\nYou are in combat. Use {w+cs{n to see combatstatus."
+        except AttributeError:
+            pass
+        return ""
     
     def event_string(self):
         event = self.event

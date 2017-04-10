@@ -771,7 +771,7 @@ class CmdFightStatus(MuxCommand):
     Displays status of fight at your room.
     """
     key = "+combatstatus"
-    aliases = ["+fightstatus"]
+    aliases = ["+fightstatus", "+cs"]
     locks = "cmd:all()"
     help_category = "Combat"
 

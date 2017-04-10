@@ -121,6 +121,8 @@ class CombatManager(BaseScript):
         self.ndb.votes_to_end = []  # if all characters vote yes, combat ends
         self.ndb.flee_success = []  # if we're here, the character is allowed to flee on their turn
         self.ndb.fleeing = []  # if we're here, they're attempting to flee but haven't rolled yet
+        self.ndb.ready = []  # those ready for phase 2
+        self.ndb.not_ready = []  # not ready for phase 2
         self.ndb.lethal = not self.obj.tags.get("nonlethal_combat")
         self.ndb.max_rounds = 250
         self.ndb.rounds = 0
@@ -196,13 +198,13 @@ class CombatManager(BaseScript):
                 self.phase_1_intro(character)
             character.msg("{wCurrent combatants:{n %s" % list_to_string(self.ndb.combatants))
             character.msg(str(self.ndb.status_table))
+            self.display_ready_status(checker=character)
             return
         if self.ndb.phase == 2:
             if disp_intro:
                 self.phase_2_intro(character)
-            if self.ndb.active_character:
-                character.msg("{wIt is {c%s's {wturn to act.{n" % self.ndb.active_character.name)
-                character.msg(str(self.ndb.status_table))
+            character.msg(str(self.ndb.status_table))
+            self.display_initiative_list(checker=character)
             return
 
     def build_status_table(self):
@@ -269,7 +271,6 @@ class CombatManager(BaseScript):
         self.send_intro_message(character, combatant=True)
         self.ndb.combatants.append(character)
         cdata.join_combat(self)
-        reactor.callLater(1, cdata.reset)
         if character == adder:
             return "{rYou have entered combat.{n"
         # if we have an adder, they're fighting one another. set targets
@@ -282,6 +283,14 @@ class CombatManager(BaseScript):
                 adata.add_foe(character)
                 adata.prev_targ = character
         return "You have added %s to a fight." % character.name
+        
+    def display_ready_status(self, checker=None):
+        receiver = checker or self
+        if receiver:
+            receiver.msg("{wCharacters who are ready:{n " + list_to_string(self.ndb.ready))
+            receiver.msg("{wCharacter who have not yet hit 'continue' or queued an action:{n " +
+                        list_to_string(self.ndb.not_ready))
+
 
     def ready_check(self, checker=None):
         """
@@ -289,8 +298,8 @@ class CombatManager(BaseScript):
         set, it's a character who is already ready but is using the command
         to see a list of who might not be, so the message is only sent to them.
         """
-        ready = []
-        not_ready = []
+        self.ndb.ready = []
+        self.ndb.not_ready = []
         if not self.ndb.combatants:
             self.msg("No combatants found. Exiting.")
             self.end_combat()
@@ -307,19 +316,14 @@ class CombatManager(BaseScript):
             return
         for char in self.ndb.combatants:
             if char.combat.ready:
-                ready.append(char)
+                self.ndb.ready.append(char)
             elif not char.conscious:
-                ready.append(char)
+                self.ndb.ready.append(char)
             else:
-                not_ready.append(char)
-        if not_ready:  # not ready for phase 2, tell them why
+                self.ndb.not_ready.append(char)
+        if self.ndb.not_ready:  # not ready for phase 2, tell them why
             if checker:
-                checker.msg("{wCharacters who are ready:{n " + list_to_string(ready))
-                checker.msg("{wCharacter who have not yet hit 'continue' or queued an action:{n " +
-                            list_to_string(not_ready))
-            else:
-                self.msg("{wCharacters who are ready:{n " + list_to_string(ready))
-                self.msg("{wCharacter who have not yet hit 'continue':{n " + list_to_string(not_ready))
+                self.display_phase_status(checker)
         else:
             try:
                 self.start_phase_2()
@@ -467,6 +471,13 @@ class CombatManager(BaseScript):
                                            if data.can_fight],
                                           key=attrgetter('initiative', 'tiebreaker'),
                                           reverse=True)
+                                          
+    def display_initiative_list(self, checker=None):
+        receiver = checker or self
+        acting_char = self.ndb.active_character
+        receiver.msg("{wIt is{n {c%s's{n {wturn.{n" % acting_char.name)
+        if self.ndb.initiative_list:
+            receiver.msg("{wTurn order for remaining characters:{n %s" % list_to_string(self.ndb.initiative_list))
 
     def next_character_turn(self):
         """
@@ -503,8 +514,6 @@ class CombatManager(BaseScript):
                          exclude=[acting_char])
                 return self.next_character_turn()                 
         self.msg("{wIt is now{n {c%s's{n {wturn.{n" % acting_char.name, exclude=[acting_char])
-        if self.ndb.initiative_list:
-            self.msg("{wTurn order for remaining characters:{n %s" % list_to_string(self.ndb.initiative_list))
         result = char_data.do_turn_actions()
         if not result and self.ndb.phase == 2:
             mssg = dedent("""
