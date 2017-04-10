@@ -1722,6 +1722,12 @@ class CmdOrganization(MuxPlayerCommand):
         if 'setrank' in self.switches or 'perm' in self.switches or 'rankname' in self.switches:
             if not self.rhs:
                 if 'perm' in self.switches:
+                    try:
+                        org, member = self.get_org_and_member(caller, myorgs, self.lhs)
+                        self.disp_org_locks(caller, org)
+                        return
+                    except Organization.DoesNotExist:
+                        pass
                     self.display_permtypes()
                     return
                 caller.msg("You must supply a rank number.")
