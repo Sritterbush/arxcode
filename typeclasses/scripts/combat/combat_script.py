@@ -212,7 +212,7 @@ class CombatManager(BaseScript):
             if not com:
                 continue
             name = com.name
-            dmg = str(char.db.damage)
+            dmg = str(char.dmg)
             fatigue = str(com.fatigue_penalty)
             action = str(com.queued_action)
             rdy = str(com.ready)
