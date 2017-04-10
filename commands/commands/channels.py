@@ -100,7 +100,11 @@ class ArxChannelCommand(command.Command):
             caller.msg("Channel messages may not contain newline characters.")
             return
         if msg == "who" or msg == "?" or msg == "all" or msg == "list":
-            self.msg("{w%s:{n\n %s" % (channel, channel.wholist))
+            if caller.check_permstring("builders"):
+                wholist = channel.complete_wholist
+            else:
+                wholist = channel.wholist
+            self.msg("{w%s:{n\n %s" % (channel, wholist))
             return
         if msg == 'last' or msg.startswith("last "):
             msglist = msg.split()

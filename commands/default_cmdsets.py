@@ -86,7 +86,6 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
         self.add(comms.CmdAddCom())
         self.add(comms.CmdDelCom())
         self.add(comms.CmdCemit())
-        self.add(comms.CmdCWho())
         self.add(comms.CmdIRC2Chan())
         self.add(comms.CmdRSS2Chan())
                  
@@ -109,6 +108,7 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(overrides.CmdArxCdesc())
             self.add(overrides.CmdArxAllCom())
             self.add(overrides.CmdArxChannels())
+            self.add(overrides.CmdArxCWho())
             self.add(overrides.CmdArxReload())
         except Exception as err:
             print("<<ERROR>>: Error in overrides: %s." % err)

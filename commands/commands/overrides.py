@@ -9,8 +9,8 @@ from evennia.commands.cmdhandler import get_and_merge_cmdsets
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.server.sessionhandler import SESSIONS
 import time
-from evennia.commands.default.comms import (CmdCdestroy, CmdChannelCreate, CmdChannels,
-                                            CmdClock, CmdCBoot, CmdCdesc, CmdAllCom)
+from evennia.commands.default.comms import (CmdCdestroy, CmdChannelCreate, CmdChannels, find_channel,
+                                            CmdClock, CmdCBoot, CmdCdesc, CmdAllCom, CmdCWho)
 # noinspection PyProtectedMember
 from evennia.commands.default.building import CmdExamine, CmdLock, CmdDestroy, _LITERAL_EVAL, ObjManipCommand
 from evennia.utils import evtable, create
@@ -1419,6 +1419,33 @@ class CmdArxChannels(CmdChannels):
             comtable.reformat_column(3, width=14)
             self.msg("\n{wAvailable channels{n (use {wcomlist{n,{waddcom{n and "
                      "{wdelcom{n to manage subscriptions):\n%s" % comtable)
+
+
+class CmdArxCWho(CmdCWho):
+    __doc__ = CmdCWho.__doc__
+
+    def func(self):
+        """implement function"""
+
+        if not self.args:
+            string = "Usage: @cwho <channel>"
+            self.msg(string)
+            return
+
+        channel = find_channel(self.caller, self.lhs)
+        if not channel:
+            return
+        if not channel.access(self.caller, "listen"):
+            string = "You can't access this channel."
+            self.msg(string)
+            return
+        string = "\n|CChannel subscriptions|n"
+        if self.caller.check_permstring("builders"):
+            wholist = channel.complete_wholist
+        else:
+            wholist = channel.wholist
+        string += "\n|w%s:|n\n  %s" % (channel.key, wholist)
+        self.msg(string.strip())
 
 
 class CmdArxLock(CmdLock):

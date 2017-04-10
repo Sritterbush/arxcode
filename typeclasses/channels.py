@@ -67,15 +67,27 @@ class Channel(DefaultChannel):
         return self.db.mute_list
 
     @property
-    def wholist(self):
+    def non_muted_subs(self):
         subs = self.db_subscriptions.all()
         listening = [ob for ob in subs if ob.is_connected and ob not in self.mutelist]
+        return listening
+
+    @staticmethod
+    def format_wholist(listening):
         if listening:
             listening = sorted(listening, key=lambda x: x.key.capitalize())
             string = ", ".join([player.key.capitalize() for player in listening])
         else:
             string = "<None>"
         return string
+
+    @property
+    def complete_wholist(self):
+        return self.format_wholist(self.non_muted_subs)
+
+    @property
+    def wholist(self):
+        return self.format_wholist([ob for ob in self.non_muted_subs if not ob.db.hide_from_watch])
 
     def temp_mute(self, caller):
         """
