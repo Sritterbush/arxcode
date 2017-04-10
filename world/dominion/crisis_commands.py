@@ -411,8 +411,9 @@ class CmdCrisisAction(MuxPlayerCommand):
         self.msg("Action deleted.")
 
     def append_action(self):
-        action = self.get_action(get_assisted=True)
+        action = self.get_action(get_assisted="assistant" in self.switches)
         if not action:
+            self.msg("Remember to use /assistant if trying to append to an action you're assisting.")
             return
         action.action += "\n%s" % self.rhs
         action.save()
