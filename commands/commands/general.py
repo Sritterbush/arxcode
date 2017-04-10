@@ -39,7 +39,7 @@ class CmdBriefMode(MuxCommand):
 
 class CmdGameSettings(MuxPlayerCommand):
     """
-    @settings
+    @settings toggles different settings.
 
     Usage:
         @settings
@@ -48,7 +48,7 @@ class CmdGameSettings(MuxPlayerCommand):
         @settings/stripansinames
         @settings/no_ascii
         @settings/lrp
-        @settings/afk <message>
+        @settings/afk [message]
         @settings/nomessengerpreview
         @settings/bbaltread
         @settings/ignore_messenger_notifications
@@ -60,19 +60,21 @@ class CmdGameSettings(MuxPlayerCommand):
         @settings/quote_color <color string>
         @settings/name_color <color string>
         @settings/verbose_where
+        @settings/emit_label
 
-    Toggles different settings. Brief suppresses room descs when
-    moving through rooms. Posebreak adds a newline between poses
-    from characters. lrp flags your name in the who list
-    as looking for scenes. afk sets that you are away from the
-    keyboard, with an optional message. nomessengerpreview removes
-    the echo of messengers that you send. bbaltread causes you to
-    read @bb messages on your alts as well. ignore_messenger_notifications
-    will suppress any notifications that you have unread messengers.
-    ignore_messenger_deliveries will suppress messages of a messenger
-    visiting someone else in a room. Private mode prevents logging any
-    messages that are sent to you. ic_only prevents you from receiving
-    pages.
+    Switches: /brief suppresses room descs when moving through rooms. /posebreak 
+    adds a newline between poses from characters. /lrp flags your name in the 
+    who list as looking for scenes. /afk shows you are away from the keyboard 
+    with an optional message. /nomessengerpreview removes the echo of messengers 
+    that you send. /bbaltread allows you to read @bb messages on your alts. 
+    /ignore_messenger_notifications will suppress notifications of your unread 
+    messengers. /ignore_messenger_deliveries will ignore message deliveries to 
+    others. /private_mode prevents logging any messages that are sent to you. 
+    /ic_only prevents you from receiving pages. /quote_color lets you set a color 
+    for the dialogue appearing in poses/emits, and /name_color for any occurance 
+    of your character's name. /verbose_where shows any roomtitle information that 
+    someone has set about their current activities, when using the +where command. 
+    /emit_label will prefix emits with author.
     """
     key = "@settings"
     locks = "cmd:all()"
@@ -81,7 +83,8 @@ class CmdGameSettings(MuxPlayerCommand):
     valid_switches = ('brief', 'posebreak', 'stripansinames', 'no_ascii', 'lrp', 'verbose_where',
                       'afk', 'nomessengerpreview', 'bbaltread', 'ignore_messenger_notifications',
                       'ignore_messenger_deliveries', 'newline_on_messages', 'private_mode',
-                      'ic_only', 'ignore_bboard_notifications', 'quote_color', 'name_color')
+                      'ic_only', 'ignore_bboard_notifications', 'quote_color', 'name_color',
+                      'emit_label')
 
     def togglesetting(self, char, attr, tag=False):
         caller = self.caller
@@ -173,6 +176,9 @@ class CmdGameSettings(MuxPlayerCommand):
             return
         if "name_color" in switches:
             self.set_name_color(char)
+            return
+        if "emit_label" in switches:
+            self.togglesetting(caller, "emit_label", tag=True)
             return
         caller.msg("Invalid switch. Valid switches are: %s" % ", ".join(self.valid_switches))
 
