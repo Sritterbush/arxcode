@@ -758,6 +758,7 @@ class CmdAdmOrganization(MuxPlayerCommand):
         @admin_org/title <orgname or number>=<rank>,<name>
         @admin_org/femaletitle <orgname or number>=<rank>,<name>
         @admin_org/setinfluence <org name or number>=<inf name>,<value>
+        @admin_org/cptasks <target org>=<org to copy>
 
     Allows you to change or control organizations. Orgs can be accessed either by
     their ID number or name.
@@ -907,6 +908,23 @@ class CmdAdmOrganization(MuxPlayerCommand):
         if 'setinfluence' in self.switches:
             self.set_influence(org)
             return
+        if 'cptasks' in self.switches:
+            try:
+                if self.lhs.isdigit():
+                    org2 = Organization.objects.get(id=int(self.rhs))
+                else:
+                    org2 = Organization.objects.get(name__iexact=self.rhs)
+            except Organization.DoesNotExist:
+                self.msg("Org not found.")
+                return
+            current_tasks = org.tasks.all()
+            tasks = org2.tasks.all().exclude(id__in=current_tasks)
+            OrgTaskModel = Organization.tasks.through
+            bulk_list = []
+            for task in tasks:
+                bulk_list.append(OrgTaskModel(organization=org, task=task))
+            OrgTaskModel.objects.bulk_create(bulk_list)
+            self.msg("Tasks copied from %s to %s." % (org2, org))
 
 
 class CmdAdmFamily(MuxPlayerCommand):
