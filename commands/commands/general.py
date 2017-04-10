@@ -431,7 +431,7 @@ class CmdWhisper(MuxCommand):
 
         if 'last' in self.switches:
             if pages_we_sent:
-                recv = ",".join(obj.key for obj in pages_we_sent[-1].receivers)
+                recv = ",".join(str(obj) for obj in pages_we_sent[-1].receivers)
                 self.msg("You last whispered {c%s{n:%s" % (recv, pages_we_sent[-1].message))
                 return
             else:
@@ -457,7 +457,7 @@ class CmdWhisper(MuxCommand):
             template = "{w%s{n {c%s{n whispered to {c%s{n: %s"
             lastpages = "\n ".join(template %
                                    (utils.datetime_format(page.date_created),
-                                    ",".join(obj.key for obj in page.senders),
+                                    ",".join(obj.name for obj in page.senders),
                                     "{n,{c ".join([obj.name for obj in page.receivers]),
                                     page.message) for page in lastpages)
 
@@ -608,8 +608,8 @@ class CmdPage(MuxPlayerCommand):
     arg_regex = r'\/|\s|$'
 
     def disp_allow(self):
-        self.msg("People on allow list: %s" % ", ".join(ob.key for ob in self.caller.allow_list))
-        self.msg("People on block list: %s" % ", ".join(ob.key for ob in self.caller.block_list))
+        self.msg("{wPeople on allow list:{n %s" % ", ".join(str(ob) for ob in self.caller.allow_list))
+        self.msg("{wPeople on block list:{n %s" % ", ".join(str(ob) for ob in self.caller.block_list))
 
     def func(self):
         """Implement function using the Msg methods"""
@@ -652,7 +652,7 @@ class CmdPage(MuxPlayerCommand):
 
         if 'last' in self.switches:
             if pages_we_sent:
-                recv = ",".join(obj.key for obj in pages_we_sent[-1].receivers)
+                recv = ",".join(str(obj) for obj in pages_we_sent[-1].receivers)
                 self.msg("You last paged {c%s{n:%s" % (recv, pages_we_sent[-1].message))
                 return
             else:
@@ -677,7 +677,7 @@ class CmdPage(MuxPlayerCommand):
             template = "{w%s{n {c%s{n paged to {c%s{n: %s"
             lastpages = "\n ".join(template %
                                    (utils.datetime_format(page.date_created),
-                                    ",".join(obj.key for obj in page.senders),
+                                    ",".join(obj.name for obj in page.senders),
                                     "{n,{c ".join([obj.name for obj in page.receivers]),
                                     page.message) for page in lastpages)
 
@@ -763,7 +763,8 @@ class CmdPage(MuxPlayerCommand):
                 if findpobj in caller.block_list:
                     self.msg("%s is in your block list and would not be able to reply to your page." % findpobj)
                     continue
-                if (findpobj.tags.get("ic_only") or caller in findpobj.block_list) and not caller.check_permstring("builders"):
+                if (findpobj.tags.get("ic_only") or caller in findpobj.block_list) \
+                        and not caller.check_permstring("builders"):
                     if caller not in findpobj.allow_list:
                         self.msg("%s is IC only and cannot be sent pages." % findpobj)
                         continue
@@ -778,10 +779,10 @@ class CmdPage(MuxPlayerCommand):
             self.msg("No one found to page.")
             return
         if len(recobjs) > 1:
-            rec_names = ", ".join("{c%s{n" % ob.key.capitalize() for ob in recobjs)
+            rec_names = ", ".join("{c%s{n" % str(ob) for ob in recobjs)
         else:
             rec_names = "{cyou{n"
-        header = "{wPlayer{n {c%s{n {wpages %s:{n" % (caller.key.capitalize(), rec_names)
+        header = "{wPlayer{n {c%s{n {wpages %s:{n" % (caller, rec_names)
         message = rhs
         pagepose = False
         # if message begins with a :, we assume it is a 'page-pose'
@@ -791,9 +792,9 @@ class CmdPage(MuxPlayerCommand):
             if len(recobjs) > 1:
                 header = "From afar to %s:" % rec_names
             if message.startswith(":"):
-                message = "{c%s{n %s" % (caller.key.capitalize(), message.strip(':').strip())
+                message = "{c%s{n %s" % (caller, message.strip(':').strip())
             else:
-                message = "{c%s{n%s" % (caller.key.capitalize(), message.strip(';').strip())
+                message = "{c%s{n%s" % (caller, message.strip(';').strip())
 
         # create the temporary message object
         temp_message = TempMsg(senders=caller, receivers=recobjs, message=message)
@@ -1015,7 +1016,7 @@ class CmdMail(MuxPlayerCommand):
                 subject = arglist[1]
             receivers_raw = arglist[0]
             receivers = receivers_raw.split(",")
-            sender = caller.key.capitalize()
+            sender = str(caller)
             received_list = []
             for receiver in receivers:
                 receiver = receiver.strip()
@@ -1026,7 +1027,7 @@ class CmdMail(MuxPlayerCommand):
                 # if we found a match
                 if pobj:
                     recobjs.append(pobj)
-                    received_list.append(pobj.key.capitalize())
+                    received_list.append(str(pobj))
             if not recobjs:
                 caller.msg("No players found.")
                 return
@@ -1070,9 +1071,9 @@ class CmdDirections(MuxCommand):
             if len(exact) == 1:
                 room = exact[0]
             else:
-                caller.msg("Multiple matches: %s" % ", ".join(str(ob.key) for ob in room))
+                caller.msg("Multiple matches: %s" % ", ".join(str(ob) for ob in room))
                 room = room[0]
-                caller.msg("Showing directions to %s." % room.key)
+                caller.msg("Showing directions to %s." % room)
         elif len(room) == 1:
             room = room[0]
         if not room:
