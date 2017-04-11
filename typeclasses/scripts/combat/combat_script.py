@@ -282,6 +282,8 @@ class CombatManager(BaseScript):
                 cdata.prev_targ = adder
                 adata.add_foe(character)
                 adata.prev_targ = character
+                adata.setup_attacks()
+                cdata.setup_attacks()
         return "You have added %s to a fight." % character.name
         
     def display_ready_status(self, checker=None):
@@ -619,7 +621,6 @@ class CombatManager(BaseScript):
             mess += "%s" % list_to_string(self.not_voted)
         return mess
 
-    
     def end_combat(self):
         """
         Shut down combat.

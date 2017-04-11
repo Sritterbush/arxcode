@@ -384,6 +384,9 @@ class CombatHandler(object):
                 self.set_queued_action("pass")
                 return
         self.remaining_attacks = self.num_attacks
+        self.setup_attacks()
+
+    def setup_attacks(self):
         self.validate_targets()
         if self.autoattack:
             self.validate_targets(self.do_lethal)
