@@ -22,6 +22,7 @@ class QueuedAction(object):
         return self.qtype or "None"
 
 
+# noinspection PyAttributeOutsideInit
 class CombatHandler(object):
     """
     Stores information about the character in this particular
@@ -82,7 +83,6 @@ class CombatHandler(object):
         self._ready = False
         self.lethal = True
         self.initialize_values()
-        
 
     @property
     def stance(self):
@@ -95,15 +95,12 @@ class CombatHandler(object):
     def stance(self, val):
         self.char.db.combat_stance = val
 
-    # noinspection PyAttributeOutsideInit
     def initialize_values(self):
         character = self.char
         self.rank = 1  # combat rank/position. 1 is 'front line'
         self.shield = character.db.shield
         if hasattr(character, 'weapondata'):
-            print "Found weapondata for %s" % self.char
             self.setup_weapon(character.weapondata)
-            print "weapon = %s" % self.weapon
         else:
             self.setup_weapon()
         self.defenders = character.db.defenders or []  # can be guarded by many
@@ -182,7 +179,6 @@ class CombatHandler(object):
         character.cmdset.delete(CombatCmdSet)
         self.combat = None
 
-    # noinspection PyAttributeOutsideInit
     def setup_weapon(self, weapon=None):
         self.weapon = weapon
         if weapon:  # various optional weapon fields w/default values
@@ -298,6 +294,9 @@ class CombatHandler(object):
             return self.base_name
         return self.char.name
 
+    def __repr__(self):
+        return "<Class CombatHandler: %s>" % self.char
+
     def msg(self, mssg):
         self.char.msg(mssg)
 
@@ -369,7 +368,6 @@ class CombatHandler(object):
             val += self.char.db.skills.get("survival", 0)
         return val
 
-    # noinspection PyAttributeOutsideInit
     def reset(self):
         self.times_attacked = 0
         self.ready = False
@@ -409,7 +407,6 @@ class CombatHandler(object):
                     ready = True
                 self.set_queued_action("pass", do_ready=ready)
 
-    # noinspection PyAttributeOutsideInit
     def validate_targets(self, lethal=False):
         """
         builds a list of targets from our foelist, making sure each
@@ -462,7 +459,6 @@ class CombatHandler(object):
             if defender not in self.foelist and self.char != defender:
                 self.add_friend(defender)
 
-    # noinspection PyAttributeOutsideInit
     def set_queued_action(self, qtype=None, targ=None, msg="", atk_pen=0, dmg_mod=0, do_ready=True):
         """
         Setup our type of queued action, remember targets,
@@ -475,7 +471,9 @@ class CombatHandler(object):
         if do_ready:
             self.character_ready()
 
-    # noinspection PyAttributeOutsideInit
+    def cancel_queued_action(self):
+        self.queued_action = None
+
     def do_turn_actions(self, took_actions=False):
         """
         Takes any queued action we have and returns a result. If we have no
@@ -496,11 +494,12 @@ class CombatHandler(object):
             # we have no queued action, so player must act
             if self.automated:
                 # if we're automated and have no action, pass turn
-                self.combat.do_pass(self.char)
+                self.do_pass()
             return took_actions
         lethal = q.qtype == "kill"
-        if q.qtype == "pass":
-            self.combat.do_pass(self.char)
+        if q.qtype == "pass" or q.qtype == "delay":
+            delay = q.qtype == "delay"
+            self.do_pass(delay=delay)
             self.msg(q.msg)
             return True
         self.validate_targets(lethal)
@@ -511,7 +510,7 @@ class CombatHandler(object):
             if not self.targets:
                 self.msg("You no longer have any valid targets to autoattack.")
                 if self.automated:
-                    self.combat.do_pass(self.char)
+                    self.do_pass()
                 return took_actions
             if targ not in self.targets:
                 self.msg("%s is no longer a valid target to autoattack.")
@@ -563,7 +562,6 @@ class CombatHandler(object):
         """
         pass
 
-    # noinspection PyAttributeOutsideInit
     def roll_initiative(self):
         """Rolls and stores initiative for the character."""
         self.initiative = do_dice_check(self.char, stat_list=["dexterity", "composure"], stat_keep=True, difficulty=0)
@@ -585,7 +583,6 @@ class CombatHandler(object):
         return (roll/2) + randint(0, (roll/2))
 
     # noinspection PyUnusedLocal
-    # noinspection PyAttributeOutsideInit
     def roll_defense(self, attacker, weapon=None, penalty=0, a_roll=None):
         """
         Returns our roll to avoid being hit. We use the highest roll out of 
@@ -816,6 +813,8 @@ class CombatHandler(object):
         self.ready = True
         character.msg("You have marked yourself as ready to proceed.")
         combat.ready_check()
+        combat.build_status_table()
+        combat.display_phase_status(character)
 
     def do_attack(self, target, attack_penalty=0, defense_penalty=0,
                   dmg_penalty=0, allow_botch=True, free_attack=False):
@@ -1081,7 +1080,7 @@ class CombatHandler(object):
                 return False
             return True
 
-    def do_pass(self):
+    def do_pass(self, delay=False):
         """
         Passes a combat turn for character. If it's their turn, next character goes.
         If it's not their turn, remove them from initiative list if they're in there
@@ -1090,14 +1089,16 @@ class CombatHandler(object):
         character = self.char
         combat = self.combat
         combat.remove_afk(character)
-        combat.msg("%s passes their turn." % character.name)
-        if combat.ndb.active_character == character:
-            combat.next_character_turn()
-            return
         if self in combat.ndb.initiative_list:
             combat.ndb.initiative_list.remove(self)
+        if delay:
+            combat.ndb.initiative_list.append(self)
+        combat.msg("%s passes their turn." % character.name)
+        if combat.ndb.active_character == character:
+            self.queued_action = None
+            combat.next_character_turn()
+            return
 
-    # noinspection PyAttributeOutsideInit
     def do_flee(self, exit_obj):
         """
         Character attempts to flee from combat. If successful, they are
@@ -1141,7 +1142,6 @@ class CombatHandler(object):
         combat.msg("%s has fled from combat." % character.name)
         combat.remove_combatant(character)
 
-    # noinspection PyAttributeOutsideInit
     def do_stop_flee(self, target):
         """
         Try to stop a character from fleeing. Lists of who is stopping who from running
@@ -1236,7 +1236,6 @@ class CombatHandler(object):
                 if ob:
                     ob.block_flee = None
 
-    # noinspection PyAttributeOutsideInit
     def change_stance(self, new_stance):
         """
         Updates character's combat stance

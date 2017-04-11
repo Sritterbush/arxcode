@@ -46,6 +46,7 @@ class CombatCmdSet(CmdSet):
         self.add(CmdEndCombat())
         self.add(CmdAttack())
         self.add(CmdSlay())
+        self.add(CmdReadyTurn())
         self.add(CmdPassTurn())
         self.add(CmdFlee())
         self.add(CmdFlank())
@@ -53,6 +54,7 @@ class CombatCmdSet(CmdSet):
         self.add(CmdCatch())
         self.add(CmdCoverRetreat())
         self.add(CmdVoteAFK())
+        self.add(CmdCancelAction())
         
 
 """
@@ -432,7 +434,7 @@ class CmdSlay(CmdAttack):
     can_bypass = False
 
 
-class CmdPassTurn(MuxCommand):
+class CmdReadyTurn(MuxCommand):
     """
     Mark yourself ready for combat to proceed
     Usage:
@@ -451,7 +453,7 @@ class CmdPassTurn(MuxCommand):
     very strictly prohibited.
     """
     key = "continue"
-    aliases = ["ready", "pass"]
+    aliases = ["ready"]
     locks = "cmd:all()"
     help_category = "Combat"
 
@@ -463,23 +465,70 @@ class CmdPassTurn(MuxCommand):
             return
         assert caller in combat.ndb.combatants, "Error: caller not in combat."
         phase = combat.ndb.phase
-        cmdstr = self.cmdstring.lower()
-        if phase == 2:         
-            if cmdstr == "pass":
-                if combat.ndb.active_character != caller:
-                    caller.msg("Queuing this action for later.")
-                    mssg = "You pass your turn."
-                    caller.combat.set_queued_action("pass", None, mssg) 
-                    return
-                caller.combat.do_pass()
-                return
-            else:
-                caller.msg("Please use '{wpass{n' to pass your turn during combat resolution.")
-                return
+        if phase == 2:
+            self.msg("Use 'pass' or 'delay' to pass your turn in phase 2.")
+            return
         # phase 1, mark us ready to proceed for phase 2
         if combat and not combat.ndb.shutting_down:
             caller.combat.character_ready()
-        return
+
+
+class CmdPassTurn(MuxCommand):
+    """
+    Pass your turn in combat
+    Usage
+        pass
+        delay
+
+    Passes your turn in combat. If 'delay' is used instead, will
+    defer your turn until everyone else has been offered a chance to
+    go.
+    """
+    key = "pass"
+    aliases = ["delay"]
+    help_category = "Combat"
+
+    def func(self):
+        caller = self.caller
+        combat = check_combat(caller)
+        if not combat:
+            return
+        assert caller in combat.ndb.combatants, "Error: caller not in combat."
+        cmdstr = self.cmdstring.lower()
+
+        phase = combat.ndb.phase
+        if phase == 2:
+            delay = cmdstr == "delay"
+            if combat.ndb.active_character != caller:
+                caller.msg("Queuing this action for later.")
+                mssg = "You %s your turn." % cmdstr
+                caller.combat.set_queued_action(cmdstr, None, mssg)
+                return
+            caller.combat.do_pass(delay=delay)
+            return
+        else:
+            caller.msg("Please use '{wpass{n' to pass your turn during combat resolution.")
+            return
+
+
+class CmdCancelAction(MuxCommand):
+    """
+    cancels your current action
+    Usage:
+        cancel
+
+    Cancels any current action that you have queued up.
+    """
+    key = "cancel"
+    help_category = "Combat"
+
+    def func(self):
+        self.caller.combat.cancel_queued_action()
+        combat = self.caller.combat.combat
+        self.msg("You clear any queued combat action.")
+        if combat:
+            combat.build_status_table()
+            combat.display_phase_status(self.caller)
 
 
 class CmdFlee(MuxCommand):

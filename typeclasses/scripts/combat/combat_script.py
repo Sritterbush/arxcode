@@ -39,7 +39,6 @@ for the following turn to be allowed a legal action.
 from typeclasses.scripts.scripts import Script as BaseScript
 from evennia.utils.utils import fill, dedent, list_to_string
 from server.utils.prettytable import PrettyTable
-from twisted.internet import reactor
 
 from operator import attrgetter
 import time
@@ -224,6 +223,7 @@ class CombatManager(BaseScript):
     def display_phase_status_to_all(self, intro=False):
         msglist = self.ndb.combatants + self.ndb.observers
         self.build_status_table()
+        self.ready_check()
         for ob in msglist:
             self.display_phase_status(ob, disp_intro=intro)
     
@@ -289,8 +289,10 @@ class CombatManager(BaseScript):
         if receiver:
             receiver.msg("{wCharacters who are ready:{n " + list_to_string(self.ndb.ready))
             receiver.msg("{wCharacter who have not yet hit 'continue' or queued an action:{n " +
-                        list_to_string(self.ndb.not_ready))
-
+                         list_to_string(self.ndb.not_ready))
+            vote_str = self.vote_string
+            if vote_str:
+                receiver.msg(vote_str)
 
     def ready_check(self, checker=None):
         """
@@ -588,11 +590,7 @@ class CombatManager(BaseScript):
         else:
             mess = "%s has voted to end the fight.\n" % character.name
             self.ndb.votes_to_end.append(character)
-        not_voted = [ob for ob in self.ndb.combatants if ob and ob not in self.ndb.votes_to_end]
-        # only let conscious people vote
-        not_voted = [ob for ob in not_voted if ob.combat
-                     and ob.combat.can_fight
-                     and not ob.combat.wants_to_end]
+        not_voted = self.not_voted
         if not not_voted:
             self.msg("All parties have voted to end combat.")
             self.end_combat()
@@ -600,11 +598,27 @@ class CombatManager(BaseScript):
         if character not in self.ndb.combatants:
             character.msg("Only participants in the fight may vote to end it.")
             return
+        mess += self.vote_string
+        self.msg(mess)
+
+    @property
+    def not_voted(self):
+        not_voted = [ob for ob in self.ndb.combatants if ob and ob not in self.ndb.votes_to_end]
+        # only let conscious people vote
+        not_voted = [ob for ob in not_voted if ob.combat
+                     and ob.combat.can_fight
+                     and not ob.combat.wants_to_end]
+        return not_voted
+
+    @property
+    def vote_string(self):
+        mess = ""
         if self.ndb.votes_to_end:
             mess += "{wThe following characters have also voted to end:{n %s\n" % list_to_string(self.ndb.votes_to_end)
-        mess += "{wFor the fight to end, the following characters must vote to end:{n "
-        mess += "%s" % list_to_string(not_voted)
-        self.msg(mess)
+            mess += "{wFor the fight to end, the following characters must vote to end:{n "
+            mess += "%s" % list_to_string(self.not_voted)
+        return mess
+
     
     def end_combat(self):
         """
