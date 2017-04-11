@@ -9,8 +9,8 @@ from evennia.commands.cmdhandler import get_and_merge_cmdsets
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.server.sessionhandler import SESSIONS
 import time
-from evennia.commands.default.comms import (CmdCdestroy, CmdChannelCreate, CmdChannels,
-                                            CmdClock, CmdCBoot, CmdCdesc, CmdAllCom)
+from evennia.commands.default.comms import (CmdCdestroy, CmdChannelCreate, CmdChannels, find_channel,
+                                            CmdClock, CmdCBoot, CmdCdesc, CmdAllCom, CmdCWho)
 # noinspection PyProtectedMember
 from evennia.commands.default.building import CmdExamine, CmdLock, CmdDestroy, _LITERAL_EVAL, ObjManipCommand
 from evennia.utils import evtable, create
@@ -28,11 +28,11 @@ def args_are_currency(args):
     Check if args to a given command match the expression of coins. Must be a number
     followed by 'silver' and/or 'coins', then nothing after.
     """
-    units = ("pieces", "coins", "coin", "piece")
+    units = ("pieces", "coins", "coin", "piece", "silver")
     if not args:
         return False
-    if args in units or args in "silver":
-        return True
+    if not any(unit for unit in units if unit in args):
+        return False
     arglist = args.split()
     if len(arglist) < 2:
         return False
@@ -75,7 +75,7 @@ class CmdInventory(MuxCommand):
     locks = "cmd:all()"
     perm_for_switches = "Builders"
 
-    def dynamic_help(self, caller):
+    def get_help(self, caller, cmdset):
         if not caller.check_permstring(self.perm_for_switches):
             return self.__doc__
         help_string = """
@@ -114,9 +114,19 @@ class CmdInventory(MuxCommand):
         string += "\n{wVolume:{n %s/%s" % (char.volume,
                                            char.db.max_volume or 100)
         xp = char.db.xp or 0
-        self.caller.msg("\n{w%s currently %s {c%s {wxp." % ("You" if not show_other else char.key,
-                                                            "have" if not show_other else 'has',
-                                                            xp))
+        ap = 0
+        try:
+            # correct possible synchronization errors
+            if char.roster.action_points != char.db.player_ob.roster.action_points or char.ndb.stale_ap:
+                char.roster.refresh_from_db(fields=("action_points",))
+                char.db.player_ob.roster.refresh_from_db(fields=("action_points",))
+                char.ndb.stale_ap = False
+            ap = char.db.player_ob.roster.action_points
+        except AttributeError:
+            pass
+        self.caller.msg("\n{w%s currently %s {c%s {wxp and {c%s{w ap." % ("You" if not show_other else char.key,
+                                                                          "have" if not show_other else 'has',
+                                                                          xp, ap))
         self.caller.msg(string)
         if hasattr(player, 'Dominion') and hasattr(player.Dominion, 'assets'):
             vault = player.Dominion.assets.vault
@@ -413,8 +423,8 @@ class CmdGive(MuxCommand):
                 caller.msg("You do not have that much money to give.")
                 return
             caller.pay_money(val, target)
-            caller.msg("You give coins worth %s silver pieces to %s." % (val, target.name))
-            target.msg("%s has given you coins worth %s silver pieces." % (caller.name, val))
+            caller.msg("You give coins worth %s silver pieces to %s." % (val, target))
+            target.msg("%s has given you coins worth %s silver pieces." % (caller, val))
             return
         # if we didn't find a match in currency that we're giving
         if not to_give:
@@ -433,8 +443,8 @@ class CmdGive(MuxCommand):
             return
         # give object
         to_give.move_to(target, quiet=True)
-        caller.msg("You give %s to %s." % (to_give.key, target.key))
-        target.msg("%s gives you %s." % (caller.key, to_give.key))
+        caller.msg("You give %s to %s." % (to_give.key, target))
+        target.msg("%s gives you %s." % (caller, to_give.key))
         to_give.at_get(target)
 
 
@@ -464,7 +474,7 @@ class CmdEmit(MuxCommand):
     help_category = "Social"
     perm_for_switches = "Builders"
 
-    def dynamic_help(self, caller):
+    def get_help(self, caller, cmdset):
         if caller.check_permstring(self.perm_for_switches):
             return self.__doc__
         help_string = """
@@ -483,7 +493,10 @@ class CmdEmit(MuxCommand):
         """Implement the command"""
 
         caller = self.caller
-        args = self.args
+        if caller.check_permstring(self.perm_for_switches):
+            args = self.args
+        else:
+            args = self.raw.lstrip(" ")
 
         if not args:
             string = "Usage: "
@@ -515,7 +528,7 @@ class CmdEmit(MuxCommand):
             players_only = False
 
         if not self.rhs or not caller.check_permstring(perm):
-            message = self.args
+            message = args
             normal_emit = True
             objnames = []
             do_global = False
@@ -531,10 +544,12 @@ class CmdEmit(MuxCommand):
         # normal emits by players are just sent to the room
         if normal_emit:
             gms = [ob for ob in caller.location.contents if ob.check_permstring('builders')]
-            caller.location.msg_contents("{w[Emit by: {c%s{w]{n %s" % (caller.name, message),
-                                         from_obj=caller,
-                                         options={'is_pose': True}, gm_msg=True)
-            caller.location.msg_contents(message, exclude=gms, from_obj=caller, options={'is_pose': True})
+            non_gms = [ob for ob in caller.location.contents if "emit_label" in ob.tags.all() and ob.player]
+            gm_msg = "{w[Emit by: {c%s{w]{n %s" % (caller.name, message)
+            caller.location.msg_contents(gm_msg, from_obj=caller, options={'is_pose': True}, gm_msg=True)
+            for ob in non_gms:
+                ob.msg(gm_msg, from_obj=caller, options={'is_pose': True})
+            caller.location.msg_contents(message, exclude=gms + non_gms, from_obj=caller, options={'is_pose': True})
             return
         # send to all objects
         for objname in objnames:
@@ -582,7 +597,10 @@ class CmdPose(MuxCommand):
       Tom is standing by the wall, smiling.
 
     Describe an action being taken. The pose text will
-    automatically begin with your name.
+    automatically begin with your name. Following pose with an apostrophe,
+    comma, or colon will not put a space between your name and the character.
+    Ex: 'pose, text' is 'Yourname, text'. Similarly, using the ; alias will
+    not append a space after your name. Ex: ';'s adverb' is 'Name's adverb'.
     """
     key = "pose"
     aliases = [":", "emote", ";"]
@@ -600,7 +618,7 @@ class CmdPose(MuxCommand):
         """
         args = self.args
         if (args and not args[0] in ["'", ",", ":"]) and not self.cmdstring.startswith(";"):
-            args = " %s" % args.strip()
+            args = " %s" % args.lstrip(" ")
         self.args = args
 
     def func(self):
@@ -618,11 +636,11 @@ class CmdArxSay(CmdSay):
     __doc__ = CmdSay.__doc__
 
     def func(self):
-        if not self.args:
+        if not self.raw:
             self.msg("Say what?")
             return
         options = {'is_pose': True}
-        speech = self.args
+        speech = self.raw.lstrip(" ")
         # calling the speech hook on the location
         speech = self.caller.location.at_say(self.caller, speech)
         # Feedback for the object doing the talking.
@@ -650,6 +668,7 @@ class CmdWho(MuxPlayerCommand):
       who/sparse [<filter>]
       doing/sparse [<filter>]
       who/active
+      who/watch
 
     Shows who is currently online. Doing is an alias that limits info
     also for those with all permissions. Players who are currently
@@ -716,6 +735,7 @@ class CmdWho(MuxPlayerCommand):
         session_list = [ob for ob in SESSIONS.get_sessions() if ob.player]
         session_list = sorted(session_list, key=lambda o: o.player.key.lower())
         sparse = "sparse" in self.switches
+        watch_list = player.db.watching or []
 
         if self.cmdstring == "doing":
             show_session_data = False
@@ -723,6 +743,7 @@ class CmdWho(MuxPlayerCommand):
             show_session_data = player.check_permstring("Immortals") or player.check_permstring("Wizards")
         nplayers = (SESSIONS.player_count())
         total_players = nplayers
+        already_counted = []
         if show_session_data:
             table = prettytable.PrettyTable(["{wPlayer Name",
                                              "{wOn for",
@@ -732,25 +753,34 @@ class CmdWho(MuxPlayerCommand):
                                              "{wProtocol",
                                              "{wHost"])
             for session in session_list:
+                pc = session.get_player()
+                if pc in already_counted:
+                    continue
                 if not session.logged_in:
+                    already_counted.append(pc)
                     nplayers -= 1
                     continue
-                delta_cmd = time.time() - session.cmd_last_visible
+                delta_cmd = pc.idle_time
                 if "active" in self.switches and delta_cmd > 1200:
+                    already_counted.append(pc)
                     nplayers -= 1
                     continue
                 delta_conn = time.time() - session.conn_time
-                pc = session.get_player()
                 plr_pobject = session.get_puppet()
                 plr_pobject = plr_pobject or pc
                 base = str(session.get_player())
                 pname = self.format_pname(session.get_player())
                 char = pc.db.char_ob
+                if "watch" in self.switches and char not in watch_list:
+                    already_counted.append(pc)
+                    nplayers -= 1
+                    continue
                 if not char or not char.db.fealty:
                     fealty = "---"
                 else:
                     fealty = char.db.fealty
                 if not self.check_filters(pname, base, fealty):
+                    already_counted.append(pc)
                     nplayers -= 1
                     continue
                 pname = crop(pname, width=18)
@@ -763,29 +793,40 @@ class CmdWho(MuxPlayerCommand):
                                # session.cmd_total,
                                session.protocol_key,
                                isinstance(session.address, tuple) and session.address[0] or session.address])
+                already_counted.append(pc)
         else:
             if not sparse:
                 table = prettytable.PrettyTable(["{wPlayer name", "{wFealty", "{wIdle"])
             else:
                 table = prettytable.PrettyTable(["{wPlayer name", "{wIdle"])
+
             for session in session_list:
-                if not session.logged_in:
-                    nplayers -= 1
-                    continue
-                delta_cmd = time.time() - session.cmd_last_visible
-                if "active" in self.switches and delta_cmd > 1200:
-                    nplayers -= 1
-                    continue
                 pc = session.get_player()
+                if pc in already_counted:
+                    continue
+                if not session.logged_in:
+                    already_counted.append(pc)
+                    nplayers -= 1
+                    continue
+                delta_cmd = pc.idle_time
+                if "active" in self.switches and delta_cmd > 1200:
+                    already_counted.append(pc)
+                    nplayers -= 1
+                    continue
                 if not pc.db.hide_from_watch:
                     base = str(pc)
                     pname = self.format_pname(pc, lname=True, sparse=sparse)
                     char = pc.db.char_ob
+                    if "watch" in self.switches and char not in watch_list:
+                        already_counted.append(pc)
+                        nplayers -= 1
+                        continue
                     if not char or not char.db.fealty:
                         fealty = "---"
                     else:
                         fealty = char.db.fealty
                     if not self.check_filters(pname, base, fealty):
+                        already_counted.append(pc)
                         nplayers -= 1
                         continue
                     idlestr = self.get_idlestr(delta_cmd)
@@ -800,7 +841,9 @@ class CmdWho(MuxPlayerCommand):
                                        idlestr])
                     else:
                         table.add_row([pname, idlestr])
+                    already_counted.append(pc)
                 else:
+                    already_counted.append(pc)
                     nplayers -= 1
 
         isone = nplayers == 1
@@ -986,8 +1029,7 @@ class CmdSetAttribute(ObjManipCommand):
                     string += "strings inside lists and dicts.{n"
         # send feedback
         caller.msg(string.strip('\n'))
-        if obj != caller and not caller.check_permstring("immortals"):
-            arx_utils.inform_staff("Building command by %s: %s" % (caller, string))
+        arx_utils.inform_staff("Building command by %s: %s" % (caller, string))
 
 
 class CmdDig(ObjManipCommand):
@@ -1119,6 +1161,8 @@ class CmdDig(ObjManipCommand):
         caller.msg("%s%s%s" % (room_string, exit_to_string, exit_back_string))
         if new_room and ('teleport' in self.switches or "tel" in self.switches):
             caller.move_to(new_room)
+        # use property to set colored name attribute and strip ansi markup from key
+        new_room.name = new_room.name
         return new_room
 
 
@@ -1235,9 +1279,9 @@ class CmdTeleport(MuxCommand):
         use_destination = True
         if "intoexit" in self.switches:
             use_destination = False
-        if not obj_to_teleport.access(caller, "edit") and caller != obj_to_teleport:
-            caller.msg("Access denied for teleporting %s." % obj_to_teleport)
-            return
+        # if not obj_to_teleport.access(caller, "get") and caller != obj_to_teleport:
+        #     caller.msg("Access denied for teleporting %s." % obj_to_teleport)
+        #     return
         # try the teleport
         if obj_to_teleport.move_to(destination, quiet=tel_quietly,
                                    emit_to_obj=caller,
@@ -1377,6 +1421,33 @@ class CmdArxChannels(CmdChannels):
                      "{wdelcom{n to manage subscriptions):\n%s" % comtable)
 
 
+class CmdArxCWho(CmdCWho):
+    __doc__ = CmdCWho.__doc__
+
+    def func(self):
+        """implement function"""
+
+        if not self.args:
+            string = "Usage: @cwho <channel>"
+            self.msg(string)
+            return
+
+        channel = find_channel(self.caller, self.lhs)
+        if not channel:
+            return
+        if not channel.access(self.caller, "listen"):
+            string = "You can't access this channel."
+            self.msg(string)
+            return
+        string = "\n|CChannel subscriptions|n"
+        if self.caller.check_permstring("builders"):
+            wholist = channel.complete_wholist
+        else:
+            wholist = channel.wholist
+        string += "\n|w%s:|n\n  %s" % (channel.key, wholist)
+        self.msg(string.strip())
+
+
 class CmdArxLock(CmdLock):
     __doc__ = CmdLock.__doc__
     aliases = ["@locks", "locks"]
@@ -1445,7 +1516,7 @@ class CmdArxExamine(CmdExamine):
             if self.player_mode or "char" in self.switches:
                 try:
                     obj = caller.search_player(obj_name.lstrip('*'))
-                    if "char" in self.switches:
+                    if "char" in self.switches and obj:
                         obj = obj.db.char_ob
                 except AttributeError:
                     # this means we are calling examine from a player object
@@ -1473,7 +1544,8 @@ class CmdArxExamine(CmdExamine):
                 else:
                     mergemode = "object"
                 # using callback to print results whenever function returns.
-                get_and_merge_cmdsets(obj, self.session, self.player, obj, mergemode).addCallback(get_cmdset_callback)
+                get_and_merge_cmdsets(obj, self.session, self.player, obj, mergemode, self.raw_string
+                                      ).addCallback(get_cmdset_callback)
 
 
 class CmdArxDestroy(CmdDestroy):
@@ -1602,13 +1674,13 @@ class CmdArxScripts(CmdScripts):
             else:
                 nextrep = "%ss" % nextrep
 
-            def script_obj_str(scriptob):
+            def script_obj_str():
                 if script.obj:
                     return "%s(#%s)" % (crop(script.obj.key, width=10), script.obj.id)
                 return "<Global>"
 
             table.add_row(script.id,
-                          script_obj_str(script),
+                          script_obj_str(),
                           script.key,
                           script.interval if script.interval > 0 else "--",
                           nextrep,

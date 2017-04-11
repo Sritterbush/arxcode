@@ -89,7 +89,7 @@ class Container(LockMixins, DefaultObject):
         container_cmdset.add(CmdChestKey(obj=contdbobj))
         return container_cmdset
     
-    def at_cmdset_get(self):
+    def at_cmdset_get(self, **kwargs):
         """
         Called when the cmdset is requested from this object, just before the
         cmdset is actually extracted. If no container-cmdset is cached, create
@@ -124,3 +124,10 @@ class Container(LockMixins, DefaultObject):
         chestkeys.remove(self)
         char.db.chestkeylist = chestkeys
         return True
+
+    def return_contents(self, pobject, detailed=True, show_ids=False,
+                        strip_ansi=False, show_places=True, sep=", "):
+        if self.db.recipe == 129:
+            return super(Container, self).return_contents(pobject, detailed, show_ids, strip_ansi, show_places,
+                                                          sep="\n         ")
+        return super(Container, self).return_contents(pobject, detailed, show_ids, strip_ansi, show_places, sep)

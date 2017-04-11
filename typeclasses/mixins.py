@@ -1,4 +1,7 @@
 from server.utils.arx_utils import sub_old_ansi
+import re
+from evennia.utils.utils import lazy_property
+from evennia.utils.ansi import parse_ansi
 
 
 class DescMixins(object):
@@ -176,7 +179,9 @@ class NameMixins(object):
         old = self.db.false_name
         self.db.false_name = val
         if old:
+            old = parse_ansi(old, strip_ansi=True)
             self.aliases.remove(old)
+        val = parse_ansi(val, strip_ansi=True)
         self.aliases.add(val)
 
     @fakename.deleter
@@ -186,6 +191,7 @@ class NameMixins(object):
         """
         old = self.db.false_name
         if old:
+            old = parse_ansi(old, strip_ansi=True)
             self.aliases.remove(old)
         self.attributes.remove("false_name")
 
@@ -201,7 +207,6 @@ class NameMixins(object):
         """
         :type self: ObjectDB
         """
-        from evennia.utils.ansi import parse_ansi
         # convert color codes
         val = sub_old_ansi(val)
         self.db.colored_name = val
@@ -212,11 +217,24 @@ class NameMixins(object):
     def __str__(self):
         return self.name
 
+    def __unicode__(self):
+        return self.name
+
 
 class AppearanceMixins(object):
-    
+
+    @property
+    def recipe(self):
+        if self.db.recipe:
+            from world.dominion.models import CraftingRecipe
+            try:
+                recipe = CraftingRecipe.objects.get(id=self.db.recipe)
+                return recipe
+            except CraftingRecipe.DoesNotExist:
+                pass
+
     def return_contents(self, pobject, detailed=True, show_ids=False,
-                        strip_ansi=False, show_places=True):
+                        strip_ansi=False, show_places=True, sep=", "):
         """
         Returns contents of the object, used in formatting our description,
         as well as when in 'brief mode' and skipping a description, but
@@ -228,7 +246,9 @@ class AppearanceMixins(object):
         :param show_ids: bool
         :param strip_ansi: bool
         :param show_places: bool
+        :param sep: str
         """
+
         def get_key(ob):
             if show_ids:
                 object_key = "%s {w(ID: %s){n" % (ob.name, ob.id)
@@ -236,11 +256,11 @@ class AppearanceMixins(object):
                 object_key = ob.name
             if strip_ansi:
                 try:
-                    from evennia.utils.ansi import parse_ansi
                     object_key = parse_ansi(object_key, strip_ansi=True)
                 except (AttributeError, TypeError, ValueError):
                     pass
             return object_key
+
         string = ""
         # get and identify all objects
         visible = (con for con in self.contents if con != pobject and con.access(pobject, "view"))
@@ -299,11 +319,11 @@ class AppearanceMixins(object):
                 string += "\n{wCharacters:{n " + ", ".join(users + [get_key(ob) for ob in npcs])
             if things:
                 things = sorted(things, key=lambda x: x.db.put_time)
-                string += "\n{wObjects:{n " + ", ".join([get_key(ob) for ob in things])
+                string += "\n{wObjects:{n " + sep.join([get_key(ob) for ob in things])
             if currency:
                 string += "\n{wMoney:{n %s" % currency
         return string
-    
+
     def pay_money(self, amount, receiver=None):
         """
         A method to pay money from this object, possibly to a receiver.
@@ -324,7 +344,7 @@ class AppearanceMixins(object):
                 receiver.db.currency = 0.0
             receiver.db.currency += amount
         return True
-    
+
     def return_currency(self):
         """
         :type self: ObjectDB
@@ -363,7 +383,6 @@ class AppearanceMixins(object):
             desc = self.desc
         if strip_ansi:
             try:
-                from evennia.utils.ansi import parse_ansi
                 desc = parse_ansi(desc, strip_ansi=True)
             except (AttributeError, ValueError, TypeError):
                 pass
@@ -399,15 +418,13 @@ class AppearanceMixins(object):
                 adorn_strs.append("%s %s" % (amt, mat.name))
             string += "\nAdornments: %s" % ", ".join(adorn_strs)
         # recipe is an integer matching the CraftingRecipe ID
-        if self.db.recipe:
-            from world.dominion.models import CraftingRecipe
-            try:
-                recipe = CraftingRecipe.objects.get(id=self.db.recipe)
-                string += "\nIt is a %s." % recipe.name
-            except CraftingRecipe.DoesNotExist:
-                pass
+        recipe = self.recipe
+        if recipe:
+            string += "\nIt is a %s." % recipe.name
         # quality_level is an integer, we'll get a name from crafter file's dict
         string += self.get_quality_appearance()
+        if self.db.translation:
+            string += "\nIt contains script in a foreign tongue."
         # signed_by is a crafter's character object
         signed = self.db.signed_by
         if signed:
@@ -422,6 +439,8 @@ class AppearanceMixins(object):
         if self.db.quality_level:
             from commands.commands.crafting import QUALITY_LEVELS
             qual = self.db.quality_level
+            if qual > 11:
+                qual = 11
             qual = QUALITY_LEVELS.get(qual, "average")
             return "\nIts level of craftsmanship is %s." % qual
         return ""
@@ -471,22 +490,44 @@ class ObjectMixins(DescMixins, AppearanceMixins):
                 pass
 
 
+# regex removes the ascii inside an ascii tag
+RE_ASCII = re.compile(r"<ascii>(.*?)</ascii>", re.IGNORECASE)
+# designates text to be ascii-free by a crafter
+RE_ALT_ASCII = re.compile(r"<noascii>(.*?)</noascii>", re.IGNORECASE)
+RE_COLOR = re.compile(r'"(.*?)"')
+
+
 class MsgMixins(object):
+    
+    @lazy_property
+    def namex(self):
+        # regex that contains our name inside quotes
+        name = self.key
+        return re.compile(r'"(.*?)%s{n(.*?)"' % name)
+        
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):
         """
         :type self: ObjectDB
-        :param text: str
+        :param text: str or tuple
         :param from_obj: ObjectDB
         :param session: Session
         :param options: dict
         :param kwargs: dict
         """
+        # if we have nothing to receive message, we're done.
+        if not self.sessions.all():
+            return
+        # compatibility change for Evennia changing text to be either str or tuple
+        if hasattr(text, '__iter__'):
+            text = text[0]
         options = options or {}
         options.update(kwargs.get('options', {}))
         try:
             text = str(text)
         except (TypeError, UnicodeDecodeError, ValueError):
             pass
+        if text.endswith("|"):
+            text += "{n"
         text = sub_old_ansi(text)
         if from_obj and isinstance(from_obj, dict):
             # somehow our from_obj had a dict passed to it. Fix it up.
@@ -508,10 +549,17 @@ class MsgMixins(object):
         if options.get('is_pose', False):
             if self.db.posebreak:
                 text = "\n" + text
+            name_color = self.db.name_color
+            if name_color:
+                text = text.replace(self.key, name_color + self.key + "{n")
             quote_color = self.db.pose_quote_color
             # colorize people's quotes with the given text
             if quote_color:
-                pass  # to do later
+                text = RE_COLOR.sub(r'%s"\1"{n' % quote_color, text)
+                if name_color:
+                    # counts the instances of name replacement inside quotes and recolorizes
+                    for _ in range(0, text.count("%s{n" % self.key)):
+                        text = self.namex.sub(r'"\1%s%s\2"' % (self.key, quote_color), text)
         if options.get('box', False):
             boxchars = '\n{w' + '*' * 70 + '{n\n'
             text = boxchars + text + boxchars
@@ -543,6 +591,12 @@ class MsgMixins(object):
                     player_ob.log_message(from_obj, text)
         except AttributeError:
             pass
+        if 'no_ascii' in player_ob.tags.all():
+            text = RE_ASCII.sub("", text)
+            text = RE_ALT_ASCII.sub(r"\1", text)
+        else:
+            text = RE_ASCII.sub(r"\1", text)
+            text = RE_ALT_ASCII.sub("", text)
         super(MsgMixins, self).msg(text, from_obj, session, options, **kwargs)
 
 

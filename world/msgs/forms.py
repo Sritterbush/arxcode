@@ -41,6 +41,11 @@ class JournalRemoveFavorite(forms.Form):
         char.messages.untag_favorite(msg, char.db.player_ob)
 
 
+class CharacterChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, obj):
+        return obj.key
+
+
 class JournalWriteForm(forms.Form):
 
     journal = forms.CharField(
@@ -48,7 +53,7 @@ class JournalWriteForm(forms.Form):
         widget=forms.Textarea(attrs={'class': "form-control",
                                      'rows': "10"}),
         )
-    character = forms.ModelChoiceField(
+    character = CharacterChoiceField(
         label="Character for Relationship Update",
         help_text="Leave blank if this journal is not a relationship",
         empty_label="(None - not a relationship)",

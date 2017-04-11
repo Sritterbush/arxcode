@@ -517,6 +517,33 @@ class Ticket(models.Model):
 
         super(Ticket, self).save(*args, **kwargs)
 
+    def display(self):
+        """Returns ansi in-game display
+
+        Returns:
+            A string with ansi/Evennia markup that displays appropriate ticket
+            information. Not meant to be used outside of telnet.
+        """
+        msg = "\n{wQueue:{n %s" % self.queue
+        msg += "\n{wTicket Number:{n %s" % self.id
+        if self.submitting_player:
+            msg += "\n{wPlayer:{n %s" % self.submitting_player.key
+        msg += "\n{wDate submitted:{n %s" % self.created.strftime("%x %X")
+        msg += "\n{wLast modified:{n %s" % self.modified.strftime("%x %X")
+        msg += "\n{wTitle:{n %s" % self.title
+        room = self.submitting_room
+        if room:
+            msg += "\n{wLocation:{n %s (#%s)" % (room, room.id)
+        msg += "\n{wPriority:{n %s" % self.priority
+        msg += "\n{wRequest:{n %s" % self.description
+        if self.assigned_to:
+            msg += "\n{wGM:{n %s" % self.assigned_to.key
+        for followup in self.followup_set.all():
+            msg += "\n{wFollowup by:{n %s" % followup.user
+            msg += "\n{wComment:{n %s" % followup.comment
+        msg += "\n\n{wGM Resolution:{n %s" % self.resolution
+        return msg
+
 
 class FollowUpManager(models.Manager):
     def private_followups(self):

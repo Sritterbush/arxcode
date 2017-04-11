@@ -44,7 +44,7 @@ class CmdAgents(MuxPlayerCommand):
 
     hire: enter the type, level, and quantity of the agents and the org you
     wish to buy them for. The type will generally be 'guard' for nobles,
-    and 'thug' for crime families and the like. Cost = 25*(lvl+1)^3 in
+    and 'thug' for crime families and the like. Cost = (lvl+1)^5 in
     military resources for each agent.
 
     """
@@ -104,18 +104,24 @@ class CmdAgents(MuxPlayerCommand):
             caller.msg("{wBarracks locations:{n %s" % ", ".join(ob.key for ob in barracks))
             return
         try:
+            owner_ids = []
             loc = caller.character.location
             if loc == caller.character.home:
-                owner = caller.Dominion.assets.id
-            else:
-                owner = loc.db.barracks_owner or loc.db.room_owner
-            if owner:
-                owner = AssetOwner.objects.get(id=owner)
-                if owner != caller.Dominion.assets and not owner.organization_owner.access(caller, 'guards'):
+                owner_ids.append(caller.Dominion.assets.id)
+            if loc.db.barracks_owner:
+                owner_ids.append(loc.db.barracks_owner)
+            if loc.db.room_owner:
+                owner_ids.append(loc.db.room_owner)
+            if owner_ids:
+                owners = [ob for ob in AssetOwner.objects.filter(id__in=owner_ids) if
+                          ob == caller.Dominion.assets or ob.organization_owner.access(caller, 'guards')]
+                if not owners:
                     caller.msg("You do not have access to guards here.")
             else:
                 self.msg("You do not have access to guards here.")
                 return
+            owner_ids = [ob.id for ob in owners]
+            owner_names = ", ".join(str(ob) for ob in owners)
         except (AttributeError, AssetOwner.DoesNotExist, ValueError, TypeError):
             import traceback
             self.msg(traceback.print_exc())
@@ -136,7 +142,7 @@ class CmdAgents(MuxPlayerCommand):
                 if not targ:
                     caller.msg("Could not find player by name %s." % player)
                     return
-                avail_agent = Agent.objects.get(id=pid, owner=owner)
+                avail_agent = Agent.objects.get(id=pid, owner_id__in=owner_ids)
                 if avail_agent.quantity < amt:
                     caller.msg("You tried to assign %s, but only have %s available." % (amt, avail_agent.quantity))
                     return
@@ -157,8 +163,8 @@ class CmdAgents(MuxPlayerCommand):
                     caller.msg(err)
                     return
             except Agent.DoesNotExist:
-                caller.msg("%s owns no agents by that name." % owner.owner)
-                agents = Agent.objects.filter(owner=owner)
+                caller.msg("%s owns no agents by that name." % owner_names)
+                agents = Agent.objects.filter(owner_id__in=owner_ids)
                 caller.msg("{wAgents:{n %s" % ", ".join("%s (#%s)" % (agent.name, agent.id) for agent in agents))
                 return
             except ValueError:
@@ -175,14 +181,17 @@ class CmdAgents(MuxPlayerCommand):
                 pid = int(pid)
                 if amt < 1:
                     raise ValueError
-                agent = Agent.objects.get(id=pid, owner=owner)
+                agent = Agent.objects.get(id=pid)
+                if agent.owner.id not in owner_ids:
+                    self.msg("They are owned by %s, and must be recalled from their barracks." % agent.owner)
+                    return
                 # look through our agent actives for a dbobj assigned to player
                 agentob = agent.find_assigned(player)
                 if not agentob:
-                    caller.msg("No agents assigned to %s by %s." % (player, owner.owner))
+                    caller.msg("No agents assigned to %s by %s." % (player, owner_names))
                     return
-                agentob.recall(amt)
-                caller.msg("You have recalled %s from %s. They have %s left." % (amt, player, agentob.quantity))
+                num = agentob.recall(amt)
+                caller.msg("You have recalled %s from %s. They have %s left." % (num, player, agentob.quantity))
                 return
             except Agent.DoesNotExist:
                 caller.msg("No agents found for those arguments.")
@@ -253,6 +262,7 @@ class CmdAgents(MuxPlayerCommand):
                     agent.name = name
                 elif 'transferowner' in self.switches:
                     attr = 'owner'
+                    strval = self.lhslist[1]
                     try:
                         agent.owner = AssetOwner.objects.get(Q(player__player__username__iexact=self.lhslist[1]) |
                                                              Q(organization_owner__name__iexact=self.lhslist[1]))
@@ -276,10 +286,12 @@ class CmdAgents(MuxPlayerCommand):
                     agent.owner.inform_owner("You have been transferred ownership of %s from %s." % (agent, caller),
                                              category="agents")
                 return
-            except (Agent.DoesNotExist, TypeError, ValueError, IndexError):
-                import traceback
-                traceback.print_exc()
-                caller.msg("User error.")
+            except IndexError:
+                self.msg("Wrong number of arguments.")
+            except (TypeError, ValueError):
+                self.msg("Wrong type of arguments.")
+            except Agent.DoesNotExist:
+                caller.msg("No agent found by that number.")
                 return
         self.msg("Unrecognized switch.")
 
@@ -304,6 +316,7 @@ class CmdRetainers(MuxPlayerCommand):
         @retainers/customize <id #>=<trait name>,<value>
         @retainers/viewstats <id #>
         @retainers/cost <id #>=<attribute>,<category>
+        @retainer/delete <id #>
 
     Allows you to create and train unique agents that serve you,
     called retainers. They are still agents, and use the @agents
@@ -326,6 +339,8 @@ class CmdRetainers(MuxPlayerCommand):
     and large animals requiring military, assistants using economic, and
     spies requiring social. Small animals, due to their limited use, only
     cost 25 social resources.
+
+    /delete will remove a retainer that you own forever.
     """
     key = "@retainers"
     aliases = ["@retainer"]
@@ -394,6 +409,10 @@ class CmdRetainers(MuxPlayerCommand):
         agent.assign(caller.db.char_ob, 1)
         caller.msg("Assigning %s to you." % aname)
         self.msg("You now have a new agent. You can return to your home to summon them with the +guard command.")
+        # strip ansi from the key
+        agent.name = strip_ansi(aname)
+        agent.dbobj.name = aname
+        agent.save()
         return
 
     def train_retainer(self):
@@ -422,8 +441,10 @@ class CmdRetainers(MuxPlayerCommand):
         char = self.caller.db.char_ob
         try:
             amt = int(self.rhs)
+            if amt < 1:
+                raise ValueError
         except (TypeError, ValueError):
-            self.msg("You must specify an xp value to transfer to your retainer.")
+            self.msg("You must specify a positive xp value to transfer to your retainer.")
             return
         if char.db.xp < amt:
             self.msg("You want to transfer %s xp, but only have %s." % (amt, char.db.xp))
@@ -739,6 +760,18 @@ class CmdRetainers(MuxPlayerCommand):
         agent.dbobj.attributes.add(attr, val)
         self.msg("%s's %s set to %s." % (agent, attr, val))
 
+    def delete(self, agent):
+        if not self.caller.ndb.remove_agent_forever == agent:
+            self.caller.ndb.remove_agent_forever = agent
+            self.msg("You wish to remove %s forever. Use the command again to confirm." % agent)
+            return
+        dbobj = agent.dbobj
+        dbobj.softdelete()
+        dbobj.unassign()
+        agent.owner = None
+        agent.save()
+        self.msg("%s has gone to live with a nice farm family." % dbobj)
+
     def func(self):
         caller = self.caller
         if not self.args:
@@ -806,6 +839,9 @@ class CmdRetainers(MuxPlayerCommand):
             xpcost, rescost, restype = self.get_attr_cost(agent, attr, category, current)
             self.msg("Raising %s would cost %s xp, %s %s resources." % (attr, xpcost, rescost, restype))
             return
+        if "delete" in self.switches:
+            self.delete(agent)
+            return
         caller.msg("Invalid switch.")
 
 
@@ -851,7 +887,8 @@ class CmdGuards(MuxCommand):
             caller.msg("You have no guards assigned to you.")
             return
         if not self.args and not self.switches:
-            self.msg("{WYour guards:{n\n%s" % "".join(guard.agent.display() for guard in guards), options={'box': True})
+            self.msg("{WYour guards:{n\n%s" % "".join(guard.agent.display() if guard.agent.unique else guard.display()
+                                                      for guard in guards), options={'box': True})
             return
         if self.args:
             guard = ObjectDB.objects.object_search(self.lhs, candidates=guards, exact=False)
@@ -937,9 +974,11 @@ class CmdGuards(MuxCommand):
             self.msg("{c%s's {winventory:{n %s" % (guard, ", ".join(ob.name for ob in objects)))
             return
         if "give" in self.switches:
+            self.msg("You order %s to give %s." % (guard, self.rhs))
             guard.execute_cmd("give %s" % self.rhs)
             return
         if 'get' in self.switches:
+            self.msg("You order %s to get %s." % (guard, self.rhs))
             guard.execute_cmd("get %s" % self.rhs)
             return
         targ = caller.search(self.rhs)

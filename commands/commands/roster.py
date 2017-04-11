@@ -86,7 +86,7 @@ def list_characters(caller, character_list, roster_type="Active Characters", ros
             afk = "-"
             # check if the name matches anything in the hidden characters list
             hide = False
-            if charob and hasattr(charob, 'is_disguised') and charob.is_disguised:
+            if charob and not use_keys and hasattr(charob, 'is_disguised') and charob.is_disguised:
                 hide = True
             if not charob and hidden_chars:
                 # convert both to lower case for case-insensitive matching
@@ -348,9 +348,11 @@ class CmdAdminRoster(MuxPlayerCommand):
         @chroster/note   <entry>=<Added note>
         @chroster/email  <entry>=<new email>
         @chroster/retire <entry>=<notes>
+        @chroster/view <entry>
+        @chroster/markavailable <entry>
 
     Admin for roster commands. Added characters go in unavailable
-    and inactive section until moved to active section. 
+    and inactive section until moved to active section.
     """
     key = "@chroster"
     help_category = "Admin"
@@ -375,6 +377,41 @@ class CmdAdminRoster(MuxPlayerCommand):
             caller.msg("Usage: @chroster/switches <arguments>")
             return
         from web.character.models import RosterEntry, Roster, AccountHistory
+        if "markavailable" in switches:
+            try:
+                entry = RosterEntry.objects.get(character__db_key__iexact=self.lhs)
+                if entry.roster.name == "Active":
+                    self.msg("They are currently played. Use /retire instead.")
+                    return
+                roster = Roster.objects.get(name__iexact="Available")
+                entry.roster = roster
+                entry.save()
+                try:
+                    bb = BBoard.objects.get(db_key__iexact="Roster Changes")
+                    msg = "%s has been placed on the roster and is now available for applications." % entry.character
+                    subject = "%s now available" % entry.character
+                    bb.bb_post(self.caller, msg, subject=subject, poster_name="Roster")
+                except BBoard.DoesNotExist:
+                    self.msg("Board not found for posting announcement")
+            except RosterEntry.DoesNotExist:
+                self.msg("Could not find a character by that name.")
+            # try to delete any apps
+            from .jobs import get_apps_manager
+            apps = get_apps_manager(caller)
+            if not apps:
+                return
+            apps_for_char = apps.view_all_apps_for_char(args)
+            if not apps_for_char:
+                caller.msg("No applications found.")
+                return
+            pend_list = [ob for ob in apps_for_char if ob[9]]
+            if not pend_list:
+                caller.msg("No pending applications found.")
+                return
+            for pending_app in pend_list:
+                app_num = pending_app[0]
+                apps.delete_app(caller, app_num)
+            return
         if 'add' in switches:
             try:
                 RosterEntry.objects.get(character__db_key__iexact=self.lhs)
@@ -421,7 +458,7 @@ class CmdAdminRoster(MuxPlayerCommand):
                 if xp < 0:
                     xp = 0
                 try:
-                    alt = AccountHistory.objects.get(Q(account=current) & ~Q(entry=entry))
+                    alt = AccountHistory.objects.get(Q(account=current) & ~Q(entry=entry) & Q(end_date__isnull=True))
                     self.award_alt_xp(alt, xp, history, current)
                 except AccountHistory.DoesNotExist:
                     if xp > current.total_xp:
@@ -433,7 +470,8 @@ class CmdAdminRoster(MuxPlayerCommand):
                     current.save()
                 except AccountHistory.MultipleObjectsReturned:
                     caller.msg("ERROR: Found more than one account. Using the first.")
-                    alt = AccountHistory.objects.filter(Q(account=current) & ~Q(entry=entry)).first()
+                    alt = AccountHistory.objects.filter(Q(account=current) & ~Q(entry=entry)).exclude(
+                        end_date__isnull=False).first()
                     self.award_alt_xp(alt, xp, history, current)
                 except Exception as err:
                     import traceback
@@ -483,6 +521,7 @@ class CmdAdminRoster(MuxPlayerCommand):
                 return
             caller.msg("{w" + "-"*20 + "{n")
             caller.msg("{wPlayer Object:{n %s {wID:{n %s" % (entry.player.key, entry.player.id))
+            caller.msg("{wEmail{n: %s" % entry.player.email)
             line = "{wCharacter: {n"
             line += entry.character.key
             line += " {wID:{n %s" % entry.character.id
@@ -596,7 +635,12 @@ def display_header(caller, character, show_hidden=False):
                'haircolor': haircolor, 'skintone': skintone, 'marital_status': marital_status,
                }
     caller.msg(header)
-    desc = character.desc
+    full_titles = character.titles
+    if full_titles:
+        caller.msg("{wFull titles:{n %s" % full_titles)
+    if character.db.obituary:
+        caller.msg("{wObituary{n: %s" % character.db.obituary)
+    desc = character.perm_desc
     if not desc:
         desc = "No description set."
     if show_hidden:
@@ -1191,7 +1235,8 @@ class CmdRelationship(MuxPlayerCommand):
     help_category = "Social"
     locks = "cmd:all()"
     typelist = ['parent', 'sibling', 'friend', 'enemy', 'frenemy', 'family', 'client', 'patron', 'protege',
-                'acquaintance', 'secret', 'rival', 'ally', 'spouse']
+                'acquaintance', 'secret', 'rival', 'ally', 'spouse', 'The Crown', 'Crownlands', 'Oathlands',
+                'Lyceum', 'Mourning Isles', 'Northlands', 'deceased']
 
     def func(self):
         caller = self.caller
@@ -1266,7 +1311,7 @@ class CmdRelationship(MuxPlayerCommand):
                 caller.msg("No relationships found.")
                 return
             entries = rels.get(name, [])
-            entries = [msg for msg in entries if msg.access(caller, 'read') or 'white' in msg.header]
+            entries = [msg for msg in entries if msg.access(caller, 'read') or 'white_journal' in msg.tags.all()]
             if not entries:
                 caller.msg("No relationship found.")
                 return
@@ -1307,8 +1352,9 @@ class CmdRelationship(MuxPlayerCommand):
                 charob.msg_watchlist("A character you are watching, {c%s{n, has updated their white journal." % caller)
             return
         if 'short' in switches:
-            rhslist = self.rhslist          
-            if lhs not in self.typelist:
+            rhslist = self.rhslist
+            rel_types = [ob.lower() for ob in self.typelist]
+            if lhs not in rel_types:
                 caller.msg("The type of relationship must be in: %s." % ", ".join(self.typelist))
                 return
             if len(rhslist) < 2:

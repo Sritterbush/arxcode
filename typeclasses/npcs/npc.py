@@ -188,7 +188,7 @@ class Npc(Character):
             self.db.last_recovery_test = time.time()
         return roll
     
-    def sensing_check(self, difficulty=15, invis=False):
+    def sensing_check(self, difficulty=15, invis=False, allow_wake=False):
         """
         See if the character detects something that is hiding or invisible.
         The difficulty is supplied by the calling function.
@@ -343,6 +343,17 @@ class MultiNpc(Npc):
 
 
 class AgentMixin(object):
+
+    @property
+    def desc(self):
+        self.agent.refresh_from_db(fields=('desc',))
+        return self.agent.desc
+
+    @desc.setter
+    def desc(self, val):
+        self.agent.desc = val
+        self.agent.save()
+
     def setup_agent(self  # type: Retainer or Agent
                     ):
         """
@@ -617,10 +628,6 @@ class AgentMixin(object):
 
 
 class Retainer(AgentMixin, Npc):
-    @property
-    def desc(self):
-        self.agent.refresh_from_db(fields=('desc',))
-        return self.agent.desc
 
     def display(self):
         msg = "{wAssigned to:{n %s " % self.db.guarding
@@ -657,30 +664,42 @@ class Retainer(AgentMixin, Npc):
         cost, res_type = ABILITY_COSTS.get(attr)
         return cost, cost, res_type
 
+    def can_train(self, trainer):
+        skill = trainer.db.skills.get(self.training_skill, 0)
+        if not skill:
+            trainer.msg("You must have %s skill to train them." % self.training_skill)
+            return False
+        currently_training = trainer.db.currently_training or []
+        if self.db.trainer == trainer:
+            trainer.msg("They have already been trained by %s this week." % self.db.trainer)
+            return False
+        # because of possible cache errors we'll check by ID rather than by self
+        currently_training_ids = [ob.id for ob in currently_training]
+        if self.id in currently_training_ids:
+            trainer.msg("They have already been trained by you this week.")
+            return False
+        return True
+
     def train_agent(self, trainer):
         """
         Gives xp to this agent if they haven't been trained yet this week.
         The skill used to train them is based on our type - animal ken for
         animals, teaching for non-animals.
         """
-        skill = trainer.db.skills.get(self.training_skill, 0)
-        if not skill:
-            trainer.msg("You must have %s skill to train them." % self.training_skill)
-            return False
-        if self.db.trainer:
-            current = self.db.trainer.db.currently_training or []
-            # if our trainer doesn't have us in current, it's stale, remove our trainer
-            if self not in current:
-                self.db.trainer = None
-            else:
-                trainer.msg("They have already been trained by %s this week." % self.db.trainer)
-                return False
-        # do training roll
-        roll = do_dice_check(trainer, stat="command", skill=self.training_skill, difficulty=0)
-        self.agent.xp += roll
-        self.agent.save()
         self.db.trainer = trainer
         currently_training = trainer.db.currently_training or []
+        if self in currently_training:
+            # this should not be possible. Nonetheless, it has happened.
+            trainer.msg("Error: You have already trained this agent despite the check saying you hadn't.")
+            return
+        # do training roll
+        roll = do_dice_check(trainer, stat="command", skill=self.training_skill, difficulty=0, quiet=False)
+        self.agent.xp += roll
+        self.agent.save()
+        # redundant attribute to try to combat cache errors
+        num_trained = trainer.db.num_trained or len(currently_training)
+        num_trained += 1
+        trainer.db.num_trained = num_trained
         currently_training.append(self)
         trainer.db.currently_training = currently_training
         trainer.msg("You have trained %s, giving them %s xp." % (self, roll))
@@ -715,6 +734,8 @@ class Agent(AgentMixin, MultiNpc):
         """
         if num < 0:
             raise ValueError("Must pass a positive integer to lose_agents.")
+        if num > self.db.num_living:
+            num = self.db.num_living
         self.multideath(num, death)
         self.agentob.lose_agents(num)
         self.setup_name()       
@@ -729,7 +750,7 @@ class Agent(AgentMixin, MultiNpc):
     def display(self):
         msg = "\n{wGuards:{n %s\n" % self.name
         if self.db.guarding:
-            msg += "{wAssigned to:{n %s\n" % self.db.guarding
+            msg += "{wAssigned to:{n %s {wOwner{n:%s\n" % (self.db.guarding, self.agent.owner)
         msg += "{wLocation:{n %s\n" % (self.location or self.db.docked or "Home Barracks")
         return msg
 

@@ -1,5 +1,6 @@
 {% load i18n humanize %}
 {% load static from staticfiles %}
+{%  load app_filters %}
 <table class="table table-hover table-bordered table-striped">
 <thead>
     <tr class='row_tablehead'><td colspan='2'><h3>{{ ticket.id }}. {{ ticket.title }} [{{ ticket.get_status }}]</h3> <span class='ticket_toolbar'>
@@ -20,7 +21,7 @@
     <th colspan='2'>{% trans "Description" %}</th>
 </tr>
 <tr>
-    <td id="ticket-description" colspan='2'>{{ ticket.description|force_escape|urlizetrunc:50|linebreaksbr }}</td>
+    <td id="ticket-description" colspan='2'>{{ ticket.description|force_escape|urlizetrunc:50|linebreaksbr|mush_to_html }}</td>
 </tr>
 
 {% if ticket.resolution %}<tr>

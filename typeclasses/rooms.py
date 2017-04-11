@@ -104,9 +104,9 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
         """
         # get the current time as parts of year and parts of day
         # returns a tuple (years,months,weeks,days,hours,minutes,sec)
-        MONTHS_PER_YEAR = settings.TIME_MONTH_PER_YEAR
+        MONTHS_PER_YEAR = 12
         SEASONAL_BOUNDARIES = (3 / 12.0, 6 / 12.0, 9 / 12.0)
-        HOURS_PER_DAY = settings.TIME_HOUR_PER_DAY
+        HOURS_PER_DAY = 24
         DAY_BOUNDARIES = (0, 6 / 24.0, 12 / 24.0, 18 / 24.0)
         time = gametime.gametime(format=True)
         month, hour = time[1], time[4]
@@ -160,7 +160,7 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
         super(ArxRoom, self).return_appearance(looker)
         # return updated desc plus other stuff
         return (AppearanceMixins.return_appearance(self, looker, detailed, format_desc)
-                + self.command_string() + self.mood_string + self.event_string())
+                + self.command_string() + self.mood_string + self.event_string() + self.combat_string(looker))
     
     def _current_event(self):
         if not self.db.current_event:
@@ -175,6 +175,14 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
     def _entrances(self):
         return ObjectDB.objects.filter(db_destination=self)
     entrances = property(_entrances)
+    
+    def combat_string(self, looker):
+        try:
+            if looker.combat.combat:
+                return "\nYou are in combat. Use {w+cs{n to see combatstatus."
+        except AttributeError:
+            pass
+        return ""
     
     def event_string(self):
         event = self.event
@@ -214,10 +222,13 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
 
     def command_string(self):
         msg = ""
-        if "shop" in self.tags.all():
+        tags = self.tags.all()
+        if "shop" in tags:
             msg += "\n    {wYou can {c+shop{w here.{n"
-        if "bank" in self.tags.all():
+        if "bank" in tags:
             msg += "\n    {wYou can {c+bank{w here.{n"
+        if "nonlethal_combat" in tags:
+            msg += "\n{wCombat in this room is non-lethal."
         return msg
 
     @property
@@ -353,7 +364,38 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
             except ScriptDB.DoesNotExist:
                 if from_obj:
                     from_obj.msg("Error: Event Manager not found.")
-        super(ArxRoom, self).msg_contents(message, exclude=exclude, from_obj=from_obj, mapping=mapping, **kwargs)
+        super(ArxRoom, self).msg_contents(text=message, exclude=exclude, from_obj=from_obj, mapping=mapping, **kwargs)
+        
+    def ban_character(self, character):
+        if character not in self.banlist:
+            self.banlist.append(character)
+            
+    def unban_character(self, character):
+        if character in self.banlist:
+            self.banlist.remove(character)
+            
+    @property
+    def banlist(self):
+        if self.db.banlist is None:
+            self.db.banlist = []
+        return self.db.banlist
+        
+    def check_banned(self, character):
+        return character in self.banlist
+        
+    def add_bouncer(self, character):
+        if character not in self.bouncers:
+            self.bouncers.append(character)
+            
+    def remove_bouncer(self, character):
+        if character in self.bouncers:
+            self.bouncers.remove(character)
+            
+    @property
+    def bouncers(self):
+        if self.db.bouncers is None:
+            self.db.bouncers = []
+        return self.db.bouncers
 
 
 class CmdExtendedLook(default_cmds.CmdLook):
@@ -655,6 +697,10 @@ class CmdGameTime(default_cmds.MuxCommand):
     key = "time"
     locks = "cmd:all()"
     help_category = "General"
+
+    # noinspection PyUnusedLocal
+    def get_help(self, caller, cmdset):
+        return self.__doc__ + "\n\nGame time moves %s faster than real time." % settings.TIME_FACTOR
 
     def func(self):
         """Reads time info from current room"""

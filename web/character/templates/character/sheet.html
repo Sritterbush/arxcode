@@ -39,20 +39,24 @@
 	<a href="{% url 'help_topics:display_org' fealty_org_id.id %}">{{ character.db.fealty }}</a>
 	{% else %}{{ character.db.fealty}}
 	{% endif %}
-	</br><b>Family:</b> 
+	<br><b>Family:</b>
 	{% if family_org_id %}
 	<a href="{% url 'help_topics:display_org' family_org_id.id %}">{{ character.db.family }}</a>
 	{% else %}{{ character.db.family}}
 	{% endif %}
-	</br>
+	<br>
     <b>Gender:</b> {{ character.db.gender }}<br><b>Age:</b> {{ character.db.age }}<br>
     <b>Religion:</b> {{ character.db.religion }}<br><b>Vocation:</b> {{character.db.vocation|capfirst }}<br>
 	<b>Height:</b> {{ character.db.height}}<br><b>Hair Color:</b> {{character.db.haircolor}}<br>
 	<b>Eye Color:</b> {{ character.db.eyecolor}}<br><b>Skintone:</b> {{character.db.skintone}}</p>
+    {% if character.titles %}
+    <b>Titles:</b> {{ character.titles }} {% endif %}
 	</div>
 	</div>
 	</div>
-    <p><b>Description:</b> {{ character.desc|mush_to_html }}</p>
+    {% if character.db.obituary %}
+    <p><b>Obituary:</b> {{ character.db.obituary|mush_to_html }}</p>{% endif %}
+    <p><b>Description:</b> {{ character.perm_desc|mush_to_html }}</p>
 
     <p><b>Personality:</b> {{ character.db.personality|mush_to_html }}</p>
 

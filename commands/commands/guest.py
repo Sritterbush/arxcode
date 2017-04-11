@@ -415,6 +415,10 @@ class CmdGuestLook(MuxPlayerCommand):
             return
         if stage == 4:
             caller.msg(stage_title(stage))
+            if char.db.skills is None:
+                char.db.skills = {}
+            if char.db.abilities is None:
+                char.db.abilities = {}
             if not caller.ndb.seen_stage4_intro:             
                 caller.msg(STAGE4)
                 caller.ndb.seen_stage4_intro = True
@@ -826,6 +830,8 @@ class CmdGuestAddInput(MuxPlayerCommand):
 
         def check_points(character, arguments, value, category):
             # helper function to see if we can add or remove the points
+            if char.db.skills is None:
+                char.db.skills = {}
             if not (category == "skill" or category == "stat"):
                 character.msg("Error: Invalid category for check_points. 'stat' or 'skill' expected.")
                 return False

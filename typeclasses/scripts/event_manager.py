@@ -82,8 +82,9 @@ class EventManager(Script):
                 self.start_event(event)
                 return
             if diff < 300:
-                if event.id not in self.db.pending_start:                  
-                    self.db.pending_start[event.id] = reactor.callLater(diff, delayed_start, event.id)
+                if event.id not in self.db.pending_start:
+                    reactor.callLater(diff, delayed_start, event.id)
+                    self.db.pending_start[event.id] = diff
                 return
             if diff < 600:
                 self.announce_upcoming_event(event, diff)
@@ -98,7 +99,16 @@ class EventManager(Script):
     def announce_upcoming_event(event, diff):
         mins = int(diff/60)
         secs = diff % 60
-        SESSIONS.announce_all("{wEvent: '%s' will start in %s minutes and %s seconds.{n" % (event.name, mins, secs))
+        announce_msg = "{wEvent: '%s' will start in %s minutes and %s seconds.{n" % (event.name, mins, secs)
+        if event.public_event:
+            SESSIONS.announce_all(announce_msg)
+        else:
+            announce_msg = "{y(Private Message) " + announce_msg
+            for ob in event.characters:
+                try:
+                    ob.player.msg(announce_msg)
+                except AttributeError:
+                    continue
 
     @staticmethod
     def get_event_location(event):
@@ -182,7 +192,11 @@ class EventManager(Script):
             end_str = "%s has ended at %s." % (event.name, loc.name)
         else:
             end_str = "%s has ended." % event.name
-        SESSIONS.announce_all(end_str)
+        if event.public_event:
+            SESSIONS.announce_all(end_str)
+        else:
+            if loc:
+                loc.msg_contents(end_str)
         event.finished = True
         event.save()
         if event.id in self.db.active_events:
@@ -199,6 +213,14 @@ class EventManager(Script):
         except Exception:
             traceback.print_exc()
         self.delete_event_post(event)
+
+    def move_event(self, event, new_location):
+        if event.location:
+            event.location.stop_event_logging()
+        event.location = new_location
+        event.save()
+        if event.id in self.db.active_events:
+            new_location.start_event_logging(event)
 
     def add_msg(self, eventid, msg, sender=None):
         # reset idle timer for event
@@ -227,6 +249,11 @@ class EventManager(Script):
             log.write(msg)
         except Exception:
             traceback.print_exc()
+            
+    def add_gemit(self, msg):
+        msg = parse_ansi(msg, strip_ansi=True)
+        for event_id in self.db.active_events:
+            self.add_msg(event_id, msg)
 
     @staticmethod
     def do_awards(event):

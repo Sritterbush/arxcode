@@ -156,7 +156,7 @@ class PlayerOrNpc(models.Model):
     @property
     def second_cousins(self):
         return PlayerOrNpc.objects.filter(~Q(id=self.id) & ~Q(id__in=self.cousins) &
-                                          ~Q(id__in=self.siblings)
+                                          ~Q(id__in=self.siblings) & ~Q(id__in=self.spouses.all())
                                           & (
                                             Q(parents__parents__parents__in=self.greatgrandparents) |
                                             Q(parents__parents__parents__spouses__in=self.greatgrandparents) |
@@ -174,6 +174,11 @@ class PlayerOrNpc(models.Model):
     siblings = property(_get_siblings)
     
     def display_immediate_family(self):
+        """
+        Creates lists of our family relationships and converts the lists to sets
+        to remove duplicates. At the very end, convert each one to a string with
+        join. Then return all these strings added together.
+        """
         ggparents = self.greatgrandparents
         grandparents = []
         parents = self.all_parents
@@ -184,8 +189,6 @@ class PlayerOrNpc(models.Model):
                 unc_or_aunts.append(sibling)
                 for spouse in sibling.spouses.all():
                     unc_or_aunts.append(spouse)
-        unc_or_aunts = set(unc_or_aunts)
-        grandparents = set(grandparents)
         spouses = self.spouses.all()
         siblings = self.siblings
         neph_or_nieces = []
@@ -194,14 +197,18 @@ class PlayerOrNpc(models.Model):
         for spouse in self.spouses.all():
             for sib in spouse.siblings:
                 neph_or_nieces += list(sib.children.all())
-            neph_or_nieces = set(neph_or_nieces)
         children = self.children.all()
         grandchildren = []
         for child in children:
             grandchildren += list(child.children.all())
-        grandchildren = set(grandchildren)
         cousins = self.cousins
         second_cousins = self.second_cousins
+        # convert lists to sets that remove duplicates
+        unc_or_aunts = set(unc_or_aunts)
+        grandparents = set(grandparents)
+        neph_or_nieces = set(neph_or_nieces)
+        grandchildren = set(grandchildren)
+        # convert to strings
         if ggparents:
             ggparents = "{wGreatgrandparents{n: %s\n" % (", ".join(str(ggparent) for ggparent in ggparents))
         else:
@@ -462,7 +469,7 @@ class AssetOwner(models.Model):
             return self.cached_income
         if self.organization_owner:
             income += self.organization_owner.amount
-        for amt in self.incomes.filter(do_weekly=True):
+        for amt in self.incomes.filter(do_weekly=True).exclude(category="vassal taxes"):
             income += amt.weekly_amount
         if not hasattr(self, 'estate'):
             return income
@@ -475,7 +482,7 @@ class AssetOwner(models.Model):
         costs = 0
         if hasattr(self, 'cached_costs'):
             return self.cached_costs
-        for debt in self.debts.filter(do_weekly=True):
+        for debt in self.debts.filter(do_weekly=True).exclude(category="vassal taxes"):
             costs += debt.weekly_amount
         if not hasattr(self, 'estate'):
             return costs
@@ -515,24 +522,26 @@ class AssetOwner(models.Model):
     def do_weekly_adjustment(self, week):
         amount = 0
         report = None
+        npc = True
         player = self.inform_target
-        if self.player and self.player.player:
-            # if we're a player, send them the report
-            for member in self.player.memberships.filter(deguilded=False):
-                member.work_this_week = 0
-                member.save()
+        org = self.organization_owner
         if player:
             report = WeeklyReport(player, week, self)
+            npc = False
+        elif org:
+            if org.members.filter(Q(player__player__roster__roster__name="Active") &
+                                  Q(player__player__roster__frozen=False)):
+                npc = False
         if hasattr(self, 'estate'):
             for domain in self.estate.holdings.all():
-                amount += domain.do_weekly_adjustment(week, report)
+                amount += domain.do_weekly_adjustment(week, report, npc)
         for agent in self.agents.all():
             amount -= agent.cost
         # WeeklyTransactions
         for income in self.incomes.filter(do_weekly=True):
             amount += income.process_payment(report)
-            income.post_repeat()
-        if self.organization_owner:
+            # income.post_repeat()
+        if org:
             # record organization's income
             amount += self.organization_owner.amount
             # organization prestige decay
@@ -601,9 +610,9 @@ class AccountTransaction(models.Model):
     their bank_amount stored in assets.money.bank_amount, and those
     have it as a debt have the same value subtracted.
     """
-    receiver = models.ForeignKey('AssetOwner', related_name='incomes', blank=True, null=True)
+    receiver = models.ForeignKey('AssetOwner', related_name='incomes', blank=True, null=True, db_index=True)
     
-    sender = models.ForeignKey('AssetOwner', related_name='debts', blank=True, null=True)
+    sender = models.ForeignKey('AssetOwner', related_name='debts', blank=True, null=True, db_index=True)
     # quick description of the type of transaction. taxes between liege/vassal, etc
     category = models.CharField(blank=True, null=True, max_length=255)
     
@@ -845,7 +854,8 @@ class Domain(models.Model):
     # 'grid' square where our domain is. More than 1 domain can be on a square
     land = models.ForeignKey('Land', on_delete=models.SET_NULL, related_name='domains', blank=True, null=True)
     # The house that rules this domain
-    ruler = models.ForeignKey('Ruler', on_delete=models.SET_NULL, related_name='holdings', blank=True, null=True)
+    ruler = models.ForeignKey('Ruler', on_delete=models.SET_NULL, related_name='holdings', blank=True, null=True,
+                              db_index=True)
     # cosmetic info
     name = models.CharField(blank=True, null=True, max_length=80)
     desc = models.TextField(blank=True, null=True)
@@ -974,7 +984,7 @@ class Domain(models.Model):
         if not self.ruler.liege:
             return 0
         if self.ruler.liege.holdings.all():
-            return self.ruler.liege.holdings.all()[0].tax_rate
+            return self.ruler.liege.holdings.first().tax_rate
         return 0
     
     def worker_cost(self, number):
@@ -1009,7 +1019,34 @@ class Domain(models.Model):
         return costs
 
     def _get_liege_taxed_amt(self):
-        return (self.total_income * self.liege_taxes)/100
+        if self.liege_taxes:
+            amt = self.ruler.liege_taxes
+            if amt:
+                return amt
+            # check if we have a transaction
+            try:
+                transaction = self.ruler.house.debts.get(category="vassal taxes")
+                return transaction.weekly_amount
+            except AccountTransaction.DoesNotExist:
+                amt = (self.total_income * self.liege_taxes)/100
+                self.ruler.house.debts.create(category="vassal taxes", receiver=self.ruler.liege.house,
+                                              weekly_amount=amt)
+                return amt
+        return 0
+
+    def reset_expected_tax_payment(self):
+        amt = (self.total_income * self.liege_taxes) / 100
+        if not amt:
+            return
+        try:
+            transaction = self.ruler.house.debts.get(category="vassal taxes")
+            if transaction.receiver != self.ruler.liege.house:
+                transaction.receiver = self.ruler.liege.house
+        except AccountTransaction.DoesNotExist:
+            transaction = self.ruler.house.debts.create(category="vassal taxes", receiver=self.ruler.liege.house,
+                                                        weekly_amount=amt)
+        transaction.weekly_amount = amt
+        transaction.save()
     
     def _get_food_production(self):
         """
@@ -1194,13 +1231,15 @@ class Domain(models.Model):
     
     def __repr__(self):
         return "<Domain (#%s): %s>" % (self.id, self.name or 'Unnamed')
-    
-    def do_weekly_adjustment(self, week, report=None):
+
+    def do_weekly_adjustment(self, week, report=None, npc=False):
         """
         Determine how much money we're passing up to the ruler of our domain. Make
         all the people and armies of this domain eat their food for the week. Bad
         things will happen if they don't have enough food.
         """
+        if npc:
+            return self.total_income - self.costs
         self.stored_food += self.food_production
         self.stored_food += self.shipped_food
         hunger = self.food_consumption - self.stored_food
@@ -1209,7 +1248,7 @@ class Domain(models.Model):
             self.stored_food = 0
             self.lawlessness += 5
             # unless we have a very large population, we'll only lose 1 serf as a penalty
-            lost_serfs = hunger/100 + 1
+            lost_serfs = hunger / 100 + 1
             self.kill_serfs(lost_serfs)
         else:  # hunger is negative, we have enough food for it
             self.stored_food += hunger
@@ -1226,8 +1265,9 @@ class Domain(models.Model):
         # reset the amount of money that's been plundered from us
         self.amount_plundered = 0
         self.save()
+        self.reset_expected_tax_payment()
         return total_amount
-    
+
     def display(self):
         castellan = None
         liege = "Crownsworn"
@@ -1240,9 +1280,13 @@ class Domain(models.Model):
         mssg += "{wLand{n: %s\n" % self.land
         mssg += "{wHouse{n: %s\n" % str(self.ruler)
         mssg += "{wLiege{n: %s\n" % str(liege)
-        mssg += "{wRuler{n: %s\n" % castellan
-        for minister in ministers:
-            mssg += "{wMinister of %s{n: %s\n" % (minister.get_category_display(), minister.player)
+        mssg += "{wRuler{n: {c%s{n\n" % castellan
+        if ministers:
+            mssg += "{wMinisters:{n\n"
+            for minister in ministers:
+                mssg += "  {c%s{n   {wCategory:{n %s  {wTitle:{n %s\n" % (minister.player,
+                                                                          minister.get_category_display(),
+                                                                          minister.title)
         mssg += "{wDesc{n: %s\n" % self.desc
         mssg += "{wArea{n: %s {wFarms{n: %s {wHousing{n: %s " % (self.area, self.num_farms, self.num_housing)
         mssg += "{wMines{n: %s {wLumber{n: %s {wMills{n: %s\n" % (self.num_mines, self.num_lumber_yards, self.num_mills)
@@ -1438,9 +1482,12 @@ class Minister(models.Model):
         (WARFARE, 'Warfare'),
         )
     title = models.CharField(blank=True, null=True, max_length=255)
-    player = models.ForeignKey("PlayerOrNpc", related_name="appointments", blank=True, null=True)
-    ruler = models.ForeignKey("Ruler", related_name="ministers", blank=True, null=True)
+    player = models.ForeignKey("PlayerOrNpc", related_name="appointments", blank=True, null=True, db_index=True)
+    ruler = models.ForeignKey("Ruler", related_name="ministers", blank=True, null=True, db_index=True)
     category = models.PositiveSmallIntegerField(choices=MINISTER_TYPES, default=INCOME)
+
+    def __str__(self):
+        return "%s acting as %s minister for %s" % (self.player, self.get_category_display(), self.ruler)
 
 
 class Ruler(models.Model):
@@ -1458,7 +1505,8 @@ class Ruler(models.Model):
     # the house that owns the domain
     house = models.OneToOneField("AssetOwner", on_delete=models.SET_NULL, related_name="estate", blank=True, null=True)
     # a ruler object that this object owes its alliegance to    
-    liege = models.ForeignKey("self", on_delete=models.SET_NULL, related_name="vassals", blank=True, null=True)
+    liege = models.ForeignKey("self", on_delete=models.SET_NULL, related_name="vassals", blank=True, null=True,
+                              db_index=True)
 
     def _get_titles(self):
         return ", ".join(domain.title for domain in self.domains.all())
@@ -1515,6 +1563,18 @@ class Ruler(models.Model):
         except AttributeError:
             return 0
 
+    @property
+    def vassal_taxes(self):
+        if not self.house:
+            return 0
+        return sum(ob.weekly_amount for ob in self.house.incomes.filter(category="vassal taxes"))
+
+    @property
+    def liege_taxes(self):
+        if not self.house:
+            return 0
+        return sum(ob.weekly_amount for ob in self.house.debts.filter(category="vassal taxes"))
+
 
 class Crisis(models.Model):
     """
@@ -1535,6 +1595,8 @@ class Crisis(models.Model):
     resolved = models.BooleanField(default=False)
     start_date = models.DateTimeField(blank=True, null=True)
     end_date = models.DateTimeField(blank=True, null=True)
+    chapter = models.ForeignKey('character.Chapter', related_name="crises", blank=True, null=True,
+                                on_delete=models.SET_NULL)
 
     class Meta:
         """Define Django meta options"""
@@ -1555,7 +1617,26 @@ class Crisis(models.Model):
         if self.required_clue:
             msg += "\n{wRequired Clue:{n %s" % self.required_clue
         msg += "\n{wCurrent Rating:{n %s" % self.rating
+        try:
+            last = self.updates.last()
+            msg += "\n{wLatest Update:{n\n%s" % last.desc
+        except AttributeError:
+            pass
         return msg
+
+
+class CrisisUpdate(models.Model):
+    """
+    Container for showing all the Crisis Actions during a period and their corresponding
+    result on the crisis
+    """
+    crisis = models.ForeignKey("Crisis", related_name="updates", db_index=True)
+    desc = models.TextField("Story of what happened this update", blank=True)
+    gm_notes = models.TextField("Any ooc notes of consequences", blank=True)
+    date = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return "Update %s for %s" % (self.id, self.crisis)
 
 
 class CrisisAction(models.Model):
@@ -1566,33 +1647,48 @@ class CrisisAction(models.Model):
     dompc = models.ForeignKey("PlayerOrNpc", db_index=True, blank=True, null=True, related_name="actions")
     action = models.TextField("What actions the player is taking", blank=True)
     crisis = models.ForeignKey("Crisis", db_index=True, blank=True, null=True, related_name="actions")
+    update = models.ForeignKey("CrisisUpdate", db_index=True, blank=True, null=True, related_name="actions")
     public = models.BooleanField(default=True, blank=True)
     rolls = models.TextField(blank=True)
     gm_notes = models.TextField(blank=True)
     story = models.TextField("Story written by the GM for the player", blank=True)
     outcome_value = models.SmallIntegerField(default=0, blank=0)
     sent = models.BooleanField(default=False, blank=True)
+    assistants = models.ManyToManyField("PlayerOrNpc", blank=True, null=True, through="CrisisActionAssistant",
+                                        related_name="assisted_actions")
 
-    def send(self):
+    def send(self, update):
         msg = "{wGM Response to action for crisis:{n %s" % self.crisis
         msg += "\n{wRolls:{n %s" % self.rolls
         msg += "\n\n{wStory:{n %s\n\n" % self.story
+        self.update = update
         self.dompc.player.inform(msg, category="Action", week=self.week,
                                  append=True)
+        for assistant in self.assistants.all():
+            assistant.player.inform(msg, category="Action", week=self.week, append=True)
         self.sent = True
         self.save()
 
+    @property
+    def action_text(self):
+        msg = "\n{wAction:{n %s" % self.action
+        for ob in self.assisting_actions.all():
+            msg += "\n{c%s{n's assisting action: %s" % (ob.dompc, ob.action)
+        return msg
+
     def view_action(self, caller=None, disp_pending=True, disp_old=False):
-        if not self.public and (not caller or not caller.check_permstring("builders")
-                                or caller != self.dompc.player):
+        if not self.public and (not caller or (not caller.check_permstring("builders")
+                                and caller != self.dompc.player and caller.Dominion not in self.assistants.all())):
             return ""
         msg = "\n{c%s's {wactions in week %s for {m%s{n" % (self.dompc, self.week, self.crisis)
-        msg += "\n{wAction:{n %s" % self.action
+        msg += self.action_text
         if self.sent:
             msg += "\n{wGM Notes:{n %s" % self.gm_notes
             msg += "\n{wRolls:{n %s" % self.rolls
             msg += "\n{wOutcome Value:{n %s" % self.outcome_value
             msg += "\n{wStory:{n %s" % self.story
+        else:
+            msg += "\n{wAdditional Action Points Spent:{n %s" % self.outcome_value
         if disp_pending:
             pend = self.questions.filter(answers__isnull=True)
             for ob in pend:
@@ -1605,6 +1701,15 @@ class CrisisAction(models.Model):
                     msg += "\n{wGM:{n %s" % ans.gm
                     msg += "\n{wAnswer:{n %s" % ans.text
         return msg
+
+
+class CrisisActionAssistant(models.Model):
+    crisis_action = models.ForeignKey("CrisisAction", db_index=True, related_name="assisting_actions")
+    dompc = models.ForeignKey("PlayerOrNpc", db_index=True, related_name="assisting_actions")
+    action = models.TextField("What action the assistant is taking", blank=True)
+
+    class Meta:
+        unique_together = ('crisis_action', 'dompc')
 
 
 class ActionOOCQuestion(models.Model):
@@ -1629,20 +1734,25 @@ class OrgRelationship(models.Model):
     """
     The relationship between two or more organizations.
     """
-    orgs = models.ManyToManyField('Organization', related_name='relationships', blank=True)
+    name = models.CharField("Name of the relationship", max_length=255, db_index=True, blank=True)
+    orgs = models.ManyToManyField('Organization', related_name='relationships', blank=True, db_index=True)
     status = models.SmallIntegerField(default=0, blank=0)
+    history = models.TextField("History of these organizations", blank=True)
 
 
 class Reputation(models.Model):
     """
     A player's reputation to an organization.
     """
-    player = models.ForeignKey('PlayerOrNpc', related_name='reputations', blank=True, null=True)
-    organization = models.ForeignKey('Organization', related_name='reputations', blank=True, null=True)
+    player = models.ForeignKey('PlayerOrNpc', related_name='reputations', blank=True, null=True, db_index=True)
+    organization = models.ForeignKey('Organization', related_name='reputations', blank=True, null=True, db_index=True)
     # negative affection is dislike/hatred
     affection = models.IntegerField(default=0, blank=0)
     # positive respect is respect/fear, negative is contempt/dismissal
     respect = models.IntegerField(default=0, blank=0)
+
+    class Meta:
+        unique_together = ('player', 'organization')
  
 
 class Organization(models.Model):
@@ -1653,7 +1763,7 @@ class Organization(models.Model):
     can substitute for an object as an asset holder. This allows them to
     have their own money, incomes, debts, etc.
     """
-    name = models.CharField(blank=True, null=True, max_length=255)
+    name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
     desc = models.TextField(blank=True, null=True)
     category = models.CharField(blank=True, null=True, default="noble", max_length=255)
     # In a RP game, titles are IMPORTANT. And we need to divide them by gender.
@@ -1697,6 +1807,8 @@ class Organization(models.Model):
     social_modifier = models.SmallIntegerField(default=0, blank=0)
     base_support_value = models.SmallIntegerField(default=5, blank=5)
     member_support_multiplier = models.SmallIntegerField(default=5, blank=5)
+    clues = models.ManyToManyField('character.Clue', blank=True, null=True, related_name="orgs",
+                                   through="ClueForOrg")
     
     def _get_npc_money(self):
         npc_income = self.npc_members * self.income_per_npc
@@ -1731,20 +1843,26 @@ class Organization(models.Model):
                 title = male_title
             else:
                 title = "%s/%s" % (male_title.capitalize(), female_title.capitalize())
+
+            def char_name(charob):
+                c_name = str(charob)
+                if charob not in active:
+                    c_name = "(R)" + c_name
+                if not self.secret and charob.secret:
+                    c_name += "(Secret)"
+                return c_name
             if len(chars) > 1:
                 msg += "{w%s{n (Rank %s): %s\n" % (title, rank,
-                                                   ", ".join(str(char) if char in active
-                                                             else "(R)%s" % char for char in chars))
+                                                   ", ".join(char_name(char) for char in chars))
             elif len(chars) > 0:
                 char = chars[0]
-                name = str(char) if char in active else "(R)%s" % char
+                name = char_name(char)
                 char = char.player.player.db.char_ob
                 gender = char.db.gender or "Male"
                 if gender.lower() == "male":
                     title = male_title
                 else:
                     title = female_title
-
                 msg += "{w%s{n (Rank %s): %s\n" % (title, rank, name)
         return msg
     
@@ -1757,7 +1875,7 @@ class Organization(models.Model):
         msg += "{wWebpage{n: %s\n" % webpage
         return msg
     
-    def display(self, viewing_member=None):
+    def display(self, viewing_member=None, display_clues=False):
         if hasattr(self, 'assets'):
             money = self.assets.vault
             prestige = self.assets.prestige
@@ -1787,11 +1905,15 @@ class Organization(models.Model):
                                                                                        self.social_modifier)
         msg += "{wSpheres of Influence:{n %s\n" % ", ".join("{w%s{n: %s" % (ob.category, ob.rating)
                                                             for ob in self.spheres.all())
+        clues = self.clues.all()
+        if clues and display_clues:
+            msg += "\n{wClues Known:{n %s\n" % "; ".join(str(ob) for ob in clues)
         if holdings:
             msg += "{wHoldings{n: %s\n" % ", ".join(ob.name for ob in holdings)
         if viewing_member:
             msg += "\n{wMember stats for {c%s{n\n" % viewing_member
             msg += viewing_member.display()
+
         return msg
     
     def __init__(self, *args, **kwargs):
@@ -1843,6 +1965,26 @@ class Organization(models.Model):
         except Channel.DoesNotExist:
             return None
 
+    def inform_members(self, text, category=None, access=None):
+        from world.msgs.models import Inform
+        if not category:
+            category = self.name
+        if not access:
+            players = [ob.player.player for ob in self.active_members]
+        else:
+            players = [ob.player.player for ob in self.active_members if self.access(ob.player.player, access)]
+        Inform.bulk_inform(players, text=text, category=category)
+
+
+class ClueForOrg(models.Model):
+    clue = models.ForeignKey('character.Clue', related_name="org_discoveries", db_index=True)
+    org = models.ForeignKey('Organization', related_name="clue_discoveries", db_index=True)
+    revealed_by = models.ForeignKey('character.RosterEntry', related_name="clues_added_to_orgs", blank=True, null=True,
+                                    db_index=True)
+
+    class Meta:
+        unique_together = ('clue', 'org')
+
 
 class Agent(models.Model):
     """
@@ -1862,7 +2004,8 @@ class Agent(models.Model):
     # numerical type of our agents. 0==regular guards, 1==spies, etc
     type = models.PositiveSmallIntegerField(default=0, blank=0)
     # assetowner, so either a player or an organization
-    owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="agents", blank=True, null=True)
+    owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="agents", blank=True, null=True,
+                              db_index=True)
     secret = models.BooleanField(default=False, blank=False)
     # if this class of Agent is a unique individual, and as such the quantity cannot be more than 1
     unique = models.BooleanField(default=False, blank=False)
@@ -1902,7 +2045,7 @@ class Agent(models.Model):
         if not self.unique:
             msg += " {wUnassigned:{n %s\n" % self.quantity
         else:
-            msg += "  {wXP:{n %s {wLoyalty{n: %s\n" % (self.xp, self.loyalty)
+            msg += "  {wXP:{n %s {wLoyalty{n: %s {wLevel{n: %s\n" % (self.xp, self.loyalty, self.quality)
         if not show_assignments:
             return msg
         for agent in self.agent_objects.all():
@@ -1997,7 +2140,8 @@ class AgentOb(models.Model):
     """
     Allotment from an Agent class that has a representation in-game.
     """
-    agent_class = models.ForeignKey("Agent", related_name="agent_objects", blank=True, null=True)
+    agent_class = models.ForeignKey("Agent", related_name="agent_objects", blank=True, null=True,
+                                    db_index=True)
     dbobj = models.OneToOneField("objects.ObjectDB", blank=True, null=True)
     quantity = models.PositiveIntegerField(default=0, blank=0)
     # whether they're imprisoned, by whom, difficulty to free them, etc
@@ -2021,6 +2165,7 @@ class AgentOb(models.Model):
         up AgentOb and returns our agents to the agent class.
         """
         self.agent_class.quantity += self.quantity
+        self.agent_class.save()
         self.quantity = 0
         self.save()
 
@@ -2054,18 +2199,21 @@ class Army(models.Model):
     """
     Any collection of military units belonging to a given domain.
     """
-    name = models.CharField(blank=True, null=True, max_length=80)
+    name = models.CharField(blank=True, null=True, max_length=80, db_index=True)
     desc = models.TextField(blank=True, null=True)
     # the domain that we obey the orders of. Not the same as who owns us, necessarily
-    domain = models.ForeignKey("Domain", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True)
+    domain = models.ForeignKey("Domain", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
+                               db_index=True)
     # current location of this army
     land = models.ForeignKey("Land", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True)
     # if the army is located as a castle garrison
     castle = models.ForeignKey("Castle", on_delete=models.SET_NULL, related_name="garrison", blank=True, null=True)
     # The overall commander of this army. Units under his command may have their own commanders
-    commander = models.ForeignKey("Member", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True)
+    commander = models.ForeignKey("Member", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
+                                  db_index=True)
     # an owner who may be the same person who owns the domain. Or not, in the case of mercs, sent reinforcements, etc
-    owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True)
+    owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
+                              db_index=True)
     # food we're carrying with us on transports or whatever
     stored_food = models.PositiveSmallIntegerField(default=0, blank=0)
     # whether the army is starving. 0 = not starving, 1 = starting to starve, 2 = troops dying/deserting
@@ -2389,8 +2537,8 @@ class Orders(models.Model):
         (ENFORCE_ORDER, 'Enforce Order'),
         (BESIEGE, 'Besiege Castle'),
         (MARCH, 'March'),)
-    army = models.ForeignKey("Army", related_name="orders", null=True, blank=True)
-    target_domain = models.ForeignKey("Domain", related_name="incoming_attacks", null=True, blank=True)
+    army = models.ForeignKey("Army", related_name="orders", null=True, blank=True, db_index=True)
+    target_domain = models.ForeignKey("Domain", related_name="incoming_attacks", null=True, blank=True, db_index=True)
     target_land = models.ForeignKey("Land", related_name="incoming_army", null=True, blank=True)
     type = models.PositiveSmallIntegerField(choices=ORDER_CHOICES, default=TRAIN)
     coin_cost = models.PositiveIntegerField(default=0, blank=0)
@@ -2415,7 +2563,7 @@ class MilitaryUnit(models.Model):
     accured.
     """
     commander = models.ForeignKey("Member", on_delete=models.SET_NULL, related_name="units", blank=True, null=True)
-    army = models.ForeignKey("Army", related_name="units", blank=True, null=True)
+    army = models.ForeignKey("Army", related_name="units", blank=True, null=True, db_index=True)
     # type will be used to derive units and their stats elsewhere 
     unit_type = models.PositiveSmallIntegerField(default=0, blank=0)
     quantity = models.PositiveSmallIntegerField(default=1, blank=1)
@@ -2541,10 +2689,10 @@ class Member(models.Model):
     set up with their Organization.
     """  
     
-    player = models.ForeignKey('PlayerOrNpc', related_name='memberships', blank=True, null=True)
+    player = models.ForeignKey('PlayerOrNpc', related_name='memberships', blank=True, null=True, db_index=True)
     commanding_officer = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='subordinates', blank=True,
                                            null=True)
-    organization = models.ForeignKey('Organization', related_name='members', blank=True, null=True)
+    organization = models.ForeignKey('Organization', related_name='members', blank=True, null=True, db_index=True)
     
     work_this_week = models.PositiveSmallIntegerField(default=0, blank=0)
     work_total = models.PositiveSmallIntegerField(default=0, blank=0)
@@ -2737,12 +2885,12 @@ class Task(models.Model):
     A task that a guild creates and then assigns to members to carry out,
     to earn them and the members income. Used to create RP.
     """
-    name = models.CharField(blank=True, null=True, max_length=80)
-    org = models.ManyToManyField('Organization', related_name='tasks', blank=True)
+    name = models.CharField(blank=True, null=True, max_length=80, db_index=True)
+    org = models.ManyToManyField('Organization', related_name='tasks', blank=True, db_index=True)
     category = models.CharField(null=True, blank=True, max_length=80)
     room_echo = models.TextField(blank=True, null=True)
     active = models.BooleanField(default=False, blank=False)
-    week = models.PositiveSmallIntegerField(blank=0, default=0)
+    week = models.PositiveSmallIntegerField(blank=0, default=0, db_index=True)
     desc = models.TextField(blank=True, null=True)
     difficulty = models.PositiveSmallIntegerField(blank=0, default=0)
     results = models.TextField(blank=True, null=True)
@@ -2759,10 +2907,10 @@ class AssignedTask(models.Model):
     """
     A task assigned to a player.
     """
-    task = models.ForeignKey('Task', related_name='assigned_tasks', blank=True, null=True)
-    member = models.ForeignKey('Member', related_name='tasks', blank=True, null=True)
+    task = models.ForeignKey('Task', related_name='assigned_tasks', blank=True, null=True, db_index=True)
+    member = models.ForeignKey('Member', related_name='tasks', blank=True, null=True, db_index=True)
     finished = models.BooleanField(default=False, blank=False)
-    week = models.PositiveSmallIntegerField(blank=0, default=0)
+    week = models.PositiveSmallIntegerField(blank=0, default=0, db_index=True)
     notes = models.TextField(blank=True, null=True)
     observer_text = models.TextField(blank=True, null=True)
     alt_echo = models.TextField(blank=True, null=True)
@@ -2853,15 +3001,15 @@ class AssignedTask(models.Model):
             setattr(memassets, category, current + amt)
             current = getattr(orgassets, category)
             setattr(orgassets, category, current + orgres)
-            self.dompc.gain_reputation(org, amt, amt)
+            # self.dompc.gain_reputation(org, amt, amt)
             self.save()
             memassets.save()
             orgassets.save()
             total_rep += rep
             msg += "%s Resources earned: %s\n" % (category, amt)
-        msg += "Reputation earned: %s\n" % total_rep
-        for support in self.supporters.all():
-            support.award_renown()
+        # msg += "Reputation earned: %s\n" % total_rep
+        # for support in self.supporters.all():
+        #     support.award_renown()
         self.player.inform(msg, category="task", week=week,
                                          append=True)
 
@@ -2915,42 +3063,17 @@ class TaskSupporter(models.Model):
     """
     A player that has pledged support to someone doing a task
     """
-    player = models.ForeignKey('PlayerOrNpc', related_name='supported_tasks', blank=True, null=True)
-    task = models.ForeignKey('AssignedTask', related_name='supporters', blank=True, null=True)
+    player = models.ForeignKey('PlayerOrNpc', related_name='supported_tasks', blank=True, null=True, db_index=True)
+    task = models.ForeignKey('AssignedTask', related_name='supporters', blank=True, null=True, db_index=True)
     fake = models.BooleanField(default=False)
     spheres = models.ManyToManyField('SphereOfInfluence', related_name='supported_tasks', blank=True,
                                      through='SupportUsed')
     observer_text = models.TextField(blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
+    additional_points = models.PositiveSmallIntegerField(default=0, blank=0)
     
     def __str__(self):
         return "%s supporting %s" % (self.player, self.task) or "Unknown supporter"
-
-    def award_renown(self):
-        """Give renown to both players."""
-        targ = self.task.member.player
-        if not self.fake:
-            for char in (targ, self.player):
-                for inf in self.allocation.all():
-                    category = inf.sphere.category
-                    try:
-                        ren = char.renown.get(category=category)
-                    except Renown.DoesNotExist:
-                        ren = char.renown.create(category=category)
-                    ren.rating += inf.rating
-                    ren.save()
-        else:  # we're an unreliable flake. We suffer penalties
-            for req in self.task.task.requirements.all():
-                category = req.category
-                char = self.player
-                if not char:
-                    continue
-                try:
-                    ren = char.renown.get(category=category)
-                except Renown.DoesNotExist:
-                    ren = char.renown.create(category=category)
-                ren.rating -= 1
-                ren.save()
 
     @property
     def rating(self):
@@ -2969,6 +3092,7 @@ class TaskSupporter(models.Model):
             total += 5
         for usage in self.allocation.all():
             total += usage.rating
+        total += self.additional_points
         return total
 
     @property
@@ -3014,10 +3138,10 @@ class CraftingRecipe(models.Model):
     are used for wearable objects to denote the slot they're worn in and
     how many other objects may be worn in that slot, respectively.
     """
-    name = models.CharField(blank=True, null=True, max_length=255)
+    name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
     desc = models.TextField(blank=True, null=True)
     # organizations or players that know this recipe
-    known_by = models.ManyToManyField('AssetOwner', blank=True, related_name='recipes')
+    known_by = models.ManyToManyField('AssetOwner', blank=True, related_name='recipes', db_index=True)
     primary_materials = models.ManyToManyField('CraftingMaterialType', blank=True, related_name='recipes_primary')
     secondary_materials = models.ManyToManyField('CraftingMaterialType', blank=True, related_name='recipes_secondary')
     tertiary_materials = models.ManyToManyField('CraftingMaterialType', blank=True, related_name='recipes_tertiary')
@@ -3027,8 +3151,8 @@ class CraftingRecipe(models.Model):
     difficulty = models.PositiveSmallIntegerField(blank=0, default=0)
     additional_cost = models.PositiveIntegerField(blank=0, default=0)
     # the ability/profession that is used in creating this
-    ability = models.CharField(blank=True, null=True, max_length=80)
-    skill = models.CharField(blank=True, null=True, max_length=80)
+    ability = models.CharField(blank=True, null=True, max_length=80, db_index=True)
+    skill = models.CharField(blank=True, null=True, max_length=80, db_index=True)
     # the type of object we're creating
     type = models.CharField(blank=True, null=True, max_length=80)
     # level in ability this recipe corresponds to. 1 through 6, usually
@@ -3134,11 +3258,11 @@ class CraftingMaterialType(models.Model):
     difficult it is to fake it as another material of the same category
     """
     # the type of material we are
-    name = models.CharField(max_length=80)
+    name = models.CharField(max_length=80, db_index=True)
     desc = models.TextField(blank=True, null=True)
     # silver value per unit
     value = models.PositiveIntegerField(blank=0, default=0)
-    category = models.CharField(blank=True, null=True, max_length=80)
+    category = models.CharField(blank=True, null=True, max_length=80, db_index=True)
     # Text we can parse for notes about cost modifiers for different orgs, locations to obtain, etc
     acquisition_modifiers = models.TextField(blank=True, null=True)
     
@@ -3158,9 +3282,9 @@ class CraftingMaterials(models.Model):
     If it is used in a recipe, do NOT set it owned by any asset owner, or by changing
     the amount they'll change the amount required in a recipe!
     """
-    type = models.ForeignKey('CraftingMaterialType', blank=True, null=True)
+    type = models.ForeignKey('CraftingMaterialType', blank=True, null=True, db_index=True)
     amount = models.PositiveIntegerField(blank=0, default=0)
-    owner = models.ForeignKey('AssetOwner', blank=True, null=True, related_name='materials')
+    owner = models.ForeignKey('AssetOwner', blank=True, null=True, related_name='materials', db_index=True)
     
     class Meta:
         """Define Django meta options"""
@@ -3198,19 +3322,21 @@ class RPEvent(models.Model):
         (EXTRAVAGANT, 'Extravagant'),
         (LEGENDARY, 'Legendary'),
         )
-    hosts = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_hosted')
-    name = models.CharField(max_length=255)
+    hosts = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_hosted', db_index=True)
+    name = models.CharField(max_length=255, db_index=True)
     desc = models.TextField(blank=True, null=True)
-    location = models.ForeignKey('objects.ObjectDB', blank=True, null=True, related_name='events_held')
+    location = models.ForeignKey('objects.ObjectDB', blank=True, null=True, related_name='events_held',
+                                 on_delete=models.SET_NULL)
     date = models.DateTimeField(blank=True, null=True)
-    participants = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_attended')
-    gms = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_gmd')
+    participants = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_attended', db_index=True)
+    gms = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_gmd', db_index=True)
     celebration_tier = models.PositiveSmallIntegerField(choices=LARGESSE_CHOICES, default=NONE)
     gm_event = models.BooleanField(default=False, blank=False)
     public_event = models.BooleanField(default=True, blank=True)
     finished = models.BooleanField(default=False, blank=False)
     results = models.TextField(blank=True, null=True)
     room_desc = models.TextField(blank=True, null=True)
+    crisis = models.ForeignKey("Crisis", blank=True, null=True, on_delete=models.SET_NULL, related_name="events")
 
     @property
     def prestige(self):
@@ -3231,6 +3357,8 @@ class RPEvent(models.Model):
     def display(self):
         msg = "{wName:{n %s\n" % self.name
         msg += "{wHosts:{n %s\n" % ", ".join(str(ob) for ob in self.hosts.all())
+        if self.gms.all():
+            msg += "{wGMs:{n %s\n" % ", ".join(str(ob) for ob in self.gms.all())
         if not self.finished and not self.public_event:
             msg += "{wInvited:{n %s\n" % ", ".join(str(ob) for ob in self.participants.all())
         msg += "{wLocation:{n %s\n" % self.location
@@ -3241,7 +3369,7 @@ class RPEvent(models.Model):
         msg += "{wDesc:{n\n%s\n" % self.desc
         webpage = PAGEROOT + self.get_absolute_url()
         msg += "{wEvent Page:{n %s\n" % webpage
-        comments = self.comments.filter(db_header__icontains="white_journal").order_by('-db_date_created')
+        comments = self.comments.filter(db_tags__db_key="white_journal").order_by('-db_date_created')
         if comments:
             from server.utils.prettytable import PrettyTable
             msg += "\n{wComments:{n"
@@ -3303,25 +3431,23 @@ class RPEvent(models.Model):
                 return None
 
     def tag_obj(self, obj):
-        from evennia.typeclasses.tags import Tag
-        try:
-            tag = Tag.objects.get(db_key=self.tagkey)
-        except Tag.DoesNotExist:
-            tag = Tag.objects.create(db_key=self.tagkey, db_data=self.tagdata,
-                                     db_category="event")
-        obj.db_tags.add(tag)
+        obj.tags.add(self.tagkey, data=self.tagdata, category="event")
         return obj
 
     @property
     def public_comments(self):
-        return self.comments.filter(db_header__icontains="white_journal")
+        return self.comments.filter(db_tags__db_key="white_journal")
 
     def get_absolute_url(self):
         return reverse('dominion:display_event', kwargs={'pk': self.id})
+
+    @property
+    def characters(self):
+        return set(self.gms.all() | self.hosts.all() | self.participants.all())
     
 
 class InfluenceCategory(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255, unique=True, db_index=True)
     orgs = models.ManyToManyField("Organization", through="SphereOfInfluence")
     players = models.ManyToManyField("PlayerOrNpc", through="Renown")
     tasks = models.ManyToManyField("Task", through="TaskRequirement")
@@ -3335,12 +3461,13 @@ class InfluenceCategory(models.Model):
 
 
 class Renown(models.Model):
-    category = models.ForeignKey("InfluenceCategory")
-    player = models.ForeignKey("PlayerOrNpc", related_name="renown")
+    category = models.ForeignKey("InfluenceCategory", db_index=True)
+    player = models.ForeignKey("PlayerOrNpc", related_name="renown", db_index=True)
     rating = models.IntegerField(blank=0, default=0)
 
     class Meta:
         verbose_name_plural = "Renown"
+        unique_together = ("category", "player")
 
     def __str__(self):
         return "%s's rating in %s: %s" % (self.player, self.category, self.rating)
@@ -3362,12 +3489,13 @@ class Renown(models.Model):
 
 
 class SphereOfInfluence(models.Model):
-    category = models.ForeignKey("InfluenceCategory")
-    org = models.ForeignKey("Organization", related_name="spheres")
+    category = models.ForeignKey("InfluenceCategory", db_index=True)
+    org = models.ForeignKey("Organization", related_name="spheres", db_index=True)
     rating = models.IntegerField(blank=0, default=0)
 
     class Meta:
         verbose_name_plural = "Spheres of Influence"
+        unique_together = ("category", "org")
 
     def __str__(self):
         return "%s's rating in %s: %s" % (self.org, self.category, self.rating)
@@ -3387,8 +3515,8 @@ class SphereOfInfluence(models.Model):
 
 
 class TaskRequirement(models.Model):
-    category = models.ForeignKey("InfluenceCategory")
-    task = models.ForeignKey("Task", related_name="requirements")
+    category = models.ForeignKey("InfluenceCategory", db_index=True)
+    task = models.ForeignKey("Task", related_name="requirements", db_index=True)
     minimum_amount = models.PositiveSmallIntegerField(blank=0, default=0)
 
     def __str__(self):
@@ -3397,8 +3525,8 @@ class TaskRequirement(models.Model):
 
 class SupportUsed(models.Model):
     week = models.PositiveSmallIntegerField(default=0, blank=0)
-    supporter = models.ForeignKey("TaskSupporter", related_name="allocation")
-    sphere = models.ForeignKey("SphereOfInfluence", related_name="usage")
+    supporter = models.ForeignKey("TaskSupporter", related_name="allocation", db_index=True)
+    sphere = models.ForeignKey("SphereOfInfluence", related_name="usage", db_index=True)
     rating = models.PositiveSmallIntegerField(blank=0, default=0)
 
     def __str__(self):

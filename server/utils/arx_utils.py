@@ -23,7 +23,7 @@ def validate_name(name, formatting=True, not_player=True):
     if player_conflict:
         return None
     if formatting:
-        return re.findall('^[\-\w\'{\[,|% ]+$', name)
+        return re.findall('^[\-\w\'{\[,|%=_ ]+$', name)
     return re.findall('^[\w\']+$', name)
 
 
@@ -33,9 +33,9 @@ def inform_staff(message):
     """
     from evennia.comms.models import ChannelDB
     try:
-        wizchan = ChannelDB.objects.get(db_key__iexact="mudinfo")
-        now = tnow().strftime("%X")    
-        wizchan.tempmsg("{r[%s, %s]:{n %s" % (wizchan.key, now, message))
+        wizchan = ChannelDB.objects.get(db_key__iexact="staffinfo")
+        now = tnow().strftime("%H:%M")
+        wizchan.tempmsg("{r[%s]:{n %s" % (now, message))
     except Exception as err:
         print("ERROR when attempting utils.inform_staff() : %s" % err)
 
@@ -156,10 +156,16 @@ def strip_ansi(text):
 
 def broadcast(txt, format_announcement=True):
     from evennia.server.sessionhandler import SESSION_HANDLER
+    from evennia.scripts.models import ScriptDB
     if format_announcement:
         txt = "{wServer Announcement{n: %s" % txt
     txt = sub_old_ansi(txt)
     SESSION_HANDLER.announce_all(txt)
+    try:
+        events = ScriptDB.objects.get(db_key="Event Manager")
+        events.add_gemit(txt)
+    except ScriptDB.DoesNotExist:
+        pass
 
 
 def raw(text):

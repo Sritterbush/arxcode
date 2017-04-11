@@ -4,10 +4,12 @@ will be character commands, since they'll deal with the grid.
 """
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.objects.models import ObjectDB
+from evennia.typeclasses.tags import Tag
 from django.conf import settings
 from commands.commands.roster import format_header
 from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
+from evennia.utils.utils import make_iter
 import time
 from datetime import datetime, timedelta
 from world.dominion import setup_utils
@@ -15,9 +17,29 @@ from world.dominion.models import RPEvent, Agent
 from server.utils.arx_utils import inform_staff
 from evennia.scripts.models import ScriptDB
 from django.db.models import Q
-from world.dominion.models import AssetOwner, Renown, Reputation
+from world.dominion.models import AssetOwner, Renown, Reputation, Member
 from typeclasses.characters import Character
+from typeclasses.rooms import ArxRoom
 import random
+
+
+def char_name(character_object, verbose_where=False):
+    cname = character_object.name
+    if character_object.db.player_ob and character_object.db.player_ob.db.lookingforrp:
+        cname += "|R+|n"
+    if not verbose_where:
+        return cname
+    if character_object.db.room_title:
+        cname += "{w(%s){n" % character_object.db.room_title
+    return cname
+
+
+def get_char_names(charlist, caller):
+    verbose_where = False
+    if caller.tags.get("verbose_where"):
+        verbose_where = True
+    return ", ".join(char_name(char, verbose_where) for char in charlist if char.player
+                     and (not char.player.db.hide_from_watch or caller.check_permstring("builders")))
 
 
 class CmdHangouts(MuxCommand):
@@ -26,6 +48,7 @@ class CmdHangouts(MuxCommand):
 
     Usage:
         +hangouts
+        +hangouts/all
 
     Shows the public rooms marked as hangouts, displaying the players
     there. They are the rooms players gather in when they are seeking
@@ -39,22 +62,25 @@ class CmdHangouts(MuxCommand):
     def func(self):
         """Execute command."""
         caller = self.caller
-        oblist = ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_ROOM_TYPECLASS) &
-                                         Q(locations_set__db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS) &
-                                         Q(db_tags__db_key="hangouts")).distinct()
+        oblist = ArxRoom.objects.filter(db_tags__db_key="hangouts")
+        if "all" not in self.switches:
+            oblist = oblist.filter(locations_set__db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS)
+        oblist = oblist.distinct()
         caller.msg(format_header("Hangouts"))
+        self.msg("Players who are currently LRP have a |R+|n by their name.")
         if not oblist:
             caller.msg("No hangouts are currently occupied.")
             return
         for room in oblist:
-            num_char = len(room.get_visible_characters(caller))
-            if num_char > 0:
+            char_names = get_char_names(room.get_visible_characters(caller), caller)
+            if char_names or 'all' in self.switches:
                 name = room.name
-                if room.db.x_coord is None and room.db.y_coord is None:
+                if room.db.x_coord is not None and room.db.y_coord is not None:
                     pos = (room.db.x_coord, room.db.y_coord)
                     name = "%s %s" % (name, str(pos))
-                caller.msg("\n" + name)
-                caller.msg("Number of characters: %s" % num_char)        
+                if char_names:
+                    name += ": %s" % char_names
+                caller.msg(name)
 
 
 class CmdWhere(MuxPlayerCommand):
@@ -63,47 +89,77 @@ class CmdWhere(MuxPlayerCommand):
 
     Usage:
         +where
+        +where [<character>,<character 2>,...]
+        +where/shops [<ability>]
+        +where/randomscene
+        +where/watch
 
-    Displays a list of characters in public rooms.
+    Displays a list of characters in public rooms. The /shops switch
+    lets you see a list of shops. /watch filters results by characters in
+    your watchlist, while /randomscene filters by characters you can claim.
     """
     key = "+where"
     locks = "cmd:all()"
     aliases = ["@where", "where"]
     help_category = "Travel"
 
+    @staticmethod
+    def get_room_str(room):
+        name = room.name
+        if room.db.x_coord is not None and room.db.y_coord is not None:
+            pos = (room.db.x_coord, room.db.y_coord)
+            name = "%s %s" % (name, str(pos))
+        return name
+
+    def list_shops(self):
+        rooms = ArxRoom.objects.filter(db_tags__db_key__iexact="shop")
+        self.msg("{wList of shops:\n")
+        for room in rooms:
+            owner = room.db.shopowner
+            if self.args and owner:
+                if not owner.db.abilities:
+                    continue
+                if self.args.lower() not in owner.db.abilities:
+                    continue
+            name = str(owner)
+            if owner and not owner.roster.roster.name == "Active":
+                name += " {w(Inactive){n"
+            self.msg("%s: %s" % (self.get_room_str(room), name))
+
     def func(self):
         """"Execute command."""
         caller = self.caller
-        rooms = ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_ROOM_TYPECLASS) &
-                                        Q(locations_set__db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS) &
-                                        ~Q(db_tags__db_key__iexact="private")).distinct().order_by('db_key')
+        if "shops" in self.switches:
+            self.list_shops()
+            return
+        rooms = ArxRoom.objects.filter(Q(locations_set__db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS) &
+                                       ~Q(db_tags__db_key__iexact="private")).distinct().order_by('db_key')
+        if self.args:
+            q_list = map(lambda n: Q(locations_set__db_key__iexact=n), self.lhslist)
+            q_list = reduce(lambda a, b: a | b, q_list)
+            rooms = rooms.filter(q_list)
         if not rooms:
             caller.msg("No visible characters found.")
             return
         caller.msg("{wLocations of players:\n")
-        verbose_where = False
-        if caller.tags.get("verbose_where"):
-            verbose_where = True
+
         self.msg("Players who are currently LRP have a |R+|n by their name.")
+        scene_chars = []
+        if "randomscene" in self.switches:
+            cmd = CmdRandomScene()
+            cmd.caller = self.caller.db.char_ob
+            scene_chars = list(cmd.scenelist) + [ob for ob in cmd.newbies if ob not in cmd.claimlist]
         for room in rooms:
-            def char_name(ob):
-                cname = ob.name
-                if ob.db.player_ob and ob.db.player_ob.db.lookingforrp:
-                    cname += "|R+|n"
-                if not verbose_where:
-                    return cname
-                if ob.db.room_title:
-                    cname += "{w(%s){n" % ob.db.room_title
-                return cname
             charlist = sorted(room.get_visible_characters(caller), key=lambda x: x.name)
-            char_names = ", ".join(char_name(char) for char in charlist if char.player
-                                   and (not char.player.db.hide_from_watch or caller.check_permstring("builders")))
+            if "randomscene" in self.switches:
+                charlist = [ob for ob in charlist if ob in scene_chars]
+            if "watch" in self.switches:
+                watching = caller.db.watching or []
+                charlist = [ob for ob in charlist if ob in watching]
+            char_names = get_char_names(charlist, caller)
             if not char_names:
                 continue
-            name = room.name
-            if room.db.x_coord is not None and room.db.y_coord is not None:
-                pos = (room.db.x_coord, room.db.y_coord)
-                name = "%s %s" % (name, str(pos))
+            name = self.get_room_str(room)
             msg = "%s: %s" % (name, char_names)
             caller.msg(msg)
 
@@ -136,8 +192,8 @@ class CmdWatch(MuxPlayerCommand):
         table = []
         for ob in sorted(watchlist, key=lambda x: x.key):
             name = ob.key.capitalize()
-            if ob.db.player_ob.is_connected:
-                name = "{c%s{n" % name
+            if ob.db.player_ob.is_connected and not ob.db.player_ob.db.hide_from_watch:
+                name = "{c*%s{n" % name
             table.append(name)
         caller.msg("Currently watching (online players are highlighted):\n%s" % ", ".join(table), options={'box': True})
         if caller.db.hide_from_watch:
@@ -166,7 +222,7 @@ class CmdWatch(MuxPlayerCommand):
         watchlist = caller.db.watching or []
         if 'stop' in self.switches:
             if char not in watchlist:
-                caller.msg("You are not watching %s." % char)
+                caller.msg("You are not watching %s." % char.key)
                 return
             # stop watching them
             watchlist.remove(char)
@@ -175,10 +231,10 @@ class CmdWatch(MuxPlayerCommand):
             if caller in watched:
                 watched.remove(caller)
                 char.db.watched_by = watched
-            caller.msg("Stopped watching %s." % char)
+            caller.msg("Stopped watching %s." % char.key)
             return
         if char in watchlist:
-            caller.msg("You are already watching %s." % char)
+            caller.msg("You are already watching %s." % char.key)
             return
         watched = char.db.watched_by or []
         if caller not in watched:
@@ -186,7 +242,7 @@ class CmdWatch(MuxPlayerCommand):
             char.db.watched_by = watched
         watchlist.append(char)
         caller.db.watching = watchlist
-        caller.msg("You start watching %s." % char)
+        caller.msg("You start watching %s." % char.key)
 
 
 class CmdFinger(MuxPlayerCommand):
@@ -219,16 +275,26 @@ class CmdFinger(MuxPlayerCommand):
             return
         name = char.db.longname or char.key
         msg = "\n{wName:{n %s\n" % name
+        titles = char.titles
+        if titles:
+            msg += "{wFull Titles:{n %s\n" % titles
+        if "rostercg" in char.tags.all():
+            msg += "{wRoster Character{n\n"
+        else:
+            msg += "{wOriginal Character{n\n"
         if show_hidden:
             msg += "{wCharID:{n %s, {wPlayerID:{n %s\n" % (char.id, player.id)
-        session = player.get_all_sessions() and player.get_all_sessions()[0]
-        if session and (not player.db.hide_from_watch or caller.check_permstring("builders")):
-            idle_time = time.time() - session.cmd_last_visible
-            idle = "Online and is idle" if idle_time > 1200 else "Online, not idle"
-            msg += "{wStatus:{n %s\n" % idle
+        if char.db.obituary:
+            msg += "{wObituary:{n %s\n" % char.db.obituary
         else:
-            last_online = player.last_login and player.last_login.strftime("%m-%d-%y") or "Never"
-            msg += "{wStatus:{n Last logged in: %s\n" % last_online
+            session = player.get_all_sessions() and player.get_all_sessions()[0]
+            if session and (not player.db.hide_from_watch or caller.check_permstring("builders")):
+                idle_time = time.time() - session.cmd_last_visible
+                idle = "Online and is idle" if idle_time > 1200 else "Online, not idle"
+                msg += "{wStatus:{n %s\n" % idle
+            else:
+                last_online = player.last_login and player.last_login.strftime("%m-%d-%y") or "Never"
+                msg += "{wStatus:{n Last logged in: %s\n" % last_online
         fealty = char.db.fealty or "None"
         msg += "{wFealty:{n %s\n" % fealty
         pageroot = "http://play.arxgame.org"
@@ -251,6 +317,11 @@ class CmdFinger(MuxPlayerCommand):
                 org_str += "%s%s: %s\n" % (s_buffer, org.name, pageroot + org.get_absolute_url())
                 apply_buffer = True
             msg += "{wOrganizations:{n %s" % org_str
+        hooks = player.tags.get(category="rp hooks")
+        if hooks:
+            hooks = make_iter(hooks)
+            hook_descs = player.db.hook_descs or {}
+            msg += "{wRP Hooks:{n\n%s" % "\n".join("%s: %s" % (hook, hook_descs.get(hook, "")) for hook in hooks)
         caller.msg(msg, options={'box': True})
         
 
@@ -274,6 +345,8 @@ class CmdJournal(MuxCommand):
         journal/all
         journal/edit <entry number>=<text>
         journal/editblack <entry number>=<text>
+        journal/delete <entry number>
+        journal/delblack <entry number>
         journal/markallread
         journal/favorite <character>=<entry number>
         journal/unfavorite <character>=<entry number>
@@ -283,7 +356,7 @@ class CmdJournal(MuxCommand):
     Allows a character to read the White Journals of characters,
     or add to their own White Journal or Black Reflections. White
     Journals are public notes that are recorded by the scribes of
-    Velichor for all to see, while Black Reflections are sealed notes
+    Vellichor for all to see, while Black Reflections are sealed notes
     that are kept private until after the character is deceased and then
     only released if explicitly stated to do so in their will, along with
     the concurrence of their family and the Scholars of Vellichor.
@@ -297,53 +370,63 @@ class CmdJournal(MuxCommand):
     aliases = ["+journal"]
     help_category = "Social"
 
-    def journal_index(self, character, jlist):
+    def journal_index(self, character, j_list):
         num = 1
         table = PrettyTable(["{w#{n", "{wWritten About{n", "{wDate{n", "{wUnread?{n"])
         fav_tag = "pid_%s_favorite" % self.caller.db.player_ob.id
-        for entry in jlist:
+        for entry in j_list:
             try:
                 event = character.messages.get_event(entry)
-                name = ", ".join(str(ob) for ob in entry.db_receivers_objects.all())       
+                name = ", ".join(ob.key for ob in entry.db_receivers_objects.all())
                 if event and not name:
                     name = event.name[:25]
                 if fav_tag in entry.tags.all():
-                    strnum = str(num) + "{w*{n"
+                    str_num = str(num) + "{w*{n"
                 else:
-                    strnum = str(num)
+                    str_num = str(num)
                 unread = "" if self.caller.db.player_ob in entry.receivers else "{wX{n"
                 date = character.messages.get_date_from_header(entry)
-                table.add_row([strnum, name, date, unread])
+                table.add_row([str_num, name, date, unread])
                 num += 1
             except (AttributeError, RuntimeError, ValueError, TypeError):
                 continue
         return str(table)
 
     def disp_unread_journals(self):
-        
         caller = self.caller
-        all_writers = ObjectDB.objects.filter(Q(sender_object_set__db_header__contains="white_journal") &
-                                              ~Q(sender_object_set__db_receivers_players=caller.db.player_ob) &
+        from evennia.comms.models import Msg
+        msgs = Msg.objects.filter(Q(db_tags__db_key="white_journal")
+                                  & ~Q(db_receivers_players=caller.db.player_ob)).order_by('-db_date_created')
+        msgs = [msg.id for msg in msgs]
+        if len(msgs) > 500:
+            self.msg("Truncating some matches.")
+        msgs = msgs[:500]
+        all_writers = ObjectDB.objects.filter(Q(sender_object_set__in=msgs) &
                                               ~Q(roster__current_account=caller.roster.current_account)
                                               ).distinct().order_by('db_key')
-        msglist = []
+        msg_list = []
         for writer in all_writers:
-            count = writer.sender_object_set.filter(Q(db_header__contains="white_journal") &
-                                                    ~Q(db_receivers_players=caller.db.player_ob)).count()
-            msglist.append("{C%s{c(%s){n" % (writer.key, count))
-        caller.msg("Writers with journals you have not read: %s" % ", ".join(msglist))
+            count = writer.sender_object_set.filter(id__in=msgs).count()
+            msg_list.append("{C%s{c(%s){n" % (writer.key, count))
+        caller.msg("Writers with journals you have not read: %s" % ", ".join(msg_list))
 
     def disp_favorite_journals(self):
         caller = self.caller
-        tagname = "pid_%s_favorite" % caller.db.player_ob.id
-        all_writers = ObjectDB.objects.filter(Q(sender_object_set__db_header__contains="white_journal") &
-                                              ~Q(sender_object_set__db_receivers_players=caller.db.player_ob) &
+        tag_name = "pid_%s_favorite" % caller.db.player_ob.id
+        from evennia.comms.models import Msg
+        msgs = Msg.objects.filter(Q(db_tags__db_key="white_journal")
+                                  & ~Q(db_receivers_players=caller.db.player_ob)
+                                  & Q(db_tags__db_key=tag_name)).order_by('-db_date_created')
+        msgs = [msg.id for msg in msgs]
+        if len(msgs) > 500:
+            self.msg("Truncating some matches.")
+        msgs = msgs[:500]
+        all_writers = ObjectDB.objects.filter(Q(sender_object_set__in=msgs) &
                                               ~Q(roster__current_account=caller.roster.current_account)
                                               ).distinct().order_by('db_key')
         msglist = []
         for writer in all_writers:
-            count = writer.sender_object_set.filter(Q(db_header__contains="white_journal") &
-                                                    Q(db_tags__db_key=tagname)).count()
+            count = writer.sender_object_set.filter(id__in=msgs).count()
             if count:
                 msglist.append("{C%s{c(%s){n" % (writer.key, count))
         caller.msg("Writers with journals you have favorited: %s" % ", ".join(msglist))
@@ -351,13 +434,18 @@ class CmdJournal(MuxCommand):
     def mark_all_read(self):
         from evennia.comms.models import Msg
         caller = self.caller
-        all_msgs = Msg.objects.filter(Q(db_header__contains="white_journal") &
-                                      ~Q(db_receivers_players=caller.db.player_ob)
+        player = caller.db.player_ob
+        all_msgs = Msg.objects.filter(Q(db_tags__db_key="white_journal") &
+                                      ~Q(db_receivers_players=player)
                                       # & ~Q(db_sender_objects__roster__current_account=caller.roster.current_account)
                                       ).distinct()
+        # we'll do a bulk create of the through-model that represents how journals are marked as read
+        ReadJournalModel = Msg.db_receivers_players.through
+        bulk_list = []
         for msg in all_msgs:
-            msg.db_receivers_players.add(caller.db.player_ob)
-            
+            bulk_list.append(ReadJournalModel(playerdb=player, msg=msg))
+        ReadJournalModel.objects.bulk_create(bulk_list)
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -366,10 +454,10 @@ class CmdJournal(MuxCommand):
         if not self.args and not self.switches:
             char = caller
             white = "black" not in self.switches
-            jname = "White Journal" if white else "Black Reflection"
+            j_name = "White Journal" if white else "Black Reflection"
             # display caller's latest white or black journal entry
             try:
-                self.msg("Number of entries in your %s: %s" % (jname, char.messages.size(white))) 
+                self.msg("Number of entries in your %s: %s" % (j_name, char.messages.size(white)))
                 self.msg(char.messages.disp_entry_by_num(num=num, white=white, caller=caller.db.player_ob),
                          options={'box': True})
             except IndexError:
@@ -384,7 +472,7 @@ class CmdJournal(MuxCommand):
             caller.msg("All messages marked read.")
             return
         if "countweek" in self.switches:
-            num = caller.db.num_journals or 0
+            num = caller.messages.num_weekly_journals
             self.msg("You have written %s journals this week." % num)
             return
         # if no switches but have args, looking up journal of a character
@@ -528,12 +616,15 @@ class CmdJournal(MuxCommand):
         if "all" in self.switches:
             self.disp_unread_journals()
             return
-        if "edit" in self.switches or "editblack" in self.switches:
-            journal = caller.messages.white_journal if "edit" in self.switches else caller.messages.black_journal
+        if ("edit" in self.switches or "editblack" in self.switches or "delete" in self.switches
+                or "delblack" in self.switches):
+            journal = caller.messages.white_journal if ("edit" in self.switches or "delete" in self.switches) \
+                else caller.messages.black_journal
+            delete = "delete" in self.switches or "delblack" in self.switches
             try:
                 num = int(self.lhs)
                 text = self.rhs
-                if num < 1 or not text:
+                if num < 1 or (not text and not delete):
                     raise ValueError
                 entry = journal[num - 1]
             except (TypeError, ValueError):
@@ -547,8 +638,13 @@ class CmdJournal(MuxCommand):
                 caller.msg("It has been too long to edit that message.")
                 return
             old = entry.db_message
-            entry.db_message = self.rhs
-            entry.save()
+            if "delete" in self.switches or "delblack" in self.switches:
+                journal.remove(entry)
+                entry.delete()
+                self.msg("Entry deleted.")
+            else:
+                entry.db_message = self.rhs
+                entry.save()
             logpath = settings.LOG_DIR + "/journal_changes.txt"
             try:
                 log = open(logpath, 'a+')
@@ -561,9 +657,8 @@ class CmdJournal(MuxCommand):
                 import traceback
                 traceback.print_exc()
             caller.msg("New journal entry body is:\n%s" % self.rhs)
-            inform_staff("%s has editted their journal." % caller)
+            inform_staff("%s has %s their journal." % (caller, "deleted" if delete else "edited"))
             return
-                
         caller.msg("Invalid switch.")
         return
 
@@ -608,6 +703,7 @@ class CmdMessenger(MuxCommand):
         messenger/sent <number>
         messenger/sentindex <amount to display>
         messenger/delete <number>
+        messenger/forward <number>=<target>[,<target 2>,..]
         messenger/preserve <number>
         messenger/draft <receiver>=<message>
         messenger/proof
@@ -625,7 +721,7 @@ class CmdMessenger(MuxCommand):
 
     To draft a message before sending it, use the 'draft' switch, review
     your message with 'proof', and then finally send it with 'send'.
-        
+
     """
     key = "messenger"
     locks = "cmd:all()"
@@ -634,20 +730,26 @@ class CmdMessenger(MuxCommand):
     help_category = "Social"
 
     @staticmethod
-    def send_messenger(caller, targ, msg, delivery=None, money=None):
+    def send_messenger(caller, targ, msg, delivery=None, money=None, forwarded=False):
         unread = targ.db.pending_messengers or []
         if type(unread) == 'unicode':
             # attribute was corrupted due to  database conversion, fix it
             unread = []
         m_name = caller.db.custom_messenger
-        unread.insert(0, (msg, delivery, money, m_name))
+        if forwarded:
+            unread.insert(0, (msg, delivery, money, m_name, caller))
+        else:
+            unread.insert(0, (msg, delivery, money, m_name))
+        # add the message to the player's set to mark it as an unread message sent to them
+        player = targ.db.player_ob
+        player.receiver_player_set.add(msg)
         targ.db.pending_messengers = unread
         targ.messenger_notification(2)
         if caller.db.player_ob.db.nomessengerpreview or caller.ndb.already_previewed:
-            caller.msg("You dispatch %s to {c%s{n." % (m_name or "a messenger", targ))
+            caller.msg("You dispatch %s to {c%s{n." % (m_name or "a messenger", targ.key))
         else:
             caller.msg("You dispatch %s to {c%s{n with the following message:\n\n'%s'\n" % (
-                m_name or "a messenger", targ, msg.db_message))
+                m_name or "a messenger", targ.key, msg.db_message))
             caller.ndb.already_previewed = True
         deliver_str = m_name or "Your messenger"
         if delivery:
@@ -666,7 +768,7 @@ class CmdMessenger(MuxCommand):
         mssg = "{wSent by:{n %s\n" % name
         mssg += caller.messages.disp_entry(msg)
         caller.msg(mssg, options={'box': True})
-            
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -755,11 +857,13 @@ class CmdMessenger(MuxCommand):
             msg = None
             obj = None
             money = None
+            forwarded_by = None
             try:
                 msg = msgtuple[0]
                 obj = msgtuple[1]
                 money = msgtuple[2]
                 messenger_name = msgtuple[3] or "A messenger"
+                forwarded_by = msgtuple[4]
             except IndexError:
                 pass
             except TypeError:
@@ -794,10 +898,12 @@ class CmdMessenger(MuxCommand):
                 ignore = [ob for ob in caller.location.contents if ob.db.ignore_messenger_deliveries and ob != caller]
                 caller.location.msg_contents("%s arrives, delivering a message to {c%s{n before departing." % (
                     messenger_name, caller.name), exclude=ignore)
+            if forwarded_by:
+                caller.msg("{yThis message was forwarded by {c%s{n." % forwarded_by)
             return
         # display an old message
         if ("old" in self.switches or 'delete' in self.switches or 'oldindex' in self.switches
-                or "preserve" in self.switches):
+                or "preserve" in self.switches or "forward" in self.switches):
             old = caller.messages.messenger_history
             if not old:
                 caller.msg("You have never received a single messenger ever. Not a single one. " +
@@ -817,7 +923,7 @@ class CmdMessenger(MuxCommand):
                 for mess in old:
                     name = caller.messages.get_sender_name(mess)
                     date = caller.messages.get_date_from_header(mess) or "Unknown"
-                    saved = "{w*{n" if "preserve" in mess.db_header else ""
+                    saved = "{w*{n" if "preserve" in mess.tags.all() else ""
                     msgtable.add_row([mess_num, name, date, saved])
                     mess_num += 1
                 caller.msg(msgtable)
@@ -827,20 +933,34 @@ class CmdMessenger(MuxCommand):
                 if num < 1:
                     raise ValueError
                 msg = old[num - 1]
+                if "forward" in self.switches:
+                    targs = []
+                    for arg in self.rhslist:
+                        targ = caller.player.search(arg)
+                        if not targ:
+                            continue
+                        character = targ.db.char_ob
+                        if not character:
+                            continue
+                        targs.append(character)
+                    if not targs:
+                        return
+                    for targ in targs:
+                        self.send_messenger(caller, targ, msg, forwarded=True)
+                    return
                 if "delete" in self.switches:
                     caller.messages.del_messenger(msg)
                     caller.msg("You destroy all evidence that you ever received that message.")
                     return
                 if "preserve" in self.switches:
-                    pres_count = caller.receiver_object_set.filter(db_header__icontains="preserve").count()
+                    pres_count = caller.receiver_object_set.filter(db_tags__db_key="preserve").count()
                     if pres_count >= 200:
                         caller.msg("You are preserving the maximum amount of messages allowed.")
                         return
-                    if "preserve" in msg.db_header:
+                    if "preserve" in msg.tags.all():
                         caller.msg("That message is already being preserved.")
                         return
-                    msg.db_header = "%s;preserve" % msg.db_header
-                    msg.save()
+                    msg.tags.add("preserve", category="msg")
                     caller.msg("This message will no longer be automatically deleted.")
                 self.disp_messenger(caller, msg)
                 return
@@ -851,7 +971,7 @@ class CmdMessenger(MuxCommand):
                 caller.msg("You must supply a number between 1 and %s. You wrote '%s'." % (len(old), self.lhs))
                 return
         if "sent" in self.switches or "sentindex" in self.switches or "oldsent" in self.switches:
-            old = list(caller.sender_object_set.filter(db_header__icontains="messenger").order_by('-db_date_created'))
+            old = list(caller.sender_object_set.filter(db_tags__db_key="messenger").order_by('-db_date_created'))
             if not old:
                 caller.msg("There are no traces of old messages you sent. They may have all been destroyed.")
                 return
@@ -946,6 +1066,18 @@ class CmdMessenger(MuxCommand):
             for arg in self.lhslist:
                 targ = caller.player.search(arg)
                 if targ:
+                    can_deliver = True
+                    if not targ.db.char_ob:
+                        can_deliver = False
+                    elif "no_messengers" in targ.db.char_ob.tags.all():
+                        can_deliver = False
+                    elif not hasattr(targ, 'roster') or not targ.roster.roster:
+                        can_deliver = False
+                    elif targ.roster.roster.name not in ("Active", "Unavailable", "Available", "Inactive"):
+                        can_deliver = False
+                    if not can_deliver:
+                        self.msg("%s cannot receive messengers." % targ)
+                        continue
                     targs.append(targ)
             delivery = None
         else:  # invalid switch
@@ -1017,6 +1149,7 @@ class CmdCalendar(MuxPlayerCommand):
         @cal/endevent <event number>
         @cal/reschedule <event number>=<new date>
         @cal/cancel <event number>
+        @cal/movehere <event number>
         @cal/changeroomdesc <event number>=<new desc>
         @cal/toggleprivate <finished event number>
         @cal/old
@@ -1029,8 +1162,14 @@ class CmdCalendar(MuxPlayerCommand):
     level. To see the valid largesse types with their costs and prestige
     values, do '@cal/largesse'. All times are in EST.
 
+    To mark an event as a player-run-plot, use /addgm to designate a
+    player as the storyteller for the event. Please only use this for a
+    player who is actually running an event with some form of plot that
+    requires checks to influence the outcome.
+
     When starting an event early, you can specify '=here' to start it in
-    your current room rather than its previous location.
+    your current room rather than its previous location. /movehere allows
+    an event to be moved to the new room you occupy while in progress.
 
     If you want to mark an event private or public after finishing hosting
     it so that it can be viewed by people who didn't attend it on the web,
@@ -1124,7 +1263,7 @@ class CmdCalendar(MuxPlayerCommand):
                 if num < 1:
                     raise ValueError
                 comments = list(event.comments.filter(
-                    db_header__icontains="white_journal").order_by('-db_date_created'))
+                    db_tags__db_key="white_journal").order_by('-db_date_created'))
                 caller.msg(char.messages.disp_entry(comments[num - 1]))
                 return
             except (ValueError, TypeError):
@@ -1192,12 +1331,20 @@ class CmdCalendar(MuxPlayerCommand):
             proj[1] = date
             caller.ndb.proj = proj
             caller.msg("Date set to %s." % date.strftime("%x %X"))
+            caller.msg("Current time is %s for comparison." % (datetime.now().strftime("%x %X")))
+            offset = timedelta(hours=2)
+            count = RPEvent.objects.filter(date__lte=date+offset, date__gte=date-offset).count()
+            caller.msg("Number of events within 2 hours of that date: %s" % count)
             return
         if "location" in self.switches:
             if self.lhs:
                 try:
-                    room = ObjectDB.objects.get(db_typeclass_path=settings.BASE_ROOM_TYPECLASS,
-                                                db_key__icontains=self.lhs)
+                    try:
+                        room = ObjectDB.objects.get(db_typeclass_path=settings.BASE_ROOM_TYPECLASS,
+                                                    db_key__iexact=self.lhs)
+                    except ObjectDB.DoesNotExist:
+                        room = ObjectDB.objects.get(db_typeclass_path=settings.BASE_ROOM_TYPECLASS,
+                                                    db_key__icontains=self.lhs)
                 except (ObjectDB.DoesNotExist, ObjectDB.MultipleObjectsReturned):
                     caller.msg("Could not find a unique match for %s." % self.lhs)
                     return
@@ -1252,11 +1399,15 @@ class CmdCalendar(MuxPlayerCommand):
             return
         if "addgm" in self.switches:
             gms = proj[8] or []
-            gm = caller.search(self.lhs)
-            if not gm:
+            if self.lhs:
+                gm = caller.search(self.lhs)
+            else:  # no args, remove GMs
+                gms = []
+                proj[8] = gms
+                caller.ndb.event_creation = proj
+                self.msg("GMs removed.")
                 return
-            if gm in gms:
-                caller.msg("GM is already listed.")
+            if not gm:
                 return
             try:
                 gm = gm.Dominion
@@ -1266,9 +1417,18 @@ class CmdCalendar(MuxPlayerCommand):
                     caller.msg("GM does not have a character.")
                     return
                 gm = setup_utils.setup_dom_for_char(char)
+            if gm in gms:
+                caller.msg("GM is already listed.")
+                return
+            if len(gms) >= 2:
+                self.msg("Please limit yourself to one or two designated GMs.")
+                return
             gms.append(gm)
             caller.msg("%s added to GMs." % gm)
             caller.msg("GMs are: %s" % ", ".join(str(gm) for gm in gms))
+            caller.msg("Reminder - please only add a GM for an event if it's an actual player-run plot. Tagging a "
+                       "social event as a PRP is strictly prohibited. If you tagged this as a PRP in error, use "
+                       "addgm with no arguments to remove GMs.")
             proj[8] = gms
             caller.ndb.event_creation = proj
             return
@@ -1318,6 +1478,11 @@ class CmdCalendar(MuxPlayerCommand):
                                            room_desc=room_desc)
             for host in hosts:
                 event.hosts.add(host)
+                player = host.player
+                if player != caller:
+                    msg = "You have been invited to host {c%s{n." % event.name
+                    msg += "\nFor details about this event, use {w@cal %s{n" % event.id
+                    player.inform(msg, category="Invitation", append=False)
             for gm in gms:
                 event.gms.add(gm)
             post = self.display_project(proj)
@@ -1355,7 +1520,8 @@ class CmdCalendar(MuxPlayerCommand):
         # get the events they're hosting
         events = dompc.events_hosted.filter(finished=False)
         if not events:
-            caller.msg("You are not hosting any events that are unfinished.")
+            caller.msg("You are not hosting any events that have yet to occur. If you are currently designing "
+                       "an event, submit it first.")
             return
         # make sure caller input an integer
         try:
@@ -1425,6 +1591,11 @@ class CmdCalendar(MuxPlayerCommand):
             event.room_desc = self.rhs
             event.save()
             caller.msg("Event's room desc is now:\n%s" % self.rhs)
+            return
+        if "movehere" in self.switches:
+            loc = caller.db.char_ob.location
+            event_manager.move_event(event, loc)
+            self.msg("Event moved to your room.")
             return
         if "cancel" in self.switches:
             if event.id in event_manager.db.active_events:
@@ -1641,16 +1812,18 @@ class CmdRoomHistory(MuxCommand):
 
 class CmdRoomMood(MuxCommand):
     """
-    Adds a historical note to a room
+    Temporarily adds to room description
 
     Usage:
         +room_mood <message>
 
     Changes the current 'mood' of the room, which is a few lines that can be
     set to describe things which recently happened and shows up under look.
-    Lasts for 24 hours.
+    Lasts for 24 hours. This can be used to help with setting up a scene and
+    describing what is going on for people who enter.
     """
     key = "+room_mood"
+    aliases = ["+roommood"]
     locks = "cmd:all()"
     help_category = "Social"
 
@@ -1678,10 +1851,13 @@ class CmdSocialScore(MuxCommand):
         +score/personal
         +score/renown [<category>]
         +score/reputation [<organization>]
+        +score/reputation/bad [<organization>]
         
-    Checks the organizations and players who have the highest prestige. Renown measures the influence
-    a character has built with different npc groups, while reputation is how a character is thought of
-    by the npcs within an organization.
+    Checks the organizations and players who have the highest prestige.
+    Renown measures the influence a character has built with different npc
+    groups, while reputation is how a character is thought of by the npcs
+    within an organization. The 'bad' switch shows only those with respect or
+    affection below zero.
     """
     key = "+score"
     locks = "cmd:all()"
@@ -1704,7 +1880,8 @@ class CmdSocialScore(MuxCommand):
                                              player__player__roster__roster__name="Active").exclude(
                                              category__name__icontains="mystery").order_by('-rating')
             if self.args:
-                renowned = renowned.filter(category__name__iexact=self.args)
+                renowned = renowned.filter(Q(category__name__iexact=self.args) |
+                                           Q(player__player__username__iexact=self.args))
             renowned = renowned[:20]
             table = PrettyTable(["{wName{n", "{wCategory{n", "{wLevel{n", "{wRating{n"])
             for ob in renowned:
@@ -1712,13 +1889,30 @@ class CmdSocialScore(MuxCommand):
             self.msg(str(table))
             return
         if "reputation" in self.switches:
-            rep = Reputation.objects.filter(player__player__isnull=False, organization__secret=False,
-                                            player__player__roster__roster__name="Active").order_by('-respect')
+            rep = Reputation.objects.filter(player__player__isnull=False,
+                                            player__player__roster__roster__name="Active")
+            if "bad" in self.switches:
+                rep = rep.filter(Q(respect__lt=0) | Q(affection__lt=0)).order_by('respect')
+            else:
+                rep = rep.order_by('-respect')
             if self.args:
-                rep = rep.filter(organization__name__iexact=self.args)
+                rep = rep.filter(Q(organization__name__iexact=self.args) |
+                                 Q(player__player__username__iexact=self.args))
             rep = rep[:20]
             table = PrettyTable(["{wName{n", "{wOrganization{n", "{wAffection{n", "{wRespect{n"])
             for ob in rep:
+                if ob.organization.secret:
+                    # only show reputation to people in the or
+                    try:
+                        caller_member = ob.organization.active_members.get(player=self.caller.db.player_ob.Dominion)
+                    except (Member.DoesNotExist, ValueError):
+                        continue
+                    try:
+                        targ_member = ob.organization.active_members.get(player=ob.player)
+                        if targ_member.secret and caller_member.rank > targ_member.rank:
+                            continue
+                    except (Member.DoesNotExist, ValueError):
+                        pass
                 table.add_row([str(ob.player), str(ob.organization), ob.affection, ob.respect])
             self.msg(str(table))
             return
@@ -1843,6 +2037,7 @@ class CmdRandomScene(MuxCommand):
     @randomscene/online will only display players who are currently in the game.
     """
     key = "@randomscene"
+    aliases = ["@rs", "randomscene"]
     locks = "cmd:all()"
     help_category = "Social"
     NUM_SCENES = 3
@@ -1855,24 +2050,55 @@ class CmdRandomScene(MuxCommand):
 
     @property
     def claimlist(self):
-        return self.caller.db.player_ob.db.claimed_scenelist or []
+        return set(list(self.caller.db.player_ob.db.claimed_scenelist or []) + list(self.requested_validation))
+
+    @property
+    def validatedlist(self):
+        return self.caller.db.player_ob.db.validated_list or []
+
+    @property
+    def requested_validation(self):
+        return self.caller.db.player_ob.db.requested_validation or []
 
     @property
     def newbies(self):
-        """
-        A list of new players we want to encourage people to RP with
+        """A list of new players we want to encourage people to RP with
+
+        Returns:
+            queryset: valid_choices queryset filtered by new players
         """
         newness = datetime.now() - timedelta(days=self.DAYS_FOR_NEWBIE_CHECK)
         return self.valid_choices.filter(Q(roster__accounthistory__start_date__gte=newness) &
                                          Q(roster__accounthistory__end_date__isnull=True)).order_by('db_key')
 
     @property
+    def gms(self):
+        """A list of GMs of active events in the current space.
+
+        Returns:
+            list: list of gms for any active event in the room
+        """
+        loc = self.caller.location
+        event = loc.event
+        if not event:
+            return []
+        gms = [ob.player.db.char_ob for ob in event.gms.all() if ob.player and ob.player.db.char_ob]
+        return [gm for gm in gms if gm.location == loc]
+
+    @property
     def valid_choices(self):
+        """property that returns queryset of our valid Characters that could be our @rs list
+
+        Returns:
+            queryset: Queryset of Character objects
+
+        """
         last_week = datetime.now() - timedelta(days=self.NUM_DAYS)
         return Character.objects.filter(Q(roster__roster__name="Active") &
                                         ~Q(roster__current_account=self.caller.roster.current_account) &
                                         Q(roster__player__last_login__isnull=False) &
-                                        Q(roster__player__last_login__gte=last_week) &
+                                        Q(Q(roster__player__last_login__gte=last_week) |
+                                          Q(roster__player__db_is_connected=True)) &
                                         Q(roster__player__is_staff=False) &
                                         ~Q(roster__player__db_tags__db_key="staff_npc"))
 
@@ -1890,15 +2116,20 @@ class CmdRandomScene(MuxCommand):
             self.generate_lists()
         scenelist = self.scenelist
         claimlist = self.claimlist
-        newbies = self.newbies
+        validated = self.validatedlist
+        gms = self.gms
+        newbies = [ob for ob in self.newbies if ob not in claimlist]
         if "online" in self.switches:
             self.msg("{wOnly displaying online characters.{n")
             scenelist = [ob for ob in scenelist if ob.location]
             newbies = [ob for ob in newbies if ob.location]
-        self.msg("{wRandomly generated RP partners for this week:{n %s" % ", ".join(str(ob) for ob in scenelist))
-        self.msg("{wNew players who can be also RP'd with for credit:{n %s" % ", ".join(str(ob) for ob in newbies))
+        self.msg("{wRandomly generated RP partners for this week:{n %s" % ", ".join(ob.key for ob in scenelist))
+        self.msg("{wNew players who can be also RP'd with for credit:{n %s" % ", ".join(ob.key for ob in newbies))
+        self.msg("{wGMs for events here that can be claimed for credit:{n %s" % ", ".join(ob.key for ob in gms))
         if claimlist:
-            self.msg("{wThose you have already RP'd with this week:{n %s" % ", ".join(str(ob) for ob in claimlist))
+            self.msg("{wThose you have already RP'd with this week:{n %s" % ", ".join(ob.key for ob in claimlist))
+        if validated:
+            self.msg("{wThose you have validated scenes for this week{n %s" % ", ".join(ob.key for ob in validated))
 
     def generate_lists(self):
         scenelist = self.scenelist
@@ -1910,6 +2141,8 @@ class CmdRandomScene(MuxCommand):
         choices = list(choices)
         max_iter = 0
         while len(scenelist) < (self.NUM_SCENES - len(claimlist)):
+            if not choices:
+                break
             max_iter += 1
             if max_iter > 10000:
                 raise RuntimeError("Max Recursion Depth Exceeded.")
@@ -1923,7 +2156,7 @@ class CmdRandomScene(MuxCommand):
         targ = self.caller.search(self.lhs)
         if not targ:
             return
-        if targ not in self.scenelist and targ not in self.newbies:
+        if targ not in self.scenelist and targ not in self.newbies and targ not in self.gms:
             self.msg("%s is not in your list of random scene partners this week: %s" % (targ, ", ".join(
                 str(ob) for ob in self.scenelist)))
             self.msg("New players who can be RP'd with for credit: %s" % ", ".join(str(ob) for ob in self.newbies))
@@ -1937,22 +2170,33 @@ class CmdRandomScene(MuxCommand):
         requests = targ.db.scene_requests or {}
         tup = (self.caller, self.rhs)
         name = self.caller.name
+        from server.utils.arx_utils import strip_ansi
+        name = strip_ansi(name)
         requests[name.lower()] = tup
         targ.db.scene_requests = requests
-        msg = "%s has requested that you validate their RP scene with you, which will grant you both xp." % name
+        msg = "%s has submitted a RP scene that included you, for which you have received xp. " % name
+        msg += "Validating it will grant them xp."
         msg += "\n\nTheir summary of the scene was the following: %s\n" % self.rhs
         msg += "If you ignore this request, it will be wiped in weekly maintenance."
         msg += "\nTo validate, use {w@randomscene/validate %s{n" % name
+        msg += "\n{rYou are already flagged for xp, and are not penalized in any way for ignoring a request "
+        msg += "from someone who did not meaningfully interact with you.{n"
         targ.db.player_ob.inform(msg, category="Validate")
         inform_staff("%s has completed a random scene with %s. Summary: %s" % (self.caller, targ, self.rhs))
         self.msg("You have sent a request to %s to validate your scene." % targ)
+        our_requests = self.requested_validation
+        our_requests.append(targ)
+        self.caller.db.player_ob.db.requested_validation = our_requests
 
     def validate_scene(self):
-        targ = self.caller.db.scene_requests.pop(self.args.lower(), (None, ""))[0]
+        scene_requests = self.caller.db.scene_requests or {}
+        targ = scene_requests.pop(self.args.lower(), (None, ""))[0]
+        self.caller.db.scene_requests = scene_requests
         if not targ:
             self.msg("No character by that name has sent you a request.")
             self.view_requests()
             return
+        validated = self.caller.db.player_ob.db.validated_list or []
         claimed = targ.db.player_ob.db.claimed_scenelist or []
         claimed.append(self.caller)
         targ_scenelist = targ.db.player_ob.db.random_scenelist or []
@@ -1961,6 +2205,8 @@ class CmdRandomScene(MuxCommand):
             targ.db.player_ob.db.random_scenelist = targ_scenelist
         targ.db.player_ob.db.claimed_scenelist = claimed
         self.msg("Validating their scene. Both of you will receive xp for it later.")
+        validated.append(targ)
+        self.caller.db.player_ob.db.validated_list = validated
 
     def view_requests(self):
         requests = self.caller.db.scene_requests or {}
@@ -2063,12 +2309,14 @@ class CmdLanguages(MuxCommand):
     Usage:
         +lang
         +lang <language>
+        +lang/translate <object>
         +lang/teachme <player>=<language>
         +lang/teach <player>
 
     Shows what languages you know and are currently speaking. You can request
     that a player teach you a language with +lang/teachme. You may know one
-    language per rank of linguistics
+    language per rank of linguistics. Translate allows you to read material 
+    written in other languages.
     """
     key = "+lang"
     locks = "cmd:all()"
@@ -2078,11 +2326,25 @@ class CmdLanguages(MuxCommand):
         known = [ob.capitalize() for ob in self.caller.languages.known_languages]
         known += ["Arvani"]
         self.msg("{wYou can currently speak:{n %s" % ", ".join(known))
+        self.msg("You can learn %s additional languages." % (self.caller.languages.max_languages - (len(known) - 1)))
 
     def func(self):
         if not self.args:
             self.msg("{wYou are currently speaking:{n %s" % self.caller.languages.current_language.capitalize())
             self.list_languages()
+            return
+        if "translate" in self.switches:
+            obj = self.caller.search(self.args)
+            if not obj:
+                return
+            translation = obj.db.translation or {}
+            matches = False
+            for lang in self.caller.languages.known_languages:
+                if lang in translation:
+                    self.msg("You translate the following from %s:\n%s" % (lang.capitalize(), translation[lang]))
+                    matches = True
+            if not matches:
+                self.msg("%s does not seem to contain any foreign tongue you can read." % obj)
             return
         if not self.switches:
             args = self.args.lower()
@@ -2112,7 +2374,7 @@ class CmdLanguages(MuxCommand):
             req[self.caller] = self.rhs
             targ.ndb.language_requests = req
             self.msg("You request that %s teach you %s." % (targ, self.rhs))
-            targ.msg("{w%s has requested that you teach them %s.{n" % (targ, self.rhs))
+            targ.msg("{w%s has requested that you teach them %s.{n" % (self.caller, self.rhs))
             return
         if "teach" in self.switches:
             req = self.caller.ndb.language_requests or {}
@@ -2124,10 +2386,150 @@ class CmdLanguages(MuxCommand):
                 self.msg("You do not know %s." % lang)
                 self.list_languages()
                 return
-            if targ.db.skills.get("linguistics", 0) <= len(targ.languages.known_languages):
+            if targ.languages.max_languages <= len(targ.languages.known_languages):
                 self.msg("They know as many languages as they can learn.")
                 return
             targ.languages.add_language(lang)
             self.msg("You have taught %s to %s." % (lang, targ))
             targ.msg("%s has taught you %s." % (self.caller, lang))
             return
+
+
+class CmdIAmHelping(MuxPlayerCommand):
+    """
+    Donates AP to other players at a poor conversion rate
+
+        Usage:
+            +iamhelping <player>=<AP>
+
+    Allows you to donate AP to other players with some restrictions to
+    represent helping them out with whatever they're up to: gathering supplies
+    for a crafter, acting as a menial servant/helping their servants manage
+    their affairs, discreetly having annoying npcs killed, etc. This has a
+    poor conversion rate, so it's much more effective to assist them
+    directly with investigations, crisis actions, etc, with the accustomed
+    commands.
+
+    Current rate of exchange is 3 to 1.
+    """
+    key = "+iamhelping"
+    help_category = "Social"
+
+    def func(self):
+        if not self.args:
+            self.msg("You have %s AP remaining." % self.caller.roster.action_points)
+            return
+        targ = self.caller.search(self.lhs)
+        if not targ:
+            return
+        try:
+            val = int(self.rhs)
+        except ValueError:
+            self.msg("AP needs to be a number")
+            return
+        receive_amt = val/3
+        if receive_amt < 1:
+            self.msg("Must transfer at least 1 AP to them.")
+            return
+        if targ.roster.action_points + receive_amt > 100:
+            self.msg("That would put them over 100 AP.")
+            return
+        donated = targ.db.donated_ap or 0
+        donated += receive_amt
+        if donated > 100:
+            self.msg("That would put them over the cap of 100 AP donated per week.")
+            return
+        if not self.caller.pay_action_points(val):
+            self.msg("You do not have enough AP.")
+            return
+        targ.roster.action_points += receive_amt
+        targ.roster.save()
+        targ.db.donated_ap = donated
+        self.msg("You have given %s %s AP." % (targ, receive_amt))
+        msg = "%s has given you %s AP." % (self.caller, receive_amt)
+        targ.inform(msg, category=msg)
+
+
+class CmdRPHooks(MuxPlayerCommand):
+    """
+    Sets or searches RP hook tags
+
+    Usage:
+        +rphooks <character>
+        +rphooks/search <tag>
+        +rphooks/add <searchable title>[=<optional description>]
+        +rphooks/rm <searchable title>
+    """
+    key = "+rphooks"
+    help_category = "Social"
+    aliases = ["rphooks"]
+
+    def list_valid_tags(self):
+        tags = Tag.objects.filter(db_category="rp hooks").order_by('db_key')
+        self.msg("Categories: %s" % "; ".join(tag.db_key for tag in tags))
+        return
+
+    def func(self):
+        if not self.switches:
+            if not self.args:
+                targ = self.caller
+            else:
+                targ = self.caller.search(self.args)
+                if not targ:
+                    self.list_valid_tags()
+                    return
+            hooks = targ.tags.get(category="rp hooks")
+            hooks = make_iter(hooks)
+            hook_descs = targ.db.hook_descs or {}
+            table = EvTable("Hook", "Desc", width=78, border="cells")
+            for hook in hooks:
+                table.add_row(hook, hook_descs.get(hook, ""))
+            table.reformat_column(0, width=20)
+            table.reformat_column(1, width=58)
+            self.msg(table)
+            if not hooks:
+                self.list_valid_tags()
+            return
+        if "add" in self.switches:
+            title = self.lhs.lower()
+            if len(title) > 255:
+                self.msg("Title must be under 255 characters.")
+                return
+            data = self.rhs
+            hook_descs = self.caller.db.hook_descs or {}
+            self.caller.tags.add(title, category="rp hooks")
+            if data:
+                hook_descs[title] = data
+                self.caller.db.hook_descs = hook_descs
+            data_str = (": %s" % data) if data else ""
+            self.msg("Added rphook tag: %s%s." % (title, data_str))
+            return
+        if "search" in self.switches:
+            table = EvTable("Name", "RPHook", "Details", width=78, border="cells")
+            if not self.args:
+                self.list_valid_tags()
+                return
+            tags = Tag.objects.filter(db_key__icontains=self.args, db_category="rp hooks")
+            for tag in tags:
+                for pc in tag.playerdb_set.all():
+                    hook_desc = pc.db.hook_descs or {}
+                    desc = hook_desc.get(tag.db_key, "")
+                    table.add_row(pc, tag.db_key, desc)
+            table.reformat_column(0, width=10)
+            table.reformat_column(1, width=20)
+            table.reformat_column(2, width=48)
+            self.msg(table)
+            return
+        if "rm" in self.switches:
+            args = self.args.lower()
+            hook_descs = self.caller.db.hook_descs or {}
+            if args in hook_descs:
+                del hook_descs[args]
+                if not hook_descs:
+                    self.caller.attributes.remove("hook_descs")
+                else:
+                    self.caller.db.hook_descs = hook_descs
+            self.caller.tags.remove(args, category="rp hooks")
+            self.msg("Removed.")
+            return
+        self.msg("Invalid switch.")

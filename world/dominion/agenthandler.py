@@ -25,7 +25,8 @@ class AgentHandler(object):
     def __init__(self, agent):
         self.agent = agent
 
-    def get_type_name(self, tnum):
+    @staticmethod
+    def get_type_name(tnum):
         return npc_types.get_npc_singular_name(tnum)
 
     def _get_unassigned(self):
@@ -56,6 +57,8 @@ class AgentHandler(object):
                 agent_ob = self.agent.agent_objects.create(quantity=num)
         self.agent.quantity -= num
         self.agent.save()
+        setup = False
+        # create a new agent if we don't have one
         if not agent_ob.dbobj:
             if self.agent.unique:
                 ntype = retainer_typeclass
@@ -64,7 +67,14 @@ class AgentHandler(object):
             ob = create_object(typeclass=ntype, key=self.agent.name or "Unnamed Agent")
             agent_ob.dbobj = ob
             agent_ob.save()
-        agent_ob.dbobj.setup_agent()
+            setup = True
+        else:  # have an agent already, but still run setup if it's not unique
+            if not self.agent.unique:
+                setup = True
+        # only run setup if we were created, or we're a non-Retainer agent. Otherwise, retainers
+        # will have their progression wiped upon transfer
+        if setup:
+            agent_ob.dbobj.setup_agent()
         return agent_ob      
 
     def assign(self, targ, num):
@@ -81,8 +91,3 @@ class AgentHandler(object):
         agent_ob.save()
         targ.msg("%s %s been assigned to you." % (agent_ob.dbobj.name,
                                                   "has" if self.agent.unique else "have"))
-
-    def room_summon(self, room, num=1):
-        agent_ob = self.get_or_create_agentob(num)
-
-

@@ -23,6 +23,7 @@ CONTAINER = "typeclasses.containers.container.Container"
 WEARABLE_CONTAINER = "typeclasses.wearable.wearable.WearableContainer"
 BAUBLE = "typeclasses.bauble.Bauble"
 PERFUME = "typeclasses.consumable.perfume.Perfume"
+MASK = "typeclasses.disguises.disguises.Mask"
 
 QUALITY_LEVELS = {
     0: '{rawful{n',
@@ -35,7 +36,8 @@ QUALITY_LEVELS = {
     7: '{gexceptional{n',
     8: '{gsuperb{n',
     9: '{454perfect{n',
-    10: '{553divine{n'
+    10: '{553divine{n',
+    11: '|355transcendent|n'
     }
 
 
@@ -50,12 +52,8 @@ def create_weapon(recipe, roll, proj, caller):
 
 
 def create_wearable(recipe, roll, proj, caller):
-    slot = recipe.resultsdict.get("slot", None)
-    slot_limit = int(recipe.resultsdict.get("slot_limit", 0))
     quality = get_quality_lvl(roll, recipe.difficulty)
     obj = create_obj(WEAR, proj[1], caller, caller, quality)
-    obj.db.slot = slot
-    obj.db.slot_limit = slot_limit
     return obj, quality
 
 
@@ -124,6 +122,14 @@ def create_consumable(recipe, roll, proj, caller, typeclass):
     return obj, quality
 
 
+def create_mask(recipe, roll, proj, caller, maskdesc):
+    quality = get_quality_lvl(roll, recipe.difficulty)
+    obj = create_obj(MASK, proj[1], caller,
+                     caller, quality)
+    obj.db.maskdesc = maskdesc
+    return obj, quality
+
+
 def create_obj(typec, key, loc, home, quality):
     if "{" in key and not key.endswith("{n"):
         key += "{n"
@@ -169,15 +175,18 @@ def do_crafting_roll(char, recipe, diffmod=0, diffmult=1.0, room=None):
                          announce_room=room)
 
 
-def get_difficulty_mod(recipe, money=0):
-    if not money:
-        return 0
+def get_difficulty_mod(recipe, money=0, action_points=0, ability=0):
+    from random import randint
     divisor = recipe.value or 0
     if divisor < 1:
         divisor = 1
-    val = money / divisor
+    val = float(money) / float(divisor)
     # for every 10% of the value of recipe we invest, we knock 1 off difficulty
-    return int(val/0.10) + 1
+    val = int(val/0.10) + 1
+    if action_points:
+        base = action_points / (14 - (2*ability))
+        val += randint(base, action_points)
+    return val
 
 
 def get_quality_lvl(roll, diff):
@@ -234,39 +243,47 @@ class CmdCraft(MuxCommand):
         craft <recipe name>
         craft/name <name>
         craft/desc <description>
+        craft/altdesc <description>
         craft/adorn <material type>=<amount>
+        craft/translated_text <language>=<text>
         craft/forgery <real material>=<type it's faking as>
-        craft/finish [<additional silver to invest>]
+        craft/finish [<additional silver to invest>, <action points>
         craft/abandon
-        craft/refine <object>[=<additional silver to spend>]
+        craft/refine <object>[=<additional silver to spend>, <action points>]
         craft/changename <object>=<new name>
 
-    Crafts an object. To start crafting, you must know recipes
-    related to your crafting profession. Select a recipe, then
-    describe the object with /name and /desc. To add more materials
-    to an object, such as gemstones, use /adorn, or /forgery for
-    if you are a highly unethical crafter and wish to pretend materials
-    are something else. No materials or silver are used until you
-    are ready to /finish the project and make the roll for its quality.
-    Once you /finish an object, it can no longer have materials added
-    to it, only be /refine'd for a better quality level. Additional
-    money spent when finishing gives a bonus to the roll. For things
-    such as perfume, the desc is the description that appears on the
-    character, not the description of the bottle.
+    Crafts an object. To start crafting, you must know recipes related to your 
+    crafting profession. Select a recipe, then describe the object with /name 
+    and /desc. To add more materials to an object, such as gemstones, use 
+    /adorn, or /forgery for if you are a highly unethical crafter and wish to 
+    pretend materials are something else. No materials or silver are used until 
+    you are ready to /finish the project and make the roll for its quality.
+    Once you /finish an object, it can no longer have materials added to it, 
+    only be /refine'd for a better quality level. Additional money spent when 
+    finishing gives a bonus to the roll. 
+    
+    For things such as perfume, the desc is the description that appears on the 
+    character, not a description of the bottle. When crafting masks, the name is 
+    used to identify its wearer: "A Fox Mask" will bestow "A Lady wearing A Fox 
+    Mask" upon its wearer, and the altdesc switch is used for her temporary 
+    description.
+    
+    If the item should contain script in a foreign tongue that you know, use 
+    translated_text to display what the language actually says.
 
-    To finish a project, use /finish, or /abandon if you wish to stop
-    and do something else. To attempt to change the quality level of
-    a finished object, use /refine to attempt to improve it, for a
-    price based on how much it took to create. Beware - this can make
-    the object worse.
+    To finish a project, use /finish, or /abandon if you wish to stop and do 
+    something else. To attempt to change the quality level of a finished object, 
+    use /refine to attempt to improve it, for a price based on how much it took 
+    to create. Refining can never make the object worse.
 
-    Craft with no arguments will display the status of a current
-    project.
+    Craft with no arguments will display the status of a current project.
     """
     key = "craft"
     locks = "cmd:all()"
     help_category = "Crafting"
     crafter = None
+    crafting_switches = ("name", "desc", "altdesc", "adorn", "translated_text", "forgery", "finish", "abandon",
+                         "refine", "changename")
 
     def get_refine_price(self, base):
         return 0
@@ -288,6 +305,8 @@ class CmdCraft(MuxCommand):
         msg = "{wRecipe:{n %s\n" % recipe.name
         msg += "{wName:{n %s\n" % proj[1]
         msg += "{wDesc:{n %s\n" % proj[2]
+        if len(proj) > 6 and proj[6]:
+            msg += "{wAlt Desc:{n %s\n" % proj[6]
         adorns, forgery = proj[3], proj[4]
         if adorns:
             msg += "{wAdornments:{n %s\n" % ", ".join("%s: %s" % (CraftingMaterialType.objects.get(id=mat).name, amt)
@@ -296,6 +315,13 @@ class CmdCraft(MuxCommand):
             msg += "{wForgeries:{n %s\n" % ", ".join("%s as %s" % (CraftingMaterialType.objects.get(id=value).name,
                                                                    CraftingMaterialType.objects.get(id=key).name)
                                                      for key, value in forgery.items())
+        try:
+            translation = proj[5]
+            if translation:
+                msg += "{wTranslation for{n %s\n" % "\n\n".join("%s:\n%s" % (lang, text)
+                                                                for lang, text in translation.items())
+        except IndexError:
+            pass
         caller.msg(msg)
         caller.msg("{wTo finish it, use /finish after you gather the following:{n")
         caller.msg(recipe.display_reqs(dompc))
@@ -339,8 +365,8 @@ class CmdCraft(MuxCommand):
             except ValueError:
                 caller.msg("That recipe does not have a price defined.")
                 return
-            # proj = [id, name, desc, adorns, forgery]
-            proj = [recipe.id, "", "", {}, {}]
+            # proj = [id, name, desc, adorns, forgery, translation]
+            proj = [recipe.id, "", "", {}, {}, {}, ""]
             caller.db.crafting_project = proj
             stmsg = "You have" if caller == crafter else "%s has" % crafter
             caller.msg("{w%s started to craft:{n %s." % (stmsg, recipe.name))
@@ -350,6 +376,9 @@ class CmdCraft(MuxCommand):
         if "changename" in self.switches:
             targ = caller.search(self.lhs, location=caller)
             if not targ:
+                return
+            if not self.rhs:
+                self.msg("Usage: /changename <object>=<new name>")
                 return
             if not validate_name(self.rhs):
                 caller.msg("That is not a valid name.")
@@ -387,32 +416,39 @@ class CmdCraft(MuxCommand):
                 return
             if price:
                 caller.msg("The additional price for refining is %s." % price)
+            action_points = 0
+            invest = 0
             if self.rhs:
                 try:
-                    invest = int(self.rhs)
+                    invest = int(self.rhslist[0])
+                    if len(self.rhslist) > 1:
+                        action_points = int(self.rhslist[1])
                 except ValueError:
-                    caller.msg("Amount to invest must be a number.")
+                    caller.msg("Amount of silver/action points to invest must be a number.")
                     return
-                if invest < 1:
+                if invest < 0 or action_points < 0:
                     caller.msg("Amount must be positive.")
                     return
-            else:
-                invest = 0
             if not recipe:
                 caller.msg("This is not a crafted object that can be refined.")
                 return
             if targ.db.quality_level and targ.db.quality_level >= 10:
                 caller.msg("This object can no longer be improved.")
-                return    
-            if get_ability_val(crafter, recipe) < recipe.level:
+                return
+            ability = get_ability_val(crafter, recipe)
+            if ability < recipe.level:
                 err = "You lack" if crafter == caller else "%s lacks" % crafter
                 caller.msg("%s the skill required to attempt to improve this." % err)
                 return
             if invest > recipe.value:
                 caller.msg("The maximum amount you can spend per roll is %s." % recipe.value)
                 return
-            diffmod = get_difficulty_mod(recipe, invest)
             cost = base_cost + invest + price
+            # don't display a random number when they're prepping
+            if caller.ndb.refine_targ != (targ, cost):
+                diffmod = get_difficulty_mod(recipe, invest)
+            else:
+                diffmod = get_difficulty_mod(recipe, invest, action_points, ability)
             # difficulty gets easier by 1 each time we attempt it
             refine_attempts = crafter.db.refine_attempts or {}
             attempts = refine_attempts.get(targ.id, 0)
@@ -421,12 +457,15 @@ class CmdCraft(MuxCommand):
             diffmod += attempts
             if diffmod:
                 self.msg("Based on silver spent and previous attempts, the difficulty is adjusted by %s." % diffmod)
-            if caller.ndb.refine_targ != targ:
-                caller.ndb.refine_targ = targ
+            if caller.ndb.refine_targ != (targ, cost):
+                caller.ndb.refine_targ = (targ, cost)
                 caller.msg("The total cost would be {w%s{n. To confirm this, execute the command again." % cost)
                 return
             if cost > caller.db.currency:
                 caller.msg("This would cost %s, and you only have %s." % (cost, caller.db.currency))
+                return
+            if action_points and not caller.db.player_ob.pay_action_points(action_points):
+                self.msg("You do not have enough action points to refine.")
                 return
             # pay for it
             caller.pay_money(cost)
@@ -452,19 +491,19 @@ class CmdCraft(MuxCommand):
             caller.msg("You have no crafting project.")
             return
         if "name" in self.switches:
-            if not self.lhs:
+            if not self.args:
                 caller.msg("Name it what?")
                 return
-            if not validate_name(self.lhs):
+            if not validate_name(self.args):
                 caller.msg("That is not a valid name.")
                 return
-            proj[1] = self.lhs
+            proj[1] = self.args
             caller.db.crafting_project = proj
-            caller.msg("Name set to %s." % self.lhs)
+            caller.msg("Name set to %s." % self.args)
             return
         if "desc" in self.switches:
             if not self.args:
-                caller.msg("Name it what?")
+                caller.msg("Describe it how?")
                 return
             proj[2] = self.args
             caller.db.crafting_project = proj
@@ -473,6 +512,25 @@ class CmdCraft(MuxCommand):
         if "abandon" in self.switches:
             caller.msg("You have abandoned this crafting project. You may now start another.")
             caller.db.crafting_project = None
+            return
+        if "translated_text" in self.switches:
+            if not (self.lhs and self.rhs):
+                caller.msg("Usage: craft/translated_text <language>=<text>")
+                return
+            lhs = self.lhs.lower()
+            if lhs not in self.caller.languages.known_languages:
+                caller.msg("Nice try. You cannot speak %s." % self.lhs)
+                return
+            proj[5].update({lhs: self.rhs})
+            caller.db.crafting_project = proj
+            self.display_project(proj)
+            return
+        if "altdesc" in self.switches:
+            if not self.args:
+                caller.msg("Describe them how? This is only used for disguise recipes.")
+                return
+            proj[6] = self.args
+            caller.msg("This is only used for disguise recipes. Alternate description set to:\n%s" % self.args)
             return
         if "adorn" in self.switches:
             if not (self.lhs and self.rhs):
@@ -547,14 +605,17 @@ class CmdCraft(MuxCommand):
                 caller.msg("You must write a description first.")
                 return
             invest = 0
+            action_points = 0
             if self.lhs:
                 try:
-                    invest = int(self.lhs)
+                    invest = int(self.lhslist[0])
+                    if len(self.lhslist) > 1:
+                        action_points = int(self.lhslist[1])
                 except ValueError:
-                    caller.msg("Silver to invest must be a number.")
+                    caller.msg("Silver/Action Points to invest must be a number.")
                     return
-                if invest < 1:
-                    caller.msg("Investment must be a positive number.")
+                if invest < 0 or action_points < 0:
+                    caller.msg("Silver/Action Points cannot be a negative number.")
                     return
             # first, check if we have all the materials required
             mats = {}
@@ -563,6 +624,10 @@ class CmdCraft(MuxCommand):
             except CraftingRecipe.DoesNotExist:
                 caller.msg("You lack the ability to finish that recipe.")
                 return
+            if recipe.type == "disguise":
+                if not proj[6]:
+                    caller.msg("This kind of item requires craft/altdesc before it can be finished.")
+                    return
             for mat in recipe.materials.all():
                 mats[mat.id] = mats.get(mat.id, 0) + mat.amount
             for adorn in proj[3]:
@@ -612,6 +677,10 @@ class CmdCraft(MuxCommand):
                 except CraftingMaterials.DoesNotExist:
                     caller.msg("You do not have any of the material %s." % c_mat.name)
                     return
+            # check if they have enough action points
+            if not caller.db.player_ob.pay_action_points(2 + action_points):
+                self.msg("You do not have enough action points left to craft that.")
+                return
             # we're still here, so we have enough materials. spend em all
             for mat in mats:
                 cmat = CraftingMaterialType.objects.get(id=mat)
@@ -619,7 +688,8 @@ class CmdCraft(MuxCommand):
                 pmat.amount -= mats[mat]
                 pmat.save()
             # determine difficulty modifier if we tossed in more money
-            diffmod = get_difficulty_mod(recipe, invest)
+            ability = get_ability_val(crafter, recipe)
+            diffmod = get_difficulty_mod(recipe, invest, action_points, ability)
             # do crafting roll
             roll = do_crafting_roll(crafter, recipe, diffmod, room=caller.location)
             # get type from recipe
@@ -641,6 +711,8 @@ class CmdCraft(MuxCommand):
                 obj, quality = create_wearable_container(recipe, roll, proj, caller)
             elif otype == "perfume":
                 obj, quality = create_consumable(recipe, roll, proj, caller, PERFUME)
+            elif otype == "disguise":
+                obj, quality = create_mask(recipe, roll, proj, caller, proj[6])
             else:
                 obj, quality = create_generic(recipe, roll, proj, caller)
             # finish stuff universal to all crafted objects
@@ -660,13 +732,18 @@ class CmdCraft(MuxCommand):
                 obj.db.forgery_roll = do_crafting_roll(caller, recipe, room=caller.location)
                 # forgery penalty will be used to degrade weapons/armor
                 obj.db.forgery_penalty = (recipe.value/realvalue) + 1
+            try:
+                if proj[5]:
+                    obj.db.translation = proj[5]
+            except IndexError:
+                pass
             cnoun = "You" if caller == crafter else crafter
             caller.msg("%s created %s." % (cnoun, obj.name))
             quality = QUALITY_LEVELS[quality]
             caller.msg("It is of %s quality." % quality)
             caller.db.crafting_project = None
             return
-        
+
 
 class CmdRecipes(MuxCommand):
     """
@@ -691,11 +768,11 @@ class CmdRecipes(MuxCommand):
 
     def display_recipes(self, recipes):
         known_list = CraftingRecipe.objects.filter(known_by__player__player=self.caller.player)
-        table = PrettyTable(["{wKnown{n", "{wName{n", "{wAbility{n", 
+        table = PrettyTable(["{wKnown{n", "{wName{n", "{wAbility{n",
                              "{wDifficulty{n", "{wCost{n"])
         for recipe in recipes:
             known = "{wX{n" if recipe in known_list else ""
-            table.add_row([known, recipe.name, recipe.ability, 
+            table.add_row([known, recipe.name, recipe.ability,
                            recipe.difficulty, recipe.additional_cost])
         return table
 
@@ -715,7 +792,7 @@ class CmdRecipes(MuxCommand):
             from operator import attrgetter
             visible = sorted(visible, key=attrgetter('ability', 'difficulty',
                                                      'name'))
-            caller.msg(self.display_recipes(visible))       
+            caller.msg(self.display_recipes(visible))
             return
         if not self.switches:
             try:
@@ -727,14 +804,16 @@ class CmdRecipes(MuxCommand):
             caller.msg(recipe.display_reqs(dompc, full=True), options={'box': True})
             return
         if 'learn' in self.switches:
-            match = [ob for ob in can_learn if ob.name == self.args]
+            match = None
+            if self.args:
+                match = [ob for ob in can_learn if ob.name.lower() == self.args.lower()]
             if not match:
                 caller.msg("No recipe by that name.")
                 caller.msg("\nRecipes you can learn:")
                 caller.msg(self.display_recipes(can_learn))
                 return
             match = match[0]
-            
+
             cost = match.additional_cost
             if cost > caller.db.currency:
                 caller.msg("It costs %s to learn %s, and you only have %s." % (cost, match.name, caller.db.currency))
@@ -748,8 +827,10 @@ class CmdRecipes(MuxCommand):
             caller.msg("You have learned %s%s." % (match.name, coststr))
             return
         if 'info' in self.switches:
+            match = None
             info = list(can_learn) + list(recipes)
-            match = [ob for ob in info if ob.name == self.args]
+            if self.args:
+                match = [ob for ob in info if ob.name.lower() == self.args.lower()]
             if not match:
                 caller.msg("No recipe by that name.")
                 caller.msg("Recipes you can get /info on:")
@@ -760,8 +841,10 @@ class CmdRecipes(MuxCommand):
             caller.msg(display, options={'box': True})
             return
         if 'teach' in self.switches:
+            match = None
             can_teach = [ob for ob in recipes if ob.access(caller, 'teach')]
-            match = [ob for ob in can_teach if ob.name == self.rhs]
+            if self.rhs:
+                match = [ob for ob in can_teach if ob.name.lower() == self.rhs.lower()]
             if not match:
                 caller.msg("Recipes you can teach:")
                 caller.msg(self.display_recipes(can_teach))

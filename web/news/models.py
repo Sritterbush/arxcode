@@ -5,10 +5,8 @@
 #
 
 from django.db import models
-from django.contrib.auth import get_user_model
 from django.conf import settings
-#import django
-#django.setup()
+
 
 class NewsTopic(models.Model):
     """
@@ -21,21 +19,16 @@ class NewsTopic(models.Model):
                              blank=True, help_text="Image for the news topic.")
 
     def __str__(self):
-        try:
-            return self.name
-        except:
-            return "Invalid"
+        return self.name
 
     class Meta:
         ordering = ['name']
+
 
 class NewsEntry(models.Model):
     """
     An individual news entry.
     """
-    #django 1.7 upgrade - can no longer do get_user_model at import time
-    # have to use settings.AUTH_USER_MODEL instead
-    #User = get_user_model()
     author = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='author')
     title = models.CharField(max_length=255)
     body = models.TextField()
@@ -48,4 +41,3 @@ class NewsEntry(models.Model):
     class Meta:
         ordering = ('-date_posted',)
         verbose_name_plural = "News entries"
-

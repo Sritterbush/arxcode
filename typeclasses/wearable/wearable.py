@@ -23,12 +23,9 @@ class Wearable(Object):
         """
         Run at Wearable creation.
         """
-        self.db.is_wearable = True
         self.db.currently_worn = False
         self.db.desc = "A piece of clothing or armor."
         self.db.armor_class = 0
-        self.db.slot = None
-        self.db.slot_limit = 1
         self.at_init()
 
     def remove(self, wearer):
@@ -38,9 +35,14 @@ class Wearable(Object):
         if not self.at_pre_remove(wearer):
             return False
         self.db.currently_worn = False
-        # TODO it could be worth moving self.at_post_remove to this point rather than have separate calls
-        # outside the function. Be sure to search for all instances of the usage of at_post_remove.
+        self.at_post_remove(wearer)
         return True
+
+    def softdelete(self):
+        wearer = self.location
+        super(Wearable, self).softdelete()
+        self.db.currently_worn = False
+        self.at_post_remove(wearer)
 
     # noinspection PyAttributeOutsideInit
     def wear(self, wearer):
@@ -55,6 +57,7 @@ class Wearable(Object):
             self.location = wearer
         self.db.worn_time = time()
         self.calc_armor()
+        self.at_post_wear(wearer)
         return True
 
     def at_after_move(self, source_location):
@@ -145,6 +148,20 @@ class Wearable(Object):
         return self.calc_armor()[1]
     penalty = property(_get_penalty)
 
+    @property
+    def slot(self):
+        recipe = self.recipe
+        if not recipe:
+            return self.db.slot
+        return recipe.resultsdict.get("slot", None)
+
+    @property
+    def slot_limit(self):
+        recipe = self.recipe
+        if not recipe:
+            return self.db.slot_limit or 0
+        return recipe.resultsdict.get("slot_limit", 1)
+
 
 # noinspection PyMethodMayBeStatic
 class WearableContainer(Wearable, Container):
@@ -152,7 +169,7 @@ class WearableContainer(Wearable, Container):
         Wearable.at_object_creation(self)
         Container.at_object_creation(self)
     
-    def at_cmdset_get(self):
+    def at_cmdset_get(self, **kwargs):
         """
         Called when the cmdset is requested from this object, just before the
         cmdset is actually extracted. If no container-cmdset is cached, create

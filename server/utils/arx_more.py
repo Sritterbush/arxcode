@@ -57,7 +57,7 @@ class CmdMore(Command):
 
         cmd = self.cmdstring
 
-        if cmd in ("abort", "a", "q"):
+        if cmd in ("abort", "a", "q", "quit", "abort"):
             more.page_quit()
         elif cmd in ("back", "b"):
             more.page_back()
@@ -147,7 +147,7 @@ class EvMore(object):
         height = max(4, session.protocol_flags.get("SCREENHEIGHT", {0:_SCREEN_HEIGHT})[0] - 4)
         width = session.protocol_flags.get("SCREENWIDTH", {0:_SCREEN_WIDTH})[0]
 
-        pages_by_char = kwargs.get('pages_by_char', False)
+        pages_by_char = kwargs.pop('pages_by_char', False)
         if pages_by_char:
             PAGE_LENGTH = 3000
             MARGIN = 1000
@@ -176,7 +176,6 @@ class EvMore(object):
             self._pages = ["\n".join(lines[i:i+height]) for i in range(0, len(lines), height)]
         self._npages = len(self._pages)
         self._npos = 0
-
         if self._npages <= 1 and not always_page:
             # no need for paging; just pass-through.
             caller.msg(text=text, **kwargs)
@@ -201,12 +200,7 @@ class EvMore(object):
         if not page or not text:
             self.page_quit()
         # check for wrong session
-        sessions = self._caller.sessions.get()
-        if not sessions:
-            self.page_quit()
-        if not any(ob for ob in sessions if ob is self._session):
-            self._session = sessions[0]
-        self._caller.msg(text=page, session=self._session, **self._kwargs)
+        self._caller.msg(text=page, **self._kwargs)
 
     def page_top(self):
         """

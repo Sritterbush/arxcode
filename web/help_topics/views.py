@@ -39,7 +39,8 @@ def list_topics(request):
             except AttributeError:
                 continue
         all_topics = sorted(all_topics, key=lambda entry: entry.key.lower())
-        all_categories = list(set([topic_ob.help_category.capitalize() for topic_ob in all_topics]))
+        all_categories = list(set([topic_ob.help_category.capitalize() for topic_ob in all_topics
+                                   if topic_ob.access(user, "view")]))
         all_categories = sorted(all_categories)
     except IndexError:
         raise Http404("Error in compiling topic list.")
@@ -121,7 +122,20 @@ def display_org(request, object_id):
         holdings = org.assets.estate.holdings.all()
     except AttributeError:
         holdings = []
+    active_tab = request.GET.get("active_tab")
+    if not active_tab or active_tab == "all":
+        members = org.all_members.exclude(player__player__roster__roster__name="Gone")
+        active_tab = "all"
+    elif active_tab == "active":
+        members = org.active_members
+    elif active_tab == "available":
+        members = org.all_members.filter(player__player__roster__roster__name="Available")
+    else:
+        members = org.all_members.filter(player__player__roster__roster__name="Gone")
+
     return render(request, 'help_topics/org.html', {'org': org,
+                                                    'members': members,
+                                                    'active_tab': active_tab,
                                                     'holdings': holdings,
                                                     'rank_display': rank_display,
                                                     'show_secret': show_secret,
@@ -131,9 +145,14 @@ def display_org(request, object_id):
 
 def list_commands(request):
     user = request.user
-    player_cmds = [ob for ob in PlayerCmdSet() if ob.access(user, 'cmd')]
-    char_cmds = [ob for ob in CharacterCmdSet() if ob.access(user, 'cmd')]
-    situational_cmds = [ob for ob in SituationalCmdSet() if ob.access(user, 'cmd')]
+
+    def sort_name(cmd):
+        cmdname = cmd.key.lower()
+        cmdname = cmdname.lstrip("+").lstrip("@")
+        return cmdname
+    player_cmds = sorted([ob for ob in PlayerCmdSet() if ob.access(user, 'cmd')], key=sort_name)
+    char_cmds = sorted([ob for ob in CharacterCmdSet() if ob.access(user, 'cmd')], key=sort_name)
+    situational_cmds = sorted([ob for ob in SituationalCmdSet() if ob.access(user, 'cmd')], key=sort_name)
     return render(request, 'help_topics/list_commands.html', {'player_cmds': player_cmds,
                                                               'character_cmds': char_cmds,
                                                               'situational_cmds': situational_cmds,

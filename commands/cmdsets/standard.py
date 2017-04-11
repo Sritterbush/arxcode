@@ -97,6 +97,16 @@ try:
 except Exception as err:
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in consumable commands: %s" % err)
+try:
+    from typeclasses.gambling import cmdset_gambling as gambling
+except Exception as err:
+    traceback.print_exc()
+    print("<<ERROR>>: Error encountered in gambling commands: %s" % err)
+try:
+    from commands.commands import rolling
+except Exception as err:
+    traceback.print_exc()
+    print("<<ERROR>>: Error encountered in roll commands: %s" % err)
 from evennia.commands.cmdset import CmdSet
 
 
@@ -117,8 +127,9 @@ class OOCCmdSet(CmdSet):
         self.add(overrides.CmdInventory())
         self.add(default_general.CmdNick())
         self.add(default_general.CmdAccess())
-        self.add(general.CmdDiceString())
-        self.add(general.CmdDiceCheck())
+        self.add(rolling.CmdDiceString())
+        self.add(rolling.CmdDiceCheck())
+        self.add(rolling.CmdSpoofCheck())
         self.add(general.CmdBriefMode())
         self.add(general.CmdTidyUp())
         self.add(extended_room.CmdGameTime())
@@ -190,6 +201,7 @@ class MobileCmdSet(CmdSet):
         self.add(combat.CmdCombatStats())
         self.add(combat.CmdHeal())
         self.add(combat.CmdHarm())
+        self.add(combat.CmdFightStatus())
         self.add(agent_commands.CmdGuards())
         self.add(domcommands.CmdTask())
         self.add(domcommands.CmdSupport())
@@ -197,7 +209,7 @@ class MobileCmdSet(CmdSet):
         self.add(crafting.CmdRecipes())
         self.add(crafting.CmdJunk())
         self.add(social.CmdPraise())
-        self.add(social.CmdCondemn())
+        # self.add(social.CmdCondemn())
         self.add(social.CmdThink())
         self.add(social.CmdFeel())
         self.add(social.CmdDonate())
@@ -205,6 +217,7 @@ class MobileCmdSet(CmdSet):
         self.add(investigation.CmdAssistInvestigation())
         self.add(general.CmdUndress())
         self.add(CmdApplyConsumable())
+        self.add(gambling.CmdRoll())
 
 
 class StaffCmdSet(CmdSet):
@@ -264,6 +277,8 @@ class StaffCmdSet(CmdSet):
         self.add(staff_commands.CmdCcolor())
         self.add(staff_commands.CmdGMDisguise())
         self.add(staff_commands.CmdGMEvent())
+        self.add(staff_commands.CmdRelocateExit())
+        self.add(staff_commands.CmdAdminKey())
         self.add(extended_room.CmdExtendedDesc())
         self.add(xp.CmdAdjustSkill())
         self.add(xp.CmdAwardXP())

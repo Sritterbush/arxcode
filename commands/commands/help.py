@@ -165,9 +165,7 @@ class CmdHelp(Command):
         if len(match) == 1:
             if not [ob for ob in self.cmdset if ob == match[0]]:
                 unavailable = True
-            doc_text = match[0].__doc__
-            if hasattr(match[0], 'dynamic_help'):
-                doc_text = match[0].dynamic_help(caller)
+            doc_text = match[0].get_help(caller, cmdset)
             self.msg(format_help_entry(match[0].key, doc_text, aliases=match[0].aliases, suggested=suggestions,
                                        unavailable=unavailable))
             found_match = True

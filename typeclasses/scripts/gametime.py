@@ -28,12 +28,12 @@ REAL_MIN = 60.0  # seconds per minute in real world
 # e.g. when defining in-game events. The words month, week and year can
 # be used to mean whatever units of time are used in the game.
 
-MIN = settings.TIME_SEC_PER_MIN
-HOUR = MIN * settings.TIME_MIN_PER_HOUR
-DAY = HOUR * settings.TIME_HOUR_PER_DAY
-WEEK = DAY * settings.TIME_DAY_PER_WEEK
-MONTH = WEEK * settings.TIME_WEEK_PER_MONTH
-YEAR = MONTH * settings.TIME_MONTH_PER_YEAR
+MIN = 60
+HOUR = MIN * 60
+DAY = HOUR * 24
+WEEK = DAY * 7
+MONTH = WEEK * 4
+YEAR = MONTH * 12
 
 # Cached time stamps
 # SERVER_STARTTIME = time()

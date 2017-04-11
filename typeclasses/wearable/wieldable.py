@@ -86,6 +86,15 @@ class Wieldable(Object):
         wielder.db.weapon = None
         return True
 
+    def softdelete(self):
+        super(Wieldable, self).softdelete()
+        wielder = self.db.wielded_by
+        if wielder:
+            wielder.db.weapon = None
+        self.db.currently_wielded = False
+        self.db.wielded_by = None
+        self.db.sheathed_by = None
+
     # noinspection PyAttributeOutsideInit
     def wield_by(self, wielder):
         """
@@ -119,10 +128,8 @@ class Wieldable(Object):
 
     def at_post_wield(self, wielder):
         """Hook called after wielding for any checks."""
-        cscript = wielder.location.ndb.combat_manager
-        if cscript and wielder in cscript.ndb.combatants:
-            cdat = cscript.get_fighter_data(wielder.id)
-            cdat.setup_weapon(wielder.weapondata)     
+        cdat = wielder.combat
+        cdat.setup_weapon(wielder.weapondata)     
         return True
 
     def at_pre_remove(self, wielder):
@@ -131,10 +138,8 @@ class Wieldable(Object):
 
     def at_post_remove(self, wielder):
         """Hook called after removing."""
-        cscript = wielder.location.ndb.combat_manager
-        if cscript and wielder in cscript.ndb.combatants:
-            cdat = cscript.get_fighter_data(wielder.id)
-            cdat.setup_weapon(wielder.weapondata)
+        cdat = wielder.combat
+        cdat.setup_weapon(wielder.weapondata)
         return True
     
     def calc_weapon(self):

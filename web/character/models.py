@@ -10,13 +10,15 @@ import random
 import traceback
 from world.stats_and_skills import do_dice_check
 
-"""
-This is the main model in the project. It holds a reference to cloudinary-stored
-image and contains some metadata about the image.
-"""
+# multiplier for how much higher ClueDiscovery.roll must be over Clue.rating to be discovered
+DISCO_MULT = 10
 
 
 class Photo(models.Model):
+    """
+    This is the main model in the project. It holds a reference to cloudinary-stored
+    image and contains some metadata about the image.
+    """
     #  Misc Django Fields
     create_time = models.DateTimeField(auto_now_add=True)
     title = models.CharField("Name or description of the picture (optional)", max_length=200, blank=True)
@@ -43,7 +45,7 @@ class Roster(models.Model):
     on player emails of previous players, GM notes, etc. The Roster itself just
     has locks for determining who can view the contents of a roster.
     """
-    name = models.CharField(blank=True, null=True, max_length=255)
+    name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
     lock_storage = models.TextField('locks', blank=True, help_text='defined in setup_utils')
     objects = ArxRosterManager()
 
@@ -66,10 +68,10 @@ class Roster(models.Model):
 
 class RosterEntry(models.Model):
     roster = models.ForeignKey('Roster', related_name='entries',
-                               on_delete=models.SET_NULL, blank=True, null=True)
-    player = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='roster', blank=True, null=True)
-    character = models.OneToOneField('objects.ObjectDB', related_name='roster', blank=True, null=True)
-    current_account = models.ForeignKey('PlayerAccount', related_name='characters',
+                               on_delete=models.SET_NULL, blank=True, null=True, db_index=True)
+    player = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='roster', blank=True, null=True, unique=True)
+    character = models.OneToOneField('objects.ObjectDB', related_name='roster', blank=True, null=True, unique=True)
+    current_account = models.ForeignKey('PlayerAccount', related_name='characters', db_index=True,
                                         on_delete=models.SET_NULL, blank=True, null=True)   
     previous_accounts = models.ManyToManyField('PlayerAccount', through='AccountHistory', blank=True)
     gm_notes = models.TextField(blank=True)
@@ -81,6 +83,7 @@ class RosterEntry(models.Model):
     # going to use for determining how our character page appears
     sheet_style = models.TextField(blank=True)
     lock_storage = models.TextField('locks', blank=True, help_text='defined in setup_utils')
+    action_points = models.SmallIntegerField(default=100, blank=100)
     
     def __init__(self, *args, **kwargs):
         super(RosterEntry, self).__init__(*args, **kwargs)
@@ -89,6 +92,7 @@ class RosterEntry(models.Model):
     class Meta:
         """Define Django meta options"""
         verbose_name_plural = "Roster Entries"
+        unique_together = ('player', 'character')
 
     def __unicode__(self):
         if self.character:
@@ -140,7 +144,7 @@ class RosterEntry(models.Model):
 
     @property
     def finished_clues(self):
-        return self.clues.filter(roll__gte=F('clue__rating'))
+        return self.clues.filter(roll__gte=F('clue__rating') * DISCO_MULT)
 
     @property
     def alts(self):
@@ -148,24 +152,24 @@ class RosterEntry(models.Model):
             return self.current_account.characters.exclude(id=self.id)
         return []
 
-    def discover_clue(self, clue):
+    def discover_clue(self, clue, method="Prior Knowledge"):
         try:
             disco = self.clues.get(clue=clue)
         except ClueDiscovery.DoesNotExist:
             disco = self.clues.create(clue=clue)
         except ClueDiscovery.MultipleObjectsReturned:
             disco = self.clues.filter(clue=clue)[0]
-        disco.roll = disco.clue.rating
+        disco.roll = disco.clue.rating * DISCO_MULT
         disco.date = datetime.now()
-        disco.discovery_method = "Prior Knowledge"
+        disco.discovery_method = method
         disco.save()
         return disco
 
 
 class Story(models.Model):
     current_chapter = models.OneToOneField('Chapter', related_name='current_chapter_story',
-                                           on_delete=models.SET_NULL, blank=True, null=True)
-    name = models.CharField(blank=True, null=True, max_length=255)
+                                           on_delete=models.SET_NULL, blank=True, null=True, db_index=True)
+    name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
     synopsis = models.TextField(blank=True, null=True)
     season = models.PositiveSmallIntegerField(default=0, blank=0)
     start_date = models.DateTimeField(blank=True, null=True)
@@ -180,9 +184,9 @@ class Story(models.Model):
 
 
 class Chapter(models.Model):
-    name = models.CharField(blank=True, null=True, max_length=255)
+    name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
     synopsis = models.TextField(blank=True, null=True)
-    story = models.ForeignKey('Story', blank=True, null=True,
+    story = models.ForeignKey('Story', blank=True, null=True, db_index=True,
                               on_delete=models.SET_NULL, related_name='previous_chapters')
     start_date = models.DateTimeField(blank=True, null=True)
     end_date = models.DateTimeField(blank=True, null=True)
@@ -192,12 +196,12 @@ class Chapter(models.Model):
 
 
 class Episode(models.Model):
-    name = models.CharField(blank=True, null=True, max_length=255)
+    name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
     chapter = models.ForeignKey('Chapter', blank=True, null=True,
-                                on_delete=models.SET_NULL, related_name='episodes')
+                                on_delete=models.SET_NULL, related_name='episodes', db_index=True)
     synopsis = models.TextField(blank=True, null=True)
     gm_notes = models.TextField(blank=True, null=True)
-    date = models.DateTimeField(blank=True, null=True)
+    date = models.DateTimeField(blank=True, null=True, db_index=True)
 
     def __str__(self):
         return self.name or "Episode object"
@@ -264,12 +268,21 @@ class PlayerAccount(models.Model):
 
 
 class AccountHistory(models.Model):
-    account = models.ForeignKey('PlayerAccount')
-    entry = models.ForeignKey('RosterEntry')
+    account = models.ForeignKey('PlayerAccount', db_index=True)
+    entry = models.ForeignKey('RosterEntry', db_index=True)
     xp_earned = models.SmallIntegerField(default=0, blank=0)
     gm_notes = models.TextField(blank=True, null=True)
-    start_date = models.DateTimeField(blank=True, null=True)
-    end_date = models.DateTimeField(blank=True, null=True)
+    start_date = models.DateTimeField(blank=True, null=True, db_index=True)
+    end_date = models.DateTimeField(blank=True, null=True, db_index=True)
+
+    def __str__(self):
+        start = ""
+        end = ""
+        if self.start_date:
+            start = self.start_date.strftime("%x")
+        if self.end_date:
+            end = self.end_date.strftime("%x")
+        return "%s playing %s from %s to %s" % (self.account, self.entry, start, end)
 
 
 class RPScene(models.Model):
@@ -309,14 +322,14 @@ class RPScene(models.Model):
 
 
 class Mystery(models.Model):
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, db_index=True)
     desc = models.TextField("Description", help_text="Description of the mystery given to the player " +
                                                      "when fully revealed",
                             blank=True)
     category = models.CharField(help_text="Type of mystery this is - ability-related, metaplot, etc", max_length=80,
                                 blank=True)
     characters = models.ManyToManyField('RosterEntry', blank=True, through='MysteryDiscovery',
-                                        through_fields=('mystery', 'character'))
+                                        through_fields=('mystery', 'character'), db_index=True)
 
     class Meta:
         verbose_name_plural = "Mysteries"
@@ -326,7 +339,7 @@ class Mystery(models.Model):
 
 
 class Revelation(models.Model):
-    name = models.CharField(max_length=255, blank=True)
+    name = models.CharField(max_length=255, blank=True, db_index=True)
     desc = models.TextField("Description", help_text="Description of the revelation given to the player",
                             blank=True)
     mysteries = models.ManyToManyField("Mystery", through='RevelationForMystery')
@@ -336,7 +349,7 @@ class Revelation(models.Model):
     
     red_herring = models.BooleanField(default=False, help_text="Whether this revelation is totally fake")
     characters = models.ManyToManyField('RosterEntry', blank=True, through='RevelationDiscovery',
-                                        through_fields=('revelation', 'character'))
+                                        through_fields=('revelation', 'character'), db_index=True)
 
     def __str__(self):
         return self.name
@@ -350,12 +363,13 @@ class Revelation(models.Model):
 
 
 class Clue(models.Model):
-    name = models.CharField(max_length=255, blank=True)
-    rating = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Value required to get this clue")
+    name = models.CharField(max_length=255, blank=True, db_index=True)
+    rating = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Value required to get this clue",
+                                              db_index=True)
     desc = models.TextField("Description", help_text="Description of the clue given to the player",
                             blank=True)
-    revelations = models.ManyToManyField("Revelation", through='ClueForRevelation')
-    characters = models.ManyToManyField('RosterEntry', blank=True, through='ClueDiscovery',
+    revelations = models.ManyToManyField("Revelation", through='ClueForRevelation', db_index=True)
+    characters = models.ManyToManyField('RosterEntry', blank=True, through='ClueDiscovery', db_index=True,
                                         through_fields=('clue', 'character'))
     red_herring = models.BooleanField(default=False, help_text="Whether this revelation is totally fake")
     allow_investigation = models.BooleanField(default=False, help_text="Can be gained through investigation rolls")
@@ -373,26 +387,34 @@ class Clue(models.Model):
 
 
 class MysteryDiscovery(models.Model):
-    character = models.ForeignKey('RosterEntry', related_name="mysteries") 
-    mystery = models.ForeignKey('Mystery', related_name="discoveries")
+    character = models.ForeignKey('RosterEntry', related_name="mysteries", db_index=True)
+    mystery = models.ForeignKey('Mystery', related_name="discoveries", db_index=True)
     investigation = models.ForeignKey('Investigation', blank=True, null=True, related_name="mysteries")
     message = models.TextField(blank=True, help_text="Message for the player's records about how they discovered this.")
     date = models.DateTimeField(blank=True, null=True)
     milestone = models.OneToOneField('Milestone', related_name="mystery", blank=True, null=True)
+
+    class Meta:
+        unique_together = ('character', 'mystery')
+        verbose_name_plural = "Mystery Discoveries"
 
     def __str__(self):
         return "%s's discovery of %s" % (self.character, self.mystery)
 
 
 class RevelationDiscovery(models.Model):
-    character = models.ForeignKey('RosterEntry', related_name="revelations") 
-    revelation = models.ForeignKey('Revelation', related_name="discoveries")
+    character = models.ForeignKey('RosterEntry', related_name="revelations", db_index=True)
+    revelation = models.ForeignKey('Revelation', related_name="discoveries", db_index=True)
     investigation = models.ForeignKey('Investigation', blank=True, null=True, related_name="revelations")
     message = models.TextField(blank=True, help_text="Message for the player's records about how they discovered this.")
     date = models.DateTimeField(blank=True, null=True)
     milestone = models.OneToOneField('Milestone', related_name="revelation", blank=True, null=True)
     discovery_method = models.CharField(help_text="How this was discovered - exploration, trauma, etc", max_length=255)
     revealed_by = models.ForeignKey('RosterEntry', related_name="revelations_spoiled", blank=True, null=True)
+
+    class Meta:
+        unique_together = ('character', 'revelation')
+        verbose_name_plural = "Revelation Discoveries"
 
     def check_mystery_discovery(self):
         """
@@ -425,8 +447,8 @@ class RevelationDiscovery(models.Model):
 
 
 class RevelationForMystery(models.Model):
-    mystery = models.ForeignKey('Mystery', related_name="revelations_used")
-    revelation = models.ForeignKey('Revelation', related_name="usage")
+    mystery = models.ForeignKey('Mystery', related_name="revelations_used", db_index=True)
+    revelation = models.ForeignKey('Revelation', related_name="usage", db_index=True)
     required_for_mystery = models.BooleanField(default=True, help_text="Whether this must be discovered for the" +
                                                                        " mystery to finish")
     tier = models.PositiveSmallIntegerField(default=0, blank=0,
@@ -438,23 +460,26 @@ class RevelationForMystery(models.Model):
 
 
 class ClueDiscovery(models.Model):
-    clue = models.ForeignKey('Clue', related_name="discoveries")
-    character = models.ForeignKey('RosterEntry', related_name="clues")
-    investigation = models.ForeignKey('Investigation', blank=True, null=True, related_name="clues")
+    clue = models.ForeignKey('Clue', related_name="discoveries", db_index=True)
+    character = models.ForeignKey('RosterEntry', related_name="clues", db_index=True)
+    investigation = models.ForeignKey('Investigation', blank=True, null=True, related_name="clues", db_index=True)
     message = models.TextField(blank=True, help_text="Message for the player's records about how they discovered this.")
     date = models.DateTimeField(blank=True, null=True)
     milestone = models.OneToOneField('Milestone', related_name="clue", blank=True, null=True)
     discovery_method = models.CharField(help_text="How this was discovered - exploration, trauma, etc", max_length=255)
-    roll = models.PositiveSmallIntegerField(default=0, blank=0)
-    revealed_by = models.ForeignKey('RosterEntry', related_name="clues_spoiled", blank=True, null=True)
+    roll = models.PositiveSmallIntegerField(default=0, blank=0, db_index=True)
+    revealed_by = models.ForeignKey('RosterEntry', related_name="clues_spoiled", blank=True, null=True, db_index=True)
+
+    class Meta:
+        verbose_name_plural = "Clue Discoveries"
 
     @property
     def name(self):
         return self.clue.name
-    
+
     @property
     def finished(self):
-        return self.roll >= self.clue.rating
+        return self.roll >= (self.clue.rating * DISCO_MULT)
 
     def display(self):
         if not self.finished:
@@ -463,6 +488,9 @@ class ClueDiscovery(models.Model):
         msg += self.clue.desc + "\n"
         if self.message:
             msg += "\n" + self.message
+        shared = self.shared_with
+        if shared:
+            msg += "\n{wShared with{n: %s" % ", ".join(str(ob) for ob in shared)
         return msg
 
     def check_revelation_discovery(self):
@@ -492,7 +520,7 @@ class ClueDiscovery(models.Model):
     @property
     def progress_percentage(self):
         try:
-            return int((float(self.roll)/float(self.clue.rating)) * 100)
+            return int((float(self.roll) / float(self.clue.rating * DISCO_MULT)) * 100)
         except (AttributeError, TypeError, ValueError, ZeroDivisionError):
             return 0
 
@@ -507,10 +535,17 @@ class ClueDiscovery(models.Model):
             targ_clue = entry.clues.get(clue=self.clue)
         except ClueDiscovery.DoesNotExist:
             targ_clue = entry.clues.create(clue=self.clue)
+        except ClueDiscovery.MultipleObjectsReturned:
+            clues = entry.clues.filter(clue=self.clue).order_by('-roll')
+            targ_clue = clues[0]
+            for clue in clues:
+                if clue != targ_clue:
+                    clue.delete()
         if targ_clue in entry.finished_clues:
             entry.player.send_or_queue_msg("%s tried to share the clue %s with you, but you already know that." % (
                 self.character, self.name))
-            return
+            return False
+        entry.investigations.filter(clue_target=self.clue).update(clue_target=None)
         targ_clue.roll += self.roll
         targ_clue.discovery_method = "Sharing"
         targ_clue.message = "This clue was shared to you by %s." % self.character
@@ -535,11 +570,17 @@ class ClueDiscovery(models.Model):
                                                 message=message,
                                                 mystery=mystery, date=datetime.now())
         pc.inform(msg, category="Investigations", append=False)
+        return True
+
+    @property
+    def shared_with(self):
+        spoiled = self.character.clues_spoiled.filter(clue=self.clue)
+        return RosterEntry.objects.filter(clues__in=spoiled)
 
 
 class ClueForRevelation(models.Model):
-    clue = models.ForeignKey('Clue', related_name="usage")
-    revelation = models.ForeignKey('Revelation', related_name="clues_used")
+    clue = models.ForeignKey('Clue', related_name="usage", db_index=True)
+    revelation = models.ForeignKey('Revelation', related_name="clues_used", db_index=True)
     required_for_revelation = models.BooleanField(default=True, help_text="Whether this must be discovered for " +
                                                                           "the revelation to finish")
     tier = models.PositiveSmallIntegerField(default=0, blank=0,
@@ -552,8 +593,8 @@ class ClueForRevelation(models.Model):
 
 class InvestigationAssistant(models.Model):
     currently_helping = models.BooleanField(default=True, help_text="Whether they're currently helping out")
-    investigation = models.ForeignKey('Investigation', related_name="assistants")
-    char = models.ForeignKey('objects.ObjectDB', related_name="assisted_investigations")
+    investigation = models.ForeignKey('Investigation', related_name="assistants", db_index=True)
+    char = models.ForeignKey('objects.ObjectDB', related_name="assisted_investigations", db_index=True)
     stat_used = models.CharField(blank=True, max_length=80, default="perception",
                                  help_text="The stat the player chose to use")
     skill_used = models.CharField(blank=True, max_length=80, default="investigation",
@@ -573,10 +614,12 @@ class InvestigationAssistant(models.Model):
         
 
 class Investigation(models.Model):
-    character = models.ForeignKey('RosterEntry', related_name="investigations")
-    ongoing = models.BooleanField(default=True, help_text="Whether this investigation is finished or not")
-    active = models.BooleanField(default=False, help_text="Whether this is the investigation for the week. " +
-                                                          "Only one allowed")
+    UNSET_ROLL = -9999
+    character = models.ForeignKey('RosterEntry', related_name="investigations", db_index=True)
+    ongoing = models.BooleanField(default=True, help_text="Whether this investigation is finished or not",
+                                  db_index=True)
+    active = models.BooleanField(default=False, db_index=True, help_text="Whether this is the investigation for the" +
+                                                                         " week. Only one allowed")
     automate_result = models.BooleanField(default=True, help_text="Whether to generate a result during weekly " +
                                                                   "maintenance. Set false if GM'd")
     results = models.TextField(default="You didn't find anything.", blank=True,
@@ -596,6 +639,9 @@ class Investigation(models.Model):
                                                 help_text="Additional military resources added by the player")
     social = models.PositiveSmallIntegerField(default=0, blank=0,
                                               help_text="Additional social resources added by the player")
+    action_points = models.PositiveSmallIntegerField(default=0, blank=0,
+                                                     help_text="How many action points spent by player/assistants.")
+    roll = models.SmallIntegerField(default=UNSET_ROLL, blank=True, help_text="Current roll for investigation.")
 
     def __str__(self):
         return "%s's investigation on %s" % (self.character, self.topic)
@@ -609,7 +655,8 @@ class Investigation(models.Model):
         msg += "{wStat used{n: %s\n" % self.stat_used
         msg += "{wSkill used{n: %s\n" % self.skill_used
         for assistant in self.active_assistants:
-            msg += "{wAssistant:{n %s {wActions:{n %s\n" % (assistant.char, assistant.actions)
+            msg += "{wAssistant:{n %s {wStat:{n %s {wSkill:{n %s {wActions:{n %s\n" % (
+                assistant.char, assistant.stat_used, assistant.skill_used, assistant.actions)
         return msg
 
     def gm_display(self):
@@ -622,6 +669,7 @@ class Investigation(models.Model):
         msg += "{wEconomic Used{n %s\n" % self.economic
         msg += "{wMilitary Used{n %s\n" % self.military
         msg += "{wSocial Used{n %s\n" % self.social
+        msg += "{wAction Points Used{n: %s\n" % self.action_points
         return msg
 
     @property
@@ -639,12 +687,12 @@ class Investigation(models.Model):
         assistants and returns a dice roll based on its character,
         and the stats/skills used by that investigation or assistant.
         """
-        stat = obj.stat_used or "perception"
+        stat = obj.stat_used or "wits"
         stat = stat.lower()
         skill = obj.skill_used or "investigation"
         skill = skill.lower()
-        roll = do_dice_check(obj.char, stat_list=[stat, "perception"], skill_list=[skill, "investigation"],
-                             difficulty=diff, average_lists=True)
+        roll = do_dice_check(obj.char, stat_list=[stat, "perception", "intellect"], skill_list=[skill, "investigation"],
+                             difficulty=diff, average_skill_list=True)
         return roll
     
     def do_roll(self, mod=0, diff=None):
@@ -654,18 +702,19 @@ class Investigation(models.Model):
         diff = (diff if diff is not None else self.difficulty) + mod
         roll = self.do_obj_roll(self, diff)
         for ass in self.active_assistants:
-            a_roll = self.do_obj_roll(ass, diff)
+            a_roll = self.do_obj_roll(ass, diff - 20)
             if a_roll < 0:
                 a_roll = 0
             try:
                 ability_level = ass.char.db.abilities['investigation_assistant']
-            except (AttributeError, ValueError, KeyError):
+            except (AttributeError, ValueError, KeyError, TypeError):
                 ability_level = 0
             a_roll += random.randint(0, 5) * ability_level
             roll += a_roll
         # save the character's roll
         print("final roll is %s" % roll)
         self.roll = roll
+        self.save()
         return roll
 
     @property
@@ -681,19 +730,18 @@ class Investigation(models.Model):
         if res_mod > 60:
             res_mod = 60
         mod += res_mod
+        mod += self.action_points/5
         return mod
 
-    def _get_roll(self):
-        char = self.char
-        try:
-            return int(char.db.investigation_roll)
-        except (ValueError, TypeError):
+    def get_roll(self):
+        if self.roll == self.UNSET_ROLL:
             return self.do_roll()
-        
-    def _set_roll(self, value):
-        char = self.char
-        char.db.investigation_roll = int(value)
-    roll = property(_get_roll, _set_roll)
+        return self.roll
+    #
+    # def _set_roll(self, value):
+    #     char = self.char
+    #     char.db.investigation_roll = int(value)
+    # roll = property(_get_roll, _set_roll)
     
     @property
     def difficulty(self):
@@ -702,16 +750,16 @@ class Investigation(models.Model):
         we're trying to uncover.
         """
         if not self.automate_result or not self.targeted_clue:
-            base = 30  # base difficulty for things without clues
+            base = 40  # base difficulty for things without clues
         else:
-            base = self.targeted_clue.rating
+            base = self.targeted_clue.rating + 20
         return base - self.resource_mod
 
     @property
     def completion_value(self):
         if not self.targeted_clue:
             return 30
-        return self.targeted_clue.rating
+        return self.targeted_clue.rating * DISCO_MULT
     
     def check_success(self, modifier=0, diff=None):
         """
@@ -720,18 +768,19 @@ class Investigation(models.Model):
         want to find a targeted clue and generate our difficulty based
         on that.
         """
+        roll = self.get_roll()
         if diff is not None:
-            return (self.roll + self.progress) >= (diff + modifier)
-        return (self.roll + self.progress) >= self.completion_value
+            return (roll + self.progress) >= (diff + modifier)
+        return (roll + self.progress) >= self.completion_value
 
     def process_events(self):
         self.generate_result()
-        self.use_resources()
+        # self.use_resources()
         # wipe the stale roll
         self.char.attributes.remove("investigation_roll")
         msg = "Your investigation into '%s' has had the following result:\n" % self.topic
         msg += self.results
-        self.character.player.inform(msg, category="Investigations")
+        self.character.player.inform(msg, category="Investigations", append=False)
 
     def generate_result(self):
         """
@@ -750,7 +799,7 @@ class Investigation(models.Model):
                     self.results += "but you keep on finding mention of '%s' in your search." % kw
             else:
                 # add a valid clue and update results string
-                roll = self.roll
+                roll = self.get_roll()
                 try:
                     clue = self.clues.get(clue=self.targeted_clue, character=self.character)
                 except ClueDiscovery.DoesNotExist:                    
@@ -783,7 +832,6 @@ class Investigation(models.Model):
                                                         mystery=mystery, date=datetime.now())
                 # we found a clue, so this investigation is done.
                 self.clue_target = None
-                self.active = False
                 self.ongoing = False
                 for ass in self.active_assistants:
                     # noinspection PyBroadException
@@ -881,6 +929,13 @@ class Investigation(models.Model):
         except ClueDiscovery.DoesNotExist:
             return 0
 
+    @property
+    def goal(self):
+        try:
+            return self.targeted_clue.rating * DISCO_MULT
+        except (Clue.DoesNotExist, AttributeError):
+            return 0
+
     def add_progress(self):
         if not self.targeted_clue:
             return
@@ -927,9 +982,10 @@ class Theory(models.Model):
     creator = models.ForeignKey("players.PlayerDB", related_name="created_theories", blank=True, null=True,
                                 db_index=True)
     known_by = models.ManyToManyField("players.PlayerDB", related_name="known_theories", blank=True, null=True)
+    can_edit = models.ManyToManyField("players.PlayerDB", related_name="editable_theories", blank=True, null=True)
     topic = models.CharField(max_length=255, blank=True, null=True)
     desc = models.TextField(blank=True, null=True)
-    related_clues = models.ManyToManyField("Clue", related_name="theories", blank=True, null=True)
+    related_clues = models.ManyToManyField("Clue", related_name="theories", blank=True, null=True, db_index=True)
     related_theories = models.ManyToManyField("self", blank=True)
 
     class Meta:
@@ -941,6 +997,7 @@ class Theory(models.Model):
 
     def display(self):
         msg = "\n{wCreator{n: %s\n" % self.creator
+        msg += "{wCan edit:{n %s\n" % ", ".join(str(ob) for ob in self.can_edit.all())
         msg += "{wTopic{n: %s\n" % self.topic
         msg += "{wDesc{n: %s\n" % self.desc
         msg += "{wRelated Theories{n: %s\n" % ", ".join(str(ob.id) for ob in self.related_theories.all())

@@ -135,12 +135,7 @@ class Player(MsgMixins, DefaultPlayer):
         if self.db.new_comments:
             self.msg("{wYou have new comments.{n")
         self.db.afk = ""
-        try:
-            unread = self.informs.filter(is_unread=True).count()
-            if unread:
-                self.msg("{w*** You have %s unread informs. Use @informs to read them. ***{n" % unread)
-        except Exception:
-            pass
+        self.announce_informs()
         pending = self.db.pending_messages or []
         for msg in pending:
             self.msg(msg, options={'box': True})
@@ -167,6 +162,15 @@ class Player(MsgMixins, DefaultPlayer):
                 except Roster.DoesNotExist:
                     pass
         except AttributeError:
+            pass
+
+    # noinspection PyBroadException
+    def announce_informs(self):
+        try:
+            unread = self.informs.filter(is_unread=True).count()
+            if unread:
+                self.msg("{w*** You have %s unread informs. Use @informs to read them. ***{n" % unread)
+        except Exception:
             pass
 
     def is_guest(self):
@@ -277,6 +281,26 @@ class Player(MsgMixins, DefaultPlayer):
             return amt
         return 0
 
+    def pay_action_points(self, amt):
+        """
+        Attempt to pay action points. If we don't have enough,
+        return False.
+        """
+        try:
+            if self.roster.action_points != self.db.char_ob.roster.action_points:
+                self.roster.refresh_from_db(fields=("action_points",))
+                self.db.char_ob.roster.refresh_from_db(fields=("action_points",))
+            if self.roster.action_points < amt:
+                return False
+            self.roster.action_points -= amt
+            self.roster.save()
+            self.msg("{wYou use %s action points and have %s remaining this week.{n" % (amt, self.roster.action_points))
+            # force refresh in inventory command next time it's used to be sure values sync up
+            self.db.char_ob.ndb.stale_ap = True
+            return True
+        except AttributeError:
+            return False
+
     @property
     def retainers(self):
         try:
@@ -291,14 +315,20 @@ class Player(MsgMixins, DefaultPlayer):
             pass
 
     def at_post_disconnect(self):
-        watched_by = self.db.char_ob and self.db.char_ob.db.watched_by or []
-        if not watched_by:
-            return
-        if not self.db.hide_from_watch:
-            for watcher in watched_by:
-                watcher.msg("{wA player you are watching, {c%s{w, has disconnected.{n" % self.key.capitalize())
-        self.previous_log = self.current_log
-        self.current_log = []
+        if not self.sessions.all():
+            watched_by = self.db.char_ob and self.db.char_ob.db.watched_by or []
+            if not watched_by:
+                return
+            if not self.db.hide_from_watch:
+                for watcher in watched_by:
+                    watcher.msg("{wA player you are watching, {c%s{w, has disconnected.{n" % self.key.capitalize())
+            self.previous_log = self.current_log
+            self.current_log = []
+            self.db.lookingforrp = False
+            temp_muted = self.db.temp_mute_list or []
+            for channel in temp_muted:
+                channel.unmute(self)
+            self.attributes.remove('temp_mute_list')
 
     def log_message(self, from_obj, text):
         from evennia.utils.utils import make_iter
@@ -349,6 +379,28 @@ class Player(MsgMixins, DefaultPlayer):
 
     @property
     def allow_list(self):
-        if not self.db.allow_list:
+        if self.db.allow_list is None:
             self.db.allow_list = []
         return self.db.allow_list
+    
+    @property
+    def block_list(self):
+        if self.db.block_list is None:
+            self.db.block_list = []
+        return self.db.block_list
+
+    @property
+    def clues_shared_modifier_seed(self):
+        from world.stats_and_skills import SOCIAL_SKILLS, SOCIAL_STATS
+        seed = 0
+        pc = self.db.char_ob
+        for stat in SOCIAL_STATS:
+            seed += pc.attributes.get(stat) or 0
+        # do not be nervous. I love you. <3
+        seed += sum([pc.db.skills.get(ob, 0) for ob in SOCIAL_SKILLS])
+        seed += pc.db.skills.get("investigation", 0) * 3
+        return seed
+
+    @property
+    def clue_cost(self):
+        return int(100.0/float(self.clues_shared_modifier_seed + 1)) + 1

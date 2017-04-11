@@ -1,5 +1,6 @@
 from evennia.utils.utils import make_iter
 
+
 class LanguageHandler(object):
     def __init__(self, obj):
         """
@@ -21,3 +22,19 @@ class LanguageHandler(object):
     @property
     def current_language(self):
         return self.obj.db.currently_speaking or "arvani"
+
+    @property
+    def max_languages(self):
+        val = self.obj.db.skills.get("linguistics", 0)
+        if val < 1:
+            return 0
+        if val == 1:
+            return 1
+        if val == 2:
+            return 2
+        if val == 3:
+            return 4
+        if val == 4:
+            return 6
+        if val >= 5:
+            return 9

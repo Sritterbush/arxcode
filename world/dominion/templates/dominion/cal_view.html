@@ -2,13 +2,18 @@
 {% load app_filters %}
 {% block content %}
   <div class="container">
-  <h1 class="text-center">{{ object.name }}</h1>
+  <h1 class="text-center">{{ object.name|mush_to_html }}</h1>
   <div class="well">{{ object.desc|mush_to_html }}</div>
   <h2 class="text-center">Date</h2> <p class="text-center">{{object.date}}</p>
   <h2 class="text-center">Hosted By</h2> <p class="text-center">{% for obj in object.hosts.all %}
       {% if obj.get_absolute_url %}<a href="{{ obj.get_absolute_url }}">{{ obj }}</a>{% else %}{{ obj }}
       {% endif %}
   {% endfor %}</p>
+  {% if object.gms.all %}
+      <h2 class="text-center">GM'd By</h2> <p class="text-center">{% for obj in object.gms.all %}
+  {% if obj.get_absolute_url %}<a href="{{ obj.get_absolute_url }}">{{ obj }}</a>{% else %}{{ obj }}
+      {% endif %}{% endfor %}</p>
+  {% endif %}
   <h2 class="text-center">Participants</h2> <p class="text-center">{% for obj in object.participants.all %}
       {% if obj.get_absolute_url %}<a href="{{ obj.get_absolute_url }}">{{ obj }}</a>{% else %}{{ obj }}
       {% endif %}
