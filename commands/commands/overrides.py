@@ -545,7 +545,7 @@ class CmdEmit(MuxCommand):
         if normal_emit:
             gms = [ob for ob in caller.location.contents if ob.check_permstring('builders')]
             non_gms = [ob for ob in caller.location.contents if "emit_label" in ob.tags.all() and ob.player]
-            gm_msg = "{w[Emit by: {c%s{w]{n %s" % (caller.name, message)
+            gm_msg = "{w[{c%s{w]{n %s" % (caller.name, message)
             caller.location.msg_contents(gm_msg, from_obj=caller, options={'is_pose': True}, gm_msg=True)
             for ob in non_gms:
                 ob.msg(gm_msg, from_obj=caller, options={'is_pose': True})
