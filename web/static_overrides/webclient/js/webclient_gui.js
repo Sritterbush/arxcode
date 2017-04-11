@@ -271,6 +271,7 @@ function onText(args, kwargs) {
               scrollTop: mwin.prop('scrollHeight')
           }, 0);
         }
+        onNewLine(args[0], null);
     } else {
         openPopup(renderto, args[0]);
     }
