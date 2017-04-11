@@ -262,11 +262,15 @@ function onText(args, kwargs) {
     if (renderto == "main") {
         var mwin = $("#messagewindow");
         var cls = kwargs == null ? 'out' : kwargs['cls'];
+        var total = mwin.prop('scrollHeight');
+        var current = mwin.scrollTop() + mwin.prop('clientHeight');
         mwin.append("<div class='" + cls + "'>" + args[0] + "</div>");
-        mwin.animate({
-            scrollTop: document.getElementById("messagewindow").scrollHeight
-        }, 0);
 
+        if (current === total) {
+          mwin.animate({
+              scrollTop: mwin.prop('scrollHeight')
+          }, 0);
+        }
         onNewLine(args[0], null);
     } else {
         openPopup(renderto, args[0]);
