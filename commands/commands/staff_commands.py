@@ -952,6 +952,8 @@ class CmdGMNotes(MuxPlayerCommand):
         @gmnotes/tag <character>=<type>
         @gmnotes/rmtag <character>=<type>
         @gmnotes/set <character>=<notes>
+        @gmnotes/no_gming
+        @gmnotes/search/all
     """
     key = "@gmnotes"
     aliases = ["@gmnote"]
@@ -961,15 +963,28 @@ class CmdGMNotes(MuxPlayerCommand):
     def list_all_tags(self):
         from evennia.utils.evtable import EvTable
         from evennia.utils.utils import crop
+        from server.utils import arx_more
         table = EvTable("{wCharacter{n", "{wType{n", "{wDesc{n", width=78, border="cells")
         chars = Character.objects.filter(db_tags__db_category="gmnotes").distinct()
+        if "all" not in self.switches:
+            chars = chars.filter(roster__roster__name="Active")
         if self.args:
             chars = chars.filter(db_tags__db_key__iexact=self.args).distinct()
         for character in chars:
             desc = character.db.gm_notes or ""
             desc = crop(desc, width=40)
             table.add_row(character.key, str(character.tags.get(category="gmnotes")), desc)
-        self.msg(table)
+        arx_more.msg(self.caller, str(table), justify_kwargs=False)
+
+    def list_no_gming(self):
+        from datetime import datetime, timedelta
+        date = datetime.now() - timedelta(days=7)
+        chars = Character.objects.filter(roster__player__last_login__gte=date, roster__roster__name="Active").exclude(
+            receiver_object_set__db_tags__db_key__iexact="visions").exclude(
+            roster__player__Dominion__events_attended__gm_event=True)
+        msg = "{wCharacters who have never received a vision nor attended a GM event that have logged in the last "
+        msg += "seven days:{n %s" % ", ".join(ob.key for ob in chars)
+        self.msg(msg)
 
     def view_char(self):
         try:
@@ -981,6 +996,9 @@ class CmdGMNotes(MuxPlayerCommand):
         self.msg(char.db.gm_notes)
 
     def func(self):
+        if "no_gming" in self.switches:
+            self.list_no_gming()
+            return
         if not self.args or "search" in self.switches:
             self.list_all_tags()
             return
