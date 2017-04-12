@@ -1000,7 +1000,7 @@ class CombatHandler(object):
                     message += "%s is incapacitated from their wounds." % self
                     knock_uncon = True
                 # for PCs who were knocked unconscious this round
-                if not target.db.npc and not grace_period and not allow_one_shot:
+                if not target.is_npc and not grace_period and not allow_one_shot:
                     grace_period = True  # always a one round delay before you can kill a player
             # PC/NPC who was already unconscious before attack, or an NPC who was knocked unconscious by our attack
             if not grace_period:  # we are allowed to kill the character
