@@ -127,7 +127,7 @@ class ClueDiscoInline(admin.TabularInline):
 
 class ClueAdmin(BaseCharAdmin):
     list_display = ('id', 'name', 'rating', 'used_for')
-    search_fields = ('id', 'name', 'characters__character__db_key', 'revelations__name')
+    search_fields = ('id', 'name', 'characters__character__db_key', 'revelations__name', 'investigation_tags')
     inlines = (ClueForRevInline,)
 
     @staticmethod
