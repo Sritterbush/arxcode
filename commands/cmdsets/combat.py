@@ -231,7 +231,7 @@ class CmdProtect(MuxCommand):
         if not to_guard:
             caller.msg("Couldn't find anyone to guard.")
             return
-        if not to_guard.db.attackable:
+        if not to_guard.attackable:
             caller.msg("Your target is currently not attackable and " +
                        "does not need a guard.")
             return
@@ -286,7 +286,7 @@ def check_targ(caller, target, verb="Attack"):
     if not target:
         caller.msg("%s who?" % verb)
         return False
-    if not target.db.attackable:
+    if not target.attackable:
         caller.msg("%s is not attackable and cannot enter combat." % target.name)
         return False
     if target.combat.combat != caller.combat.combat:

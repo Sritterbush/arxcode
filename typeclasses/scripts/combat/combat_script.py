@@ -262,7 +262,7 @@ class CombatManager(BaseScript):
                     adata.add_foe(character)
             return "%s is already fighting." % character.key
         # check if attackable
-        if not character.db.attackable:
+        if not character.attackable:
             return "%s is not attackable." % character.key
         if character.location != self.obj:
             return "%s is not in the same room as the fight." % character.key

@@ -98,8 +98,6 @@ class Npc(Character):
         self.db.dice_string = "Default Dicestring"
         self.db.health_status = "alive"
         self.db.sleep_status = "awake"
-        self.db.attackable = True
-        self.db.npc = True
         self.db.automate_combat = True
         self.db.damage = 0
         self.at_init()
@@ -253,6 +251,10 @@ class Npc(Character):
             self.name = sing_name or plural_name or "#%s" % self.id
             self.desc = desc or get_npc_desc(ntype)
         self.setup_stats(ntype, threat)
+
+    @property
+    def is_npc(self):
+        return True
 
 
 class MultiNpc(Npc):

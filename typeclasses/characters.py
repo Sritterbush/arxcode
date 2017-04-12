@@ -54,7 +54,6 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         self.db.dice_string = "Default Dicestring"
         self.db.health_status = "alive"
         self.db.sleep_status = "awake"
-        self.db.attackable = True
         self.db.skills = {}
         self.db.abilities = {}
         self.at_init()
@@ -823,3 +822,11 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     def titles(self):
         full_titles = self.db.titles or []
         return ", ".join(str(ob) for ob in full_titles)
+
+    @property
+    def is_npc(self):
+        return self.tags.get("npc")
+
+    @property
+    def attackable(self):
+        return "unattackable" not in self.tags.all()
