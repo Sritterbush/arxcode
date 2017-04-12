@@ -161,6 +161,10 @@ class Player(MsgMixins, DefaultPlayer):
                     self.roster.save()
                 except Roster.DoesNotExist:
                     pass
+            watched_by = self.db.char_ob.db.watched_by or []
+            if self.sessions.count() == 1 and not self.db.hide_from_watch:
+                for watcher in watched_by:
+                    watcher.msg("{wA player you are watching, {c%s{w, has connected.{n" % self)
         except AttributeError:
             pass
 
