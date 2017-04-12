@@ -25,7 +25,7 @@
             <h2> Written By {% if obj.senders.0.get_absolute_url %}
             <a href="{{ obj.senders.0.get_absolute_url }}">{{ obj.senders.0.key }}</a>
                 {% else %}{{ obj.senders.0.key }}{% endif %}{% if "black_journal" in obj.tags.all %} in Black Journal{% endif %}</h2>
-            <p class="newsDate">{{obj.db_date_created}}</p>
+            <p class="newsDate">{{obj.db_date_created}}({{ obj.db_header|date_from_header }})</p>
             {% if obj.db_receivers_objects.all.0 %}
                 <h2> Relationship Note on {% if obj.db_receivers_objects.all.0.get_absolute_url %}
             <a href="{{ obj.db_receivers_objects.all.0.get_absolute_url }}">{{ obj.db_receivers_objects.all.0.key }}</a>
