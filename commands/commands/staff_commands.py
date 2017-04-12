@@ -981,7 +981,8 @@ class CmdGMNotes(MuxPlayerCommand):
         date = datetime.now() - timedelta(days=7)
         chars = Character.objects.filter(roster__player__last_login__gte=date, roster__roster__name="Active").exclude(
             receiver_object_set__db_tags__db_key__iexact="visions").exclude(
-            roster__player__Dominion__events_attended__gm_event=True)
+            roster__player__Dominion__events_attended__gm_event=True).exclude(
+            roster__current_account__characters__player__is_staff=True)
         msg = "{wCharacters who have never received a vision nor attended a GM event that have logged in the last "
         msg += "seven days:{n %s" % ", ".join(ob.key for ob in chars)
         self.msg(msg)
