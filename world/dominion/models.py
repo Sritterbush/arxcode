@@ -1646,6 +1646,7 @@ class CrisisAction(models.Model):
     week = models.PositiveSmallIntegerField(default=0, blank=0, db_index=True)
     dompc = models.ForeignKey("PlayerOrNpc", db_index=True, blank=True, null=True, related_name="actions")
     action = models.TextField("What actions the player is taking", blank=True)
+    secret_action = models.TextField("Secret actions the player is taking", blank=True)
     crisis = models.ForeignKey("Crisis", db_index=True, blank=True, null=True, related_name="actions")
     update = models.ForeignKey("CrisisUpdate", db_index=True, blank=True, null=True, related_name="actions")
     public = models.BooleanField(default=True, blank=True)
@@ -1656,6 +1657,13 @@ class CrisisAction(models.Model):
     sent = models.BooleanField(default=False, blank=True)
     assistants = models.ManyToManyField("PlayerOrNpc", blank=True, null=True, through="CrisisActionAssistant",
                                         related_name="assisted_actions")
+    silver = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Additional silver added by the player")
+    economic = models.PositiveSmallIntegerField(default=0, blank=0,
+                                                help_text="Additional economic resources added by the player")
+    military = models.PositiveSmallIntegerField(default=0, blank=0,
+                                                help_text="Additional military resources added by the player")
+    social = models.PositiveSmallIntegerField(default=0, blank=0,
+                                              help_text="Additional social resources added by the player")
 
     def send(self, update):
         msg = "{wGM Response to action for crisis:{n %s" % self.crisis
@@ -1676,12 +1684,31 @@ class CrisisAction(models.Model):
             msg += "\n{c%s{n's assisting action: %s" % (ob.dompc, ob.action)
         return msg
 
+    def check_view_secret(self, caller):
+        if not caller:
+            return
+        if caller.check_permstring("builders"):
+            return True
+        if caller == self.dompc.player:
+            return True
+        try:
+            ass = self.assisting_actions.get(dompc=caller.Dominion)
+            return ass.can_see_secret
+        except CrisisActionAssistant.DoesNotExist:
+            return
+
     def view_action(self, caller=None, disp_pending=True, disp_old=False):
         if not self.public and (not caller or (not caller.check_permstring("builders")
                                 and caller != self.dompc.player and caller.Dominion not in self.assistants.all())):
             return ""
         msg = "\n{c%s's {wactions in week %s for {m%s{n" % (self.dompc, self.week, self.crisis)
         msg += self.action_text
+        if self.secret_action:
+            if self.check_view_secret(caller):
+                msg += "\n{c%s's {wsecret actions:{n %s" % (self.dompc, self.secret_action)
+            for ob in self.assisting_actions.all():
+                if ob.secret_action and ob.check_view_secret(caller):
+                    msg += "\n{c%s's {wsecret actions:{n %s" % (ob.dompc, ob.secret_action)
         if self.sent:
             msg += "\n{wGM Notes:{n %s" % self.gm_notes
             msg += "\n{wRolls:{n %s" % self.rolls
@@ -1707,9 +1734,24 @@ class CrisisActionAssistant(models.Model):
     crisis_action = models.ForeignKey("CrisisAction", db_index=True, related_name="assisting_actions")
     dompc = models.ForeignKey("PlayerOrNpc", db_index=True, related_name="assisting_actions")
     action = models.TextField("What action the assistant is taking", blank=True)
+    secret_action = models.TextField("Secret action the assistant is taking", blank=True)
+    # whether the assistant can see any secret action of the owner
+    can_see_secret = models.BooleanField(default=False)
+    # whether the owner is allowed to see our own secret action
+    share_secret = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ('crisis_action', 'dompc')
+
+    def check_view_secret(self, caller):
+        if not caller:
+            return
+        if caller.check_permstring("builders"):
+            return True
+        if caller == self.dompc.player:
+            return True
+        if caller == self.crisis_action.dompc:
+            return self.share_secret
 
 
 class ActionOOCQuestion(models.Model):
@@ -2528,6 +2570,9 @@ class Orders(models.Model):
     ENFORCE_ORDER = 5
     BESIEGE = 6
     MARCH = 7
+    DEFEND = 8
+    PATROL = 9
+    ASSIST = 10
        
     ORDER_CHOICES = (
         (TRAIN, 'Troop Training'),
@@ -2536,20 +2581,35 @@ class Orders(models.Model):
         (CONQUER, 'Conquer Domain'),
         (ENFORCE_ORDER, 'Enforce Order'),
         (BESIEGE, 'Besiege Castle'),
-        (MARCH, 'March'),)
+        (MARCH, 'March'),
+        (DEFEND, 'Defend'),
+        (PATROL, 'Patrol'),
+        (ASSIST, 'Assist'),)
     army = models.ForeignKey("Army", related_name="orders", null=True, blank=True, db_index=True)
     target_domain = models.ForeignKey("Domain", related_name="incoming_attacks", null=True, blank=True, db_index=True)
     target_land = models.ForeignKey("Land", related_name="incoming_army", null=True, blank=True)
+    action = models.ForeignKey("CrisisAction", related_name="orders", null=True, blank=True, db_index=True)
+    # if we're assisting another army's orders
+    assisting = models.ForeignKey("self", related_name="assisting_orders", null=True, blank=True, db_index=True)
     type = models.PositiveSmallIntegerField(choices=ORDER_CHOICES, default=TRAIN)
     coin_cost = models.PositiveIntegerField(default=0, blank=0)
     food_cost = models.PositiveIntegerField(default=0, blank=0)
-    # the week this order was given, so we can keep it as a history
+    # If orders were given this week, they're still pending
     week = models.PositiveSmallIntegerField(default=0, blank=0)
     complete = models.BooleanField(default=False, blank=False)
 
     class Meta:
         """Define Django meta options"""
         verbose_name_plural = "Army Orders"
+
+    def calculate_cost(self):
+        """
+        Calculates cost for an action and assigns self.coin_cost
+        """
+        DIV = 100
+        costs = sum((ob.costs/DIV) + 1 for ob in self.units.all())
+        self.coin_cost = costs
+        self.save()
     
 
 class MilitaryUnit(models.Model):
@@ -2564,6 +2624,8 @@ class MilitaryUnit(models.Model):
     """
     commander = models.ForeignKey("Member", on_delete=models.SET_NULL, related_name="units", blank=True, null=True)
     army = models.ForeignKey("Army", related_name="units", blank=True, null=True, db_index=True)
+    orders = models.ForeignKey("Orders", related_name="units", on_delete=models.SET_NULL, blank=True, null=True,
+                               db_index=True)
     # type will be used to derive units and their stats elsewhere 
     unit_type = models.PositiveSmallIntegerField(default=0, blank=0)
     quantity = models.PositiveSmallIntegerField(default=1, blank=1)
