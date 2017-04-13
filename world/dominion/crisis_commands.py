@@ -188,10 +188,8 @@ class CmdCrisisAction(MuxPlayerCommand):
     Take action for a current crisis
 
     Usage:
-        +crisis
-        +crisis <#>
+        +crisis [#]
         +crisis/old <#>
-        
         +crisis/newaction <crisis #>=<action you are taking>
         +crisis/append <action #>=<additional text>
         +crisis/secret <action #>=<action you are taking>
@@ -199,7 +197,6 @@ class CmdCrisisAction(MuxPlayerCommand):
         +crisis/toggleview <action #>=<assistant>
         +crisis/cancel <action #>
         +crisis/invite <action #>=<player>
-        
         +crisis/assist <action #>=<action you are taking>
         +crisis/assist/append <action #>=<additional text>
         +crisis/assist/secret <action #>=<action you are taking>
@@ -207,8 +204,6 @@ class CmdCrisisAction(MuxPlayerCommand):
         +crisis/assist/toggleview <action #>
         +crisis/assist/cancel <action #>
         +crisis/decline <action #>
-        
-
         +crisis/viewaction <action #>
         +crisis/addpoints <action #>=<points to add>
         +crisis/addresource <action#>=<type>,<amount>
@@ -220,7 +215,6 @@ class CmdCrisisAction(MuxPlayerCommand):
     action can be added after an action is submitted, and /toggleview allows 
     individual assistants (or the action's owner) to see it. Togglepublic can
     keep the action from being publically listed.
-
     Crisis actions cost 50 action points.
     """
     key = "+crisis"
