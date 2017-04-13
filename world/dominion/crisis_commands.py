@@ -185,7 +185,7 @@ class CmdGMCrisis(MuxPlayerCommand):
 
 class CmdCrisisAction(MuxPlayerCommand):
     """
-    Take an action for a crisis
+    Take action for a current crisis
 
     Usage:
         +crisis
@@ -193,29 +193,31 @@ class CmdCrisisAction(MuxPlayerCommand):
         +crisis/old <#>
         
         +crisis/newaction <crisis #>=<action you are taking>
-        +crisis/append <action #>=<new text to add>
+        +crisis/append <action #>=<additional text>
         +crisis/secret <action #>=<action you are taking>
-        +crisis/secret/append <action #>=<new text to add>
+        +crisis/secret/append <action #>=<additional text>
         +crisis/cancel <action #>
         +crisis/invite <action #>=<player>
         
         +crisis/assist <action #>=<action you are taking>
-        +crisis/assist/append <action #>=<new text to add>
+        +crisis/assist/append <action #>=<additional text>
         +crisis/assist/secret <action #>=<action you are taking>
-        +crisis/assist/secret/append <action #>=<new text to add>
+        +crisis/assist/secret/append <action #>=<additional text>
         +crisis/assist/cancel <action #>
         +crisis/decline <action #>
         
+        +crisis/toggleview <action #>[=<assistant>]
         +crisis/viewaction <action #>
         +crisis/addpoints <action #>=<points to add>
         +crisis/addresource <action#>=<type>,<amount>
         +crisis/question <action #>=<question>
-        +crisis/togglesecret <action #>
+        +crisis/togglepublic <action #>
 
-    Takes an action for a given crisis that is currently going on.
-    Actions are queued in and then all simultaneously resolved by
-    GMs periodically. To view crises that have since been resolved,
-    use the /old switch.
+    Crisis actions are queued and simultaneously resolved by GMs periodically. 
+    To view crises that have since been resolved, use /old switch. A secret 
+    action can be added after an action is submitted, and /toggleview allows 
+    individual assistants (or the action's owner) to see it. Togglepublic can
+    keep the action from being publically listed.
 
     Crisis actions cost 50 action points.
     """
@@ -434,7 +436,7 @@ class CmdCrisisAction(MuxPlayerCommand):
         if not action:
             return
         if action.secret_action:
-            self.msg("You have unresolved secret actions. Use /secret/append instead.")
+            self.msg("You have unresolved secret actions. Use an append switch instead.")
             return
         action.secret_action = self.rhs
         action.save()
@@ -525,6 +527,31 @@ class CmdCrisisAction(MuxPlayerCommand):
         action.public = not action.public
         action.save()
         self.msg("Public status of action is now %s" % action.public)
+        
+    def toggle_secret_sharing(self):
+        action = self.get_action(get_all=True)
+        if not action:
+            return
+        if "assist" in self.switches:
+            try:
+                assist = action.assisting_actions.get(domc=self.caller.Dominion)
+                assist.share_secret = not assist.share_secret
+                assist.save()
+                self.msg("Your sharing of your secret action is set to %s" % assist.share_secret)
+            except CrisisActionAssistant.DoesNotExist:
+                self.msg("You are not assisting that action.")
+            return
+        try:
+            targ = self.caller.search(self.rhs)
+            if not targ:
+                return
+            assist = action.assisting_actions.get(dompc=targ.Dominion)
+            assist.can_see_secret = not assist.can_see_secret
+            assist.save()
+            self.msg("%s's ability to see your secret actions is now %s." % (targ, assist.can_see_secret))
+            return
+        except CrisisActionAssistant.DoesNotExist:
+            self.msg("No assistant for that action by that name.")
 
     def func(self):
         if not self.args and (not self.switches or "old" in self.switches):
@@ -548,8 +575,11 @@ class CmdCrisisAction(MuxPlayerCommand):
         if "append" in self.switches:
             self.append_action()
             return
-        if "togglesecret" in self.switches:
+        if "togglepublic" in self.switches:
             self.toggle_secret()
+            return
+        if "toggleview" in self.switches:
+            self.toggle_secret_sharing()
             return
         if "addpoints" in self.switches:
             self.add_action_points()
@@ -559,6 +589,9 @@ class CmdCrisisAction(MuxPlayerCommand):
             return
         if "invite" in self.switches:
             self.invite_assistant()
+            return
+        if "secret" in self.switches:
+            self.set_secret_action()
             return
         # banished assist to the bottom because it is a default thing
         if "assist" in self.switches:
@@ -578,8 +611,5 @@ class CmdCrisisAction(MuxPlayerCommand):
             else:
                 self.caller.attributes.remove("crisis_action_invitations")
             self.msg("Your remaining invitations: %s" % ", ".join(str(ob) for ob in invitations))
-            return
-        if "secret" in self.switches:
-            self.set_secret_action()
             return
         self.msg("Invalid switch")

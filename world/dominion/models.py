@@ -1715,7 +1715,8 @@ class CrisisAction(models.Model):
             msg += "\n{wOutcome Value:{n %s" % self.outcome_value
             msg += "\n{wStory:{n %s" % self.story
         else:
-            msg += "\n{wAdditional Action Points Spent:{n %s" % self.outcome_value
+            msg += "\n{wAdditional Action Points Spent:{n {c%s{n" % self.outcome_value
+            msg += "\n{wResources Being Used:{n {c%s{n silver, {c%s{n economic, {c%s{n military, {c%s{n social" % (self.silver, self.economic, self.military, self.social)
         if disp_pending:
             pend = self.questions.filter(answers__isnull=True)
             for ob in pend:
