@@ -817,7 +817,7 @@ class CombatHandler(object):
         character.msg("You have marked yourself as ready to proceed.")
         combat.ready_check()
         combat.build_status_table()
-        combat.display_phase_status(character)
+        combat.display_phase_status(character, disp_intro=False)
 
     def do_attack(self, target, attack_penalty=0, defense_penalty=0,
                   dmg_penalty=0, allow_botch=True, free_attack=False):
