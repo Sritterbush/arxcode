@@ -439,7 +439,8 @@ class CmdCrisisAction(MuxPlayerCommand):
         action.secret_action = self.rhs
         action.save()
         self.msg("Secret action created.")
-        inform_staff("%s adds a secret to action %s for crisis %s: %s" % (self.caller, action.id, action.crisis, self.rhs))
+        inform_staff("%s adds a secret to action %s for crisis %s: %s" % (self.caller, action.id, action.crisis,
+                                                                          self.rhs))
 
     def add_action_points(self):
         action = self.get_action(get_assisted=True)
