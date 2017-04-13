@@ -196,6 +196,7 @@ class CmdCrisisAction(MuxPlayerCommand):
         +crisis/append <action #>=<additional text>
         +crisis/secret <action #>=<action you are taking>
         +crisis/secret/append <action #>=<additional text>
+        +crisis/toggleview <action #>=<assistant>
         +crisis/cancel <action #>
         +crisis/invite <action #>=<player>
         
@@ -203,10 +204,11 @@ class CmdCrisisAction(MuxPlayerCommand):
         +crisis/assist/append <action #>=<additional text>
         +crisis/assist/secret <action #>=<action you are taking>
         +crisis/assist/secret/append <action #>=<additional text>
+        +crisis/assist/toggleview <action #>
         +crisis/assist/cancel <action #>
         +crisis/decline <action #>
         
-        +crisis/toggleview <action #>[=<assistant>]
+
         +crisis/viewaction <action #>
         +crisis/addpoints <action #>=<points to add>
         +crisis/addresource <action#>=<type>,<amount>
@@ -534,7 +536,7 @@ class CmdCrisisAction(MuxPlayerCommand):
             return
         if "assist" in self.switches:
             try:
-                assist = action.assisting_actions.get(domc=self.caller.Dominion)
+                assist = action
                 assist.share_secret = not assist.share_secret
                 assist.save()
                 self.msg("Your sharing of your secret action is set to %s" % assist.share_secret)

@@ -1754,6 +1754,10 @@ class CrisisActionAssistant(models.Model):
         if caller == self.crisis_action.dompc:
             return self.share_secret
 
+    @property
+    def crisis(self):
+        return self.crisis_action.crisis
+
 
 class ActionOOCQuestion(models.Model):
     """
