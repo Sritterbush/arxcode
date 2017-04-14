@@ -487,6 +487,10 @@ class CombatHandler(object):
             return
         if self.combat.ndb.phase != 2:
             return False
+        if not self.char.conscious:
+            self.msg("You are no longer conscious and can take no action.")
+            self.do_pass()
+            return took_actions
         remaining_attacks = self.remaining_attacks
         if self.char in self.combat.ndb.flee_success:
             # cya nerds

@@ -528,7 +528,7 @@ class CmdCancelAction(MuxCommand):
         self.msg("You clear any queued combat action.")
         if combat:
             combat.build_status_table()
-            combat.display_phase_status(self.caller)
+            combat.display_phase_status(self.caller, disp_intro=False)
 
 
 class CmdFlee(MuxCommand):
