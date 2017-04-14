@@ -1635,6 +1635,7 @@ class CmdArxDestroy(CmdDestroy):
 class CmdArxReload(CmdReload):
     __doc__ = CmdReload.__doc__ + "\n\nUse /override to force a reload when a combat is active."
 
+    # noinspection PyBroadException
     def func(self):
         if "override" in self.switches or "force" in self.switches:
             super(CmdArxReload, self).func()
@@ -1643,7 +1644,11 @@ class CmdArxReload(CmdReload):
         if CombatManager.objects.all():
             self.msg("{rThere is a combat active. You must use @reload/override or @reload/force to do a @reload.{n")
             return
-        super(CmdArxReload, self).func()
+        try:
+            super(CmdArxReload, self).func()
+        except Exception:
+            import traceback
+            traceback.print_exc()
 
 
 class CmdArxScripts(CmdScripts):
