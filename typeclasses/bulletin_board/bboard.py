@@ -54,14 +54,17 @@ class BBoard(Object):
             else:
                 posts.first().delete()
         if announce:
-            subs = [ob for ob in self.db.subscriber_list if self.access(ob, "read")
-                    and "no_post_notifications" not in ob.tags.all()]
             post_num = self.posts.count()
-            for sub in subs:
-                notify = "\n{{wNew post on {0} by {1}:{{n {2}".format(self.key, posted_by, subject)
-                notify += "\nUse {w@bbread %s/%s {nto read this message." % (self.key, post_num)
-                sub.msg(notify)
+            notify = "\n{{wNew post on {0} by {1}:{{n {2}".format(self.key, posted_by, subject)
+            notify += "\nUse {w@bbread %s/%s {nto read this message." % (self.key, post_num)
+            self.notify_subs(notify)
         return post
+
+    def notify_subs(self, notification):
+        subs = [ob for ob in self.db.subscriber_list if self.access(ob, "read")
+                and "no_post_notifications" not in ob.tags.all()]
+        for sub in subs:
+            sub.msg(notification)
 
     def bb_orgstance(self, poster_obj, org, msg, postnum):
         """
@@ -92,6 +95,7 @@ class BBoard(Object):
         post.tags.add("%s_comment" % org, category="org_comment")
         post.save()
         poster_obj.msg("{w%s{n successfully declared a stance on '%s'." % (org, post.db_header))
+        self.notify_subs("{w%s has commented upon post %s.{n" % (org, postnum))
 
     def has_subscriber(self, pobj):
         if pobj in self.db.subscriber_list:
