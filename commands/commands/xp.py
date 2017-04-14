@@ -642,7 +642,7 @@ class CmdVoteXP(MuxPlayerCommand):
     @property
     def max_votes(self):
         # import datetime
-        base = 10
+        base = 13
         # # only get events after the previous Sunday
         # diff = 7 - datetime.datetime.now().isoweekday()
         # recent_date = datetime.datetime.now() - datetime.timedelta(days=7-diff)
