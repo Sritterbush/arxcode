@@ -1557,9 +1557,13 @@ class CmdOrganization(MuxPlayerCommand):
     def disp_org_locks(self, caller, org):
         table = PrettyTable(["{wPermission{n", "{wRank{n"])
         for lock in self.org_locks:
-            olock = org.locks.get(lock).split(":")
-            if len(olock) > 1:
-                olock = olock[1]
+            lockstr = org.locks.get(lock)
+            if lockstr:
+                olock = org.locks.get(lock).split(":")
+                if len(olock) > 1:
+                    olock = olock[1].strip()
+            else:
+                olock = "None"
             table.add_row([lock, olock])
         caller.msg(table, options={'box': True})
 
