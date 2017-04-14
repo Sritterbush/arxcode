@@ -435,7 +435,7 @@ class CmdOrgStance(MuxPlayerCommand):
             return
         from django.core.exceptions import ObjectDoesNotExist
         try:
-            org = self.caller.current_orgs.get(name__iexact=arglist[0])
+            org = self.caller.current_orgs.get(name__iexact=arglist[1])
         except ObjectDoesNotExist:
             self.msg("You are not a member of that Org.")
             return
