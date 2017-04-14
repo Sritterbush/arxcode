@@ -35,6 +35,8 @@ def create_ticket(caller, message, priority=5, queue=settings.REQUEST_QUEUE_ID,
                         submitting_room=room,
                         description=message,
                         priority=priority,)
+        # not a fan of emojis in tickets, tbh                
+        message = message.rstrip(" ;)").rstrip(" :p").rstrip(" :P").rstrip(" ;P").rstrip(" ;p")
     except Exception as err:
         inform_staff("ERROR: Error when attempting to create ticket: %s" % err)
         return False

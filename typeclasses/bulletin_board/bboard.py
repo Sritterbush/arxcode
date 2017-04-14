@@ -63,6 +63,36 @@ class BBoard(Object):
                 sub.msg(notify)
         return post
 
+    def bb_orgstance(self, poster_obj, org, msg, postnum):
+        """
+        Post teeny commentary as addendum to board message.
+        
+        Args:
+            poster_obj: Character
+            org: Organization
+            msg: str
+            postnum: int
+        """
+        tagname = "%s_comment" % org
+        # I love you so much <3 Do not let orange text bother you!
+        # I love you too <3 Because board is calling this, board is now self.
+        post = self.get_post(poster_obj, postnum)
+        if not post:
+            return
+        if post.tags.get(tagname, category="org_comment"):
+            poster_obj.msg("{w%s{n has already declared a position on this matter." % org)
+            return
+        if not org.access(poster_obj, "declarations"):
+            poster_obj.msg("Your {w%s{n rank isn't yet high enough to make declarations on their behalf." % org)
+            return
+        if len(msg) > 140:
+            poster_obj.msg("That message is too long for a brief declaration.")
+            return
+        post.db_message += "\n--- {w%s{n Stance ---\n%s\n" % (org, msg)
+        post.tags.add("%s_comment" % org, category="org_comment")
+        post.save()
+        poster_obj.msg("{w%s{n successfully declared a stance on '%s'." % (org, post.db_header))
+
     def has_subscriber(self, pobj):
         if pobj in self.db.subscriber_list:
             return True
@@ -78,6 +108,7 @@ class BBoard(Object):
         return self.get_unread_posts(pobj, old).count()
 
     def get_post(self, pobj, postnum, old=False):
+        # pobj is a player.
         postnum -= 1
         if old:
             posts = self.archived_posts

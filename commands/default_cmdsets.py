@@ -128,6 +128,7 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(bboards.CmdBBUnsub())
             self.add(bboards.CmdBBCreate())
             self.add(bboards.CmdBBNew())
+            self.add(bboards.CmdOrgStance())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading bboards cmdset in Player: %s" % err)
         try:
