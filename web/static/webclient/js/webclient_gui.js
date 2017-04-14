@@ -264,9 +264,12 @@ function onText(args, kwargs) {
         var cls = kwargs == null ? 'out' : kwargs['cls'];
         var total = mwin.prop('scrollHeight');
         var current = mwin.scrollTop() + mwin.prop('clientHeight');
+        // Chrome makes the value fractional, round up
+        current = Math.ceil(current);
         mwin.append("<div class='" + cls + "'>" + args[0] + "</div>");
 
-        if (current === total) {
+        // >= Due to rounding errors
+        if (current >= total) {
           mwin.animate({
               scrollTop: mwin.prop('scrollHeight')
           }, 0);
