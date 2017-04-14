@@ -173,8 +173,10 @@ class BBoard(Object):
         post.tags.add("sticky_post")
         return True
 
-    @staticmethod
-    def edit_post(post, msg):
+    def edit_post(self, pobj, post, msg):
+        if self.tags.get(category="org_comment"):
+            pobj.msg("The post has already had org responses.")
+            return
         post.db_message = msg
         post.save()
         return True

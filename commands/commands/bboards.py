@@ -385,11 +385,9 @@ class CmdBBReadOrPost(MuxPlayerCommand):
             if caller not in post.db_sender_players.all() and not board.access(caller, "edit"):
                 caller.msg("You cannot edit someone else's post, only your own.")
                 return
-            if board.edit_post(post, self.rhs):
+            if board.edit_post(self.caller, post, self.rhs):
                 self.msg("Post edited.")
                 inform_staff("%s has edited post %s on board %s." % (caller, post_num, board))
-            else:
-                self.msg("Post edit failed for unknown reason.")
             return
         if 'post' in switches:        
             if not self.rhs:
