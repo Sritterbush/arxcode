@@ -254,7 +254,10 @@ class CmdFinger(MuxPlayerCommand):
         +finger/preferences <note on RP preferences>
         +finger/playtimes <note on your playtimes>
 
-    Displays information about a given character.
+    Displays information about a given character. To set RP hooks, use the
+    +rphooks command. Use the 'preferences' or 'playtimes' switches to add
+    information about your RP preferences or your playtimes to your finger
+    information.
     """
     key = "+finger"
     locks = "cmd:all()"
@@ -265,12 +268,20 @@ class CmdFinger(MuxPlayerCommand):
         """Execute command."""
         caller = self.caller
         if "preferences" in self.switches:
-            caller.db.rp_preferences = self.args
-            self.msg("RP preferences set to: %s" % self.args)
+            if self.args:
+                caller.db.rp_preferences = self.args
+                self.msg("RP preferences set to: %s" % self.args)
+            else:
+                caller.attributes.remove("rp_preferences")
+                self.msg("RP preferences removed.")
             return
         if "playtimes" in self.switches:
-            caller.db.playtimes = self.args
-            self.msg("Note on playtimes set to: %s" % self.args)
+            if self.args:
+                caller.db.playtimes = self.args
+                self.msg("Note on playtimes set to: %s" % self.args)
+            else:
+                caller.attributes.remove("playtimes")
+                self.msg("Note on playtimes removed.")
             return
         show_hidden = caller.check_permstring("builders")
         if not self.args:
