@@ -342,13 +342,13 @@ class CmdFinger(MuxPlayerCommand):
         if hooks:
             hooks = make_iter(hooks)
             hook_descs = player.db.hook_descs or {}
-            msg += "{wRP Hooks:{n\n%s" % "\n".join("%s: %s" % (hook, hook_descs.get(hook, "")) for hook in hooks)
+            msg += "{wRP Hooks:{n\n%s\n" % "\n".join("%s: %s" % (hook, hook_descs.get(hook, "")) for hook in hooks)
         playtimes = player.db.playtimes
         if playtimes:
             msg += "{wPlaytimes:{n %s\n" % playtimes
         prefs = player.db.rp_preferences
         if prefs:
-            msg += "{wRP Preference Notes:{n %s" % prefs
+            msg += "{wRP Preference Notes:{n %s\n" % prefs
         caller.msg(msg, options={'box': True})
         
 
