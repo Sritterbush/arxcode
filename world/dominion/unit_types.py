@@ -16,7 +16,7 @@ ARCHERS = 3
 WARSHIP = 4
 SIEGE_WEAPON = 5
 
-#silver upkeep costs for 1 of a given unit
+
 upkeep = {
     INFANTRY: 10,
     PIKE: 15,
@@ -35,19 +35,6 @@ food = {
     SIEGE_WEAPON: 20,
     }
 
-def get_type_str(utype):
-    if utype == INFANTRY:
-        return "infantry"
-    if utype == PIKE:
-        return "pike"
-    if utype == CAVALRY:
-        return "cavalry"
-    if utype == ARCHERS:
-        return "archers"
-    if utype == WARSHIP:
-        return "warships"
-    if utype == SIEGE_WEAPON:
-        return "siege weapons"
 
 def type_from_str(ustr):
     ustr = ustr.lower()
@@ -64,7 +51,8 @@ def type_from_str(ustr):
     if ustr == "siege weapons":
         return SIEGE_WEAPON
 
-def get_combat(unit_model, grid=None):
+
+def get_unit_stats(unit_model, grid=None):
     """
     Returns the type of unit class for combat that corresponds
     to a unit's database model instance. Because we don't want to have
@@ -73,17 +61,19 @@ def get_combat(unit_model, grid=None):
     values.
     """
     try:
-        u_type = types[unit_model.unit_type]
+        cls = types[unit_model.unit_type]
     except AttributeError:
         print "ERROR: No dbobj passed to get_combat! Using default."
-        u_type = UnitStats
+        cls = UnitStats
     except KeyError:
-        print "ERROR: Unit type not found for unit %s with type %s! Defaulting to infantry." % (unit_model.id, unit_model.unit_type)
+        print "ERROR: Unit type not found for unit %s with type %s! Defaulting to infantry." % (unit_model.id,
+                                                                                                unit_model.unit_type)
         traceback.print_exc()
-        u_type = Infantry
-    unit = u_type(unit_model, grid)
+        cls = Infantry
+    unit = cls(unit_model, grid)
     return unit
     
+
 class UnitStats(PositionActor):
     """
     Contains all the stats for a military unit.
@@ -93,6 +83,9 @@ class UnitStats(PositionActor):
         self.formation = None
         self.log = None
         self.name = "Default"
+        # silver upkeep costs for 1 of a given unit
+        self.silver_upkeep = 10
+        self.food_upkeep = 1
         # how powerful we are in melee combat
         self.melee_damage = 1
         # how powerful we are at range
@@ -155,7 +148,7 @@ class UnitStats(PositionActor):
     def _targ_in_range(self):
         if not self.target:
             return False
-        return (self.check_distance_to_actor(self.target) <= self.range)
+        return self.check_distance_to_actor(self.target) <= self.range
     targ_in_range = property(_targ_in_range)
     
     def _unit_active(self):
@@ -170,8 +163,9 @@ class UnitStats(PositionActor):
             value = 20
         return self.quantity * value
     value = property(_unit_value)
+
     def __str__(self):
-        name = "%s's %s(%s)" % (str(self.formation), self.name, self.quantity)
+        return "%s's %s(%s)" % (str(self.formation), self.name, self.quantity)
    
     def swing(self, target, atk):
         """
@@ -205,9 +199,11 @@ class UnitStats(PositionActor):
         if self.commander:
             atk_roll += atk_roll * self.commander.warfare
         damage = atk_roll - def_roll
-        if damage < 0: damage = 0
+        if damage < 0:
+            damage = 0
         target.damage += damage
-        self.log.info("%s attacked %s. Atk roll: %s Def roll: %s\nDamage:%s" % (str(self), str(target), atk_roll, def_roll))
+        self.log.info("%s attacked %s. Atk roll: %s Def roll: %s\nDamage:%s" % (
+            str(self), str(target), atk_roll, def_roll, damage))
     
     def ranged_attack(self):
         if not self.range:
@@ -216,7 +212,7 @@ class UnitStats(PositionActor):
             return
         if not self.targ_in_range:
             return
-        self.swing(target, self.range_damage)
+        self.swing(self.target, self.range_damage)
         
     def melee_attack(self):
         if not self.target:
@@ -224,21 +220,21 @@ class UnitStats(PositionActor):
         if not self.targ_in_range:
             return
         if self.storming:
-            self.swing(target, self.storm_damage)
+            self.swing(self.target, self.storm_damage)
         else:
-            self.swing(target, self.melee_damage)
-        target.swing(self, target.melee_damage)
+            self.swing(self.target, self.melee_damage)
+        self.target.swing(self, self.target.melee_damage)
    
     def advance(self):
         if self.target and not self.targ_in_range:
             self.move_toward_actor(self.target, self.movement)
         elif self.storm_targ_pos:
             try:
-                x,y,z = self.storm_targ_pos
+                x, y, z = self.storm_targ_pos
                 self.move_toward_position(x, y, z, self.movement)
-            except:
+            except (TypeError, ValueError):
                 print "ERROR when attempting to move toward castle. storm_targ_pos: %s" % str(self.storm_targ_pos)
-        self.log.info("%s has moved. Now at pos: %s" % (self(str), str(self.position)))
+        self.log.info("%s has moved. Now at pos: %s" % (self, str(self.position)))
     
     def cleanup(self):
         """
@@ -258,7 +254,7 @@ class UnitStats(PositionActor):
             if self.quantity <= 0:
                 self.quantity = 0
                 self.destroyed = True
-                self.info.log("%s has been destroyed." % (str(self)))
+                self.log.info("%s has been destroyed." % (str(self)))
                 return
             self.damage %= hp
             self.rout_check()
@@ -315,6 +311,7 @@ class UnitStats(PositionActor):
         """
         self.target = enemy_formation.get_target_from_formation_for_attacker(self)       
 
+
 class Infantry(UnitStats):
     def __init__(self, dbobj, grid):
         super(Infantry, self).__init__(dbobj, grid)
@@ -325,20 +322,24 @@ class Infantry(UnitStats):
         self.hp = 30
         self.movement = 2
 
+
 class Pike(UnitStats):
     def __init__(self, dbobj, grid):
         super(Pike, self).__init__(dbobj, grid)
         self.name = "Pike"
+        self.silver_upkeep = 15
         self.melee_damage = 5
         self.storm_damage = 3
         self.defense = 1
         self.hp = 30
         self.movement = 2
 
+
 class Cavalry(UnitStats):
     def __init__(self, dbobj, grid):
         super(Cavalry, self).__init__(dbobj, grid)
         self.name = "Cavalry"
+        self.silver_upkeep = 30
         self.melee_damage = 10
         self.storm_damage = 3
         self.defense = 3
@@ -350,6 +351,7 @@ class Archers(UnitStats):
     def __init__(self, dbobj, grid):
         super(Archers, self).__init__(dbobj, grid)
         self.name = "Archers"
+        self.silver_upkeep = 20
         self.melee_damage = 1
         self.range_damage = 5
         self.storm_damage = 3
@@ -359,16 +361,22 @@ class Archers(UnitStats):
         self.siege = 5
         self.movement = 2
 
+
 class Warship(UnitStats):
     def __init__(self, dbobj, grid):
         super(Warship, self).__init__(dbobj, grid)
         self.name = "Warship"
+        self.silver_upkeep = 1000
+        self.food_upkeep = 20
         self.movement = 5
+
 
 class SiegeWeapon(UnitStats):
     def __init__(self, dbobj, grid):
         super(SiegeWeapon, self).__init__(dbobj, grid)
         self.name = "SiegeWeapon"
+        self.silver_upkeep = 1000
+        self.food_upkeep = 20
         self.movement = 1
         self.melee_damage = 20
         self.range_damage = 300

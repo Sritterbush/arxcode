@@ -61,6 +61,7 @@ from .battle import Battle
 from .agenthandler import AgentHandler
 from server.utils.arx_utils import get_week
 from evennia.locks.lockhandler import LockHandler
+from evennia.utils.utils import lazy_property
 import traceback
 from django.core.urlresolvers import reverse
 
@@ -1716,7 +1717,8 @@ class CrisisAction(models.Model):
             msg += "\n{wStory:{n %s" % self.story
         else:
             msg += "\n{wAdditional Action Points Spent:{n {c%s{n" % self.outcome_value
-            msg += "\n{wResources Being Used:{n {c%s{n silver, {c%s{n economic, {c%s{n military, {c%s{n social" % (self.silver, self.economic, self.military, self.social)
+            msg += "\n{wResources Being Used:{n {c%s{n silver, {c%s{n economic, {c%s{n military, {c%s{n social" % (
+                self.silver, self.economic, self.military, self.social)
         if disp_pending:
             pend = self.questions.filter(answers__isnull=True)
             for ob in pend:
@@ -2690,14 +2692,18 @@ class MilitaryUnit(models.Model):
         and equipment level.
         """
         pass
+
+    @lazy_property
+    def stats(self):
+        return unit_types.get_unit_stats(self)
     
     def _get_costs(self):
         """
         Costs for the unit.
         """
         try:
-            cost = unit_types.upkeep[self.unit_type]
-        except KeyError:
+            cost = self.stats.silver_upkeep
+        except AttributeError:
             print "Type %s is not a recognized MilitaryUnit type!" % self.unit_type
             print "Warning. No cost assigned to <MilitaryUnit- ID: %s>" % self.id
             cost = 0
@@ -2709,8 +2715,8 @@ class MilitaryUnit(models.Model):
         Food for the unit
         """
         try:
-            hunger = unit_types.food[self.unit_type]
-        except KeyError:
+            hunger = self.stats.food_upkeep
+        except AttributeError:
             print "Type %s is not a recognized Military type!" % self.unit_type
             print "Warning. No food upkeep assigned to <MilitaryUnit - ID: %s>" % self.id
             hunger = 0
@@ -2721,7 +2727,10 @@ class MilitaryUnit(models.Model):
     costs = property(_get_costs)
 
     def _get_type_name(self):
-        return unit_types.get_type_str(self.unit_type)
+        try:
+            return self.stats.name.lower()
+        except AttributeError:
+            return "unknown type"
     type = property(_get_type_name)
 
     def __unicode__(self):
