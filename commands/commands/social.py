@@ -251,6 +251,8 @@ class CmdFinger(MuxPlayerCommand):
 
     Usage:
         +finger <character>
+        +finger/preferences <note on RP preferences>
+        +finger/playtimes <note on your playtimes>
 
     Displays information about a given character.
     """
@@ -262,6 +264,14 @@ class CmdFinger(MuxPlayerCommand):
     def func(self):
         """Execute command."""
         caller = self.caller
+        if "preferences" in self.switches:
+            caller.db.rp_preferences = self.args
+            self.msg("RP preferences set to: %s" % self.args)
+            return
+        if "playtimes" in self.switches:
+            caller.db.playtimes = self.args
+            self.msg("Note on playtimes set to: %s" % self.args)
+            return
         show_hidden = caller.check_permstring("builders")
         if not self.args:
             caller.msg("You must supply a character name to +finger.")
@@ -322,6 +332,12 @@ class CmdFinger(MuxPlayerCommand):
             hooks = make_iter(hooks)
             hook_descs = player.db.hook_descs or {}
             msg += "{wRP Hooks:{n\n%s" % "\n".join("%s: %s" % (hook, hook_descs.get(hook, "")) for hook in hooks)
+        playtimes = player.db.playtimes
+        if playtimes:
+            msg += "{wPlaytimes:{n %s\n" % playtimes
+        prefs = player.db.rp_preferences
+        if prefs:
+            msg += "{wRP Preference Notes:{n %s" % prefs
         caller.msg(msg, options={'box': True})
         
 
