@@ -62,7 +62,7 @@ class BBoard(Object):
 
     def notify_subs(self, notification):
         subs = [ob for ob in self.db.subscriber_list if self.access(ob, "read")
-                and "no_post_notifications" not in ob.tags.all()]
+                and "no_post_notifications" not in ob.tags.all() and not ob.is_guest()]
         for sub in subs:
             sub.msg(notification)
 
