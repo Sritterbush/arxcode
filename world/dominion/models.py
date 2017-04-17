@@ -669,6 +669,8 @@ class AccountTransaction(models.Model):
     
     @property
     def can_pay(self):
+        # prevent possible caching errors
+        self.sender.refresh_from_db()
         return self.sender.vault >= self.weekly_amount
 
     def save(self, *args, **kwargs):
