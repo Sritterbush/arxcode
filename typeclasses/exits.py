@@ -219,6 +219,8 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
             other_options = options.copy()
             from_dir = options.get('from_dir', 'from nearby')
             new_from_dir = "from the %s" % str(self.reverse_exit)
+            if hasattr(text, '__iter__'):
+                text = text[0]
             text = text.replace(from_dir, new_from_dir)
             del other_options['shout']
             other_options['from_dir'] = new_from_dir
