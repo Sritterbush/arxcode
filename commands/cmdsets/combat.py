@@ -1035,7 +1035,7 @@ class CmdHarm(MuxCommand):
     to the room if specified.
     """
     key = "@harm"
-    locks = "cmd:perm(Wizards)"
+    locks = "cmd:all()"
     help_category = "GMing"
 
     def func(self):
@@ -1060,6 +1060,10 @@ class CmdHarm(MuxCommand):
             if player:
                 players.append(player)
         charlist = [ob.db.char_ob for ob in players if ob.db.char_ob]
+        if not self.caller.check_permstring("builders"):
+            if any(ob for ob in charlist if ob != self.caller):
+                self.msg("Non-GM usage. Pruning all other characters.")
+            charlist = [ob for ob in charlist if ob == self.caller]
         if not charlist:
             return
         if message:
