@@ -13,43 +13,48 @@ INFANTRY = 0
 PIKE = 1
 CAVALRY = 2
 ARCHERS = 3
-WARSHIP = 4
+LONGSHIP = 4
 SIEGE_WEAPON = 5
+GALLEY = 6
+DROMOND = 7
+
+_UNIT_TYPES = {}
 
 
-upkeep = {
-    INFANTRY: 10,
-    PIKE: 15,
-    CAVALRY: 30,
-    ARCHERS: 20,
-    WARSHIP: 1000,
-    SIEGE_WEAPON: 1000,
-    }
+def register_unit(unit_cls):
+    """
+    Registers decorated class in _UNIT_TYPES
 
-food = {
-    INFANTRY: 1,
-    PIKE: 1,
-    CAVALRY: 1,
-    ARCHERS: 1,
-    WARSHIP: 20,
-    SIEGE_WEAPON: 20,
-    }
+    Args:
+        unit_cls: UnitStats class/child class
+
+    Returns:
+        unit_cls
+    """
+    if unit_cls.id not in _UNIT_TYPES:
+        _UNIT_TYPES[unit_cls.id] = unit_cls
+    return unit_cls
 
 
-def type_from_str(ustr):
-    ustr = ustr.lower()
-    if ustr == "infantry":
-        return INFANTRY
-    if ustr == "pike":
-        return PIKE
-    if ustr == "cavalry":
-        return CAVALRY
-    if ustr == "archers":
-        return ARCHERS
-    if ustr == "warships":
-        return WARSHIP
-    if ustr == "siege weapons":
-        return SIEGE_WEAPON
+def get_unit_class_by_id(unit_id, unit_model=None):
+    """
+    Looks up registered units by their ID
+    Args:
+        unit_id: ID that matches a UnitStats class id attribute
+        unit_model: optional MilitaryUnit model passed along for debug info
+
+    Returns:
+        UnitStats class or subclass matching ID
+    """
+    try:
+        cls = _UNIT_TYPES[unit_id]
+    except KeyError:
+        if unit_model:
+            print "ERROR: Unit type not found for MilitaryUnit obj #%s!" % unit_model.id
+            print "Attempted Unit class ID was %s. Not found, using Infantry as fallback." % unit_id
+        traceback.print_exc()
+        cls = Infantry
+    return cls
 
 
 def get_unit_stats(unit_model, grid=None):
@@ -60,50 +65,68 @@ def get_unit_stats(unit_model, grid=None):
     commands stop for an exception, we do a lot of handling with default
     values.
     """
-    try:
-        cls = types[unit_model.unit_type]
-    except AttributeError:
-        print "ERROR: No dbobj passed to get_combat! Using default."
-        cls = UnitStats
-    except KeyError:
-        print "ERROR: Unit type not found for unit %s with type %s! Defaulting to infantry." % (unit_model.id,
-                                                                                                unit_model.unit_type)
-        traceback.print_exc()
-        cls = Infantry
+    cls = get_unit_class_by_id(unit_model.unit_type, unit_model)
     unit = cls(unit_model, grid)
     return unit
+
+
+def type_from_str(name_str):
+    """
+    Gets integer of unit type from a string
+
+        Helper function for end-users entering the name of a unit type
+        and retrieving the integer that is used in the database to represent
+        it, which is then used for django filters.
+    Args:
+        name_str:
+
+    Returns:
+        int
+    """
+    name_str = name_str.lower()
+    for cls in _UNIT_TYPES.values():
+        if cls.name.lower() == name_str:
+            return cls.id
     
 
+@register_unit
 class UnitStats(PositionActor):
     """
     Contains all the stats for a military unit.
     """
+    id = -1
+    name = "Default"
+    # silver upkeep costs for 1 of a given unit
+    silver_upkeep = 10
+    food_upkeep = 1
+    # how powerful we are in melee combat
+    melee_damage = 1
+    # how powerful we are at range
+    range_damage = 0
+    # our defense against attacks
+    defense = 0
+    # defense against ANY number of attackers. Super powerful
+    multi_defense = 0
+    storm_damage = 0
+    # how much damage each individual in unit can take
+    hp = 1
+    # if we are a ranged unit, this value is not 0. Otherwise it is 0.
+    range = 0
+    # the minimum range an enemy must be for us to use our ranged attack
+    min_for_range = 1
+    # our value in siege
+    siege = 0
+    movement = 0
+    strategic_speed = 0
+    # where the unit can be deployed: ground, naval, or flying
+    environment = "ground"
+    # how much more damage we take from things like dragon fire, spells, catapults, etc
+    structure_damage_multiplier = 1
+
     def __init__(self, dbobj, grid):
         super(UnitStats, self).__init__(grid)
         self.formation = None
         self.log = None
-        self.name = "Default"
-        # silver upkeep costs for 1 of a given unit
-        self.silver_upkeep = 10
-        self.food_upkeep = 1
-        # how powerful we are in melee combat
-        self.melee_damage = 1
-        # how powerful we are at range
-        self.range_damage = 0
-        # our defense against attacks
-        self.defense = 0
-        # defense against ANY number of attackers. Super powerful
-        self.multi_defense = 0
-        self.storm_damage = 0
-        # how much damage each individual in unit can take
-        self.hp = 1
-        # if we are a ranged unit, this value is not 0. Otherwise it is 0.
-        self.range = 0
-        # the minimum range an enemy must be for us to use our ranged attack
-        self.min_for_range = 1
-        # our value in siege
-        self.siege = 0
-        self.movement = 0
         # how much damage we've taken
         self.damage = 0
         # how many troops from unit have died
@@ -156,12 +179,7 @@ class UnitStats(PositionActor):
     active = property(_unit_active)
     
     def _unit_value(self):
-        try:
-            value = upkeep[self.type]
-        except KeyError:
-            print "ERROR: Type %s not found for unit." % self.type
-            value = 20
-        return self.quantity * value
+        return self.quantity * self.silver_upkeep
     value = property(_unit_value)
 
     def __str__(self):
@@ -312,84 +330,116 @@ class UnitStats(PositionActor):
         self.target = enemy_formation.get_target_from_formation_for_attacker(self)       
 
 
+@register_unit
 class Infantry(UnitStats):
-    def __init__(self, dbobj, grid):
-        super(Infantry, self).__init__(dbobj, grid)
-        self.name = "Infantry"
-        self.melee_damage = 3
-        self.storm_damage = 3
-        self.defense = 1
-        self.hp = 30
-        self.movement = 2
+    id = INFANTRY
+    name = "Infantry"
+    melee_damage = 3
+    storm_damage = 3
+    defense = 1
+    hp = 30
+    movement = 2
+    strategic_speed = 2
 
 
+@register_unit
 class Pike(UnitStats):
-    def __init__(self, dbobj, grid):
-        super(Pike, self).__init__(dbobj, grid)
-        self.name = "Pike"
-        self.silver_upkeep = 15
-        self.melee_damage = 5
-        self.storm_damage = 3
-        self.defense = 1
-        self.hp = 30
-        self.movement = 2
+    id = PIKE
+    name = "Pike"
+    silver_upkeep = 15
+    melee_damage = 5
+    storm_damage = 3
+    defense = 1
+    hp = 30
+    movement = 2
+    strategic_speed = 2
 
 
+@register_unit
 class Cavalry(UnitStats):
-    def __init__(self, dbobj, grid):
-        super(Cavalry, self).__init__(dbobj, grid)
-        self.name = "Cavalry"
-        self.silver_upkeep = 30
-        self.melee_damage = 10
-        self.storm_damage = 3
-        self.defense = 3
-        self.hp = 60
-        self.movement = 6
+    id = CAVALRY
+    name = "Cavalry"
+    silver_upkeep = 30
+    melee_damage = 10
+    storm_damage = 3
+    defense = 3
+    hp = 60
+    movement = 6
+    strategic_speed = 2
 
 
+@register_unit
 class Archers(UnitStats):
-    def __init__(self, dbobj, grid):
-        super(Archers, self).__init__(dbobj, grid)
-        self.name = "Archers"
-        self.silver_upkeep = 20
-        self.melee_damage = 1
-        self.range_damage = 5
-        self.storm_damage = 3
-        self.defense = 1
-        self.hp = 20
-        self.range = 6
-        self.siege = 5
-        self.movement = 2
+    id = ARCHERS
+    name = "Archers"
+    silver_upkeep = 20
+    melee_damage = 1
+    range_damage = 5
+    storm_damage = 3
+    defense = 1
+    hp = 20
+    range = 6
+    siege = 5
+    movement = 2
+    strategic_speed = 2
 
 
-class Warship(UnitStats):
-    def __init__(self, dbobj, grid):
-        super(Warship, self).__init__(dbobj, grid)
-        self.name = "Warship"
-        self.silver_upkeep = 1000
-        self.food_upkeep = 20
-        self.movement = 5
+@register_unit
+class Longship(UnitStats):
+    id = LONGSHIP
+    name = "Longships"
+    silver_upkeep = 150
+    food_upkeep = 20
+    movement = 6
+    melee_damage = 60
+    range_damage = 100
+    hp = 500
+    environment = "naval"
+    strategic_speed = 12
+    structure_damage_multiplier = 20
 
 
+@register_unit
 class SiegeWeapon(UnitStats):
-    def __init__(self, dbobj, grid):
-        super(SiegeWeapon, self).__init__(dbobj, grid)
-        self.name = "SiegeWeapon"
-        self.silver_upkeep = 1000
-        self.food_upkeep = 20
-        self.movement = 1
-        self.melee_damage = 20
-        self.range_damage = 300
-        self.defense = 10
-        self.hp = 400
-        self.storm_damage = 600
+    id = SIEGE_WEAPON
+    name = "Siege Weapon"
+    silver_upkeep = 1000
+    food_upkeep = 20
+    movement = 1
+    melee_damage = 20
+    range_damage = 300
+    defense = 10
+    hp = 400
+    storm_damage = 600
+    strategic_speed = 1
+    structure_damage_multiplier = 20
 
 
-types = {
-    INFANTRY: Infantry,
-    PIKE: Pike,
-    CAVALRY: Cavalry,
-    ARCHERS: Archers,
-    WARSHIP: Warship,
-    SIEGE_WEAPON: SiegeWeapon,
-    }
+@register_unit
+class Galley(UnitStats):
+    id = GALLEY
+    name = "Galleys"
+    silver_upkeep = 500
+    food_upkeep = 60
+    movement = 5
+    melee_damage = 240
+    range_damage = 400
+    hp = 2000
+    environment = "naval"
+    strategic_speed = 10
+    structure_damage_multiplier = 20
+
+
+@register_unit
+class Dromond(UnitStats):
+    id = DROMOND
+    name = "Dromonds"
+    silver_upkeep = 2000
+    food_upkeep = 300
+    movement = 3
+    melee_damage = 2500
+    range_damage = 5000
+    hp = 20000
+    environment = "naval"
+    strategic_speed = 8
+    structure_damage_multiplier = 20
