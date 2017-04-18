@@ -51,7 +51,7 @@ def get_unit_class_by_id(unit_id, unit_model=None):
     except KeyError:
         if unit_model:
             print "ERROR: Unit type not found for MilitaryUnit obj #%s!" % unit_model.id
-            print "Attempted Unit class ID was %s. Not found, using Infantry as fallback." % unit_id
+        print "Attempted Unit class ID was %s. Not found, using Infantry as fallback." % unit_id
         traceback.print_exc()
         cls = Infantry
     return cls

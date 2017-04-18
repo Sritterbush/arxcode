@@ -2260,11 +2260,16 @@ class Army(models.Model):
     # if the army is located as a castle garrison
     castle = models.ForeignKey("Castle", on_delete=models.SET_NULL, related_name="garrison", blank=True, null=True)
     # The overall commander of this army. Units under his command may have their own commanders
-    commander = models.ForeignKey("Member", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
+    commander = models.ForeignKey("PlayerOrNpc", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
                                   db_index=True)
     # an owner who may be the same person who owns the domain. Or not, in the case of mercs, sent reinforcements, etc
     owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
                               db_index=True)
+    # Someone giving orders for now, like a mercenary group's current employer
+    temp_owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="loaned_armies", blank=True, null=True,
+                              db_index=True)
+    # a relationship to self for smaller groups within the army
+    group = models.ForeignKey("self", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True, db_index=True)
     # food we're carrying with us on transports or whatever
     stored_food = models.PositiveSmallIntegerField(default=0, blank=0)
     # whether the army is starving. 0 = not starving, 1 = starting to starve, 2 = troops dying/deserting
@@ -2595,8 +2600,8 @@ class Orders(models.Model):
         (PATROL, 'Patrol'),
         (ASSIST, 'Assist'),)
     army = models.ForeignKey("Army", related_name="orders", null=True, blank=True, db_index=True)
-    target_domain = models.ForeignKey("Domain", related_name="incoming_attacks", null=True, blank=True, db_index=True)
-    target_land = models.ForeignKey("Land", related_name="incoming_army", null=True, blank=True)
+    target_domain = models.ForeignKey("Domain", related_name="orders", null=True, blank=True, db_index=True)
+    target_land = models.ForeignKey("Land", related_name="orders", null=True, blank=True)
     action = models.ForeignKey("CrisisAction", related_name="orders", null=True, blank=True, db_index=True)
     # if we're assisting another army's orders
     assisting = models.ForeignKey("self", related_name="assisting_orders", null=True, blank=True, db_index=True)

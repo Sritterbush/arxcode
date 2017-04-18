@@ -1430,16 +1430,13 @@ class CmdArmy(MuxPlayerCommand):
     @army
 
     Usage:
-        @army
-        @army <army name or number>
-        @army/countermand <army name or number>
-        @army/explore <army name or number>
-        @army/train <army name or number>
-        @army/quell <army name or number>
-        @army/raid <army name or number>=<domain name or number>
-        @army/invade <army name or number>=<domain name or number>
-        @army/march <army name or number>=x,y
+        @army [army name or #]
+        @army/rename <army or group name or #>=<new army or group name>
+        @army/create <group name>=<unit name or #>[,<add'l unit>...]
+        @army/dissolve <group name or #>
         
+    View details of your army or a group of units therein. Create or dissolve 
+    special groups made of the army's units.
     """
     key = "@army"
     locks = "cmd:all()"
