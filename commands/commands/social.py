@@ -133,7 +133,9 @@ class CmdWhere(MuxPlayerCommand):
             self.list_shops()
             return
         rooms = ArxRoom.objects.filter(Q(locations_set__db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS) &
-                                       ~Q(db_tags__db_key__iexact="private")).distinct().order_by('db_key')
+                                       ~Q(db_tags__db_key__iexact="private") &
+                                       ~Q(locations_set__db_tags__db_key__iexact="disguised")
+                                       ).distinct().order_by('db_key')
         if self.args:
             q_list = map(lambda n: Q(locations_set__db_key__iexact=n), self.lhslist)
             q_list = reduce(lambda a, b: a | b, q_list)

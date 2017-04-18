@@ -183,6 +183,7 @@ class NameMixins(object):
             self.aliases.remove(old)
         val = parse_ansi(val, strip_ansi=True)
         self.aliases.add(val)
+        self.tags.add("disguised")
 
     @fakename.deleter
     def fakename(self):
@@ -194,6 +195,7 @@ class NameMixins(object):
             old = parse_ansi(old, strip_ansi=True)
             self.aliases.remove(old)
         self.attributes.remove("false_name")
+        self.tags.remove("disguised")
 
     def __name_get(self):
         """

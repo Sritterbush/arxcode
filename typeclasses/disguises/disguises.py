@@ -42,15 +42,15 @@ class Mask(Wearable):
         # TODO if show_alias = True, add check here for rapsheet
         # Then can don alias by putting on any mask maybe?
         gender = "Someone"
-        try:
-            if wearer.db.gender.lower().startswith("f"):
-                gender = "A Lady"
-            if wearer.db.gender.lower().startswith("m"):
-                gender = "A Man"
-        except AttributeError:
-            pass
+        # try:
+        #     if wearer.db.gender.lower().startswith("f"):
+        #         gender = "A Lady"
+        #     if wearer.db.gender.lower().startswith("m"):
+        #         gender = "A Man"
+        # except AttributeError:
+        #     pass
         wearer.db.mask = self
-        wearer.fakename = "{c%s wearing %s{n" % (gender, self)
+        wearer.fakename = "{c%s{n wearing %s" % (gender, self)
         wearer.temp_desc = self.db.maskdesc
         return
     

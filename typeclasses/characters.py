@@ -171,7 +171,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             hair = mask.db.haircolor or "--"
             eyes = mask.db.eyecolor or "--"
             skin = mask.db.skintone or "--"
-            height = mask.db.height or self.db.height or ""
+            height = mask.db.height or "--"
             species = mask.db.species or "--"
             gender = mask.db.gender or "--"
             age = mask.db.age or "--"
