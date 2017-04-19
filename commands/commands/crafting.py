@@ -326,6 +326,11 @@ class CmdCraft(MuxCommand):
         caller.msg("{wTo finish it, use /finish after you gather the following:{n")
         caller.msg(recipe.display_reqs(dompc))
 
+    def check_max_invest(self, recipe, invest):
+        if invest > recipe.value:
+            self.msg("The maximum amount you can invest is %s." % recipe.value)
+            return
+        
     def func(self):
         """Implement the command"""
         caller = self.caller
@@ -440,8 +445,7 @@ class CmdCraft(MuxCommand):
                 err = "You lack" if crafter == caller else "%s lacks" % crafter
                 caller.msg("%s the skill required to attempt to improve this." % err)
                 return
-            if invest > recipe.value:
-                caller.msg("The maximum amount you can spend per roll is %s." % recipe.value)
+            if not self.check_max_invest(recipe, invest):
                 return
             cost = base_cost + invest + price
             # don't display a random number when they're prepping
@@ -617,6 +621,8 @@ class CmdCraft(MuxCommand):
                 if invest < 0 or action_points < 0:
                     caller.msg("Silver/Action Points cannot be a negative number.")
                     return
+            if not self.check_max_invest(recipe, invest):
+                return
             # first, check if we have all the materials required
             mats = {}
             try:
@@ -743,7 +749,7 @@ class CmdCraft(MuxCommand):
             caller.msg("It is of %s quality." % quality)
             caller.db.crafting_project = None
             return
-
+            
 
 class CmdRecipes(MuxCommand):
     """

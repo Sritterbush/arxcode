@@ -50,7 +50,7 @@ class Mask(Wearable):
         # except AttributeError:
         #     pass
         wearer.db.mask = self
-        wearer.fakename = "{c%s{n wearing %s" % (gender, self)
+        wearer.fakename = "%s wearing %s" % (gender, self)
         wearer.temp_desc = self.db.maskdesc
         return
     

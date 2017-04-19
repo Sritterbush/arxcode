@@ -1237,6 +1237,7 @@ class CmdInform(MuxPlayerCommand):
         @inform/del <number>[=<end number>]
         @inform/delmatches <string to match in categories>
         @inform/shopminimum <number>
+        @inform/bankminimum <type>,<number>
 
     Displays your informs. /shopminimum sets a minimum amount that must be paid
     before you are informed of activity in your shops.
@@ -1244,6 +1245,7 @@ class CmdInform(MuxPlayerCommand):
     key = "@inform"
     aliases = ["@informs"]
     locks = "cmd: all()"
+    banktypes = ("resources", "materials", "silver")
 
     @staticmethod
     def read_inform(caller, inform):
@@ -1265,6 +1267,37 @@ class CmdInform(MuxPlayerCommand):
         except (ValueError, IndexError):
             self.msg("You must specify a number between 1 and %s." % len(informs))
 
+    def set_attr(self, attr, valuestr):
+        try:
+            value = int(valuestr)
+            if value <= 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            # remove attribute
+            self.msg("Removing minimum.")
+            self.caller.db.char_ob.attributes.remove(attr)
+            return
+        # set attribute with value
+        self.caller.db.char_ob.attributes.add(attr, value)
+        self.display_minimums(attr)
+
+    def display_minimums(self, attr):
+        table = evtable.EvTable("{wResource{n", "{wThreshold{n", "{wPurpose{n", width=78, pad_width=0)
+        attrs = ('min_shop_price_inform', 'min_silver_transaction', 'min_materials_transaction',
+        'min_resources_transaction')
+        for attr in attrs:
+            purp = "bank"
+            res = "silver"
+            if attr == "min_shop_price_inform":
+                purp = "shop"
+            if attr == "min_materials_transaction":
+                res = "materials"
+            if attr == "min_resources_transaction":
+                res = "resources"
+            val = self.caller.db.char_ob.attributes.get(attr) or 0
+            table.add_row(res, val, purp)
+        self.caller.msg(table)
+
     def func(self):
         caller = self.caller
         if "new" in self.switches:
@@ -1276,17 +1309,21 @@ class CmdInform(MuxPlayerCommand):
             return
         informs = list(caller.informs.all())
         if "shopminimum" in self.switches:
-            if not self.args:
-                self.msg("Removing minimum.")
-                self.caller.db.char_ob.attributes.remove("min_shop_price_inform")
-                return
+            self.set_attr("min_shop_price_inform", self.args)
+            return
+        if "bankminimum" in self.switches:
+            valuestr = None
+            attr = None
             try:
-                caller.db.char_ob.db.min_shop_price_inform = int(self.args)
-                self.msg("Minimum price set to %s." % self.args)
-            except (TypeError, ValueError):
-                self.msg("Must specify a number.")
-            except AttributeError:
-                self.msg("Character object not found.")
+                attr = self.lhslist[0]
+                valuestr = self.lhslist[1]
+            except IndexError:
+                pass
+            if attr not in self.banktypes:
+                self.msg("Must be one of the following: %s" % ", ".join(self.banktypes))
+                return
+            attr = "min_%s_transaction" % attr
+            self.set_attr(attr, valuestr)
             return
         if not informs:
             caller.msg("You have no messages from the game waiting for you.")

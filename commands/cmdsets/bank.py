@@ -85,6 +85,15 @@ class CmdBank(MuxCommand):
             debits += debt.weekly_amount
         debits += amt
         return account.vault - debits
+    
+    def inform_owner(self, owner, verb, amt, attr_type="silver", mat_str="silver"):
+        player = owner.inform_target
+        if not player or player == self.caller.db.player_ob:
+            return
+        attr_name = "min_%s_transaction" % attr_type
+        if amt >= (player.db.char_ob.get(attr_name) or 0):
+            msg = ("%s %s %s %s" % (self.caller, verb, amt, mat_str))
+            player.inform(msg, category="Bank Transaction")
         
     def func(self):
         """Execute command."""
@@ -215,6 +224,10 @@ class CmdBank(MuxCommand):
                            "are only between organizations and characters.")
                 return
             usingmats = "depositmats" in self.switches or "withdrawmats" in self.switches
+            if usingmats:
+                attr_type = "materials"
+            else:
+                attr_type = "resources"
             if "depositmats" in self.switches or "depositres" in self.switches:
                 sender = dompc.assets
                 receiver = account
@@ -271,6 +284,7 @@ class CmdBank(MuxCommand):
                 caller.msg("You have transferred %s %s from %s to %s." % (
                     val, matname, sender, receiver))
                 caller.msg("Sender now has %s, receiver has %s." % (samt, tamt))
+                self.inform_owner(account, verb, val, attr_type, matname)
             except CraftingMaterials.DoesNotExist:
                 caller.msg("No match for that material. Valid materials: %s" % ", ".join(
                     str(mat) for mat in sender.materials.all()))
@@ -305,6 +319,7 @@ class CmdBank(MuxCommand):
             caller.db.currency = cash - amount
             account.save()
             caller.msg("You have deposited %s. The new balance is %s." % (amount, account.vault))
+            self.inform_owner(account, "deposited", amount)
             return
         if "withdraw" in self.switches:
             if account.organization_owner and not account.organization_owner.access(caller, "withdraw"):
@@ -324,6 +339,7 @@ class CmdBank(MuxCommand):
             caller.db.currency = cash + amount
             account.save()
             caller.msg("You have withdrawn %s. New balance is %s." % (amount, account.vault))
+            self.inform_owner(account, "withdrawn", amount)
             return
         else:
             caller.msg("Unrecognized switch.")

@@ -1045,12 +1045,13 @@ class CmdHarm(MuxCommand):
         message = ""
         amt = None
         one_shot = "mercy" not in self.switches
-        rhslist = self.rhs.split("/")
+        rhs = self.rhs or ""
+        rhslist = rhs.split("/")
         try:
             amt = int(rhslist[0])
             message = rhslist[1]
         except (TypeError, ValueError):
-            self.msg("Must provide a number amount.")
+            self.msg("Must provide a character = number for damage amount.")
             return
         except IndexError:
             pass

@@ -21,7 +21,7 @@ class Roll(object):
     def __init__(self, caller=None, stat=None, skill=None, difficulty=15, stat_list=None,
                  skill_list=None, skill_keep=True, stat_keep=False, quiet=True, announce_room=None,
                  keep_override=None, bonus_dice=0, divisor=1, average_lists=False, can_crit=True,
-                 average_stat_list=False, average_skill_list=False, announce_values=False):
+                 average_stat_list=False, average_skill_list=False):
         self.character = caller
         self.difficulty = difficulty
         self.skill_keep = skill_keep
@@ -35,7 +35,6 @@ class Roll(object):
         self.can_crit = can_crit
         self.average_stat_list = average_stat_list
         self.average_skill_list = average_skill_list
-        self.announce_values = announce_values
         self.stats = {}
         self.skills = {}
         self.bonus_crit_chance = 0
@@ -160,29 +159,23 @@ class Roll(object):
     def build_msg(self):
         name = self.character_name
         if self.result + self.difficulty >= self.difficulty:
-            resultstr = "resulting in %s, %s {whigher{n than the difficulty" % (self.result + self.difficulty,
-                                                                                self.result)
+            resultstr = "rolling {w%s higher{n" % self.result
         else:
-            resultstr = "resulting in %s, %s {rlower{n than the difficulty" % (self.result + self.difficulty,
-                                                                               -self.result)
+            resultstr = "rolling {r%s lower{n" % -self.result
         msg = ""
         if self.stats:
             stat_str = ", ".join(self.stats.keys())
-            if self.announce_values:
-                stat_str += "(%s)" % sum(self.stats.values())
         else:
             stat_str = ""
         if self.skills:
             skill_str = ", ".join(self.skills.keys())
-            if self.announce_values:
-                skill_str += "(%s)" % sum(self.skills.values())
         else:
             skill_str = ""
         if not stat_str or not skill_str:
-            roll_msg = "%s checked %s against difficulty %s, %s{n." % (name, stat_str or skill_str, self.difficulty,
+            roll_msg = "{c%s{n checked %s at difficulty %s, %s." % (name, stat_str or skill_str, self.difficulty,
                                                                        resultstr)
         else:
-            roll_msg = "%s checked %s + %s against difficulty %s, %s{n." % (name, stat_str, skill_str, self.difficulty,
+            roll_msg = "{c%s{n checked %s + %s at difficulty %s, %s." % (name, stat_str, skill_str, self.difficulty,
                                                                             resultstr)
         if self.crit_mult > 1 and self.result >= 0:
             msg += "{y%s has rolled a critical success!\n{n" % name
