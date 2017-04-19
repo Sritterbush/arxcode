@@ -173,10 +173,10 @@ class Roll(object):
             skill_str = ""
         if not stat_str or not skill_str:
             roll_msg = "{c%s{n checked %s at difficulty %s, %s." % (name, stat_str or skill_str, self.difficulty,
-                                                                       resultstr)
+                                                                    resultstr)
         else:
             roll_msg = "{c%s{n checked %s + %s at difficulty %s, %s." % (name, stat_str, skill_str, self.difficulty,
-                                                                            resultstr)
+                                                                         resultstr)
         if self.crit_mult > 1 and self.result >= 0:
             msg += "{y%s has rolled a critical success!\n{n" % name
         msg += roll_msg

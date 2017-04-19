@@ -91,7 +91,7 @@ class CmdBank(MuxCommand):
         if not player or player == self.caller.db.player_ob:
             return
         attr_name = "min_%s_transaction" % attr_type
-        if amt >= (player.db.char_ob.get(attr_name) or 0):
+        if amt >= (player.db.char_ob.attributes.get(attr_name) or 0):
             msg = ("%s %s %s %s" % (self.caller, verb, amt, mat_str))
             player.inform(msg, category="Bank Transaction")
         

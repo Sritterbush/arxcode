@@ -1279,12 +1279,12 @@ class CmdInform(MuxPlayerCommand):
             return
         # set attribute with value
         self.caller.db.char_ob.attributes.add(attr, value)
-        self.display_minimums(attr)
+        self.display_minimums()
 
-    def display_minimums(self, attr):
-        table = evtable.EvTable("{wResource{n", "{wThreshold{n", "{wPurpose{n", width=78, pad_width=0)
+    def display_minimums(self):
+        table = evtable.EvTable("{wPurpose{n", "{wResource{n", "{wThreshold{n",  width=78, pad_width=0)
         attrs = ('min_shop_price_inform', 'min_silver_transaction', 'min_materials_transaction',
-        'min_resources_transaction')
+                 'min_resources_transaction')
         for attr in attrs:
             purp = "bank"
             res = "silver"
@@ -1295,7 +1295,7 @@ class CmdInform(MuxPlayerCommand):
             if attr == "min_resources_transaction":
                 res = "resources"
             val = self.caller.db.char_ob.attributes.get(attr) or 0
-            table.add_row(res, val, purp)
+            table.add_row(purp, res, val)
         self.caller.msg(table)
 
     def func(self):
