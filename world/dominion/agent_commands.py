@@ -114,7 +114,8 @@ class CmdAgents(MuxPlayerCommand):
                 owner_ids.append(loc.db.room_owner)
             if owner_ids:
                 owners = [ob for ob in AssetOwner.objects.filter(id__in=owner_ids) if
-                          ob == caller.Dominion.assets or ob.organization_owner.access(caller, 'guards')]
+                          ob == caller.Dominion.assets or (
+                              ob.organization_owner and ob.organization_owner.access(caller, 'guards'))]
                 if not owners:
                     caller.msg("You do not have access to guards here.")
             else:
