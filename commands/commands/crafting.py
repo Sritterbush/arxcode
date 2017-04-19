@@ -621,14 +621,14 @@ class CmdCraft(MuxCommand):
                 if invest < 0 or action_points < 0:
                     caller.msg("Silver/Action Points cannot be a negative number.")
                     return
-            if not self.check_max_invest(recipe, invest):
-                return
             # first, check if we have all the materials required
             mats = {}
             try:
                 recipe = recipes.get(id=proj[0])
             except CraftingRecipe.DoesNotExist:
                 caller.msg("You lack the ability to finish that recipe.")
+                return
+            if not self.check_max_invest(recipe, invest):
                 return
             if recipe.type == "disguise":
                 if not proj[6]:
