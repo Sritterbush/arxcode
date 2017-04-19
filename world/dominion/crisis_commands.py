@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from evennia.commands.default.muxcommand import MuxPlayerCommand
-from .models import Crisis, CrisisAction, ActionOOCQuestion
+from .models import Crisis, CrisisAction, ActionOOCQuestion, CrisisActionAssistant
 from evennia.utils.evtable import EvTable
 from server.utils.arx_utils import inform_staff, get_week
 from django.db.models import Q
@@ -185,29 +185,36 @@ class CmdGMCrisis(MuxPlayerCommand):
 
 class CmdCrisisAction(MuxPlayerCommand):
     """
-    Take an action for a crisis
+    Take action for a current crisis
 
     Usage:
-        +crisis
-        +crisis <#>
+        +crisis [#]
         +crisis/old <#>
         +crisis/newaction <crisis #>=<action you are taking>
-        +crisis/secretaction <crisis #>=<action you are taking>
-        +crisis/viewaction <action #>
-        +crisis/appendaction <action #>=<new text to add>
-        +crisis/addpoints <action #>=<points to add>
-        +crisis/cancelaction <action #>
-        +crisis/question <action #>=<question>
-        +crisis/togglesecret <action #>
-        +crisis/inviteassistant <action #>=<player>
+        +crisis/append <action #>=<additional text>
+        +crisis/secret <action #>=<action you are taking>
+        +crisis/secret/append <action #>=<additional text>
+        +crisis/toggleview <action #>=<assistant>
+        +crisis/cancel <action #>
+        +crisis/invite <action #>=<player>
         +crisis/assist <action #>=<action you are taking>
+        +crisis/assist/append <action #>=<additional text>
+        +crisis/assist/secret <action #>=<action you are taking>
+        +crisis/assist/secret/append <action #>=<additional text>
+        +crisis/assist/toggleview <action #>
+        +crisis/assist/cancel <action #>
         +crisis/decline <action #>
+        +crisis/viewaction <action #>
+        +crisis/addpoints <action #>=<points to add>
+        +crisis/addresource <action#>=<type>,<amount>
+        +crisis/question <action #>=<question>
+        +crisis/togglepublic <action #>
 
-    Takes an action for a given crisis that is currently going on.
-    Actions are queued in and then all simultaneously resolved by
-    GMs periodically. To view crises that have since been resolved,
-    use the /old switch.
-
+    Crisis actions are queued and simultaneously resolved by GMs periodically. 
+    To view crises that have since been resolved, use /old switch. A secret 
+    action can be added after an action is submitted, and /toggleview allows 
+    individual assistants (or the action's owner) to see it. Togglepublic can
+    keep the action from being publically listed.
     Crisis actions cost 50 action points.
     """
     key = "+crisis"
@@ -352,7 +359,7 @@ class CmdCrisisAction(MuxPlayerCommand):
             self.msg("It is past the submit date for that crisis.")
             return
         if crisis.actions.filter(sent=False, dompc=self.caller.Dominion):
-            self.msg("You have unresolved actions. Use /appendaction instead.")
+            self.msg("You have unresolved actions. Use /append instead.")
             return
         if not self.rhs:
             self.msg("Must specify an action.")
@@ -361,22 +368,29 @@ class CmdCrisisAction(MuxPlayerCommand):
             self.msg("You do not have enough action points to respond to this crisis.")
             return
         week = get_week()
-        public = "secretaction" not in self.switches
-        crisis.actions.create(dompc=self.caller.Dominion, action=self.rhs, public=public, week=week)
+        crisis.actions.create(dompc=self.caller.Dominion, action=self.rhs, week=week)
         self.msg("You are going to perform this action: %s" % self.rhs)
         inform_staff("%s has created a new crisis action for crisis %s: %s" % (self.caller, crisis, self.rhs))
 
     def get_action(self, get_all=False, get_assisted=False):
+        dompc = self.caller.Dominion
         if not get_all and not get_assisted:
             qs = self.current_actions
         else:
-            dompc = self.caller.Dominion
             qs = CrisisAction.objects.filter(Q(dompc=dompc) | Q(assistants=dompc)).distinct()
         try:
-            return qs.get(id=self.lhs)
+            action = qs.get(id=self.lhs)
+            if "assist" in self.switches:
+                try:
+                    return action.assisting_actions.get(dompc=dompc)
+                except CrisisActionAssistant.DoesNotExist:
+                    self.msg("You are not assisting that crisis action.")
+                    return
+            return action
         except (CrisisAction.DoesNotExist, ValueError):
-            self.msg("No action found by that id. Remember to specify the number of the action, not the crisis.")
-            return
+            self.msg("No action found by that id. Remember to specify the number of the action, not the crisis. " +
+                     "Use /assist if trying to change your assistance of an action.")
+        return
 
     def view_action(self):
         action = self.get_action(get_all=True, get_assisted=True)
@@ -388,22 +402,43 @@ class CmdCrisisAction(MuxPlayerCommand):
         self.msg(msg)
 
     def cancel_action(self):
-        action = self.get_action()
+        action = self.get_action(get_assisted=True)
         if not action:
             return
-        if action.story:
+        if hasattr(action, 'crisis_action'):
+            parent = action.crisis_action
+        else:
+            parent = action
+        if parent.story:
             self.msg("That has already had GM action taken.")
             return
         action.delete()
         self.msg("Action deleted.")
 
     def append_action(self):
-        action = self.get_action()
+        action = self.get_action(get_assisted="assist" in self.switches)
         if not action:
             return
-        action.action += "\n%s" % self.rhs
+        field_name = "action"
+        if "secret" in self.switches:
+            field_name = "secret_action"
+        text = getattr(action, field_name) + "\n%s" % self.rhs 
+        setattr(action, field_name, text)
         action.save()
-        self.msg("Action is now: %s" % action.action)
+        self.msg("Action is now: %s" % text)
+
+    def set_secret_action(self):
+        action = self.get_action(get_assisted="assist" in self.switches)
+        if not action:
+            return
+        if action.secret_action:
+            self.msg("You have unresolved secret actions. Use an append switch instead.")
+            return
+        action.secret_action = self.rhs
+        action.save()
+        self.msg("Secret action created.")
+        inform_staff("%s adds a secret to action %s for crisis %s: %s" % (self.caller, action.id, action.crisis,
+                                                                          self.rhs))
 
     def add_action_points(self):
         action = self.get_action(get_assisted=True)
@@ -427,6 +462,44 @@ class CmdCrisisAction(MuxPlayerCommand):
         action.outcome_value += val
         action.save()
         self.msg("You add %s action points. Current action points allocated: %s" % (self.rhs, action.outcome_value))
+        
+    def add_resource(self):
+        action = self.get_action(get_assisted=True)
+        if not action:
+            return
+        time = datetime.now()
+        crisis = action.crisis
+        if crisis.end_date < time:
+            self.msg("It is past the submit date for that crisis.")
+            return
+        try:
+            res_type = self.rhslist[0]
+            val = int(self.rhslist[1])
+            if val <= 0:
+                raise ValueError
+            res_types = ('silver', 'military', 'economic', 'social')
+            if res_type not in res_types:
+                self.msg("Must be one of the following: %s" % ", ".join(res_types))
+                return
+            if res_type == "silver":
+                if val > self.caller.db.char_ob.db.currency:
+                    self.msg("You cannot afford that.")
+                    return
+                self.caller.db.char_ob.pay_money(val)
+            else:
+                if not self.caller.pay_resources(res_type, val):
+                    self.msg("You cannot afford that.")
+                    return
+        except IndexError:
+            self.msg("You must specify a type of resource and an amount.")
+            return
+        except (TypeError, ValueError):
+            self.msg("You must specify a positive amount that you can afford.")
+            return
+        total = getattr(action, res_type) + val
+        setattr(action, res_type, total)
+        action.save()
+        self.msg("You add %s %s. New value: %s" % (val, res_type, total))
 
     def ask_question(self):
         action = self.get_action()
@@ -450,6 +523,31 @@ class CmdCrisisAction(MuxPlayerCommand):
         action.public = not action.public
         action.save()
         self.msg("Public status of action is now %s" % action.public)
+        
+    def toggle_secret_sharing(self):
+        action = self.get_action(get_all=True)
+        if not action:
+            return
+        if "assist" in self.switches:
+            try:
+                assist = action
+                assist.share_secret = not assist.share_secret
+                assist.save()
+                self.msg("Your sharing of your secret action is set to %s" % assist.share_secret)
+            except CrisisActionAssistant.DoesNotExist:
+                self.msg("You are not assisting that action.")
+            return
+        try:
+            targ = self.caller.search(self.rhs)
+            if not targ:
+                return
+            assist = action.assisting_actions.get(dompc=targ.Dominion)
+            assist.can_see_secret = not assist.can_see_secret
+            assist.save()
+            self.msg("%s's ability to see your secret actions is now %s." % (targ, assist.can_see_secret))
+            return
+        except CrisisActionAssistant.DoesNotExist:
+            self.msg("No assistant for that action by that name.")
 
     def func(self):
         if not self.args and (not self.switches or "old" in self.switches):
@@ -458,7 +556,7 @@ class CmdCrisisAction(MuxPlayerCommand):
         if not self.switches or "old" in self.switches:
             self.view_crisis()
             return
-        if "newaction" in self.switches or "secretaction" in self.switches:
+        if "newaction" in self.switches:
             self.new_action()
             return
         if "viewaction" in self.switches:
@@ -467,21 +565,31 @@ class CmdCrisisAction(MuxPlayerCommand):
         if "question" in self.switches:
             self.ask_question()
             return
-        if "cancelaction" in self.switches:
+        if "cancel" in self.switches:
             self.cancel_action()
             return
-        if "appendaction" in self.switches:
+        if "append" in self.switches:
             self.append_action()
             return
-        if "togglesecret" in self.switches:
+        if "togglepublic" in self.switches:
             self.toggle_secret()
+            return
+        if "toggleview" in self.switches:
+            self.toggle_secret_sharing()
             return
         if "addpoints" in self.switches:
             self.add_action_points()
             return
-        if "inviteassistant" in self.switches:
+        if "addresource" in self.switches:
+            self.add_resource()
+            return
+        if "invite" in self.switches:
             self.invite_assistant()
             return
+        if "secret" in self.switches:
+            self.set_secret_action()
+            return
+        # banished assist to the bottom because it is a default thing
         if "assist" in self.switches:
             self.assist_action()
             return

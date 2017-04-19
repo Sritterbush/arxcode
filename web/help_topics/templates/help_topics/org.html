@@ -55,6 +55,21 @@
   </ul>
   {% if holdings %}
   <hr />
+      <h2>Ruler: {{ org.assets.estate.castellan }}</h2><br />
+      {% if org.assets.estate.ministers.all %}
+          <table class="table table-hover">
+          <tr class="danger">
+            <td>Minister</td>
+            <td>Category</td>
+            <td>Title</td>
+          </tr>
+      {% for minister in org.assets.estate.ministers.all %}
+          <tr>
+          <td width="20%">{{ minister.player }}</td>
+          <td width="20%">{{ minister.get_category_display }}</td>
+          <td width="60%">{{ minister.title }}</td>
+          </tr>
+          {% endfor %}</table>{% endif %}
   <h1>Land Holdings</h1>
   
   {% for domain in holdings %}

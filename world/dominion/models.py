@@ -61,6 +61,7 @@ from .battle import Battle
 from .agenthandler import AgentHandler
 from server.utils.arx_utils import get_week
 from evennia.locks.lockhandler import LockHandler
+from evennia.utils.utils import lazy_property
 import traceback
 from django.core.urlresolvers import reverse
 
@@ -668,6 +669,8 @@ class AccountTransaction(models.Model):
     
     @property
     def can_pay(self):
+        # prevent possible caching errors
+        self.sender.refresh_from_db()
         return self.sender.vault >= self.weekly_amount
 
     def save(self, *args, **kwargs):
@@ -1280,9 +1283,13 @@ class Domain(models.Model):
         mssg += "{wLand{n: %s\n" % self.land
         mssg += "{wHouse{n: %s\n" % str(self.ruler)
         mssg += "{wLiege{n: %s\n" % str(liege)
-        mssg += "{wRuler{n: %s\n" % castellan
-        for minister in ministers:
-            mssg += "{wMinister of %s{n: %s\n" % (minister.get_category_display(), minister.player)
+        mssg += "{wRuler{n: {c%s{n\n" % castellan
+        if ministers:
+            mssg += "{wMinisters:{n\n"
+            for minister in ministers:
+                mssg += "  {c%s{n   {wCategory:{n %s  {wTitle:{n %s\n" % (minister.player,
+                                                                          minister.get_category_display(),
+                                                                          minister.title)
         mssg += "{wDesc{n: %s\n" % self.desc
         mssg += "{wArea{n: %s {wFarms{n: %s {wHousing{n: %s " % (self.area, self.num_farms, self.num_housing)
         mssg += "{wMines{n: %s {wLumber{n: %s {wMills{n: %s\n" % (self.num_mines, self.num_lumber_yards, self.num_mills)
@@ -1482,6 +1489,9 @@ class Minister(models.Model):
     ruler = models.ForeignKey("Ruler", related_name="ministers", blank=True, null=True, db_index=True)
     category = models.PositiveSmallIntegerField(choices=MINISTER_TYPES, default=INCOME)
 
+    def __str__(self):
+        return "%s acting as %s minister for %s" % (self.player, self.get_category_display(), self.ruler)
+
 
 class Ruler(models.Model):
     """
@@ -1639,6 +1649,7 @@ class CrisisAction(models.Model):
     week = models.PositiveSmallIntegerField(default=0, blank=0, db_index=True)
     dompc = models.ForeignKey("PlayerOrNpc", db_index=True, blank=True, null=True, related_name="actions")
     action = models.TextField("What actions the player is taking", blank=True)
+    secret_action = models.TextField("Secret actions the player is taking", blank=True)
     crisis = models.ForeignKey("Crisis", db_index=True, blank=True, null=True, related_name="actions")
     update = models.ForeignKey("CrisisUpdate", db_index=True, blank=True, null=True, related_name="actions")
     public = models.BooleanField(default=True, blank=True)
@@ -1649,6 +1660,13 @@ class CrisisAction(models.Model):
     sent = models.BooleanField(default=False, blank=True)
     assistants = models.ManyToManyField("PlayerOrNpc", blank=True, null=True, through="CrisisActionAssistant",
                                         related_name="assisted_actions")
+    silver = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Additional silver added by the player")
+    economic = models.PositiveSmallIntegerField(default=0, blank=0,
+                                                help_text="Additional economic resources added by the player")
+    military = models.PositiveSmallIntegerField(default=0, blank=0,
+                                                help_text="Additional military resources added by the player")
+    social = models.PositiveSmallIntegerField(default=0, blank=0,
+                                              help_text="Additional social resources added by the player")
 
     def send(self, update):
         msg = "{wGM Response to action for crisis:{n %s" % self.crisis
@@ -1669,19 +1687,40 @@ class CrisisAction(models.Model):
             msg += "\n{c%s{n's assisting action: %s" % (ob.dompc, ob.action)
         return msg
 
+    def check_view_secret(self, caller):
+        if not caller:
+            return
+        if caller.check_permstring("builders"):
+            return True
+        if caller == self.dompc.player:
+            return True
+        try:
+            ass = self.assisting_actions.get(dompc=caller.Dominion)
+            return ass.can_see_secret
+        except CrisisActionAssistant.DoesNotExist:
+            return
+
     def view_action(self, caller=None, disp_pending=True, disp_old=False):
         if not self.public and (not caller or (not caller.check_permstring("builders")
                                 and caller != self.dompc.player and caller.Dominion not in self.assistants.all())):
             return ""
         msg = "\n{c%s's {wactions in week %s for {m%s{n" % (self.dompc, self.week, self.crisis)
         msg += self.action_text
+        if self.secret_action:
+            if self.check_view_secret(caller):
+                msg += "\n{c%s's {wsecret actions:{n %s" % (self.dompc, self.secret_action)
+            for ob in self.assisting_actions.all():
+                if ob.secret_action and ob.check_view_secret(caller):
+                    msg += "\n{c%s's {wsecret actions:{n %s" % (ob.dompc, ob.secret_action)
         if self.sent:
             msg += "\n{wGM Notes:{n %s" % self.gm_notes
             msg += "\n{wRolls:{n %s" % self.rolls
             msg += "\n{wOutcome Value:{n %s" % self.outcome_value
             msg += "\n{wStory:{n %s" % self.story
         else:
-            msg += "\n{wAdditional Action Points Spent:{n %s" % self.outcome_value
+            msg += "\n{wAdditional Action Points Spent:{n {c%s{n" % self.outcome_value
+            msg += "\n{wResources Being Used:{n {c%s{n silver, {c%s{n economic, {c%s{n military, {c%s{n social" % (
+                self.silver, self.economic, self.military, self.social)
         if disp_pending:
             pend = self.questions.filter(answers__isnull=True)
             for ob in pend:
@@ -1700,9 +1739,28 @@ class CrisisActionAssistant(models.Model):
     crisis_action = models.ForeignKey("CrisisAction", db_index=True, related_name="assisting_actions")
     dompc = models.ForeignKey("PlayerOrNpc", db_index=True, related_name="assisting_actions")
     action = models.TextField("What action the assistant is taking", blank=True)
+    secret_action = models.TextField("Secret action the assistant is taking", blank=True)
+    # whether the assistant can see any secret action of the owner
+    can_see_secret = models.BooleanField(default=False)
+    # whether the owner is allowed to see our own secret action
+    share_secret = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ('crisis_action', 'dompc')
+
+    def check_view_secret(self, caller):
+        if not caller:
+            return
+        if caller.check_permstring("builders"):
+            return True
+        if caller == self.dompc.player:
+            return True
+        if caller == self.crisis_action.dompc:
+            return self.share_secret
+
+    @property
+    def crisis(self):
+        return self.crisis_action.crisis
 
 
 class ActionOOCQuestion(models.Model):
@@ -1868,7 +1926,7 @@ class Organization(models.Model):
         msg += "{wWebpage{n: %s\n" % webpage
         return msg
     
-    def display(self, viewing_member=None):
+    def display(self, viewing_member=None, display_clues=False):
         if hasattr(self, 'assets'):
             money = self.assets.vault
             prestige = self.assets.prestige
@@ -1899,7 +1957,7 @@ class Organization(models.Model):
         msg += "{wSpheres of Influence:{n %s\n" % ", ".join("{w%s{n: %s" % (ob.category, ob.rating)
                                                             for ob in self.spheres.all())
         clues = self.clues.all()
-        if clues:
+        if clues and display_clues:
             msg += "\n{wClues Known:{n %s\n" % "; ".join(str(ob) for ob in clues)
         if holdings:
             msg += "{wHoldings{n: %s\n" % ", ".join(ob.name for ob in holdings)
@@ -1958,11 +2016,14 @@ class Organization(models.Model):
         except Channel.DoesNotExist:
             return None
 
-    def inform_members(self, text, category=None):
+    def inform_members(self, text, category=None, access=None):
         from world.msgs.models import Inform
         if not category:
             category = self.name
-        players = [ob.player.player for ob in self.active_members]
+        if not access:
+            players = [ob.player.player for ob in self.active_members]
+        else:
+            players = [ob.player.player for ob in self.active_members if self.access(ob.player.player, access)]
         Inform.bulk_inform(players, text=text, category=category)
 
 
@@ -2518,6 +2579,9 @@ class Orders(models.Model):
     ENFORCE_ORDER = 5
     BESIEGE = 6
     MARCH = 7
+    DEFEND = 8
+    PATROL = 9
+    ASSIST = 10
        
     ORDER_CHOICES = (
         (TRAIN, 'Troop Training'),
@@ -2526,20 +2590,35 @@ class Orders(models.Model):
         (CONQUER, 'Conquer Domain'),
         (ENFORCE_ORDER, 'Enforce Order'),
         (BESIEGE, 'Besiege Castle'),
-        (MARCH, 'March'),)
+        (MARCH, 'March'),
+        (DEFEND, 'Defend'),
+        (PATROL, 'Patrol'),
+        (ASSIST, 'Assist'),)
     army = models.ForeignKey("Army", related_name="orders", null=True, blank=True, db_index=True)
     target_domain = models.ForeignKey("Domain", related_name="incoming_attacks", null=True, blank=True, db_index=True)
     target_land = models.ForeignKey("Land", related_name="incoming_army", null=True, blank=True)
+    action = models.ForeignKey("CrisisAction", related_name="orders", null=True, blank=True, db_index=True)
+    # if we're assisting another army's orders
+    assisting = models.ForeignKey("self", related_name="assisting_orders", null=True, blank=True, db_index=True)
     type = models.PositiveSmallIntegerField(choices=ORDER_CHOICES, default=TRAIN)
     coin_cost = models.PositiveIntegerField(default=0, blank=0)
     food_cost = models.PositiveIntegerField(default=0, blank=0)
-    # the week this order was given, so we can keep it as a history
+    # If orders were given this week, they're still pending
     week = models.PositiveSmallIntegerField(default=0, blank=0)
     complete = models.BooleanField(default=False, blank=False)
 
     class Meta:
         """Define Django meta options"""
         verbose_name_plural = "Army Orders"
+
+    def calculate_cost(self):
+        """
+        Calculates cost for an action and assigns self.coin_cost
+        """
+        DIV = 100
+        costs = sum((ob.costs/DIV) + 1 for ob in self.units.all())
+        self.coin_cost = costs
+        self.save()
     
 
 class MilitaryUnit(models.Model):
@@ -2554,6 +2633,8 @@ class MilitaryUnit(models.Model):
     """
     commander = models.ForeignKey("Member", on_delete=models.SET_NULL, related_name="units", blank=True, null=True)
     army = models.ForeignKey("Army", related_name="units", blank=True, null=True, db_index=True)
+    orders = models.ForeignKey("Orders", related_name="units", on_delete=models.SET_NULL, blank=True, null=True,
+                               db_index=True)
     # type will be used to derive units and their stats elsewhere 
     unit_type = models.PositiveSmallIntegerField(default=0, blank=0)
     quantity = models.PositiveSmallIntegerField(default=1, blank=1)
@@ -2613,14 +2694,18 @@ class MilitaryUnit(models.Model):
         and equipment level.
         """
         pass
+
+    @lazy_property
+    def stats(self):
+        return unit_types.get_unit_stats(self)
     
     def _get_costs(self):
         """
         Costs for the unit.
         """
         try:
-            cost = unit_types.upkeep[self.unit_type]
-        except KeyError:
+            cost = self.stats.silver_upkeep
+        except AttributeError:
             print "Type %s is not a recognized MilitaryUnit type!" % self.unit_type
             print "Warning. No cost assigned to <MilitaryUnit- ID: %s>" % self.id
             cost = 0
@@ -2632,8 +2717,8 @@ class MilitaryUnit(models.Model):
         Food for the unit
         """
         try:
-            hunger = unit_types.food[self.unit_type]
-        except KeyError:
+            hunger = self.stats.food_upkeep
+        except AttributeError:
             print "Type %s is not a recognized Military type!" % self.unit_type
             print "Warning. No food upkeep assigned to <MilitaryUnit - ID: %s>" % self.id
             hunger = 0
@@ -2644,7 +2729,10 @@ class MilitaryUnit(models.Model):
     costs = property(_get_costs)
 
     def _get_type_name(self):
-        return unit_types.get_type_str(self.unit_type)
+        try:
+            return self.stats.name.lower()
+        except AttributeError:
+            return "unknown type"
     type = property(_get_type_name)
 
     def __unicode__(self):

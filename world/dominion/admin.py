@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb,
+from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister,
                      AssetOwner, Region, Land, DomainProject, Castle,
                      Ruler, Army, Orders, MilitaryUnit, Member, Task,
                      CraftingRecipe, CraftingMaterialType, CraftingMaterials, CrisisActionAssistant,
@@ -66,14 +66,14 @@ class OrgListFilter(admin.SimpleListFilter):
 
 
 class OrgAdmin(DomAdmin):
-    list_display = ('name', 'membership', 'category')
+    list_display = ('id', 'name', 'category')
     ordering = ['name']
     search_fields = ['name', 'category', 'members__player__player__username']
     list_filter = (OrgListFilter,)
 
-    @staticmethod
-    def membership(obj):
-        return ", ".join([str(p) for p in obj.members.filter(deguilded=False)])
+    # @staticmethod
+    # def membership(obj):
+    #     return ", ".join([str(p) for p in obj.members.filter(deguilded=False)])
     inlines = [MemberInline, ClueForOrgInline]
 
     
@@ -125,11 +125,18 @@ class UnitAdmin(DomAdmin):
     list_filter = ('army',)
 
 
+class MinisterInline(admin.TabularInline):
+    model = Minister
+    raw_id_fields = ('player', 'ruler')
+    extra = 0
+
+
 class RulerAdmin(DomAdmin):
     list_display = ('id', 'house', 'liege', 'castellan')
     ordering = ['house']
     search_fields = ['house__organization_owner__name']
-    raw_id_fields = ('castellan', 'house')
+    raw_id_fields = ('castellan', 'house', 'liege')
+    inlines = (MinisterInline,)
 
 
 class DomainAdmin(DomAdmin):
@@ -169,17 +176,24 @@ class EventAdmin(DomAdmin):
     filter_horizontal = ['hosts', 'participants', 'gms']
 
 
-class TransactionInline(admin.TabularInline):
+class SendTransactionInline(admin.TabularInline):
     model = AccountTransaction
     fk_name = 'sender'
     extra = 0
     raw_id_fields = ('receiver',)
 
 
+class ReceiveTransactionInline(admin.TabularInline):
+    model = AccountTransaction
+    fk_name = 'receiver'
+    extra = 0
+    raw_id_fields = ('sender',)
+
+
 class AssetAdmin(DomAdmin):
     list_display = ('id', 'ownername', 'vault', 'prestige', 'economic', 'military', 'social')
     search_fields = ['player__npc_name', 'player__player__username', 'organization_owner__name']
-    inlines = [TransactionInline]
+    inlines = [SendTransactionInline, ReceiveTransactionInline]
     raw_id_fields = ('player', 'organization_owner')
 
     @staticmethod
@@ -201,6 +215,7 @@ class AgentObAdmin(DomAdmin):
 class TaskRequirementsInline(admin.TabularInline):
     model = TaskRequirement
     extra = 0
+    raw_id_fields = ('task',)
 
 
 class TaskAdmin(DomAdmin):
@@ -263,6 +278,7 @@ class ReputationAdmin(DomAdmin):
 class SpheresInline(admin.TabularInline):
     model = SphereOfInfluence
     extra = 0
+    raw_id_fields = ('org',)
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         if db_field.name == "org":
@@ -295,6 +311,12 @@ class AgentAdmin(DomAdmin):
     list_display = ('id', 'name', 'quantity', 'quality', 'owner')
     raw_id_fields = ('owner',)
     search_fields = ('name', 'owner__player__player__username', 'owner__organization_owner__name')
+
+
+class ArmyAdmin(DomAdmin):
+    list_display = ('id', 'name', 'owner', 'domain')
+    raw_id_fields = ('owner', 'domain', 'land', 'castle', 'commander')
+    search_fields = ('name', 'domain__name', 'owner__player__player__username', 'owner__organization_owner__name')
   
 # Register your models here.
 admin.site.register(PlayerOrNpc, PCAdmin)
@@ -303,7 +325,7 @@ admin.site.register(Domain, DomainAdmin)
 admin.site.register(Agent, AgentAdmin)
 admin.site.register(AgentOb, AgentObAdmin)
 admin.site.register(AssetOwner, AssetAdmin)
-admin.site.register(Army, DomAdmin)
+admin.site.register(Army, ArmyAdmin)
 admin.site.register(Orders, DomAdmin)
 admin.site.register(MilitaryUnit, UnitAdmin)
 admin.site.register(Region, DomAdmin)

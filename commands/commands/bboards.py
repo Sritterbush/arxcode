@@ -385,11 +385,9 @@ class CmdBBReadOrPost(MuxPlayerCommand):
             if caller not in post.db_sender_players.all() and not board.access(caller, "edit"):
                 caller.msg("You cannot edit someone else's post, only your own.")
                 return
-            if board.edit_post(post, self.rhs):
+            if board.edit_post(self.caller, post, self.rhs):
                 self.msg("Post edited.")
                 inform_staff("%s has edited post %s on board %s." % (caller, post_num, board))
-            else:
-                self.msg("Post edit failed for unknown reason.")
             return
         if 'post' in switches:        
             if not self.rhs:
@@ -405,7 +403,43 @@ class CmdBBReadOrPost(MuxPlayerCommand):
             if not board:
                 return
             board.bb_post(caller, self.rhs, subject)
+            
 
+class CmdOrgStance(MuxPlayerCommand):
+    """
+    @bborgstance - post an org's response to a Proclamation
+    
+    Usage:
+        @bborgstance <post #>/<org>=<brief declaration>
+        
+    Declare your org's bold, nuanced political stance in response to a posted
+    proclamation - in a svelte 140 characters or less.
+    """
+    key = "@bborgstance"
+    aliases = ["bborgstance", "+bborgstance"]
+    help_category = "Comms"
+    locks = "cmd:not pperm(bboard_banned)"
+    
+    def func(self):
+        lhs = self.lhs
+        arglist = lhs.split("/")
+        if len(arglist) < 2 or not self.rhs:
+            self.msg("Usage: @bborgstance <post #>/<org>=<brief declaration>")
+            return
+        try:
+            postnum = int(arglist[0])
+        except ValueError:
+            self.msg("Invalid post number.")
+            return
+        from django.core.exceptions import ObjectDoesNotExist
+        try:
+            org = self.caller.current_orgs.get(name__iexact=arglist[1])
+        except ObjectDoesNotExist:
+            self.msg("You are not a member of that Org.")
+            return
+        board = BBoard.objects.get(db_key__iexact="proclamations")
+        board.bb_orgstance(self.caller, org, self.rhs, postnum)
+        
 
 class CmdBBSub(MuxPlayerCommand):
     """

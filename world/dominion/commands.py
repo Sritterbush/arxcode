@@ -758,6 +758,7 @@ class CmdAdmOrganization(MuxPlayerCommand):
         @admin_org/title <orgname or number>=<rank>,<name>
         @admin_org/femaletitle <orgname or number>=<rank>,<name>
         @admin_org/setinfluence <org name or number>=<inf name>,<value>
+        @admin_org/cptasks <target org>=<org to copy>
 
     Allows you to change or control organizations. Orgs can be accessed either by
     their ID number or name.
@@ -907,6 +908,23 @@ class CmdAdmOrganization(MuxPlayerCommand):
         if 'setinfluence' in self.switches:
             self.set_influence(org)
             return
+        if 'cptasks' in self.switches:
+            try:
+                if self.lhs.isdigit():
+                    org2 = Organization.objects.get(id=int(self.rhs))
+                else:
+                    org2 = Organization.objects.get(name__iexact=self.rhs)
+            except Organization.DoesNotExist:
+                self.msg("Org not found.")
+                return
+            current_tasks = org.tasks.all()
+            tasks = org2.tasks.all().exclude(id__in=current_tasks)
+            OrgTaskModel = Organization.tasks.through
+            bulk_list = []
+            for task in tasks:
+                bulk_list.append(OrgTaskModel(organization=org, task=task))
+            OrgTaskModel.objects.bulk_create(bulk_list)
+            self.msg("Tasks copied from %s to %s." % (org2, org))
 
 
 class CmdAdmFamily(MuxPlayerCommand):
@@ -1237,6 +1255,7 @@ class CmdDomain(MuxPlayerCommand):
         @domain/minister <domain ID>=<player>,<category>
         @domain/resign <domain ID>
         @domain/strip <domain ID>=<player>
+        @domain/title <domain ID>=<minister>,<title>
 
     Commands to view and control your domain.
 
@@ -1369,26 +1388,40 @@ class CmdDomain(MuxPlayerCommand):
                 return
             self.msg("You are not a ruler or minister of %s." % dom)
             return
-        if "strip" in self.switches:
+        if "strip" in self.switches or "title" in self.switches:
             if dom not in (self.org_domains | self.ruled_domains).distinct():
-                self.msg("You do not have the authority to strip someone of their position.")
+                self.msg("You do not have the authority to strip someone of their position or grant a title.")
                 return
-            targ = self.caller.search(self.rhs)
+            if "strip" in self.switches:
+                rhs = self.rhs
+            else:
+                rhs = self.rhslist[0]
+            targ = self.caller.search(rhs)
             if not targ:
                 return
             dompc = targ.Dominion
-            if dom.ruler.castellan == dompc:
-                self.msg("Removing %s as castellan.")
-                dom.ruler.castellan = None
-                dom.ruler.save()
+            if "strip" in self.switches:
+                if dom.ruler.castellan == dompc:
+                    self.msg("Removing %s as castellan.")
+                    dom.ruler.castellan = None
+                    dom.ruler.save()
+                    return
+                try:
+                    minister = dom.ruler.ministers.get(player=dompc)
+                    minister.delete()
+                    self.msg("You have removed %s as a minister." % dompc)
+                except Minister.DoesNotExist:
+                    self.msg("They are neither a minister nor castellan for that domain.")
                 return
-            try:
-                minister = dom.ruler.ministers.get(player=dompc)
-                minister.delete()
-                self.msg("You have removed %s as a minister." % dompc)
-            except Minister.DoesNotExist:
-                self.msg("They are neither a minister nor castellan for that domain.")
-            return
+            else:
+                try:
+                    minister = dom.ruler.ministers.get(player=dompc)
+                    minister.title = self.rhslist[1]
+                    minister.save()
+                    self.msg("Setting title of %s to be: %s" % (dompc, self.rhslist[1]))
+                except Minister.DoesNotExist:
+                    self.msg("They are neither a minister nor castellan for that domain.")
+                return
         self.msg("Invalid switch.")
 
 
@@ -1501,10 +1534,22 @@ class CmdOrganization(MuxPlayerCommand):
     locks = "cmd:all()"
     help_category = "Dominion"
     org_locks = ("edit", "boot", "withdraw", "setrank", "invite",
-                 "setruler", "view", "guards", "build", "briefing")
+                 "setruler", "view", "guards", "build", "briefing", 
+                 "declarations")
 
     @staticmethod
     def get_org_and_member(caller, myorgs, args):
+        """
+        Returns an organization and member for caller
+
+        Args:
+            caller: Player
+            myorgs: Organization
+            args: str
+
+        Returns:
+            :rtype: (Organization, Member)
+        """
         org = myorgs.get(name__iexact=args)
         member = caller.Dominion.memberships.get(organization=org)
         return org, member
@@ -1512,9 +1557,13 @@ class CmdOrganization(MuxPlayerCommand):
     def disp_org_locks(self, caller, org):
         table = PrettyTable(["{wPermission{n", "{wRank{n"])
         for lock in self.org_locks:
-            olock = org.locks.get(lock).split(":")
-            if len(olock) > 1:
-                olock = olock[1]
+            lockstr = org.locks.get(lock)
+            if lockstr:
+                olock = org.locks.get(lock).split(":")
+                if len(olock) > 1:
+                    olock = olock[1].strip()
+            else:
+                olock = "None"
             table.add_row([lock, olock])
         caller.msg(table, options={'box': True})
 
@@ -1586,7 +1635,7 @@ class CmdOrganization(MuxPlayerCommand):
             entry.discover_clue(clue=clue, method="Briefing")
             entry.investigations.filter(clue_target=clue).update(clue_target=None)
             text = "You have been briefed and learned a clue. Use @clue to view them: %s" % clue
-            tarmember.player.player.msg("%s has briefed you on %s's secrets." % (caller, org))
+            tarmember.player.player.msg("%s has briefed you on %s's secrets." % (caller.db.char_ob, org))
             tarmember.player.player.inform(text, category="%s briefing" % org)
             self.msg("You have briefed %s on your organization's secrets." % tarmember)
             return
@@ -1626,8 +1675,9 @@ class CmdOrganization(MuxPlayerCommand):
                 return
             ClueForOrg.objects.create(clue=clue, org=org, revealed_by=caller.roster)
             category = "%s: Clue Added" % org
-            text = "%s has shared the clue {w%s{n to {c%s{n. It can now be used in a /briefing." % (caller, clue, org)
-            org.inform_members(text, category)
+            text = "%s has shared the clue {w%s{n to {c%s{n. It can now be used in a /briefing." % (caller.db.char_ob,
+                                                                                                    clue, org)
+            org.inform_members(text, category, access="briefing")
             return
         if 'accept' in self.switches:
             org = caller.ndb.orginvite
@@ -1654,6 +1704,7 @@ class CmdOrganization(MuxPlayerCommand):
                 org.org_channel.connect(caller)
             except AttributeError:
                 pass
+            caller.ndb.orginvite = None
             return
         if 'decline' in self.switches:
             org = caller.ndb.orginvite
@@ -1672,14 +1723,16 @@ class CmdOrganization(MuxPlayerCommand):
                     self.disp_org_locks(caller, myorgs[0])
                     return
                 member = caller.Dominion.memberships.get(organization=myorgs[0])
-                caller.msg(myorgs[0].display(member), options={'box': True})
+                display_clues = myorgs[0].access(caller, "briefing") or caller.check_permstring("builders")
+                caller.msg(myorgs[0].display(member, display_clues=display_clues), options={'box': True})
                 return
             caller.msg("Your organizations: %s" % ", ".join(org.name for org in myorgs))
             return
         if not self.switches:
             try:
                 org, member = self.get_org_and_member(caller, myorgs, self.lhs)
-                caller.msg(org.display(member), options={'box': True})
+                display_clues = org.access(caller, "briefing") or caller.check_permstring("builders")
+                caller.msg(org.display(member, display_clues=display_clues), options={'box': True})
                 return
             except Organization.DoesNotExist:
                 caller.msg("You are not a member of any organization named %s." % self.lhs)
@@ -1692,6 +1745,12 @@ class CmdOrganization(MuxPlayerCommand):
         if 'setrank' in self.switches or 'perm' in self.switches or 'rankname' in self.switches:
             if not self.rhs:
                 if 'perm' in self.switches:
+                    try:
+                        org, member = self.get_org_and_member(caller, myorgs, self.lhs)
+                        self.disp_org_locks(caller, org)
+                        return
+                    except Organization.DoesNotExist:
+                        pass
                     self.display_permtypes()
                     return
                 caller.msg("You must supply a rank number.")
@@ -1759,7 +1818,8 @@ class CmdOrganization(MuxPlayerCommand):
             # 'setrank' now
             if not org.access(caller, 'setrank'):
                 caller.msg("You do not have permission to change ranks.")
-                return           
+                return
+            # this check also prevents promoting yourself
             if rank < member.rank:
                 caller.msg("You cannot set someone to be higher rank than yourself.")
                 return
@@ -1768,13 +1828,14 @@ class CmdOrganization(MuxPlayerCommand):
             except Member.DoesNotExist:
                 caller.msg("%s is not a member of %s." % (player, org))
                 return
-            if tarmember.rank <= member.rank:
+            # can demote yourself, but otherwise only people lower than yourself
+            if tarmember.rank <= member.rank and tarmember != member:
                 caller.msg("You cannot change the rank of someone equal to you or higher.")
                 return
             tarmember.rank = rank
             tarmember.save()
             caller.msg("You have set %s's rank to %s." % (player, rank))
-            player.msg("Your rank has been set to %s by %s." % (rank, caller))
+            player.msg("Your rank has been set to %s by %s." % (rank, caller.db.char_ob))
             return
         # other switches can omit the org name if we're only a member of one org   
         if not self.rhs:
@@ -1812,7 +1873,7 @@ class CmdOrganization(MuxPlayerCommand):
                 return
             player.ndb.orginvite = org
             caller.msg("You have invited %s to %s." % (char, org.name))
-            msg = "You have been invited by %s to join %s.\n" % (caller, org.name)
+            msg = "You have been invited to join %s by %s.\n" % (org.name, caller.db.char_ob)
             msg += "To accept, type {w@org/accept %s{n. To decline, type {worg/decline %s{n." % (org.name, org.name)
             player.inform(msg, category="Invitation")
             return
@@ -1822,15 +1883,16 @@ class CmdOrganization(MuxPlayerCommand):
             caller.msg("%s is not a member of %s." % (player, org))
             return
         if 'boot' in self.switches:
-            if not org.access(caller, 'boot'):
-                caller.msg("You do not have permission to boot players.")
-                return
-            if tarmember.rank <= member.rank:
-                caller.msg("You cannot boot someone who is equal or higher rank.")
-                return
+            if tarmember != member:
+                if not org.access(caller, 'boot'):
+                    caller.msg("You do not have permission to boot players.")
+                    return
+                if tarmember.rank <= member.rank:
+                    caller.msg("You cannot boot someone who is equal or higher rank.")
+                    return
             tarmember.fake_delete()
             caller.msg("Booted %s from %s." % (player, org))
-            player.msg("You have been removed from %s by %s." % (org, caller))
+            player.msg("You have been removed from %s by %s." % (org, caller.db.char_ob))
             return
         if 'memberview' in self.switches:
             if org.secret and not org.access(caller, 'view'):
@@ -1839,7 +1901,6 @@ class CmdOrganization(MuxPlayerCommand):
             caller.msg("{wMember info for {c%s{n" % tarmember)
             caller.msg(tarmember.display())
             return
-
         if 'secret' in self.switches:
             if not org.access(caller, 'setrank'):
                 caller.msg("You do not have permission to change member status.")
@@ -2594,16 +2655,24 @@ class CmdSupport(MuxCommand):
                 for s_id in form[2]:
                     sphere = SphereOfInfluence.objects.get(id=s_id)
                     msg = "Organization: %s, Category: %s, Amount: %s" % (sphere.org, sphere.category, form[2][s_id])
-                    caller.msg(msg)            
+                    caller.msg(msg)
+                caller.msg("Total support: %s" % self.supportform_total())
                 caller.msg("Notes:\n%s" % form[3])
                 caller.msg("Rumors:\n%s" % form[4])       
-                caller.msg("Once all fields are finished, use /finish to commit.")
+                caller.msg("Once all fields are finished, use support/finish to commit.")
             except (TypeError, KeyError, IndexError):
                 caller.msg("{rEncountered a supportform with invalid structure. Resetting the attribute." +
                            " Please start over.{n")
                 print("%s had an invalid supportform. Wiping the attribute." % caller)
                 caller.attributes.remove("supportform")
                 return
+
+    def supportform_total(self):
+        caller = self.caller
+        form = caller.db.supportform
+        if not form or not form[2]:
+            return 0
+        return sum(form[2].values())
 
     def get_support_table(self):
         caller = self.caller
@@ -2915,6 +2984,11 @@ class CmdSupport(MuxCommand):
             self.disp_supportform()
             return
         if "finish" in self.switches:
+            used = self.supportform_total()
+            if used > remaining:
+                self.msg("You would use %s points and you only have %s remaining. Please change them." % (used,
+                                                                                                          remaining))
+                return
             points = 0
             char = form[0]
             fake = form[1]

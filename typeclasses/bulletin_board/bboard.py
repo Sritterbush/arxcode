@@ -54,14 +54,50 @@ class BBoard(Object):
             else:
                 posts.first().delete()
         if announce:
-            subs = [ob for ob in self.db.subscriber_list if self.access(ob, "read")
-                    and "no_post_notifications" not in ob.tags.all()]
             post_num = self.posts.count()
-            for sub in subs:
-                notify = "\n{{wNew post on {0} by {1}:{{n {2}".format(self.key, posted_by, subject)
-                notify += "\nUse {w@bbread %s/%s {nto read this message." % (self.key, post_num)
-                sub.msg(notify)
+            notify = "\n{{wNew post on {0} by {1}:{{n {2}".format(self.key, posted_by, subject)
+            notify += "\nUse {w@bbread %s/%s {nto read this message." % (self.key, post_num)
+            self.notify_subs(notify)
         return post
+
+    def notify_subs(self, notification):
+        subs = [ob for ob in self.db.subscriber_list if self.access(ob, "read")
+                and "no_post_notifications" not in ob.tags.all() and (not hasattr(ob, 'is_guest') or not ob.is_guest())]
+        for sub in subs:
+            sub.msg(notification)
+
+    def bb_orgstance(self, poster_obj, org, msg, postnum):
+        """
+        Post teeny commentary as addendum to board message.
+        
+        Args:
+            poster_obj: Character
+            org: Organization
+            msg: str
+            postnum: int
+        """
+        tagname = "%s_comment" % org
+        # I love you so much <3 Do not let orange text bother you!
+        # I love you too <3 Because board is calling this, board is now self.
+        post = self.get_post(poster_obj, postnum)
+        if not post:
+            return
+        if post.tags.get(tagname, category="org_comment"):
+            poster_obj.msg("{w%s{n has already declared a position on this matter." % org)
+            return
+        if not org.access(poster_obj, "declarations"):
+            poster_obj.msg("Your {w%s{n rank isn't yet high enough to make declarations on their behalf." % org)
+            return
+        if len(msg) > 140:
+            poster_obj.msg("That message is too long for a brief declaration.")
+            return
+        post.db_message += "\n\n--- {w%s{n Stance ---\n%s" % (org, msg)
+        post.tags.add("%s_comment" % org, category="org_comment")
+        post.save()
+        poster_obj.msg("{w%s{n successfully declared a stance on '%s'." % (org, post.db_header))
+        self.notify_subs("{w%s has commented upon proclamation %s.{n" % (org, postnum))
+        from server.utils.arx_utils import inform_staff
+        inform_staff("{c%s {whas posted an org stance for %s." % (poster_obj, org))
 
     def has_subscriber(self, pobj):
         if pobj in self.db.subscriber_list:
@@ -78,6 +114,7 @@ class BBoard(Object):
         return self.get_unread_posts(pobj, old).count()
 
     def get_post(self, pobj, postnum, old=False):
+        # pobj is a player.
         postnum -= 1
         if old:
             posts = self.archived_posts
@@ -138,12 +175,16 @@ class BBoard(Object):
             post.delete()
             return True
 
-    def sticky_post(self, post):
+    @staticmethod
+    def sticky_post(post):
         post.tags.add("sticky_post")
         return True
 
     @staticmethod
-    def edit_post(post, msg):
+    def edit_post(pobj, post, msg):
+        if post.tags.get(category="org_comment"):
+            pobj.msg("The post has already had org responses.")
+            return
         post.db_message = msg
         post.save()
         return True

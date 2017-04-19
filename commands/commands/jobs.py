@@ -149,24 +149,7 @@ class CmdJob(MuxPlayerCommand):
                 self.display_open_tickets()
                 caller.msg("No ticket found by that number.")   
                 return
-            caller.msg("\n{wQueue:{n %s" % ticket.queue)
-            caller.msg("{wTicket Number:{n %s" % ticket.id)
-            if ticket.submitting_player:
-                caller.msg("{wPlayer:{n %s" % ticket.submitting_player.key)
-            caller.msg("{wDate submitted:{n %s" % ticket.created)
-            caller.msg("{wLast modified:{n %s" % ticket.modified)
-            caller.msg("{wTitle:{n %s" % ticket.title)
-            room = ticket.submitting_room
-            if room:
-                caller.msg("{wLocation:{n %s (#%s)" % (room, room.id))
-            caller.msg("{wPriority:{n %s" % ticket.priority)
-            caller.msg("{wRequest:{n %s" % ticket.description)
-            if ticket.assigned_to:
-                caller.msg("{wGM:{n %s" % ticket.assigned_to.key)
-                caller.msg("{wGM Notes:{n %s" % ticket.resolution)
-            for followup in ticket.followup_set.all():
-                caller.msg("{wFollowup by:{n %s" % followup.user)
-                caller.msg("{wComment:{n %s" % followup.comment)
+            caller.msg(ticket.display())
             return
         if 'old' in switches and not args:
             # list closed tickets
@@ -261,7 +244,7 @@ class CmdJob(MuxPlayerCommand):
             else:
                 caller.msg("Ticket closure failed for unknown reason.")
                 return
-        if 'followup' in switches or 'update' in switches:
+        if 'followup' in switches or 'update' in switches or "follow" in switches:
             lhs = self.lhs
             rhs = self.rhs
             if not lhs or not rhs:
@@ -356,12 +339,7 @@ class CmdRequest(MuxPlayerCommand):
     locks = "cmd:perm(request) or perm(Players)"
 
     def display_ticket(self, ticket):
-        self.msg("\n{wTicket #:{n %s" % ticket.id)
-        self.msg("{wQueue:{n %s" % ticket.queue)
-        self.msg("{wRequest:{n %s" % ticket.description)
-        self.msg("{wGM Notes:{n %s" % ticket.resolution)
-        for followup in ticket.followup_set.all():
-            self.msg("{wFollowup discussion:{n %s" % followup.comment)
+        self.msg(ticket.display())
 
     def list_tickets(self):
         self.msg("{wClosed tickets:{n %s" % ", ".join(str(ticket.id) for ticket in self.caller.tickets.filter(

@@ -275,6 +275,15 @@ class AccountHistory(models.Model):
     start_date = models.DateTimeField(blank=True, null=True, db_index=True)
     end_date = models.DateTimeField(blank=True, null=True, db_index=True)
 
+    def __str__(self):
+        start = ""
+        end = ""
+        if self.start_date:
+            start = self.start_date.strftime("%x")
+        if self.end_date:
+            end = self.end_date.strftime("%x")
+        return "%s playing %s from %s to %s" % (self.account, self.entry, start, end)
+
 
 class RPScene(models.Model):
     """

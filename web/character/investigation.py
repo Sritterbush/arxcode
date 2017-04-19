@@ -24,7 +24,7 @@ class InvestigationFormCommand(MuxCommand):
     def check_ap_cost(self, cost=None):
         if not cost:
             cost = self.ap_cost
-        if self.caller.player.pay_action_points(cost):
+        if self.caller.db.player_ob.pay_action_points(cost):
             return True
         else:
             self.msg("You cannot afford to do that action.")
@@ -294,7 +294,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
 
     def disp_invites(self):
         invites = self.caller.db.investigation_invitations or []
-        investigations = Investigation.objects.filter(id__in=invites, ongoing=True)
+        investigations = Investigation.objects.filter(id__in=invites, ongoing=True, active=True)
         investigations = investigations | self.caller.roster.investigations.filter(ongoing=True)
         self.msg("You are permitted to help the following investigations:\n%s" % "\n".join(
             "  %s (ID: %s)" % (str(ob), ob.id) for ob in investigations))
@@ -433,14 +433,18 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                     return
             else:
                 char = self.caller
+            refund = 0
             for ob in char.assisted_investigations.filter(currently_helping=True):
                 ob.currently_helping = False
                 ob.save()
+                refund += self.ap_cost
             self.msg("%s stopped assisting investigations." % char)
+            if refund:
+                self.caller.roster.action_points += refund
+                self.caller.roster.save()
             return
         if "resume" in self.switches:
             if "retainer" in self.switches:
-
                 try:
                     if self.rhs.isdigit():
                         char = self.caller.player.retainers.get(id=self.rhs).dbobj
@@ -694,7 +698,7 @@ class CmdInvestigate(InvestigationFormCommand):
         if not (self.related_manager.filter(active=True) or
                 self.caller.assisted_investigations.filter(currently_helping=True)):
             if not self.caller.assisted_investigations.filter(currently_helping=True):
-                if self.caller.player.pay_action_points(self.ap_cost):
+                if self.caller.db.player_ob.pay_action_points(self.ap_cost):
                     created_object.active = True
                     self.msg("New investigation created. This has been set as your active investigation " +
                              "for the week, and you may add resources/silver to increase its chance of success.")
@@ -791,6 +795,9 @@ class CmdInvestigate(InvestigationFormCommand):
                 caller.msg(ob.display())
                 return
             if "active" in self.switches:
+                if ob.active:
+                    self.msg("It is already active.")
+                    return
                 try:
                     current_active = entry.investigations.get(active=True)
                 except Investigation.DoesNotExist:
@@ -1378,7 +1385,7 @@ class CmdTheories(MuxPlayerCommand):
                 self.msg("%s added as an editor." % player)
                 return
         try:
-            theory = Theory.objects.filter(Q(can_edit=self.caller) | Q(creator=self.caller)).get(id=self.lhs)
+            theory = Theory.objects.filter(Q(can_edit=self.caller) | Q(creator=self.caller)).distinct().get(id=self.lhs)
         except (Theory.DoesNotExist, ValueError):
             self.msg("You cannot edit a theory by that number.")
             return

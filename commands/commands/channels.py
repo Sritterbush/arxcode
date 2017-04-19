@@ -8,9 +8,9 @@ accustomed to.
 """
 
 from evennia.commands import command
-from evennia.comms.models import ChannelDB, Msg
-from server.utils.arx_utils import datetime_format
+from evennia.comms.models import ChannelDB
 from evennia.utils.logger import tail_log_file
+from server.utils import arx_more
 
 
 class ArxChannelCommand(command.Command):
@@ -58,6 +58,7 @@ class ArxChannelCommand(command.Command):
         else:
             self.display_history = False
             self.num_messages = 20
+        # noinspection PyAttributeOutsideInit
         self.args = (channelname.strip(), msg.strip())
 
     def func(self):
@@ -99,7 +100,11 @@ class ArxChannelCommand(command.Command):
             caller.msg("Channel messages may not contain newline characters.")
             return
         if msg == "who" or msg == "?" or msg == "all" or msg == "list":
-            self.msg("{w%s:{n\n %s" % (channel, channel.wholist))
+            if caller.check_permstring("builders"):
+                wholist = channel.complete_wholist
+            else:
+                wholist = channel.wholist
+            self.msg("{w%s:{n\n %s" % (channel, wholist))
             return
         if msg == 'last' or msg.startswith("last "):
             msglist = msg.split()
@@ -111,26 +116,13 @@ class ArxChannelCommand(command.Command):
                     self.num_messages = int(msglist[1])
                 self.display_history = True
         if self.display_history:
-            # chan_messages = list(Msg.objects.get_messages_by_channel(channel.id))
-            # if len(chan_messages) > 200:
-            #     del_list = chan_messages[:-200]
-            #     chan_messages = chan_messages[-200:]
-            #     for mssg in del_list:
-            #         channel.delete_chan_message(mssg)
-            # caller.msg("Messages in %s:\n" % channel.key)
-            # if len(chan_messages) > self.num_messages:
-            #     last_messages = chan_messages[-self.num_messages:]
-            # else:
-            #     last_messages = chan_messages
-            # for msg in last_messages:
-            #     caller.msg("{w%s{n %s" % (datetime_format(msg.date_created), msg.message))
             log_file = channel.attributes.get("log_file", default="channel_%s.log" % channel.key)
-            # send_msg = lambda lines: self.msg("".join(line.split("[-]", 1)[1]
-            #                                           if "[-]" in line else line for line in lines))
 
             def send_msg(lines):
                 msgs = "".join(line for line in lines)
-                self.msg(msgs)
+                arx_more.msg(caller, msgs, justify_kwargs=False)
+            if self.num_messages > 200:
+                self.num_messages = 200
             self.msg("{wChannel history for %s:{n" % self.key)
             tail_log_file(log_file, 0, self.num_messages, callback=send_msg)
             return

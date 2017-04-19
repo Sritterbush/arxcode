@@ -23,12 +23,32 @@ from typeclasses.rooms import ArxRoom
 import random
 
 
+def char_name(character_object, verbose_where=False):
+    cname = character_object.name
+    if character_object.db.player_ob and character_object.db.player_ob.db.lookingforrp:
+        cname += "|R+|n"
+    if not verbose_where:
+        return cname
+    if character_object.db.room_title:
+        cname += "{w(%s){n" % character_object.db.room_title
+    return cname
+
+
+def get_char_names(charlist, caller):
+    verbose_where = False
+    if caller.tags.get("verbose_where"):
+        verbose_where = True
+    return ", ".join(char_name(char, verbose_where) for char in charlist if char.player
+                     and (not char.player.db.hide_from_watch or caller.check_permstring("builders")))
+
+
 class CmdHangouts(MuxCommand):
     """
     +hangouts
 
     Usage:
         +hangouts
+        +hangouts/all
 
     Shows the public rooms marked as hangouts, displaying the players
     there. They are the rooms players gather in when they are seeking
@@ -42,22 +62,25 @@ class CmdHangouts(MuxCommand):
     def func(self):
         """Execute command."""
         caller = self.caller
-        oblist = ObjectDB.objects.filter(Q(db_typeclass_path=settings.BASE_ROOM_TYPECLASS) &
-                                         Q(locations_set__db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS) &
-                                         Q(db_tags__db_key="hangouts")).distinct()
+        oblist = ArxRoom.objects.filter(db_tags__db_key="hangouts")
+        if "all" not in self.switches:
+            oblist = oblist.filter(locations_set__db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS)
+        oblist = oblist.distinct()
         caller.msg(format_header("Hangouts"))
+        self.msg("Players who are currently LRP have a |R+|n by their name.")
         if not oblist:
             caller.msg("No hangouts are currently occupied.")
             return
         for room in oblist:
-            num_char = len(room.get_visible_characters(caller))
-            if num_char > 0:
+            char_names = get_char_names(room.get_visible_characters(caller), caller)
+            if char_names or 'all' in self.switches:
                 name = room.name
-                if room.db.x_coord is None and room.db.y_coord is None:
+                if room.db.x_coord is not None and room.db.y_coord is not None:
                     pos = (room.db.x_coord, room.db.y_coord)
                     name = "%s %s" % (name, str(pos))
-                caller.msg("\n" + name)
-                caller.msg("Number of characters: %s" % num_char)        
+                if char_names:
+                    name += ": %s" % char_names
+                caller.msg(name)
 
 
 class CmdWhere(MuxPlayerCommand):
@@ -67,7 +90,7 @@ class CmdWhere(MuxPlayerCommand):
     Usage:
         +where
         +where [<character>,<character 2>,...]
-        +where/shops
+        +where/shops [<ability>]
         +where/randomscene
         +where/watch
 
@@ -93,6 +116,11 @@ class CmdWhere(MuxPlayerCommand):
         self.msg("{wList of shops:\n")
         for room in rooms:
             owner = room.db.shopowner
+            if self.args and owner:
+                if not owner.db.abilities:
+                    continue
+                if self.args.lower() not in owner.db.abilities:
+                    continue
             name = str(owner)
             if owner and not owner.roster.roster.name == "Active":
                 name += " {w(Inactive){n"
@@ -105,7 +133,9 @@ class CmdWhere(MuxPlayerCommand):
             self.list_shops()
             return
         rooms = ArxRoom.objects.filter(Q(locations_set__db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS) &
-                                       ~Q(db_tags__db_key__iexact="private")).distinct().order_by('db_key')
+                                       ~Q(db_tags__db_key__iexact="private") &
+                                       ~Q(locations_set__db_tags__db_key__iexact="disguised")
+                                       ).distinct().order_by('db_key')
         if self.args:
             q_list = map(lambda n: Q(locations_set__db_key__iexact=n), self.lhslist)
             q_list = reduce(lambda a, b: a | b, q_list)
@@ -114,34 +144,21 @@ class CmdWhere(MuxPlayerCommand):
             caller.msg("No visible characters found.")
             return
         caller.msg("{wLocations of players:\n")
-        verbose_where = False
-        if caller.tags.get("verbose_where"):
-            verbose_where = True
+
         self.msg("Players who are currently LRP have a |R+|n by their name.")
         scene_chars = []
         if "randomscene" in self.switches:
             cmd = CmdRandomScene()
             cmd.caller = self.caller.db.char_ob
             scene_chars = list(cmd.scenelist) + [ob for ob in cmd.newbies if ob not in cmd.claimlist]
-        
         for room in rooms:
-            def char_name(character_object):
-                cname = character_object.name
-                if character_object.db.player_ob and character_object.db.player_ob.db.lookingforrp:
-                    cname += "|R+|n"
-                if not verbose_where:
-                    return cname
-                if character_object.db.room_title:
-                    cname += "{w(%s){n" % character_object.db.room_title
-                return cname
             charlist = sorted(room.get_visible_characters(caller), key=lambda x: x.name)
             if "randomscene" in self.switches:
                 charlist = [ob for ob in charlist if ob in scene_chars]
             if "watch" in self.switches:
                 watching = caller.db.watching or []
                 charlist = [ob for ob in charlist if ob in watching]
-            char_names = ", ".join(char_name(char) for char in charlist if char.player
-                                   and (not char.player.db.hide_from_watch or caller.check_permstring("builders")))
+            char_names = get_char_names(charlist, caller)
             if not char_names:
                 continue
             name = self.get_room_str(room)
@@ -207,7 +224,7 @@ class CmdWatch(MuxPlayerCommand):
         watchlist = caller.db.watching or []
         if 'stop' in self.switches:
             if char not in watchlist:
-                caller.msg("You are not watching %s." % char)
+                caller.msg("You are not watching %s." % char.key)
                 return
             # stop watching them
             watchlist.remove(char)
@@ -216,10 +233,10 @@ class CmdWatch(MuxPlayerCommand):
             if caller in watched:
                 watched.remove(caller)
                 char.db.watched_by = watched
-            caller.msg("Stopped watching %s." % char)
+            caller.msg("Stopped watching %s." % char.key)
             return
         if char in watchlist:
-            caller.msg("You are already watching %s." % char)
+            caller.msg("You are already watching %s." % char.key)
             return
         watched = char.db.watched_by or []
         if caller not in watched:
@@ -227,7 +244,7 @@ class CmdWatch(MuxPlayerCommand):
             char.db.watched_by = watched
         watchlist.append(char)
         caller.db.watching = watchlist
-        caller.msg("You start watching %s." % char)
+        caller.msg("You start watching %s." % char.key)
 
 
 class CmdFinger(MuxPlayerCommand):
@@ -236,8 +253,13 @@ class CmdFinger(MuxPlayerCommand):
 
     Usage:
         +finger <character>
+        +finger/preferences <note on RP preferences>
+        +finger/playtimes <note on your playtimes>
 
-    Displays information about a given character.
+    Displays information about a given character. To set RP hooks, use the
+    +rphooks command. Use the 'preferences' or 'playtimes' switches to add
+    information about your RP preferences or your playtimes to your finger
+    information.
     """
     key = "+finger"
     locks = "cmd:all()"
@@ -247,6 +269,22 @@ class CmdFinger(MuxPlayerCommand):
     def func(self):
         """Execute command."""
         caller = self.caller
+        if "preferences" in self.switches:
+            if self.args:
+                caller.db.rp_preferences = self.args
+                self.msg("RP preferences set to: %s" % self.args)
+            else:
+                caller.attributes.remove("rp_preferences")
+                self.msg("RP preferences removed.")
+            return
+        if "playtimes" in self.switches:
+            if self.args:
+                caller.db.playtimes = self.args
+                self.msg("Note on playtimes set to: %s" % self.args)
+            else:
+                caller.attributes.remove("playtimes")
+                self.msg("Note on playtimes removed.")
+            return
         show_hidden = caller.check_permstring("builders")
         if not self.args:
             caller.msg("You must supply a character name to +finger.")
@@ -260,20 +298,26 @@ class CmdFinger(MuxPlayerCommand):
             return
         name = char.db.longname or char.key
         msg = "\n{wName:{n %s\n" % name
+        titles = char.titles
+        if titles:
+            msg += "{wFull Titles:{n %s\n" % titles
         if "rostercg" in char.tags.all():
             msg += "{wRoster Character{n\n"
         else:
             msg += "{wOriginal Character{n\n"
         if show_hidden:
             msg += "{wCharID:{n %s, {wPlayerID:{n %s\n" % (char.id, player.id)
-        session = player.get_all_sessions() and player.get_all_sessions()[0]
-        if session and (not player.db.hide_from_watch or caller.check_permstring("builders")):
-            idle_time = time.time() - session.cmd_last_visible
-            idle = "Online and is idle" if idle_time > 1200 else "Online, not idle"
-            msg += "{wStatus:{n %s\n" % idle
+        if char.db.obituary:
+            msg += "{wObituary:{n %s\n" % char.db.obituary
         else:
-            last_online = player.last_login and player.last_login.strftime("%m-%d-%y") or "Never"
-            msg += "{wStatus:{n Last logged in: %s\n" % last_online
+            session = player.get_all_sessions() and player.get_all_sessions()[0]
+            if session and (not player.db.hide_from_watch or caller.check_permstring("builders")):
+                idle_time = time.time() - session.cmd_last_visible
+                idle = "Online and is idle" if idle_time > 1200 else "Online, not idle"
+                msg += "{wStatus:{n %s\n" % idle
+            else:
+                last_online = player.last_login and player.last_login.strftime("%m-%d-%y") or "Never"
+                msg += "{wStatus:{n Last logged in: %s\n" % last_online
         fealty = char.db.fealty or "None"
         msg += "{wFealty:{n %s\n" % fealty
         pageroot = "http://play.arxgame.org"
@@ -300,7 +344,13 @@ class CmdFinger(MuxPlayerCommand):
         if hooks:
             hooks = make_iter(hooks)
             hook_descs = player.db.hook_descs or {}
-            msg += "{wRP Hooks:{n\n%s" % "\n".join("%s: %s" % (hook, hook_descs.get(hook, "")) for hook in hooks)
+            msg += "{wRP Hooks:{n\n%s\n" % "\n".join("%s: %s" % (hook, hook_descs.get(hook, "")) for hook in hooks)
+        playtimes = player.db.playtimes
+        if playtimes:
+            msg += "{wPlaytimes:{n %s\n" % playtimes
+        prefs = player.db.rp_preferences
+        if prefs:
+            msg += "{wRP Preference Notes:{n %s\n" % prefs
         caller.msg(msg, options={'box': True})
         
 
@@ -356,7 +406,7 @@ class CmdJournal(MuxCommand):
         for entry in j_list:
             try:
                 event = character.messages.get_event(entry)
-                name = ", ".join(str(ob) for ob in entry.db_receivers_objects.all())       
+                name = ", ".join(ob.key for ob in entry.db_receivers_objects.all())
                 if event and not name:
                     name = event.name[:25]
                 if fav_tag in entry.tags.all():
@@ -725,10 +775,10 @@ class CmdMessenger(MuxCommand):
         targ.db.pending_messengers = unread
         targ.messenger_notification(2)
         if caller.db.player_ob.db.nomessengerpreview or caller.ndb.already_previewed:
-            caller.msg("You dispatch %s to {c%s{n." % (m_name or "a messenger", targ))
+            caller.msg("You dispatch %s to {c%s{n." % (m_name or "a messenger", targ.key))
         else:
             caller.msg("You dispatch %s to {c%s{n with the following message:\n\n'%s'\n" % (
-                m_name or "a messenger", targ, msg.db_message))
+                m_name or "a messenger", targ.key, msg.db_message))
             caller.ndb.already_previewed = True
         deliver_str = m_name or "Your messenger"
         if delivery:
@@ -1045,7 +1095,16 @@ class CmdMessenger(MuxCommand):
             for arg in self.lhslist:
                 targ = caller.player.search(arg)
                 if targ:
-                    if targ.db.char_ob and "no_messengers" in targ.db.char_ob.tags.all():
+                    can_deliver = True
+                    if not targ.db.char_ob:
+                        can_deliver = False
+                    elif "no_messengers" in targ.db.char_ob.tags.all():
+                        can_deliver = False
+                    elif not hasattr(targ, 'roster') or not targ.roster.roster:
+                        can_deliver = False
+                    elif targ.roster.roster.name not in ("Active", "Unavailable", "Available", "Inactive"):
+                        can_deliver = False
+                    if not can_deliver:
                         self.msg("%s cannot receive messengers." % targ)
                         continue
                     targs.append(targ)
@@ -1119,6 +1178,7 @@ class CmdCalendar(MuxPlayerCommand):
         @cal/endevent <event number>
         @cal/reschedule <event number>=<new date>
         @cal/cancel <event number>
+        @cal/movehere <event number>
         @cal/changeroomdesc <event number>=<new desc>
         @cal/toggleprivate <finished event number>
         @cal/old
@@ -1137,7 +1197,8 @@ class CmdCalendar(MuxPlayerCommand):
     requires checks to influence the outcome.
 
     When starting an event early, you can specify '=here' to start it in
-    your current room rather than its previous location.
+    your current room rather than its previous location. /movehere allows
+    an event to be moved to the new room you occupy while in progress.
 
     If you want to mark an event private or public after finishing hosting
     it so that it can be viewed by people who didn't attend it on the web,
@@ -1446,6 +1507,11 @@ class CmdCalendar(MuxPlayerCommand):
                                            room_desc=room_desc)
             for host in hosts:
                 event.hosts.add(host)
+                player = host.player
+                if player != caller:
+                    msg = "You have been invited to host {c%s{n." % event.name
+                    msg += "\nFor details about this event, use {w@cal %s{n" % event.id
+                    player.inform(msg, category="Invitation", append=False)
             for gm in gms:
                 event.gms.add(gm)
             post = self.display_project(proj)
@@ -1483,7 +1549,8 @@ class CmdCalendar(MuxPlayerCommand):
         # get the events they're hosting
         events = dompc.events_hosted.filter(finished=False)
         if not events:
-            caller.msg("You are not hosting any events that are unfinished.")
+            caller.msg("You are not hosting any events that have yet to occur. If you are currently designing "
+                       "an event, submit it first.")
             return
         # make sure caller input an integer
         try:
@@ -1553,6 +1620,11 @@ class CmdCalendar(MuxPlayerCommand):
             event.room_desc = self.rhs
             event.save()
             caller.msg("Event's room desc is now:\n%s" % self.rhs)
+            return
+        if "movehere" in self.switches:
+            loc = caller.db.char_ob.location
+            event_manager.move_event(event, loc)
+            self.msg("Event moved to your room.")
             return
         if "cancel" in self.switches:
             if event.id in event_manager.db.active_events:
@@ -2127,6 +2199,8 @@ class CmdRandomScene(MuxCommand):
         requests = targ.db.scene_requests or {}
         tup = (self.caller, self.rhs)
         name = self.caller.name
+        from server.utils.arx_utils import strip_ansi
+        name = strip_ansi(name)
         requests[name.lower()] = tup
         targ.db.scene_requests = requests
         msg = "%s has submitted a RP scene that included you, for which you have received xp. " % name
@@ -2281,6 +2355,7 @@ class CmdLanguages(MuxCommand):
         known = [ob.capitalize() for ob in self.caller.languages.known_languages]
         known += ["Arvani"]
         self.msg("{wYou can currently speak:{n %s" % ", ".join(known))
+        self.msg("You can learn %s additional languages." % (self.caller.languages.max_languages - (len(known) - 1)))
 
     def func(self):
         if not self.args:
@@ -2340,7 +2415,7 @@ class CmdLanguages(MuxCommand):
                 self.msg("You do not know %s." % lang)
                 self.list_languages()
                 return
-            if targ.db.skills.get("linguistics", 0) <= len(targ.languages.known_languages):
+            if targ.languages.max_languages <= len(targ.languages.known_languages):
                 self.msg("They know as many languages as they can learn.")
                 return
             targ.languages.add_language(lang)

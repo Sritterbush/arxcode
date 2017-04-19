@@ -96,6 +96,9 @@ class CmdUseXP(MuxCommand):
             if amt > history.xp_earned:
                 self.msg("You cannot transfer more xp than you've earned since playing the character.")
                 return
+            if amt > self.caller.db.xp:
+                self.msg("You do not have enough xp remaining.")
+                return
             self.caller.db.xp -= amt
             if alt.db.xp is None:
                 alt.db.xp = 0
@@ -330,7 +333,6 @@ class CmdTrain(MuxCommand):
 
     @property
     def currently_training(self):
-        self.caller.refresh_from_db()
         return self.caller.db.currently_training or []
 
     def pay_ap_cost(self):
@@ -342,7 +344,7 @@ class CmdTrain(MuxCommand):
             self.caller.ndb.training_cost_confirmation = True
             return
         self.caller.ndb.training_cost_confirmation = False
-        if self.caller.player.pay_action_points(cost):
+        if self.caller.db.player_ob.pay_action_points(cost):
             return True
         self.msg("You don't have enough action points to train another.")
 
@@ -366,6 +368,7 @@ class CmdTrain(MuxCommand):
         # try to handle possible caching errors
         caller.attributes._cache.pop('currently_training-None', None)
         caller.attributes._cache.pop('num_trained-None', None)
+        caller.refresh_from_db()
         if not self.args:
             self.msg("Currently training: %s" % ", ".join(str(ob) for ob in self.currently_training))
             self.msg("You can train %s targets." % self.max_trainees)
@@ -639,7 +642,7 @@ class CmdVoteXP(MuxPlayerCommand):
     @property
     def max_votes(self):
         # import datetime
-        base = 10
+        base = 13
         # # only get events after the previous Sunday
         # diff = 7 - datetime.datetime.now().isoweekday()
         # recent_date = datetime.datetime.now() - datetime.timedelta(days=7-diff)

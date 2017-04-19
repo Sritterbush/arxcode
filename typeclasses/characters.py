@@ -54,7 +54,6 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         self.db.dice_string = "Default Dicestring"
         self.db.health_status = "alive"
         self.db.sleep_status = "awake"
-        self.db.attackable = True
         self.db.skills = {}
         self.db.abilities = {}
         self.at_init()
@@ -159,17 +158,27 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         :param pobject: Character
         :return:
         """
-        hair = self.db.haircolor or ""
+        mask = self.db.mask
+        if not mask:
+            hair = self.db.haircolor or ""
+            eyes = self.db.eyecolor or ""
+            skin = self.db.skintone or ""
+            height = self.db.height or ""
+            species = self.species
+            gender = self.db.gender or ""
+            age = self.db.age
+        else:
+            hair = mask.db.haircolor or "--"
+            eyes = mask.db.eyecolor or "--"
+            skin = mask.db.skintone or "--"
+            height = mask.db.height or "--"
+            species = mask.db.species or "--"
+            gender = mask.db.gender or "--"
+            age = mask.db.age or "--"
         hair = hair.capitalize()
-        eyes = self.db.eyecolor or ""
         eyes = eyes.capitalize()
-        skin = self.db.skintone or ""
         skin = skin.capitalize()
-        height = self.db.height or ""
-        species = self.species
-        gender = self.db.gender or ""
         gender = gender.capitalize()
-        age = self.db.age
         if pobject.check_permstring("builders"):
             true_age = self.db.real_age
             if true_age and true_age != age:
@@ -255,9 +264,6 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         if self.location:
             if not quiet and not self.conscious:
                 self.location.msg_contents("%s wakes up." % self.name)
-            combat = self.location.ndb.combat_manager
-            if combat and self in combat.ndb.combatants:
-                combat.wake_up(self)
         try:
             from commands.cmdsets import sleep
             self.cmdset.delete(sleep.SleepCmdSet)
@@ -304,6 +310,9 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         caller's hands to trigger other checks - death checks if we got
         worse, unconsciousness checks, whatever.
         """
+        # no helping us if we're dead
+        if self.db.health_status == "dead":
+            return
         diff = 0 + diff_mod
         roll = do_dice_check(self, stat_list=["willpower", "stamina"], difficulty=diff)
         wound = float(abs(roll))/float(self.max_hp)
@@ -324,6 +333,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         self.dmg -= roll
         if not free:
             self.db.last_recovery_test = time.time()
+        if self.dmg <= self.max_hp and self.db.sleep_status != "awake":
+            self.wake_up()
         return roll
 
     def sensing_check(self, difficulty=15, invis=False, allow_wake=False):
@@ -387,6 +398,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     def _get_current_damage(self):
         """Returns how much damage we've taken."""
         dmg = self.db.damage or 0
+        dmg += self.temp_dmg
         return dmg
 
     def _set_current_damage(self, dmg):
@@ -394,6 +406,16 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             dmg = 0
         self.db.damage = dmg
         self.start_recovery_script()
+
+    @property
+    def temp_dmg(self):
+        if self.ndb.temp_dmg is None:
+            self.ndb.temp_dmg = 0
+        return self.ndb.temp_dmg
+
+    @temp_dmg.setter
+    def temp_dmg(self, val):
+        self.ndb.temp_dmg = val
 
     def start_recovery_script(self):
         # start the script if we have damage
@@ -660,7 +682,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
 
         :type self: DefaultCharacter
         """
-        watched_by = self.db.watched_by or []
+
         super(Character, self).at_post_puppet()
         try:
             if self.db.pending_messengers:
@@ -668,10 +690,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         except (AttributeError, ValueError, TypeError):
             import traceback
             traceback.print_exc()
-        if self.sessions.count() == 1:
-            if self.db.player_ob and not self.db.player_ob.db.hide_from_watch:
-                for watcher in watched_by:
-                    watcher.msg("{wA player you are watching, {c%s{w, has entered the game.{n" % self.key)
+
         guards = self.guards
         for guard in guards:
             if guard.discreet:
@@ -732,17 +751,17 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         from django.core.urlresolvers import reverse
         return reverse('character:sheet', kwargs={'object_id': self.id})
 
-    @property
-    def combat_data(self):
-        from typeclasses.scripts.combat.combatant import CharacterCombatData
-        return CharacterCombatData(self, None)
+    @lazy_property
+    def combat(self):
+        from typeclasses.scripts.combat.combatant import CombatHandler
+        return CombatHandler(self, None)
 
     def view_stats(self, viewer, combat=False):
         from commands.commands.roster import display_stats, display_skills
         display_stats(viewer, self)
         display_skills(viewer, self)
         if combat:
-            viewer.msg(self.combat_data.display_stats())
+            viewer.msg(self.combat.display_stats())
 
     @property
     def posecount(self):
@@ -798,3 +817,16 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
                 return False
         except AttributeError:
             return False
+
+    @property
+    def titles(self):
+        full_titles = self.db.titles or []
+        return ", ".join(str(ob) for ob in full_titles)
+
+    @property
+    def is_npc(self):
+        return self.tags.get("npc")
+
+    @property
+    def attackable(self):
+        return "unattackable" not in self.tags.all()

@@ -46,6 +46,7 @@ class CombatCmdSet(CmdSet):
         self.add(CmdEndCombat())
         self.add(CmdAttack())
         self.add(CmdSlay())
+        self.add(CmdReadyTurn())
         self.add(CmdPassTurn())
         self.add(CmdFlee())
         self.add(CmdFlank())
@@ -53,6 +54,7 @@ class CombatCmdSet(CmdSet):
         self.add(CmdCatch())
         self.add(CmdCoverRetreat())
         self.add(CmdVoteAFK())
+        self.add(CmdCancelAction())
         
 
 """
@@ -151,7 +153,6 @@ class CmdAutoattack(MuxCommand):
     def func(self):
         """Execute command."""
         caller = self.caller
-        combat = check_combat(caller, quiet=True)
         autoattack_on = False
         if not self.switches:
             if not caller.db.autoattack:
@@ -164,8 +165,7 @@ class CmdAutoattack(MuxCommand):
             caller.db.autoattack = False
             caller.msg("Autoattack is now set to be off.")
             autoattack_on = False
-        if combat and caller in combat.ndb.combatants:
-            combat.get_fighter_data(caller.id).autoattack = autoattack_on
+        caller.combat.autoattack = autoattack_on
 
 
 class CmdProtect(MuxCommand):
@@ -206,7 +206,6 @@ class CmdProtect(MuxCommand):
         """
         caller = self.caller
         current = caller.db.guarding
-        combat = caller.location.ndb.combat_manager
         if "stop" in self.switches:
             caller.db.guarding = None
             if current:
@@ -217,8 +216,7 @@ class CmdProtect(MuxCommand):
                     #  are python lists/dicts/etc
                     deflist.remove(caller)
                     current.db.defenders = deflist
-                    if combat:
-                        combat.remove_defender(current, caller)
+                    current.combat.remove_defender(caller)
                 return
             caller.msg("You weren't guarding anyone.")
             return
@@ -233,7 +231,7 @@ class CmdProtect(MuxCommand):
         if not to_guard:
             caller.msg("Couldn't find anyone to guard.")
             return
-        if not to_guard.db.attackable:
+        if not to_guard.attackable:
             caller.msg("Your target is currently not attackable and " +
                        "does not need a guard.")
             return
@@ -246,8 +244,7 @@ class CmdProtect(MuxCommand):
         to_guard.db.defenders = dlist
         caller.msg("You start guarding %s." % to_guard.name)
         # now check if they're in combat. if so, we join in heroically.
-        if combat and to_guard in combat.ndb.combatants:
-            combat.add_defender(to_guard, caller)
+        to_guard.combat.add_defender(caller)
         return
 
 
@@ -289,10 +286,10 @@ def check_targ(caller, target, verb="Attack"):
     if not target:
         caller.msg("%s who?" % verb)
         return False
-    if not target.db.attackable:
+    if not target.attackable:
         caller.msg("%s is not attackable and cannot enter combat." % target.name)
         return False
-    if not target.ndb.combat_manager or target.ndb.combat_manager != caller.ndb.combat_manager:
+    if target.combat.combat != caller.combat.combat:
         caller.msg("%s is not in combat with you." % target.name)
         return False
     return True
@@ -370,13 +367,13 @@ class CmdAttack(MuxCommand):
         can_kill = self.can_kill
         if targ.db.npc:
             can_kill = True
-        if targ in combat.ndb.incapacitated and not can_kill:
+        if not targ.conscious and not can_kill:
             message = "%s is incapacitated. " % targ.name
             message += "To kill an incapacitated character, "
             message += "you must use the {w+coupdegrace{n command."
             caller.msg(message)
             return
-        defenders = combat.get_defenders(targ)
+        defenders = targ.combat.get_defenders()
         diff = 0
         mod = 0
         mssg = "{rAttacking{n %s: " % targ.name
@@ -406,10 +403,10 @@ class CmdAttack(MuxCommand):
                 self.msg("Combat is shutting down. Unqueuing command.")
                 return
             caller.msg("Queuing this action for later.")
-            combat.get_fighter_data(caller.id).set_queued_action("attack", targ, mssg, diff, mod)      
+            caller.combat.set_queued_action("attack", targ, mssg, diff, mod)
             return
         caller.msg(mssg)
-        combat.do_attack(caller, targ, attack_penalty=diff, dmg_penalty=-mod)
+        caller.combat.do_attack(targ, attack_penalty=diff, dmg_penalty=-mod)
             
 
 class CmdSlay(CmdAttack):
@@ -437,7 +434,7 @@ class CmdSlay(CmdAttack):
     can_bypass = False
 
 
-class CmdPassTurn(MuxCommand):
+class CmdReadyTurn(MuxCommand):
     """
     Mark yourself ready for combat to proceed
     Usage:
@@ -456,7 +453,7 @@ class CmdPassTurn(MuxCommand):
     very strictly prohibited.
     """
     key = "continue"
-    aliases = ["ready", "pass"]
+    aliases = ["ready"]
     locks = "cmd:all()"
     help_category = "Combat"
 
@@ -468,23 +465,70 @@ class CmdPassTurn(MuxCommand):
             return
         assert caller in combat.ndb.combatants, "Error: caller not in combat."
         phase = combat.ndb.phase
-        cmdstr = self.cmdstring.lower()
-        if phase == 2:         
-            if cmdstr == "pass":
-                if combat.ndb.active_character != caller:
-                    caller.msg("Queuing this action for later.")
-                    mssg = "You pass your turn."
-                    combat.get_fighter_data(caller.id).set_queued_action("pass", None, mssg) 
-                    return
-                combat.do_pass(caller)
-                return
-            else:
-                caller.msg("Please use '{wpass{n' to pass your turn during combat resolution.")
-                return
+        if phase == 2:
+            self.msg("Use 'pass' or 'delay' to pass your turn in phase 2.")
+            return
         # phase 1, mark us ready to proceed for phase 2
         if combat and not combat.ndb.shutting_down:
-            combat.character_ready(caller)
-        return
+            caller.combat.character_ready()
+
+
+class CmdPassTurn(MuxCommand):
+    """
+    Pass your turn in combat
+    Usage
+        pass
+        delay
+
+    Passes your turn in combat. If 'delay' is used instead, will
+    defer your turn until everyone else has been offered a chance to
+    go.
+    """
+    key = "pass"
+    aliases = ["delay"]
+    help_category = "Combat"
+
+    def func(self):
+        caller = self.caller
+        combat = check_combat(caller)
+        if not combat:
+            return
+        assert caller in combat.ndb.combatants, "Error: caller not in combat."
+        cmdstr = self.cmdstring.lower()
+
+        phase = combat.ndb.phase
+        if phase == 2:
+            delay = cmdstr == "delay"
+            if combat.ndb.active_character != caller:
+                caller.msg("Queuing this action for later.")
+                mssg = "You %s your turn." % cmdstr
+                caller.combat.set_queued_action(cmdstr, None, mssg)
+                return
+            caller.combat.do_pass(delay=delay)
+            return
+        else:
+            caller.msg("Please use '{wpass{n' to pass your turn during combat resolution.")
+            return
+
+
+class CmdCancelAction(MuxCommand):
+    """
+    cancels your current action
+    Usage:
+        cancel
+
+    Cancels any current action that you have queued up.
+    """
+    key = "cancel"
+    help_category = "Combat"
+
+    def func(self):
+        self.caller.combat.cancel_queued_action()
+        combat = self.caller.combat.combat
+        self.msg("You clear any queued combat action.")
+        if combat:
+            combat.build_status_table()
+            combat.display_phase_status(self.caller, disp_intro=False)
 
 
 class CmdFlee(MuxCommand):
@@ -515,7 +559,7 @@ class CmdFlee(MuxCommand):
         if not exit_obj.is_exit:
             caller.msg("That is not an exit.")
             return
-        combat.do_flee(caller, exit_obj)
+        caller.combat.do_flee(exit_obj)
         return
 
 
@@ -551,13 +595,13 @@ class CmdFlank(MuxCommand):
         targ = caller.search(self.args)
         if not check_targ(caller, targ):
             return
-        if targ in combat.ndb.incapacitated and not targ.db.npc:
+        if not targ.conscious and not targ.db.npc:
             caller.msg("You must use '{w+coupdegrace{n' to kill characters.")
             return
         # Check whether we attack guards
         attack_guards = "only" not in self.switches
         # to do later - adding in sneaking/invisibility into game
-        combat.do_flank(caller, targ, sneaking=False, invis=False, attack_guard=attack_guards)
+        caller.combat.do_flank(targ, sneaking=False, invis=False, attack_guard=attack_guards)
         return
 
 
@@ -589,14 +633,10 @@ class CmdCombatStance(MuxCommand):
             caller.msg(message)
             return
         combat = check_combat(caller)
-        if not combat:
-            caller.db.combat_stance = self.args
-            self.msg("Stance is now %s." % self.args)
-            return
-        if combat.ndb.phase != 1:
+        if combat and combat.ndb.phase != 1:
             self.msg("Can only change stance between rounds.")
             return
-        combat.change_stance(caller, self.args)       
+        caller.combat.change_stance(self.args)
         return
 
 
@@ -625,7 +665,7 @@ class CmdCatch(MuxCommand):
         targ = caller.search(self.args)
         if not check_targ(caller, targ, "Catch"):
             return
-        combat.do_stop_flee(caller, targ)
+        caller.combat.do_stop_flee(targ)
         return
 
 
@@ -657,7 +697,7 @@ class CmdCoverRetreat(MuxCommand):
             caller.msg("You may only perform this action on your turn.")
             return
         if "stop" in self.switches and not self.args:
-            combat.stop_covering(caller, quiet=False)
+            caller.combat.stop_covering(quiet=False)
             return
         arglist = self.args.split(",")
         targlist = [caller.search(arg) for arg in arglist]
@@ -667,9 +707,9 @@ class CmdCoverRetreat(MuxCommand):
             return
         if "stop" in self.switches:
             for targ in targlist:
-                combat.stop_covering(caller, targ)
+                caller.combat.stop_covering(targ)
         else:
-            combat.begin_covering(caller, targlist)
+            caller.combat.begin_covering(targlist)
 
 
 class CmdVoteAFK(MuxCommand):
@@ -729,12 +769,7 @@ class CmdCombatStats(MuxCommand):
             char = pc.db.char_ob
         else:
             char = caller
-        combat = check_combat(char, quiet=True)
-        if not combat or char not in combat.ndb.combatants:
-            from typeclasses.scripts.combat.combatant import CharacterCombatData
-            fighter = CharacterCombatData(char, None)
-        else:
-            fighter = combat.get_fighter_data(char.id)
+        fighter = char.combat
         msg = "\n{c%s{w's Combat Stats\n" % char
         self.msg(msg + fighter.display_stats())
 
@@ -785,7 +820,7 @@ class CmdFightStatus(MuxCommand):
     Displays status of fight at your room.
     """
     key = "+combatstatus"
-    aliases = ["+fightstatus"]
+    aliases = ["+fightstatus", "+cs"]
     locks = "cmd:all()"
     help_category = "Combat"
 
@@ -793,6 +828,7 @@ class CmdFightStatus(MuxCommand):
         combat = check_combat(self.caller)
         if not combat:
             return
+        combat.build_status_table()
         combat.display_phase_status(self.caller, disp_intro=False)
 
 
@@ -806,6 +842,7 @@ class CmdAdminCombat(MuxCommand):
         @admin_combat/stopfight - ends combat completely
         @admin_combat/afk <character> - Moves AFK player to observers
         @admin_combat/view <character> - shows combat stats
+        @admin_combat/readyall - Marks all characters ready
 
     A few commands to allow a GM to move combat along by removing AFK or
     stalling characters or forcing them to pass their turn or ending a
@@ -830,6 +867,12 @@ class CmdAdminCombat(MuxCommand):
         if "stopfight" in switches:
             combat.msg("%s has ended the fight." % caller.key)
             combat.end_combat()
+            return
+        if "readyall" in switches:
+            if combat.ndb.phase == 2:
+                self.msg("They are already in phase 2.")
+                return
+            combat.start_phase_2()
             return
         targ = caller.search(self.args)
         if not check_targ(caller, targ, "Admin"):
@@ -983,30 +1026,57 @@ class CmdHarm(MuxCommand):
     Harms characters and sends them a message
 
     Usage:
-        @harm <character1, character2, etc>=amount,<message>
+        @harm <character1, character2, etc>=amount/<message>
+        @harm/mercy <character1, character2>=amount/<message>
+
+    Causes damage to the characters listed. If the mercy switch is
+    specified, a character cannot be killed instantly. Otherwise, they can
+    only be killed if they're already unconscious. <message> is broadcast
+    to the room if specified.
     """
     key = "@harm"
-    locks = "cmd:perm(Wizards)"
+    locks = "cmd:all()"
     help_category = "GMing"
 
     def func(self):
         if not self.lhslist:
             self.msg("Must provide one or more character names.")
             return
-        message = "You feel worse."
+        message = ""
         amt = None
+        one_shot = "mercy" not in self.switches
+        rhs = self.rhs or ""
+        rhslist = rhs.split("/")
         try:
-            amt = int(self.rhslist[0])
-            message = self.rhslist[1]
+            amt = int(rhslist[0])
+            message = rhslist[1]
         except (TypeError, ValueError):
-            self.msg("Must provide a number amount.")
+            self.msg("Must provide a character = number for damage amount.")
             return
         except IndexError:
             pass
-        charlist = [self.caller.search(arg) for arg in self.lhslist if self.caller.search(arg)]
+        players = []
+        for arg in self.lhslist:
+            player = self.caller.player.search(arg)
+            if player:
+                players.append(player)
+        charlist = [ob.db.char_ob for ob in players if ob.db.char_ob]
+        if not self.caller.check_permstring("builders"):
+            if any(ob for ob in charlist if ob != self.caller):
+                self.msg("Non-GM usage. Pruning all other characters.")
+            charlist = [ob for ob in charlist if ob == self.caller]
+        if not charlist:
+            return
+        if message:
+            rooms = set([ob.location for ob in charlist if ob.location])
+            for room in rooms:
+                room.msg_contents(message)
         for obj in charlist:
-            obj.msg(message)
-            obj.dmg += amt
+            if not obj.location:
+                if not message:
+                    message = "You have taken damage."
+                obj.db.player_ob.inform(message, category="Damage")
+            obj.combat.take_damage(amt, lethal=True, allow_one_shot=one_shot)
         self.msg("You inflicted %s damage on %s" % (amt, ", ".join(str(obj) for obj in charlist)))
 
 
@@ -1079,9 +1149,16 @@ class CmdHeal(MuxCommand):
             heal_roll = do_dice_check(caller, stat="intellect", skill="medicine", difficulty=15)
         caller.msg("You rolled a %s on your heal roll." % heal_roll)
         targ.msg("%s tends to your wounds, rolling %s on their heal roll." % (caller, heal_roll))
+        script = targ.scripts.get("Recovery")
+        if script:
+            script = script[0]
+            max_heal = script.db.max_healing or 0
+            if heal_roll < max_heal:
+                caller.msg("They have received better care already. You can't help them.")
+                targ.msg("You have received better care already. %s isn't able to help you." % caller)
+                return
+            script.db.max_healing = heal_roll
         targ.recovery_test(diff_mod=-heal_roll)
-        if heal_roll > 0 and targ.db.sleep_status != "awake":
-            targ.wake_up()
 
 
 class CmdStandYoAssUp(MuxCommand):

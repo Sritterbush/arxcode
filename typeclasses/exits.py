@@ -36,6 +36,31 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
                                         not be called if the attribute `err_traverse` is
                                         defined, in which case that will simply be echoed.
     """
+    def can_traverse(self, character):
+        if character.db.mask and "private" not in self.destination.tags.all():
+            msg = "The guards of %s inform you that such masks are forbidden in public, " % self.destination
+            msg += "per Decree 47c Appendix L of Queen Alaricetta the Prudent."
+            character.msg(msg)
+            return
+        if self.destination.check_banned(character):
+            character.msg("You have been banned from entering there.")
+            return
+        if self.access(character, 'traverse'):
+            # we may traverse the exit.
+            return True
+        elif character.db.bypass_locked_doors:
+            msg = character.db.bypass_locked_doors or "You ignore the locked door."
+            character.msg(msg)
+            return True
+        else:
+            # exit is locked
+            if self.db.err_traverse:
+                # if exit has a better error message, let's use it.
+                character.msg(self.db.err_traverse)
+            else:
+                # No shorthand error message. Call hook.
+                self.at_failed_traverse(character)
+
     def create_exit_cmdset(self, exidbobj):
         """
         Helper function for creating an exit command set + command.
@@ -51,6 +76,7 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         exitkey = exidbobj.db_key.strip().lower()
         exitaliases = list(exidbobj.aliases.all())
 
+        # noinspection PyUnresolvedReferences
         class ExitCommand(command.Command):
             """
             This is a command that simply cause the caller
@@ -59,30 +85,26 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
             obj = None
 
             def func(self):
-                "Default exit traverse if no syscommand is defined."
-
-                if self.obj.access(self.caller, 'traverse'):
-                    # we may traverse the exit.
+                """Default exit traverse if no syscommand is defined."""
+                if self.obj.can_traverse(self.caller):
                     self.obj.at_traverse(self.caller, self.obj.destination)
-                elif self.caller.db.bypass_locked_doors:
-                    msg = self.caller.db.bypass_locked_doors or "You ignore the locked door."
-                    self.obj.at_traverse(self.caller, self.obj.destination)
-                else:
-                    # exit is locked
-                    if self.obj.db.err_traverse:
-                        # if exit has a better error message, let's use it.
-                        self.caller.msg(self.obj.db.err_traverse)
-                    else:
-                        # No shorthand error message. Call hook.
-                        self.obj.at_failed_traverse(self.caller)
 
+        # noinspection PyUnresolvedReferences
         class PassExit(command.Command):
             def func(self):
-                if self.obj.db.locked and not self.obj.access(self.caller, 'usekey'):
-                    self.caller.msg("You don't have a key to this exit.")
-                    return
-                self.obj.at_traverse(self.caller, self.obj.destination)
+                # iff locked, then we can pass through it if we have a key
+                if self.obj.db.locked:
+                    if not self.obj.access(self.caller, 'usekey'):
+                        self.caller.msg("You don't have a key to this exit.")
+                        return
+                    else:
+                        self.obj.at_traverse(self.caller, self.obj.destination)
+                        return
+                # normal checks for non-locked doors
+                if self.obj.can_traverse(self.caller):
+                    self.obj.at_traverse(self.caller, self.obj.destination)
 
+        # noinspection PyUnresolvedReferences
         class KnockExit(command.Command):
             def func(self):
                 self.caller.msg("You knocked on the door.")
@@ -99,19 +121,23 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
                               is_exit=True,
                               obj=exidbobj)
         passaliases = ["pass %s" % alias for alias in exitaliases]
-        passcmd = PassExit(key="pass %s" % exitkey, aliases = passaliases, is_exit=True, auto_help=False, obj=exidbobj)
+        passcmd = PassExit(key="pass %s" % exitkey, aliases=passaliases, is_exit=True, auto_help=False, obj=exidbobj)
         knockaliases = ["knock %s" % alias for alias in exitaliases]
-        knockcmd = KnockExit(key="knock %s" % exitkey, aliases = knockaliases, is_exit=True, auto_help=False, obj=exidbobj)
+        knockcmd = KnockExit(key="knock %s" % exitkey, aliases=knockaliases, is_exit=True, auto_help=False,
+                             obj=exidbobj)
         # create a cmdset
         exit_cmdset = cmdset.CmdSet(None)
         exit_cmdset.key = '_exitset'
-        exit_cmdset.priority = 101 # equal to channel priority
+        exit_cmdset.priority = 101  # equal to channel priority
         exit_cmdset.duplicates = True
         # add command to cmdset
         exit_cmdset.add(exitcmd)
         exit_cmdset.add(passcmd)
         exit_cmdset.add(knockcmd)
         return exit_cmdset
+
+    def check_banned(self, character):
+        return self.destination.check_banned(character)
 
     def at_traverse(self, traversing_object, target_location, key_message=True, special_entrance=None, quiet=False,
                     allow_follow=True):
@@ -123,7 +149,8 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         if traversing_object.move_to(target_location, quiet=quiet):
             # if the door was locked, send a message about it unless we were following
             if key_message and self.db.locked:
-                msg = special_entrance or self.db.success_traverse or "You unlock the locked door, then close and lock it behind you."
+                msg = special_entrance or self.db.success_traverse or \
+                      "You unlock the locked door, then close and lock it behind you."
                 traversing_object.msg(msg)
             self.at_after_traverse(traversing_object, source_location)
             # move followers
@@ -174,6 +201,7 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
                 # No shorthand error message. Call hook.
                 self.at_failed_traverse(traversing_object)
 
+    # noinspection PyMethodMayBeStatic
     def at_failed_traverse(self, traversing_object):
         """
         This is called if an object fails to traverse this object for some
@@ -191,6 +219,8 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
             other_options = options.copy()
             from_dir = options.get('from_dir', 'from nearby')
             new_from_dir = "from the %s" % str(self.reverse_exit)
+            if hasattr(text, '__iter__'):
+                text = text[0]
             text = text.replace(from_dir, new_from_dir)
             del other_options['shout']
             other_options['from_dir'] = new_from_dir
@@ -206,6 +236,22 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         if not entrances:
             return "nowhere"
         return entrances[0]
+
+    # noinspection PyAttributeOutsideInit
+    def relocate(self, new_room):
+        """Moves this exit to a new location.
+
+        Sets our location to new_room, and sets our reverse_exit to have a destination
+        of our new location.
+
+        Args:
+            new_room: The room we'll be moved to
+
+        """
+        reverse = self.reverse_exit
+        if reverse:
+            reverse.destination = new_room
+        self.location = new_room
 
     def lock_exit(self, caller=None):
         """
@@ -240,6 +286,3 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
                     self.destination.id, self.location.id))
         except AttributeError:
             pass
-
-
-

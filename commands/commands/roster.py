@@ -86,7 +86,7 @@ def list_characters(caller, character_list, roster_type="Active Characters", ros
             afk = "-"
             # check if the name matches anything in the hidden characters list
             hide = False
-            if charob and hasattr(charob, 'is_disguised') and charob.is_disguised:
+            if charob and not use_keys and hasattr(charob, 'is_disguised') and charob.is_disguised:
                 hide = True
             if not charob and hidden_chars:
                 # convert both to lower case for case-insensitive matching
@@ -458,7 +458,7 @@ class CmdAdminRoster(MuxPlayerCommand):
                 if xp < 0:
                     xp = 0
                 try:
-                    alt = AccountHistory.objects.get(Q(account=current) & ~Q(entry=entry))
+                    alt = AccountHistory.objects.get(Q(account=current) & ~Q(entry=entry) & Q(end_date__isnull=True))
                     self.award_alt_xp(alt, xp, history, current)
                 except AccountHistory.DoesNotExist:
                     if xp > current.total_xp:
@@ -470,7 +470,8 @@ class CmdAdminRoster(MuxPlayerCommand):
                     current.save()
                 except AccountHistory.MultipleObjectsReturned:
                     caller.msg("ERROR: Found more than one account. Using the first.")
-                    alt = AccountHistory.objects.filter(Q(account=current) & ~Q(entry=entry)).first()
+                    alt = AccountHistory.objects.filter(Q(account=current) & ~Q(entry=entry)).exclude(
+                        end_date__isnull=False).first()
                     self.award_alt_xp(alt, xp, history, current)
                 except Exception as err:
                     import traceback
@@ -634,7 +635,12 @@ def display_header(caller, character, show_hidden=False):
                'haircolor': haircolor, 'skintone': skintone, 'marital_status': marital_status,
                }
     caller.msg(header)
-    desc = character.desc
+    full_titles = character.titles
+    if full_titles:
+        caller.msg("{wFull titles:{n %s" % full_titles)
+    if character.db.obituary:
+        caller.msg("{wObituary{n: %s" % character.db.obituary)
+    desc = character.perm_desc
     if not desc:
         desc = "No description set."
     if show_hidden:
@@ -1230,7 +1236,7 @@ class CmdRelationship(MuxPlayerCommand):
     locks = "cmd:all()"
     typelist = ['parent', 'sibling', 'friend', 'enemy', 'frenemy', 'family', 'client', 'patron', 'protege',
                 'acquaintance', 'secret', 'rival', 'ally', 'spouse', 'The Crown', 'Crownlands', 'Oathlands',
-                'Lyceum', 'Mourning Isles', 'Northlands']
+                'Lyceum', 'Mourning Isles', 'Northlands', 'deceased']
 
     def func(self):
         caller = self.caller

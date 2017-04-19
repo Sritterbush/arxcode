@@ -9,8 +9,8 @@ from evennia.commands.cmdhandler import get_and_merge_cmdsets
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.server.sessionhandler import SESSIONS
 import time
-from evennia.commands.default.comms import (CmdCdestroy, CmdChannelCreate, CmdChannels,
-                                            CmdClock, CmdCBoot, CmdCdesc, CmdAllCom)
+from evennia.commands.default.comms import (CmdCdestroy, CmdChannelCreate, CmdChannels, find_channel,
+                                            CmdClock, CmdCBoot, CmdCdesc, CmdAllCom, CmdCWho)
 # noinspection PyProtectedMember
 from evennia.commands.default.building import CmdExamine, CmdLock, CmdDestroy, _LITERAL_EVAL, ObjManipCommand
 from evennia.utils import evtable, create
@@ -121,7 +121,7 @@ class CmdInventory(MuxCommand):
                 char.roster.refresh_from_db(fields=("action_points",))
                 char.db.player_ob.roster.refresh_from_db(fields=("action_points",))
                 char.ndb.stale_ap = False
-            ap = char.roster.action_points
+            ap = char.db.player_ob.roster.action_points
         except AttributeError:
             pass
         self.caller.msg("\n{w%s currently %s {c%s {wxp and {c%s{w ap." % ("You" if not show_other else char.key,
@@ -423,8 +423,8 @@ class CmdGive(MuxCommand):
                 caller.msg("You do not have that much money to give.")
                 return
             caller.pay_money(val, target)
-            caller.msg("You give coins worth %s silver pieces to %s." % (val, target.name))
-            target.msg("%s has given you coins worth %s silver pieces." % (caller.name, val))
+            caller.msg("You give coins worth %s silver pieces to %s." % (val, target))
+            target.msg("%s has given you coins worth %s silver pieces." % (caller, val))
             return
         # if we didn't find a match in currency that we're giving
         if not to_give:
@@ -443,8 +443,8 @@ class CmdGive(MuxCommand):
             return
         # give object
         to_give.move_to(target, quiet=True)
-        caller.msg("You give %s to %s." % (to_give.key, target.key))
-        target.msg("%s gives you %s." % (caller.key, to_give.key))
+        caller.msg("You give %s to %s." % (to_give.key, target))
+        target.msg("%s gives you %s." % (caller, to_give.key))
         to_give.at_get(target)
 
 
@@ -544,10 +544,12 @@ class CmdEmit(MuxCommand):
         # normal emits by players are just sent to the room
         if normal_emit:
             gms = [ob for ob in caller.location.contents if ob.check_permstring('builders')]
-            caller.location.msg_contents("{w[Emit by: {c%s{w]{n %s" % (caller.name, message),
-                                         from_obj=caller,
-                                         options={'is_pose': True}, gm_msg=True)
-            caller.location.msg_contents(message, exclude=gms, from_obj=caller, options={'is_pose': True})
+            non_gms = [ob for ob in caller.location.contents if "emit_label" in ob.tags.all() and ob.player]
+            gm_msg = "{w[{c%s{w]{n %s" % (caller.name, message)
+            caller.location.msg_contents(gm_msg, from_obj=caller, options={'is_pose': True}, gm_msg=True)
+            for ob in non_gms:
+                ob.msg(gm_msg, from_obj=caller, options={'is_pose': True})
+            caller.location.msg_contents(message, exclude=gms + non_gms, from_obj=caller, options={'is_pose': True})
             return
         # send to all objects
         for objname in objnames:
@@ -758,7 +760,7 @@ class CmdWho(MuxPlayerCommand):
                     already_counted.append(pc)
                     nplayers -= 1
                     continue
-                delta_cmd = time.time() - session.cmd_last_visible
+                delta_cmd = pc.idle_time
                 if "active" in self.switches and delta_cmd > 1200:
                     already_counted.append(pc)
                     nplayers -= 1
@@ -806,7 +808,7 @@ class CmdWho(MuxPlayerCommand):
                     already_counted.append(pc)
                     nplayers -= 1
                     continue
-                delta_cmd = time.time() - session.cmd_last_visible
+                delta_cmd = pc.idle_time
                 if "active" in self.switches and delta_cmd > 1200:
                     already_counted.append(pc)
                     nplayers -= 1
@@ -1419,6 +1421,33 @@ class CmdArxChannels(CmdChannels):
                      "{wdelcom{n to manage subscriptions):\n%s" % comtable)
 
 
+class CmdArxCWho(CmdCWho):
+    __doc__ = CmdCWho.__doc__
+
+    def func(self):
+        """implement function"""
+
+        if not self.args:
+            string = "Usage: @cwho <channel>"
+            self.msg(string)
+            return
+
+        channel = find_channel(self.caller, self.lhs)
+        if not channel:
+            return
+        if not channel.access(self.caller, "listen"):
+            string = "You can't access this channel."
+            self.msg(string)
+            return
+        string = "\n|CChannel subscriptions|n"
+        if self.caller.check_permstring("builders"):
+            wholist = channel.complete_wholist
+        else:
+            wholist = channel.wholist
+        string += "\n|w%s:|n\n  %s" % (channel.key, wholist)
+        self.msg(string.strip())
+
+
 class CmdArxLock(CmdLock):
     __doc__ = CmdLock.__doc__
     aliases = ["@locks", "locks"]
@@ -1606,6 +1635,7 @@ class CmdArxDestroy(CmdDestroy):
 class CmdArxReload(CmdReload):
     __doc__ = CmdReload.__doc__ + "\n\nUse /override to force a reload when a combat is active."
 
+    # noinspection PyBroadException
     def func(self):
         if "override" in self.switches or "force" in self.switches:
             super(CmdArxReload, self).func()
@@ -1614,7 +1644,11 @@ class CmdArxReload(CmdReload):
         if CombatManager.objects.all():
             self.msg("{rThere is a combat active. You must use @reload/override or @reload/force to do a @reload.{n")
             return
-        super(CmdArxReload, self).func()
+        try:
+            super(CmdArxReload, self).func()
+        except Exception:
+            import traceback
+            traceback.print_exc()
 
 
 class CmdArxScripts(CmdScripts):

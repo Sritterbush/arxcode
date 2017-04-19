@@ -86,7 +86,6 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
         self.add(comms.CmdAddCom())
         self.add(comms.CmdDelCom())
         self.add(comms.CmdCemit())
-        self.add(comms.CmdCWho())
         self.add(comms.CmdIRC2Chan())
         self.add(comms.CmdRSS2Chan())
                  
@@ -109,6 +108,7 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(overrides.CmdArxCdesc())
             self.add(overrides.CmdArxAllCom())
             self.add(overrides.CmdArxChannels())
+            self.add(overrides.CmdArxCWho())
             self.add(overrides.CmdArxReload())
         except Exception as err:
             print("<<ERROR>>: Error in overrides: %s." % err)
@@ -128,6 +128,7 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(bboards.CmdBBUnsub())
             self.add(bboards.CmdBBCreate())
             self.add(bboards.CmdBBNew())
+            self.add(bboards.CmdOrgStance())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading bboards cmdset in Player: %s" % err)
         try:
@@ -191,6 +192,8 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(staff_commands.CmdGMNotes())
             self.add(staff_commands.CmdJournalAdminForDummies())
             self.add(staff_commands.CmdTransferKeys())
+            self.add(staff_commands.CmdAdminTitles())
+            self.add(staff_commands.CmdAdminWrit())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading staff_commands cmdset in Player: %s" % err)
         try:

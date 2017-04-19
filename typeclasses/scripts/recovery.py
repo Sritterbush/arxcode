@@ -10,6 +10,7 @@ class Recovery(Script):
     This script repeatedly saves server times so
     it can be retrieved after server downtime.
     """
+    # noinspection PyAttributeOutsideInit
     def at_script_creation(self):
         """
         Setup the script
@@ -19,29 +20,29 @@ class Recovery(Script):
         self.interval = 28800
         self.persistent = True
         self.start_delay = True
+        self.db.highest_heal = 0
 
     def at_repeat(self):
         """
         Called every 8 hours until we're all better.
         """
-        def stop_it():
-            self.stop()
-            self.dbobj.delete()
+        # slowly reduce the impact of the highest heal we've gotten
+        self.db.highest_heal = (self.db.highest_heal or 0)/2
         if not self.obj:
-            stop_it()
+            self.stop()
             return
         # RIP in pepperinos
         try:
             if self.obj.dead:
-                stop_it()
+                self.stop()
                 return
         except AttributeError:
-            stop_it()
+            self.stop()
             return
         if self.obj.db.damage and self.obj.db.damage > 0:
-            self.obj.recovery_test(diff_mod=15)
+            self.obj.recovery_test(diff_mod=15 - self.db.highest_heal)
         else:
-            stop_it()
+            self.stop()
 
     def is_valid(self):
         try:
@@ -50,9 +51,3 @@ class Recovery(Script):
         except (AttributeError, TypeError, ValueError):
             return False
         return False
-
-    
-
-
-
-   

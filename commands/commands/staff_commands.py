@@ -83,12 +83,15 @@ class CmdGemit(MuxPlayerCommand):
 
     Announces a message to all connected players.
     Unlike @wall, this command will only send the text,
-    without "soandso shouts:" attached.
+    without "soandso shouts:" attached. It will also be logged to 
+    all actively running events. Text will be sent in green by 
+    default.
     """
     key = "@gemit"
     locks = "cmd:perm(gemit) or perm(Wizards)"
     help_category = "GMing"
 
+    # noinspection PyAttributeOutsideInit
     def func(self):
         """Implements command"""
         caller = self.caller
@@ -97,6 +100,8 @@ class CmdGemit(MuxPlayerCommand):
             return
         if "norecord" in self.switches:
             self.msg("Announcing to all connected players ...")
+            if not self.args.startswith("{") and not self.args.startswith("|"):
+                self.args = "|g" + self.args
             broadcast(self.args, format_announcement=False)
             return
 
@@ -121,6 +126,13 @@ class CmdGemit(MuxPlayerCommand):
         StoryEmit.objects.create(episode=episode, chapter=chapter, text=msg,
                                  sender=caller)
         self.msg("Announcing to all connected players ...")
+        if not msg.startswith("{") and not msg.startswith("|"):
+            msg = "|g" + msg
+        # save this non-formatted version for posting to BB
+        post_msg = msg
+        # format msg for logs and announcement
+        box_chars = '\n{w' + '*' * 70 + '{n\n'
+        msg = box_chars + msg + box_chars
         broadcast(msg, format_announcement=False)
         # get board and post
         from typeclasses.bulletin_board.bboard import BBoard
@@ -130,7 +142,7 @@ class CmdGemit(MuxPlayerCommand):
             subject = "Episode: %s" % episode.name
         elif chapter:
             subject = "Chapter: %s" % chapter.name
-        bboard.bb_post(poster_obj=caller, msg=msg, subject=subject, poster_name="Story")
+        bboard.bb_post(poster_obj=caller, msg=post_msg, subject=subject, poster_name="Story")
         
             
 class CmdWall(MuxCommand):
@@ -864,6 +876,7 @@ class CmdGMEvent(MuxCommand):
     """
     key = "@gmevent"
     locks = "cmd:perm(builders)"
+    help_category = "GMing"
 
     def func(self):
         form = self.caller.db.gm_event_form
@@ -939,23 +952,42 @@ class CmdGMNotes(MuxPlayerCommand):
         @gmnotes/tag <character>=<type>
         @gmnotes/rmtag <character>=<type>
         @gmnotes/set <character>=<notes>
+        @gmnotes/no_gming
+        @gmnotes/search/all
     """
     key = "@gmnotes"
     aliases = ["@gmnote"]
     locks = "cmd: perm(builders)"
+    help_category = "GMing"
 
     def list_all_tags(self):
         from evennia.utils.evtable import EvTable
         from evennia.utils.utils import crop
+        from server.utils import arx_more
         table = EvTable("{wCharacter{n", "{wType{n", "{wDesc{n", width=78, border="cells")
         chars = Character.objects.filter(db_tags__db_category="gmnotes").distinct()
+        if "all" not in self.switches:
+            chars = chars.filter(roster__roster__name="Active")
         if self.args:
             chars = chars.filter(db_tags__db_key__iexact=self.args).distinct()
         for character in chars:
             desc = character.db.gm_notes or ""
             desc = crop(desc, width=40)
             table.add_row(character.key, str(character.tags.get(category="gmnotes")), desc)
-        self.msg(table)
+        arx_more.msg(self.caller, str(table), justify_kwargs=False)
+
+    def list_no_gming(self):
+        from datetime import datetime, timedelta
+        date = datetime.now() - timedelta(days=7)
+        chars = Character.objects.filter(roster__player__last_login__gte=date, roster__roster__name="Active").exclude(
+            receiver_object_set__db_tags__db_key__iexact="visions").exclude(
+            roster__player__Dominion__events_attended__gm_event=True).exclude(
+            roster__current_account__characters__player__is_staff=True).exclude(
+            roster__player__tickets__queue__slug="Story"
+        ).order_by('db_key')
+        msg = "{wCharacters who have never received a vision, made a story request, nor attended a GM event," 
+        msg += " that have logged in the last seven days:{n %s" % ", ".join(ob.key for ob in chars)
+        self.msg(msg)
 
     def view_char(self):
         try:
@@ -967,6 +999,9 @@ class CmdGMNotes(MuxPlayerCommand):
         self.msg(char.db.gm_notes)
 
     def func(self):
+        if "no_gming" in self.switches:
+            self.list_no_gming()
+            return
         if not self.args or "search" in self.switches:
             self.list_all_tags()
             return
@@ -1009,6 +1044,7 @@ class CmdJournalAdminForDummies(MuxPlayerCommand):
     """
     key = "@admin_journal"
     locks = "cmd: perm(builders)"
+    help_category = "Admin"
 
     def func(self):
         player = self.caller.search(self.lhs)
@@ -1084,6 +1120,7 @@ class CmdTransferKeys(MuxPlayerCommand):
     """
     key = "@transferkeys"
     locks = "cmd: perm(builders)"
+    help_category = "Building"
 
     def func(self):
         source = self.caller.search(self.lhs)
@@ -1106,3 +1143,212 @@ class CmdTransferKeys(MuxPlayerCommand):
         targ.db.keylist = list(set(t_room_keys))
         self.msg("Keys transferred.")
 
+
+class CmdAdminKey(MuxCommand):
+    """
+    Grants a player a key to a container or room
+
+    Usage:
+        @admin_key <character>
+        @admin_key/add/room <character>=<room>
+        @admin_key/add/chest <character>=<chest>
+        @admin_key/rm/room <character>=<room>
+        @admin_key/rm/chest <character>=<chest>
+    """
+    key = "@admin_key"
+    aliases = ["@admin_keys"]
+    locks = "cmd: perm(builders)"
+    help_category = "Admin"
+
+    def display_keys(self, pc):
+        chest_keys = pc.db.chestkeylist or []
+        room_keys = pc.db.keylist or []
+        self.msg("\n{c%s's {wchest keys:{n %s" % (pc, ", ".join(str(ob) for ob in chest_keys)))
+        self.msg("\n{c%s's {wroom keys:{n %s" % (pc, ", ".join(str(ob) for ob in room_keys)))
+
+    def func(self):
+        from typeclasses.rooms import ArxRoom
+        from typeclasses.characters import Character
+        from typeclasses.wearable.wearable import WearableContainer
+        from typeclasses.containers.container import Container
+        pc = self.caller.search(self.lhs, global_search=True, typeclass=Character)
+        if not pc:
+            return
+        chest_keys = pc.db.chestkeylist or []
+        room_keys = pc.db.keylist or []
+        if not self.rhs:
+            self.display_keys(pc)
+            return
+        if "room" in self.switches:
+            room = self.caller.search(self.rhs, global_search=True, typeclass=ArxRoom)
+            if not room:
+                return
+            if "add" in self.switches:
+                if room not in room_keys:
+                    room_keys.append(room)
+                    pc.db.keylist = room_keys
+                self.msg("{yAdded.")
+                self.display_keys(pc)
+                return
+            if room in room_keys:
+                room_keys.remove(room)
+                pc.db.keylist = room_keys
+            self.msg("{rRemoved.")
+            self.display_keys(pc)
+            return
+        if "chest" in self.switches:
+            chest = self.caller.search(self.rhs, global_search=True, typeclass=[Container, WearableContainer])
+            if not chest:
+                return
+            if "add" in self.switches:
+                if chest not in chest_keys:
+                    chest_keys.append(chest)
+                    pc.db.chestkeylist = chest_keys
+                self.msg("{yAdded.")
+                self.display_keys(pc)
+                return
+            if chest in chest_keys:
+                chest_keys.remove(chest)
+                pc.db.chestkeylist = chest_keys
+            self.msg("{rRemoved.")
+            self.display_keys(pc)
+            return
+
+
+class CmdRelocateExit(MuxCommand):
+    """
+    Moves an exit to a new location
+
+    Usage:
+        @relocate_exit <exit>=<new room>
+
+    This moves an exit to a new location. While you could do so
+    with @tel, this also makes the reverse exit in the room this
+    exit points to now correctly point to the new room.
+    """
+    key = "@relocate_exit"
+    locks = "cmd: perm(builders)"
+    help_category = "Building"
+    
+    def func(self):
+        from typeclasses.rooms import ArxRoom
+        exit_obj = self.caller.search(self.lhs)
+        if not exit_obj:
+            return
+        new_room = self.caller.search(self.rhs, typeclass=ArxRoom, global_search=True)
+        if not new_room:
+            return
+        exit_obj.relocate(new_room)
+        self.msg("Moved %s to %s." % (exit_obj, new_room))
+
+
+class CmdAdminTitles(MuxPlayerCommand):
+    """
+    Adds or removes titles from a character
+
+    Usage:
+        @admin_titles <character>
+        @admin_titles/add <character>=<title>
+        @admin_titles/remove <character>=<title>
+    """
+    key = "@admin_titles"
+    aliases = ["@admin_title"]
+    locks = "cmd: perm(builders)"
+    help_category = "GMing"
+
+    def display_titles(self, targ):
+        titles = targ.db.titles or []
+        self.msg("%s's titles: %s" % (targ, "; ".join(str(ob) for ob in titles)))
+
+    def func(self):
+        targ = self.caller.search(self.lhs)
+        if not targ:
+            return
+        targ = targ.db.char_ob
+        titles = targ.db.titles or []
+        if not self.rhs:
+            self.display_titles(targ)
+            return
+        if "add":
+            if self.rhs not in titles:
+                titles.append(self.rhs)
+                targ.db.titles = titles
+            self.display_titles(targ)
+            return
+        if "remove":
+            if self.rhs in titles:
+                titles.remove(self.rhs)
+                targ.db.titles = titles
+            self.display_titles(targ)
+
+
+class CmdAdminWrit(MuxPlayerCommand):
+    """
+    Sets or views a character's writs
+
+    Usage:
+        @admin_writ <character>
+        @admin_writ/set <character>=<holder>,<value>,<notes>
+        @admin_writ/remove <character>=<holder>
+    """
+    key = "@admin_writ"
+    aliases = ["@admin_writs"]
+    help_category = "GMing"
+    locks = "cmd:perm(builders)"
+
+    def display_writbound(self):
+        qs = Character.objects.filter(db_tags__db_key="has_writ")
+        self.msg("{wCharacters with writs:{n %s" % ", ".join(ob.key for ob in qs))
+
+    def func(self):
+        if not self.args:
+            self.display_writbound()
+            return
+        targ = self.caller.search(self.lhs)
+        if not targ:
+            self.display_writbound()
+            return
+        targ = targ.db.char_ob
+        writs = targ.db.writs or {}
+        if not self.rhs:
+            from evennia.utils.evtable import EvTable
+            self.msg("{wWrits of %s{n" % targ)
+            table = EvTable("{wMaster{n", "{wValue{n", "{wNotes{n", width=78, border="cells")
+            for holder, writ in writs.items():
+                table.add_row(holder.capitalize(), writ[0], writ[1])
+            table.reformat_column(0, width=15)
+            table.reformat_column(1, width=9)
+            table.reformat_column(2, width=54)
+            self.msg(str(table))
+            return
+        if "set" in self.switches or "add" in self.switches:
+            try:
+                holder = self.rhslist[0].lower()
+                value = int(self.rhslist[1])
+                if len(self.rhslist) > 2:
+                    notes = ", ".join(self.rhslist[2:])
+                else:
+                    notes = ""
+            except (IndexError, ValueError, TypeError):
+                self.msg("Invalid syntax.")
+                return
+            writs[holder] = [value, notes]
+            targ.db.writs = writs
+            targ.tags.add("has_writ")
+            self.msg("%s's writ to %s set to a value of %s, notes: %s" % (targ.key, holder, value, notes))
+            return
+        if "remove" in self.switches:
+            holder = self.rhs.lower()
+            try:
+                del writs[holder]
+            except KeyError:
+                self.msg("No writ found to %s" % holder)
+                return
+            if not writs:
+                targ.tags.remove("has_writ")
+                targ.attributes.remove("writs")
+            else:
+                targ.db.writs = writs
+            self.msg("%s's writ to %s removed." % (targ, holder))
+            return
+        self.msg("Invalid switch.")

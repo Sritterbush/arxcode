@@ -26,12 +26,30 @@ class JournalListView(LimitPageMixin, ListView):
         get = self.request.GET
         if not get:
             return queryset
-        sender = get.get('sender_name', None)
-        if sender:
-            queryset = queryset.filter(db_sender_objects__db_key__iexact=sender)
-        receiver = get.get('receiver_name', None)
-        if receiver:
-            queryset = queryset.filter(db_receivers_objects__db_key__iexact=receiver)
+        senders = get.get('sender_name', "").split()
+        if senders:
+            exclude_senders = [ob[1:] for ob in senders if ob.startswith("-")]
+            senders = [ob for ob in senders if not ob.startswith("-")]
+            sender_filter = Q()
+            for sender in senders:
+                sender_filter |= Q(db_sender_objects__db_key__iexact=sender)
+            queryset = queryset.filter(sender_filter)
+            sender_filter = Q()
+            for sender in exclude_senders:
+                sender_filter |= Q(db_sender_objects__db_key__iexact=sender)
+            queryset = queryset.exclude(sender_filter)
+        receivers = get.get('receiver_name', "").split()
+        if receivers:
+            exclude_receivers = [ob[1:] for ob in receivers if ob.startswith("-")]
+            receivers = [ob for ob in receivers if not ob.startswith("-")]
+            receiver_filter = Q()
+            for receiver in receivers:
+                receiver_filter |= Q(db_receivers_objects__db_key__iexact=receiver)
+            queryset = queryset.filter(receiver_filter)
+            receiver_filter = Q()
+            for receiver in exclude_receivers:
+                receiver_filter |= Q(db_receivers_objects__db_key__iexact=receiver)
+            queryset = queryset.exclude(receiver_filter)
         text = get.get('search_text', None)
         if text:
             queryset = queryset.filter(db_message__icontains=text)

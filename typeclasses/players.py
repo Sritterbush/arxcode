@@ -161,6 +161,10 @@ class Player(MsgMixins, DefaultPlayer):
                     self.roster.save()
                 except Roster.DoesNotExist:
                     pass
+            watched_by = self.db.char_ob.db.watched_by or []
+            if self.sessions.count() == 1 and not self.db.hide_from_watch:
+                for watcher in watched_by:
+                    watcher.msg("{wA player you are watching, {c%s{w, has connected.{n" % self)
         except AttributeError:
             pass
 
@@ -379,9 +383,15 @@ class Player(MsgMixins, DefaultPlayer):
 
     @property
     def allow_list(self):
-        if not self.db.allow_list:
+        if self.db.allow_list is None:
             self.db.allow_list = []
         return self.db.allow_list
+    
+    @property
+    def block_list(self):
+        if self.db.block_list is None:
+            self.db.block_list = []
+        return self.db.block_list
 
     @property
     def clues_shared_modifier_seed(self):

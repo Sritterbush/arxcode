@@ -8,7 +8,6 @@ will fight until they rout, and will often lose quite a few troops who
 desert during the retreat, while others are killed in retreating.
 """
 from django.conf import settings
-from .unit_types import get_combat
 from .combat_grid import CombatGrid
 from .reports import BattleReport
 import operator
@@ -17,21 +16,32 @@ from server.utils.arx_utils import setup_log
 
 
 XP_PER_BATTLE = 5
-ATTACKER_FRONT = (0,1,0)
-ATTACKER_BACK = (0,0,0)
-DEFENDER_FRONT = (0,5,0)
-DEFENDER_BACK = (0,6,0)
+ATTACKER_FRONT = (0, 1, 0)
+ATTACKER_BACK = (0, 0, 0)
+DEFENDER_FRONT = (0, 5, 0)
+DEFENDER_BACK = (0, 6, 0)
+
+
+def get_combat(unit_obj, grid):
+    unit = unit_obj.stats
+    unit.grid = grid
+    return unit
+
 
 class Formation(object):
+    # noinspection PyUnusedLocal
     def __init__(self, units, battle, front=None, back=None):
         # units in front/back rank in formation
         self.name = ""
         self.front_rank = []
         self.back_rank = []
-        self.front_pos = front or (0,0,0)
-        self.back_pos = back or (0,0,0)
+        self.lost_units = []
+        self.routed_units = []
+        self.front_pos = front or (0, 0, 0)
+        self.back_pos = back or (0, 0, 0)
         self.grid = battle.grid
         self.battle = battle
+
     def __str__(self):
         return self.name
     
@@ -45,6 +55,7 @@ class Formation(object):
     
     def __len__(self):
         return len(self.front_rank) + len(self.back_rank)
+
     def _get_all_units(self):
         return self.front_rank + self.back_rank + self.lost_units + self.routed_units
     all_units = property(_get_all_units)
@@ -72,21 +83,18 @@ class UnitFormation(Formation):
         self.add_units(units)
         self._castle = None
         self.castle_pos = DEFENDER_BACK
-        
-    
+
     def _get_castle(self):
         return self._castle
+
     def _set_castle(self, castle):
         self._castle = castle
         for unit in self:
             self.recall_unit_to_castle(unit)
     castle = property(_get_castle, _set_castle)
-    def _get_all_units(self):
-        return self.front_rank + self.back_rank + self.lost_units + self.routed_units
-    all_units = property(_get_all_units)
     
     def add_units(self, unit_list):
-        for unit in units:
+        for unit in unit_list:
             self.add_unit(unit)
         self.sort_ranks(self.front_rank)
         self.sort_ranks(self.back_rank)
@@ -136,8 +144,8 @@ class UnitFormation(Formation):
                 return
         # to do - add this back in once we implement 'trampling through' targets
         # first we check if there's any units in melee with them.
-        #units_at_pos = [unit for unit in attacker.grid.get_actors(attacker.position) if unit not in self]
-        #if units_at_pos:
+        # units_at_pos = [unit for unit in attacker.grid.get_actors(attacker.position) if unit not in self]
+        # if units_at_pos:
         #    units_at_pos.sort(key=operator.attrgetter('value'))
         #    units_at_pos[0]
         if attacker.range:
@@ -147,9 +155,11 @@ class UnitFormation(Formation):
             return self.front_rank[0]
         if self.back_rank:
             return self.back_rank[0]
-    
-    def sort_ranks(self, rank_list):
+
+    @staticmethod
+    def sort_ranks(rank_list):
         rank_list.sort(key=operator.attrgetter('value'))
+        return rank_list
     
     def ranged_attacks(self):
         for unit in self:
@@ -169,12 +179,12 @@ class UnitFormation(Formation):
                 
     def recall_unit_to_castle(self, unit):
         try:
-            x,y,z = self.castle_pos
-        except:
+            x, y, z = self.castle_pos
+        except (TypeError, ValueError):
             print "ERROR: Invalid tuple in self.castle_pos: %s" % str(self.castle_pos)
-            x,y,z = DEFENDER_BACK
+            x, y, z = DEFENDER_BACK
         unit.castle = self.castle
-        unit.move(x,y,z)
+        unit.move(x, y, z)
     
     def melee_attacks(self):
         for unit in self:
@@ -240,6 +250,7 @@ class UnitFormation(Formation):
             else:
                 self.lost_units.append(unit)
 
+    # noinspection PyBroadException
     def save_models(self):
         """
         We iterate through all units that we have, retrieve their
@@ -258,7 +269,7 @@ class UnitFormation(Formation):
                     dbobj.train(XP_PER_BATTLE)
                     dbobj.do_losses(unit.losses)
                     dbobj.save()
-                except:
+                except Exception:
                     print "ERROR in saving unit."
                     traceback.print_exc()
 
@@ -270,6 +281,7 @@ class UnitFormation(Formation):
 class Battle(object):
     ATK_WIN = 0
     DEF_WIN = 1    
+
     def __init__(self, armies_atk, armies_def, week, pc_atk=None, pc_def=None,
                  atk_domain=None, def_domain=None):
         self.log = setup_log(settings.BATTLE_LOG)
@@ -440,7 +452,8 @@ class Battle(object):
         self.formation_def.cleanup()
         if self.check_victory():
             self.end_combat()
-    
+
+    # noinspection PyBroadException
     def end_combat(self):
         """
         Save all changes to the models represented by the units inside
@@ -453,16 +466,12 @@ class Battle(object):
             self.log.info("Ending combat.")
             if self.attacker_pc:
                 try:
-                    BattleReport(attacker_pc, self)
-                except:
+                    BattleReport(self.attacker_pc, self)
+                except Exception:
                     self.log.info("ERROR: Could not generate BattleReport for attacker.")
             if self.defender_pc:
                 try:
-                    BattleReport(defender_pc, self)
-                except:
+                    BattleReport(self.defender_pc, self)
+                except Exception:
                     self.log.info("ERROR: Could not generate BattleReport for defender.")
         self.ending = True
-
-
-    
-

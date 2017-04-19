@@ -102,6 +102,11 @@ try:
 except Exception as err:
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in gambling commands: %s" % err)
+try:
+    from commands.commands import rolling
+except Exception as err:
+    traceback.print_exc()
+    print("<<ERROR>>: Error encountered in roll commands: %s" % err)
 from evennia.commands.cmdset import CmdSet
 
 
@@ -122,8 +127,9 @@ class OOCCmdSet(CmdSet):
         self.add(overrides.CmdInventory())
         self.add(default_general.CmdNick())
         self.add(default_general.CmdAccess())
-        self.add(general.CmdDiceString())
-        self.add(general.CmdDiceCheck())
+        self.add(rolling.CmdDiceString())
+        self.add(rolling.CmdDiceCheck())
+        self.add(rolling.CmdSpoofCheck())
         self.add(general.CmdBriefMode())
         self.add(general.CmdTidyUp())
         self.add(extended_room.CmdGameTime())
@@ -271,6 +277,8 @@ class StaffCmdSet(CmdSet):
         self.add(staff_commands.CmdCcolor())
         self.add(staff_commands.CmdGMDisguise())
         self.add(staff_commands.CmdGMEvent())
+        self.add(staff_commands.CmdRelocateExit())
+        self.add(staff_commands.CmdAdminKey())
         self.add(extended_room.CmdExtendedDesc())
         self.add(xp.CmdAdjustSkill())
         self.add(xp.CmdAwardXP())

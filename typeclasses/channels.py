@@ -12,11 +12,10 @@ to be modified.
 
 """
 
-from evennia import DefaultChannel, logger
-from evennia.comms.models import Msg, TempMsg
-from evennia.utils.utils import make_iter
+from evennia import DefaultChannel
 
 
+# noinspection PyUnusedLocal
 class Channel(DefaultChannel):
     """
     Working methods:
@@ -67,15 +66,27 @@ class Channel(DefaultChannel):
         return self.db.mute_list
 
     @property
-    def wholist(self):
+    def non_muted_subs(self):
         subs = self.db_subscriptions.all()
         listening = [ob for ob in subs if ob.is_connected and ob not in self.mutelist]
+        return listening
+
+    @staticmethod
+    def format_wholist(listening):
         if listening:
             listening = sorted(listening, key=lambda x: x.key.capitalize())
             string = ", ".join([player.key.capitalize() for player in listening])
         else:
             string = "<None>"
         return string
+
+    @property
+    def complete_wholist(self):
+        return self.format_wholist(self.non_muted_subs)
+
+    @property
+    def wholist(self):
+        return self.format_wholist([ob for ob in self.non_muted_subs if not ob.db.hide_from_watch])
 
     def temp_mute(self, caller):
         """
@@ -132,21 +143,6 @@ class Channel(DefaultChannel):
             del message.channels
             return
         message.delete()
-        
-    # def distribute_message(self, msg, online=False):
-    #     """
-    #     Method for grabbing all listeners that a message should be sent to on
-    #     this channel, and sending them a message.
-    #     """
-    #     # get all players connected to this channel and send to them
-    #     for entity in self.subscriptions.all():
-    #         if entity in self.mutelist:
-    #             continue
-    #         try:
-    #             entity.msg(msg.message, from_obj=msg.senders,
-    #                        options={"from_channel": self.id})
-    #         except AttributeError as e:
-    #             logger.log_trace("%s\nCannot send msg to %s" % (e, entity))
 
     def channel_prefix(self, msg=None, emit=False):
         """
@@ -160,6 +156,7 @@ class Channel(DefaultChannel):
             return '{y[%s]{n ' % self.key
         return '{w[%s]{n ' % self.key
 
+    # noinspection PyMethodMayBeStatic
     def pose_transform(self, msg, sender_string):
         """
         Detects if the sender is posing, and modifies the message accordingly.
@@ -178,67 +175,6 @@ class Channel(DefaultChannel):
             return '%s%s' % (sender_string, message)
         else:
             return '%s: %s' % (sender_string, message)
-   
-    # def msg(self, msgobj, header=None, senders=None, sender_strings=None, persistent=False,
-    #         keep_log=False, online=False, emit=False, external=False):
-    #     """
-    #     Send the given message to all players connected to channel. Note that
-    #     no permission-checking is done here; it is assumed to have been
-    #     done before calling this method. The optional keywords are not used if
-    #     keep_log is False.
-    #
-    #     msgobj - a Msg/TempMsg instance or a message string. If one of the
-    #              former, the remaining keywords will be ignored. If a string,
-    #              this will either be sent as-is (if keep_log=False) or it
-    #              will be used together with header and senders keywords to
-    #              create a Msg instance on the fly.
-    #     senders - an object, player or a list of objects or players.
-    #              Optional if keep_log=False.
-    #     sender_strings - Name strings of senders. Used for external
-    #             connections where the sender is not a player or object. When
-    #             this is defined, external will be assumed.
-    #     external - Treat this message agnostic of its sender.
-    #     keep_log (default False) - ignored if msgobj is a Msg or TempMsg.
-    #             If True, a Msg will be created, using header and senders
-    #             keywords. If False, other keywords will be ignored.
-    #     online (bool) - If this is set true, only messages people who are
-    #             online. Otherwise, messages all players connected. This can
-    #             make things faster, but may not trigger listeners on players
-    #             that are offline.
-    #     emit (bool) - Signals to the message formatter that this message is
-    #             not to be directly associated with a name.
-    #     """
-    #     if senders:
-    #         senders = make_iter(senders)
-    #     else:
-    #         senders = []
-    #     if isinstance(msgobj, basestring):
-    #         # given msgobj is a string
-    #         msg = msgobj
-    #         # saves message if the channel allows logging and message should be persistent
-    #         if keep_log and self.db.keep_log:
-    #             msgobj = Msg()
-    #         else:
-    #             # Use TempMsg, so this message is not stored.
-    #             msgobj = TempMsg()
-    #         msgobj.header = header
-    #         msgobj.message = msg
-    #         msgobj.channels = [self]  # add this channel
-    #
-    #     if not msgobj.senders:
-    #         msgobj.senders = senders
-    #     msgobj = self.pre_send_message(msgobj)
-    #     if not msgobj:
-    #         return False
-    #     msgobj = self.message_transform(msgobj, emit=emit,
-    #                                     sender_strings=sender_strings,
-    #                                     external=external)
-    #     self.distribute_message(msgobj, online=online)
-    #     self.post_send_message(msgobj)
-    #     # need save at end to capture all attributes of saved Msg()
-    #     if keep_log and self.db.keep_log:
-    #         msgobj.save()
-    #     return True
 
     def tempmsg(self, message, header=None, senders=None):
         """

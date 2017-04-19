@@ -279,7 +279,7 @@ def setup_vassals(family, ruler, region, character, srank, num=2):
         setup_dom_for_npc(name, srank=srank + 1, region=region, ruler=vassals[y])
     return vassals
 
-def setup_vassals_for_player(player, num=5):
+def setup_vassals_for_player(player, num=2):
     dompc = player.Dominion
     char = player.db.char_ob
     family = char.db.family
