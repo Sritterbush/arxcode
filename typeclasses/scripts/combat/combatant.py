@@ -1080,6 +1080,8 @@ class CombatHandler(object):
         and has a status of True, False otherwise.
         """
         character = self.char
+        if not self.combat:
+            return False
         if self.status == "active":
             if character.location != self.combat.obj:
                 return False
@@ -1231,7 +1233,7 @@ class CombatHandler(object):
         """
         Returns list of defenders of a target.
         """
-        return [ob for ob in self.defenders if ob.check_char_active()]
+        return [ob for ob in self.defenders if ob.combat.check_char_active()]
 
     def clear_blocked_by_list(self):
         """

@@ -496,6 +496,9 @@ class CmdCrisisAction(MuxPlayerCommand):
         except (TypeError, ValueError):
             self.msg("You must specify a positive amount that you can afford.")
             return
+        # get parent action if we're an assistant
+        if hasattr(action, 'crisis_action'):
+            action = action.crisis_action
         total = getattr(action, res_type) + val
         setattr(action, res_type, total)
         action.save()
