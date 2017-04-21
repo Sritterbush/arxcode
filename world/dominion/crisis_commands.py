@@ -207,6 +207,7 @@ class CmdCrisisAction(MuxPlayerCommand):
         +crisis/viewaction <action #>
         +crisis/addpoints <action #>=<points to add>
         +crisis/addresource <action#>=<type>,<amount>
+        +crisis/addarmy <action #>=<army name or #>
         +crisis/question <action #>=<question>
         +crisis/togglepublic <action #>
 
@@ -214,8 +215,9 @@ class CmdCrisisAction(MuxPlayerCommand):
     To view crises that have since been resolved, use /old switch. A secret 
     action can be added after an action is submitted, and /toggleview allows 
     individual assistants (or the action's owner) to see it. Togglepublic can
-    keep the action from being publically listed.
-    Crisis actions cost 50 action points.
+    keep the action from being publically listed. The addition of resources,
+    armies, and extra action points is taken into account when deciding outcomes.
+    New actions cost 50 action points, while assisting costs 10.
     """
     key = "+crisis"
     aliases = ["crisis"]
@@ -372,7 +374,7 @@ class CmdCrisisAction(MuxPlayerCommand):
         self.msg("You are going to perform this action: %s" % self.rhs)
         inform_staff("%s has created a new crisis action for crisis %s: %s" % (self.caller, crisis, self.rhs))
 
-    def get_action(self, get_all=False, get_assisted=False):
+    def get_action(self, get_all=False, get_assisted=False, return_assistant=False):
         dompc = self.caller.Dominion
         if not get_all and not get_assisted:
             qs = self.current_actions
@@ -380,7 +382,7 @@ class CmdCrisisAction(MuxPlayerCommand):
             qs = CrisisAction.objects.filter(Q(dompc=dompc) | Q(assistants=dompc)).distinct()
         try:
             action = qs.get(id=self.lhs)
-            if "assist" in self.switches:
+            if return_assistant:
                 try:
                     return action.assisting_actions.get(dompc=dompc)
                 except CrisisActionAssistant.DoesNotExist:
@@ -402,7 +404,7 @@ class CmdCrisisAction(MuxPlayerCommand):
         self.msg(msg)
 
     def cancel_action(self):
-        action = self.get_action(get_assisted=True)
+        action = self.get_action(get_assisted=True, return_assistant="assist" in self.switches)
         if not action:
             return
         if hasattr(action, 'crisis_action'):
@@ -416,7 +418,8 @@ class CmdCrisisAction(MuxPlayerCommand):
         self.msg("Action deleted.")
 
     def append_action(self):
-        action = self.get_action(get_assisted="assist" in self.switches)
+        assisting = "assist" in self.switches
+        action = self.get_action(get_assisted=assisting, return_assistant=assisting)
         if not action:
             return
         field_name = "action"
@@ -428,7 +431,8 @@ class CmdCrisisAction(MuxPlayerCommand):
         self.msg("Action is now: %s" % text)
 
     def set_secret_action(self):
-        action = self.get_action(get_assisted="assist" in self.switches)
+        assisting = "assist" in self.switches
+        action = self.get_action(get_assisted=assisting, return_assistant=assisting)
         if not action:
             return
         if action.secret_action:
@@ -441,13 +445,8 @@ class CmdCrisisAction(MuxPlayerCommand):
                                                                           self.rhs))
 
     def add_action_points(self):
-        action = self.get_action(get_assisted=True)
+        action = self.adding_checks()
         if not action:
-            return
-        time = datetime.now()
-        crisis = action.crisis
-        if crisis.end_date < time:
-            self.msg("It is past the submit date for that crisis.")
             return
         try:
             val = int(self.rhs)
@@ -462,8 +461,8 @@ class CmdCrisisAction(MuxPlayerCommand):
         action.outcome_value += val
         action.save()
         self.msg("You add %s action points. Current action points allocated: %s" % (self.rhs, action.outcome_value))
-        
-    def add_resource(self):
+    
+    def adding_checks(self):
         action = self.get_action(get_assisted=True)
         if not action:
             return
@@ -471,6 +470,12 @@ class CmdCrisisAction(MuxPlayerCommand):
         crisis = action.crisis
         if crisis.end_date < time:
             self.msg("It is past the submit date for that crisis.")
+            return
+        return action
+        
+    def add_resource(self):
+        action = self.adding_checks()
+        if not action:
             return
         try:
             res_type = self.rhslist[0]
@@ -500,6 +505,23 @@ class CmdCrisisAction(MuxPlayerCommand):
         setattr(action, res_type, total)
         action.save()
         self.msg("You add %s %s. New value: %s" % (val, res_type, total))
+
+    def add_army(self):
+        action = self.adding_checks()
+        if not action:
+            return
+        # gonda get army
+        from .models import Army
+        try:
+            if self.rhs.isdigit():
+                army = Army.objects.get(id=int(self.rhs))
+            else:
+                army = Army.objects.get(name__iexact=self.rhs)
+        except (AttributeError, Army.DoesNotExist):
+            self.msg("No armies found by that name or number.")
+            return
+        # check permissions for army and adjust orders
+        army.send_orders(player=self.caller, order_type="crisis", target=action)
 
     def ask_question(self):
         action = self.get_action()
@@ -582,6 +604,9 @@ class CmdCrisisAction(MuxPlayerCommand):
             return
         if "addresource" in self.switches:
             self.add_resource()
+            return
+        if "addarmy" in self.switches:
+            self.add_army()
             return
         if "invite" in self.switches:
             self.invite_assistant()

@@ -2303,6 +2303,14 @@ class Army(models.Model):
             msg += unit.display() + "\n"
         return msg
     
+    def send_orders(self, player, order_type, target):
+        """
+        Checks permission to send orders to an army, then records the category 
+        of orders and their target.
+        """
+        # first checks for permissions
+        pass
+    
     def find_unit(self, unit_type):
         """
         Find a unit that we have of the given unit_type. Armies should only have one of each unit_type
