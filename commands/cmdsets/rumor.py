@@ -17,7 +17,7 @@ RUMOR_LIFETIME = 30
 class RumorCmdSet(CmdSet):
     """CmdSet for a market."""
     key = "RumorCmdSet"
-    priority = 20
+    priority = 101
     duplicates = False
     no_exits = False
     no_objs = False

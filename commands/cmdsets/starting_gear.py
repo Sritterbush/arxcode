@@ -28,7 +28,7 @@ CASH = 6000
 class StartingGearCmdSet(CmdSet):
     """CmdSet for a market."""
     key = "StartingGearCmdSet"
-    priority = 20
+    priority = 101
     duplicates = False
     no_exits = False
     no_objs = False

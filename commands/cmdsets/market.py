@@ -17,10 +17,8 @@ from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand
 from server.utils import prettytable
 from evennia.utils.create import create_object
-from django.conf import settings
 from world.dominion.models import (CraftingMaterialType, PlayerOrNpc, CraftingMaterials)
 from world.dominion import setup_utils
-
 
 
 RESOURCE_VAL = 250
@@ -30,6 +28,7 @@ other_items = {"book": [BOOK_PRICE, "parchment",
                         "A book that you can write in and others can read."],
                }
 
+
 class OtherMaterial(object):
     def __init__(self, otype):
         self.name = "book"       
@@ -37,8 +36,10 @@ class OtherMaterial(object):
         self.category = other_items[otype][1]
         self.path = other_items[otype][2]
         self.desc = other_items[otype][3]
+
     def __str__(self):
         return self.name
+
     def create(self, caller):
         stacking = [ob for ob in caller.contents if ob.typeclass_path == self.path and ob.db.can_stack]
         if stacking:
@@ -46,16 +47,18 @@ class OtherMaterial(object):
             obj.set_num(obj.db.num_instances + 1)
         else:
             obj = create_object(typeclass=self.path, key=self.name,
-                            location=caller, home=caller)
+                                location=caller, home=caller)
         return obj
 
+
 class MarketCmdSet(CmdSet):
-    "CmdSet for a market."    
+    """CmdSet for a market."""
     key = "MarketCmdSet"
-    priority = 20
+    priority = 101
     duplicates = False
     no_exits = False
     no_objs = False
+
     def at_cmdset_creation(self):
         """
         This is the only method defined in a cmdset, called during
@@ -69,7 +72,7 @@ class MarketCmdSet(CmdSet):
         self.add(CmdMarket())
 
 
-
+# noinspection PyUnresolvedReferences
 class CmdMarket(MuxCommand):
     """
     market
@@ -93,9 +96,10 @@ class CmdMarket(MuxCommand):
     help_category = "Combat"
 
     def func(self):
-        "Execute command."
+        """Execute command."""
         caller = self.caller
         usemats = True
+        material = None
         if self.cmdstring == "buy" and not ('economic' in self.switches or
                                             'social' in self.switches or
                                             'military' in self.switches):
@@ -114,14 +118,14 @@ class CmdMarket(MuxCommand):
             materials = materials.exclude(acquisition_modifiers__icontains="nosell")
         if not self.args:
             mtable = prettytable.PrettyTable(["{wMaterial",
-                                       "{wCategory",
-                                       "{wCost"])
+                                              "{wCategory",
+                                              "{wCost"])
             for mat in materials:
-                mtable.add_row([mat.name, mat.category, str(mat.value) ])
+                mtable.add_row([mat.name, mat.category, str(mat.value)])
             # add other items by hand
             for mat in other_items:
                 mtable.add_row([mat, other_items[mat][1], other_items[mat][0]])
-            caller.msg("\n{w" + "="*60 + "{n\n%s"% mtable)
+            caller.msg("\n{w" + "="*60 + "{n\n%s" % mtable)
             pmats = CraftingMaterials.objects.filter(owner__player__player=caller.player)
             if pmats:
                 caller.msg("\n{wYour materials:{n %s" % ", ".join(str(ob) for ob in pmats))
@@ -139,7 +143,7 @@ class CmdMarket(MuxCommand):
             except CraftingMaterialType.MultipleObjectsReturned:
                 try:
                     material = materials.get(name__iexact=self.lhs)
-                except Exception:
+                except (CraftingMaterials.DoesNotExist, CraftingMaterials.MultipleObjectsReturned):
                     caller.msg("Unable to get a unique match for that.")
                     return           
         if 'buy' in self.switches or 'import' in self.switches:
@@ -190,9 +194,9 @@ class CmdMarket(MuxCommand):
                     mat.amount += amt
                     mat.save()
                 except CraftingMaterials.DoesNotExist:
-                    mat = dompc.assets.materials.create(type=material, amount=amt)
+                    dompc.assets.materials.create(type=material, amount=amt)
             else:
-                obj = material.create(caller)
+                material.create(caller)
             caller.msg("You buy %s %s for %s." % (amt, material, paystr))
             return
         if 'sell' in self.switches:

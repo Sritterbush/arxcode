@@ -26,7 +26,7 @@ DESC_COST = 0
 class HomeCmdSet(CmdSet):
     """CmdSet for a home spaces."""
     key = "HomeCmdSet"
-    priority = 20
+    priority = 101
     duplicates = False
     no_exits = False
     no_objs = False
@@ -1138,7 +1138,7 @@ class CmdBuyFromShop(CmdCraft):
 class ShopCmdSet(CmdSet):
     """CmdSet for shop spaces."""
     key = "ShopCmdSet"
-    priority = 20
+    priority = 101
     duplicates = False
     no_exits = False
     no_objs = False
