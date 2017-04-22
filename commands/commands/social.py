@@ -922,7 +922,7 @@ class CmdMessenger(MuxCommand):
                 # check if the messenger is of old format, pre-conversion. Possible to sit in database for a long time
                 if isinstance(money_tuple, numbers.Real):
                     money = money_tuple
-                else:
+                elif money_tuple:
                     money = money_tuple[0]
                     if len(money_tuple) > 1:
                         mats = money_tuple[1]
@@ -935,9 +935,10 @@ class CmdMessenger(MuxCommand):
             except IndexError:
                 pass
             except TypeError:
+                import traceback
+                traceback.print_exc()
                 self.msg("The message object was in the wrong format, possibly a result of a database error.")
-                self.msg("It was just this: %s" % msgtuple)
-                inform_staff("%s received a buggy messenger. They received: %s" % (caller, msgtuple))
+                inform_staff("%s received a buggy messenger." % caller)
                 return
             caller.db.pending_messengers = unread
             # adds it to our list of old messages
