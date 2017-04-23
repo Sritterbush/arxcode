@@ -2302,13 +2302,40 @@ class Army(models.Model):
         for unit in self.units.all():
             msg += unit.display() + "\n"
         return msg
+        
+    def can_change(self, player):
+        """
+        Checks if a given player has permission to change the structure of this
+        army, edit it, or destroy it.
+        """
+        # check if player is staff
+        # check if player's assetowner == self.owner
+        # check if we have an organization owner
+        # check if player has permission to change army from their org
+        return False
+        
+    def can_order(self, player):
+        """
+        Checks if a given player has permission to issue orders to this army.
+        """
+        # if we can change the army, we can also order it
+        if self.can_change(player):
+            return True
+        # check if we're appointed as Commander of this army
+        # check temp owner permissions
+        return False
     
     def send_orders(self, player, order_type, target):
         """
         Checks permission to send orders to an army, then records the category 
         of orders and their target.
         """
-        # first checks for permissions
+        # first checks for 
+        if not self.can_order(player):
+            # error message
+            return
+        # create new orders for this unit
+        # set all our sub-units to have new orders? Or wait until they go 'live'
         pass
     
     def find_unit(self, unit_type):
