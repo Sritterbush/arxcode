@@ -49,6 +49,8 @@ class Npc(Character):
             self.execute_cmd("kill %s" % targ)
         else:
             self.execute_cmd("attack %s" % targ)
+        # if we're ordered to attack, don't vote to end
+        self.combat.wants_to_end = False
     
     def stop(self):
         """
@@ -195,14 +197,6 @@ class Npc(Character):
         roll = do_dice_check(self, stat="perception", stat_keep=True, difficulty=difficulty)
         return roll
 
-    def _get_npc_type(self):
-        return self.db.npc_type or 0
-    npc_type = property(_get_npc_type)
-
-    def _get_quality(self):
-        return self.db.npc_quality or 0
-    quality = property(_get_quality)
-
     def get_fakeweapon(self, force_update=False):
         if not self.db.fakeweapon or force_update:
             npctype = self._get_npc_type()
@@ -214,6 +208,30 @@ class Npc(Character):
         self.db.fakeweapon = val
 
     fakeweapon = property(get_fakeweapon, _set_fakeweapon)
+
+    @property
+    def is_npc(self):
+        return True
+
+    # npcs are easier to hit than players, and have an easier time hitting
+    @property
+    def defense_modifier(self):
+        return super(Npc, self).defense_modifier - 30
+
+    @property
+    def attack_modifier(self):
+        return super(Npc, self).attack_modifier + 30
+
+    # ------------------------------------------------
+    # New npc methods
+    # ------------------------------------------------
+    def _get_npc_type(self):
+        return self.db.npc_type or 0
+    npc_type = property(_get_npc_type)
+
+    def _get_quality(self):
+        return self.db.npc_quality or 0
+    quality = property(_get_quality)
 
     @property
     def quantity(self):
@@ -251,10 +269,6 @@ class Npc(Character):
             self.name = sing_name or plural_name or "#%s" % self.id
             self.desc = desc or get_npc_desc(ntype)
         self.setup_stats(ntype, threat)
-
-    @property
-    def is_npc(self):
-        return True
 
 
 class MultiNpc(Npc):

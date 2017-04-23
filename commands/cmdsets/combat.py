@@ -124,9 +124,8 @@ class CmdStartCombat(MuxCommand):
             retmsg = cscript.add_combatant(ob, caller)
             if retmsg:
                 caller.msg(retmsg)
-        # display list of combatants
-        cscript.display_phase_status_to_all(intro=True)
-        return
+        # mark the script as no longer initializing
+        cscript.finish_initialization()
 
 
 class CmdAutoattack(MuxCommand):
@@ -428,6 +427,7 @@ class CmdSlay(CmdAttack):
     like.
     """
     key = "+coupdegrace"
+    aliases = ["kill"]
     locks = "cmd:all()"
     help_category = "Combat"
     can_kill = True

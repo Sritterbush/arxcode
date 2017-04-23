@@ -161,7 +161,8 @@ class CombatHandler(object):
                 self.add_defender(ob)
         if combat:
             self.lethal = combat.ndb.lethal
-        self.reset()
+        if not self.combat.ndb.initializing:
+            self.reset()
 
     def leave_combat(self, combat):
         character = self.char
@@ -301,16 +302,39 @@ class CombatHandler(object):
         self.char.msg(mssg)
 
     @property
-    def can_fight(self):
+    def valid_target(self):
+        """
+        Whether we're in the combat at all. Should not be valid in any way to interact
+        with.
+        """
         if not self.char:
             return False
         if not self.combat:
             return False
         if self.char.location != self.combat.obj:
             return False
+        return True
+
+    @property
+    def can_fight(self):
+        """
+        Whether we're totally out of the fight. Can be killed, but no longer
+        a combatant.
+        """
+        if not self.valid_target:
+            return False
         if not self.char.conscious:
             return False
         return True
+
+    @property
+    def can_act(self):
+        """
+        Whether we can act this round. May be temporarily stunned.
+        """
+        if not self.can_fight:
+            return False
+        return self.status == "active"
 
     @property
     def ready(self):
@@ -344,17 +368,28 @@ class CombatHandler(object):
         # noinspection PyBroadException
         try:
             dmg = self.char.db.damage or 0
-            return int((dmg * 100.0) / (self.char.max_hp * 10.0))
+            base = int((dmg * 100.0) / (self.char.max_hp * 10.0))
+            base -= (self.char.boss_rating * 10)
+            if base < 0:
+                base = 0
+            return base
         except Exception:
             return 0
 
     @property
     def atk_penalties(self):
-        return (self.wound_penalty/2) + self.fatigue_atk_penalty()
+        base = (self.wound_penalty/2) + self.fatigue_atk_penalty()
+        return base - self.char.attack_modifier
 
     @property
     def def_penalties(self):
-        return self.wound_penalty + self.fatigue_def_penalty()
+        base = self.wound_penalty + self.fatigue_def_penalty()
+        # it gets increasingly hard to defend the more times you're attacked per round
+        overwhelm_penalty = self.times_attacked * 10
+        if overwhelm_penalty > 40:
+            overwhelm_penalty = 40
+        base += overwhelm_penalty
+        return base - self.char.defense_modifier
 
     @property
     def dodge_penalty(self):
@@ -390,7 +425,7 @@ class CombatHandler(object):
         self.validate_targets()
         if self.autoattack:
             self.validate_targets(self.do_lethal)
-            if self.targets and self.status == "active":
+            if self.targets and self.can_fight:
                 targ = self.prev_targ
                 if not targ:
                     targ = choice(self.targets)
@@ -424,9 +459,9 @@ class CombatHandler(object):
                     self.add_foe(foe)
         fighters = [ob.combat for ob in self.foelist]
         if not lethal:
-            self.targets = [fighter.char for fighter in fighters if fighter.status == 'active']
+            self.targets = [fighter.char for fighter in fighters if fighter.can_fight]
         else:
-            self.targets = [fighter.char for fighter in fighters]
+            self.targets = [fighter.char for fighter in fighters if fighter.valid_target]
 
     def add_foe(self, targ):
         """
@@ -484,6 +519,8 @@ class CombatHandler(object):
         completed, return None. Otherwise, return a result.
         """
         if not self.combat:
+            return
+        if self.combat.ndb.shutting_down:
             return
         if self.combat.ndb.phase != 2:
             return False
@@ -600,8 +637,6 @@ class CombatHandler(object):
         self.roll_fatigue()
         penalty += self.def_penalties
         diff += penalty
-        # it gets increasingly hard to defend the more times you're attacked per round
-        diff += self.times_attacked * 10
         self.times_attacked += 1
         total = None
         att = attacker.combat
@@ -989,9 +1024,9 @@ class CombatHandler(object):
         grace_period = False  # one round delay between incapacitation and death for PCs
         if target.dmg > target.max_hp:
             # if we're not incapacitated, we start making checks for it
-            if target.conscious:
-                # check is sta + willpower against dmg past uncon to stay conscious
-                diff = target.dmg - target.max_hp
+            if target.conscious and not target.sleepless:
+                # check is sta + willpower against % dmg past uncon to stay conscious
+                diff = int((float(target.dmg - target.max_hp)/target.max_hp) * 100)
                 consc_check = do_dice_check(target, stat_list=["stamina", "willpower"], skill="survival",
                                             stat_keep=True, difficulty=diff)
                 message += "%s rolls stamina+willpower+survival against difficulty %s, getting %s." % (self, diff,
@@ -1008,7 +1043,7 @@ class CombatHandler(object):
                     grace_period = True  # always a one round delay before you can kill a player
             # PC/NPC who was already unconscious before attack, or an NPC who was knocked unconscious by our attack
             if not grace_period:  # we are allowed to kill the character
-                diff = target.dmg - (2 * target.max_hp)
+                diff = int((float(target.dmg - (2 * target.max_hp))/(2 * target.max_hp)) * 100)
                 if diff < 0:
                     diff = 0
                 if do_dice_check(target, stat_list=["stamina", "willpower"], skill="survival",
@@ -1073,21 +1108,6 @@ class CombatHandler(object):
         self.msg(message)
         def_pen = 5 + combat_settings.STANCE_DEF_MOD[t_fite.stance]
         self.do_attack(target, attack_penalty=-5, defense_penalty=def_pen)
-
-    def check_char_active(self):
-        """
-        Returns True if the character is in our fighter data
-        and has a status of True, False otherwise.
-        """
-        character = self.char
-        if not self.combat:
-            return False
-        if self.status == "active":
-            if character.location != self.combat.obj:
-                return False
-            if not character.conscious:
-                return False
-            return True
 
     def do_pass(self, delay=False):
         """
@@ -1233,7 +1253,7 @@ class CombatHandler(object):
         """
         Returns list of defenders of a target.
         """
-        return [ob for ob in self.defenders if ob.combat.check_char_active()]
+        return [ob for ob in self.defenders if ob.combat.can_act]
 
     def clear_blocked_by_list(self):
         """
