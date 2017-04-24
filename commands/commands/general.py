@@ -1473,7 +1473,7 @@ class CmdDump(MuxCommand):
     """
     Empty a container of all its objects. Great for re-sorting items or making a complete mess of someone's room.
     Usage:
-        undress
+        dump <container>
 
     Dump will only work if the container is unlocked.
     """
@@ -1503,10 +1503,12 @@ class CmdDump(MuxCommand):
 
         # Quietly move every object inside the container to container's location
         for o in obj.contents:
-            o.move_to(loc, quiet=True)
+            if o.access(caller, 'get'):
+                o.move_to(loc, quiet=True)
 
-        caller.msg("You dump %s." % obj)
-        caller.location.msg_contents("%s dumps %s and spills its contents all over the floor." % (caller.name, obj), exclude=caller)
+        caller.msg("You dump the contents of %s." % obj)
+        caller.location.msg_contents("%s dumps %s and spills its contents all over the floor." % (caller.name, obj),
+                                     exclude=caller)
 
         return
 
