@@ -1469,6 +1469,48 @@ class CmdUndress(MuxCommand):
         return
 
 
+class CmdDump(MuxCommand):
+    """
+    Empty a container of all its objects. Great for re-sorting items or making a complete mess of someone's room.
+    Usage:
+        undress
+
+    Dump will only work if the container is unlocked.
+    """
+    key = "dump"
+    aliases = ["empty"]
+    locks = "cmd:all()"
+
+    def func(self):
+        caller = self.caller
+
+        if not self.args:
+            caller.msg("Dump what?")
+            return
+
+        obj = caller.search(self.args)
+        loc = obj.location
+
+        # If the object being dumped is not a container or is not dead and therefore lootable then bail out
+        if not (obj.db.container or obj.dead):
+            caller.msg("You cannot dump %s as it is not a valid container." % obj)
+            return
+
+        # Unless the caller is a builder the locked container cannot be dumped
+        if obj.db.locked and not caller.check_permstring("builders"):
+            caller.msg("%s is locked. Unlock it first." % obj)
+            return
+
+        # Quietly move every object inside the container to container's location
+        for o in obj.contents:
+            o.move_to(loc, quiet=True)
+
+        caller.msg("You dump %s." % obj)
+        caller.location.msg_contents("%s dumps %s and spills its contents all over the floor." % (caller.name, obj), exclude=caller)
+
+        return
+
+
 class CmdLockObject(MuxCommand):
     """
     Locks or unlocks an exit or container
