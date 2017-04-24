@@ -216,6 +216,7 @@ class MobileCmdSet(CmdSet):
         self.add(investigation.CmdInvestigate())
         self.add(investigation.CmdAssistInvestigation())
         self.add(general.CmdUndress())
+        self.add(general.CmdDump())
         self.add(CmdApplyConsumable())
         self.add(gambling.CmdRoll())
 

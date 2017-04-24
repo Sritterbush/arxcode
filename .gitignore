@@ -56,3 +56,6 @@ nosetests.xml
 
 # nano .save files
 *.save
+
+# virtualenv
+venv/
