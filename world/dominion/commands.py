@@ -2798,8 +2798,7 @@ class CmdSupport(MuxCommand):
                 member = org.members.get(player=dompc)
                 if val < 0:
                     raise ValueError
-                supused = sup.allocation.get(week=week, sphere=sphere)
-                supused.refresh_from_db()
+                supused = SupportUsed.objects.get(week=week, sphere=sphere, supporter=sup)
             except IndexError:
                 caller.msg("Must specify both the ID and the category name.")
                 self.get_support_table()
