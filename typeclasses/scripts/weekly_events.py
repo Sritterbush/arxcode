@@ -122,8 +122,19 @@ class WeeklyEvents(Script):
 
     @staticmethod
     def reset_action_points():
-        RosterEntry.objects.filter(action_points__gte=100).update(action_points=200)
-        RosterEntry.objects.filter(action_points__lt=100).update(action_points=F('action_points') + 100)
+        qs = RosterEntry.objects.filter(roster__name="Active")
+        qs1 = qs.filter(action_points__gte=100)
+        qs2 = qs.filter(action_points__lt=100)
+        log_file = open("action_points_log.txt", "w")
+        log_file.write("Action points before script\n\n")
+        for ob in qs:
+            log_file.write("%s: action points: %s\n" % (ob, ob.action_points))
+        qs1.update(action_points=200)
+        qs2.update(action_points=F('action_points') + 100)
+        log_file.write("\n\nAction points after script\n\n")
+        for ob in qs:
+            log_file.write("%s: action points: %s\n" % (ob, ob.action_points))
+        log_file.close()
 
     def do_tasks(self):
         for task in AssignedTask.objects.filter(finished=False):
@@ -277,6 +288,11 @@ class WeeklyEvents(Script):
                 try:
                     del char.attributes._cache["%s-None" % attrname]
                 except KeyError:
+                    continue
+            for agent in player.retainers:
+                try:
+                    del agent.dbobj.attributes._cache["trainer-None"]
+                except (KeyError, AttributeError):
                     continue
 
     @staticmethod
