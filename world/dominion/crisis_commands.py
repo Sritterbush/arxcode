@@ -346,7 +346,7 @@ class CmdCrisisAction(MuxPlayerCommand):
             return
         action.assisting_actions.create(dompc=self.caller.Dominion, action=self.rhs)
         self.msg("Action created.")
-        inform_staff("%s is assisting action %s for crisis %s: %s" % (self.caller, action.id, crisis, self.rhs))
+        inform_staff("%s is assisting action %s for crisis %s" % (self.caller, action.id, crisis))
         action.dompc.player.inform("%s is now assisting action %s: %s" % (self.caller, action.id, self.rhs))
         return
 
@@ -368,9 +368,9 @@ class CmdCrisisAction(MuxPlayerCommand):
             self.msg("You do not have enough action points to respond to this crisis.")
             return
         week = get_week()
-        crisis.actions.create(dompc=self.caller.Dominion, action=self.rhs, week=week)
+        action = crisis.actions.create(dompc=self.caller.Dominion, action=self.rhs, week=week)
         self.msg("You are going to perform this action: %s" % self.rhs)
-        inform_staff("%s has created a new crisis action for crisis %s: %s" % (self.caller, crisis, self.rhs))
+        inform_staff("%s has created a new crisis action for crisis %s: #%s" % (self.caller, crisis, action.id))
 
     def get_action(self, get_all=False, get_assisted=False):
         dompc = self.caller.Dominion
@@ -437,8 +437,7 @@ class CmdCrisisAction(MuxPlayerCommand):
         action.secret_action = self.rhs
         action.save()
         self.msg("Secret action created.")
-        inform_staff("%s adds a secret to action %s for crisis %s: %s" % (self.caller, action.id, action.crisis,
-                                                                          self.rhs))
+        inform_staff("%s adds a secret to action %s for crisis %s" % (self.caller, action.id, action.crisis))
 
     def add_action_points(self):
         action = self.get_action(get_assisted=True)
