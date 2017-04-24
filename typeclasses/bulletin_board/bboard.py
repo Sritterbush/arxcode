@@ -47,7 +47,7 @@ class BBoard(Object):
         if event:
             event.tag_obj(post)
         self.receiver_object_set.add(post)
-        if self.db.max_posts and self.posts.count() > self.db.max_posts:
+        if self.max_posts and self.posts.count() > self.max_posts:
             posts = self.posts.exclude(db_tags__db_key="sticky_post")
             if "archive_posts" in self.tags.all():
                 self.archive_post(posts.first())
@@ -59,6 +59,10 @@ class BBoard(Object):
             notify += "\nUse {w@bbread %s/%s {nto read this message." % (self.key, post_num)
             self.notify_subs(notify)
         return post
+
+    @property
+    def max_posts(self):
+        return self.db.max_posts or 100
 
     def notify_subs(self, notification):
         subs = [ob for ob in self.db.subscriber_list if self.access(ob, "read")

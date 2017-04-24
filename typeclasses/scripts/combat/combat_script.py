@@ -128,6 +128,7 @@ class CombatManager(BaseScript):
         # to ensure proper shutdown, prevent some timing errors
         self.ndb.shutting_down = False
         self.ndb.status_table = None
+        self.ndb.initializing = True
 
     def at_start(self):
         pass
@@ -192,6 +193,8 @@ class CombatManager(BaseScript):
         dead, whatever, and any votes to end.
         In phase 2, list initiative order and who has the current action.
         """
+        if self.ndb.shutting_down:
+            return
         if self.ndb.phase == 1:
             if disp_intro:
                 self.phase_1_intro(character)
@@ -285,6 +288,15 @@ class CombatManager(BaseScript):
                 adata.setup_attacks()
                 cdata.setup_attacks()
         return "You have added %s to a fight." % character.name
+
+    def finish_initialization(self):
+        """
+        Finish the initial setup of combatants we add
+        """
+        self.ndb.initializing = False
+        for character in self.ndb.combatants:
+            character.combat.reset()
+        self.display_phase_status_to_all(intro=True)
         
     def display_ready_status(self, checker=None):
         receiver = checker or self
@@ -304,7 +316,7 @@ class CombatManager(BaseScript):
         """
         self.ndb.ready = []
         self.ndb.not_ready = []
-        if not self.ndb.combatants:
+        if not self.ndb.combatants and not self.ndb.initializing:
             self.msg("No combatants found. Exiting.")
             self.end_combat()
             return
@@ -314,7 +326,7 @@ class CombatManager(BaseScript):
         active_combatants = [ob for ob in self.ndb.combatants if ob.conscious]
         active_fighters = [ob.combat for ob in active_combatants]
         active_fighters = [ob for ob in active_fighters if not (ob.automated and ob.queued_action.qtype == "Pass")]
-        if not active_fighters:
+        if not active_fighters and not self.ndb.initializing:
             self.msg("All combatants are incapacitated or automated npcs who are passing their turn. Exiting.")
             self.end_combat()
             return
@@ -332,6 +344,8 @@ class CombatManager(BaseScript):
             try:
                 self.start_phase_2()
             except ValueError:
+                import traceback
+                traceback.print_exc()
                 self.end_combat()
 
     def afk_check(self, checking_char, char_to_check):
@@ -472,14 +486,15 @@ class CombatManager(BaseScript):
         for fighter in fighters:
             fighter.roll_initiative()
         self.ndb.initiative_list = sorted([data for data in fighters
-                                           if data.can_fight],
+                                           if data.can_act],
                                           key=attrgetter('initiative', 'tiebreaker'),
                                           reverse=True)
                                           
     def display_initiative_list(self, checker=None):
         receiver = checker or self
         acting_char = self.ndb.active_character
-        receiver.msg("{wIt is{n {c%s's{n {wturn.{n" % acting_char.name)
+        if acting_char:
+            receiver.msg("{wIt is{n {c%s's{n {wturn.{n" % acting_char.name)
         if self.ndb.initiative_list:
             receiver.msg("{wTurn order for remaining characters:{n %s" % list_to_string(self.ndb.initiative_list))
 
@@ -504,7 +519,7 @@ class CombatManager(BaseScript):
             self.remove_combatant(acting_char)
             return self.next_character_turn()
         # For when we put in subdue/hostage code
-        if char_data.status != "active":
+        if not char_data.can_act:
             acting_char.msg("It would be your turn, but you cannot act. Passing your turn.")
             self.msg("%s cannot act." % acting_char.name, exclude=[acting_char])
             return self.next_character_turn()
@@ -548,7 +563,6 @@ class CombatManager(BaseScript):
             return
         for char in self.ndb.combatants:
             char.combat.reset()
-        self.force_repeat()
         self.ndb.rounds += 1
         if self.ndb.rounds >= self.ndb.max_rounds:
             self.end_combat()
@@ -578,8 +592,9 @@ class CombatManager(BaseScript):
             if char.location != self.ndb.combat_location:
                 self.remove_combatant(char)
                 continue
+        if self.ndb.shutting_down:
+            return
         self.build_initiative_list()
-        self.force_repeat()
         self.next_character_turn()
 
     def vote_to_end(self, character):
@@ -621,6 +636,7 @@ class CombatManager(BaseScript):
             mess += "%s" % list_to_string(self.not_voted)
         return mess
 
+    # noinspection PyBroadException
     def end_combat(self):
         """
         Shut down combat.
@@ -632,4 +648,8 @@ class CombatManager(BaseScript):
         for char in self.ndb.observers[:]:
             self.remove_observer(char)
         self.obj.ndb.combat_manager = None
-        self.stop()  # delete script
+        try:
+            self.stop()  # delete script
+        except Exception:
+            import traceback
+            traceback.print_exc()

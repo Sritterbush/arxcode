@@ -11,9 +11,10 @@ from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from evennia.utils.utils import make_iter
 import time
+import numbers
 from datetime import datetime, timedelta
 from world.dominion import setup_utils
-from world.dominion.models import RPEvent, Agent
+from world.dominion.models import RPEvent, Agent, CraftingMaterialType, CraftingMaterials
 from server.utils.arx_utils import inform_staff
 from evennia.scripts.models import ScriptDB
 from django.db.models import Q
@@ -725,8 +726,9 @@ class CmdMessenger(MuxCommand):
         messenger
         messenger <receiver>[,<receiver2>,...]=<message>
         messenger/receive
-        messenger/deliver <receiver>,<object>,<money>=<message>
+        messenger/deliver <receiver>,<object>,<money>,<mat>/<amt>=<message>
         messenger/money <receiver>,<amount>=<message>
+        messenger/materials <receiver>,<material>/<amount>=<message>
         messenger/old <number>
         messenger/oldindex <amount to display>
         messenger/sent <number>
@@ -759,16 +761,16 @@ class CmdMessenger(MuxCommand):
     help_category = "Social"
 
     @staticmethod
-    def send_messenger(caller, targ, msg, delivery=None, money=None, forwarded=False):
+    def send_messenger(caller, targ, msg, delivery=None, money=None, forwarded=False, mats=None):
         unread = targ.db.pending_messengers or []
         if type(unread) == 'unicode':
             # attribute was corrupted due to  database conversion, fix it
             unread = []
         m_name = caller.db.custom_messenger
         if forwarded:
-            unread.insert(0, (msg, delivery, money, m_name, caller))
+            unread.insert(0, (msg, delivery, (money, mats), m_name, caller))
         else:
-            unread.insert(0, (msg, delivery, money, m_name))
+            unread.insert(0, (msg, delivery, (money, mats), m_name))
         # add the message to the player's set to mark it as an unread message sent to them
         player = targ.db.player_ob
         player.receiver_player_set.add(msg)
@@ -785,6 +787,9 @@ class CmdMessenger(MuxCommand):
             caller.msg("%s will also deliver %s." % (deliver_str, delivery))
         if money:
             caller.msg("%s will also deliver %s silver." % (deliver_str, money))
+        if mats:
+            mat = CraftingMaterialType.objects.get(id=mats[0])
+            caller.msg("%s will also deliver %s %s." % (deliver_str, mats[1], mat))
         caller.posecount += 1
 
     @staticmethod
@@ -797,6 +802,28 @@ class CmdMessenger(MuxCommand):
         mssg = "{wSent by:{n %s\n" % name
         mssg += caller.messages.disp_entry(msg)
         caller.msg(mssg, options={'box': True})
+
+    def get_mats_from_args(self, args):
+        # noinspection PyBroadException
+        try:
+            dompc = self.caller.db.player_ob.Dominion
+            lhslist = args.split("/")
+            material = CraftingMaterialType.objects.get(name__iexact=lhslist[0])
+            amt = int(lhslist[1])
+            if amt < 1:
+                raise ValueError
+            current_mats = dompc.assets.materials.get(type=material)
+            if current_mats < amt:
+                self.msg("You don't have enough of %s" % material)
+                return
+            current_mats.amount -= amt
+            current_mats.save()
+            return material.id, amt
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            self.msg("You must specify a positive value of a material to send.")
+            return None
 
     def func(self):
         """Execute command."""
@@ -886,19 +913,32 @@ class CmdMessenger(MuxCommand):
             msg = None
             obj = None
             money = None
+            mats = None
             forwarded_by = None
             try:
                 msg = msgtuple[0]
                 obj = msgtuple[1]
-                money = msgtuple[2]
+                money_tuple = msgtuple[2]
+                # check if the messenger is of old format, pre-conversion. Possible to sit in database for a long time
+                if isinstance(money_tuple, numbers.Real):
+                    money = money_tuple
+                elif money_tuple:
+                    money = money_tuple[0]
+                    if len(money_tuple) > 1:
+                        mats = money_tuple[1]
+                        try:
+                            mats = (CraftingMaterialType.objects.get(id=mats[0]), mats[1])
+                        except (CraftingMaterialType.DoesNotExist, TypeError, ValueError):
+                            mats = None
                 messenger_name = msgtuple[3] or "A messenger"
                 forwarded_by = msgtuple[4]
             except IndexError:
                 pass
             except TypeError:
+                import traceback
+                traceback.print_exc()
                 self.msg("The message object was in the wrong format, possibly a result of a database error.")
-                self.msg("It was just this: %s" % msgtuple)
-                inform_staff("%s received a buggy messenger. They received: %s" % (caller, msgtuple))
+                inform_staff("%s received a buggy messenger." % caller)
                 return
             caller.db.pending_messengers = unread
             # adds it to our list of old messages
@@ -923,6 +963,16 @@ class CmdMessenger(MuxCommand):
                 currency += money
                 caller.db.currency = currency
                 caller.msg("{wYou receive %s silver coins.{n" % money)
+            if mats:
+                material, amt = mats
+                dompc = caller.db.player_ob.Dominion
+                try:
+                    mat = dompc.assets.materials.get(type=material)
+                    mat.amount += amt
+                    mat.save()
+                except CraftingMaterials.DoesNotExist:
+                    dompc.assets.materials.create(type=material, amount=amt)
+                caller.msg("{wYou receive %s %s.{n" % (amt, material))
             if not discreet:
                 ignore = [ob for ob in caller.location.contents if ob.db.ignore_messenger_deliveries and ob != caller]
                 caller.location.msg_contents("%s arrives, delivering a message to {c%s{n before departing." % (
@@ -1064,20 +1114,29 @@ class CmdMessenger(MuxCommand):
             caller.msg("Invalid usage.")
             return
         # delivery messenger
-        if "deliver" in self.switches or "money" in self.switches:
-            money = 0.0
+        money = 0.0
+        mats = None
+        delivery = None
+        if "deliver" in self.switches or "money" in self.switches or "materials" in self.switches:
             try:
                 targs = [caller.player.search(self.lhslist[0])]
                 if "money" in self.switches:
                     money = float(self.lhslist[1])
-                    delivery = None
-                else:
+                elif "materials" in self.switches:
+                    mats = self.get_mats_from_args(self.lhslist[1])
+                    if not mats:
+                        return
+                else:  # deliver
                     delivery = caller.search(self.lhslist[1], location=caller)
                     if not delivery:
                         return
                     if len(self.lhslist) > 2:
                         money = self.lhslist[2]
+                    if len(self.lhslist) > 3:
+                        mats = self.get_mats_from_args(self.lhslist[3])
                 money = float(money)
+                if money < 0:
+                    raise ValueError
                 if money and money > caller.db.currency:
                     caller.msg("You cannot send that much money.")
                     return
@@ -1090,7 +1149,6 @@ class CmdMessenger(MuxCommand):
                 return
         # normal messenger
         elif "draft" in self.switches or not self.switches:
-            money = 0
             targs = []
             for arg in self.lhslist:
                 targ = caller.player.search(arg)
@@ -1108,7 +1166,6 @@ class CmdMessenger(MuxCommand):
                         self.msg("%s cannot receive messengers." % targ)
                         continue
                     targs.append(targ)
-            delivery = None
         else:  # invalid switch
             self.msg("Unrecognized switch.")
             return
@@ -1129,13 +1186,13 @@ class CmdMessenger(MuxCommand):
         # format our messenger
         msg = caller.messages.create_messenger(self.rhs)
         # make delivery object unavailable while in transit, if we have one
-        if delivery or money:
+        if delivery or money or mats:
             if delivery:
                 delivery.location = None
             if money:
                 caller.pay_money(money)
             targ = targs[0]
-            self.send_messenger(caller, targ, msg, delivery, money)
+            self.send_messenger(caller, targ, msg, delivery, money, mats=mats)
             caller.ndb.already_previewed = None
             return
         for targ in targs:

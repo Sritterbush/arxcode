@@ -128,8 +128,9 @@ class Wieldable(Object):
 
     def at_post_wield(self, wielder):
         """Hook called after wielding for any checks."""
-        cdat = wielder.combat
-        cdat.setup_weapon(wielder.weapondata)     
+        if wielder:
+            cdat = wielder.combat
+            cdat.setup_weapon(wielder.weapondata)
         return True
 
     def at_pre_remove(self, wielder):
@@ -138,8 +139,9 @@ class Wieldable(Object):
 
     def at_post_remove(self, wielder):
         """Hook called after removing."""
-        cdat = wielder.combat
-        cdat.setup_weapon(wielder.weapondata)
+        if wielder:
+            cdat = wielder.combat
+            cdat.setup_weapon(wielder.weapondata)
         return True
     
     def calc_weapon(self):

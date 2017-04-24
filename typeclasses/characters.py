@@ -393,6 +393,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         hp += 20
         bonus = self.db.bonus_max_hp or 0
         hp += bonus
+        hp += self.boss_rating * 100
         return hp
     
     def _get_current_damage(self):
@@ -492,34 +493,35 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         
     def _get_weapondata(self):
         wpndict = self.get_fakeweapon() or {}
-        if wpndict:
-            return wpndict
         wpn = self.db.weapon
-        if not wpn:
-            return wpndict
-        wpndict['attack_skill'] = wpn.db.attack_skill or 'crushing melee'
-        wpndict['attack_stat'] = wpn.db.attack_stat or 'dexterity'
-        wpndict['damage_stat'] = wpn.db.damage_stat or 'strength'
-        try:
-            wpndict['weapon_damage'] = wpn.damage_bonus or 0
-        except AttributeError:
-            wpndict['weapon_damage'] = wpn.db.damage_bonus or 0
-        wpndict['attack_type'] = wpn.db.attack_type or 'melee'
-        wpndict['can_be_parried'] = wpn.db.can_be_parried
-        wpndict['can_be_blocked'] = wpn.db.can_be_blocked
-        wpndict['can_be_dodged'] = wpn.db.can_be_dodged
-        wpndict['can_parry'] = wpn.db.can_parry or False
-        wpndict['can_riposte'] = wpn.db.can_parry or wpn.db.can_riposte or False
-        wpndict['reach'] = wpn.db.weapon_reach or 1
-        wpndict['minimum_range'] = wpn.db.minimum_range or 0
-        try:
-            wpndict['difficulty_mod'] = wpn.difficulty_mod or 0
-        except AttributeError:
-            wpndict['difficulty_mod'] = wpn.db.difficulty_mod or 0
-        try:
-            wpndict['flat_damage'] = wpn.flat_damage or 0
-        except AttributeError:
-            wpndict['flat_damage'] = wpn.db.flat_damage_bonus or 0
+        if wpn:
+            wpndict['attack_skill'] = wpn.db.attack_skill or 'crushing melee'
+            wpndict['attack_stat'] = wpn.db.attack_stat or 'dexterity'
+            wpndict['damage_stat'] = wpn.db.damage_stat or 'strength'
+            try:
+                wpndict['weapon_damage'] = wpn.damage_bonus or 0
+            except AttributeError:
+                wpndict['weapon_damage'] = wpn.db.damage_bonus or 0
+            wpndict['attack_type'] = wpn.db.attack_type or 'melee'
+            wpndict['can_be_parried'] = wpn.db.can_be_parried
+            wpndict['can_be_blocked'] = wpn.db.can_be_blocked
+            wpndict['can_be_dodged'] = wpn.db.can_be_dodged
+            wpndict['can_parry'] = wpn.db.can_parry or False
+            wpndict['can_riposte'] = wpn.db.can_parry or wpn.db.can_riposte or False
+            wpndict['reach'] = wpn.db.weapon_reach or 1
+            wpndict['minimum_range'] = wpn.db.minimum_range or 0
+            try:
+                wpndict['difficulty_mod'] = wpn.difficulty_mod or 0
+            except AttributeError:
+                wpndict['difficulty_mod'] = wpn.db.difficulty_mod or 0
+            try:
+                wpndict['flat_damage'] = wpn.flat_damage or 0
+            except AttributeError:
+                wpndict['flat_damage'] = wpn.db.flat_damage_bonus or 0
+        boss_rating = self.boss_rating
+        if boss_rating:
+            wpndict['weapon_damage'] = wpndict.get('weapon_damage', 1) + boss_rating
+            wpndict['flat_damage'] = wpndict.get('flat_damage', 0) + boss_rating * 10
         return wpndict
 
     weapondata = property(_get_weapondata)
@@ -829,4 +831,37 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
 
     @property
     def attackable(self):
-        return "unattackable" not in self.tags.all()
+        return not self.tags.get("unattackable")
+
+    @property
+    def boss_rating(self):
+        try:
+            return int(self.db.boss_rating)
+        except (TypeError, ValueError):
+            return 0
+
+    @boss_rating.setter
+    def boss_rating(self, value):
+        self.db.boss_rating = value
+
+    @property
+    def sleepless(self):
+        """Cannot fall unconscious - undead, etc"""
+        return self.tags.get("sleepless")
+
+    @property
+    def defense_modifier(self):
+        return self.db.defense_modifier or 0
+
+    @defense_modifier.setter
+    def defense_modifier(self, value):
+        self.db.defense_modifier = value
+
+    @property
+    def attack_modifier(self):
+        base = self.db.attack_modifier or 0
+        return base + (self.boss_rating * 10)
+
+    @attack_modifier.setter
+    def attack_modifier(self, value):
+        self.db.attack_modifier = value

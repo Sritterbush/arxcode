@@ -26,6 +26,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
     the `PlayerCmdSet` when a Player puppets a Character.
     """
     key = "DefaultCharacter"
+    priority = 101
 
     def at_cmdset_creation(self):
         """
@@ -55,6 +56,7 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
     commands, etc.
     """
     key = "DefaultPlayer"
+    priority = 101
 
     def at_cmdset_creation(self):
         """

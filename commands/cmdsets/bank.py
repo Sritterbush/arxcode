@@ -12,7 +12,7 @@ from world.dominion.models import CraftingMaterials, AccountTransaction, AssetOw
 class BankCmdSet(CmdSet):
     """CmdSet for a market."""
     key = "BankCmdSet"
-    priority = 20
+    priority = 101
     duplicates = False
     no_exits = False
     no_objs = False

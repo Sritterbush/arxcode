@@ -330,6 +330,7 @@ class CmdCraft(MuxCommand):
         if invest > recipe.value:
             self.msg("The maximum amount you can invest is %s." % recipe.value)
             return
+        return True
         
     def func(self):
         """Implement the command"""

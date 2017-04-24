@@ -366,9 +366,10 @@ class CmdGive(MuxCommand):
         if "mats" in self.switches:
             lhslist = self.lhs.split(",")
             try:
-
                 mat = caller.db.player_ob.Dominion.assets.materials.get(type__name__iexact=lhslist[0])
                 amount = int(lhslist[1])
+                if amount < 1:
+                    raise ValueError
             except (IndexError, ValueError):
                 caller.msg("Invalid syntax.")
                 return
@@ -395,6 +396,8 @@ class CmdGive(MuxCommand):
             try:
                 rtype = lhslist[0].lower()
                 amount = int(lhslist[1])
+                if amount < 1:
+                    raise ValueError
             except (IndexError, ValueError):
                 caller.msg("Invalid syntax.")
                 return
@@ -418,6 +421,9 @@ class CmdGive(MuxCommand):
         if args_are_currency(self.lhs):
             arglist = self.lhs.split()
             val = round(float(arglist[0]), 2)
+            if val <= 0:
+                self.msg("Amount must be positive.")
+                return
             currency = round(float(caller.db.currency or 0), 2)
             if val > currency:
                 caller.msg("You do not have that much money to give.")
