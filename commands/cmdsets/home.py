@@ -600,7 +600,7 @@ class CmdManageRoom(MuxCommand):
             elif "summerdesc" in self.switches:
                 loc.db.summer_desc = self.args
             elif "springdesc" in self.switches:
-                loc.db.summer_desc = self.args
+                loc.db.spring_desc = self.args
             elif "falldesc" in self.switches:
                 loc.db.fall_desc = self.args
             loc.ndb.confirm_desc_change = None
