@@ -281,16 +281,15 @@ class CmdTrain(MuxCommand):
         if caller.db.char_ob:
             caller = caller.db.char_ob
         self.caller = caller
-        msg = self.__doc__ + "\n\nYou can train {w%s{n people per week." % self.max_trainees
-        trained = ", ".join(ob.key for ob in self.currently_training)
+        msg = self.__doc__ + "\n\nYou can train {w%s{n people per week." % self.max_trainees(caller)
+        trained = ", ".join(ob.key for ob in self.currently_training(caller))
         if trained:
             msg += "\nYou have trained %s this week." % trained
-        msg += "\nYour current cost to train another character is {w%s{n AP." % self.action_point_cost
+        msg += "\nYour current cost to train another character is {w%s{n AP." % self.action_point_cost(caller)
         return msg
 
-    @property
-    def max_trainees(self):
-        max_skill = self.max_skill
+    def max_trainees(self, character):
+        max_skill = self.max_skill(character)
         if max_skill < 3:
             return 1
         if max_skill < 5:
@@ -299,30 +298,29 @@ class CmdTrain(MuxCommand):
             return 3
         return 13
 
-    @property
-    def max_skill(self):
+    @staticmethod
+    def max_skill(character):
         skills_to_check = ("animal ken", "teaching")
         max_skill = 0
         for skill in skills_to_check:
-            val = self.caller.db.skills.get(skill, 0)
+            val = character.db.skills.get(skill, 0)
             if val > max_skill:
                 max_skill = val
         return max_skill
 
-    @property
-    def action_point_cost(self):
+    def action_point_cost(self, character):
         """Redundant attribute to try to resolve sync/caching errors."""
-        num_trained = self.caller.db.num_trained
-        if num_trained < len(self.currently_training):
-            num_trained = len(self.currently_training)
-        if num_trained < self.max_trainees:
+        num_trained = character.db.num_trained
+        if num_trained < len(self.currently_training(character)):
+            num_trained = len(self.currently_training(character))
+        if num_trained < self.max_trainees(character):
             return 0
-        return 100 - 15 * self.max_skill
+        return 100 - 15 * self.max_skill(character)
 
     def post_training(self, targ):
         """Set attributes after training checks."""
         caller = self.caller
-        currently_training = self.currently_training
+        currently_training = self.currently_training(caller)
         # num_trained is redundancy to attempt to prevent cache errors.
         num_trained = caller.db.num_trained or len(currently_training)
         num_trained += 1
@@ -331,20 +329,20 @@ class CmdTrain(MuxCommand):
         caller.db.currently_training = currently_training
         caller.db.num_trained = num_trained
 
-    @property
-    def currently_training(self):
-        return self.caller.db.currently_training or []
+    @staticmethod
+    def currently_training(character):
+        return character.db.currently_training or []
 
-    def pay_ap_cost(self):
-        cost = self.action_point_cost
+    def pay_ap_cost(self, character):
+        cost = self.action_point_cost(character)
         if not cost:
             return True
-        if not self.caller.ndb.training_cost_confirmation:
+        if not character.ndb.training_cost_confirmation:
             self.msg("It will use %s action points to train. Repeat the command to confirm." % cost)
-            self.caller.ndb.training_cost_confirmation = True
+            character.ndb.training_cost_confirmation = True
             return
-        self.caller.ndb.training_cost_confirmation = False
-        if self.caller.db.player_ob.pay_action_points(cost):
+        character.ndb.training_cost_confirmation = False
+        if character.db.player_ob.pay_action_points(cost):
             return True
         self.msg("You don't have enough action points to train another.")
 
@@ -370,8 +368,8 @@ class CmdTrain(MuxCommand):
         caller.attributes._cache.pop('num_trained-None', None)
         caller.refresh_from_db()
         if not self.args:
-            self.msg("Currently training: %s" % ", ".join(str(ob) for ob in self.currently_training))
-            self.msg("You can train %s targets." % self.max_trainees)
+            self.msg("Currently training: %s" % ", ".join(str(ob) for ob in self.currently_training(caller)))
+            self.msg("You can train %s targets." % self.max_trainees(caller))
             return
         if not self.lhs or not self.rhs or not self.switches:
             caller.msg("Usage: train/[stat or skill] <character to train>=<name of stat or skill to train>")
@@ -389,7 +387,7 @@ class CmdTrain(MuxCommand):
                 return
             if not targ.can_train(caller):
                 return
-            if not self.pay_ap_cost():
+            if not self.pay_ap_cost(caller):
                 return
             targ.train_agent(caller)
             return
@@ -426,7 +424,7 @@ class CmdTrain(MuxCommand):
         else:
             caller.msg("Usage: train/[stat or skill] <character>=<stat or skill name>")
             return
-        if not self.pay_ap_cost():
+        if not self.pay_ap_cost(caller):
             return
         self.post_training(targ)
         caller.msg("You have provided training to %s for them to increase their %s." % (targ.name, self.rhs))
