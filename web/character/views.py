@@ -202,12 +202,17 @@ class RosterListView(ListView):
     def get_queryset(self):
         return ObjectDB.objects.filter(roster__roster__name=self.roster_name).order_by('db_key')
 
+    # noinspection PyBroadException
     def get_context_data(self, **kwargs):
         context = super(RosterListView, self).get_context_data(**kwargs)
         user = self.request.user
         show_hidden = False
-        if user.is_authenticated() and user.check_permstring("builders"):
-            show_hidden = True
+        try:
+            if user.is_authenticated() and user.check_permstring("builders"):
+                show_hidden = True
+        except Exception:
+            import traceback
+            traceback.print_exc()
         context['show_hidden'] = show_hidden
         context['roster_name'] = self.roster_name
         context['page_title'] = "%s Roster" % self.roster_name
