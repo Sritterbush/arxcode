@@ -175,11 +175,15 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
     def _entrances(self):
         return ObjectDB.objects.filter(db_destination=self)
     entrances = property(_entrances)
-    
+
     def combat_string(self, looker):
         try:
             if looker.combat.combat:
                 return "\nYou are in combat. Use {w+cs{n to see combatstatus."
+            elif self.ndb.combat_manager:
+                msg = "\nThere is a combat in progress here. You can observe it with {w@spectate_combat{n, "
+                msg += "or join it with {w+fight{n."
+                return msg
         except AttributeError:
             pass
         return ""
@@ -396,6 +400,20 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
         if self.db.bouncers is None:
             self.db.bouncers = []
         return self.db.bouncers
+
+    def add_decorator(self, character):
+        if character not in self.decorators:
+            self.decorators.append(character)
+
+    def remove_decorator(self, character):
+        if character in self.decorators:
+            self.decorators.remove(character)
+
+    @property
+    def decorators(self):
+        if self.db.decorators is None:
+            self.db.decorators = []
+        return self.db.decorators
 
 
 class CmdExtendedLook(default_cmds.CmdLook):

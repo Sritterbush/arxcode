@@ -425,18 +425,29 @@ class CmdManageRoom(MuxCommand):
 
     Note that `@detail`, seasons and time-of-day slots only work on rooms in this
     version of the `@desc` command.
+
+    Owners can appoint characters to be decorators or bouncers, to allow them to
+    use commands while not owners.
+    
+    The ban switch prevents characters from being able to enter the room. The boot
+    switch removes characters from the room. Bouncers are able to use ban and boot.
+    Decorators are permitted to use the desc switches.
     """
     key = "+manageroom"
     locks = "cmd:all()"
     help_category = "Home"
     desc_switches = ("desc", "winterdesc", "springdesc", "summerdesc", "falldesc")
     bouncer_switches = ("ban", "unban", "boot")
+    personnel_switches = ("addbouncer", "rmbouncer", "adddecorator", "rmdecorator")
     
     def check_perms(self):
         caller = self.caller
         loc = caller.location
         if not self.switches or set(self.switches) & set(self.bouncer_switches):
             if caller in loc.bouncers:
+                return True
+        if not self.switches or set(self.switches) & set(self.desc_switches):
+            if caller in loc.decorators:
                 return True
         try:
             owner = AssetOwner.objects.get(id=loc.db.room_owner)
@@ -468,6 +479,7 @@ class CmdManageRoom(MuxCommand):
             shops = loc.db.shopowner
             caller.msg("{wShop Owners:{n %s" % shops)
             self.msg("{wBouncers:{n %s" % ", ".join(str(ob) for ob in loc.bouncers))
+            self.msg("{wDecorators:{n %s" % ", ".join(str(ob) for ob in loc.decorators))
             self.msg("{wBanned:{n %s" % ", ".join(str(ob) for ob in loc.banlist))
             return
         if "name" in self.switches:
@@ -497,8 +509,7 @@ class CmdManageRoom(MuxCommand):
                 exit_object.flush_from_cache()
             caller.msg("%s changed to %s." % (old, exit_object))
             return
-        if "addbouncer" in self.switches or "rmbouncer" in self.switches or (
-                    set(self.switches) & set(self.bouncer_switches)):
+        if (set(self.switches) & set(self.personnel_switches)) or (set(self.switches) & set(self.bouncer_switches)):
             targ = self.caller.player.search(self.lhs)
             if not targ:
                 return
@@ -510,6 +521,14 @@ class CmdManageRoom(MuxCommand):
             if "rmbouncer" in self.switches:
                 loc.remove_bouncer(targ)
                 self.msg("%s is no longer a bouncer." % targ)
+                return
+            if "adddecorator" in self.switches:
+                loc.add_decorator(targ)
+                self.msg("%s is now a decorator." % targ)
+                return
+            if "rmdecorator" in self.switches:
+                loc.remove_decorator(targ)
+                self.msg("%s is no longer a decorator." % targ)
                 return
             if "unban" in self.switches:
                 loc.unban_character(targ)
