@@ -2309,9 +2309,11 @@ class Army(models.Model):
         army, edit it, or destroy it.
         """
         # check if player is staff
-        # check if player's assetowner == self.owner
-        # check if we have an organization owner
-        # check if player has permission to change army from their org
+        if player.check_permstring("builder"):
+            return True
+        # checks player's access because our owner can be an Org
+        if self.owner.access(player, "army"):
+            return True
         return False
         
     def can_order(self, player):
@@ -2322,8 +2324,23 @@ class Army(models.Model):
         if self.can_change(player):
             return True
         # check if we're appointed as Commander of this army
-        # check temp owner permissions
+        if player.Dominion == self.commander:
+            return True
+        # check player's access because temp owner can also be an org
+        if self.temp_owner.access(player, "army"):
+            return True
         return False
+    
+    @property
+    def pending_orders(self):
+        """
+        Returns pending orders if they exist.
+        """
+        week = get_week()
+        try:
+            return self.orders.get(week=week)
+        except Orders.DoesNotExist:
+            return None
     
     def send_orders(self, player, order_type, target):
         """
@@ -2332,9 +2349,13 @@ class Army(models.Model):
         """
         # first checks for 
         if not self.can_order(player):
-            # error message
+            player.msg("You don't have access to that Army.")
             return
         # create new orders for this unit
+        if self.pending_orders:
+            player.msg("That army has pending orders that must be canceled first.")
+            return
+        orders.set_target(order_type=order_type, target=target)
         # set all our sub-units to have new orders? Or wait until they go 'live'
         pass
     
@@ -2658,6 +2679,33 @@ class Orders(models.Model):
         DIV = 100
         costs = sum((ob.costs/DIV) + 1 for ob in self.units.all())
         self.coin_cost = costs
+        self.save()
+    
+    def set_target(self, order_type, target):
+        """
+        The order type determines target and finalizes the order.
+        """
+        self.type = order_type
+        if order_type == Orders.TRAIN:
+            self.target_land = target
+        if order_type == Orders.EXPLORE:
+            self.target_land = target
+        if order_type == Orders.RAID:
+            self.target_domain = target
+        if order_type == Orders.CONQUER:
+            self.target_domain = target
+        if order_type == Orders.ENFORCE_ORDER:
+            self.target_land = target
+        if order_type == Orders.BESIEGE:
+            self.target_domain = target
+        if order_type == Orders.MARCH:
+            self.target_land = target
+        if order_type == Orders.DEFEND:
+            self.target_domain = target
+        if order_type == Orders.PATROL:
+            self.target_land = target
+        if order_type == Orders.ASSIST:
+            self.action = target
         self.save()
     
 
