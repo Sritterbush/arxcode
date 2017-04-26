@@ -677,14 +677,13 @@ class CmdGuestAddInput(MuxPlayerCommand):
             # helper function to wipe skills in case we have a previous vocation set
             char.attributes.remove("skills")
             char.attributes.remove("abilities")
-            skills = {}
-            char.attributes.add("skills", skills)
-            char.attributes.add("abilities", skills)
-        # caller.msg("DEBUG: outside switch check")
-        # caller.msg("switches is %s" % switches)
+            char.attributes.add("skills", {})
+            char.attributes.add("abilities", {})
         if 'newvocation' in switches:
+            if args in _vocations_:
+                caller.msg("Selected one of the default vocations. Please use 'vocation' rather than 'newvocation.")
+                return
             char.db.vocation = args
-            char.db.unique_vocation = True
             # set up default stats/skills for a new vocation here
             remove_all_skills()
             for stat in VALID_STATS:
@@ -692,8 +691,6 @@ class CmdGuestAddInput(MuxPlayerCommand):
             char.attributes.add("skill_points", SKILL_POINTS)
             char.attributes.add("stat_points", STAT_POINTS)
         elif 'vocation' in switches:
-            # caller.msg("DEBUG: inside 'vocation' switch")
-            # caller.msg("DEBUG:args:%s, _vocations: %s" % (args,  _vocations_))
             if args not in _vocations_:
                 caller.msg("Argument does not match any of the sample vocations. If you meant to create a new " +
                            "vocation, please use the '{w@add/newvocation{n' command.")
