@@ -7,17 +7,16 @@ templates on the fly.
 """
 from django.shortcuts import render_to_response
 from django.template import RequestContext
-#from django.contrib.auth.models import User
 from django.conf import settings
 
 from evennia.objects.models import ObjectDB
-#from src.typeclasses.models import TypedObject
 from evennia.players.models import PlayerDB
 from web.news.models import NewsEntry
 from web.character.models import Chapter
 from world.dominion.models import RPEvent
 
 _BASE_CHAR_TYPECLASS = settings.BASE_CHARACTER_TYPECLASS
+
 
 def page_index(request):
     """
@@ -48,10 +47,7 @@ def page_index(request):
         chapter = Chapter.objects.latest('start_date')
     except Chapter.DoesNotExist:
         chapter = None
-    try:
-        events = RPEvent.objects.filter(finished=False, public_event=True).order_by('date')[:3]
-    except Exception:
-        events = []
+    events = RPEvent.objects.filter(finished=False, public_event=True).order_by('date')[:3]
 
     pagevars = {
         "page_title": "After the Reckoning",
@@ -63,7 +59,7 @@ def page_index(request):
         "num_players_registered_recent": nplyrs_reg_recent or "noone",
         "num_rooms": nrooms or "none",
         "num_exits": nexits or "no",
-        "num_objects" : nobjs or "none",
+        "num_objects": nobjs or "none",
         "num_characters": nchars or "no",
         "num_others": nothers or "no",
         "chapter": chapter,
@@ -73,6 +69,7 @@ def page_index(request):
 
     context_instance = RequestContext(request)
     return render_to_response('index.html', pagevars, context_instance)
+
 
 def to_be_implemented(request):
     """
@@ -98,4 +95,3 @@ def webclient(request):
     pagevars = {'browser_sessid': None}
 
     return render(request, 'webclient/evennia/web/webclient/templates/webclient.html', pagevars)
-
