@@ -451,45 +451,47 @@ class CmdAdminRoster(MuxPlayerCommand):
                 caller.msg("Character not found in active roster.")
                 return
             entry.roster = new_roster
-            current = entry.current_account 
+            current = entry.current_account
             xp = entry.character.db.xp or 0
-            try:
-                history = AccountHistory.objects.get(account=current, entry=entry)         
-                if xp < 0:
-                    xp = 0
+            if current:
                 try:
-                    alt = AccountHistory.objects.get(Q(account=current) & ~Q(entry=entry) & Q(end_date__isnull=True))
-                    self.award_alt_xp(alt, xp, history, current)
+                    history = AccountHistory.objects.get(account=current, entry=entry)
+                    if xp < 0:
+                        xp = 0
+                    try:
+                        alt = AccountHistory.objects.get(Q(account=current) & ~Q(entry=entry) &
+                                                         Q(end_date__isnull=True))
+                        self.award_alt_xp(alt, xp, history, current)
+                    except AccountHistory.DoesNotExist:
+                        if xp > current.total_xp:
+                            xp = current.total_xp
+                        # null check
+                        if not current.gm_notes:
+                            current.gm_notes = ""
+                        current.gm_notes += "\n\nUnspent xp: %s" % xp
+                        current.save()
+                    except AccountHistory.MultipleObjectsReturned:
+                        caller.msg("ERROR: Found more than one account. Using the first.")
+                        alt = AccountHistory.objects.filter(Q(account=current) & ~Q(entry=entry)).exclude(
+                            end_date__isnull=False).first()
+                        self.award_alt_xp(alt, xp, history, current)
+                    except Exception as err:
+                        import traceback
+                        print "{rEncountered this error when trying to transfer xp{n:\n%s" % err
+                        traceback.print_exc()
+                    entry.character.db.xp = 0
+                    entry.character.db.total_xp = 0
                 except AccountHistory.DoesNotExist:
-                    if xp > current.total_xp:
-                        xp = current.total_xp
-                    # null check
-                    if not current.gm_notes:
-                        current.gm_notes = ""
-                    current.gm_notes += "\n\nUnspent xp: %s" % xp
-                    current.save()
-                except AccountHistory.MultipleObjectsReturned:
-                    caller.msg("ERROR: Found more than one account. Using the first.")
-                    alt = AccountHistory.objects.filter(Q(account=current) & ~Q(entry=entry)).exclude(
-                        end_date__isnull=False).first()
-                    self.award_alt_xp(alt, xp, history, current)
-                except Exception as err:
-                    import traceback
-                    print "{rEncountered this error when trying to transfer xp{n:\n%s" % err
-                    traceback.print_exc()
-                entry.character.db.xp = 0
-                entry.character.db.total_xp = 0
-            except AccountHistory.DoesNotExist:
-                history = AccountHistory.objects.create(account=current, entry=entry)
-            entry.current_account = None
-            entry.save()
-            date = datetime.now()
-            history.end_date = date
-            if not history.gm_notes and self.rhs:
-                history.gm_notes = self.rhs
-            elif self.rhs:
-                history.gm_notes += self.rhs
-            history.save()
+                    history = AccountHistory.objects.create(account=current, entry=entry)
+                entry.current_account = None
+                entry.save()
+                date = datetime.now()
+                history.end_date = date
+                if not history.gm_notes and self.rhs:
+                    history.gm_notes = self.rhs
+                elif self.rhs:
+                    history.gm_notes += self.rhs
+                history.save()
             # set up password
             # noinspection PyBroadException
             try:
