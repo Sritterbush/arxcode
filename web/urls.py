@@ -33,8 +33,8 @@ urlpatterns = [
     url(r'^admin/', include(admin.site.urls)),
 
     # ajax stuff
-    url(r'^webclient/',include('evennia.web.webclient.urls',
-        namespace='webclient', app_name='webclient')),
+     url(r'^webclient/',include('web.website.webclient_urls',
+         namespace='webclient', app_name='webclient')),
 
     url(r'^character/', include('web.character.urls',
                                 namespace='character', app_name='character')),

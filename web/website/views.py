@@ -88,3 +88,14 @@ def to_be_implemented(request):
     return render_to_response('tbi.html', pagevars, context_instance)
 
 
+def webclient(request):
+    """
+    Webclient page template loading.
+
+    """
+    from django.shortcuts import render
+    # disable autologin until it's fixed in devel
+    pagevars = {'browser_sessid': None}
+
+    return render(request, 'webclient/evennia/web/webclient/templates/webclient.html', pagevars)
+
