@@ -56,13 +56,9 @@ class Npc(Character):
         """
         Stop attacking/exit combat.
         """
-        combat = self.location.ndb.combat_manager
-        if not combat:
-            return
-        gfite = combat.get_fighter_data(self.id)
-        if gfite:
-            gfite.wants_to_end = True
-            gfite.reset()
+        self.combat.wants_to_end = True
+        if self.combat.combat:
+            self.combat.reset()
 
     def _get_passive(self):
         return self.db.passive_guard or False
@@ -73,6 +69,7 @@ class Npc(Character):
             self.stop()
         else:
             self.db.passive_guard = False
+            self.combat.wants_to_end = False
     passive = property(_get_passive, _set_passive)
 
     @property
