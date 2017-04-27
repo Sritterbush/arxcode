@@ -1074,7 +1074,7 @@ class CmdHarm(MuxCommand):
         for obj in charlist:
             if not obj.location:
                 if not message:
-                    message = "You have taken damage."
+                    message = "You have taken %s damage." % amt
                 obj.db.player_ob.inform(message, category="Damage")
             obj.combat.take_damage(amt, lethal=True, allow_one_shot=one_shot)
         self.msg("You inflicted %s damage on %s" % (amt, ", ".join(str(obj) for obj in charlist)))
