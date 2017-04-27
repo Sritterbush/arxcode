@@ -1028,11 +1028,13 @@ class CmdHarm(MuxCommand):
     Usage:
         @harm <character1, character2, etc>=amount/<message>
         @harm/mercy <character1, character2>=amount/<message>
+        @harm/private <character1,...>=amount/<message>
 
     Causes damage to the characters listed. If the mercy switch is
     specified, a character cannot be killed instantly. Otherwise, they can
     only be killed if they're already unconscious. <message> is broadcast
-    to the room if specified.
+    to the room if specified. If the private switch is specified, <message>
+    is sent only to the character.
     """
     key = "@harm"
     locks = "cmd:all()"
@@ -1067,7 +1069,7 @@ class CmdHarm(MuxCommand):
             charlist = [ob for ob in charlist if ob == self.caller]
         if not charlist:
             return
-        if message:
+        if message and "private" not in self.switches:
             rooms = set([ob.location for ob in charlist if ob.location])
             for room in rooms:
                 room.msg_contents(message)
@@ -1076,6 +1078,8 @@ class CmdHarm(MuxCommand):
                 if not message:
                     message = "You have taken %s damage." % amt
                 obj.db.player_ob.inform(message, category="Damage")
+            elif "private" in self.switches and message:
+                obj.msg(message)
             obj.combat.take_damage(amt, lethal=True, allow_one_shot=one_shot)
         self.msg("You inflicted %s damage on %s" % (amt, ", ".join(str(obj) for obj in charlist)))
 
