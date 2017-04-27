@@ -140,7 +140,7 @@ class CombatManager(BaseScript):
         # proceed to combat
         if self.ndb.phase == 1:
             self.ready_check()
-        self.display_phase_status_to_all()
+        self.msg("Use {w+cs{n to see the current combat status.")
 
     def is_valid(self):
         """
@@ -224,7 +224,7 @@ class CombatManager(BaseScript):
         self.ndb.status_table = table
 
     def display_phase_status_to_all(self, intro=False):
-        msglist = self.ndb.combatants + self.ndb.observers
+        msglist = set(self.ndb.combatants + self.ndb.observers)
         self.build_status_table()
         self.ready_check()
         for ob in msglist:
@@ -294,9 +294,14 @@ class CombatManager(BaseScript):
         Finish the initial setup of combatants we add
         """
         self.ndb.initializing = False
+        self.reset_combatants()
+        self.display_phase_status_to_all(intro=True)
+
+    def reset_combatants(self):
         for character in self.ndb.combatants:
             character.combat.reset()
-        self.display_phase_status_to_all(intro=True)
+        for character in self.ndb.combatants:
+            character.combat.setup_phase_prep()
         
     def display_ready_status(self, checker=None):
         receiver = checker or self
@@ -325,10 +330,14 @@ class CombatManager(BaseScript):
             return
         active_combatants = [ob for ob in self.ndb.combatants if ob.conscious]
         active_fighters = [ob.combat for ob in active_combatants]
-        active_fighters = [ob for ob in active_fighters if not (ob.automated and ob.queued_action.qtype == "Pass")]
+        active_fighters = [ob for ob in active_fighters if not (ob.automated and ob.queued_action and
+                                                                ob.queued_action.qtype == "Pass")]
         if not active_fighters and not self.ndb.initializing:
             self.msg("All combatants are incapacitated or automated npcs who are passing their turn. Exiting.")
             self.end_combat()
+            return
+        if self.ndb.phase == 2:
+            # already in phase 2, do nothing
             return
         for char in self.ndb.combatants:
             if char.combat.ready:
@@ -506,8 +515,12 @@ class CombatManager(BaseScript):
         """
         if self.ndb.shutting_down:
             return
+        if self.ndb.phase != 2:
+            return
+        self.ndb.initiative_list = [ob for ob in self.ndb.initiative_list if ob.can_act and ob.remaining_attacks > 0]
         if not self.ndb.initiative_list:
             self.start_phase_1()
+            self.display_phase_status_to_all()
             return
         char_data = self.ndb.initiative_list.pop(0)
         acting_char = char_data.char
@@ -561,11 +574,11 @@ class CombatManager(BaseScript):
         allchars = self.ndb.combatants + self.ndb.observers
         if not allchars:
             return
-        for char in self.ndb.combatants:
-            char.combat.reset()
+        self.reset_combatants()
         self.ndb.rounds += 1
         if self.ndb.rounds >= self.ndb.max_rounds:
             self.end_combat()
+        self.msg("{ySetup Phase{n")
     
     def start_phase_2(self):
         """
@@ -594,6 +607,7 @@ class CombatManager(BaseScript):
                 continue
         if self.ndb.shutting_down:
             return
+        self.msg("{yResolution Phase{n")
         self.build_initiative_list()
         self.next_character_turn()
 

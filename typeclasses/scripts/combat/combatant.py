@@ -412,13 +412,15 @@ class CombatHandler(object):
         # check for attrition between rounds
         if self.multiple:
             self.num_attacks = self.num
+        self.remaining_attacks = self.num_attacks
+
+    def setup_phase_prep(self):
         # if we order them to stand down, they do nothing
         if self.automated:
             if self.wants_to_end:
                 self.combat.vote_to_end(self.char)
                 self.set_queued_action("pass")
                 return
-        self.remaining_attacks = self.num_attacks
         self.setup_attacks()
 
     def setup_attacks(self):
@@ -528,7 +530,6 @@ class CombatHandler(object):
             self.msg("You are no longer conscious and can take no action.")
             self.do_pass()
             return took_actions
-        remaining_attacks = self.remaining_attacks
         if self.char in self.combat.ndb.flee_success:
             # cya nerds
             self.combat.do_flee(self.char, self.flee_exit)
@@ -581,15 +582,15 @@ class CombatHandler(object):
             # set who we attacked
             self.prev_targ = targ
             self.do_attack(targ, attack_penalty=q.atk_pen, dmg_penalty=-q.dmg_mod)
-        # check to make sure that remaining attacks was decremented by attacking
-        if self.remaining_attacks == remaining_attacks:
+        # May be on another character's turn by this point. Make sure it's still us
+        if self.combat and self.combat.ndb.active_char == self.char:
+            # check to make sure that remaining attacks was decremented by attacking
             self.remaining_attacks -= 1
-        if self.remaining_attacks > 0:
-            return self.do_turn_actions(took_actions=True)
-        else:
-            if self.combat and self.combat.ndb.active_char == self.char:
+            if self.remaining_attacks > 0:
+                return self.do_turn_actions(took_actions=True)
+            else:
                 self.combat.next_character_turn()
-            return True
+                return True
 
     # noinspection PyMethodMayBeStatic
     def setup_defenders(self):
@@ -854,9 +855,12 @@ class CombatHandler(object):
         combat.remove_afk(character)
         self.ready = True
         character.msg("You have marked yourself as ready to proceed.")
+        combat_round = combat.ndb.rounds
         combat.ready_check()
-        combat.build_status_table()
-        combat.display_phase_status(character, disp_intro=False)
+        # if we didn't go to the next turn
+        if combat.ndb.phase == 1 and combat.ndb.rounds == combat_round:
+            combat.build_status_table()
+            combat.display_phase_status(character, disp_intro=False)
 
     def do_attack(self, target, attack_penalty=0, defense_penalty=0,
                   dmg_penalty=0, allow_botch=True, free_attack=False):
@@ -931,9 +935,7 @@ class CombatHandler(object):
         if awake == "asleep":
             target.wake_up()
         if not free_attack:  # situations where a character gets a 'free' attack
-            self.remaining_attacks -= 1
-            if self.remaining_attacks <= 0:
-                combat.next_character_turn()
+            self.take_action()
 
     # noinspection PyUnusedLocal
     def handle_botch(self, roll, can_riposte=True, target=None,
@@ -953,12 +955,16 @@ class CombatHandler(object):
         self.lost_turn_counter += 1
         combat.msg("%s {rbotches{n their attack, losing their next turn while recovering." % self)
         if not free_attack:
-            self.remaining_attacks -= 1
-            if self.remaining_attacks <= 0:
-                combat.next_character_turn()
+            self.take_action()
 
-    # -------------- kamda start refactoring stuff here :) -------------------
-    # ----- needs to shift references and assume 'self' ----------------------
+    def take_action(self):
+        """
+        Record that we've used an attack and go to the next character's turn if we're out
+        """
+        self.remaining_attacks -= 1
+        if self.remaining_attacks <= 0 and self.combat:
+            self.combat.next_character_turn()
+
     def assign_damage(self, target, roll, weapon=None, dmg_penalty=0, dmgmult=1.0):
         """
         Assigns damage after a successful attack. During this stage, all

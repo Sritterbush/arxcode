@@ -59,6 +59,7 @@ class Npc(Character):
         self.combat.wants_to_end = True
         if self.combat.combat:
             self.combat.reset()
+            self.combat.setup_phase_prep()
 
     def _get_passive(self):
         return self.db.passive_guard or False
