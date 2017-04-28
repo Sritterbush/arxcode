@@ -827,11 +827,11 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
 
     @property
     def is_npc(self):
-        return self.tags.get("npc")
+        return bool(self.tags.get("npc"))
 
     @property
     def attackable(self):
-        return not self.tags.get("unattackable")
+        return not bool(self.tags.get("unattackable"))
 
     @property
     def boss_rating(self):
@@ -847,7 +847,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     @property
     def sleepless(self):
         """Cannot fall unconscious - undead, etc"""
-        return self.tags.get("sleepless")
+        return bool(self.tags.get("sleepless"))
 
     @property
     def defense_modifier(self):
