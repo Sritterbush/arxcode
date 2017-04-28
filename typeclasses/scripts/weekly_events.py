@@ -111,12 +111,14 @@ class WeeklyEvents(Script):
         # decrement timer of limited transactions, remove transactions that are over
         AccountTransaction.objects.filter(repetitions_left__gt=0).update(repetitions_left=F('repetitions_left') - 1)
         AccountTransaction.objects.filter(repetitions_left=0).delete()
-        for army in Army.objects.all():
+        for army in Army.objects.filter(orders__complete=False):
             try:
                 army.execute_orders(self.db.week)
             except Exception as err:
                 traceback.print_exc()
                 print "Error in %s's army orders: %s" % (army, err)
+        old_orders = Orders.objects.filter(completed=True, week__lt=self.db.week - 4)
+        old_orders.delete()
         self.do_tasks()
         inform_staff("Dominion weekly events processed for week %s." % self.db.week)
 

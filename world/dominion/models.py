@@ -2342,12 +2342,13 @@ class Army(models.Model):
         except Orders.DoesNotExist:
             return None
     
-    def send_orders(self, player, order_type, target):
+    def send_orders(self, player, order_type, target_domain=None, target_land=None, target_character=None,
+                    action=None, assisting=None):
         """
         Checks permission to send orders to an army, then records the category 
         of orders and their target.
         """
-        # first checks for 
+        # first checks for access
         if not self.can_order(player):
             player.msg("You don't have access to that Army.")
             return
@@ -2355,10 +2356,9 @@ class Army(models.Model):
         if self.pending_orders:
             player.msg("That army has pending orders that must be canceled first.")
             return
-        orders.set_target(order_type=order_type, target=target)
-        # set all our sub-units to have new orders? Or wait until they go 'live'
-        pass
-    
+        return self.orders.create(type=order_type, target_domain=target_domain, target_land=target_land,
+                                  target_character=target_character, action=action, assisting=assisting)
+        
     def find_unit(self, unit_type):
         """
         Find a unit that we have of the given unit_type. Armies should only have one of each unit_type
@@ -2643,21 +2643,37 @@ class Orders(models.Model):
     DEFEND = 8
     PATROL = 9
     ASSIST = 10
+    BOLSTER = 11
+    EQUIP = 12
+    CRISIS = 13
        
     ORDER_CHOICES = (
         (TRAIN, 'Troop Training'),
         (EXPLORE, 'Explore territory'),
         (RAID, 'Raid Domain'),
         (CONQUER, 'Conquer Domain'),
-        (ENFORCE_ORDER, 'Enforce Order'),
-        (BESIEGE, 'Besiege Castle'),
-        (MARCH, 'March'),
-        (DEFEND, 'Defend'),
+        (ENFORCE_ORDER, 'Enforce Order'),   
+        (BESIEGE, 'Besiege Castle'),        
+        (MARCH, 'March'),                   
+        (DEFEND, 'Defend'),                 
+        # like killing bandits
         (PATROL, 'Patrol'),
-        (ASSIST, 'Assist'),)
+        # assisting other armies' orders
+        (ASSIST, 'Assist'),
+        # restoring morale
+        (BOLSTER, 'Bolster Morale'),        
+        (EQUIP, 'Upgrade Equipment'),
+        # using army in a crisis action
+        (CRISIS, 'Crisis Response'))
     army = models.ForeignKey("Army", related_name="orders", null=True, blank=True, db_index=True)
+    # for realm PVP and realm offense/defense
     target_domain = models.ForeignKey("Domain", related_name="orders", null=True, blank=True, db_index=True)
+    # for travel and exploration
     target_land = models.ForeignKey("Land", related_name="orders", null=True, blank=True)
+    # an individual's support for training, morale, equipment
+    target_character = models.ForeignKey("PlayerOrNpc", on_delete=models.SET_NULL, related_name="orders", blank=True, null=True,
+                                         db_index=True)
+    # if we're targeting a crisis action to assist
     action = models.ForeignKey("CrisisAction", related_name="orders", null=True, blank=True, db_index=True)
     # if we're assisting another army's orders
     assisting = models.ForeignKey("self", related_name="assisting_orders", null=True, blank=True, db_index=True)
@@ -2679,33 +2695,6 @@ class Orders(models.Model):
         DIV = 100
         costs = sum((ob.costs/DIV) + 1 for ob in self.units.all())
         self.coin_cost = costs
-        self.save()
-    
-    def set_target(self, order_type, target):
-        """
-        The order type determines target and finalizes the order.
-        """
-        self.type = order_type
-        if order_type == Orders.TRAIN:
-            self.target_land = target
-        if order_type == Orders.EXPLORE:
-            self.target_land = target
-        if order_type == Orders.RAID:
-            self.target_domain = target
-        if order_type == Orders.CONQUER:
-            self.target_domain = target
-        if order_type == Orders.ENFORCE_ORDER:
-            self.target_land = target
-        if order_type == Orders.BESIEGE:
-            self.target_domain = target
-        if order_type == Orders.MARCH:
-            self.target_land = target
-        if order_type == Orders.DEFEND:
-            self.target_domain = target
-        if order_type == Orders.PATROL:
-            self.target_land = target
-        if order_type == Orders.ASSIST:
-            self.action = target
         self.save()
     
 
