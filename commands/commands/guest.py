@@ -190,8 +190,10 @@ To submit an application for a character on the roster that you would like
 to play, use the '{w@roster/apply{n {c<character name>{n {w={n {c<application>{n'.
 Your application should contain the reason you'd like to play the character
 and what you perceive as their goals and motivations and what direction you
-will take their roleplay. Before applying to play a character on the
-roster, you will need to supply an email address with {w@add/email <email>{n.
+will take their roleplay. Tell us your take on the character. How would you RP
+them in a way that contributes to a positive environment and creates
+collaborative, fun RP for other people? Before applying to play a character on
+the roster, you will need to supply an email address with {w@add/email <email>{n.
 
 To create a new, original character, or to resume a previous session you
 were disconnected from, use '{w@charcreate {c<email>{n'. To view a board
