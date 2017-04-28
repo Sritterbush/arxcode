@@ -110,7 +110,7 @@ class Npc(Character):
         if self.location:
             self.location.msg_contents("{w%s has returned to life.{n" % self.name)
 
-    def fall_asleep(self, uncon=False, quiet=False):
+    def fall_asleep(self, uncon=False, quiet=False, **kwargs):
         """
         Falls asleep. Uncon flag determines if this is regular sleep,
         or unconsciousness.
@@ -295,10 +295,13 @@ class MultiNpc(Npc):
         """
         if self.location:
             self.location.msg_contents("{r%s has died.{n" % get_npc_singular_name(self._get_npc_type()))
-        self.multideath(num=1, death=True)
+        if kwargs.get('lethal', True):
+            self.multideath(num=1, death=True)
+        else:
+            self.temp_losses += 1
         self.db.damage = 0
 
-    def fall_asleep(self, uncon=False, quiet=False):
+    def fall_asleep(self, uncon=False, quiet=False, **kwargs):
         """
         Falls asleep. Uncon flag determines if this is regular sleep,
         or unconsciousness.
@@ -306,7 +309,10 @@ class MultiNpc(Npc):
         if self.location:
             self.location.msg_contents("{w%s falls %s.{n" % (get_npc_singular_name(self._get_npc_type()),
                                                              "unconscious" if uncon else "asleep"))
-        self.multideath(num=1, death=False)
+        if kwargs.get('lethal', True):
+            self.multideath(num=1, death=False)
+        else:
+            self.temp_losses += 1
         # don't reset damage here since it's used for death check. Reset in combat process
 
     # noinspection PyAttributeOutsideInit
@@ -349,11 +355,22 @@ class MultiNpc(Npc):
 
     @property
     def quantity(self):
-        return self.db.num_living or 0
+        num = self.db.num_living or 0
+        return num - self.temp_losses
 
     @property
     def conscious(self):
         return self.quantity > 0
+
+    @property
+    def temp_losses(self):
+        if self.ndb.temp_losses is None:
+            self.ndb.temp_losses = 0
+        return self.ndb.temp_losses
+
+    @temp_losses.setter
+    def temp_losses(self, val):
+        self.ndb.temp_losses = val
 
 
 class AgentMixin(object):

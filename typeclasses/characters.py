@@ -231,7 +231,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         # we'll also be asleep when we're dead, so that we're resurrected unconscious if we're brought back
         self.fall_asleep(uncon=True, quiet=True)
 
-    def fall_asleep(self, uncon=False, quiet=False):
+    def fall_asleep(self, uncon=False, quiet=False, **kwargs):
         """
         Falls asleep. Uncon flag determines if this is regular sleep,
         or unconsciousness.

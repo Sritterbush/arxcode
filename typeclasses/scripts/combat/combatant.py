@@ -61,7 +61,6 @@ class CombatHandler(object):
         self.char = character
         if character.db.num_living:
             self.multiple = True
-            self.num = character.db.num_living
             self.automated = True
             self.autoattack = True
             try:
@@ -72,7 +71,6 @@ class CombatHandler(object):
                 self.plural_name = character.name
         else:
             self.multiple = False
-            self.num = 1
             self.automated = False
             self.autoattack = character.db.autoattack or False
             self.base_name = character.name
@@ -83,6 +81,15 @@ class CombatHandler(object):
         self._ready = False
         self.lethal = True
         self.initialize_values()
+
+    @property
+    def num(self):
+        if self.multiple:
+            try:
+                return self.char.quantity
+            except AttributeError:
+                pass
+        return 1
 
     @property
     def stance(self):
@@ -179,6 +186,11 @@ class CombatHandler(object):
         combat.msg("%s has left the fight." % character.name)
         character.cmdset.delete(CombatCmdSet)
         self.combat = None
+        try:
+            # remove temporary losses from MultiNpcs
+            self.char.temp_losses = 0
+        except AttributeError:
+            pass
 
     def setup_weapon(self, weapon=None):
         self.weapon = weapon
@@ -544,8 +556,8 @@ class CombatHandler(object):
         lethal = q.qtype == "kill"
         if q.qtype == "pass" or q.qtype == "delay":
             delay = q.qtype == "delay"
-            self.do_pass(delay=delay)
             self.msg(q.msg)
+            self.do_pass(delay=delay)
             return True
         self.validate_targets(lethal)
         if q.qtype == "attack" or q.qtype == "kill":
@@ -582,15 +594,6 @@ class CombatHandler(object):
             # set who we attacked
             self.prev_targ = targ
             self.do_attack(targ, attack_penalty=q.atk_pen, dmg_penalty=-q.dmg_mod)
-        # May be on another character's turn by this point. Make sure it's still us
-        if self.combat and self.combat.ndb.active_char == self.char:
-            # check to make sure that remaining attacks was decremented by attacking
-            self.remaining_attacks -= 1
-            if self.remaining_attacks > 0:
-                return self.do_turn_actions(took_actions=True)
-            else:
-                self.combat.next_character_turn()
-                return True
 
     # noinspection PyMethodMayBeStatic
     def setup_defenders(self):
@@ -878,7 +881,6 @@ class CombatHandler(object):
         combat = self.combat
         if combat.ndb.phase != 2:
             raise CombatError("Attempted to attack in wrong phase.")
-        combat.remove_afk(attacker)
         weapon = self.weapon
         d_fite = target.combat
         # modifiers from our stance (aggressive, defensive, etc)
@@ -950,19 +952,27 @@ class CombatHandler(object):
             target.do_attack(botcher, attack_penalty, defense_penalty, dmg_penalty,
                              allow_botch=False, free_attack=True)
             if not free_attack:
-                combat.next_character_turn()
+                self.take_action()
             return        
         self.lost_turn_counter += 1
         combat.msg("%s {rbotches{n their attack, losing their next turn while recovering." % self)
         if not free_attack:
             self.take_action()
 
-    def take_action(self):
+    def take_action(self, action_cost=1):
         """
         Record that we've used an attack and go to the next character's turn if we're out
         """
-        self.remaining_attacks -= 1
-        if self.remaining_attacks <= 0 and self.combat:
+        self.remaining_attacks -= action_cost
+        if not self.combat:
+            return
+        self.combat.remove_afk(self.char)
+        if self.combat.ndb.phase == 2 and self.combat.ndb.active_character == self.char:
+            if self.char in self.combat.ndb.initiative_list:
+                self.combat.ndb.initiative_list.remove(self)
+            # if we have remaining attacks, add us to the end
+            if self.remaining_attacks > 0:
+                self.combat.ndb.initiative_list.append(self)
             self.combat.next_character_turn()
 
     def assign_damage(self, target, roll, weapon=None, dmg_penalty=0, dmgmult=1.0):
@@ -1055,10 +1065,13 @@ class CombatHandler(object):
                 if do_dice_check(target, stat_list=["stamina", "willpower"], skill="survival",
                                  stat_keep=True, difficulty=diff) > 0:
                     message = "%s remains alive, but close to death." % self
-                    if self.multiple:
+                    if target.combat.multiple:
                         # was incapacitated but not killed, but out of fight and now we're on another targ
-                        target.db.damage = 0
-                elif not self.multiple:
+                        if lethal:
+                            target.dmg = 0
+                        else:
+                            target.temp_dmg = 0
+                elif not target.combat.multiple:
                     if lethal:
                         kill = True
                     # remove a 'killed' character from combat whether it was a real death or fake
@@ -1071,9 +1084,15 @@ class CombatHandler(object):
         if loc:
             loc.msg_contents(message, options={'roll': True})
         if knock_uncon:
-            target.fall_asleep(uncon=True)
+            target.fall_asleep(uncon=True, lethal=lethal)
         if kill:
-            target.death_process()
+            target.death_process(lethal=lethal)
+        if target.combat.multiple:
+            try:
+                if target.quantity <= 0:
+                    remove = True
+            except AttributeError:
+                pass
         if self.combat and remove:
             self.combat.remove_combatant(target)
                     
@@ -1084,7 +1103,6 @@ class CombatHandler(object):
         """
         attacker = self.char
         combat = self.combat
-        combat.remove_afk(attacker)
         defenders = self.get_defenders()
         message = "%s attempts to move around %s to attack them while they are vulnerable. " % (attacker.name,
                                                                                                 target.name)
@@ -1123,16 +1141,14 @@ class CombatHandler(object):
         """
         character = self.char
         combat = self.combat
-        combat.remove_afk(character)
-        if self in combat.ndb.initiative_list:
-            combat.ndb.initiative_list.remove(self)
-        if delay:
-            combat.ndb.initiative_list.append(self)
-        combat.msg("%s passes their turn." % character.name)
-        if combat.ndb.active_character == character:
-            self.queued_action = None
-            combat.next_character_turn()
+        if not combat:
             return
+        if delay:
+            action_cost = 0
+        else:
+            action_cost = 1
+        combat.msg("%s passes their turn." % character.name)
+        self.take_action(action_cost)
 
     def do_flee(self, exit_obj):
         """
