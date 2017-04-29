@@ -22,7 +22,7 @@ class NamePaginator(object):
                 obj_str = unicode(getattr(obj, obj._meta.ordering[0]))
             else:
                 if hasattr(obj, 'key'):
-                    obj_str = obj.key
+                    obj_str = unicode(obj.key)
                 else:
                     obj_str = unicode(obj)
 
