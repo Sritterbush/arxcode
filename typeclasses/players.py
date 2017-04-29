@@ -140,6 +140,9 @@ class Player(MsgMixins, DefaultPlayer):
         for msg in pending:
             self.msg(msg, options={'box': True})
         self.db.pending_messages = []
+        if self.assigned_to.filter(status=1, priority__lte=5):
+            self.msg("{yYou have unresolved tickets assigned to you. Use @job/mine to view them.{n")
+            return
         # in this mode we should have only one character available. We
         # try to auto-connect to it by calling the @ic command
         # (this relies on player.db._last_puppet being set)
