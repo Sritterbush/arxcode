@@ -462,6 +462,7 @@ class CmdCrisisAction(MuxPlayerCommand):
         action.save()
         self.msg("You add %s action points. Current action points allocated: %s" % (self.rhs, action.outcome_value))
     
+    # retrieves action and checks if its crisis has been resolved
     def adding_checks(self):
         action = self.get_action(get_assisted=True)
         if not action:
@@ -511,7 +512,7 @@ class CmdCrisisAction(MuxPlayerCommand):
         if not action:
             return
         # gonda get army
-        from .models import Army
+        from .models import Army, Orders
         try:
             if self.rhs.isdigit():
                 army = Army.objects.get(id=int(self.rhs))
@@ -521,7 +522,10 @@ class CmdCrisisAction(MuxPlayerCommand):
             self.msg("No armies found by that name or number.")
             return
         # check permissions for army and adjust orders
-        army.send_orders(player=self.caller, order_type="crisis", target=action)
+        orders = army.send_orders(player=self.caller, order_type=Orders.CRISIS, action=action)
+        if not orders:
+            return
+        self.msg("You have relayed orders for %s to assist with crisis action %s." % (army, action.id))
 
     def ask_question(self):
         action = self.get_action()

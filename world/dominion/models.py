@@ -2443,51 +2443,53 @@ class Army(models.Model):
         along with do_weekly_adjustment. Error checking on the validity
         of orders should be done at the player-command level, not here.
         """
-        orders = self.orders.filter(complete=False)
-        if not orders:
-            self.morale += 1
-            self.save()
-            return
-        for order in orders:
-            if order.type == Orders.TRAIN:
-                for unit in self.units.all():
-                    unit.train()
-                return
-            if order.type == Orders.EXPLORE:
-                explore = Exploration(self, self.land, self.domain, week)
-                explore.event()
-                return
-            if order.type == Orders.RAID:
-                if self.do_battle(order.target_domain, week):
-                    # raid was successful
-                    self.pillage(order.target_domain, week)
-                else:
-                    self.morale -= 10
-                    self.save()
-            if order.type == Orders.CONQUER:
-                if self.do_battle(order.target_domain, week):
-                    # conquest was successful
-                    self.conquer(order.target_domain, week)
-                else:
-                    self.morale -= 10
-                    self.save()
-            if order.type == Orders.ENFORCE_ORDER:
-                self.pacify(self.domain)
-            if order.type == Orders.BESIEGE:
-                # to be implemented later
-                pass
-            if order.type == Orders.MARCH:
-                if order.target_domain:
-                    self.domain = order.target_domain
-                self.land = order.target_land
-                self.save()
-            # to do : add to report here
-            if report:
-                print "Placeholder for army orders report"
+        orders = self.pending_orders
+        # stoof here later
+        self.orders.filter(week__lt=week - 1).update(complete=True)
+        # if not orders:
+        #     self.morale += 1
+        #     self.save()
+        #     return
+        # for order in orders:
+        #     if order.type == Orders.TRAIN:
+        #         for unit in self.units.all():
+        #             unit.train()
+        #         return
+        #     if order.type == Orders.EXPLORE:
+        #         explore = Exploration(self, self.land, self.domain, week)
+        #         explore.event()
+        #         return
+        #     if order.type == Orders.RAID:
+        #         if self.do_battle(order.target_domain, week):
+        #             # raid was successful
+        #             self.pillage(order.target_domain, week)
+        #         else:
+        #             self.morale -= 10
+        #             self.save()
+        #     if order.type == Orders.CONQUER:
+        #         if self.do_battle(order.target_domain, week):
+        #             # conquest was successful
+        #             self.conquer(order.target_domain, week)
+        #         else:
+        #             self.morale -= 10
+        #             self.save()
+        #     if order.type == Orders.ENFORCE_ORDER:
+        #         self.pacify(self.domain)
+        #     if order.type == Orders.BESIEGE:
+        #         # to be implemented later
+        #         pass
+        #     if order.type == Orders.MARCH:
+        #         if order.target_domain:
+        #             self.domain = order.target_domain
+        #         self.land = order.target_land
+        #         self.save()
+        #     # to do : add to report here
+        #     if report:
+        #         print "Placeholder for army orders report"
                 
     def do_battle(self, tdomain, week):
         """
-        Returns True iff attackers win, False if defenders
+        Returns True if attackers win, False if defenders
         win or if there was a stalemate/tie.
         """
         # noinspection PyBroadException
@@ -2673,7 +2675,7 @@ class Orders(models.Model):
     # an individual's support for training, morale, equipment
     target_character = models.ForeignKey("PlayerOrNpc", on_delete=models.SET_NULL, related_name="orders", blank=True, null=True,
                                          db_index=True)
-    # if we're targeting a crisis action to assist
+    # if we're targeting a crisis action
     action = models.ForeignKey("CrisisAction", related_name="orders", null=True, blank=True, db_index=True)
     # if we're assisting another army's orders
     assisting = models.ForeignKey("self", related_name="assisting_orders", null=True, blank=True, db_index=True)
