@@ -65,6 +65,9 @@ class CmdJob(MuxPlayerCommand):
         @job/priority <#>=<priority number>
         @job/low = List low priority messages
         @job/check <ticket #>/<stat> + <skill> at <diff>=<character>
+        @job/mine
+        @job/all
+        @job/assign <#>=<GM>
 
     Notes when closing a ticket are only seen by GM staff. A mail
     will automatically be sent to the player with <notes> when
@@ -77,6 +80,7 @@ class CmdJob(MuxPlayerCommand):
     aliases = ["@jobs", "@bug", "@code", "@gm", "@typo", "@prp"]
     help_category = "Admin"
     locks = "cmd:perm(job) or perm(Builders)"
+    query_open_switches = ("mine", "all", "low", "only")
 
     @property
     def queues_from_args(self):
@@ -97,17 +101,20 @@ class CmdJob(MuxPlayerCommand):
         return queues
 
     def display_open_tickets(self):
-        unassigned_tickets = Ticket.objects.select_related('queue').filter(
-                                assigned_to__isnull=True,
+        open_tickets = Ticket.objects.select_related('queue').filter(
                                 queue__in=self.queues_from_args
                                 ).exclude(
                                 status=Ticket.CLOSED_STATUS,
                                 )
         if "low" in self.switches:
-            unassigned_tickets = unassigned_tickets.filter(priority__gt=5)
+            open_tickets = open_tickets.filter(priority__gt=5)
         else:
-            unassigned_tickets = unassigned_tickets.filter(priority__lte=5)
-        joblist = unassigned_tickets
+            open_tickets = open_tickets.filter(priority__lte=5)
+        if "mine" in self.switches:
+            open_tickets = open_tickets.filter(assigned_to=self.caller)
+        elif "all" not in self.switches:
+            open_tickets = open_tickets.filter(assigned_to__isnull=True)
+        joblist = open_tickets
         if not joblist:
             self.msg("No open tickets.")
             return
@@ -130,7 +137,7 @@ class CmdJob(MuxPlayerCommand):
         caller = self.caller
         args = self.args
         switches = self.switches
-        if not args and not switches or 'low' in switches or 'only' in switches:
+        if not args and not switches or (set(switches) & set(self.query_open_switches)):
             # list all open tickets
             self.display_open_tickets()
             return
@@ -244,6 +251,14 @@ class CmdJob(MuxPlayerCommand):
             else:
                 caller.msg("Ticket closure failed for unknown reason.")
                 return
+        if 'assign' in switches:
+            player = self.caller.search(self.rhs)
+            if not player:
+                return
+            ticket.assigned_to = player
+            ticket.save()
+            inform_staff("{w%s has assigned ticket %s to %s." % (caller, ticket.id, player))
+            return
         if 'followup' in switches or 'update' in switches or "follow" in switches:
             lhs = self.lhs
             rhs = self.rhs
