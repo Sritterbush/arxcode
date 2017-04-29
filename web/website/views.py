@@ -92,6 +92,8 @@ def webclient(request):
     """
     from django.shortcuts import render
     # disable autologin until it's fixed in devel
+    session = request.session
+    if session.session_key is None:
+        session.save()
     pagevars = {'browser_sessid': None}
-
     return render(request, 'webclient/evennia/web/webclient/templates/webclient.html', pagevars)
