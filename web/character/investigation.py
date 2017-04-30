@@ -294,16 +294,15 @@ class CmdAssistInvestigation(InvestigationFormCommand):
 
     def disp_invites(self):
         invites = self.caller.db.investigation_invitations or []
-        # prune out invitations to investigations that are not active
-        dead_investigations = Investigation.objects.filter(Q(ongoing=False) | Q(active=False), Q(id__in=invites))
-        dead_id_numbers = [ob.id for ob in dead_investigations]
-        invites = [id_num for id_num in invites if id_num not in dead_id_numbers]
-        self.caller.db.investigation_invitations = invites
         # check which are valid
         investigations = Investigation.objects.filter(id__in=invites, ongoing=True, active=True)
         investigations = investigations | self.caller.roster.investigations.filter(ongoing=True)
         self.msg("You are permitted to help the following investigations:\n%s" % "\n".join(
             "  %s (ID: %s)" % (str(ob), ob.id) for ob in investigations))
+        invest_ids = [ob.id for ob in investigations]
+        # prune out invitations to investigations that are not active
+        invites = [num for num in invites if num in invest_ids]
+        self.caller.db.investigation_invitations = invites
 
     @property
     def valid_targ_ids(self):
