@@ -763,8 +763,12 @@ class CmdPage(MuxPlayerCommand):
                 if findpobj in caller.block_list:
                     self.msg("%s is in your block list and would not be able to reply to your page." % findpobj)
                     continue
-                if (findpobj.tags.get("ic_only") or caller in findpobj.block_list) \
-                        and not caller.check_permstring("builders"):
+                if caller.tags.get("chat_banned") and (
+                                caller not in findpobj.allow_list or findpobj not in caller.allow_list):
+                    self.msg("You cannot page if you are not in each other's allow lists.")
+                    continue
+                if ((findpobj.tags.get("ic_only") or caller in findpobj.block_list or findpobj.tags.get("chat_banned"))
+                        and not caller.check_permstring("builders")):
                     if caller not in findpobj.allow_list:
                         self.msg("%s is IC only and cannot be sent pages." % findpobj)
                         continue
@@ -1026,6 +1030,18 @@ class CmdMail(MuxPlayerCommand):
                     pobj = pobj.player
                 # if we found a match
                 if pobj:
+                    if pobj in caller.block_list:
+                        self.msg("%s is in your block list and would not be able to reply to your mail." % pobj)
+                        continue
+                    if caller.tags.get("chat_banned") and (
+                                    caller not in pobj.allow_list or pobj not in caller.allow_list):
+                        self.msg("You cannot mail someone unless you are in each others' allow lists.")
+                        continue
+                    if ((pobj.tags.get("ic_only") or caller in pobj.block_list or pobj.tags.get("chat_banned"))
+                            and not caller.check_permstring("builders")):
+                        if caller not in pobj.allow_list:
+                            self.msg("%s is IC only and cannot be sent mail." % pobj)
+                            continue
                     recobjs.append(pobj)
                     received_list.append(str(pobj))
             if not recobjs:
