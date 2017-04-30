@@ -2765,27 +2765,27 @@ class CmdSupport(MuxCommand):
         if "view" in self.switches:
             try:
                 r_id = int(self.args)
-                sup = dompc.supported_tasks.get(id=r_id)
+                supporter = dompc.supported_tasks.get(id=r_id)
             except (TypeError, ValueError, TaskSupporter.DoesNotExist):
                 caller.msg("No support given by that ID.")
                 self.get_support_table()
                 return
-            caller.msg("{wID{n: %s" % sup.id)
-            caller.msg("{wCharacter{n: %s" % sup.task.member)
-            alloclist = sup.allocation.all()
+            caller.msg("{wID{n: %s" % supporter.id)
+            caller.msg("{wCharacter{n: %s" % supporter.task.member)
+            alloclist = supporter.allocation.all()
             for alloc in alloclist:
                 caller.msg("{wOrganization{n: %s, Sphere: %s, Amount: %s" % (alloc.sphere.org, alloc.sphere.category,
                                                                              alloc.rating))
             return
         if "change" in self.switches:
-            org, sphere, sup, targmember, val, member, category = None, None, None, None, None, None, None
+            org, sphere, supporter, targmember, val, member, category = None, None, None, None, None, None, None
             try:
                 # I've been having sync errors so going to do a bunch of manual refresh_from_db calls
                 # and hope this actually resolves it this time.
                 r_id = self.lhslist[0]
                 category = self.lhslist[1]
-                sup = dompc.supported_tasks.filter(task__finished=False).get(id=r_id)
-                sup.refresh_from_db()
+                supporter = dompc.supported_tasks.filter(task__finished=False).get(id=r_id)
+                supporter.refresh_from_db()
                 if len(self.lhslist) > 2:
                     org = dompc.current_orgs.get(name__iexact=self.lhslist[2])
                 else:
@@ -2794,11 +2794,11 @@ class CmdSupport(MuxCommand):
                 sphere = org.spheres.get(category__name__iexact=category)
                 sphere.refresh_from_db()
                 val = int(self.rhs)
-                targmember = sup.task.member
+                targmember = supporter.task.member
                 member = org.members.get(player=dompc)
                 if val < 0:
                     raise ValueError
-                supused = SupportUsed.objects.get(week=week, sphere=sphere, supporter=sup)
+                supused = SupportUsed.objects.get(week=week, sphere=sphere, supporter=supporter)
             except IndexError:
                 caller.msg("Must specify both the ID and the category name.")
                 self.get_support_table()
@@ -2820,11 +2820,11 @@ class CmdSupport(MuxCommand):
                 return
             except SupportUsed.DoesNotExist:
                 # create the supused for them
-                supused = SupportUsed(week=week, sphere=sphere, rating=0, supporter=sup)
+                supused = SupportUsed(week=week, sphere=sphere, rating=0, supporter=supporter)
             # target character we're supporting
             char = targmember.player.player.db.char_ob
             char.refresh_from_db()
-            diff = val - sup.rating
+            diff = val - supused.rating
             if diff > remaining:
                 caller.msg("You want to spend %s but only have %s available." % (diff, remaining))
                 return
@@ -3012,12 +3012,12 @@ class CmdSupport(MuxCommand):
                            "with /value, even if that value is 0. Even a value of 0 will cause them to receive 1 " +
                            "free point, and an additional 5 if you have never supported them before.")
                 return
-            sup = assignment.supporters.create(fake=fake, player=caller.player.Dominion, notes=notes,
+            supporter = assignment.supporters.create(fake=fake, player=caller.player.Dominion, notes=notes,
                                                observer_text=announcement)
             for sid in sdict:
                 rating = sdict[sid]
                 sphere = SphereOfInfluence.objects.get(id=sid)
-                SupportUsed.objects.create(week=week, supporter=sup, sphere=sphere, rating=rating)
+                SupportUsed.objects.create(week=week, supporter=supporter, sphere=sphere, rating=rating)
                 points += rating
             charpoints = cooldowns.get(char.id, caller.max_support)
             charpoints -= points

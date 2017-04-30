@@ -171,8 +171,14 @@ def do_crafting_roll(char, recipe, diffmod=0, diffmult=1.0, room=None):
     ability = get_ability_val(char, recipe)
     skill = recipe.skill
     stat = "luck" if char.db.luck > char.db.dexterity else "dexterity"
+    can_crit = False
+    try:
+        if char.roster.roster.name == "Active":
+            can_crit = True
+    except AttributeError:
+        pass
     return do_dice_check(char, stat=stat, difficulty=diff, skill=skill, bonus_dice=ability, quiet=False,
-                         announce_room=room)
+                         announce_room=room, can_crit=can_crit)
 
 
 def get_difficulty_mod(recipe, money=0, action_points=0, ability=0):
