@@ -1431,74 +1431,110 @@ class CmdArmy(MuxPlayerCommand):
 
     Usage:
         @army [army name or #]
-        @army/rename <army or group name or #>=<new army or group name>
-        @army/create <group name>=<unit name or #>[,<add'l unit>...]
-        @army/dissolve <group name or #>
+        @army/create <org>=<army name>
+        @army/dissolve <army name or #>
+        @army/rename <army>=<new name>
+        @army/hire <army>=<unit type>,<quantity>
+        @army/discharge <army>=<unit type>,<quantity>
+        @army/transfer <army>=<unit>,<quantity>,<new army>
+        @army/commander <army>=<character>
+        @army/grant <army>=<character or org>
+        @army/recall <army>
         
-    View details of your army or a group of units therein. Create or dissolve 
-    special groups made of the army's units.
+    View details of your army or an army-group therein. Create or dissolve 
+    smaller army-groups using the main army's units. Hire, discharge, or 
+    transfer units between army-groups. Assign a character to be commander of 
+    each army-group. Grant allows a character or org to give orders to an 
+    army-group until it is recalled.
     """
     key = "@army"
     locks = "cmd:all()"
     help_category = "Dominion"
+    valid_units = ""
 
-    def func(self):
+    def display_armies(self):
         caller = self.caller
         if not hasattr(caller, 'Dominion'):
             caller.msg("You have no armies to command.")
             return
+        my_orgs = caller.Dominion.current_orgs
         owned = Army.objects.filter(owner__player__player=caller)
-        ruled = Army.objects.filter(domain__ruler__castellan__player=caller)
-        house_ruled = Army.objects.filter(owner__estate__castellan__player=caller)
-        armies = owned | ruled | house_ruled
-        if not self.args:
-            caller.msg("Your armies:")
-            caller.msg(", ".join(repr(army) for army in armies))
-            return
+        temp_owned = Army.objects.filter(temp_owner__player__player=caller)
+        org_owned = Army.objects.filter(owner__organization_owner__in=my_orgs)
+        temp_org_owned = Army.objects.filter(temp_owner__organization_owner__in=my_orgs)
+        commanded = Army.objects.filter(commander__player__player=caller)
+        caller.msg("Armies Owned: %s" % ", ".join(str(ob) for ob in owned))
+        caller.msg("Provisional Armies: %s" % ", ".join(str(ob) for ob in temp_owned))
+        caller.msg("Org-Owned Armies: %s" % ", ".join(str(ob) for ob in org_owned))
+        caller.msg("Provisional Org Armies: %s" % ", ".join(str(ob) for ob in temp_org_owned))
+        caller.msg("Armies You Command: %s" % ", ".join(str(ob) for ob in commanded))
+    
+    def find_army(self, args):
         try:
-            if self.lhs.startswith('#'):
-                self.lhs.lstrip('#')
-            if self.lhs.isdigit():
-                army = armies.get(id=int(self.lhs))
+            if args.isdigit():
+                army = Army.objects.get(id=int(args))
             else:
-                army = armies.get(name__iexact=self.lhs)
+                army = Army.objects.get(name__iexact=args)
         except (AttributeError, Army.DoesNotExist):
-            caller.msg("No armies found by that name or number.")
+            self.msg("No armies found by that name or number.")
+            return
+        return army
+        
+    def func(self):
+        caller = self.caller
+        if not self.args:
+            self.display_armies()
             return
         if not self.switches:
+            army = self.find_army(self.lhs)
+            if not army:
+                return
             caller.msg(army.display())
             return
-        if 'countermand' in self.switches:
-            val = army.countermand()
-            if val:
-                caller.msg("You have countermanded their orders. %s has been refunded %s coins." % (army.domain, val))
-            else:
-                caller.msg("No orders were erased.")
-            return
-        # if we have active orders, we cannot issue the army new ones
-        if army.orders.filter(complete=False):
-            caller.msg("That army has active orders. You must countermand them before issuing new ones.")
-            return
-        if 'explore' in self.switches:
-            if army.land != army.domain.land:
-                caller.msg("%s must return to its home domain's square to explore.")
+        if "create" in self.switches:
+            # get owner for army from self.lhs
+            try:
+                org = caller.Dominion.current_orgs.get(name__iexact=self.lhs)
+            except Organization.DoesNotExist:
+                self.msg("You are not in an organization by that name.")
                 return
-            if armies.filter(orders__complete=False, orders__type=Orders.EXPLORE):
-                caller.msg("An army under your command already has an exploration order." +
-                           " Only one army can explore per week.")
+            name = self.rhs
+            if not name:
+                caller.msg("The army needs a name.")
                 return
-            army.orders.create(type=Orders.EXPLORE)
-        if 'march' in self.switches:
+            if not org.access(caller, "army"):
+                caller.msg("You don't hold rank in %s for building armies." % org)
+                return
+            # create army
+            org.assets.armies.create(name=name)
+            self.msg("Army created.")
+            return
+        if "dissolve" in self.switches:        
+            army = self.find_army(self.lhs)
+            if not army:
+                return
+            if not army.can_change(caller):
+                return
+            if army.units.all():
+                self.msg("Army still has units. Must transfer or disband them.")
+                return
+            army.delete()
+            self.msg("Army deleted.")
+            return
+        if "rename" in self.switches:
             pass
-        if 'train' in self.switches:
+        if "hire" in self.switches:
             pass
-        if 'quell' in self.switches:
+        if "discharge" in self.switches:
             pass
-        if 'raid' in self.switches:
+        if "transfer" in self.switches:
             pass
-        if 'invade' in self.switches:
+        if "commander" in self.switches:
             pass
-        
+        if "grant" in self.switches:
+            pass
+        if "recall" in self.switches:
+            pass
 
 class CmdOrganization(MuxPlayerCommand):
     """
