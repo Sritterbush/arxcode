@@ -419,6 +419,8 @@ class AssetOwner(models.Model):
     def _total_prestige(self):
         if self.organization_owner:
             return self.prestige
+        if hasattr(self, '_cached_total_prestige'):
+            return self._cached_total_prestige
         bonus = 0
         if self.player.patron and self.player.patron.assets:
             bonus = self.player.patron.assets.total_prestige / 10
@@ -432,7 +434,8 @@ class AssetOwner(models.Model):
                 bonus += int(org.assets.prestige * mult)
             except AttributeError:
                 print "Org %s lacks asset_owner instance!" % org
-        return bonus + self.prestige
+        self._cached_total_prestige = bonus + self.prestige
+        return self._cached_total_prestige
     total_prestige = property(_total_prestige)
 
     def adjust_prestige(self, value):
@@ -577,6 +580,8 @@ class AssetOwner(models.Model):
             del self.cached_income
         if hasattr(self, 'cached_costs'):
             del self.cached_costs
+        if hasattr(self, '_cached_total_prestige'):
+            del self._cached_total_prestige
         
     def save(self, *args, **kwargs):
         self.clear_cache()
