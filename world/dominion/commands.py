@@ -1832,6 +1832,9 @@ class CmdOrganization(MuxPlayerCommand):
             if tarmember.rank <= member.rank and tarmember != member:
                 caller.msg("You cannot change the rank of someone equal to you or higher.")
                 return
+            if tarmember.rank <= 2 < rank and tarmember != member:
+                caller.msg("Only staff can demote leaders.")
+                return
             tarmember.rank = rank
             tarmember.save()
             caller.msg("You have set %s's rank to %s." % (player, rank))
@@ -1889,6 +1892,9 @@ class CmdOrganization(MuxPlayerCommand):
                     return
                 if tarmember.rank <= member.rank:
                     caller.msg("You cannot boot someone who is equal or higher rank.")
+                    return
+                if tarmember.rank <= 2:
+                    caller.msg("Only staff can boot leaders.")
                     return
             tarmember.fake_delete()
             caller.msg("Booted %s from %s." % (player, org))
