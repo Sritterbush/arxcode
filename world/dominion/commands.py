@@ -3019,7 +3019,7 @@ class CmdSupport(MuxCommand):
                            "free point, and an additional 5 if you have never supported them before.")
                 return
             supporter = assignment.supporters.create(fake=fake, player=caller.player.Dominion, notes=notes,
-                                               observer_text=announcement)
+                                                     observer_text=announcement)
             for sid in sdict:
                 rating = sdict[sid]
                 sphere = SphereOfInfluence.objects.get(id=sid)
