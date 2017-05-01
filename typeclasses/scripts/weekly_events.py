@@ -132,6 +132,7 @@ class WeeklyEvents(Script):
         qs1.update(action_points=200)
         qs2.update(action_points=F('action_points') + 100)
         log_file.write("\n\nAction points after script\n\n")
+        qs = RosterEntry.objects.filter(roster__name="Active")
         for ob in qs:
             log_file.write("%s: action points: %s\n" % (ob, ob.action_points))
         log_file.close()
