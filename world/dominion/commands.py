@@ -1434,18 +1434,26 @@ class CmdArmy(MuxPlayerCommand):
         @army/create <org>=<army name>
         @army/dissolve <army name or #>
         @army/rename <army>=<new name>
+        @army/desc <army>=<description>
         @army/hire <army>=<unit type>,<quantity>
-        @army/discharge <army>=<unit type>,<quantity>
-        @army/transfer <army>=<unit>,<quantity>,<new army>
-        @army/commander <army>=<character>
+        @army/combine <unit ID>=<unit ID>
+        @army/split <unit ID>,<quantity>
+        @army/discharge <unit ID>,<quantity>
+        @army/transfer <unit ID>=<new army>
+        @army/general <army>=<character>
+        @army/commander <unit ID>=<character>
         @army/grant <army>=<character or org>
         @army/recall <army>
+        @army/propaganda <character>=<action points>
+        @army/morale <army>=<action points>
         
     View details of your army or an army-group therein. Create or dissolve 
-    smaller army-groups using the main army's units. Hire, discharge, or 
-    transfer units between army-groups. Assign a character to be commander of 
-    each army-group. Grant allows a character or org to give orders to an 
-    army-group until it is recalled.
+    smaller army-groups using the main army's units. Hire, discharge, combine, 
+    split or transfer units between army-groups. Assign characters to be general 
+    of each army-group, and commanders of units. Grant allows a character or org 
+    to give orders to an army-group until it is recalled. When hiring new units,
+    asking someone to generate propaganda first bestows an XP bonus. Keeping
+    an army's morale high is essential.
     """
     key = "@army"
     locks = "cmd:all()"
@@ -1523,11 +1531,19 @@ class CmdArmy(MuxPlayerCommand):
             return
         if "rename" in self.switches:
             pass
+        if "desc" in self.switches:
+            pass
         if "hire" in self.switches:
+            pass
+        if "combine" in self.switches:
+            pass
+        if "split" in self.switches:
             pass
         if "discharge" in self.switches:
             pass
         if "transfer" in self.switches:
+            pass
+        if "general" in self.switches:
             pass
         if "commander" in self.switches:
             pass

@@ -7,16 +7,7 @@ will be used at runtime.
 import traceback
 from .combat_grid import PositionActor
 from random import randint
-
-# The corresponding database model will save type as an integer value
-INFANTRY = 0
-PIKE = 1
-CAVALRY = 2
-ARCHERS = 3
-LONGSHIP = 4
-SIEGE_WEAPON = 5
-GALLEY = 6
-DROMOND = 7
+from . import unit_constants
 
 _UNIT_TYPES = {}
 
@@ -53,7 +44,7 @@ def get_unit_class_by_id(unit_id, unit_model=None):
             print "ERROR: Unit type not found for MilitaryUnit obj #%s!" % unit_model.id
         print "Attempted Unit class ID was %s. Not found, using Infantry as fallback." % unit_id
         traceback.print_exc()
-        cls = Infantry
+        cls = unit_constants.INFANTRY
     return cls
 
 
@@ -83,11 +74,27 @@ def type_from_str(name_str):
     Returns:
         int
     """
+    cls = cls_from_str(name_str)
+    if cls:
+        return cls.id
+    
+    
+def cls_from_str(name_str):
+    """
+    Gets class of unit type from a string
+
+        Helper function for end-users entering the name of a unit type
+        and retrieving the class that contains stats for that unit type.
+    Args:
+        name_str:
+
+    Returns:
+        UnitStats subclass instance
+    """
     name_str = name_str.lower()
     for cls in _UNIT_TYPES.values():
         if cls.name.lower() == name_str:
-            return cls.id
-    
+            return cls
 
 @register_unit
 class UnitStats(PositionActor):
@@ -162,7 +169,7 @@ class UnitStats(PositionActor):
             self.morale = 0
             self.level = 0
             self.equipment = 0
-            self.type = INFANTRY
+            self.type = unit_constants.INFANTRY
             self.quantity = 1
             self.starting_quantity = 1
             self.dbobj = None
@@ -332,7 +339,7 @@ class UnitStats(PositionActor):
 
 @register_unit
 class Infantry(UnitStats):
-    id = INFANTRY
+    id = unit_constants.INFANTRY
     name = "Infantry"
     melee_damage = 3
     storm_damage = 3
@@ -344,7 +351,7 @@ class Infantry(UnitStats):
 
 @register_unit
 class Pike(UnitStats):
-    id = PIKE
+    id = unit_constants.PIKE
     name = "Pike"
     silver_upkeep = 15
     melee_damage = 5
@@ -357,7 +364,7 @@ class Pike(UnitStats):
 
 @register_unit
 class Cavalry(UnitStats):
-    id = CAVALRY
+    id = unit_constants.CAVALRY
     name = "Cavalry"
     silver_upkeep = 30
     melee_damage = 10
@@ -370,7 +377,7 @@ class Cavalry(UnitStats):
 
 @register_unit
 class Archers(UnitStats):
-    id = ARCHERS
+    id = unit_constants.ARCHERS
     name = "Archers"
     silver_upkeep = 20
     melee_damage = 1
@@ -386,7 +393,7 @@ class Archers(UnitStats):
 
 @register_unit
 class Longship(UnitStats):
-    id = LONGSHIP
+    id = unit_constants.LONGSHIP
     name = "Longships"
     silver_upkeep = 150
     food_upkeep = 20
@@ -401,7 +408,7 @@ class Longship(UnitStats):
 
 @register_unit
 class SiegeWeapon(UnitStats):
-    id = SIEGE_WEAPON
+    id = unit_constants.SIEGE_WEAPON
     name = "Siege Weapon"
     silver_upkeep = 1000
     food_upkeep = 20
@@ -417,7 +424,7 @@ class SiegeWeapon(UnitStats):
 
 @register_unit
 class Galley(UnitStats):
-    id = GALLEY
+    id = unit_constants.GALLEY
     name = "Galleys"
     silver_upkeep = 500
     food_upkeep = 60
@@ -432,7 +439,7 @@ class Galley(UnitStats):
 
 @register_unit
 class Dromond(UnitStats):
-    id = DROMOND
+    id = unit_constants.DROMOND
     name = "Dromonds"
     silver_upkeep = 2000
     food_upkeep = 300

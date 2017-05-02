@@ -54,7 +54,7 @@ that currently have a ruler designated will change on a weekly basis.
 from django.db import models
 from django.db.models import Q
 from django.conf import settings
-from . import unit_types
+from . import unit_types, unit_constants
 from .reports import WeeklyReport
 from .explore import Exploration
 from .battle import Battle
@@ -64,6 +64,7 @@ from evennia.locks.lockhandler import LockHandler
 from evennia.utils.utils import lazy_property
 import traceback
 from django.core.urlresolvers import reverse
+from typeclasses.npcs import npc_types
 
 # Dominion constants
 BASE_WORKER_COST = 0.10
@@ -2030,6 +2031,43 @@ class Organization(models.Model):
         Inform.bulk_inform(players, text=text, category=category)
 
 
+class UnitTypeInfo(models.Model):
+    INFANTRY = unit_constants.INFANTRY
+    PIKE = unit_constants.PIKE
+    CAVALRY = unit_constants.CAVALRY
+    ARCHERS = unit_constants.ARCHERS
+    LONGSHIP = unit_constants.LONGSHIP
+    SIEGE_WEAPON = unit_constants.SIEGE_WEAPON
+    GALLEY = unit_constants.GALLEY
+    DROMOND = unit_constants.DROMOND
+    
+    UNIT_CHOICES = (
+        (INFANTRY, 'Infantry'),
+        (PIKE, 'Pike'),
+        (CAVALRY, 'Cavalry'),
+        (ARCHERS, 'Archers'),
+        (LONGSHIP, 'Longship'),
+        (SIEGE_WEAPON, 'Siege Weapon'),
+        (GALLEY, 'Galley'),
+        (DROMOND, 'Dromond'),
+        )
+    # type will be used to derive units and their stats elsewhere 
+    unit_type = models.PositiveSmallIntegerField(choices=UNIT_CHOICES, default=0, blank=0)
+    
+    class Meta:
+        abstract = True
+    
+
+class OrgUnitModifiers(UnitTypeInfo):
+    org = models.ForeignKey('Organization', related_name="unit_mods", db_index=True)
+    mod = models.SmallIntegerField(default=0, blank=0)
+    name = models.CharField(blank=True, null=True, max_length=80)
+    
+    class Meta:
+        """Define Django meta options"""
+        verbose_name_plural = "Unit Modifiers"
+    
+
 class ClueForOrg(models.Model):
     clue = models.ForeignKey('character.Clue', related_name="org_discoveries", db_index=True)
     org = models.ForeignKey('Organization', related_name="clue_discoveries", db_index=True)
@@ -2048,6 +2086,21 @@ class Agent(models.Model):
     that will be defined elsewhere in an agent file. ObjectDB points to Agent
     as a foreignkey, and we access that set through self.agent_objects. 
     """
+    GUARD = npc_types.GUARD
+    THUG = npc_types.THUG
+    SPY = npc_types.SPY
+    ASSISTANT = npc_types.ASSISTANT
+    CHAMPION = npc_types.CHAMPION
+    ANIMAL = npc_types.ANIMAL
+    SMALL_ANIMAL = npc_types.SMALL_ANIMAL
+    NPC_TYPE_CHOICES = (
+        (GUARD, 'Guard'),
+        (THUG, 'Thug'),
+        (SPY, 'Spy'),
+        (ASSISTANT, 'Assistant'),
+        (CHAMPION, 'Champion'),
+        (ANIMAL, 'Animal'),
+        (SMALL_ANIMAL, 'Small Animal'))
     name = models.CharField(blank=True, null=True, max_length=80)
     desc = models.TextField(blank=True, null=True)
     cost_per_guard = models.PositiveSmallIntegerField(default=0, blank=0)
@@ -2056,7 +2109,7 @@ class Agent(models.Model):
     # level of our agents
     quality = models.PositiveSmallIntegerField(default=0, blank=0)
     # numerical type of our agents. 0==regular guards, 1==spies, etc
-    type = models.PositiveSmallIntegerField(default=0, blank=0)
+    type = models.PositiveSmallIntegerField(choices=NPC_TYPE_CHOICES, default=GUARD, blank=GUARD)
     # assetowner, so either a player or an organization
     owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="agents", blank=True, null=True,
                               db_index=True)
@@ -2703,7 +2756,7 @@ class Orders(models.Model):
         self.save()
     
 
-class MilitaryUnit(models.Model):
+class MilitaryUnit(UnitTypeInfo):
     """
     An individual unit belonging to an army for a domain. Each unit can have its own
     commander, while the overall army has its own commander. It is assumed that every
@@ -2713,12 +2766,11 @@ class MilitaryUnit(models.Model):
     only need to store modifiers for a unit that are specific to it, modifiers it has
     accured.
     """
-    commander = models.ForeignKey("Member", on_delete=models.SET_NULL, related_name="units", blank=True, null=True)
+    origin = models.ForeignKey('Organization', related_name='units', blank=True, null=True, db_index=True)
+    commander = models.ForeignKey("PlayerOrNpc", on_delete=models.SET_NULL, related_name="units", blank=True, null=True)
     army = models.ForeignKey("Army", related_name="units", blank=True, null=True, db_index=True)
     orders = models.ForeignKey("Orders", related_name="units", on_delete=models.SET_NULL, blank=True, null=True,
                                db_index=True)
-    # type will be used to derive units and their stats elsewhere 
-    unit_type = models.PositiveSmallIntegerField(default=0, blank=0)
     quantity = models.PositiveSmallIntegerField(default=1, blank=1)
     level = models.PositiveSmallIntegerField(default=0, blank=0)
     equipment = models.PositiveSmallIntegerField(default=0, blank=0)
