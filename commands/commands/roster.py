@@ -1495,7 +1495,7 @@ class CmdComment(MuxPlayerCommand):
             comment_list = []
             for comment in char.messages.comments.values():
                 comment_list.extend(comment)
-            comment_list.sort(key=lambda x: x.db_date_sent, reverse=True)
+            comment_list.sort(key=lambda x: x.db_date_created, reverse=True)
             caller.db.new_comments = False
             if not comment_list:
                 caller.msg("No recent comments recorded.")
