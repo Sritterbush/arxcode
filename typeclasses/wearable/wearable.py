@@ -160,7 +160,10 @@ class Wearable(Object):
         recipe = self.recipe
         if not recipe:
             return self.db.slot_limit or 0
-        return recipe.resultsdict.get("slot_limit", 1)
+        try:
+            return int(recipe.resultsdict.get("slot_limit", 1))
+        except (TypeError, ValueError):
+            return 1
 
 
 # noinspection PyMethodMayBeStatic
