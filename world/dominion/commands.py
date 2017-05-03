@@ -1458,7 +1458,7 @@ class CmdArmy(MuxPlayerCommand):
     key = "@army"
     locks = "cmd:all()"
     help_category = "Dominion"
-    valid_units = ""
+    unit_switches = ("combine", "split", "discharge", "transfer", "commander")
 
     def display_armies(self):
         caller = self.caller
@@ -1487,7 +1487,18 @@ class CmdArmy(MuxPlayerCommand):
             self.msg("No armies found by that name or number.")
             return
         return army
-        
+    
+    def find_unit(self, args):
+        try:
+            unit = MilitaryUnit.objects.get(id=int(args))
+        except (ValueError, TypeError, MilitaryUnit.DoesNotExist):
+            self.msg("No units found by that number.")
+            return
+        if not unit.army.can_change(self.caller):
+            self.msg("You do not have permission to change that unit.")
+            return
+        return unit
+    
     def func(self):
         caller = self.caller
         if not self.args:
@@ -1497,8 +1508,13 @@ class CmdArmy(MuxPlayerCommand):
             army = self.find_army(self.lhs)
             if not army:
                 return
+            if not army.can_view(caller):
+                self.msg("You do not have permission to see that army's details.")
+                return
             caller.msg(army.display())
             return
+        if "propaganda" in self.switches:
+            pass
         if "create" in self.switches:
             # get owner for army from self.lhs
             try:
@@ -1517,41 +1533,59 @@ class CmdArmy(MuxPlayerCommand):
             org.assets.armies.create(name=name)
             self.msg("Army created.")
             return
-        if "dissolve" in self.switches:        
-            army = self.find_army(self.lhs)
-            if not army:
+        # checks if the switch is one requiring unit permissions
+        if set(self.switches) & set(self.unit_switches):
+            unit = self.find_unit(self.lhs)
+            if not unit:
                 return
-            if not army.can_change(caller):
-                return
+            if "combine" in self.switches:
+                pass
+            if "split" in self.switches:
+                pass
+            if "discharge" in self.switches:
+                pass
+            if "transfer" in self.switches:
+                pass
+            if "commander" in self.switches:
+                pass
+        army = self.find_army(self.lhs)
+        if not army:
+            return
+        if "morale"
+            pass
+        if not army.can_change(caller):
+            return
+        if "dissolve" in self.switches:       
             if army.units.all():
                 self.msg("Army still has units. Must transfer or disband them.")
                 return
             army.delete()
             self.msg("Army deleted.")
             return
-        if "rename" in self.switches:
-            pass
-        if "desc" in self.switches:
-            pass
+        if "rename" in self.switches or "desc" in self.switches:
+            if not self.rhs:
+                self.msg ("Change it how?")
+                return
+            if "desc" in self.switches:
+                army.desc = self.rhs
+            else:    
+                if len(words) > 80:
+                    self.msg("Too long to be a name.")
+                    return
+                army.name = self.rhs
+            army.save()
+            self.msg(army.display())
+            return
         if "hire" in self.switches:
             pass
-        if "combine" in self.switches:
-            pass
-        if "split" in self.switches:
-            pass
-        if "discharge" in self.switches:
-            pass
-        if "transfer" in self.switches:
-            pass
         if "general" in self.switches:
-            pass
-        if "commander" in self.switches:
             pass
         if "grant" in self.switches:
             pass
         if "recall" in self.switches:
             pass
-
+        
+        
 class CmdOrganization(MuxPlayerCommand):
     """
     @org

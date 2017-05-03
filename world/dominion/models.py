@@ -2315,8 +2315,8 @@ class Army(models.Model):
     land = models.ForeignKey("Land", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True)
     # if the army is located as a castle garrison
     castle = models.ForeignKey("Castle", on_delete=models.SET_NULL, related_name="garrison", blank=True, null=True)
-    # The overall commander of this army. Units under his command may have their own commanders
-    commander = models.ForeignKey("PlayerOrNpc", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
+    # The field leader of this army. Units under his command may have their own commanders
+    general = models.ForeignKey("PlayerOrNpc", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
                                   db_index=True)
     # an owner who may be the same person who owns the domain. Or not, in the case of mercs, sent reinforcements, etc
     owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
@@ -2347,7 +2347,7 @@ class Army(models.Model):
         owner = self.owner
         if owner:
             owner = owner.owner
-        msg = "{wName{n: %s {wCommander{n: %s\n" % (self.name, self.commander)
+        msg = "{wName{n: %s {wGeneral{n: %s\n" % (self.name, self.general)
         msg += "{wDomain{n: %s {wLocation{n: %s\n" % (self.domain, self.land)
         msg += "{wOwner{n: %s\n" % owner
         msg += "{wDescription{n: %s\n" % self.desc
@@ -2379,13 +2379,27 @@ class Army(models.Model):
         # if we can change the army, we can also order it
         if self.can_change(player):
             return True
-        # check if we're appointed as Commander of this army
-        if player.Dominion == self.commander:
+        # check if we're appointed as general of this army
+        if player.Dominion == self.general:
             return True
         # check player's access because temp owner can also be an org
         if self.temp_owner.access(player, "army"):
             return True
         return False
+    
+    def can_view(self, player):
+        """
+        Checks if given player has permission to view Army details.
+        """
+        # if we can order army, we can also view it
+        if self.can_order(player):
+            return True
+        # checks if we're a unit commander
+        if player.Dominion.units.filter(army=self):
+            return True
+        # checks if we're part of the org the army belongs to
+        if player.Dominion.memberships.filter(Q(deguilded=False) & (Q(organization__assets=self.owner) | Q(organization__assets=self.temp_owner)))
+            return True
     
     @property
     def pending_orders(self):
@@ -2554,7 +2568,7 @@ class Army(models.Model):
             if not e_armies:
                 # No opposition. We win without a fight
                 return True
-            atkpc = self.commander
+            atkpc = self.general
             defpc = None
             if self.domain and self.domain.ruler and self.domain.ruler.castellan:
                 atkpc = self.domain.ruler.castellan
@@ -2592,7 +2606,7 @@ class Army(models.Model):
         Conquers a domain. If the army has a domain, that domain will
         absorb the target if they're bordering, or just change the rulers
         while keeping it intact otherwise. If the army has no domain, then
-        the commander will be set as the ruler of the domain.
+        the general will be set as the ruler of the domain.
         """
         bordering = None
         ruler = None
@@ -2609,11 +2623,11 @@ class Army(models.Model):
         for castle in target.castles.all():
             castle.garrison.clear()
         if not self.domain:
-            # The commander becomes the ruler
+            # The general becomes the ruler
             if self.owner:
                 castellan = None
-                if self.commander:
-                    castellan = self.commander.player
+                if self.general:
+                    castellan = self.general.player
                 ruler_list = Ruler.objects.filter(house_id=self.owner)
                 if ruler_list:
                     ruler = ruler_list[0]
@@ -2759,7 +2773,7 @@ class Orders(models.Model):
 class MilitaryUnit(UnitTypeInfo):
     """
     An individual unit belonging to an army for a domain. Each unit can have its own
-    commander, while the overall army has its own commander. It is assumed that every
+    commander, while the overall army has its general. It is assumed that every
     unit in an army is in the same space, and will all respond to the same orders.
 
     Most combat stats for a unit will be generated at runtime based on its 'type'. We'll
