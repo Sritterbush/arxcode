@@ -276,7 +276,7 @@ class CmdBuildRoom(CmdDig):
             caller.msg("No one is currently allowed to build a house from here.")
             return
         expansions = loc.db.expansions or {}
-        max_expansions = loc.db.expansion_cap or 1
+        max_expansions = loc.db.expansion_cap or 20
         assets = None
         # base cost = 1000
         dompc = caller.db.player_ob.Dominion

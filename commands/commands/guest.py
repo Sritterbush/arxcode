@@ -116,6 +116,9 @@ def setup_voc(char, args):
 
 STAT_POINTS = 12
 SKILL_POINTS = 20
+CONCEPT_MAX_LEN = 30
+DESC_MIN_LEN = 300
+DESC_MAX_LEN = 1400
 
 XP_BONUS_BY_SRANK = {2: 0,
                      3: 20,
@@ -779,8 +782,17 @@ class CmdGuestAddInput(MuxPlayerCommand):
             bonus = XP_BONUS_BY_SRANK.get(args, 0)
             caller.msg("For starting at a social rank of " +
                        "%s, you will receive %s bonus experience after character creation." % (args, bonus))
+        if 'personality' in switches:
+            if not (DESC_MAX_LEN > len(args) > DESC_MIN_LEN):
+                caller.msg("Personality length must be between %s and %s characters." % (DESC_MIN_LEN, DESC_MAX_LEN))
+                return
         if 'desc' in switches:
             # desc is no longer an attribute, so it is a special case
+            if not (DESC_MAX_LEN > len(args) > DESC_MIN_LEN):
+                caller.msg("Description length must be between %s and %s characters." % (DESC_MIN_LEN, DESC_MAX_LEN))
+                return
+            else:
+                print "len args is %s, bool is %s" % (len(args), (DESC_MAX_LEN > len(args) < DESC_MIN_LEN))
             char.desc = args
             char.save()
         else:
