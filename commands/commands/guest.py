@@ -487,66 +487,49 @@ class CmdGuestCharCreate(MuxPlayerCommand):
         player = self.caller
         new_character = None
         # see if we've already defined email with @add/email
-        email = player.ndb.email
-        args = self.lhs
-        if email:
-            args = email
-        if not args:
+        email = player.ndb.email or self.lhs.lower()
+        if not utils.validate_email_address(email):
             self.msg("\n{w@charcreate{n expects an email address to be entered with it. " +
                      "This allows you to resume a previous unfinished character by " +
                      "entering the same email address, and for your character to be " +
                      "approved while offline, with the password emailed to the address " +
-                     "provided. If you prefer, you can just enter 'none', and wait " +
-                     "for an online GM to approve you manually.")
-            return
-        email = args.lower()
-        if email != 'none' and not utils.validate_email_address(email):
-            self.msg("\n{w@charcreate{n requires either a valid email address or '{wnone{n' as its arguments.\n" +
-                     "For example, '{w@charcreate name@domain.com{n' or '{w@charcreate none{n'.\n" +
-                     "If an email address is supplied, it will be used for approving your character.\n" +
-                     "If you enter '{wnone{n', then you will need to wait online until a GM approves your\n" +
-                     "character.")
+                     "provided.")
             return
         # we check email address to see if it matches an existing unfinished character
-        if email != 'none':
-            from web.character.models import RosterEntry
+        from web.character.models import RosterEntry
+        try:
             try:
+                entry = RosterEntry.objects.get(roster__name="Incomplete",
+                                                player__email=email)
+                self.msg("{wFound an unfinished character with the provided email address. "
+                         "Resuming that session.{n")
+            except RosterEntry.MultipleObjectsReturned:
+                entries = RosterEntry.objects.filter(roster__name="Incomplete",
+                                                     player__email=email).order_by('player__date_joined')
+                if not self.rhs:
+                    self.msg("Found %s incomplete characters with that email address." % entries.count())
+                    self.msg("Please @charcreate <email>=<number> to selection one, where <number> is "
+                             "a number from 1 to %s, where 1 is the oldest character." % entries.count())
+                    return
                 try:
-                    entry = RosterEntry.objects.get(roster__name="Incomplete",
-                                                    player__email=email)
-                    self.msg("{wFound an unfinished character with the provided email address. "
-                             "Resuming that session.{n")
-                except RosterEntry.MultipleObjectsReturned:
-                    entries = RosterEntry.objects.filter(roster__name="Incomplete",
-                                                         player__email=email).order_by('player__date_joined')
-                    if not self.rhs:
-                        self.msg("Found %s incomplete characters with that email address." % entries.count())
-                        self.msg("Please @charcreate <email>=<number> to selection one, where <number> is "
-                                 "a number from 1 to %s, where 1 is the oldest character." % entries.count())
-                        return
-                    try:
-                        index = int(self.rhs) - 1
-                        entry = entries[index]
-                    except (ValueError, TypeError, IndexError):
-                        self.msg("Please select a number from 1 to "
-                                 "%s, where 1 is the oldest character." % entries.count())
-                        return
-                    self.msg("Choosing entry number %s out of the ones for that email." % index)
-                new_character = entry.character
-                stage = new_character.db.player_ob.db.tutorial_stage
-                if not stage:
-                    stage = 1
-                player.db.char = new_character
-                player.db.tutorial_stage = stage
-                player.ndb.email = email
-                player.execute_cmd("look")
-                return
-            except RosterEntry.DoesNotExist:
-                self.msg("No existing incomplete character found with that email.")
-        else:
-            # set it to our default value if player puts in 'none'
-            email = 'dummy@dummy.com'
-            # search for unfinished characters
+                    index = int(self.rhs) - 1
+                    entry = entries[index]
+                except (ValueError, TypeError, IndexError):
+                    self.msg("Please select a number from 1 to "
+                             "%s, where 1 is the oldest character." % entries.count())
+                    return
+                self.msg("Choosing entry number %s out of the ones for that email." % index)
+            new_character = entry.character
+            stage = new_character.db.player_ob.db.tutorial_stage
+            if not stage:
+                stage = 1
+            player.db.char = new_character
+            player.db.tutorial_stage = stage
+            player.ndb.email = email
+            player.execute_cmd("look")
+            return
+        except RosterEntry.DoesNotExist:
+            self.msg("No existing incomplete character found with that email.")
         if not new_character:
             # create the character
             try:
