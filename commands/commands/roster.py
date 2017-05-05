@@ -1488,6 +1488,8 @@ class CmdComment(MuxPlayerCommand):
                 except AttributeError:
                     caller.msg("No character found by that name.")
                     return
+            if char == caller_char:
+                caller.attributes.remove("new_comments")
             caller.msg("{wFive most recent comments on {c%s{n:" % char)
             if not char.messages.comments:
                 caller.msg("No comments found.")
@@ -1496,7 +1498,6 @@ class CmdComment(MuxPlayerCommand):
             for comment in char.messages.comments.values():
                 comment_list.extend(comment)
             comment_list.sort(key=lambda x: x.db_date_created, reverse=True)
-            caller.db.new_comments = False
             if not comment_list:
                 caller.msg("No recent comments recorded.")
                 return
