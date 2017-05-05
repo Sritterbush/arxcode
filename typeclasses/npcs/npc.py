@@ -661,7 +661,7 @@ class AgentMixin(object):
 class Retainer(AgentMixin, Npc):
 
     def display(self):
-        msg = "{wAssigned to:{n %s " % self.db.guarding
+        msg = "{wAssigned to:{n %s " % self.db.guarding and self.db.guarding.key
         msg += "{wLocation:{n %s\n" % (self.location or self.db.docked or "Home Barracks")
         return msg
 

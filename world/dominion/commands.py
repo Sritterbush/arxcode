@@ -1960,7 +1960,11 @@ class CmdFamily(MuxPlayerCommand):
             player = caller
             show_private = True
         else:
-            player = caller.search(self.args, quiet=True)
+            from typeclasses.players import Player
+            try:
+                player = Player.objects.get(username__iexact=self.args)
+            except (Player.DoesNotExist, Player.MultipleObjectsReturned):
+                player = None
             show_private = False
         try:
             if not player:
