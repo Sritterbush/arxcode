@@ -178,7 +178,7 @@ def do_crafting_roll(char, recipe, diffmod=0, diffmult=1.0, room=None):
     except AttributeError:
         pass
     return do_dice_check(char, stat=stat, difficulty=diff, skill=skill, bonus_dice=ability, quiet=False,
-                         announce_room=room, can_crit=can_crit)
+                         announce_room=room, can_crit=can_crit, use_real_name=True)
 
 
 def get_difficulty_mod(recipe, money=0, action_points=0, ability=0):

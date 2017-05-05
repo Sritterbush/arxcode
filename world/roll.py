@@ -21,7 +21,7 @@ class Roll(object):
     def __init__(self, caller=None, stat=None, skill=None, difficulty=15, stat_list=None,
                  skill_list=None, skill_keep=True, stat_keep=False, quiet=True, announce_room=None,
                  keep_override=None, bonus_dice=0, divisor=1, average_lists=False, can_crit=True,
-                 average_stat_list=False, average_skill_list=False, announce_values=False):
+                 average_stat_list=False, average_skill_list=False, announce_values=False, use_real_name=False):
         self.character = caller
         self.difficulty = difficulty
         self.skill_keep = skill_keep
@@ -65,7 +65,10 @@ class Roll(object):
                 self.skills[someskill] = skills.get(someskill, 0)
             self.bonus_crit_chance = caller.db.bonus_crit_chance or 0
             self.bonus_crit_mult = caller.db.bonus_crit_mult or 0
-            self.character_name = caller.name
+            if use_real_name:
+                self.character_name = caller.key
+            else:
+                self.character_name = caller.name
 
     def roll(self):
         """

@@ -76,7 +76,7 @@ def get_partial_match(args, s_type):
 def do_dice_check(caller, stat=None, skill=None, difficulty=DIFF_DEFAULT, stat_list=None,
                   skill_list=None, skill_keep=True, stat_keep=False, quiet=True, announce_room=None,
                   keep_override=None, bonus_dice=0, divisor=1, average_lists=False, can_crit=True,
-                  average_stat_list=False, average_skill_list=False):
+                  average_stat_list=False, average_skill_list=False, use_real_name=False):
     """
     Sending stuff to Roll class for dice checks; assumed to already be run through get_partial_match.
     """
@@ -84,7 +84,7 @@ def do_dice_check(caller, stat=None, skill=None, difficulty=DIFF_DEFAULT, stat_l
                 skill_list=skill_list, skill_keep=skill_keep, stat_keep=stat_keep, quiet=quiet,
                 announce_room=announce_room, keep_override=keep_override, bonus_dice=bonus_dice,
                 divisor=divisor, average_lists=average_lists, can_crit=can_crit,
-                average_stat_list=average_stat_list, average_skill_list=average_skill_list)
+                average_stat_list=average_stat_list, average_skill_list=average_skill_list, use_real_name=use_real_name)
     caller.ndb.last_roll = roll
     roll.roll()
     return roll.result
