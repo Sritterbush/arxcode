@@ -1442,6 +1442,7 @@ class CmdArmy(MuxPlayerCommand):
         @army/transfer <unit ID>=<new army>
         @army/general <army>=<character>
         @army/commander <unit ID>=<character>
+        @army/resign
         @army/grant <army>=<character or org>
         @army/recall <army>
         @army/propaganda <character>=<action points>
@@ -1449,8 +1450,8 @@ class CmdArmy(MuxPlayerCommand):
         
     View details of your army or an army-group therein. Create or dissolve 
     smaller army-groups using the main army's units. Hire, discharge, combine, 
-    split or transfer units between army-groups. Assign characters to be general 
-    of each army-group, and commanders of units. Grant allows a character or org 
+    split or transfer units between army-groups. Assign a character to be general 
+    of an army-group or commander of a unit. Grant allows a character or org 
     to give orders to an army-group until it is recalled. When hiring new units,
     asking someone to generate propaganda first bestows an XP bonus. Keeping
     an army's morale high is essential.
@@ -1498,9 +1499,36 @@ class CmdArmy(MuxPlayerCommand):
             self.msg("You do not have permission to change that unit.")
             return
         return unit
+        
+    def get_commander(self, args):
+        """Fetches a player if available to lead
+        
+        Looks for a player and checks to see if they're already general of an
+        army or commander of a unit. If they are, sends caller a message and
+        returns. Otherwise passes the player onward.
+        
+        Args:
+            args: a str that is hopefully a player
+        
+        Returns:
+            A player object
+        """
+        commander = self.caller.search(args)
+        if not commander:
+            return
+        if commander.Dominion.armies.exists() or commander.Dominion.units.exists():
+            self.msg("%s is already in charge of a military force." % commander)
+            return
+        return commander
     
     def func(self):
         caller = self.caller
+        if "resign" in self.switches:
+            # clear() disassociates related objects. The More You Know.
+            self.caller.Dominion.armies.all().clear()
+            self.caller.Dominion.units.all().clear()
+            self.msg("You have resigned any military command you held.")
+            return
         if not self.args:
             self.display_armies()
             return
@@ -1547,20 +1575,27 @@ class CmdArmy(MuxPlayerCommand):
             if "transfer" in self.switches:
                 pass
             if "commander" in self.switches:
-                pass
+                if not self.rhs:
+                    self.msg("You remove the commander from unit %s" % unit.id)
+                    unit.change_commander(self.caller, None)
+                    return
+                self.get_commander(self.rhs)
+                self.msg("You set %s to command unit %s." % (commander, unit.id))
+                unit.change_commander(self.caller, commander)
+                return
         army = self.find_army(self.lhs)
         if not army:
             return
-        if "morale"
+        if "morale":
             pass
         if not army.can_change(caller):
             return
         if "dissolve" in self.switches:       
             if army.units.all():
-                self.msg("Army still has units. Must transfer or disband them.")
+                self.msg("Army still has units. Must transfer or discharge them.")
                 return
             army.delete()
-            self.msg("Army deleted.")
+            self.msg("Army disbanded.")
             return
         if "rename" in self.switches or "desc" in self.switches:
             if not self.rhs:
@@ -1579,7 +1614,14 @@ class CmdArmy(MuxPlayerCommand):
         if "hire" in self.switches:
             pass
         if "general" in self.switches:
-            pass
+            if not self.rhs:
+                self.msg("You remove the general from army: %s" % army)
+                army.change_general(self.caller, None)
+                return
+            general = self.get_commander(self.rhs)
+            self.msg("You set %s to be the general of army: %s." % (general, army))
+            unit.change_general(self.caller, general)
+            return
         if "grant" in self.switches:
             pass
         if "recall" in self.switches:

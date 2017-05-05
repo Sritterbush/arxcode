@@ -2398,7 +2398,8 @@ class Army(models.Model):
         if player.Dominion.units.filter(army=self):
             return True
         # checks if we're part of the org the army belongs to
-        if player.Dominion.memberships.filter(Q(deguilded=False) & (Q(organization__assets=self.owner) | Q(organization__assets=self.temp_owner)))
+        if player.Dominion.memberships.filter(Q(deguilded=False) & (
+            Q(organization__assets=self.owner) | Q(organization__assets=self.temp_owner)))
             return True
     
     @property
@@ -2438,6 +2439,27 @@ class Army(models.Model):
         if len(qs) < 1:
             return None
         return qs[0]
+    
+    def change_general(self, caller, general):
+        """Change an army's general. Informs old and new generals of change.
+        
+        Sets an Army's general to new character or to None and informs the old
+        general of the change, if they exist.
+        
+        Args:
+            caller: a player object
+            general: a player object
+        """
+        old_general = self.general
+        if old_general:
+            old_general.inform("%s has relieved you from duty as general of army: %s." % (caller, self))
+        if general:
+            self.general = general.Dominion
+            self.save()
+            general.inform("%s has set you as the general of army: %s." % (caller, self))
+            return
+        self.general = None
+        self.save()
     
     def get_food_consumption(self):
         """
@@ -2801,6 +2823,27 @@ class MilitaryUnit(UnitTypeInfo):
         msg = "{wType{n: %-16s {wAmount{n: %-7s" % (self.type.capitalize(), self.quantity)
         msg += " {wLevel{n: %s {wEquipment{n: %s {wXP{n: %s" % (self.level, self.equipment, self.xp)
         return msg
+    
+    def change_commander(self, caller, commander):
+        """Informs commanders of a change, if they exist.
+        
+        Sets a unit's commander to new character or to None and informs the old
+        commander of the change.
+        
+        Args:
+            caller: a player object
+            commander: a player object
+        """
+        old_commander = self.commander
+        if old_commander:
+            old_commander.inform("%s has relieved you of command of unit %s." % (caller, self.id))
+        if commander:
+            self.commander = commander.Dominion
+            self.save()
+            commander.inform("%s has set you in command of unit %s." % (caller, self.id))
+            return
+        self.commander = None
+        self.save()
     
     def decimate(self, amount=0.10):
         """
