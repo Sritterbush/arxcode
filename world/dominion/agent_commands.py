@@ -475,7 +475,7 @@ class CmdRetainers(MuxPlayerCommand):
             return
         rhs = self.rhs
         if category == "level" and not rhs:
-            rhs = agent.typename
+            rhs = agent.type_str
         if not rhs:
             if category == "ability":
                 self.msg("Ability must be one of the following: %s" % ", ".join(agent.buyable_abilities))
@@ -568,7 +568,7 @@ class CmdRetainers(MuxPlayerCommand):
         Determines the xp cost, resource cost, and type of resources based
         on the type of attribute we're trying to raise.
         """
-        atype = agent.typename
+        atype = agent.type_str
         xpcost = 0
         rescost = 0
         restype = "military"
@@ -677,7 +677,7 @@ class CmdRetainers(MuxPlayerCommand):
             return
         # all checks passed, increase it and raise quality if it was our main category
         agent.dbobj.attributes.add(attrname, current + 1)
-        if agent.typename in attrname:
+        if agent.type_str in attrname:
             agent.quality += 1
             agent.save()
         self.msg("You have raised %s to %s" % (attrname, current + 1))

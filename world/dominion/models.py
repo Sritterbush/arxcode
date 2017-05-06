@@ -2074,9 +2074,9 @@ class Agent(SharedMemoryModel):
         return self.cost_per_guard * self.quantity
     cost = property(_get_cost)
 
-    def _get_type_name(self):
+    @property
+    def type_str(self):
         return self.npcs.get_type_name(self.type)
-    typename = property(_get_type_name)
 
     # total of all agent obs + our reserve quantity
     def _get_total_num(self):
@@ -2088,7 +2088,7 @@ class Agent(SharedMemoryModel):
     active = property(_get_active)
 
     def __unicode__(self):
-        name = self.name or self.typename
+        name = self.name or self.type_str
         if self.unique or self.quantity == 1:
             return name
         return "%s %s" % (self.quantity, self.name)
@@ -2098,7 +2098,7 @@ class Agent(SharedMemoryModel):
 
     def display(self, show_assignments=True):
         msg = "\n\n{wID{n: %s {wName{n: %s {wType:{n %s" % (
-            self.id, self.name, self.typename)
+            self.id, self.name, self.type_str)
         if not self.unique:
             msg += " {wUnassigned:{n %s\n" % self.quantity
         else:
@@ -2156,7 +2156,7 @@ class Agent(SharedMemoryModel):
 
     def get_attr_maximum(self, attr, category):
         if category == "level":
-            if self.typename in attr:
+            if self.type_str in attr:
                 attr_max = 6
             else:
                 attr_max = self.quality - 1
