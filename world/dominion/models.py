@@ -56,7 +56,6 @@ from django.db.models import Q
 from django.conf import settings
 from . import unit_types, unit_constants
 from .reports import WeeklyReport
-from .explore import Exploration
 from .battle import Battle
 from .agenthandler import AgentHandler
 from server.utils.arx_utils import get_week
@@ -2322,15 +2321,16 @@ class Army(models.Model):
     castle = models.ForeignKey("Castle", on_delete=models.SET_NULL, related_name="garrison", blank=True, null=True)
     # The field leader of this army. Units under his command may have their own commanders
     general = models.ForeignKey("PlayerOrNpc", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
-                                  db_index=True)
+                                db_index=True)
     # an owner who may be the same person who owns the domain. Or not, in the case of mercs, sent reinforcements, etc
     owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
                               db_index=True)
     # Someone giving orders for now, like a mercenary group's current employer
-    temp_owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="loaned_armies", blank=True, null=True,
-                              db_index=True)
+    temp_owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="loaned_armies", blank=True,
+                                   null=True, db_index=True)
     # a relationship to self for smaller groups within the army
-    group = models.ForeignKey("self", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True, db_index=True)
+    group = models.ForeignKey("self", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
+                              db_index=True)
     # food we're carrying with us on transports or whatever
     stored_food = models.PositiveSmallIntegerField(default=0, blank=0)
     # whether the army is starving. 0 = not starving, 1 = starting to starve, 2 = troops dying/deserting
@@ -2404,7 +2404,7 @@ class Army(models.Model):
             return True
         # checks if we're part of the org the army belongs to
         if player.Dominion.memberships.filter(Q(deguilded=False) & (
-            Q(organization__assets=self.owner) | Q(organization__assets=self.temp_owner)))
+                    Q(organization__assets=self.owner) | Q(organization__assets=self.temp_owner))):
             return True
     
     @property
@@ -2580,9 +2580,9 @@ class Army(models.Model):
         #             self.domain = order.target_domain
         #         self.land = order.target_land
         #         self.save()
-        #     # to do : add to report here
-        #     if report:
-        #         print "Placeholder for army orders report"
+        # to do : add to report here
+        if report:
+            print "Placeholder for army orders report"
                 
     def do_battle(self, tdomain, week):
         """
@@ -2770,8 +2770,8 @@ class Orders(models.Model):
     # for travel and exploration
     target_land = models.ForeignKey("Land", related_name="orders", null=True, blank=True)
     # an individual's support for training, morale, equipment
-    target_character = models.ForeignKey("PlayerOrNpc", on_delete=models.SET_NULL, related_name="orders", blank=True, null=True,
-                                         db_index=True)
+    target_character = models.ForeignKey("PlayerOrNpc", on_delete=models.SET_NULL, related_name="orders", blank=True,
+                                         null=True, db_index=True)
     # if we're targeting a crisis action
     action = models.ForeignKey("CrisisAction", related_name="orders", null=True, blank=True, db_index=True)
     # if we're assisting another army's orders

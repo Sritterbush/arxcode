@@ -17,8 +17,8 @@ from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from . import setup_utils
 from .models import (Region, Domain, Land, PlayerOrNpc, Army, ClueForOrg,
-                     Castle, AssetOwner, Task,
-                     Ruler, Organization, Member, Orders, SphereOfInfluence, SupportUsed, AssignedTask,
+                     Castle, AssetOwner, Task, MilitaryUnit,
+                     Ruler, Organization, Member, SphereOfInfluence, SupportUsed, AssignedTask,
                      TaskSupporter, InfluenceCategory, Minister)
 from .unit_types import type_from_str
 
@@ -1579,7 +1579,7 @@ class CmdArmy(MuxPlayerCommand):
                     self.msg("You remove the commander from unit %s" % unit.id)
                     unit.change_commander(self.caller, None)
                     return
-                self.get_commander(self.rhs)
+                commander = self.get_commander(self.rhs)
                 self.msg("You set %s to command unit %s." % (commander, unit.id))
                 unit.change_commander(self.caller, commander)
                 return
@@ -1599,12 +1599,12 @@ class CmdArmy(MuxPlayerCommand):
             return
         if "rename" in self.switches or "desc" in self.switches:
             if not self.rhs:
-                self.msg ("Change it how?")
+                self.msg("Change it how?")
                 return
             if "desc" in self.switches:
                 army.desc = self.rhs
             else:    
-                if len(words) > 80:
+                if len(self.rhs) > 80:
                     self.msg("Too long to be a name.")
                     return
                 army.name = self.rhs
@@ -1620,7 +1620,7 @@ class CmdArmy(MuxPlayerCommand):
                 return
             general = self.get_commander(self.rhs)
             self.msg("You set %s to be the general of army: %s." % (general, army))
-            unit.change_general(self.caller, general)
+            army.change_general(self.caller, general)
             return
         if "grant" in self.switches:
             pass
