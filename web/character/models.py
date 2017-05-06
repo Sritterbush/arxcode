@@ -9,12 +9,13 @@ from datetime import datetime
 import random
 import traceback
 from world.stats_and_skills import do_dice_check
+from evennia.typeclasses.models import SharedMemoryModel
 
 # multiplier for how much higher ClueDiscovery.roll must be over Clue.rating to be discovered
 DISCO_MULT = 10
 
 
-class Photo(models.Model):
+class Photo(SharedMemoryModel):
     """
     This is the main model in the project. It holds a reference to cloudinary-stored
     image and contains some metadata about the image.
@@ -38,7 +39,7 @@ class Photo(models.Model):
         return "Photo <%s:%s>" % (self.title, public_id)
 
 
-class Roster(models.Model):
+class Roster(SharedMemoryModel):
     """
     A model for storing lists of entries of characters. Each RosterEntry has
     information on the Player and Character objects of that entry, information
@@ -66,7 +67,7 @@ class Roster(models.Model):
         return self.name or 'Unnamed Roster'
 
 
-class RosterEntry(models.Model):
+class RosterEntry(SharedMemoryModel):
     roster = models.ForeignKey('Roster', related_name='entries',
                                on_delete=models.SET_NULL, blank=True, null=True, db_index=True)
     player = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='roster', blank=True, null=True, unique=True)
@@ -166,7 +167,7 @@ class RosterEntry(models.Model):
         return disco
 
 
-class Story(models.Model):
+class Story(SharedMemoryModel):
     current_chapter = models.OneToOneField('Chapter', related_name='current_chapter_story',
                                            on_delete=models.SET_NULL, blank=True, null=True, db_index=True)
     name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
@@ -183,7 +184,7 @@ class Story(models.Model):
         return self.name or "Story object"
 
 
-class Chapter(models.Model):
+class Chapter(SharedMemoryModel):
     name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
     synopsis = models.TextField(blank=True, null=True)
     story = models.ForeignKey('Story', blank=True, null=True, db_index=True,
@@ -195,7 +196,7 @@ class Chapter(models.Model):
         return self.name or "Chapter object"
 
 
-class Episode(models.Model):
+class Episode(SharedMemoryModel):
     name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
     chapter = models.ForeignKey('Chapter', blank=True, null=True,
                                 on_delete=models.SET_NULL, related_name='episodes', db_index=True)
@@ -207,7 +208,7 @@ class Episode(models.Model):
         return self.name or "Episode object"
 
 
-class StoryEmit(models.Model):
+class StoryEmit(SharedMemoryModel):
     # chapter only used if we're not specifically attached to some episode
     chapter = models.ForeignKey('Chapter', blank=True, null=True,
                                 on_delete=models.SET_NULL, related_name='emits')
@@ -219,7 +220,7 @@ class StoryEmit(models.Model):
                                on_delete=models.SET_NULL, related_name='emits')
 
 
-class Milestone(models.Model):
+class Milestone(SharedMemoryModel):
     protagonist = models.ForeignKey('RosterEntry', related_name='milestones')
     name = models.CharField(blank=True, null=True, max_length=255)
     synopsis = models.TextField(blank=True, null=True)
@@ -235,7 +236,7 @@ class Milestone(models.Model):
     importance = models.PositiveSmallIntegerField(default=0, blank=0)
 
 
-class Participant(models.Model):
+class Participant(SharedMemoryModel):
     milestone = models.ForeignKey('Milestone', on_delete=models.CASCADE)
     character = models.ForeignKey('RosterEntry', on_delete=models.CASCADE)
     xp_earned = models.PositiveSmallIntegerField(default=0, blank=0)
@@ -243,7 +244,7 @@ class Participant(models.Model):
     gm_notes = models.TextField(blank=True, null=True)
 
 
-class Comment(models.Model):
+class Comment(SharedMemoryModel):
     poster = models.ForeignKey('RosterEntry', related_name='comments')
     target = models.ForeignKey('RosterEntry', related_name='comments_upon', blank=True, null=True)
     text = models.TextField(blank=True, null=True)
@@ -253,7 +254,7 @@ class Comment(models.Model):
     milestone = models.ForeignKey('Milestone', blank=True, null=True, related_name='comments')
 
 
-class PlayerAccount(models.Model):
+class PlayerAccount(SharedMemoryModel):
     email = models.EmailField(unique=True)
     karma = models.PositiveSmallIntegerField(default=0, blank=0)
     gm_notes = models.TextField(blank=True, null=True)
@@ -267,7 +268,7 @@ class PlayerAccount(models.Model):
         return sum(ob.xp_earned for ob in qs)
 
 
-class AccountHistory(models.Model):
+class AccountHistory(SharedMemoryModel):
     account = models.ForeignKey('PlayerAccount', db_index=True)
     entry = models.ForeignKey('RosterEntry', db_index=True)
     xp_earned = models.SmallIntegerField(default=0, blank=0)
@@ -285,7 +286,7 @@ class AccountHistory(models.Model):
         return "%s playing %s from %s to %s" % (self.account, self.entry, start, end)
 
 
-class RPScene(models.Model):
+class RPScene(SharedMemoryModel):
     """
     Player-uploaded, non-GM'd scenes, for them posting logs and the like.
     Log is saved in just a textfield rather than going through the trouble
@@ -321,7 +322,7 @@ class RPScene(models.Model):
         return self.locks.check(accessing_obj, access_type=access_type, default=default)
 
 
-class Mystery(models.Model):
+class Mystery(SharedMemoryModel):
     name = models.CharField(max_length=255, db_index=True)
     desc = models.TextField("Description", help_text="Description of the mystery given to the player " +
                                                      "when fully revealed",
@@ -338,7 +339,7 @@ class Mystery(models.Model):
         return self.name
 
 
-class Revelation(models.Model):
+class Revelation(SharedMemoryModel):
     name = models.CharField(max_length=255, blank=True, db_index=True)
     desc = models.TextField("Description", help_text="Description of the revelation given to the player",
                             blank=True)
@@ -362,7 +363,7 @@ class Revelation(models.Model):
         return sum(ob.clue.rating for ob in char.finished_clues.filter(clue__revelations=self))
 
 
-class Clue(models.Model):
+class Clue(SharedMemoryModel):
     name = models.CharField(max_length=255, blank=True, db_index=True)
     rating = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Value required to get this clue",
                                               db_index=True)
@@ -386,7 +387,7 @@ class Clue(models.Model):
         return self.investigation_tags.lower().split(";")
 
 
-class MysteryDiscovery(models.Model):
+class MysteryDiscovery(SharedMemoryModel):
     character = models.ForeignKey('RosterEntry', related_name="mysteries", db_index=True)
     mystery = models.ForeignKey('Mystery', related_name="discoveries", db_index=True)
     investigation = models.ForeignKey('Investigation', blank=True, null=True, related_name="mysteries")
@@ -402,7 +403,7 @@ class MysteryDiscovery(models.Model):
         return "%s's discovery of %s" % (self.character, self.mystery)
 
 
-class RevelationDiscovery(models.Model):
+class RevelationDiscovery(SharedMemoryModel):
     character = models.ForeignKey('RosterEntry', related_name="revelations", db_index=True)
     revelation = models.ForeignKey('Revelation', related_name="discoveries", db_index=True)
     investigation = models.ForeignKey('Investigation', blank=True, null=True, related_name="revelations")
@@ -446,7 +447,7 @@ class RevelationDiscovery(models.Model):
         return msg
 
 
-class RevelationForMystery(models.Model):
+class RevelationForMystery(SharedMemoryModel):
     mystery = models.ForeignKey('Mystery', related_name="revelations_used", db_index=True)
     revelation = models.ForeignKey('Revelation', related_name="usage", db_index=True)
     required_for_mystery = models.BooleanField(default=True, help_text="Whether this must be discovered for the" +
@@ -459,7 +460,7 @@ class RevelationForMystery(models.Model):
         return "Revelation %s used for %s" % (self.revelation, self.mystery)
 
 
-class ClueDiscovery(models.Model):
+class ClueDiscovery(SharedMemoryModel):
     clue = models.ForeignKey('Clue', related_name="discoveries", db_index=True)
     character = models.ForeignKey('RosterEntry', related_name="clues", db_index=True)
     investigation = models.ForeignKey('Investigation', blank=True, null=True, related_name="clues", db_index=True)
@@ -578,7 +579,7 @@ class ClueDiscovery(models.Model):
         return RosterEntry.objects.filter(clues__in=spoiled)
 
 
-class ClueForRevelation(models.Model):
+class ClueForRevelation(SharedMemoryModel):
     clue = models.ForeignKey('Clue', related_name="usage", db_index=True)
     revelation = models.ForeignKey('Revelation', related_name="clues_used", db_index=True)
     required_for_revelation = models.BooleanField(default=True, help_text="Whether this must be discovered for " +
@@ -591,7 +592,7 @@ class ClueForRevelation(models.Model):
         return "Clue %s used for %s" % (self.clue, self.revelation)
 
 
-class InvestigationAssistant(models.Model):
+class InvestigationAssistant(SharedMemoryModel):
     currently_helping = models.BooleanField(default=True, help_text="Whether they're currently helping out")
     investigation = models.ForeignKey('Investigation', related_name="assistants", db_index=True)
     char = models.ForeignKey('objects.ObjectDB', related_name="assisted_investigations", db_index=True)
@@ -613,7 +614,7 @@ class InvestigationAssistant(models.Model):
             pass
         
 
-class Investigation(models.Model):
+class Investigation(SharedMemoryModel):
     UNSET_ROLL = -9999
     character = models.ForeignKey('RosterEntry', related_name="investigations", db_index=True)
     ongoing = models.BooleanField(default=True, help_text="Whether this investigation is finished or not",
@@ -974,7 +975,7 @@ class Investigation(models.Model):
         return "You feel like you're on the verge of a breakthrough. You just need more time."
 
 
-class Theory(models.Model):
+class Theory(SharedMemoryModel):
     """
     Represents a theory that a player has come up with, and is now
     stored and can be shared with others.
