@@ -1430,79 +1430,204 @@ class CmdArmy(MuxPlayerCommand):
     @army
 
     Usage:
-        @army
-        @army <army name or number>
-        @army/countermand <army name or number>
-        @army/explore <army name or number>
-        @army/train <army name or number>
-        @army/quell <army name or number>
-        @army/raid <army name or number>=<domain name or number>
-        @army/invade <army name or number>=<domain name or number>
-        @army/march <army name or number>=x,y
+        @army [army name or #]
+        @army/create <org>=<army name>
+        @army/dissolve <army name or #>
+        @army/rename <army>=<new name>
+        @army/desc <army>=<description>
+        @army/hire <army>=<unit type>,<quantity>
+        @army/combine <unit ID>=<unit ID>
+        @army/split <unit ID>,<quantity>
+        @army/discharge <unit ID>,<quantity>
+        @army/transfer <unit ID>=<new army>
+        @army/general <army>=<character>
+        @army/commander <unit ID>=<character>
+        @army/resign
+        @army/grant <army>=<character or org>
+        @army/recall <army>
+        @army/propaganda <character>=<action points>
+        @army/morale <army>=<action points>
         
+    View details of your army or an army-group therein. Create or dissolve 
+    smaller army-groups using the main army's units. Hire, discharge, combine, 
+    split or transfer units between army-groups. Assign a character to be general 
+    of an army-group or commander of a unit. Grant allows a character or org 
+    to give orders to an army-group until it is recalled. When hiring new units,
+    asking someone to generate propaganda first bestows an XP bonus. Keeping
+    an army's morale high is essential.
     """
     key = "@army"
     locks = "cmd:all()"
     help_category = "Dominion"
+    unit_switches = ("combine", "split", "discharge", "transfer", "commander")
 
-    def func(self):
+    def display_armies(self):
         caller = self.caller
         if not hasattr(caller, 'Dominion'):
             caller.msg("You have no armies to command.")
             return
+        my_orgs = caller.Dominion.current_orgs
         owned = Army.objects.filter(owner__player__player=caller)
-        ruled = Army.objects.filter(domain__ruler__castellan__player=caller)
-        house_ruled = Army.objects.filter(owner__estate__castellan__player=caller)
-        armies = owned | ruled | house_ruled
-        if not self.args:
-            caller.msg("Your armies:")
-            caller.msg(", ".join(repr(army) for army in armies))
-            return
+        temp_owned = Army.objects.filter(temp_owner__player__player=caller)
+        org_owned = Army.objects.filter(owner__organization_owner__in=my_orgs)
+        temp_org_owned = Army.objects.filter(temp_owner__organization_owner__in=my_orgs)
+        commanded = Army.objects.filter(commander__player__player=caller)
+        caller.msg("Armies Owned: %s" % ", ".join(str(ob) for ob in owned))
+        caller.msg("Provisional Armies: %s" % ", ".join(str(ob) for ob in temp_owned))
+        caller.msg("Org-Owned Armies: %s" % ", ".join(str(ob) for ob in org_owned))
+        caller.msg("Provisional Org Armies: %s" % ", ".join(str(ob) for ob in temp_org_owned))
+        caller.msg("Armies You Command: %s" % ", ".join(str(ob) for ob in commanded))
+    
+    def find_army(self, args):
         try:
-            if self.lhs.startswith('#'):
-                self.lhs.lstrip('#')
-            if self.lhs.isdigit():
-                army = armies.get(id=int(self.lhs))
+            if args.isdigit():
+                army = Army.objects.get(id=int(args))
             else:
-                army = armies.get(name__iexact=self.lhs)
+                army = Army.objects.get(name__iexact=args)
         except (AttributeError, Army.DoesNotExist):
-            caller.msg("No armies found by that name or number.")
+            self.msg("No armies found by that name or number.")
+            return
+        return army
+    
+    def find_unit(self, args):
+        try:
+            unit = MilitaryUnit.objects.get(id=int(args))
+        except (ValueError, TypeError, MilitaryUnit.DoesNotExist):
+            self.msg("No units found by that number.")
+            return
+        if not unit.army.can_change(self.caller):
+            self.msg("You do not have permission to change that unit.")
+            return
+        return unit
+        
+    def get_commander(self, args):
+        """Fetches a player if available to lead
+        
+        Looks for a player and checks to see if they're already general of an
+        army or commander of a unit. If they are, sends caller a message and
+        returns. Otherwise passes the player onward.
+        
+        Args:
+            args: a str that is hopefully a player
+        
+        Returns:
+            A player object
+        """
+        commander = self.caller.search(args)
+        if not commander:
+            return
+        if commander.Dominion.armies.exists() or commander.Dominion.units.exists():
+            self.msg("%s is already in charge of a military force." % commander)
+            return
+        return commander
+    
+    def func(self):
+        caller = self.caller
+        if "resign" in self.switches:
+            # clear() disassociates related objects. The More You Know.
+            self.caller.Dominion.armies.all().clear()
+            self.caller.Dominion.units.all().clear()
+            self.msg("You have resigned any military command you held.")
+            return
+        if not self.args:
+            self.display_armies()
             return
         if not self.switches:
+            army = self.find_army(self.lhs)
+            if not army:
+                return
+            if not army.can_view(caller):
+                self.msg("You do not have permission to see that army's details.")
+                return
             caller.msg(army.display())
             return
-        if 'countermand' in self.switches:
-            val = army.countermand()
-            if val:
-                caller.msg("You have countermanded their orders. %s has been refunded %s coins." % (army.domain, val))
-            else:
-                caller.msg("No orders were erased.")
-            return
-        # if we have active orders, we cannot issue the army new ones
-        if army.orders.filter(complete=False):
-            caller.msg("That army has active orders. You must countermand them before issuing new ones.")
-            return
-        if 'explore' in self.switches:
-            if army.land != army.domain.land:
-                caller.msg("%s must return to its home domain's square to explore.")
+        if "propaganda" in self.switches:
+            pass
+        if "create" in self.switches:
+            # get owner for army from self.lhs
+            try:
+                org = caller.Dominion.current_orgs.get(name__iexact=self.lhs)
+            except Organization.DoesNotExist:
+                self.msg("You are not in an organization by that name.")
                 return
-            if armies.filter(orders__complete=False, orders__type=Orders.EXPLORE):
-                caller.msg("An army under your command already has an exploration order." +
-                           " Only one army can explore per week.")
+            name = self.rhs
+            if not name:
+                caller.msg("The army needs a name.")
                 return
-            army.orders.create(type=Orders.EXPLORE)
-        if 'march' in self.switches:
+            if not org.access(caller, "army"):
+                caller.msg("You don't hold rank in %s for building armies." % org)
+                return
+            # create army
+            org.assets.armies.create(name=name)
+            self.msg("Army created.")
+            return
+        # checks if the switch is one requiring unit permissions
+        if set(self.switches) & set(self.unit_switches):
+            unit = self.find_unit(self.lhs)
+            if not unit:
+                return
+            if "combine" in self.switches:
+                pass
+            if "split" in self.switches:
+                pass
+            if "discharge" in self.switches:
+                pass
+            if "transfer" in self.switches:
+                pass
+            if "commander" in self.switches:
+                if not self.rhs:
+                    self.msg("You remove the commander from unit %s" % unit.id)
+                    unit.change_commander(self.caller, None)
+                    return
+                self.get_commander(self.rhs)
+                self.msg("You set %s to command unit %s." % (commander, unit.id))
+                unit.change_commander(self.caller, commander)
+                return
+        army = self.find_army(self.lhs)
+        if not army:
+            return
+        if "morale":
             pass
-        if 'train' in self.switches:
+        if not army.can_change(caller):
+            return
+        if "dissolve" in self.switches:       
+            if army.units.all():
+                self.msg("Army still has units. Must transfer or discharge them.")
+                return
+            army.delete()
+            self.msg("Army disbanded.")
+            return
+        if "rename" in self.switches or "desc" in self.switches:
+            if not self.rhs:
+                self.msg ("Change it how?")
+                return
+            if "desc" in self.switches:
+                army.desc = self.rhs
+            else:    
+                if len(words) > 80:
+                    self.msg("Too long to be a name.")
+                    return
+                army.name = self.rhs
+            army.save()
+            self.msg(army.display())
+            return
+        if "hire" in self.switches:
             pass
-        if 'quell' in self.switches:
+        if "general" in self.switches:
+            if not self.rhs:
+                self.msg("You remove the general from army: %s" % army)
+                army.change_general(self.caller, None)
+                return
+            general = self.get_commander(self.rhs)
+            self.msg("You set %s to be the general of army: %s." % (general, army))
+            unit.change_general(self.caller, general)
+            return
+        if "grant" in self.switches:
             pass
-        if 'raid' in self.switches:
-            pass
-        if 'invade' in self.switches:
+        if "recall" in self.switches:
             pass
         
-
+        
 class CmdOrganization(MuxPlayerCommand):
     """
     @org

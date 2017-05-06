@@ -13,7 +13,7 @@ from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
 from evennia.utils.evtable import EvTable
 
-from world.dominion.models import AssetOwner, Army, AssignedTask, Member, AccountTransaction
+from world.dominion.models import AssetOwner, Army, AssignedTask, Member, AccountTransaction, Orders
 from typeclasses.bulletin_board.bboard import BBoard
 from .scripts import Script
 from server.utils.arx_utils import inform_staff
@@ -111,12 +111,14 @@ class WeeklyEvents(Script):
         # decrement timer of limited transactions, remove transactions that are over
         AccountTransaction.objects.filter(repetitions_left__gt=0).update(repetitions_left=F('repetitions_left') - 1)
         AccountTransaction.objects.filter(repetitions_left=0).delete()
-        for army in Army.objects.all():
+        for army in Army.objects.filter(orders__week=self.db.week):
             try:
                 army.execute_orders(self.db.week)
             except Exception as err:
                 traceback.print_exc()
                 print "Error in %s's army orders: %s" % (army, err)
+        old_orders = Orders.objects.filter(complete=True, week__lt=self.db.week - 4)
+        old_orders.delete()
         self.do_tasks()
         inform_staff("Dominion weekly events processed for week %s." % self.db.week)
 

@@ -54,7 +54,7 @@ that currently have a ruler designated will change on a weekly basis.
 from django.db import models
 from django.db.models import Q
 from django.conf import settings
-from . import unit_types
+from . import unit_types, unit_constants
 from .reports import WeeklyReport
 from .explore import Exploration
 from .battle import Battle
@@ -64,6 +64,7 @@ from evennia.locks.lockhandler import LockHandler
 from evennia.utils.utils import lazy_property
 import traceback
 from django.core.urlresolvers import reverse
+from typeclasses.npcs import npc_types
 
 # Dominion constants
 BASE_WORKER_COST = 0.10
@@ -1726,6 +1727,9 @@ class CrisisAction(models.Model):
             msg += "\n{wAdditional Action Points Spent:{n {c%s{n" % self.outcome_value
             msg += "\n{wResources Being Used:{n {c%s{n silver, {c%s{n economic, {c%s{n military, {c%s{n social" % (
                 self.silver, self.economic, self.military, self.social)
+            orders = self.orders.all()
+            if orders:
+                msg += "\n{wArmed Forces Appointed:{n %s" % ", ".join(str(ob.army) for ob in orders)
         if disp_pending:
             pend = self.questions.filter(answers__isnull=True)
             for ob in pend:
@@ -2032,6 +2036,43 @@ class Organization(models.Model):
         Inform.bulk_inform(players, text=text, category=category)
 
 
+class UnitTypeInfo(models.Model):
+    INFANTRY = unit_constants.INFANTRY
+    PIKE = unit_constants.PIKE
+    CAVALRY = unit_constants.CAVALRY
+    ARCHERS = unit_constants.ARCHERS
+    LONGSHIP = unit_constants.LONGSHIP
+    SIEGE_WEAPON = unit_constants.SIEGE_WEAPON
+    GALLEY = unit_constants.GALLEY
+    DROMOND = unit_constants.DROMOND
+    
+    UNIT_CHOICES = (
+        (INFANTRY, 'Infantry'),
+        (PIKE, 'Pike'),
+        (CAVALRY, 'Cavalry'),
+        (ARCHERS, 'Archers'),
+        (LONGSHIP, 'Longship'),
+        (SIEGE_WEAPON, 'Siege Weapon'),
+        (GALLEY, 'Galley'),
+        (DROMOND, 'Dromond'),
+        )
+    # type will be used to derive units and their stats elsewhere 
+    unit_type = models.PositiveSmallIntegerField(choices=UNIT_CHOICES, default=0, blank=0)
+    
+    class Meta:
+        abstract = True
+    
+
+class OrgUnitModifiers(UnitTypeInfo):
+    org = models.ForeignKey('Organization', related_name="unit_mods", db_index=True)
+    mod = models.SmallIntegerField(default=0, blank=0)
+    name = models.CharField(blank=True, null=True, max_length=80)
+    
+    class Meta:
+        """Define Django meta options"""
+        verbose_name_plural = "Unit Modifiers"
+    
+
 class ClueForOrg(models.Model):
     clue = models.ForeignKey('character.Clue', related_name="org_discoveries", db_index=True)
     org = models.ForeignKey('Organization', related_name="clue_discoveries", db_index=True)
@@ -2050,6 +2091,21 @@ class Agent(models.Model):
     that will be defined elsewhere in an agent file. ObjectDB points to Agent
     as a foreignkey, and we access that set through self.agent_objects. 
     """
+    GUARD = npc_types.GUARD
+    THUG = npc_types.THUG
+    SPY = npc_types.SPY
+    ASSISTANT = npc_types.ASSISTANT
+    CHAMPION = npc_types.CHAMPION
+    ANIMAL = npc_types.ANIMAL
+    SMALL_ANIMAL = npc_types.SMALL_ANIMAL
+    NPC_TYPE_CHOICES = (
+        (GUARD, 'Guard'),
+        (THUG, 'Thug'),
+        (SPY, 'Spy'),
+        (ASSISTANT, 'Assistant'),
+        (CHAMPION, 'Champion'),
+        (ANIMAL, 'Animal'),
+        (SMALL_ANIMAL, 'Small Animal'))
     name = models.CharField(blank=True, null=True, max_length=80)
     desc = models.TextField(blank=True, null=True)
     cost_per_guard = models.PositiveSmallIntegerField(default=0, blank=0)
@@ -2058,7 +2114,7 @@ class Agent(models.Model):
     # level of our agents
     quality = models.PositiveSmallIntegerField(default=0, blank=0)
     # numerical type of our agents. 0==regular guards, 1==spies, etc
-    type = models.PositiveSmallIntegerField(default=0, blank=0)
+    type = models.PositiveSmallIntegerField(choices=NPC_TYPE_CHOICES, default=GUARD, blank=GUARD)
     # assetowner, so either a player or an organization
     owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="agents", blank=True, null=True,
                               db_index=True)
@@ -2264,12 +2320,17 @@ class Army(models.Model):
     land = models.ForeignKey("Land", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True)
     # if the army is located as a castle garrison
     castle = models.ForeignKey("Castle", on_delete=models.SET_NULL, related_name="garrison", blank=True, null=True)
-    # The overall commander of this army. Units under his command may have their own commanders
-    commander = models.ForeignKey("Member", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
+    # The field leader of this army. Units under his command may have their own commanders
+    general = models.ForeignKey("PlayerOrNpc", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
                                   db_index=True)
     # an owner who may be the same person who owns the domain. Or not, in the case of mercs, sent reinforcements, etc
     owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True,
                               db_index=True)
+    # Someone giving orders for now, like a mercenary group's current employer
+    temp_owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="loaned_armies", blank=True, null=True,
+                              db_index=True)
+    # a relationship to self for smaller groups within the army
+    group = models.ForeignKey("self", on_delete=models.SET_NULL, related_name="armies", blank=True, null=True, db_index=True)
     # food we're carrying with us on transports or whatever
     stored_food = models.PositiveSmallIntegerField(default=0, blank=0)
     # whether the army is starving. 0 = not starving, 1 = starting to starve, 2 = troops dying/deserting
@@ -2291,7 +2352,7 @@ class Army(models.Model):
         owner = self.owner
         if owner:
             owner = owner.owner
-        msg = "{wName{n: %s {wCommander{n: %s\n" % (self.name, self.commander)
+        msg = "{wName{n: %s {wGeneral{n: %s\n" % (self.name, self.general)
         msg += "{wDomain{n: %s {wLocation{n: %s\n" % (self.domain, self.land)
         msg += "{wOwner{n: %s\n" % owner
         msg += "{wDescription{n: %s\n" % self.desc
@@ -2302,7 +2363,78 @@ class Army(models.Model):
         for unit in self.units.all():
             msg += unit.display() + "\n"
         return msg
+        
+    def can_change(self, player):
+        """
+        Checks if a given player has permission to change the structure of this
+        army, edit it, or destroy it.
+        """
+        # check if player is staff
+        if player.check_permstring("builder"):
+            return True
+        # checks player's access because our owner can be an Org
+        if self.owner.access(player, "army"):
+            return True
+        return False
+        
+    def can_order(self, player):
+        """
+        Checks if a given player has permission to issue orders to this army.
+        """
+        # if we can change the army, we can also order it
+        if self.can_change(player):
+            return True
+        # check if we're appointed as general of this army
+        if player.Dominion == self.general:
+            return True
+        # check player's access because temp owner can also be an org
+        if self.temp_owner.access(player, "army"):
+            return True
+        return False
     
+    def can_view(self, player):
+        """
+        Checks if given player has permission to view Army details.
+        """
+        # if we can order army, we can also view it
+        if self.can_order(player):
+            return True
+        # checks if we're a unit commander
+        if player.Dominion.units.filter(army=self):
+            return True
+        # checks if we're part of the org the army belongs to
+        if player.Dominion.memberships.filter(Q(deguilded=False) & (
+            Q(organization__assets=self.owner) | Q(organization__assets=self.temp_owner)))
+            return True
+    
+    @property
+    def pending_orders(self):
+        """
+        Returns pending orders if they exist.
+        """
+        week = get_week()
+        try:
+            return self.orders.get(week=week)
+        except Orders.DoesNotExist:
+            return None
+    
+    def send_orders(self, player, order_type, target_domain=None, target_land=None, target_character=None,
+                    action=None, assisting=None):
+        """
+        Checks permission to send orders to an army, then records the category 
+        of orders and their target.
+        """
+        # first checks for access
+        if not self.can_order(player):
+            player.msg("You don't have access to that Army.")
+            return
+        # create new orders for this unit
+        if self.pending_orders:
+            player.msg("That army has pending orders that must be canceled first.")
+            return
+        return self.orders.create(type=order_type, target_domain=target_domain, target_land=target_land,
+                                  target_character=target_character, action=action, assisting=assisting)
+        
     def find_unit(self, unit_type):
         """
         Find a unit that we have of the given unit_type. Armies should only have one of each unit_type
@@ -2312,6 +2444,27 @@ class Army(models.Model):
         if len(qs) < 1:
             return None
         return qs[0]
+    
+    def change_general(self, caller, general):
+        """Change an army's general. Informs old and new generals of change.
+        
+        Sets an Army's general to new character or to None and informs the old
+        general of the change, if they exist.
+        
+        Args:
+            caller: a player object
+            general: a player object
+        """
+        old_general = self.general
+        if old_general:
+            old_general.inform("%s has relieved you from duty as general of army: %s." % (caller, self))
+        if general:
+            self.general = general.Dominion
+            self.save()
+            general.inform("%s has set you as the general of army: %s." % (caller, self))
+            return
+        self.general = None
+        self.save()
     
     def get_food_consumption(self):
         """
@@ -2387,51 +2540,53 @@ class Army(models.Model):
         along with do_weekly_adjustment. Error checking on the validity
         of orders should be done at the player-command level, not here.
         """
-        orders = self.orders.filter(complete=False)
-        if not orders:
-            self.morale += 1
-            self.save()
-            return
-        for order in orders:
-            if order.type == Orders.TRAIN:
-                for unit in self.units.all():
-                    unit.train()
-                return
-            if order.type == Orders.EXPLORE:
-                explore = Exploration(self, self.land, self.domain, week)
-                explore.event()
-                return
-            if order.type == Orders.RAID:
-                if self.do_battle(order.target_domain, week):
-                    # raid was successful
-                    self.pillage(order.target_domain, week)
-                else:
-                    self.morale -= 10
-                    self.save()
-            if order.type == Orders.CONQUER:
-                if self.do_battle(order.target_domain, week):
-                    # conquest was successful
-                    self.conquer(order.target_domain, week)
-                else:
-                    self.morale -= 10
-                    self.save()
-            if order.type == Orders.ENFORCE_ORDER:
-                self.pacify(self.domain)
-            if order.type == Orders.BESIEGE:
-                # to be implemented later
-                pass
-            if order.type == Orders.MARCH:
-                if order.target_domain:
-                    self.domain = order.target_domain
-                self.land = order.target_land
-                self.save()
-            # to do : add to report here
-            if report:
-                print "Placeholder for army orders report"
+        orders = self.pending_orders
+        # stoof here later
+        self.orders.filter(week__lt=week - 1).update(complete=True)
+        # if not orders:
+        #     self.morale += 1
+        #     self.save()
+        #     return
+        # for order in orders:
+        #     if order.type == Orders.TRAIN:
+        #         for unit in self.units.all():
+        #             unit.train()
+        #         return
+        #     if order.type == Orders.EXPLORE:
+        #         explore = Exploration(self, self.land, self.domain, week)
+        #         explore.event()
+        #         return
+        #     if order.type == Orders.RAID:
+        #         if self.do_battle(order.target_domain, week):
+        #             # raid was successful
+        #             self.pillage(order.target_domain, week)
+        #         else:
+        #             self.morale -= 10
+        #             self.save()
+        #     if order.type == Orders.CONQUER:
+        #         if self.do_battle(order.target_domain, week):
+        #             # conquest was successful
+        #             self.conquer(order.target_domain, week)
+        #         else:
+        #             self.morale -= 10
+        #             self.save()
+        #     if order.type == Orders.ENFORCE_ORDER:
+        #         self.pacify(self.domain)
+        #     if order.type == Orders.BESIEGE:
+        #         # to be implemented later
+        #         pass
+        #     if order.type == Orders.MARCH:
+        #         if order.target_domain:
+        #             self.domain = order.target_domain
+        #         self.land = order.target_land
+        #         self.save()
+        #     # to do : add to report here
+        #     if report:
+        #         print "Placeholder for army orders report"
                 
     def do_battle(self, tdomain, week):
         """
-        Returns True iff attackers win, False if defenders
+        Returns True if attackers win, False if defenders
         win or if there was a stalemate/tie.
         """
         # noinspection PyBroadException
@@ -2440,7 +2595,7 @@ class Army(models.Model):
             if not e_armies:
                 # No opposition. We win without a fight
                 return True
-            atkpc = self.commander
+            atkpc = self.general
             defpc = None
             if self.domain and self.domain.ruler and self.domain.ruler.castellan:
                 atkpc = self.domain.ruler.castellan
@@ -2478,7 +2633,7 @@ class Army(models.Model):
         Conquers a domain. If the army has a domain, that domain will
         absorb the target if they're bordering, or just change the rulers
         while keeping it intact otherwise. If the army has no domain, then
-        the commander will be set as the ruler of the domain.
+        the general will be set as the ruler of the domain.
         """
         bordering = None
         ruler = None
@@ -2495,11 +2650,11 @@ class Army(models.Model):
         for castle in target.castles.all():
             castle.garrison.clear()
         if not self.domain:
-            # The commander becomes the ruler
+            # The general becomes the ruler
             if self.owner:
                 castellan = None
-                if self.commander:
-                    castellan = self.commander.player
+                if self.general:
+                    castellan = self.general.player
                 ruler_list = Ruler.objects.filter(house_id=self.owner)
                 if ruler_list:
                     ruler = ruler_list[0]
@@ -2587,21 +2742,37 @@ class Orders(models.Model):
     DEFEND = 8
     PATROL = 9
     ASSIST = 10
+    BOLSTER = 11
+    EQUIP = 12
+    CRISIS = 13
        
     ORDER_CHOICES = (
         (TRAIN, 'Troop Training'),
         (EXPLORE, 'Explore territory'),
         (RAID, 'Raid Domain'),
         (CONQUER, 'Conquer Domain'),
-        (ENFORCE_ORDER, 'Enforce Order'),
-        (BESIEGE, 'Besiege Castle'),
-        (MARCH, 'March'),
-        (DEFEND, 'Defend'),
+        (ENFORCE_ORDER, 'Enforce Order'),   
+        (BESIEGE, 'Besiege Castle'),        
+        (MARCH, 'March'),                   
+        (DEFEND, 'Defend'),                 
+        # like killing bandits
         (PATROL, 'Patrol'),
-        (ASSIST, 'Assist'),)
+        # assisting other armies' orders
+        (ASSIST, 'Assist'),
+        # restoring morale
+        (BOLSTER, 'Bolster Morale'),        
+        (EQUIP, 'Upgrade Equipment'),
+        # using army in a crisis action
+        (CRISIS, 'Crisis Response'))
     army = models.ForeignKey("Army", related_name="orders", null=True, blank=True, db_index=True)
-    target_domain = models.ForeignKey("Domain", related_name="incoming_attacks", null=True, blank=True, db_index=True)
-    target_land = models.ForeignKey("Land", related_name="incoming_army", null=True, blank=True)
+    # for realm PVP and realm offense/defense
+    target_domain = models.ForeignKey("Domain", related_name="orders", null=True, blank=True, db_index=True)
+    # for travel and exploration
+    target_land = models.ForeignKey("Land", related_name="orders", null=True, blank=True)
+    # an individual's support for training, morale, equipment
+    target_character = models.ForeignKey("PlayerOrNpc", on_delete=models.SET_NULL, related_name="orders", blank=True, null=True,
+                                         db_index=True)
+    # if we're targeting a crisis action
     action = models.ForeignKey("CrisisAction", related_name="orders", null=True, blank=True, db_index=True)
     # if we're assisting another army's orders
     assisting = models.ForeignKey("self", related_name="assisting_orders", null=True, blank=True, db_index=True)
@@ -2626,22 +2797,21 @@ class Orders(models.Model):
         self.save()
     
 
-class MilitaryUnit(models.Model):
+class MilitaryUnit(UnitTypeInfo):
     """
     An individual unit belonging to an army for a domain. Each unit can have its own
-    commander, while the overall army has its own commander. It is assumed that every
+    commander, while the overall army has its general. It is assumed that every
     unit in an army is in the same space, and will all respond to the same orders.
 
     Most combat stats for a unit will be generated at runtime based on its 'type'. We'll
     only need to store modifiers for a unit that are specific to it, modifiers it has
     accured.
     """
-    commander = models.ForeignKey("Member", on_delete=models.SET_NULL, related_name="units", blank=True, null=True)
+    origin = models.ForeignKey('Organization', related_name='units', blank=True, null=True, db_index=True)
+    commander = models.ForeignKey("PlayerOrNpc", on_delete=models.SET_NULL, related_name="units", blank=True, null=True)
     army = models.ForeignKey("Army", related_name="units", blank=True, null=True, db_index=True)
     orders = models.ForeignKey("Orders", related_name="units", on_delete=models.SET_NULL, blank=True, null=True,
                                db_index=True)
-    # type will be used to derive units and their stats elsewhere 
-    unit_type = models.PositiveSmallIntegerField(default=0, blank=0)
     quantity = models.PositiveSmallIntegerField(default=1, blank=1)
     level = models.PositiveSmallIntegerField(default=0, blank=0)
     equipment = models.PositiveSmallIntegerField(default=0, blank=0)
@@ -2658,6 +2828,27 @@ class MilitaryUnit(models.Model):
         msg = "{wType{n: %-16s {wAmount{n: %-7s" % (self.type.capitalize(), self.quantity)
         msg += " {wLevel{n: %s {wEquipment{n: %s {wXP{n: %s" % (self.level, self.equipment, self.xp)
         return msg
+    
+    def change_commander(self, caller, commander):
+        """Informs commanders of a change, if they exist.
+        
+        Sets a unit's commander to new character or to None and informs the old
+        commander of the change.
+        
+        Args:
+            caller: a player object
+            commander: a player object
+        """
+        old_commander = self.commander
+        if old_commander:
+            old_commander.inform("%s has relieved you of command of unit %s." % (caller, self.id))
+        if commander:
+            self.commander = commander.Dominion
+            self.save()
+            commander.inform("%s has set you in command of unit %s." % (caller, self.id))
+            return
+        self.commander = None
+        self.save()
     
     def decimate(self, amount=0.10):
         """
