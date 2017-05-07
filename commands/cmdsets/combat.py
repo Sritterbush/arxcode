@@ -1089,10 +1089,12 @@ class CmdHeal(MuxCommand):
     Administers medical care to a character.
     Usage:
         +heal <character>
+        +heal/permit <character>
 
     Helps administer medical care to a character who is not
     presently in combat. This will attempt to wake them up
-    if they have been knocked unconscious.
+    if they have been knocked unconscious. You must have permission
+    to attempt to heal someone, which is granted via the /permit switch.
     """
     key = "+heal"
     locks = "cmd:all()"
@@ -1103,6 +1105,12 @@ class CmdHeal(MuxCommand):
         caller = self.caller
         targ = caller.search(self.args)
         if not targ:
+            return
+        if "permit" in self.switches:
+            permits = targ.ndb.healing_permits or set()
+            permits.add(caller)
+            targ.ndb.healing_permits = permits
+            self.msg("You permit %s to heal you." % targ)
             return
         if not targ.db.damage:
             caller.msg("%s does not require any medical attention." % targ)
@@ -1123,6 +1131,10 @@ class CmdHeal(MuxCommand):
         if timediff < 3600:
             caller.msg("You have assisted them too recently.")
             caller.msg("You can help again in %s seconds." % (3600 - timediff))
+            return
+        permits = caller.ndb.healing_permits or set()
+        if targ not in permits:
+            self.msg("%s has not granted you permission to heal them. Have them use +heal/permit." % targ)
             return
         # record healing timestamp
         aid_given[targ.id] = time.time()
