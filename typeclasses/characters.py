@@ -759,9 +759,10 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         return CombatHandler(self, None)
 
     def view_stats(self, viewer, combat=False):
-        from commands.commands.roster import display_stats, display_skills
+        from commands.commands.roster import display_stats, display_skills, display_abilities
         display_stats(viewer, self)
         display_skills(viewer, self)
+        display_abilities(viewer, self)
         if combat:
             viewer.msg(self.combat.display_stats())
 
