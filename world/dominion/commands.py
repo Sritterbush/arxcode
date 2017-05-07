@@ -2841,8 +2841,11 @@ class CmdSupport(MuxCommand):
             diff = val - supused.rating
             member.refresh_from_db()  # try to catch possible sync errors here
             poolshare = member.pool_share
-            if (member.total_points_used + diff) > poolshare:
-                caller.msg("You can only use a total of %s points in that organization." % poolshare)
+            total_used = member.total_points_used
+            if (total_used + diff) > poolshare:
+                msg = "You haved used %s and are adding %s and " % (total_used, diff)
+                msg += "can only use a total of %s points in that organization." % poolshare
+                caller.msg(msg)
                 return
             if (member.points_used(category) + diff) > sphere.rating:
                 caller.msg("You can only spend up to %s points in that category." % sphere.rating)
@@ -2971,8 +2974,11 @@ class CmdSupport(MuxCommand):
                         points_in_org += sdict[sid]
                 except SphereOfInfluence.DoesNotExist:
                     continue
-            if (member.total_points_used + points_in_org) > poolshare:
-                caller.msg("You can only use a total of %s points in that organization." % poolshare)
+            total_used = member.total_points_used
+            if (total_used + points_in_org) > poolshare:
+                msg = "You have already used %s and are trying to spend %s " % (total_used, points_in_org)
+                msg += "and can only use a total of %s points in that organization." % poolshare
+                caller.msg(msg)
                 return
             if (member.points_used(category) + points) > sphere.rating:
                 caller.msg("You can only spend up to %s points in that category." % sphere.rating)
