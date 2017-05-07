@@ -1110,7 +1110,8 @@ class CmdHeal(MuxCommand):
             permits = targ.ndb.healing_permits or set()
             permits.add(caller)
             targ.ndb.healing_permits = permits
-            self.msg("You permit %s to heal you." % targ)
+            self.msg("{wYou permit {c%s {wto heal you." % targ)
+            targ.msg("{c%s {whas permitted you to heal them." % caller)
             return
         if not targ.db.damage:
             caller.msg("%s does not require any medical attention." % targ)
