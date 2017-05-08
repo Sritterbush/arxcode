@@ -122,20 +122,19 @@ class WeeklyEvents(Script):
 
     @staticmethod
     def reset_action_points():
-        qs = RosterEntry.objects.filter(roster__name="Active")
-        qs1 = qs.filter(action_points__gte=100)
-        qs2 = qs.filter(action_points__lt=100)
-        log_file = open("action_points_log.txt", "w")
-        log_file.write("Action points before script\n\n")
+        """
+        Originally did this with RosterEntry update but ran into issues with cache being out
+        of sync, so action_points didn't properly update. Look into solving that in the future
+        for more efficient bulk update implementation.
+        """
+        # access via our One-to-One field to be certain we won't run into caching issues
+        qs = [ob.roster for ob in PlayerDB.objects.filter(roster__roster__name="Active")]
         for ob in qs:
-            log_file.write("%s: action points: %s\n" % (ob, ob.action_points))
-        qs1.update(action_points=200)
-        qs2.update(action_points=F('action_points') + 100)
-        log_file.write("\n\nAction points after script\n\n")
-        qs = RosterEntry.objects.filter(roster__name="Active")
-        for ob in qs:
-            log_file.write("%s: action points: %s\n" % (ob, ob.action_points))
-        log_file.close()
+            if 99 < ob.action_points < 200:
+                ob.action_points = 200
+            elif ob.action_points < 100:
+                ob.action_points += 100
+            ob.save()
 
     def do_tasks(self):
         for task in AssignedTask.objects.filter(finished=False):
