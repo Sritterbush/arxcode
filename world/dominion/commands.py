@@ -896,7 +896,7 @@ class CmdAdmOrganization(MuxPlayerCommand):
             try:
                 member = Member.objects.get(organization_id=org.id,
                                             player__player__username__iexact=self.rhslist[0])
-                member.rank = self.rhslist[1]
+                member.rank = int(self.rhslist[1])
                 member.save()
                 caller.msg("%s set to rank %s." % (member, self.rhslist[1]))
             except Member.DoesNotExist:
