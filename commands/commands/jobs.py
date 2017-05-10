@@ -355,6 +355,8 @@ class CmdRequest(MuxPlayerCommand):
     max_requests = 2
         
     def get_help(self, caller, cmdset):
+        if caller.db.player_ob:
+            caller = caller.db.player_ob
         actions = self.get_num_actions(caller)
         msg = self.__doc__ + self.get_actions_disp_str(actions)
         return msg
