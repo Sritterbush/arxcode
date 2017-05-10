@@ -346,12 +346,34 @@ class CmdRequest(MuxPlayerCommand):
 
     Story requests cost 40 action points.
     """
-
     key = "+request"
     aliases = ["@request", "+requests", "@requests", "+911", "+ineedanadult",
                "bug", "typo", "+featurerequest", "+storyrequest", "+prprequest"]
     help_category = "Admin"
     locks = "cmd:perm(request) or perm(Players)"
+    num_days = 30
+    max_requests = 2
+        
+    def get_help(self, caller, cmdset):
+        actions = self.get_num_actions(caller)
+        msg = self.__doc__ + self.get_actions_disp_str(actions)
+        return msg
+
+    def get_num_actions(self, caller):
+        from datetime import datetime, timedelta
+        date = datetime.now()
+        offset = timedelta(days=-self.num_days)
+        date = date + offset
+        actions = caller.tickets.filter(queue__slug="Story", created__gte=date)
+        return actions
+
+    def get_actions_disp_str(self, actions):
+        msg = ""
+        if actions:
+            msg += "\nYou have submitted requests for GMing for a storyaction on: %s." % ", ".join(
+                ob.created.strftime("%x") for ob in actions)
+        msg += "\nYou are permitted to make %s requests every %s days." % (self.max_requests, self.num_days)
+        return msg
 
     def display_ticket(self, ticket):
         self.msg(ticket.display())
@@ -366,22 +388,14 @@ class CmdRequest(MuxPlayerCommand):
         self.msg("Use {w+request/followup <#>=<comment>{n to add a comment.")
 
     def check_recent_story_action(self):
-        from datetime import datetime, timedelta
-        num_days = 30
-        max_requests = 2
-        date = datetime.now()
-        offset = timedelta(days=-num_days)
-        date = date + offset
-        actions = self.caller.tickets.filter(queue__slug="Story", created__gte=date)
+        actions = self.get_num_actions(self.caller)
         if self.caller.roster.action_points < 40:
             self.msg("It costs 40 Action Points to make a story action.")
             return True
-        if actions.count() < max_requests:
+        if actions.count() < self.max_requests:
             self.caller.pay_action_points(40)
             return False
-        self.msg("You have submitted requests for GMing for a storyaction on: %s." % ", ".join(
-            ob.created.strftime("%x") for ob in actions))
-        self.msg("You are only permitted to make %s requests every %s days." % (max_requests, num_days))
+        self.msg(self.get_actions_disp_str(actions))
         return True
 
     def func(self):
