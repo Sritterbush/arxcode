@@ -148,16 +148,12 @@ def get_ability_val(char, recipe):
     ability_list = recipe.ability.split(",")
     abilities = char.db.abilities or {}
     skills = char.db.skills or {}
+    if recipe.skill == "artwork":
+        return char.db.skills.get("artwork", 0)
     if ability_list == "all" or not ability_list:
         # get character's highest ability
-        values = sorted(abilities.values(), reverse=True)
-        if not values:
-            if "artwork" in skills:
-                ability = skills['artwork']
-            else:  # we have no abilities, and no artwork skill
-                ability = 0
-        else:
-            ability = values[0]        
+        values = sorted(abilities.values() + [skills.get("artwork", 0)], reverse=True)
+        ability = values[0]
     else:
         abvalues = []
         for abname in ability_list:
@@ -765,16 +761,17 @@ class CmdRecipes(MuxCommand):
     recipes
     Usage:
         recipes
+        recipes/known
+        recipes <ability or skill to filter by>
         recipes/learn <recipe name>
         recipes/info <recipe name>
         recipes/teach <character>=<recipe name>
         recipes/cost
 
     Check, learn, or teach recipes. Without an argument, recipes
-    lists all recipes you know or can learn. Without any switches,
-    recipes lists the requirements of a recipe for crafting. Learning
-    a recipe may or may not be free - cost lets you see the cost of
-    a recipe beforehand.
+    lists all recipes you know or can learn. The /info switch lists the
+    requirements for learning a given recipe. Learning a recipe may or
+    may not be free - cost lets you see the cost of a recipe beforehand.
     """
     key = "recipes"
     locks = "cmd:all()"
@@ -782,41 +779,45 @@ class CmdRecipes(MuxCommand):
     help_category = "Crafting"
 
     def display_recipes(self, recipes):
+        from server.utils import arx_more
         known_list = CraftingRecipe.objects.filter(known_by__player__player=self.caller.player)
         table = PrettyTable(["{wKnown{n", "{wName{n", "{wAbility{n",
                              "{wDifficulty{n", "{wCost{n"])
+        from operator import attrgetter
+        recipes = sorted(recipes, key=attrgetter('ability', 'difficulty',
+                                                 'name'))
         for recipe in recipes:
             known = "{wX{n" if recipe in known_list else ""
             table.add_row([known, recipe.name, recipe.ability,
                            recipe.difficulty, recipe.additional_cost])
-        return table
+        arx_more.msg(self.caller, str(table), justify_kwargs=False)
 
     def func(self):
         """Implement the command"""
+        from django.db.models import Q
         caller = self.caller
-        recipes = list(CraftingRecipe.objects.filter(known_by__player__player=caller.player))
+        filters = None
+        if self.args and (not self.switches or 'known' in self.switches):
+            filters = Q(name__iexact=self.args) | Q(skill__iexact=self.args) | Q(ability__iexact=self.args)
+        recipes = CraftingRecipe.objects.filter(known_by__player__player=caller.player)
         unknown = CraftingRecipe.objects.exclude(known_by__player__player=caller.player).order_by("additional_cost")
+        if filters:
+            recipes = recipes.filter(filters)
+            unknown = unknown.filter(filters)
+        recipes = list(recipes)
         can_learn = [ob for ob in unknown if ob.access(caller, 'learn')]
         try:
             dompc = PlayerOrNpc.objects.get(player=caller.player)
         except PlayerOrNpc.DoesNotExist:
             dompc = setup_dom_for_char(caller)
-        if not self.args and not self.switches:
+        if not self.switches:
             caller.msg("Recipes you know or can learn:")
             visible = recipes + can_learn
-            from operator import attrgetter
-            visible = sorted(visible, key=attrgetter('ability', 'difficulty',
-                                                     'name'))
-            caller.msg(self.display_recipes(visible))
+            self.display_recipes(visible)
             return
-        if not self.switches:
-            try:
-                recipe = CraftingRecipe.objects.get(known_by=dompc.assets, name=self.lhs)
-            except CraftingRecipe.DoesNotExist:
-                caller.msg("You don't know a recipe by %s." % self.lhs)
-                return
-            caller.msg("Requirements for %s:" % recipe.name)
-            caller.msg(recipe.display_reqs(dompc, full=True), options={'box': True})
+        if 'known' in self.switches:
+            self.msg("Recipes you know:")
+            self.display_recipes(recipes)
             return
         if 'learn' in self.switches:
             match = None
@@ -825,10 +826,9 @@ class CmdRecipes(MuxCommand):
             if not match:
                 caller.msg("No recipe by that name.")
                 caller.msg("\nRecipes you can learn:")
-                caller.msg(self.display_recipes(can_learn))
+                self.display_recipes(can_learn)
                 return
             match = match[0]
-
             cost = match.additional_cost
             if cost > caller.db.currency:
                 caller.msg("It costs %s to learn %s, and you only have %s." % (cost, match.name, caller.db.currency))
@@ -849,7 +849,7 @@ class CmdRecipes(MuxCommand):
             if not match:
                 caller.msg("No recipe by that name.")
                 caller.msg("Recipes you can get /info on:")
-                caller.msg(self.display_recipes(info))
+                self.display_recipes(info)
                 return
             match = match[0]
             display = match.display_reqs(dompc, full=True)
@@ -862,7 +862,7 @@ class CmdRecipes(MuxCommand):
                 match = [ob for ob in can_teach if ob.name.lower() == self.rhs.lower()]
             if not match:
                 caller.msg("Recipes you can teach:")
-                caller.msg(self.display_recipes(can_teach))
+                self.display_recipes(can_teach)
                 if self.rhs:
                     caller.msg("You entered: %s." % self.rhs)
                 return

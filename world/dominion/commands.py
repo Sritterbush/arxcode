@@ -896,7 +896,7 @@ class CmdAdmOrganization(MuxPlayerCommand):
             try:
                 member = Member.objects.get(organization_id=org.id,
                                             player__player__username__iexact=self.rhslist[0])
-                member.rank = self.rhslist[1]
+                member.rank = int(self.rhslist[1])
                 member.save()
                 caller.msg("%s set to rank %s." % (member, self.rhslist[1]))
             except Member.DoesNotExist:
@@ -1447,11 +1447,11 @@ class CmdArmy(MuxPlayerCommand):
         @army/recall <army>
         @army/propaganda <character>=<action points>
         @army/morale <army>=<action points>
-        
-    View details of your army or an army-group therein. Create or dissolve 
-    smaller army-groups using the main army's units. Hire, discharge, combine, 
-    split or transfer units between army-groups. Assign a character to be general 
-    of an army-group or commander of a unit. Grant allows a character or org 
+
+    View details of your army or an army-group therein. Create or dissolve
+    smaller army-groups using the main army's units. Hire, discharge, combine,
+    split or transfer units between army-groups. Assign a character to be general
+    of an army-group or commander of a unit. Grant allows a character or org
     to give orders to an army-group until it is recalled. When hiring new units,
     asking someone to generate propaganda first bestows an XP bonus. Keeping
     an army's morale high is essential.
@@ -1477,7 +1477,7 @@ class CmdArmy(MuxPlayerCommand):
         caller.msg("Org-Owned Armies: %s" % ", ".join(str(ob) for ob in org_owned))
         caller.msg("Provisional Org Armies: %s" % ", ".join(str(ob) for ob in temp_org_owned))
         caller.msg("Armies You Command: %s" % ", ".join(str(ob) for ob in commanded))
-    
+
     def find_army(self, args):
         try:
             if args.isdigit():
@@ -1488,7 +1488,7 @@ class CmdArmy(MuxPlayerCommand):
             self.msg("No armies found by that name or number.")
             return
         return army
-    
+
     def find_unit(self, args):
         try:
             unit = MilitaryUnit.objects.get(id=int(args))
@@ -1499,17 +1499,17 @@ class CmdArmy(MuxPlayerCommand):
             self.msg("You do not have permission to change that unit.")
             return
         return unit
-        
+
     def get_commander(self, args):
         """Fetches a player if available to lead
-        
+
         Looks for a player and checks to see if they're already general of an
         army or commander of a unit. If they are, sends caller a message and
         returns. Otherwise passes the player onward.
-        
+
         Args:
             args: a str that is hopefully a player
-        
+
         Returns:
             A player object
         """
@@ -1520,13 +1520,13 @@ class CmdArmy(MuxPlayerCommand):
             self.msg("%s is already in charge of a military force." % commander)
             return
         return commander
-    
+
     def check_army_has_space(self, army):
         if army.at_capacity:
             self.msg("The army is full. Its units must be transferred to a different army or combined first.")
             return False
         return True
-    
+
     def func(self):
         caller = self.caller
         if "resign" in self.switches:
@@ -1597,7 +1597,8 @@ class CmdArmy(MuxPlayerCommand):
                         return
                     unit.quantity -= qty
                     unit.save()
-                    self.msg("%s of unit %s are now discharged from service, and %s remain." % (qty, unit.id, unit.quantity))
+                    self.msg(
+                        "%s of unit %s are now discharged from service, and %s remain." % (qty, unit.id, unit.quantity))
                     return
                 if not self.check_army_has_space(unit.army):
                     return
@@ -1636,7 +1637,7 @@ class CmdArmy(MuxPlayerCommand):
             pass
         if not army.can_change(caller):
             return
-        if "dissolve" in self.switches:       
+        if "dissolve" in self.switches:
             if army.units.all():
                 self.msg("Army still has units. Must transfer or discharge them.")
                 return
@@ -1649,7 +1650,7 @@ class CmdArmy(MuxPlayerCommand):
                 return
             if "desc" in self.switches:
                 army.desc = self.rhs
-            else:    
+            else:
                 if len(self.rhs) > 80:
                     self.msg("Too long to be a name.")
                     return
@@ -1685,7 +1686,7 @@ class CmdArmy(MuxPlayerCommand):
                 return
             army.owner.military -= cost
             army.owner.military.save()
-            army.units.create(unit_type=cls.id, origin=owner.organization_owner, quantity=qty)
+            army.units.create(unit_type=cls.id, origin=army.owner.organization_owner, quantity=qty)
             self.msg("Successfully hired %s unit of %s for army: %s." % (self.rhslist[0], qty, army))
             return
         if "general" in self.switches:
@@ -1704,20 +1705,21 @@ class CmdArmy(MuxPlayerCommand):
             try:
                 # looking for this assetowner to be an org first
                 temp_owner = Organization.objects.filter(name__iexact=self.rhs)
-            except temp_owner.DoesNotExist:
+            except Organization.DoesNotExist:
                 # if it isn't an org, must be a player
                 temp_owner = caller.search(self.rhs)
                 if not temp_owner:
                     return
+                temp_owner = temp_owner.Dominion
             self.msg("You grant temporary control of army: %s to %s" % (army, temp_owner))
-            army.change_temp_owner(self.caller, temp_owner)
+            army.change_temp_owner(self.caller, temp_owner.assets)
             return
         if "recall" in self.switches:
             self.msg("You retrieved your army: %s" % army)
             army.change_temp_owner(self.caller, None)
             return
         
-        
+
 class CmdOrganization(MuxPlayerCommand):
     """
     @org
@@ -3056,8 +3058,11 @@ class CmdSupport(MuxCommand):
             diff = val - supused.rating
             member.refresh_from_db()  # try to catch possible sync errors here
             poolshare = member.pool_share
-            if (member.total_points_used + diff) > poolshare:
-                caller.msg("You can only use a total of %s points in that organization." % poolshare)
+            total_used = member.total_points_used
+            if (total_used + diff) > poolshare:
+                msg = "You haved used %s and are adding %s and " % (total_used, diff)
+                msg += "can only use a total of %s points in that organization." % poolshare
+                caller.msg(msg)
                 return
             if (member.points_used(category) + diff) > sphere.rating:
                 caller.msg("You can only spend up to %s points in that category." % sphere.rating)
@@ -3186,8 +3191,11 @@ class CmdSupport(MuxCommand):
                         points_in_org += sdict[sid]
                 except SphereOfInfluence.DoesNotExist:
                     continue
-            if (member.total_points_used + points_in_org) > poolshare:
-                caller.msg("You can only use a total of %s points in that organization." % poolshare)
+            total_used = member.total_points_used
+            if (total_used + points_in_org) > poolshare:
+                msg = "You have already used %s and are trying to spend %s " % (total_used, points_in_org)
+                msg += "and can only use a total of %s points in that organization." % poolshare
+                caller.msg(msg)
                 return
             if (member.points_used(category) + points) > sphere.rating:
                 caller.msg("You can only spend up to %s points in that category." % sphere.rating)

@@ -69,7 +69,7 @@ class MsgAdmin(admin.ModelAdmin):
     list_display = ('id', 'db_date_created', 'get_senders', 'msg_receivers',
                     'message')
     list_display_links = ("id",)
-    ordering = ["db_date_created"]
+    ordering = ["-db_date_created"]
     # readonly_fields = ['db_message', 'db_sender', 'db_receivers', 'db_channels']
     search_fields = ['db_sender_players__db_key',
                      "db_sender_objects__db_key", "db_receivers_objects__db_key",

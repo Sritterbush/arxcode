@@ -675,6 +675,7 @@ class CmdWho(MuxPlayerCommand):
       doing/sparse [<filter>]
       who/active
       who/watch
+      who/org <organization>
 
     Shows who is currently online. Doing is an alias that limits info
     also for those with all permissions. Players who are currently
@@ -711,6 +712,8 @@ class CmdWho(MuxPlayerCommand):
         filter or matches a flag, we return True. Otherwise
         we return False.
         """
+        if "org" in self.switches:
+            return True
         if not self.args:
             return True
         if self.args.lower() == "afk":
@@ -750,6 +753,16 @@ class CmdWho(MuxPlayerCommand):
         nplayers = (SESSIONS.player_count())
         total_players = nplayers
         already_counted = []
+        if "org" in self.switches:
+            from world.dominion.models import Organization
+            try:
+                org = Organization.objects.get(name__iexact=self.args)
+                if org.secret:
+                    raise Organization.DoesNotExist
+            except Organization.DoesNotExist:
+                self.msg("Organization not found.")
+                return
+            public_members = [ob.player.player for ob in org.members.filter(deguilded=False, secret=False)]
         if show_session_data:
             table = prettytable.PrettyTable(["{wPlayer Name",
                                              "{wOn for",
@@ -769,6 +782,9 @@ class CmdWho(MuxPlayerCommand):
                 delta_cmd = pc.idle_time
                 if "active" in self.switches and delta_cmd > 1200:
                     already_counted.append(pc)
+                    nplayers -= 1
+                    continue
+                if "org" in self.switches and pc not in public_members:
                     nplayers -= 1
                     continue
                 delta_conn = time.time() - session.conn_time
@@ -812,6 +828,9 @@ class CmdWho(MuxPlayerCommand):
                     continue
                 if not session.logged_in:
                     already_counted.append(pc)
+                    nplayers -= 1
+                    continue
+                if "org" in self.switches and pc not in public_members:
                     nplayers -= 1
                     continue
                 delta_cmd = pc.idle_time

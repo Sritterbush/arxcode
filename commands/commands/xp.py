@@ -276,11 +276,9 @@ class CmdTrain(MuxCommand):
     locks = "cmd:all()"
     help_category = "Progression"
 
-    # noinspection PyAttributeOutsideInit
     def get_help(self, caller, cmdset):
         if caller.db.char_ob:
             caller = caller.db.char_ob
-        self.caller = caller
         msg = self.__doc__ + "\n\nYou can train {w%s{n people per week." % self.max_trainees(caller)
         trained = ", ".join(ob.key for ob in self.currently_training(caller))
         if trained:

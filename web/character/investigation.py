@@ -807,6 +807,9 @@ class CmdInvestigate(InvestigationFormCommand):
                     current_active = entry.investigations.get(active=True)
                 except Investigation.DoesNotExist:
                     current_active = None
+                if caller.assisted_investigations.filter(currently_helping=True):
+                    self.msg("You are currently helping an investigation, and must stop first.")
+                    return
                 if current_active:
                     if not current_active.automate_result:
                         caller.msg("You already have an active investigation " +

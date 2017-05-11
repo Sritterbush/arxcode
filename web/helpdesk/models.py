@@ -12,6 +12,7 @@ from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.utils.translation import ugettext_lazy as _, ugettext
 from django import VERSION
+from evennia.typeclasses.models import SharedMemoryModel
 
 try:
     from django.utils import timezone
@@ -247,7 +248,7 @@ class Queue(models.Model):
         super(Queue, self).save(*args, **kwargs)
 
 
-class Ticket(models.Model):
+class Ticket(SharedMemoryModel):
     """
     To allow a ticket to be entered as quickly as possible, only the
     bare minimum fields are required. These basically allow us to

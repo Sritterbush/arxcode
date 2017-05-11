@@ -51,6 +51,7 @@ Every week, a script is called that will run execute_orders() on every
 Army, and then do weekly_adjustment() in every assetowner. So only domains
 that currently have a ruler designated will change on a weekly basis.
 """
+from evennia.typeclasses.models import SharedMemoryModel
 from django.db import models
 from django.db.models import Q
 from django.conf import settings
@@ -92,7 +93,7 @@ PAGEROOT = "http://play.arxgame.org"
 
 
 # Create your models here.
-class PlayerOrNpc(models.Model):
+class PlayerOrNpc(SharedMemoryModel):
     """
     This is a simple model that represents that the entity can either be a PC
     or an NPC who has no presence in game, and exists only as a name in the
@@ -379,7 +380,7 @@ class PlayerOrNpc(models.Model):
             pass
 
 
-class AssetOwner(models.Model):
+class AssetOwner(SharedMemoryModel):
     """
     This model describes the owner of an asset, such as money
     or a land resource. The owner can either be an in-game object
@@ -606,7 +607,7 @@ class AssetOwner(models.Model):
             return default
 
 
-class AccountTransaction(models.Model):
+class AccountTransaction(SharedMemoryModel):
     """
     Represents both income and costs that happen on a weekly
     basis. This is stored in those receiving the money as
@@ -686,7 +687,7 @@ class AccountTransaction(models.Model):
             self.receiver.clear_cache()
         
 
-class Region(models.Model):
+class Region(SharedMemoryModel):
     """
     A region of Land squares. The 'origin' x,y coordinates are by our convention
     the 'southwest' corner of the region, though builders will not be held to that
@@ -705,7 +706,7 @@ class Region(models.Model):
         return "<Region: %s(#%s)>" % (self.name, self.id)
     
     
-class Land(models.Model):
+class Land(SharedMemoryModel):
     """
     A Land square on the world grid. It contains coordinates of its map space,
     the type of terrain it has, and is part of a region. It can contain many
@@ -825,7 +826,7 @@ class Land(models.Model):
         return "<Land (#%s): %s>" % (self.id, name)
 
 
-class HostileArea(models.Model):
+class HostileArea(SharedMemoryModel):
     """
     This is an area on a land square that isn't a domain, but is
     also considered uninhabitable. It could be because of a group
@@ -846,7 +847,7 @@ class HostileArea(models.Model):
     hostiles = property(_get_units)
 
 
-class Domain(models.Model):
+class Domain(SharedMemoryModel):
     """
     A domain owned by a noble house that resides on a particular Land square on
     the map we'll generate. This model contains information specifically to
@@ -1334,7 +1335,7 @@ class Domain(models.Model):
         self.wipe_cached_data()
 
 
-class DomainProject(models.Model):
+class DomainProject(SharedMemoryModel):
     """
     Construction projects with a domain. In general, each should take a week,
     but may come up with ones that would take more.
@@ -1412,7 +1413,7 @@ class DomainProject(models.Model):
         self.delete()
 
 
-class Castle(models.Model):
+class Castle(SharedMemoryModel):
     """
     Castles within a given domain. Although typically we would only have one,
     it's possible a player might have more than one in a Land square by annexing
@@ -1469,7 +1470,7 @@ class Castle(models.Model):
         return "<Castle (#%s): %s>" % (self.id, self.name)
 
 
-class Minister(models.Model):
+class Minister(SharedMemoryModel):
     """
     A minister appointed to assist a ruler in a category.
     """
@@ -1498,7 +1499,7 @@ class Minister(models.Model):
         return "%s acting as %s minister for %s" % (self.player, self.get_category_display(), self.ruler)
 
 
-class Ruler(models.Model):
+class Ruler(SharedMemoryModel):
     """
     This represents the ruling house/entity that controls a domain, along
     with the liege/vassal relationships. The Castellan is a PcOrNpc object
@@ -1584,7 +1585,7 @@ class Ruler(models.Model):
         return sum(ob.weekly_amount for ob in self.house.debts.filter(category="vassal taxes"))
 
 
-class Crisis(models.Model):
+class Crisis(SharedMemoryModel):
     """
     A crisis affecting organizations
     """
@@ -1633,7 +1634,7 @@ class Crisis(models.Model):
         return msg
 
 
-class CrisisUpdate(models.Model):
+class CrisisUpdate(SharedMemoryModel):
     """
     Container for showing all the Crisis Actions during a period and their corresponding
     result on the crisis
@@ -1647,7 +1648,7 @@ class CrisisUpdate(models.Model):
         return "Update %s for %s" % (self.id, self.crisis)
 
 
-class CrisisAction(models.Model):
+class CrisisAction(SharedMemoryModel):
     """
     An action that a player is taking for the crisis.
     """
@@ -1743,7 +1744,7 @@ class CrisisAction(models.Model):
         return msg
 
 
-class CrisisActionAssistant(models.Model):
+class CrisisActionAssistant(SharedMemoryModel):
     crisis_action = models.ForeignKey("CrisisAction", db_index=True, related_name="assisting_actions")
     dompc = models.ForeignKey("PlayerOrNpc", db_index=True, related_name="assisting_actions")
     action = models.TextField("What action the assistant is taking", blank=True)
@@ -1771,7 +1772,7 @@ class CrisisActionAssistant(models.Model):
         return self.crisis_action.crisis
 
 
-class ActionOOCQuestion(models.Model):
+class ActionOOCQuestion(SharedMemoryModel):
     """
     OOC Question about a crisis. Can be associated with a given action
     or asked about independently.
@@ -1780,7 +1781,7 @@ class ActionOOCQuestion(models.Model):
     text = models.TextField(blank=True)
 
 
-class ActionOOCAnswer(models.Model):
+class ActionOOCAnswer(SharedMemoryModel):
     """
     OOC answer from a GM about a crisis.
     """
@@ -1789,7 +1790,7 @@ class ActionOOCAnswer(models.Model):
     text = models.TextField(blank=True)
 
 
-class OrgRelationship(models.Model):
+class OrgRelationship(SharedMemoryModel):
     """
     The relationship between two or more organizations.
     """
@@ -1799,7 +1800,7 @@ class OrgRelationship(models.Model):
     history = models.TextField("History of these organizations", blank=True)
 
 
-class Reputation(models.Model):
+class Reputation(SharedMemoryModel):
     """
     A player's reputation to an organization.
     """
@@ -1814,7 +1815,7 @@ class Reputation(models.Model):
         unique_together = ('player', 'organization')
  
 
-class Organization(models.Model):
+class Organization(SharedMemoryModel):
     """
     An in-game entity, which may contain both player characters and
     non-player characters, the latter possibly not existing outside
@@ -2072,7 +2073,7 @@ class OrgUnitModifiers(UnitTypeInfo):
         verbose_name_plural = "Unit Modifiers"
     
 
-class ClueForOrg(models.Model):
+class ClueForOrg(SharedMemoryModel):
     clue = models.ForeignKey('character.Clue', related_name="org_discoveries", db_index=True)
     org = models.ForeignKey('Organization', related_name="clue_discoveries", db_index=True)
     revealed_by = models.ForeignKey('character.RosterEntry', related_name="clues_added_to_orgs", blank=True, null=True,
@@ -2082,7 +2083,7 @@ class ClueForOrg(models.Model):
         unique_together = ('clue', 'org')
 
 
-class Agent(models.Model):
+class Agent(SharedMemoryModel):
     """
     Types of npcs that can be employed by a player or an organization. The
     Agent instance represents a class of npc - whether it's a group of spies,
@@ -2128,9 +2129,9 @@ class Agent(models.Model):
         return self.cost_per_guard * self.quantity
     cost = property(_get_cost)
 
-    def _get_type_name(self):
+    @property
+    def type_str(self):
         return self.npcs.get_type_name(self.type)
-    typename = property(_get_type_name)
 
     # total of all agent obs + our reserve quantity
     def _get_total_num(self):
@@ -2142,7 +2143,7 @@ class Agent(models.Model):
     active = property(_get_active)
 
     def __unicode__(self):
-        name = self.name or self.typename
+        name = self.name or self.type_str
         if self.unique or self.quantity == 1:
             return name
         return "%s %s" % (self.quantity, self.name)
@@ -2152,7 +2153,7 @@ class Agent(models.Model):
 
     def display(self, show_assignments=True):
         msg = "\n\n{wID{n: %s {wName{n: %s {wType:{n %s" % (
-            self.id, self.name, self.typename)
+            self.id, self.name, self.type_str)
         if not self.unique:
             msg += " {wUnassigned:{n %s\n" % self.quantity
         else:
@@ -2210,7 +2211,7 @@ class Agent(models.Model):
 
     def get_attr_maximum(self, attr, category):
         if category == "level":
-            if self.typename in attr:
+            if self.type_str in attr:
                 attr_max = 6
             else:
                 attr_max = self.quality - 1
@@ -2234,7 +2235,7 @@ class Agent(models.Model):
         return attr_max
 
 
-class AgentMission(models.Model):
+class AgentMission(SharedMemoryModel):
     """
     Missions that AgentObs go on.
     """
@@ -2247,7 +2248,7 @@ class AgentMission(models.Model):
     results = models.TextField(blank=True, null=True)
 
 
-class AgentOb(models.Model):
+class AgentOb(SharedMemoryModel):
     """
     Allotment from an Agent class that has a representation in-game.
     """
@@ -2306,7 +2307,7 @@ class AgentOb(models.Model):
         return self.agent_class.access(accessing_obj, access_type, default)
 
 
-class Army(models.Model):
+class Army(SharedMemoryModel):
     """
     Any collection of military units belonging to a given domain.
     """
@@ -2578,7 +2579,7 @@ class Army(models.Model):
         along with do_weekly_adjustment. Error checking on the validity
         of orders should be done at the player-command level, not here.
         """
-        orders = self.pending_orders
+        # orders = self.pending_orders
         # stoof here later
         self.orders.filter(week__lt=week - 1).update(complete=True)
         # if not orders:
@@ -2761,7 +2762,7 @@ class Army(models.Model):
             pass
 
 
-class Orders(models.Model):
+class Orders(SharedMemoryModel):
     """
     Orders for an army that will be executed during weekly maintenance. These
     are macro-scale orders for the entire army. Tactical commands during battle
@@ -2897,10 +2898,11 @@ class MilitaryUnit(UnitTypeInfo):
         Args:
             qty: an integer
         """
-        unit.quantity -= qty
-        unit.save()
-        MilitaryUnit.objects.create(origin=self.origin, army=self.army, orders=self.orders, quantity=qty, level=self.level, 
-                                    equipment=self.equipment, xp=self.xp, hostile_area=self.hostile_area)
+        self.quantity -= qty
+        self.save()
+        MilitaryUnit.objects.create(origin=self.origin, army=self.army, orders=self.orders, quantity=qty,
+                                    level=self.level, equipment=self.equipment, xp=self.xp,
+                                    hostile_area=self.hostile_area)
     
     def decimate(self, amount=0.10):
         """
@@ -3009,7 +3011,7 @@ class MilitaryUnit(UnitTypeInfo):
         target.delete()
     
 
-class Member(models.Model):
+class Member(SharedMemoryModel):
     """
     Membership information for a character in an organization. This may or
     may not be an actual in-game object. If pc_exists is true, we expect a
@@ -3218,7 +3220,7 @@ class Member(models.Model):
         return getattr(self.organization, rankstr)
         
 
-class Task(models.Model):
+class Task(SharedMemoryModel):
     """
     A task that a guild creates and then assigns to members to carry out,
     to earn them and the members income. Used to create RP.
@@ -3241,7 +3243,7 @@ class Task(models.Model):
         return ", ".join(str(ob.category) for ob in self.requirements.all())
 
 
-class AssignedTask(models.Model):
+class AssignedTask(SharedMemoryModel):
     """
     A task assigned to a player.
     """
@@ -3397,7 +3399,7 @@ class AssignedTask(models.Model):
         return "%s weeks ago" % elapsed
         
 
-class TaskSupporter(models.Model):
+class TaskSupporter(SharedMemoryModel):
     """
     A player that has pledged support to someone doing a task
     """
@@ -3466,7 +3468,7 @@ class MatList(object):
         return self.mats
 
 
-class CraftingRecipe(models.Model):
+class CraftingRecipe(SharedMemoryModel):
     """
     For crafting, a recipe has a name, description, then materials. A lot of information
     is saved as a parsable text string in the 'result' text field. It'll
@@ -3587,7 +3589,7 @@ class CraftingRecipe(models.Model):
         return self.resultsdict.get("baseval", 0.0)
 
 
-class CraftingMaterialType(models.Model):
+class CraftingMaterialType(SharedMemoryModel):
     """
     Different types of crafting materials. We have a silver value per unit
     stored. Similar to results in CraftingRecipe, mods holds a dictionary
@@ -3613,7 +3615,7 @@ class CraftingMaterialType(models.Model):
         return self.name or "Unknown"
 
 
-class CraftingMaterials(models.Model):
+class CraftingMaterials(SharedMemoryModel):
     """
     Materials used for crafting. Can be stored by an AssetOwner as part of their
     collection, -or- used in a recipe to measure how much they need of a material.
@@ -3636,7 +3638,7 @@ class CraftingMaterials(models.Model):
         return self.type.value * self.amount
 
 
-class RPEvent(models.Model):
+class RPEvent(SharedMemoryModel):
     """
     A model to store RP events created by either players or GMs. We use the PlayerOrNpc
     model instead of directly linking to players so that we can have npcs creating
@@ -3784,7 +3786,7 @@ class RPEvent(models.Model):
         return set(self.gms.all() | self.hosts.all() | self.participants.all())
     
 
-class InfluenceCategory(models.Model):
+class InfluenceCategory(SharedMemoryModel):
     name = models.CharField(max_length=255, unique=True, db_index=True)
     orgs = models.ManyToManyField("Organization", through="SphereOfInfluence")
     players = models.ManyToManyField("PlayerOrNpc", through="Renown")
@@ -3798,7 +3800,7 @@ class InfluenceCategory(models.Model):
         return self.name
 
 
-class Renown(models.Model):
+class Renown(SharedMemoryModel):
     category = models.ForeignKey("InfluenceCategory", db_index=True)
     player = models.ForeignKey("PlayerOrNpc", related_name="renown", db_index=True)
     rating = models.IntegerField(blank=0, default=0)
@@ -3826,7 +3828,7 @@ class Renown(models.Model):
         return 20
 
 
-class SphereOfInfluence(models.Model):
+class SphereOfInfluence(SharedMemoryModel):
     category = models.ForeignKey("InfluenceCategory", db_index=True)
     org = models.ForeignKey("Organization", related_name="spheres", db_index=True)
     rating = models.IntegerField(blank=0, default=0)
@@ -3852,7 +3854,7 @@ class SphereOfInfluence(models.Model):
         return 45 + (self.rating-1550)/100
 
 
-class TaskRequirement(models.Model):
+class TaskRequirement(SharedMemoryModel):
     category = models.ForeignKey("InfluenceCategory", db_index=True)
     task = models.ForeignKey("Task", related_name="requirements", db_index=True)
     minimum_amount = models.PositiveSmallIntegerField(blank=0, default=0)
@@ -3861,7 +3863,7 @@ class TaskRequirement(models.Model):
         return "%s requirement: %s" % (self.task, self.category)
 
 
-class SupportUsed(models.Model):
+class SupportUsed(SharedMemoryModel):
     week = models.PositiveSmallIntegerField(default=0, blank=0)
     supporter = models.ForeignKey("TaskSupporter", related_name="allocation", db_index=True)
     sphere = models.ForeignKey("SphereOfInfluence", related_name="usage", db_index=True)

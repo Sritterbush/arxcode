@@ -623,14 +623,14 @@ class AgentMixin(object):
     
     @property
     def training_skill(self):
-        if "animal" in self.agent.typename:
+        if "animal" in self.agent.type_str:
             return "animal ken"
         return "teaching"
 
     @property
     def species(self  # type: Retainer or Agent
                 ):
-        if "animal" in self.agent.typename:
+        if "animal" in self.agent.type_str:
             default = "animal"
         else:
             default = "human"
@@ -661,7 +661,11 @@ class AgentMixin(object):
 class Retainer(AgentMixin, Npc):
 
     def display(self):
-        msg = "{wAssigned to:{n %s " % self.db.guarding and self.db.guarding.key
+        if self.db.guarding:
+            guarding_name = self.db.guarding.key
+        else:
+            guarding_name = "None"
+        msg = "{wAssigned to:{n %s " % guarding_name
         msg += "{wLocation:{n %s\n" % (self.location or self.db.docked or "Home Barracks")
         return msg
 
@@ -781,7 +785,7 @@ class Agent(AgentMixin, MultiNpc):
     def display(self):
         msg = "\n{wGuards:{n %s\n" % self.name
         if self.db.guarding:
-            msg += "{wAssigned to:{n %s {wOwner{n:%s\n" % (self.db.guarding, self.agent.owner)
+            msg += "{wAssigned to:{n %s {wOwner{n:%s\n" % (self.db.guarding.key, self.agent.owner)
         msg += "{wLocation:{n %s\n" % (self.location or self.db.docked or "Home Barracks")
         return msg
 
