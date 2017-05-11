@@ -143,7 +143,7 @@ class CmdMarket(MuxCommand):
             except CraftingMaterialType.MultipleObjectsReturned:
                 try:
                     material = materials.get(name__iexact=self.lhs)
-                except (CraftingMaterials.DoesNotExist, CraftingMaterials.MultipleObjectsReturned):
+                except (CraftingMaterialType.DoesNotExist, CraftingMaterialType.MultipleObjectsReturned):
                     caller.msg("Unable to get a unique match for that.")
                     return           
         if 'buy' in self.switches or 'import' in self.switches:
