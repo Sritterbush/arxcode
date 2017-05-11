@@ -163,6 +163,7 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             self.add(domcommands.CmdDomain())
             self.add(domcommands.CmdFamily())
             self.add(domcommands.CmdOrganization())
+            self.add(domcommands.CmdArmy())
             self.add(agent_commands.CmdAgents())
             self.add(domcommands.CmdPatronage())
             self.add(agent_commands.CmdRetainers())

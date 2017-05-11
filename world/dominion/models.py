@@ -2361,8 +2361,16 @@ class Army(SharedMemoryModel):
                                                                                            self.starvation_level,
                                                                                            self.plunder)
         msg += "{wUnits{n:\n"
+        from evennia.utils.evtable import EvTable
+        table = EvTable("{wID{n", "{wCommander{n", "{wType{n", "{wAmt{n", "{wLvl{n", "{wEquip{n", "{wXP{n", width=78,
+                        border="cells")
         for unit in self.units.all():
-            msg += unit.display() + "\n"
+            typestr = unit.type.capitalize()
+            cmdstr = ""
+            if unit.commander:
+                cmdstr = "{c%s{n" % unit.commander
+            table.add_row(unit.id, cmdstr, typestr, unit.quantity, unit.level, unit.equipment, unit.xp)
+        msg += str(table)
         return msg
         
     def can_change(self, player):
@@ -2864,8 +2872,11 @@ class MilitaryUnit(UnitTypeInfo):
         """
         Returns a string representation of this unit's stats.
         """
-        msg = "{wType{n: %-16s {wAmount{n: %-7s" % (self.type.capitalize(), self.quantity)
-        msg += " {wLevel{n: %s {wEquipment{n: %s {wXP{n: %s" % (self.level, self.equipment, self.xp)
+        cmdstr = ""
+        if self.commander:
+            cmdstr = "{c%s{n " % self.commander
+        msg = "{wID:{n#%s %s{wType{n: %-12s {wAmount{n: %-7s" % (self.id, cmdstr, self.type.capitalize(), self.quantity)
+        msg += " {wLevel{n: %s {wEquip{n: %s {wXP{n: %s" % (self.level, self.equipment, self.xp)
         return msg
     
     def change_commander(self, caller, commander):

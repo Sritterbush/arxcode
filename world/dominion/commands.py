@@ -1471,7 +1471,7 @@ class CmdArmy(MuxPlayerCommand):
         temp_owned = Army.objects.filter(temp_owner__player__player=caller)
         org_owned = Army.objects.filter(owner__organization_owner__in=my_orgs)
         temp_org_owned = Army.objects.filter(temp_owner__organization_owner__in=my_orgs)
-        commanded = Army.objects.filter(commander__player__player=caller)
+        commanded = Army.objects.filter(general__player=caller)
         caller.msg("Armies Owned: %s" % ", ".join(str(ob) for ob in owned))
         caller.msg("Provisional Armies: %s" % ", ".join(str(ob) for ob in temp_owned))
         caller.msg("Org-Owned Armies: %s" % ", ".join(str(ob) for ob in org_owned))
@@ -1666,7 +1666,7 @@ class CmdArmy(MuxPlayerCommand):
                 return
             try:
                 qty = int(self.rhslist[1])
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, IndexError):
                 self.msg("Quantity must be a number.")
                 return
             # get unit_types cls from the string they specify
@@ -1685,7 +1685,7 @@ class CmdArmy(MuxPlayerCommand):
                 self.msg("%s does not have enough military resources." % army.owner)
                 return
             army.owner.military -= cost
-            army.owner.military.save()
+            army.owner.save()
             army.units.create(unit_type=cls.id, origin=army.owner.organization_owner, quantity=qty)
             self.msg("Successfully hired %s unit of %s for army: %s." % (self.rhslist[0], qty, army))
             return
@@ -1718,6 +1718,7 @@ class CmdArmy(MuxPlayerCommand):
             self.msg("You retrieved your army: %s" % army)
             army.change_temp_owner(self.caller, None)
             return
+        self.msg("Invalid switch.")
         
 
 class CmdOrganization(MuxPlayerCommand):
