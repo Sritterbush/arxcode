@@ -1436,9 +1436,9 @@ class CmdArmy(MuxPlayerCommand):
         @army/rename <army>=<new name>
         @army/desc <army>=<description>
         @army/hire <army>=<unit type>,<quantity>
-        @army/combine <unit ID>=<unit ID>
-        @army/split <unit ID>,<quantity>
-        @army/discharge <unit ID>,<quantity>
+        @army/combine <destination unit ID>=<unit ID>
+        @army/split <unit ID>=<quantity>
+        @army/discharge <unit ID>=<quantity>
         @army/transfer <unit ID>=<new army>
         @army/general <army>=<character>
         @army/commander <unit ID>=<character>
@@ -1521,6 +1521,12 @@ class CmdArmy(MuxPlayerCommand):
             return
         return commander
     
+    def check_army_has_space(self, army):
+        if army.at_capacity:
+            self.msg("The army is full. Its units must be transferred to a different army or combined first.")
+            return False
+        return True
+    
     def func(self):
         caller = self.caller
         if "resign" in self.switches:
@@ -1566,14 +1572,54 @@ class CmdArmy(MuxPlayerCommand):
             unit = self.find_unit(self.lhs)
             if not unit:
                 return
+            # TODO Maybe check pending orders here, so ppl don't cheat
             if "combine" in self.switches:
-                pass
-            if "split" in self.switches:
-                pass
-            if "discharge" in self.switches:
-                pass
+                # TODO maybe check a unit property for max quantity
+                targ_unit = self.find_unit(self.rhs)
+                if not targ_unit:
+                    return
+                if targ_unit.unit_type != unit.unit_type:
+                    self.msg("Unit types must match.")
+                    return
+                unit.combine(targ_unit)
+                self.msg("You have combined the units.")
+                return
+            if "split" in self.switches or "discharge" in self.switches:
+                try:
+                    qty = int(self.rhs)
+                except (TypeError, ValueError):
+                    self.msg("Quantity must be a number.")
+                    return
+                if "discharge" in self.switches:
+                    if unit.quantity <= qty:
+                        self.msg("Unit %s has been discharged." % unit.id)
+                        unit.delete()
+                        return
+                    unit.quantity -= qty
+                    unit.save()
+                    self.msg("%s of unit %s are now discharged from service, and %s remain." % (qty, unit.id, unit.quantity))
+                    return
+                if not self.check_army_has_space(unit.army):
+                    return
+                if unit.quantity <= qty:
+                    self.msg("You cannot split the entirety of a unit.")
+                    return
+                self.msg("Splitting unit %s. %s will go to a new unit and %s remain." % (unit.id, qty, unit.quantity))
+                unit.split(qty)
+                return
             if "transfer" in self.switches:
-                pass
+                army = self.find_army(self.rhs)
+                if not army.can_change(caller):
+                    return
+                if not army.general:
+                    self.msg("You may not transfer units to an army with no general.")
+                    return
+                if not self.check_army_has_space(army):
+                    return
+                unit.army = army
+                unit.save()
+                self.msg("Transferred unit %s to army: %s." % (unit.id, army))
+                return
             if "commander" in self.switches:
                 if not self.rhs:
                     self.msg("You remove the commander from unit %s" % unit.id)
@@ -1612,7 +1658,36 @@ class CmdArmy(MuxPlayerCommand):
             self.msg(army.display())
             return
         if "hire" in self.switches:
-            pass
+            if not army.general:
+                self.msg("You may not hire units for an army with no general.")
+                return
+            if not self.check_army_has_space(army):
+                return
+            try:
+                qty = int(self.rhslist[1])
+            except (TypeError, ValueError):
+                self.msg("Quantity must be a number.")
+                return
+            # get unit_types cls from the string they specify
+            cls = army.get_unit_class(self.rhslist[0])
+            if not cls:
+                self.msg("Found no unit types for this army called %s." % self.rhslist[0])
+                return
+            # use the cls to determine the total cost
+            cost = cls.hiring_cost * qty
+            if self.caller.ndb.army_cost_check != cost:
+                self.caller.ndb.army_cost_check = cost
+                self.msg("Cost will be %s military resources, use command again to confirm." % cost)
+                return
+            self.caller.ndb.army_cost_check = None
+            if army.owner.military < cost:
+                self.msg("%s does not have enough military resources." % army.owner)
+                return
+            army.owner.military -= cost
+            army.owner.military.save()
+            army.units.create(unit_type=cls.id, origin=owner.organization_owner, quantity=qty)
+            self.msg("Successfully hired %s unit of %s for army: %s." % (self.rhslist[0], qty, army))
+            return
         if "general" in self.switches:
             if not self.rhs:
                 self.msg("You remove the general from army: %s" % army)
@@ -1623,9 +1698,24 @@ class CmdArmy(MuxPlayerCommand):
             army.change_general(self.caller, general)
             return
         if "grant" in self.switches:
-            pass
+            if not self.rhs:
+                self.msg("Grant temporary control of the army to who?")
+                return
+            try:
+                # looking for this assetowner to be an org first
+                temp_owner = Organization.objects.filter(name__iexact=self.rhs)
+            except temp_owner.DoesNotExist:
+                # if it isn't an org, must be a player
+                temp_owner = caller.search(self.rhs)
+                if not temp_owner:
+                    return
+            self.msg("You grant temporary control of army: %s to %s" % (army, temp_owner))
+            army.change_temp_owner(self.caller, temp_owner)
+            return
         if "recall" in self.switches:
-            pass
+            self.msg("You retrieved your army: %s" % army)
+            army.change_temp_owner(self.caller, None)
+            return
         
         
 class CmdOrganization(MuxPlayerCommand):

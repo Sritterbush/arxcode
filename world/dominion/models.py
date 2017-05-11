@@ -2455,9 +2455,8 @@ class Army(models.Model):
             caller: a player object
             general: a player object
         """
-        old_general = self.general
-        if old_general:
-            old_general.inform("%s has relieved you from duty as general of army: %s." % (caller, self))
+        if self.general:
+            self.general.inform("%s has relieved you from duty as general of army: %s." % (caller, self))
         if general:
             self.general = general.Dominion
             self.save()
@@ -2465,6 +2464,45 @@ class Army(models.Model):
             return
         self.general = None
         self.save()
+    
+    def change_temp_owner(self, caller, temp_owner):
+        """Change an army's temp_owner. Informs old and new temp_owners of change.
+        
+        Sets an Army's temp_owner to new character or to None and informs the old
+        temp_owner of the change, if they exist.
+        
+        Args:
+            caller: a player object
+            temp_owner: an AssetOwner
+        """
+        if self.temp_owner:
+            self.temp_owner.inform("%s has retrieved an army that you temporarily controlled: %s." % (caller, self))
+        self.temp_owner = temp_owner
+        self.save()
+        if temp_owner:
+            temp_owner.inform("%s has given you temporary control of army: %s." % (caller, self))
+    
+    @property
+    def max_units(self):
+        if not self.general:
+            return 0
+        # TODO maybe look at general's command/leadership
+        return 5
+        
+    @property
+    def at_capacity(self):
+        if self.units.count() >= self.max_units:
+            return True
+        
+    def get_unit_class(self, name):
+        try:
+            match = self.owner.organization_owner.unit_mods.get(name__iexact=name)
+            # get unit type from match and return it
+            return unit_types.get_unit_class_by_id(match.unit_type)
+        except (AttributeError, OrgUnitModifiers.DoesNotExist):
+            pass
+        # no match, get unit type from string and return it
+        return unit_types.cls_from_str(name)
     
     def get_food_consumption(self):
         """
@@ -2850,6 +2888,20 @@ class MilitaryUnit(UnitTypeInfo):
         self.commander = None
         self.save()
     
+    def split(self, qty):
+        """Create a duplicate unit with a specified quantity.
+        
+        Copies a unit, but with a specific quantity and no commander to simulate 
+        it being split.
+        
+        Args:
+            qty: an integer
+        """
+        unit.quantity -= qty
+        unit.save()
+        MilitaryUnit.objects.create(origin=self.origin, army=self.army, orders=self.orders, quantity=qty, level=self.level, 
+                                    equipment=self.equipment, xp=self.xp, hostile_area=self.hostile_area)
+    
     def decimate(self, amount=0.10):
         """
         Losing a percentage of our troops. Generally this is due to death
@@ -2943,6 +2995,18 @@ class MilitaryUnit(UnitTypeInfo):
             self.army.owner.clear_cache()
         except (AttributeError, TypeError, ValueError):
             pass
+        
+    def combine_units(self, target):
+        """
+        Combine our units. get average of both worlds. Mediocrity wins!
+        """
+        total = self.quantity + target.quantity
+        self.level = ((self.level * self.quantity) + (target.level * target.quantity))/total
+        self.equipment = ((self.equipment * self.quantity) + (target.equipment * target.quantity))/total
+        self.quantity = total
+        self.xp = ((self.quantity * self.xp) + (target.quantity * target.xp))/total
+        self.save()
+        target.delete()
     
 
 class Member(models.Model):

@@ -341,12 +341,14 @@ class UnitStats(PositionActor):
 class Infantry(UnitStats):
     id = unit_constants.INFANTRY
     name = "Infantry"
+    silver_upkeep = 10
     melee_damage = 3
     storm_damage = 3
     defense = 1
     hp = 30
     movement = 2
     strategic_speed = 2
+    hiring_cost = 1
 
 
 @register_unit
@@ -360,6 +362,7 @@ class Pike(UnitStats):
     hp = 30
     movement = 2
     strategic_speed = 2
+    hiring_cost = 2
 
 
 @register_unit
@@ -373,6 +376,7 @@ class Cavalry(UnitStats):
     hp = 60
     movement = 6
     strategic_speed = 2
+    hiring_cost = 3
 
 
 @register_unit
@@ -389,6 +393,7 @@ class Archers(UnitStats):
     siege = 5
     movement = 2
     strategic_speed = 2
+    hiring_cost = 2
 
 
 @register_unit
@@ -404,6 +409,7 @@ class Longship(UnitStats):
     environment = "naval"
     strategic_speed = 12
     structure_damage_multiplier = 20
+    hiring_cost = 15
 
 
 @register_unit
@@ -420,6 +426,7 @@ class SiegeWeapon(UnitStats):
     storm_damage = 600
     strategic_speed = 1
     structure_damage_multiplier = 20
+    hiring_cost = 100
 
 
 @register_unit
@@ -435,6 +442,7 @@ class Galley(UnitStats):
     environment = "naval"
     strategic_speed = 10
     structure_damage_multiplier = 20
+    hiring_cost = 50
 
 
 @register_unit
@@ -450,3 +458,4 @@ class Dromond(UnitStats):
     environment = "naval"
     strategic_speed = 8
     structure_damage_multiplier = 20
+    hiring_cost = 200
