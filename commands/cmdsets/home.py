@@ -1087,6 +1087,12 @@ class CmdBuyFromShop(CmdCraft):
         item.tags.remove("for_sale")
         item.attributes.remove("sale_location")
         del loc.db.item_prices[item.id]
+        if hasattr(item, "rmkey"):
+            if item.rmkey(loc.db.shopowner):
+                item.grantkey(self.caller)
+                self.caller.msg("Good deal! The owner gave you a key for %s." % item)
+                return
+            self.caller.msg("Shady deal? The owner didn't have a key for %s to give you." % item)
 
     def check_blacklist(self):
         """See if we're allowed to buy"""
