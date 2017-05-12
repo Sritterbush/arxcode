@@ -737,9 +737,15 @@ class CmdManageShop(MuxCommand):
             caller.msg(self.list_prices())
             org_discounts = (loc.db.discounts or {}).items()
             char_discounts = (loc.db.char_discounts or {}).items()
+            # replace char with char.key in char_discounts list
+            char_discounts = [(ob[0].key, ob[1]) for ob in char_discounts]
             discounts = ", ".join(("%s: %s%%" % (ob, val) for ob, val in (org_discounts + char_discounts)))
             caller.msg("{wDiscounts{n: %s" % discounts)
-            caller.msg("{wBlacklist{n: %s" % str(loc.db.blacklist))
+            blacklist = []
+            if loc.db.blacklist:
+                # if ob doesn't have a key, it becomes a string (because corporations aren't ppl)
+                blacklist = [getattr(ob, 'key', str(ob)) for ob in loc.db.blacklist]
+            caller.msg("{wBlacklist{n: %s" % ", ".join(blacklist))
             self.list_designs()
             return
         if "sellitem" in self.switches:
@@ -889,7 +895,7 @@ class CmdManageShop(MuxCommand):
                             caller.msg("They are already in the blacklist.")
                             return
                         blacklist.append(targ)
-                    caller.msg("%s added to blacklist." % targ)
+                    caller.msg("%s added to blacklist." % getattr(targ, 'key', targ))
                 else:
                     if org:
                         if targ.name not in blacklist:
@@ -901,7 +907,7 @@ class CmdManageShop(MuxCommand):
                             caller.msg("They are not in the blacklist.")
                             return
                         blacklist.remove(targ)
-                    caller.msg("%s removed from blacklist." % targ)
+                    caller.msg("%s removed from blacklist." % getattr(targ, 'key', targ))
             except Organization.DoesNotExist:
                 caller.msg("No valid target found by that name.")
             loc.db.blacklist = blacklist
@@ -935,10 +941,10 @@ class CmdManageShop(MuxCommand):
                     raise ValueError
                 if discount == 0:
                     loc.db.char_discounts.pop(character, 0)
-                    self.msg("Removed discount for %s." % character)
+                    self.msg("Removed discount for %s." % character.key)
                     return
                 loc.db.char_discounts[character] = discount
-                caller.msg("%s given a discount of %s percent." % (character, discount))
+                caller.msg("%s given a discount of %s percent." % (character.key, discount))
                 return
             except (TypeError, ValueError):
                 caller.msg("Discount must be a number, max of 100.")
