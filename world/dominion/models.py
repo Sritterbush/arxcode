@@ -379,6 +379,12 @@ class PlayerOrNpc(SharedMemoryModel):
         except AttributeError:
             pass
 
+    def inform(self, text, category=None, append=False):
+        player = self.player
+        week = get_week()
+        if player:
+            player.inform(text, category=category, week=week, append=append)
+
 
 class AssetOwner(SharedMemoryModel):
     """
@@ -2939,12 +2945,7 @@ class MilitaryUnit(UnitTypeInfo):
         value is for weekly troop training as a command. Battles will generally
         give much more than normal training.
         """
-        self.xp += val
-        cost = (self.level + 1) * 5
-        if self.xp >= cost:
-            self.level += 1
-            self.xp -= cost
-        self.save()
+        self.gain_xp(val)
 
     # noinspection PyMethodMayBeStatic
     def adjust_readiness(self, troops, training=0, equip=0):
@@ -3020,6 +3021,23 @@ class MilitaryUnit(UnitTypeInfo):
         self.xp = ((self.quantity * self.xp) + (target.quantity * target.xp))/total
         self.save()
         target.delete()
+
+    def gain_xp(self, amount):
+        """
+        Gain xp, divided among our quantity
+        Args:
+            amount: int
+        """
+        gain = int(round(float(amount)/self.quantity))
+        # always gain at least 1 xp
+        if gain < 1:
+            gain = 1
+        self.xp += gain
+        levelup_cost = self.stats.levelup_cost
+        if self.xp > levelup_cost:
+            self.xp -= levelup_cost
+            self.level += 1
+        self.save()
     
 
 class Member(SharedMemoryModel):

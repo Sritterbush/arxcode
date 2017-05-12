@@ -86,15 +86,16 @@ def cls_from_str(name_str):
         Helper function for end-users entering the name of a unit type
         and retrieving the class that contains stats for that unit type.
     Args:
-        name_str:
+        name_str: str
 
     Returns:
-        UnitStats subclass instance
+        UnitStats
     """
     name_str = name_str.lower()
     for cls in _UNIT_TYPES.values():
         if cls.name.lower() == name_str:
             return cls
+
 
 @register_unit
 class UnitStats(PositionActor):
@@ -129,9 +130,11 @@ class UnitStats(PositionActor):
     environment = "ground"
     # how much more damage we take from things like dragon fire, spells, catapults, etc
     structure_damage_multiplier = 1
+    xp_cost_multiplier = 1
 
     def __init__(self, dbobj, grid):
         super(UnitStats, self).__init__(grid)
+        self.dbobj = dbobj
         self.formation = None
         self.log = None
         # how much damage we've taken
@@ -154,7 +157,7 @@ class UnitStats(PositionActor):
             self.commander = dbobj.commander
             if dbobj.army:
                 self.morale = dbobj.army.morale
-                self.commander = self.commander or dbobj.army.commander
+                self.commander = self.commander or dbobj.army.general
             else:
                 self.morale = 80
             self.level = dbobj.level
@@ -162,7 +165,6 @@ class UnitStats(PositionActor):
             self.type = dbobj.unit_type
             self.quantity = dbobj.quantity
             self.starting_quantity = dbobj.quantity
-            self.dbobj = dbobj
         except AttributeError:
             print "ERROR: No dbobj for UnitStats found! Using default values."
             traceback.print_exc()
@@ -174,6 +176,12 @@ class UnitStats(PositionActor):
             self.starting_quantity = 1
             self.dbobj = None
             self.commander = None
+        if dbobj.origin:
+            from django.core.exceptions import ObjectDoesNotExist
+            try:
+                self.name = dbobj.origin.unit_mods.get(unit_type=self.id).name
+            except (ObjectDoesNotExist, AttributeError):
+                pass
             
     def _targ_in_range(self):
         if not self.target:
@@ -334,7 +342,12 @@ class UnitStats(PositionActor):
         Retrieve a target from the enemy formation based on various
         targeting criteria.
         """
-        self.target = enemy_formation.get_target_from_formation_for_attacker(self)       
+        self.target = enemy_formation.get_target_from_formation_for_attacker(self)
+
+    @property
+    def levelup_cost(self):
+        current = self.dbobj.level + 1
+        return current * current * 50 * self.xp_cost_multiplier
 
 
 @register_unit
@@ -348,7 +361,7 @@ class Infantry(UnitStats):
     hp = 30
     movement = 2
     strategic_speed = 2
-    hiring_cost = 1
+    hiring_cost = 5
 
 
 @register_unit
@@ -362,7 +375,7 @@ class Pike(UnitStats):
     hp = 30
     movement = 2
     strategic_speed = 2
-    hiring_cost = 2
+    hiring_cost = 8
 
 
 @register_unit
@@ -376,7 +389,8 @@ class Cavalry(UnitStats):
     hp = 60
     movement = 6
     strategic_speed = 2
-    hiring_cost = 3
+    hiring_cost = 15
+    xp_cost_multiplier = 2
 
 
 @register_unit
@@ -393,7 +407,8 @@ class Archers(UnitStats):
     siege = 5
     movement = 2
     strategic_speed = 2
-    hiring_cost = 2
+    hiring_cost = 10
+    xp_cost_multiplier = 2
 
 
 @register_unit
@@ -409,7 +424,8 @@ class Longship(UnitStats):
     environment = "naval"
     strategic_speed = 12
     structure_damage_multiplier = 20
-    hiring_cost = 15
+    hiring_cost = 75
+    xp_cost_multiplier = 10
 
 
 @register_unit
@@ -426,7 +442,8 @@ class SiegeWeapon(UnitStats):
     storm_damage = 600
     strategic_speed = 1
     structure_damage_multiplier = 20
-    hiring_cost = 100
+    hiring_cost = 500
+    xp_cost_multiplier = 30
 
 
 @register_unit
@@ -442,7 +459,8 @@ class Galley(UnitStats):
     environment = "naval"
     strategic_speed = 10
     structure_damage_multiplier = 20
-    hiring_cost = 50
+    hiring_cost = 250
+    xp_cost_multiplier = 50
 
 
 @register_unit
@@ -458,4 +476,5 @@ class Dromond(UnitStats):
     environment = "naval"
     strategic_speed = 8
     structure_damage_multiplier = 20
-    hiring_cost = 200
+    hiring_cost = 1000
+    xp_cost_multiplier = 100

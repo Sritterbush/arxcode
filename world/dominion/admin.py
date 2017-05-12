@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister,
                      AssetOwner, Region, Land, DomainProject, Castle,
-                     Ruler, Army, Orders, MilitaryUnit, Member, Task,
+                     Ruler, Army, Orders, MilitaryUnit, Member, Task, OrgUnitModifiers,
                      CraftingRecipe, CraftingMaterialType, CraftingMaterials, CrisisActionAssistant,
                      RPEvent, AccountTransaction, AssignedTask, Crisis, CrisisAction, CrisisUpdate,
                      OrgRelationship, Reputation, TaskSupporter, InfluenceCategory,
@@ -48,6 +48,12 @@ class ClueForOrgInline(admin.TabularInline):
     raw_id_fields = ('clue', 'org', 'revealed_by')
 
 
+class OrgUnitInline(admin.TabularInline):
+    model = OrgUnitModifiers
+    extra = 0
+    raw_id_fields = ('org',)
+
+
 class OrgListFilter(admin.SimpleListFilter):
     title = 'PC or NPC'
     parameter_name = 'played'
@@ -74,7 +80,7 @@ class OrgAdmin(DomAdmin):
     # @staticmethod
     # def membership(obj):
     #     return ", ".join([str(p) for p in obj.members.filter(deguilded=False)])
-    inlines = [MemberInline, ClueForOrgInline]
+    inlines = [MemberInline, ClueForOrgInline, OrgUnitInline]
 
     
 class Assignments(admin.StackedInline):
@@ -317,7 +323,8 @@ class ArmyAdmin(DomAdmin):
     list_display = ('id', 'name', 'owner', 'domain')
     raw_id_fields = ('owner', 'domain', 'land', 'castle', 'commander')
     search_fields = ('name', 'domain__name', 'owner__player__player__username', 'owner__organization_owner__name')
-  
+
+
 # Register your models here.
 admin.site.register(PlayerOrNpc, PCAdmin)
 admin.site.register(Organization, OrgAdmin)

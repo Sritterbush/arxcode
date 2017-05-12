@@ -21,6 +21,7 @@ from .models import (Region, Domain, Land, PlayerOrNpc, Army, ClueForOrg,
                      Ruler, Organization, Member, SphereOfInfluence, SupportUsed, AssignedTask,
                      TaskSupporter, InfluenceCategory, Minister)
 from .unit_types import type_from_str
+from world.stats_and_skills import do_dice_check
 
 # Constants for Dominion projects
 BUILDING_COST = 1000
@@ -1548,7 +1549,30 @@ class CmdArmy(MuxPlayerCommand):
             caller.msg(army.display())
             return
         if "propaganda" in self.switches:
-            pass
+            target = self.caller.search(self.lhs)
+            if not target:
+                return
+            base = 30
+            try:
+                ap = int(self.rhs)
+                if ap < 0:
+                    raise ValueError
+            except (ValueError, TypeError):
+                ap = 0
+            if not self.caller.pay_action_points(ap + base):
+                self.msg("You do not have enough action points.")
+                return
+            result = do_dice_check(self.caller.db.char_ob, difficulty=60 - ap, stat="charm", skill="propaganda",
+                                   quiet=False)
+            if result <= 0:
+                self.msg("Your efforts at propaganda were not successful in helping recruitment.")
+                return
+            prop_dict = target.db.propaganda_mods or {}
+            prop_dict[self.caller] = result
+            target.db.propaganda_mods = prop_dict
+            target.inform("%s has added a result of %s to propaganda for recruitment." % (self.caller, result))
+            self.msg("You add a result of %s for propaganda to help %s's recruitment." % (result, target))
+            return
         if "create" in self.switches:
             # get owner for army from self.lhs
             try:
@@ -1581,7 +1605,7 @@ class CmdArmy(MuxPlayerCommand):
                 if targ_unit.unit_type != unit.unit_type:
                     self.msg("Unit types must match.")
                     return
-                unit.combine(targ_unit)
+                unit.combine_units(targ_unit)
                 self.msg("You have combined the units.")
                 return
             if "split" in self.switches or "discharge" in self.switches:
@@ -1686,8 +1710,12 @@ class CmdArmy(MuxPlayerCommand):
                 return
             army.owner.military -= cost
             army.owner.save()
-            army.units.create(unit_type=cls.id, origin=army.owner.organization_owner, quantity=qty)
+            prop_dict = self.caller.db.propaganda_mods or {}
+            bonus = sum(prop_dict.values())
+            unit = army.units.create(unit_type=cls.id, origin=army.owner.organization_owner, quantity=qty)
             self.msg("Successfully hired %s unit of %s for army: %s." % (self.rhslist[0], qty, army))
+            unit.gain_xp(bonus)
+            self.msg("Unit %s has gained %s xp divided among its members." % (unit.id, bonus))
             return
         if "general" in self.switches:
             if not self.rhs:
