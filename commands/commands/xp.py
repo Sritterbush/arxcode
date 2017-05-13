@@ -99,11 +99,11 @@ class CmdUseXP(MuxCommand):
             if amt > self.caller.db.xp:
                 self.msg("You do not have enough xp remaining.")
                 return
-            self.caller.db.xp -= amt
-            if alt.db.xp is None:
-                alt.db.xp = 0
-            alt.db.xp += amt
+            self.caller.adjust_xp(-amt)
+            alt.adjust_xp(amt)
             self.msg("Transferred %s xp to %s." % (amt, alt))
+            history.xp_earned -= amt
+            history.save()
             return
         args = self.args.lower()
         # get cost already factors in if we have a trainer, so no need to check

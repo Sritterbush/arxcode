@@ -7,7 +7,7 @@ from typeclasses.consumable.consumable import Consumable
 
 class Mask(Wearable):
     """
-    Wearable mask that replaces name with 'A <gender> wearing <short desc> mask'. 
+    Wearable mask that replaces name with 'Someone wearing <short desc> mask'. 
     Also grants a temp_desc. Charges equal to quality, loses a charge when worn.
     """
     def at_object_creation(self):
@@ -18,7 +18,8 @@ class Mask(Wearable):
     
     def at_pre_wear(self, wearer):
         """Hook called before wearing for any checks."""
-        if self.db.quality_level <= 0:
+        # setting a negative quality gives someone an infinite use mask!
+        if self.db.quality_level == 0:
             wearer.msg("%s seems too damaged to wear. It needs to be repaired." % self)
             return False
         return True
@@ -28,7 +29,8 @@ class Mask(Wearable):
         self.wear_mask(wearer)
         if self.db.quality_level is None:
             self.db.quality_level = 0
-        else:
+        # override this to keep track of infinite mask uses, with negative numbers
+        elif self.db.quality_level > 0:
             self.db.quality_level -= 1
         return True
             
