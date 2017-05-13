@@ -104,6 +104,8 @@ class CmdUseXP(MuxCommand):
             self.msg("Transferred %s xp to %s." % (amt, alt))
             history.xp_earned -= amt
             history.save()
+            if self.caller.db.total_xp:
+                self.caller.db.total_xp -= amt
             return
         args = self.args.lower()
         # get cost already factors in if we have a trainer, so no need to check
