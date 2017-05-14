@@ -2637,7 +2637,11 @@ class CmdFirstImpression(MuxCommand):
     This allows you to claim an xp reward for the first time you
     have a scene with another player. You receive 1 xp, while the
     player you write the summary for receives 4 xp. Should they
-    return the favor, you'll receive 4 and they'll receive 1.
+    return the favor, you'll receive 4 and they'll receive 1. The other
+    player receives an inform of the summary you write, and a prompt
+    to let them know they can use the command in return. This command
+    requires you to be in the same room, as a small reminder that this
+    should take place after an RP scene.
     """
     key = "+firstimpression"
     help_category = "Social"
