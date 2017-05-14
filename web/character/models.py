@@ -798,6 +798,10 @@ class Investigation(SharedMemoryModel):
         If we aren't GMing this, check success then set the results string
         accordingly.
         """
+        if not self.automate_result:
+            self.ongoing = False
+            self.save()
+            return
         if self.check_success():
             # if we don't have a valid clue, then let's
             # tell them about what a valid clue -could- be.
