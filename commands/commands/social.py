@@ -22,6 +22,7 @@ from world.dominion.models import AssetOwner, Renown, Reputation, Member
 from typeclasses.characters import Character
 from typeclasses.rooms import ArxRoom
 import random
+from web.character.models import AccountHistory
 
 
 def char_name(character_object, verbose_where=False):
@@ -1892,7 +1893,7 @@ class CmdRoomHistory(MuxCommand):
         caller.location.db.roomhistory = history
         caller.location.tags.add('roomhistory')
         caller.msg("Added the historical note {w'%s'{n to this room. Thank you." % self.args)
-        inform_staff("%s added the note {w'%s'{n to room %s." % (caller, self.args, caller.location))
+        inform_staff("%s added the note {w'%s'{n to room %s." % (caller.key, self.args, caller.location))
         return
 
 
@@ -2270,7 +2271,7 @@ class CmdRandomScene(MuxCommand):
         msg += "\n{rYou are already flagged for xp, and are not penalized in any way for ignoring a request "
         msg += "from someone who did not meaningfully interact with you.{n"
         targ.db.player_ob.inform(msg, category="Validate")
-        inform_staff("%s has completed a random scene with %s. Summary: %s" % (self.caller, targ, self.rhs))
+        inform_staff("%s has completed a random scene with %s. Summary: %s" % (self.caller.key, targ, self.rhs))
         self.msg("You have sent a request to %s to validate your scene." % targ)
         our_requests = self.requested_validation
         our_requests.append(targ)
@@ -2621,3 +2622,75 @@ class CmdRPHooks(MuxPlayerCommand):
             self.msg("Removed.")
             return
         self.msg("Invalid switch.")
+
+
+class CmdFirstImpression(MuxCommand):
+    """
+    An award for a first RP scene with another player
+
+    Usage:
+        +firstimpression <character>
+        +firstimpression <character>=<summary of the RP Scene>
+        +firstimpression/list
+
+
+    This allows you to claim an xp reward for the first time you
+    have a scene with another player. You receive 1 xp, while the
+    player you write the summary for receives 4 xp. Should they
+    return the favor, you'll receive 4 and they'll receive 1.
+    """
+    key = "+firstimpression"
+    help_category = "Social"
+    aliases = ["firstimpression"]
+
+    def list_valid(self):
+        contacts = self.caller.roster.accounthistory_set.last().contacts.all()
+        if "list" in self.switches:
+            self.msg("{wCharacters you have written first impressions of:{n %s" % ", ".join(
+                str(ob.entry) for ob in contacts))
+            return
+        qs = AccountHistory.objects.filter(entry__roster__name="Active", end_date__isnull=True).exclude(
+            account=self.caller.roster.current_account)
+        qs = qs.exclude(id__in=contacts).order_by('entry__player__username')
+        self.msg("{wPlayers you haven't had a scene with yet:{n %s" % ", ".join(str(ob.entry) for ob in qs))
+
+    def func(self):
+        if not self.args:
+            self.list_valid()
+            return
+        if not self.switches and not self.rhs:
+            history = self.caller.roster.accounthistory_set.last().initiated_contacts.filter(
+                to_account__entry__player__username__iexact=self.args)
+            if not history:
+                self.msg("{wNo history found for %s. Use with no arguments to see a list of valid chars.{n" % self.args)
+                return
+            self.msg("First impressions of %s:" % self.args)
+            self.msg("\n".join(ob.summary for ob in history))
+            return
+        targ = self.caller.player.search(self.lhs)
+        if not targ:
+            return
+        if targ.db.char_ob.location != self.caller.location:
+            self.msg("Must be in the same room.")
+            return
+        if len(self.rhs) < 10:
+            self.msg("Must have a summary of the RP scene longer than that.")
+            return
+        hist = targ.roster.accounthistory_set.last()
+        from web.character.models import FirstContact
+        try:
+            self.caller.roster.accounthistory_set.last().initiated_contacts.get(to_account=hist)
+            self.msg("You have already made a first impression with them.")
+            return
+        except FirstContact.DoesNotExist:
+            self.caller.roster.accounthistory_set.last().initiated_contacts.create(to_account=hist,
+                                                                                   summary=self.rhs)
+            self.msg("You have tried to make a first impression on %s!" % targ)
+            msg = "%s has tried to make a +firstimpression on you, giving you 4 xp." % self.caller.key
+            msg += " If you want to return the favor with +firstimpression, you will gain 1 additional xp, and"
+            msg += " give them 4 in return. You are under no obligation to do so if their RP was unsatisfactory."
+            msg += "\nSummary of the scene they gave: %s" % self.rhs
+            targ.inform(msg, category="First Impression")
+            inform_staff("%s has made a first impression on %s: %s" % (self.caller.key, targ, self.rhs))
+            self.caller.adjust_xp(1)
+            targ.db.char_ob.adjust_xp(4)

@@ -275,6 +275,8 @@ class AccountHistory(SharedMemoryModel):
     gm_notes = models.TextField(blank=True, null=True)
     start_date = models.DateTimeField(blank=True, null=True, db_index=True)
     end_date = models.DateTimeField(blank=True, null=True, db_index=True)
+    contacts = models.ManyToManyField('self', blank=True, null=True, through='FirstContact',
+                                      related_name='contacted_by')
 
     def __str__(self):
         start = ""
@@ -284,6 +286,14 @@ class AccountHistory(SharedMemoryModel):
         if self.end_date:
             end = self.end_date.strftime("%x")
         return "%s playing %s from %s to %s" % (self.account, self.entry, start, end)
+
+
+class FirstContact(SharedMemoryModel):
+    from_account = models.ForeignKey('AccountHistory', related_name='initiated_contacts', db_index=True)
+    to_account = models.ForeignKey('AccountHistory', related_name='received_contacts', db_index=True)
+    summary = models.TextField(blank=True)
+    wrote_short_rel = models.BooleanField(default=False)
+    wrote_journal = models.BooleanField(default=False)
 
 
 class RPScene(SharedMemoryModel):
