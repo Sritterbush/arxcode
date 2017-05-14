@@ -562,6 +562,15 @@ class MsgMixins(object):
                     # counts the instances of name replacement inside quotes and recolorizes
                     for _ in range(0, text.count("%s{n" % self.key)):
                         text = self.namex.sub(r'"\1%s%s\2"' % (self.key, quote_color), text)
+            if self.ndb.pose_history is None:
+                self.ndb.pose_history = []
+            if from_obj == self:
+                self.ndb.pose_history = []
+            else:
+                try:
+                    self.ndb.pose_history.append((from_obj, text))
+                except AttributeError:
+                    pass
         if options.get('box', False):
             boxchars = '\n{w' + '*' * 70 + '{n\n'
             text = boxchars + text + boxchars

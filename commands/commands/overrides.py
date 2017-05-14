@@ -596,6 +596,8 @@ class CmdPose(MuxCommand):
     Usage:
       pose <pose text>
       pose's <pose text>
+      pose/history
+      pose/history <search term>
 
     Example:
       pose is standing by the wall, smiling.
@@ -607,6 +609,9 @@ class CmdPose(MuxCommand):
     comma, or colon will not put a space between your name and the character.
     Ex: 'pose, text' is 'Yourname, text'. Similarly, using the ; alias will
     not append a space after your name. Ex: ';'s adverb' is 'Name's adverb'.
+
+    Pose history displays a recent history of poses received from other characters
+    after your most recent pose. Once you pose, the history is wiped.
     """
     key = "pose"
     aliases = [":", "emote", ";"]
@@ -622,6 +627,7 @@ class CmdPose(MuxCommand):
         the caller's name and the emote with a
         space.
         """
+        super(CmdPose, self).parse()
         args = self.args
         if (args and not args[0] in ["'", ",", ":"]) and not self.cmdstring.startswith(";"):
             args = " %s" % args.lstrip(" ")
@@ -629,6 +635,15 @@ class CmdPose(MuxCommand):
 
     def func(self):
         """Hook function"""
+        if "history" in self.switches:
+            pose_history = self.caller.ndb.pose_history or []
+            if self.args:
+                args = self.args.lower().strip()
+                pose_history = [ob for ob in pose_history if args in str(ob[0]).lower() or args in str(ob[1]).lower()]
+            msg = "\n".join("{c%s{n: %s" % (ob[0], ob[1].lstrip()) for ob in pose_history)
+            self.msg("Recent poses received:")
+            self.msg(msg)
+            return
         if not self.args:
             msg = "What do you want to do?"
             self.caller.msg(msg)
@@ -753,6 +768,7 @@ class CmdWho(MuxPlayerCommand):
         nplayers = (SESSIONS.player_count())
         total_players = nplayers
         already_counted = []
+        public_members = []
         if "org" in self.switches:
             from world.dominion.models import Organization
             try:
