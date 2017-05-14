@@ -2403,7 +2403,7 @@ class Army(SharedMemoryModel):
         if player.Dominion == self.general:
             return True
         # check player's access because temp owner can also be an org
-        if self.temp_owner.access(player, "army"):
+        if self.temp_owner and self.temp_owner.access(player, "army"):
             return True
         return False
     
