@@ -3096,11 +3096,14 @@ class CmdSupport(MuxCommand):
             if (member.points_used(category) + diff) > sphere.rating:
                 caller.msg("You can only spend up to %s points in that category." % sphere.rating)
                 return
+            points_remaining_for_char = dompc.support_cooldowns.get(char.id, max_points)
+            points_remaining_for_char -= diff
+            if points_remaining_for_char < 0:
+                self.msg("Your cooldowns prevent you from spending that many points.")
+                return
             supused.rating = val
             supused.save()
             # update our support cooldowns for target character
-            points_remaining_for_char = dompc.support_cooldowns.get(char.id, max_points)
-            points_remaining_for_char -= diff
             dompc.support_cooldowns[char.id] = points_remaining_for_char
             if points_remaining_for_char >= max_points:
                 del dompc.support_cooldowns[char.id]

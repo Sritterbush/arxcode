@@ -32,6 +32,8 @@ class Mask(Wearable):
         # override this to keep track of infinite mask uses, with negative numbers
         elif self.db.quality_level > 0:
             self.db.quality_level -= 1
+        if wearer.additional_desc:
+            wearer.msg("{yYou currently have a +tempdesc set, which you may want to remove or modify with +tempdesc.{n")
         return True
             
     def at_post_remove(self, wearer):
