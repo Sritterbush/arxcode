@@ -786,9 +786,10 @@ class Investigation(SharedMemoryModel):
 
     def process_events(self):
         self.generate_result()
-        # self.use_resources()
-        # wipe the stale roll
+        # reset values
+        self.reset_values()
         self.char.attributes.remove("investigation_roll")
+        # send along msg
         msg = "Your investigation into '%s' has had the following result:\n" % self.topic
         msg += self.results
         self.character.player.inform(msg, category="Investigations", append=False)
@@ -800,7 +801,6 @@ class Investigation(SharedMemoryModel):
         """
         if not self.automate_result:
             self.ongoing = False
-            self.save()
             return
         if self.check_success():
             # if we don't have a valid clue, then let's
@@ -861,19 +861,18 @@ class Investigation(SharedMemoryModel):
                 self.results += " But you feel you've made some progress in following some leads."
             else:
                 self.results += " None of your leads seemed to go anywhere this week."
-        self.save()
         
-    def use_resources(self):
+    def reset_values(self):
         """
         Reduce the silver/resources added to this investigation.
         """
+        self.active = False
         self.silver = 0
-        for res in ('economic', 'military', 'social'):
-            amt = getattr(self, res)
-            amt -= 50
-            if amt < 0:
-                amt = 0
-            setattr(self, res, amt)
+        self.economic = 0
+        self.military = 0
+        self.social = 0
+        self.action_points = 0
+        self.roll = Investigation.UNSET_ROLL
         self.save()
 
     @property
