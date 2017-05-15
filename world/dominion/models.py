@@ -3186,6 +3186,8 @@ class Member(SharedMemoryModel):
             return 0
         for member in active:
             shares += calc_share(member.rank)
+        if not shares:
+            return 0
         myshare = calc_share(self.rank)
         myshare = (myshare*total)/shares
         if total % shares:
