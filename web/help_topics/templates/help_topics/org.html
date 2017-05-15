@@ -26,8 +26,8 @@
 	<td>Description</td>
   </tr>
   {% for member in members %}
-  {% if not org.secret or rank_display <= member.rank %}
-      {% if not member.secret or show_secret <= member.rank %}
+  {% if not org.secret or rank_display < member.rank %}
+      {% if not member.secret or show_secret < member.rank %}
   <tr>
   {% if member.player.player.db.char_ob %}
   <td width="25%"><a href="{% url 'character:sheet' member.player.player.db.char_ob.id %}">{{ member }}</a>{% if member.secret %}(Secret){% endif %}</td>

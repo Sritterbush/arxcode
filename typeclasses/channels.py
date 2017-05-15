@@ -13,6 +13,7 @@ to be modified.
 """
 
 from evennia import DefaultChannel
+from evennia.utils.utils import lazy_property
 
 
 # noinspection PyUnusedLocal
@@ -59,6 +60,21 @@ class Channel(DefaultChannel):
         post_send_message(msg) - called just after message was sent to channel
 
     """
+    @lazy_property
+    def org(self):
+        from world.dominion.models import Organization
+        # use Organization model to find an org that matches self.key with org.name
+        try:
+            return Organization.objects.get(name__icontains=self.key)
+        except Organization.MultipleObjectsReturned:
+            try:
+                # find match
+                return Organization.objects.get(name__iexact=self.key)
+            except Organization.DoesNotExist:
+                return None
+        except Organization.DoesNotExist:
+            return None
+    
     @property
     def mutelist(self):
         if self.db.mute_list is None:
@@ -82,11 +98,22 @@ class Channel(DefaultChannel):
 
     @property
     def complete_wholist(self):
+        """
+        For Staff
+        """
         return self.format_wholist(self.non_muted_subs)
 
     @property
     def wholist(self):
-        return self.format_wholist([ob for ob in self.non_muted_subs if not ob.db.hide_from_watch])
+        # get list of non_muted_subs if they're not hiding from watch
+        who_list = [ob for ob in self.non_muted_subs if not ob.db.hide_from_watch]
+        # check if we have an org
+        if self.org:
+            # check if list members are players who are non-secret members of the org
+            non_secret = [ob.player.player for ob in self.org.active_members.filter(secret=False)]
+            who_list = [ob for ob in who_list if ob in non_secret]
+        # pass final list to format_wholist and return it
+        return self.format_wholist(who_list)
 
     def temp_mute(self, caller):
         """
