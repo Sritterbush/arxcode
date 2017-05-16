@@ -130,6 +130,7 @@ class ClueAdmin(BaseCharAdmin):
     search_fields = ('id', 'name', 'characters__character__db_key', 'revelations__name', 'search_tags__name')
     inlines = (ClueForRevInline,)
     filter_horizontal = ('search_tags',)
+    raw_id_fields = ('event',)
 
     @staticmethod
     def used_for(obj):

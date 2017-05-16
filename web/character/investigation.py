@@ -1545,9 +1545,13 @@ class CmdPRPClue(MuxPlayerCommand):
             targ = self.caller.search(self.rhs)
             if not targ:
                 return
+            if targ.Dominion not in clue.event.participants.all():
+                self.msg("Target is not among the participants of that event.")
+                return
             targ.roster.discover_clue(clue)
             self.msg("You have sent them a clue.")
-            targ.inform("A new clue has been sent to you. Use @clues to view it.", category="Clue Discovery")
+            targ.inform("A new clue has been sent to you about event %s. Use @clues to view it." % clue.event,
+                        category="Clue Discovery")
             return
         form = self.caller.db.clue_creation_form
         if not form:
