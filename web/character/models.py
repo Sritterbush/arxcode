@@ -934,15 +934,17 @@ class Investigation(SharedMemoryModel):
         Finds a target clue based on our topic and our investigation history.
         We'll choose the lowest rating out of 3 random choices.
         """
+        exact = Clue.objects.filter(Q(search_tags__name__iexact=self.topic) &
+                                    ~Q(characters=self.character)).order_by('rating')
+        if exact:
+            return random.choice(exact)
         k_words = self.keywords
-        candidates = set(Clue.objects.filter(Q(search_tags__name__icontains=self.topic) &
-                                             ~Q(characters=self.character)).order_by('rating'))
+        # build a case-insensitive query for each keyword of the investigation
+        query = Q()
         for k_word in k_words:
-            qs = set(Clue.objects.filter(Q(search_tags__name__icontains=k_word) &
-                                         ~Q(characters=self.character)).order_by('rating'))
-            candidates = candidates | qs
+            query |= Q(search_tags__name__iexact=k_word)
+        candidates = Clue.objects.filter(Q(query) & ~Q(characters=self.character)).order_by('rating').distinct()
         try:
-            candidates = [ob for ob in candidates if any(set(k_words) & set(ob.keywords))]
             choices = []
             for x in range(0, 3):
                 choices.append(random.randint(0, len(candidates) - 1))
