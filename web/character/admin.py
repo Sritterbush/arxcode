@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.forms import ModelForm
-from .models import (Roster, RosterEntry, Photo, DISCO_MULT,
-                     Story, Chapter, Episode, StoryEmit,
+from .models import (Roster, RosterEntry, Photo, DISCO_MULT, SearchTag,
+                     Story, Chapter, Episode, StoryEmit, LoreTopic,
                      Milestone, Participant, Comment,
                      PlayerAccount, AccountHistory, InvestigationAssistant,
                      Mystery, Revelation, Clue, Investigation,
@@ -127,8 +127,9 @@ class ClueDiscoInline(admin.TabularInline):
 
 class ClueAdmin(BaseCharAdmin):
     list_display = ('id', 'name', 'rating', 'used_for')
-    search_fields = ('id', 'name', 'characters__character__db_key', 'revelations__name', 'investigation_tags')
+    search_fields = ('id', 'name', 'characters__character__db_key', 'revelations__name', 'search_tags__name')
     inlines = (ClueForRevInline,)
+    filter_horizontal = ('search_tags',)
 
     @staticmethod
     def used_for(obj):
@@ -224,6 +225,16 @@ class TheoryAdmin(BaseCharAdmin):
 class StoryEmitAdmin(BaseCharAdmin):
     list_display = ('id', 'chapter', 'episode', 'text', 'sender')
 
+
+class SearchTagAdmin(BaseCharAdmin):
+    list_display = ('id', 'name')
+    search_fields = ('id', 'name')
+
+
+class LoreTopicAdmin(BaseCharAdmin):
+    list_display = ('id', 'name')
+    search_fields = ('id', 'name', 'desc')
+
 # Register your models here.
 admin.site.register(Roster, BaseCharAdmin)
 admin.site.register(RosterEntry, EntryAdmin)
@@ -242,3 +253,5 @@ admin.site.register(Clue, ClueAdmin)
 admin.site.register(ClueDiscovery, ClueDiscoveryAdmin)
 admin.site.register(Investigation, InvestigationAdmin)
 admin.site.register(Theory, TheoryAdmin)
+admin.site.register(SearchTag, SearchTagAdmin)
+admin.site.register(LoreTopic, LoreTopicAdmin)

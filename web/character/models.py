@@ -235,6 +235,9 @@ class Milestone(SharedMemoryModel):
     participants = models.ManyToManyField('RosterEntry', through='Participant', blank=True)
     importance = models.PositiveSmallIntegerField(default=0, blank=0)
 
+    def __str__(self):
+        return "%s - %s" % (self.protagonist, self.name)
+
 
 class Participant(SharedMemoryModel):
     milestone = models.ForeignKey('Milestone', on_delete=models.CASCADE)
@@ -294,6 +297,12 @@ class FirstContact(SharedMemoryModel):
     summary = models.TextField(blank=True)
     wrote_short_rel = models.BooleanField(default=False)
     wrote_journal = models.BooleanField(default=False)
+
+    def __str__(self):
+        try:
+            return "%s to %s" % (self.from_account.entry, self.to_account.entry)
+        except AttributeError:
+            return "%s to %s" % (self.from_account, self.to_account)
 
 
 class RPScene(SharedMemoryModel):
@@ -386,15 +395,33 @@ class Clue(SharedMemoryModel):
     allow_investigation = models.BooleanField(default=False, help_text="Can be gained through investigation rolls")
     allow_exploration = models.BooleanField(default=False, help_text="Can be gained through exploration rolls")
     allow_trauma = models.BooleanField(default=False, help_text="Can be gained through combat rolls")
-    investigation_tags = models.TextField("Keywords for investigation", blank=True,
-                                          help_text="List keywords separated by semicolons for investigation")
+    allow_sharing = models.BooleanField(default=True, help_text="Can be shared")
+    search_tags = models.ManyToManyField('SearchTag', blank=True, null=True, db_index=True)
+    # if we were created for an RP event, such as a PRP
+    event = models.ForeignKey("dominion.RPEvent", blank=True, null=True, related_name="clues")
 
     def __str__(self):
         return self.name
 
     @property
     def keywords(self):
-        return self.investigation_tags.lower().split(";")
+        return [ob.name for ob in self.search_tags.all()]
+
+
+class SearchTag(SharedMemoryModel):
+    name = models.CharField(max_length=255, unique=True)
+    topic = models.ForeignKey('LoreTopic', blank=True, null=True, db_index=True)
+
+    def __str__(self):
+        return self.name
+
+
+class LoreTopic(SharedMemoryModel):
+    name = models.CharField(max_length=255, unique=True)
+    desc = models.TextField("GM Notes about this Lore Topic", blank=True)
+
+    def __str__(self):
+        return self.name
 
 
 class MysteryDiscovery(SharedMemoryModel):
@@ -477,7 +504,8 @@ class ClueDiscovery(SharedMemoryModel):
     message = models.TextField(blank=True, help_text="Message for the player's records about how they discovered this.")
     date = models.DateTimeField(blank=True, null=True)
     milestone = models.OneToOneField('Milestone', related_name="clue", blank=True, null=True)
-    discovery_method = models.CharField(help_text="How this was discovered - exploration, trauma, etc", max_length=255)
+    discovery_method = models.CharField(help_text="How this was discovered - exploration, trauma, etc",
+                                        blank=True, max_length=255)
     roll = models.PositiveSmallIntegerField(default=0, blank=0, db_index=True)
     revealed_by = models.ForeignKey('RosterEntry', related_name="clues_spoiled", blank=True, null=True, db_index=True)
 
@@ -907,11 +935,11 @@ class Investigation(SharedMemoryModel):
         We'll choose the lowest rating out of 3 random choices.
         """
         k_words = self.keywords
-        candidates = Clue.objects.filter(Q(investigation_tags__icontains=self.topic) &
-                                         ~Q(characters=self.character)).order_by('rating')
+        candidates = set(Clue.objects.filter(Q(search_tags__name__icontains=self.topic) &
+                                             ~Q(characters=self.character)).order_by('rating'))
         for k_word in k_words:
-            qs = Clue.objects.filter(Q(investigation_tags__icontains=k_word) &
-                                     ~Q(characters=self.character)).order_by('rating')
+            qs = set(Clue.objects.filter(Q(search_tags__name__icontains=k_word) &
+                                         ~Q(characters=self.character)).order_by('rating'))
             candidates = candidates | qs
         try:
             candidates = [ob for ob in candidates if any(set(k_words) & set(ob.keywords))]

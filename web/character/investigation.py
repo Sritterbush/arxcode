@@ -4,11 +4,11 @@ stories, the timeline, etc.
 """
 
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from .models import Investigation, Clue, InvestigationAssistant, ClueDiscovery, Theory, RevelationDiscovery
+from .models import (Investigation, Clue, InvestigationAssistant, ClueDiscovery, Theory, RevelationDiscovery, SearchTag)
 from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from server.utils.arx_utils import inform_staff
-from world.dominion.models import Agent
+from world.dominion.models import Agent, RPEvent
 from django.db.models import Q
 from world.stats_and_skills import VALID_STATS, VALID_SKILLS
 
@@ -1438,3 +1438,176 @@ class CmdTheories(MuxPlayerCommand):
                 self.msg("Removed clue %s from theory." % clue.name)
             return
         self.msg("Invalid switch.")
+
+
+class CmdPRPClue(MuxPlayerCommand):
+    """
+    Creates a clue for a PRP you ran
+
+    Usage:
+        +prpclue
+        +prpclue/create
+        +prpclue/event <event ID>
+        +prpclue/name <clue name>
+        +prpclue/desc <description>
+        +prpclue/difficulty <investigation difficulty, 1-50>
+        +prpclue/tags <tag 1>,<tag 2>,etc
+        +prpclue/fake
+        +prpclue/noinvestigate
+        +prpclue/noshare
+        +prpclue/finish
+        +prpclue/abandon
+        +prpclue/sendclue <clue ID>=<participant>
+        +prpclue/listclues <event ID>
+
+    Allows a GM to create custom clues for their PRP, and then send it to
+    participants. Tags are the different keywords/phrases that allow it
+    to be matched to an investigate. Setting a clue as fake means that it's
+    false/a hoax. /noinvestigate and /noshare prevent investigating the
+    clue or sharing it, respectively.
+
+    Once the clue is created, it can be sent to any participant with the
+    /sendclue switch.
+    """
+    key = "+prpclue"
+    help_category = "Investigation"
+    locks = "cmd: all()"
+    aliases = ["prpclue", "@prpclue"]
+
+    @property
+    def gm_events(self):
+        """
+        All the events this caller has GM'd
+        Returns:
+            events (queryset): Queryset of RPEvents
+        """
+        return self.caller.Dominion.events_gmd.all()
+
+    def list_gm_events(self):
+        self.msg("Events you have GM'd:\n%s" % "\n".join("%s (#%s)" % (ob.name, ob.id) for ob in self.gm_events))
+
+    def display_form(self):
+        form = self.caller.db.clue_creation_form
+        if not form:
+            self.msg("You are not presently creating a clue for any of your events.")
+            return
+        event = None
+        if form[2]:
+            try:
+                event = self.gm_events.get(id=form[2])
+            except RPEvent.DoesNotExist:
+                pass
+        msg = "{wName{n: %s\n" % form[0]
+        msg += "{wDesc{n: %s\n" % form[1]
+        msg += "{wEvent:{n %s\n" % event
+        msg += "{wDifficulty{n: %s\n" % form[3]
+        msg += "{wTags:{n %s\n" % form[4]
+        msg += "{wReal:{n %s\n" % form[5]
+        msg += "{wCan Investigate:{n %s\n" % form[6]
+        msg += "{wCan Share:{n %s\n" % form[7]
+        self.msg(msg)
+        return
+
+    def get_event(self):
+        try:
+            event = self.gm_events.get(id=self.args)
+            return event
+        except (RPEvent.DoesNotExist, ValueError, TypeError):
+            self.msg("No Event by that number.")
+            self.list_gm_events()
+
+    def func(self):
+        if not self.args and not self.switches:
+            self.list_gm_events()
+            self.display_form()
+            return
+        if "abandon" in self.switches:
+            self.caller.attributes.remove("clue_creation_form")
+            self.msg("Abandoned.")
+            return
+        if "create" in self.switches:
+            form = ["", "", None, 25, "", True, True, True]
+            self.caller.db.clue_creation_form = form
+            self.display_form()
+            return
+        if "listclues" in self.switches:
+            event = self.get_event()
+            if not event:
+                return
+            self.msg("Clues: %s" % ", ".join("%s (#%s)" % (clue, clue.id) for clue in event.clues.all()))
+            return
+        if "sendclue" in self.switches:
+            try:
+                clue = Clue.objects.filter(event__in=self.gm_events).distinct().get(id=self.lhs)
+            except (TypeError, ValueError, Clue.DoesNotExist):
+                self.msg("No clue found that that ID.")
+                return
+            targ = self.caller.search(self.rhs)
+            if not targ:
+                return
+            targ.roster.discover_clue(clue)
+            self.msg("You have sent them a clue.")
+            targ.inform("A new clue has been sent to you. Use @clues to view it.", category="Clue Discovery")
+            return
+        form = self.caller.db.clue_creation_form
+        if not form:
+            self.msg("Use /create to start a new form.")
+            return
+        if "finish" in self.switches:
+            name = form[0]
+            desc = form[1]
+            if not (name and desc):
+                self.msg("Both name and desc must be set.")
+                return
+            try:
+                event = self.gm_events.get(id=form[2])
+            except (RPEvent.DoesNotExist, TypeError, ValueError):
+                self.msg("Event must be set.")
+                return
+            rating = form[3]
+            tag_names = form[4].split(",")
+            search_tags = []
+            for tag_name in tag_names:
+                try:
+                    search_tag = SearchTag.objects.get(name__iexact=tag_name)
+                except SearchTag.DoesNotExist:
+                    search_tag = SearchTag.objects.create(name=tag_name)
+                search_tags.append(search_tag)
+            red_herring = not form[5]
+            allow_investigation = form[6]
+            allow_sharing = form[7]
+            clue = event.clues.create(name=name, desc=desc, rating=rating, red_herring=red_herring,
+                                      allow_investigation=allow_investigation, allow_sharing=allow_sharing)
+            for search_tag in search_tags:
+                clue.search_tags.add(search_tag)
+            self.msg("Clue #%s created." % clue.id)
+            inform_staff("Clue '%s' created for event '%s'." % (clue, event))
+            self.caller.attributes.remove("clue_creation_form")
+            return
+        if "name" in self.switches:
+            if Clue.objects.filter(name__iexact=self.args).exists():
+                self.msg("There already is a clue by that name.")
+                return
+            form[0] = self.args
+        if "desc" in self.switches:
+            form[1] = self.args
+        if "event" in self.switches:
+            event = self.get_event()
+            if not event:
+                return
+            form[2] = event.id
+        if "difficulty" in self.switches:
+            try:
+                form[3] = int(self.args)
+            except ValueError:
+                self.msg("Must be a number.")
+        if "tags" in self.switches:
+            form[4] = self.args
+        if "fake" in self.switches:
+            form[5] = not form[5]
+        if "noinvestigate" in self.switches:
+            form[6] = not form[6]
+        if "noshare" in self.switches:
+            form[7] = not form[7]
+        self.caller.db.clue_creation_form = form
+        self.display_form()
