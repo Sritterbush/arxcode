@@ -1146,7 +1146,7 @@ class CmdListClues(MuxPlayerCommand):
                 except (ClueDiscovery.DoesNotExist, ValueError, TypeError):
                     caller.msg("No clue found by that ID.")
                     continue
-                if clue.clue.allow_trauma:
+                if not clue.clue.allow_sharing:
                     self.msg("%s cannot be shared." % clue.clue)
                     return
                 clues_to_share.append(clue)
@@ -1350,7 +1350,7 @@ class CmdTheories(MuxPlayerCommand):
                         self.msg("One of you does not have a character object.")
                         continue
                     for clue in clues:
-                        if clue.clue.allow_trauma:
+                        if not clue.clue.allow_sharing:
                             self.msg("%s cannot be shared. Skipping." % clue.clue)
                             continue
                         clue.share(targ.roster)
@@ -1540,7 +1540,7 @@ class CmdPRPClue(MuxPlayerCommand):
             try:
                 clue = Clue.objects.filter(event__in=self.gm_events).distinct().get(id=self.lhs)
             except (TypeError, ValueError, Clue.DoesNotExist):
-                self.msg("No clue found that that ID.")
+                self.msg("No clue found by that ID.")
                 return
             targ = self.caller.search(self.rhs)
             if not targ:

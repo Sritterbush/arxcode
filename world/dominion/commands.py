@@ -1905,8 +1905,8 @@ class CmdOrganization(MuxPlayerCommand):
             if clue in org.clues.all():
                 self.msg("%s already knows about %s." % (org, clue))
                 return
-            if clue.allow_trauma:
-                self.msg("%s cannot be shared, only gained through experience." % clue)
+            if not clue.allow_sharing:
+                self.msg("%s cannot be shared." % clue)
                 return
             cost = 20 - (2 * org.social_modifier)
             if cost < 1:
