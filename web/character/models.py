@@ -914,6 +914,8 @@ class Investigation(SharedMemoryModel):
     @property
     def keywords(self):
         k_words = [str(ob) for ob in self.topic.lower().split()]
+        # add singular version
+        k_words.extend([ob[:-1] for ob in k_words if ob.endswith("s") and len(ob) > 1])
         # add back in the phrases for phrase matching
         if len(k_words) > 1:
             for pos in range(0, len(k_words)):
@@ -927,7 +929,7 @@ class Investigation(SharedMemoryModel):
                 k_words.remove(str(word))
         if self.topic.lower() not in k_words:
             k_words.append(str(self.topic.lower()))
-        return k_words
+        return set(k_words)
 
     def find_target_clue(self):
         """
