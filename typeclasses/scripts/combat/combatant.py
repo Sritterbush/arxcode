@@ -949,8 +949,8 @@ class CombatHandler(object):
         combat = self.combat
         if can_riposte and target:
             combat.msg("%s {rbotches{n their attack, leaving themselves open to a riposte." % self)
-            target.do_attack(botcher, attack_penalty, defense_penalty, dmg_penalty,
-                             allow_botch=False, free_attack=True)
+            target.combat.do_attack(botcher, attack_penalty, defense_penalty, dmg_penalty,
+                                    allow_botch=False, free_attack=True)
             if not free_attack:
                 self.take_action()
             return        
