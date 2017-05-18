@@ -90,10 +90,9 @@ def webclient(request):
     Webclient page template loading.
 
     """
-    from django.shortcuts import render
     # disable autologin until it's fixed in devel
     session = request.session
-    if session.session_key is None:
-        session.save()
-    pagevars = {'browser_sessid': None}
-    return render(request, 'webclient/evennia/web/webclient/templates/webclient.html', pagevars)
+    session.flush()
+    session.save()
+    from evennia.web.webclient.views import webclient
+    return webclient(request)
