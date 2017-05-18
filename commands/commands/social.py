@@ -2680,6 +2680,9 @@ class CmdFirstImpression(MuxCommand):
         targ = self.caller.player.search(self.lhs)
         if not targ:
             return
+        if targ == self.caller.player:
+            self.msg("You cannot record a first impression of yourself.")
+            return
         if targ.db.char_ob.location != self.caller.location:
             self.msg("Must be in the same room.")
             return
