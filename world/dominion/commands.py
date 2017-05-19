@@ -1781,7 +1781,7 @@ class CmdOrganization(MuxPlayerCommand):
     help_category = "Dominion"
     org_locks = ("edit", "boot", "withdraw", "setrank", "invite",
                  "setruler", "view", "guards", "build", "briefing", 
-                 "declarations")
+                 "declarations", "army")
 
     @staticmethod
     def get_org_and_member(caller, myorgs, args):
