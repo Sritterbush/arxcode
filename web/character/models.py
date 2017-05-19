@@ -298,6 +298,9 @@ class FirstContact(SharedMemoryModel):
     wrote_short_rel = models.BooleanField(default=False)
     wrote_journal = models.BooleanField(default=False)
 
+    class Meta:
+        verbose_name_plural = "First Impressions"
+
     def __str__(self):
         try:
             return "%s to %s" % (self.from_account.entry, self.to_account.entry)

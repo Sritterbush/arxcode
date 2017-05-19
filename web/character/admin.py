@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.forms import ModelForm
 from .models import (Roster, RosterEntry, Photo, DISCO_MULT, SearchTag,
                      Story, Chapter, Episode, StoryEmit, LoreTopic,
-                     Milestone, Participant, Comment,
+                     Milestone, Participant, Comment, FirstContact,
                      PlayerAccount, AccountHistory, InvestigationAssistant,
                      Mystery, Revelation, Clue, Investigation,
                      MysteryDiscovery, RevelationDiscovery, ClueDiscovery,
@@ -236,9 +236,24 @@ class LoreTopicAdmin(BaseCharAdmin):
     list_display = ('id', 'name')
     search_fields = ('id', 'name', 'desc')
 
+
+class FirstContactAdmin(BaseCharAdmin):
+    list_display = ('id', 'from_name', 'summary', 'to_name')
+    search_fields = ('id', 'from_account__entry__player__username', 'to_account__entry__player__username')
+    readonly_fields = ('from_account', 'to_account')
+
+    @staticmethod
+    def from_name(obj):
+        return str(obj.from_account.entry)
+
+    @staticmethod
+    def to_name(obj):
+        return str(obj.to_account.entry)
+
 # Register your models here.
 admin.site.register(Roster, BaseCharAdmin)
 admin.site.register(RosterEntry, EntryAdmin)
+admin.site.register(FirstContact, FirstContactAdmin)
 admin.site.register(Photo, PhotoAdmin)
 admin.site.register(Story, BaseCharAdmin)
 admin.site.register(Chapter, ChapterAdmin)
