@@ -861,18 +861,16 @@ class CmdAdmOrganization(MuxPlayerCommand):
                     if match.deguilded:
                         match.deguilded = False
                         match.rank = rank
-                        caller.msg("Readded %s to the org.")
+                        caller.msg("Readded %s to the org." % match)
                         match.save()
+                        match.setup()
                         return
-                    caller.msg("%s is already a member.")
+                    caller.msg("%s is already a member." % match)
                     return
                 secret = org.secret
-                dompc.memberships.create(organization=org, rank=rank, secret=secret)
+                member = dompc.memberships.create(organization=org, rank=rank, secret=secret)
                 caller.msg("%s added to %s at rank %s." % (dompc, org, rank))
-                try:
-                    org.org_channel.connect(player)
-                except AttributeError:
-                    pass
+                member.setup()
                 return
             except (AttributeError, ValueError, TypeError):
                 caller.msg("Could not add %s. May need to run @admin_assets/setup on them." % self.rhs)
@@ -892,7 +890,6 @@ class CmdAdmOrganization(MuxPlayerCommand):
                 org.save()
             caller.msg("Rank %s title changed to %s." % (rank, name))
             return
-
         if 'setrank' in self.switches:
             try:
                 member = Member.objects.get(organization_id=org.id,
@@ -1936,22 +1933,17 @@ class CmdOrganization(MuxPlayerCommand):
                 return
             # check if they were previously booted out, then we just have them rejoin
             try:
-                deguilded = caller.Dominion.memberships.get(Q(deguilded=True)
-                                                            & Q(organization=org))
-                deguilded.deguilded = False
-                deguilded.rank = 10
-                deguilded.save()
+                member = caller.Dominion.memberships.get(Q(deguilded=True)
+                                                         & Q(organization=org))
+                member.deguilded = False
+                member.rank = 10
+                member.save()
             except Member.DoesNotExist:
                 secret = org.secret
-                caller.Dominion.memberships.create(organization=org, secret=secret)
+                member = caller.Dominion.memberships.create(organization=org, secret=secret)
             caller.msg("You have joined %s." % org.name)
             org.msg("%s has joined %s." % (caller, org.name))
-            channel = org.org_channel
-            if channel:
-                channel.connect(caller)
-            board = org.org_board
-            if board:
-                board.subscribe_bboard(caller)
+            member.setup()
             caller.ndb.orginvite = None
             return
         if 'decline' in self.switches:

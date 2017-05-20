@@ -3143,6 +3143,17 @@ class Member(SharedMemoryModel):
         if board:
             board.unsubscribe_bboard(self.player.player)
 
+    def setup(self):
+        """
+        Add ourselves to org channel/board if applicable
+        """
+        org_channel = self.organization.org_channel
+        if org_channel:
+            org_channel.connect(self.player.player)
+        board = self.organization.org_board
+        if board:
+            board.subscribe_bboard(self.player.player)
+
     def work(self, worktype):
         """
         Perform work in a week for our Organization.
