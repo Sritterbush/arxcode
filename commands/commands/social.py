@@ -2684,10 +2684,13 @@ class CmdFirstImpression(MuxCommand):
             self.msg("You cannot record a first impression of yourself.")
             return
         # check if the target has written a first impression of us. If not, we'll need to be in the same room
-        if not self.caller.roster.accounthistory_set.last().received_contacts.filter(from_account__entry__player=targ):
-            if targ.db.char_ob.location != self.caller.location:
-                self.msg("Must be in the same room.")
-                return
+        received = False
+        if self.caller.roster.accounthistory_set.last().received_contacts.filter(from_account__entry__player=targ):
+            # they've already written a first impression on us
+            received = True
+        if not received and targ.db.char_ob.location != self.caller.location:
+            self.msg("Must be in the same room.")
+            return
         if len(self.rhs) < 10:
             self.msg("Must have a summary of the RP scene longer than that.")
             return
@@ -2702,9 +2705,10 @@ class CmdFirstImpression(MuxCommand):
                                                                                    summary=self.rhs)
             self.msg("{wYou have recorded your first impression on %s:{n\n%s" % (targ, self.rhs))
             if "quiet" not in self.switches:
-                msg = "%s has tried to make a +firstimpression on you, giving you 4 xp." % self.caller.key
-                msg += " If you want to return the favor with +firstimpression, you will gain 1 additional xp, and"
-                msg += " give them 4 in return. You are under no obligation to do so if their RP was unsatisfactory."
+                msg = "%s has written their +firstimpression on you, giving you 4 xp." % self.caller.key
+                if not received:
+                    msg += " If you want to return the favor with +firstimpression, you will gain 1 additional xp, and "
+                    msg += "give them 4 in return. You are under no obligation to do so if their RP was unsatisfactory."
                 if "private" not in self.switches:
                     msg += "\nSummary of the scene they gave: %s" % self.rhs
                 targ.inform(msg, category="First Impression")
