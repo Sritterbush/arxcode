@@ -1946,10 +1946,12 @@ class CmdOrganization(MuxPlayerCommand):
                 caller.Dominion.memberships.create(organization=org, secret=secret)
             caller.msg("You have joined %s." % org.name)
             org.msg("%s has joined %s." % (caller, org.name))
-            try:
-                org.org_channel.connect(caller)
-            except AttributeError:
-                pass
+            channel = org.org_channel
+            if channel:
+                channel.connect(caller)
+            board = org.org_board
+            if board:
+                board.subscribe_bboard(caller)
             caller.ndb.orginvite = None
             return
         if 'decline' in self.switches:

@@ -2030,6 +2030,18 @@ class Organization(SharedMemoryModel):
             return Channel.objects.get(db_lock_storage__icontains=self.name)
         except Channel.DoesNotExist:
             return None
+        except Channel.MultipleObjectsReturned:
+            print "More than one match for org %s's channel" % self
+
+    @property
+    def org_board(self):
+        from typeclasses.bulletin_board.bboard import BBoard
+        try:
+            return BBoard.objects.get(db_lock_storage__icontains=self.name)
+        except BBoard.DoesNotExist:
+            return None
+        except BBoard.MultipleObjectsReturned:
+            print "More than one match for org %s's BBoard" % self
 
     def inform_members(self, text, category=None, access=None):
         from world.msgs.models import Inform
@@ -3124,10 +3136,12 @@ class Member(SharedMemoryModel):
         """
         self.deguilded = True
         self.save()
-        try:
-            self.organization.org_channel.disconnect(self.player.player)
-        except AttributeError:
-            pass
+        org_channel = self.organization.org_channel
+        if org_channel:
+            org_channel.disconnect(self.player.player)
+        board = self.organization.org_board
+        if board:
+            board.unsubscribe_bboard(self.player.player)
 
     def work(self, worktype):
         """
