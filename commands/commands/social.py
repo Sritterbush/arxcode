@@ -2683,9 +2683,11 @@ class CmdFirstImpression(MuxCommand):
         if targ == self.caller.player:
             self.msg("You cannot record a first impression of yourself.")
             return
-        if targ.db.char_ob.location != self.caller.location:
-            self.msg("Must be in the same room.")
-            return
+        # check if the target has written a first impression of us. If not, we'll need to be in the same room
+        if not self.caller.roster.accounthistory_set.last().received_contacts.filter(from_account__entry__player=targ):
+            if targ.db.char_ob.location != self.caller.location:
+                self.msg("Must be in the same room.")
+                return
         if len(self.rhs) < 10:
             self.msg("Must have a summary of the RP scene longer than that.")
             return
@@ -2693,12 +2695,12 @@ class CmdFirstImpression(MuxCommand):
         from web.character.models import FirstContact
         try:
             self.caller.roster.accounthistory_set.last().initiated_contacts.get(to_account=hist)
-            self.msg("You have already made a first impression with them.")
+            self.msg("You have already written your first impression of them.")
             return
         except FirstContact.DoesNotExist:
             self.caller.roster.accounthistory_set.last().initiated_contacts.create(to_account=hist,
                                                                                    summary=self.rhs)
-            self.msg("You have tried to make a first impression on %s!" % targ)
+            self.msg("{wYou have recorded your first impression on %s:{n\n%s" % (targ, self.rhs))
             if "quiet" not in self.switches:
                 msg = "%s has tried to make a +firstimpression on you, giving you 4 xp." % self.caller.key
                 msg += " If you want to return the favor with +firstimpression, you will gain 1 additional xp, and"
@@ -2706,6 +2708,6 @@ class CmdFirstImpression(MuxCommand):
                 if "private" not in self.switches:
                     msg += "\nSummary of the scene they gave: %s" % self.rhs
                 targ.inform(msg, category="First Impression")
-            inform_staff("%s has made a first impression on %s: %s" % (self.caller.key, targ, self.rhs))
+            inform_staff("%s's first impression of %s: %s" % (self.caller.key, targ, self.rhs))
             self.caller.adjust_xp(1)
             targ.db.char_ob.adjust_xp(4)
