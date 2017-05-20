@@ -404,6 +404,8 @@ class CmdManageRoom(MuxCommand):
         +manageroom/setbarracks
         +manageroom/addbouncer <character>
         +manageroom/rmbouncer <character>
+        +manageroom/adddecorator <character>
+        +manageroom/rmdecorator <character>
         +manageroom/ban <character>
         +manageroom/unban <character>
         +manageroom/boot <character>=<exit>
