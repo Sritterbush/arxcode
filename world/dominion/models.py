@@ -2053,6 +2053,18 @@ class Organization(SharedMemoryModel):
             players = [ob.player.player for ob in self.active_members if self.access(ob.player.player, access)]
         Inform.bulk_inform(players, text=text, category=category)
 
+    def setup(self):
+        from typeclasses.channels import Channel
+        from typeclasses.bulletin_board.bboard import BBoard
+        from evennia.utils.create import create_object, create_channel
+        if not self.org_channel:
+            create_channel(key=str(self.name), desc="%s channel" % self,
+                           locks="send: org(%s) or perm(builders);listen: org(%s) or perm(builders)" % (self, self),
+                           typeclass=Channel)
+        if not self.org_board:
+            create_object(typeclass=BBoard, key=str(self.name), location=None,
+                          locks="read: org(%s) or perm(builders);write: org(%s) or perm(builders)" % (self, self))
+
 
 class UnitTypeInfo(models.Model):
     INFANTRY = unit_constants.INFANTRY

@@ -754,6 +754,7 @@ class CmdAdmOrganization(MuxPlayerCommand):
         @admin_org/add <org name or number>=<player>,<rank>
         @admin_org/setrank <org name or number>=<player>,<rank>
         @admin_org/create <org name>
+        @admin_org/setup <org name>
         @admin_org/desc <org name or number>=<desc>
         @admin_org/name <org name or number>=<new name>
         @admin_org/title <orgname or number>=<rank>,<name>
@@ -762,7 +763,7 @@ class CmdAdmOrganization(MuxPlayerCommand):
         @admin_org/cptasks <target org>=<org to copy>
 
     Allows you to change or control organizations. Orgs can be accessed either by
-    their ID number or name.
+    their ID number or name. /setup creates a board and channel for them.
     """
     key = "@admin_org"
     locks = "cmd:perm(Wizards)"
@@ -810,7 +811,8 @@ class CmdAdmOrganization(MuxPlayerCommand):
                 if self.lhs.isdigit():
                     caller.msg("Organization name must be a name, not a number.")
                     return
-                org = Organization.objects.create(name=self.lhs)
+                from .setup_utils import org_lockstring
+                org = Organization.objects.create(name=self.lhs, lock_storage=org_lockstring)
                 # create Org's asset owner also
                 AssetOwner.objects.create(organization_owner=org)
                 caller.msg("Created organization %s." % org)
@@ -823,6 +825,10 @@ class CmdAdmOrganization(MuxPlayerCommand):
         # already found an existing org
         if 'create' in self.switches:
             caller.msg("Organization %s already exists." % org)
+            return
+        if 'setup' in self.switches:
+            org.setup()
+            self.msg("Created board and channel for %s." % org)
             return
         if 'members' in self.switches:
             caller.msg(org.display_members())

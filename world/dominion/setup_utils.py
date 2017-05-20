@@ -4,21 +4,22 @@ as creating Land squares of random terrain based on a regional
 climate, and setup a character's initial domain based on their
 social rank.
 """
-from .models import (Land, PlayerOrNpc, Ruler, Domain, Army, AssetOwner,
-                                  Organization)
-from . import unit_types
+from .models import (Land, PlayerOrNpc, Ruler, Domain, AssetOwner, Organization)
+from . import unit_constants
+from django.core.exceptions import ObjectDoesNotExist
 import random
 
-CAPITALS = [(0,1), # Sanctum
-            (3, -5), # Lenosia
-            (9, 2), # Arx
-            (3,7), # Farhaven
-            (12,2), # Maelstrom
+CAPITALS = [(0, 1),  # Sanctum
+            (3, -5),  # Lenosia
+            (9, 2),  # Arx
+            (3, 7),  # Farhaven
+            (12, 2),  # Maelstrom
             ]
 
 org_lockstring = ("edit:rank(2);boot:rank(2);guards:rank(2);withdraw:rank(2)" +
                   ";setrank:rank(2);invite:rank(2);setruler:rank(2);view:rank(10)" +
                   ";command:rank(2);build:rank(2);agents:rank(2)")
+
 
 def setup_dom_for_player(player):
     if hasattr(player, 'Dominion'):
@@ -26,10 +27,12 @@ def setup_dom_for_player(player):
         return player.Dominion
     return PlayerOrNpc.objects.create(player=player)
 
+
 def setup_assets(dompc, amt):
     if hasattr(dompc, 'assets'):
         return
     AssetOwner.objects.create(player=dompc, vault=amt)
+
 
 def starting_money(srank):
     try:
@@ -42,6 +45,7 @@ def starting_money(srank):
     val = 11 - srank
     return val * val * val
 
+
 def get_domain_resources(area):
     """
     Given the size of a domain, returns a dictionary of
@@ -53,7 +57,7 @@ def get_domain_resources(area):
     res_order = ['farms', 'housing', 'mills', 'mines', 'lumber']
     initial = area/5
     area %= 5
-    resources = { resource: initial for resource in res_order }
+    resources = {resource: initial for resource in res_order}
     counter = 0
     while area > 0:
         resource = res_order[counter]
@@ -64,9 +68,8 @@ def get_domain_resources(area):
             counter = 0
     return resources
 
+
 def srank_dom_stats(srank, region, name, male=True):
-    if srank < 1 or srank > 6:
-        raise ValueError("Invalid social rank of %s. Aborting." % srank)
     if srank == 6:
         if male:
             title = "Baron of %s" % region.name
@@ -75,7 +78,7 @@ def srank_dom_stats(srank, region, name, male=True):
         name = "%s's Barony" % name
         dom_size = 200
         castle_level = 1
-    if srank == 5:
+    elif srank == 5:
         if male:
             title = "Count of %s" % region.name
         else:
@@ -115,7 +118,10 @@ def srank_dom_stats(srank, region, name, male=True):
         name = "%s's Kingdom" % name
         dom_size = 5000
         castle_level = 6
-    return (title, name, dom_size, castle_level)
+    else:
+        raise ValueError("Invalid social rank of %s. Aborting." % srank)
+    return title, name, dom_size, castle_level
+
 
 def setup_domain(dompc, region, srank, male=True, ruler=None):
     """
@@ -150,20 +156,22 @@ def setup_domain(dompc, region, srank, male=True, ruler=None):
     domain.castles.create(level=castle_level, name=castle_name)
     return domain
 
+
 def set_domain_resources(domain, resources):
     # resources
-   domain.num_farms=resources['farms']
-   domain.num_housing=resources['housing']
-   domain.num_mills=resources['mills']
-   domain.num_mines=resources['mines']
-   domain.num_lumber_yards=resources['lumber']
-   domain.stored_food=resources['farms'] * 100
-   # serfs
-   domain.mining_serfs=resources['farms'] * 10
-   domain.lumber_serfs=resources['lumber'] * 10
-   domain.farming_serfs=resources['farms'] * 10
-   domain.mill_serfs=resources['mills'] * 10
-   domain.save()
+    domain.num_farms = resources['farms']
+    domain.num_housing = resources['housing']
+    domain.num_mills = resources['mills']
+    domain.num_mines = resources['mines']
+    domain.num_lumber_yards = resources['lumber']
+    domain.stored_food = resources['farms'] * 100
+    # serfs
+    domain.mining_serfs = resources['farms'] * 10
+    domain.lumber_serfs = resources['lumber'] * 10
+    domain.farming_serfs = resources['farms'] * 10
+    domain.mill_serfs = resources['mills'] * 10
+    domain.save()
+
 
 def convert_domain(domain, srank=None, male=None):
     region = domain.land.region
@@ -190,6 +198,7 @@ def convert_domain(domain, srank=None, male=None):
         castle.level = castle_level
         castle.save()
             
+
 def setup_army(domain, srank, name, owner):
     # create new army in domain
     try:
@@ -197,15 +206,16 @@ def setup_army(domain, srank, name, owner):
         if name:
             army.name = name
         army.save()
-    except Exception:
+    except (IndexError, AttributeError):
         army = domain.armies.create(name=name, land=domain.land, owner=owner)
     setup_units(army, srank)
 
+
 def setup_units(army, srank):
-    INF = unit_types.INFANTRY
-    PIK = unit_types.PIKE
-    CAV = unit_types.CAVALRY
-    ARC = unit_types.ARCHERS
+    INF = unit_constants.INFANTRY
+    PIK = unit_constants.PIKE
+    CAV = unit_constants.CAVALRY
+    ARC = unit_constants.ARCHERS
     units = {}
     # add more units based on srank
     if srank == 6:
@@ -244,9 +254,10 @@ def setup_units(army, srank):
             squad = army.units.get(unit_type=unit)
             squad.quantity = units[unit]
             squad.save()
-        except Exception:
+        except ObjectDoesNotExist:
             army.units.create(unit_type=unit, quantity=units[unit])
     
+
 def setup_family(dompc, family, create_liege=True, create_vassals=True,
                  character=None, srank=None, region=None, liege=None,
                  num_vassals=2):
@@ -258,7 +269,6 @@ def setup_family(dompc, family, create_liege=True, create_vassals=True,
     our ruler object, our liege's ruler object or None, and a list
     of vassals' ruler objects.
     """
-    ruler = None
     vassals = []
     # create a liege only if we don't have one already
     if create_liege and not liege:
@@ -267,7 +277,8 @@ def setup_family(dompc, family, create_liege=True, create_vassals=True,
     ruler = setup_ruler(family, dompc, liege)
     if create_vassals:
         vassals = setup_vassals(family, ruler, region, character, srank, num=num_vassals) 
-    return (ruler, liege, vassals)
+    return ruler, liege, vassals
+
 
 def setup_vassals(family, ruler, region, character, srank, num=2):
     vassals = []
@@ -279,6 +290,7 @@ def setup_vassals(family, ruler, region, character, srank, num=2):
         setup_dom_for_npc(name, srank=srank + 1, region=region, ruler=vassals[y])
     return vassals
 
+
 def setup_vassals_for_player(player, num=2):
     dompc = player.Dominion
     char = player.db.char_ob
@@ -287,6 +299,7 @@ def setup_vassals_for_player(player, num=2):
     srank = char.db.social_rank
     region = ruler.holdings.all()[0].land.region
     setup_vassals(family, ruler, region, char, srank, num)
+
 
 def setup_ruler(name, castellan=None, liege=None):
     """
@@ -299,10 +312,9 @@ def setup_ruler(name, castellan=None, liege=None):
     try:
         house_org = Organization.objects.get(name__iexact=name)
     except Organization.DoesNotExist:
-        house_org = Organization.objects.create(name=name)
-        house_org.locks.add(org_lockstring)
+        house_org = Organization.objects.create(name=name, lock_storage=org_lockstring)
     if not hasattr(house_org, 'assets'):
-        house = AssetOwner.objects.create(organization_owner = house_org)
+        house = AssetOwner.objects.create(organization_owner=house_org)
     else:
         house = house_org.assets
     try:
@@ -317,6 +329,7 @@ def setup_ruler(name, castellan=None, liege=None):
         ruler.liege = liege
     ruler.save()
     return ruler
+
 
 def setup_dom_for_char(character, create_dompc=True, create_assets=True,
                        region=None, srank=None, family=None, liege_domain=None,
@@ -367,8 +380,9 @@ def setup_dom_for_char(character, create_dompc=True, create_assets=True,
             setup_dom_for_npc(name, srank=srank - 1, region=region, ruler=liege)
         # return the new domain if we were supposed to create one
         return setup_domain(dompc, region, srank, male, ruler)
-    else: # if we're not setting up a new domain, return Dominion object
+    else:  # if we're not setting up a new domain, return Dominion object
         return dompc
+
 
 def setup_dom_for_npc(name, srank, gender='male', region=None, ruler=None,
                       create_domain=True):
@@ -387,6 +401,7 @@ def setup_dom_for_npc(name, srank, gender='male', region=None, ruler=None,
     setup_assets(domnpc, starting_money(srank))
     if create_domain and region:
         setup_domain(domnpc, region, srank, male, ruler)
+
 
 def replace_vassal(domain, player, num_vassals=2):
     """
@@ -417,41 +432,46 @@ def replace_vassal(domain, player, num_vassals=2):
     # create their vassals
     setup_vassals(family, ruler, domain.land.region, char, srank, num=num_vassals)
 
+
 REGION_TYPES = ("coast", "temperate", "continental", "tropical")
-def get_terrain(type):
+
+
+def get_terrain(land_type):
     terrain = Land.PLAINS
     landlocked = False
-    if type == "coast":
+    if land_type == "coast":
         types = [Land.COAST, Land.PLAINS, Land.ARCHIPELAGO, Land.LAKES, Land.FOREST, Land.FLOOD_PLAINS, Land.MARSH]   
-    elif type == "temperate":
-        types = [Land.PLAINS, Land.FOREST, Land.GRASSLAND, Land.HILL, Land.MARSH, Land.LAKES, Land.MOUNTAIN ]
+    elif land_type == "temperate":
+        types = [Land.PLAINS, Land.FOREST, Land.GRASSLAND, Land.HILL, Land.MARSH, Land.LAKES, Land.MOUNTAIN]
         landlocked = random.choice((True, False, False))
-    elif type == "continental":
+    elif land_type == "continental":
         types = [Land.TUNDRA, Land.HILL, Land.MOUNTAIN, Land.PLAINS, Land.LAKES, Land.FOREST, Land.GRASSLAND]
         landlocked = random.choice((True, False, False))
-    elif type == "tropical":
+    elif land_type == "tropical":
         types = [Land.JUNGLE, Land.OASIS, Land.PLAINS, Land.GRASSLAND, Land.HILL, Land.LAKES, Land.MARSH]
         landlocked = random.choice((True, False, False))
+    else:
+        return terrain, landlocked
     terrain = random.choice(types)
     return terrain, landlocked
 
-def populate(region, end_x, end_y, type):
-    type = type.lower()
-    if type not in REGION_TYPES:
-        raise TypeError("Region-type %s not in %s." % (type, str(REGION_TYPES)))
+
+def populate(region, end_x, end_y, region_type):
+    region_type = region_type.lower()
+    if region_type not in REGION_TYPES:
+        raise TypeError("Region-region_type %s not in %s." % (region_type, str(REGION_TYPES)))
     try:
         start_x = region.origin_x_coord
         start_y = region.origin_y_coord
-    except:
+    except AttributeError:
         print "Invalid object %s passed as region. Cannot populate." % str(region)
+        return
     for x in range(start_x, end_x + 1):
         for y in range(start_y, end_y + 1):
             name = "%s (%s, %s)" % (region.name, x, y)
-            terrain, landlocked = get_terrain(type)
+            terrain, landlocked = get_terrain(region_type)
             try:
-                land = Land.objects.get(x_coord=x, y_coord=y)
+                Land.objects.get(x_coord=x, y_coord=y)
                 # already exists at this x,y, so pass
             except Land.DoesNotExist:
                 region.land_set.create(name=name, terrain=terrain, landlocked=landlocked, x_coord=x, y_coord=y)
-    
-    
