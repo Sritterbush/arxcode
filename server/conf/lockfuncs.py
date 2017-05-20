@@ -225,3 +225,21 @@ def cattr(accessing_obj, accessed_obj, *args, **kwargs):
         return attr(char_ob, accessed_obj, *args, **kwargs)
     except Exception:
         return False
+
+
+# noinspection PyUnusedLocal
+def decorator(accessing_obj, accessed_obj, *args, **kwargs):
+    """
+    Checks if accessing_obj is owner/decorator of room obj
+    is in, or the obj itself if it has no location.
+    """
+    obj = accessed_obj.location or accessed_obj
+    try:
+        if accessing_obj in obj.homeowners:
+            return True
+        return accessing_obj in obj.decorators
+    except (AttributeError, ValueError, TypeError):
+        return False
+
+
+decorators = decorator

@@ -11,6 +11,8 @@ class Place(Object):
     """
     Class for placed objects that allow the 'tabletalk' command.
     """
+    PLACE_LOCKS = "call:true();control:perm(Wizards);delete:perm(Wizards);examine:perm(Builders);" \
+                  "get:perm(Builders) or decorators();puppet:perm(Immortals);tell:all();view:all()"
 
     def at_object_creation(self):
         """
@@ -20,7 +22,7 @@ class Place(Object):
         self.db.max_spots = 6
         self.desc = "A place for people to privately chat. Dropping it in a room will make it part of the room."
         # locks so characters cannot 'get' it
-        self.locks.add("get:perm(Builders)")
+        self.locks.add(self.PLACE_LOCKS)
         self.at_init()      
         
     def leave(self, character):
