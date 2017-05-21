@@ -64,7 +64,8 @@ class WeeklyEvents(Script):
         """
         Determine if a week has passed. Return true if so.
         """
-        if self.db.run_time >= WEEK_INTERVAL:
+        now = datetime.now() + timedelta(minutes=5)
+        if now >= self.db.run_date:
             return True
         else:
             return False
@@ -74,7 +75,7 @@ class WeeklyEvents(Script):
         It's time for us to do events, like count votes, update dominion, etc.
         """
         self.db.run_time = 0
-        self.db.run_date = datetime.now()
+        self.db.run_date += timedelta(days=7)
         # processing for each player
         self.do_events_per_player(reset)
         # awarding votes we counted
