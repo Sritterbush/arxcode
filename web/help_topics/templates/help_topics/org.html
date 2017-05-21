@@ -42,6 +42,7 @@
   {% endif %}
   {% endfor %}
   </table>
+  {% if show_secret < 11 %}
   <h1>Assets</h1>
   <ul class="list-inline">
   <li>Prestige: {{ org.assets.prestige }}</li>
@@ -53,6 +54,7 @@
   <li>Social Resources: {{ org.assets.social }}</li>
   <li>Military Resources: {{ org.assets.military }}</li>
   </ul>
+  {% endif %}
   {% if holdings %}
   <hr />
       <h2>Ruler: {{ org.assets.estate.castellan }}</h2><br />
@@ -73,20 +75,22 @@
   <h1>Land Holdings</h1>
   
   {% for domain in holdings %}
-  <h2>{{ domain.name}}</h2>
-  <p>Description: {{ domain.desc|mush_to_html}}</p>
-  <ul class="list-inline text-left">
-  <li>Mines: {{domain.num_mines}}</li>
-  <li>Lumber: {{domain.num_lumber_yards}}</li>
-  <li>Mills: {{domain.num_mills}}</li>
-  <li>Housing: {{domain.num_housing}}</li>
-  <li>Farms: {{domain.num_farms}}</li>
-  <li>Unassigned Serfs: {{domain.unassigned_serfs}}</li>
-  <li>Serfs working in mining: {{domain.mining_serfs}}</li>
-  <li>Serfs working in lumber: {{domain.lumber_serfs}}</li>
-  <li>Serfs working in farming: {{domain.farming_serfs}}</li>
-  <li>Serfs working in mills: {{domain.mill_serfs}}</li>
-  </ul>
+      <h2>{{ domain.name}}</h2>
+      <p>Description: {{ domain.desc|mush_to_html}}</p>
+      {% if show_secret < 11  %}
+          <ul class="list-inline text-left">
+          <li>Mines: {{domain.num_mines}}</li>
+          <li>Lumber: {{domain.num_lumber_yards}}</li>
+          <li>Mills: {{domain.num_mills}}</li>
+          <li>Housing: {{domain.num_housing}}</li>
+          <li>Farms: {{domain.num_farms}}</li>
+          <li>Unassigned Serfs: {{domain.unassigned_serfs}}</li>
+          <li>Serfs working in mining: {{domain.mining_serfs}}</li>
+          <li>Serfs working in lumber: {{domain.lumber_serfs}}</li>
+          <li>Serfs working in farming: {{domain.farming_serfs}}</li>
+          <li>Serfs working in mills: {{domain.mill_serfs}}</li>
+          </ul>
+      {% endif %}
   {% endfor %}
   {% endif %}
   </div>
