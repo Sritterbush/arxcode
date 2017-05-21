@@ -2245,6 +2245,9 @@ class CmdRandomScene(MuxCommand):
         targ = self.caller.search(self.lhs)
         if not targ:
             return
+        if targ == self.caller:
+            self.msg("You cannot claim yourself.")
+            return
         if targ not in self.scenelist and targ not in self.newbies and targ not in self.gms:
             self.msg("%s is not in your list of random scene partners this week: %s" % (targ, ", ".join(
                 str(ob) for ob in self.scenelist)))
