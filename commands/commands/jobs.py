@@ -320,6 +320,9 @@ class CmdRequest(MuxPlayerCommand):
        +request/followup <#>=<message>
        +request <#>
        +storyrequest <title>=<action you wish to take>
+       +storyrequest/invite <ticket #>=<player>
+       +storyrequest/accept <player>
+       +storyrequest/decline <player>
        +prprequest <title>=<question about a player run plot>
 
     Send a message to the GMs for help. This is usually because
@@ -400,25 +403,48 @@ class CmdRequest(MuxPlayerCommand):
         self.msg(self.get_actions_disp_str(actions))
         return True
 
+    def get_ticket_from_args(self, args):
+        try:
+            ticket = self.caller.tickets.get(id=args)
+            return ticket
+        except (Ticket.DoesNotExist, ValueError):
+            self.msg("No ticket found by that number.")
+            self.list_tickets()
+
     def func(self):
         """Implement the command"""
         caller = self.caller
         args = self.args
         priority = 5
+        if "accept" in self.switches or "decline" in self.switches:
+            targ = self.caller.search(self.args)
+            if not targ:
+                return
+            invite_dict = self.caller.db.storyaction_invites or ()
+            try:
+                ticket = invite_dict.pop(targ)
+            except KeyError:
+                self.msg("No invite from %s." % targ)
+                # list invites
+                return
+            # if we're declinining send message then return, otherwise add us
+            if "decline" in self.switches:
+                pass
+            else:
+                pass
+            return
         if "followup" in self.switches or "comment" in self.switches:
             if not self.lhs or not self.rhs:
                 caller.msg("Missing arguments required.")
                 ticketnumbers = ", ".join(str(ticket.id) for ticket in caller.tickets.all())
                 caller.msg("Your tickets: %s" % ticketnumbers)
                 return
-            try:
-                ticket = caller.tickets.get(id=self.lhs)
-                helpdesk_api.add_followup(caller, ticket, self.rhs, mail_player=False)
-                caller.msg("Followup added.")
+            ticket = self.get_ticket_from_args(self.lhs)
+            if not ticket:
                 return
-            except (Ticket.DoesNotExist, ValueError):
-                caller.msg("No ticket found by that number.")
-                return
+            helpdesk_api.add_followup(caller, ticket, self.rhs, mail_player=False)
+            caller.msg("Followup added.")
+            return
         cmdstr = self.cmdstring.lower()
         if cmdstr == '+911':
             priority = 1
@@ -426,11 +452,8 @@ class CmdRequest(MuxPlayerCommand):
             self.list_tickets()
             return
         if self.lhs.isdigit():
-            try:
-                ticket = caller.tickets.get(id=self.lhs)
-            except (Ticket.DoesNotExist, ValueError):
-                self.msg("No ticket by that number.")
-                self.list_tickets()
+            ticket = self.get_ticket_from_args(self.lhs)
+            if not ticket:
                 return
             self.display_ticket(ticket)
             return

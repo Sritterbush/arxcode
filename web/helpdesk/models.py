@@ -298,7 +298,7 @@ class Ticket(SharedMemoryModel):
         verbose_name=_('Queue'),
         )
 
-    created = models.DateTimeField(
+    db_date_created = models.DateTimeField(
         _('Created'),
         blank=True,
         help_text=_('Date this ticket was first created'),
@@ -333,6 +333,9 @@ class Ticket(SharedMemoryModel):
         null=True,
         verbose_name=_('Player who opened this ticket'),
         )
+
+    participants = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="assisted_storyactions",
+                                          blank=True, null=True)
 
     submitting_room = models.ForeignKey(
         'objects.ObjectDB',
@@ -529,6 +532,9 @@ class Ticket(SharedMemoryModel):
         msg += "\n{wTicket Number:{n %s" % self.id
         if self.submitting_player:
             msg += "\n{wPlayer:{n %s" % self.submitting_player.key
+        part = self.participants.all()
+        if part:
+            msg += "\n{wOther Players:{n %s" % ", ".join(str(ob) for ob in part)
         msg += "\n{wDate submitted:{n %s" % self.created.strftime("%x %X")
         msg += "\n{wLast modified:{n %s" % self.modified.strftime("%x %X")
         msg += "\n{wTitle:{n %s" % self.title
