@@ -728,8 +728,10 @@ class CmdInvestigate(InvestigationFormCommand):
 
     def create_form(self):
         from evennia.scripts.models import ScriptDB
+        from datetime import timedelta
         script = ScriptDB.objects.get(db_key="Weekly Update")
-        if script.db.run_time > 518400:
+        day = timedelta(hours=24, minutes=5)
+        if script.time_remaining < day:
             self.msg("It is too close to the end of the week to create another investigation.")
             return
         super(CmdInvestigate, self).create_form()

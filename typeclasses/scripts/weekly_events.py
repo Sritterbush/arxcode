@@ -21,8 +21,6 @@ from web.character.models import Investigation, RosterEntry
 
 
 EVENT_SCRIPT_NAME = "Weekly Update"
-# number of seconds in a week
-WEEK_INTERVAL = 604800
 VOTES_BOARD_NAME = 'Votes'
 PRESTIGE_BOARD_NAME = 'Prestige Changes'
 
@@ -48,24 +46,46 @@ class WeeklyEvents(Script):
         self.interval = 3600
         self.persistent = True
         self.start_delay = True
-        self.attributes.add("run_time", 0.0)  # OOC time
+        self.attributes.add("run_date", datetime.now() + timedelta(days=7))
+
+    @property
+    def time_remaining(self):
+        """
+        Returns the time the update is scheduled to run.AccountTransaction
+        
+            Returns:
+                remaining (Timedelta): remaining time before weekly update will process
+        """
+        # self.db.run_date is the date we're scheduled to run the weekly update on
+        remaining = self.db.run_date - datetime.now()
+        return remaining
 
     def at_repeat(self):
         """
         Called every minute to update the timers.
         """
-        time = self.db.run_time or 0
-        time += 3600
-        self.db.run_time = time
         if self.check_event():
-            self.do_weekly_events()
+            # check if we've been tagged to not reset next time we run
+            reset = not bool(self.tags.get("next_no_reset"))
+            self.do_weekly_events(reset=reset)
+            if not reset:  # remove tag if it was present
+                self.tags.remove("next_no_reset")
+        else:
+            hour = timedelta(minutes=65)
+            if self.time_remaining < hour:
+                from evennia.server.sessionhandler import SESSIONS
+                cron_msg = "{wReminder: Weekly Updates will be running in about an hour.{n"
+                SESSIONS.announce_all(cron_msg)
 
     def check_event(self):
         """
         Determine if a week has passed. Return true if so.
+        
+            Returns:
+                bool: whether we're ready for weekly event to run or not
         """
-        now = datetime.now() + timedelta(minutes=5)
-        if now >= self.db.run_date:
+        rounding_check = timedelta(minutes=5)
+        if self.time_remaining < rounding_check:
             return True
         else:
             return False
@@ -74,7 +94,7 @@ class WeeklyEvents(Script):
         """
         It's time for us to do events, like count votes, update dominion, etc.
         """
-        self.db.run_time = 0
+        # schedule next weekly update for one week from now
         self.db.run_date += timedelta(days=7)
         # processing for each player
         self.do_events_per_player(reset)
