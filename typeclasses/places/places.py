@@ -49,7 +49,7 @@ class Place(Object):
         self.db.occupants = occupants
         self.location.msg_contents("%s has joined the %s." % (character.name, self.key), exclude=character)
     
-    def tt_msg(self, message, exclude=None):
+    def tt_msg(self, message, from_obj, exclude=None, emit=False):
         """
         Send msg to characters at table. Note that if this method was simply named
         'msg' rather than tt_msg, it would be called by msg_contents in rooms, causing
@@ -61,7 +61,9 @@ class Place(Object):
         exclude = make_iter(exclude)
         for ob in self.db.occupants:
             if ob not in exclude:
-                ob.msg(message, options={'is_pose': True})
+                if emit and ob.tags.get("emit_label"):
+                    message = "{w[{c%s{w]{n %s" % (from_obj, message)
+                ob.msg(message, from_obj=from_obj, options={'is_pose': True})
 
     def at_after_move(self, source_location):
         """If new location is not our wearer, remove."""

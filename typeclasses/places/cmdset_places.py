@@ -187,13 +187,16 @@ class CmdTableTalk(MuxCommand):
     Sends a message to your current table. You may pose at the table by
     starting a message with ':' or ';'. ':' has a space after your name,
     while ';' does not. So ':waves' is 'Bob waves', while ';s waves' is
-    'Bobs waves'.
+    'Bobs waves'. A table emit '|' does not add your name, so be sure to 
+    identify yourself somehow in your text.
 
     To leave a place, use 'depart'.
     """
     key = "tt"
     locks = "cmd:all()"
     help_category = "Social"
+    # characters used for poses/emits
+    char_symbols = (";", ",", "|")
 
     def func(self):
         """Implements command"""
@@ -207,13 +210,21 @@ class CmdTableTalk(MuxCommand):
             caller.msg("You are not sitting at a private table currently.")
             return
         prefix = "At the %s," % table.key
-        if args.startswith(":") or args.startswith(";"):
+        # get the first character to see if it's special
+        start_char = args[0]
+        if start_char in self.char_symbols:
             whitespace = " " if args.startswith(":") else ""
-            msg = args.lstrip(":")
-            msg = msg.lstrip(";")
+            msg = args.lstrip(":").lstrip(";").lstrip("|")
             msg = "%s%s" % (whitespace, msg)
-            msg = "%s {c%s{n%s" % (prefix, caller.name, msg)
-            table.tt_msg(msg)
+            if start_char == "|":
+                # send message as an emit
+                msg = "%s %s" % (prefix, msg)
+                emit = True
+            else:  # send message as a pose
+                msg = "%s {c%s{n%s" % (prefix, caller.name, msg)
+                emit = False
+            # gives the message, its sender, and whether it's an emit
+            table.tt_msg(msg, from_obj=caller, emit=emit)
             return
         caller.msg('%s you say, "%s"' % (prefix, args))
-        table.tt_msg('%s {c%s{n says, "%s"' % (prefix, caller.name, args), exclude=caller)
+        table.tt_msg('%s {c%s{n says, "%s"' % (prefix, caller.name, args), from_obj=caller, exclude=caller)
