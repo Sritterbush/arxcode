@@ -196,7 +196,7 @@ class CmdTableTalk(MuxCommand):
     locks = "cmd:all()"
     help_category = "Social"
     # characters used for poses/emits
-    char_symbols = (";", ",", "|")
+    char_symbols = (";", ":", "|")
 
     def func(self):
         """Implements command"""
