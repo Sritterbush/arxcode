@@ -27,11 +27,14 @@ class Mask(Wearable):
     def at_post_wear(self, wearer):
         """Hook called after wearing for any checks."""
         self.wear_mask(wearer)
-        if self.db.quality_level is None:
-            self.db.quality_level = 0
-        # override this to keep track of infinite mask uses, with negative numbers
-        elif self.db.quality_level > 0:
-            self.db.quality_level -= 1
+        # we'll have mirrormasks be free
+        if not self.tags.get("mirrormask"):
+            # set attr if it's not set to avoid errors
+            if self.db.quality_level is None:
+                self.db.quality_level = 0
+            # Negative quality level or one above 10 are infinite
+            elif 0 < self.db.quality_level < 11:
+                self.db.quality_level -= 1
         if wearer.additional_desc:
             wearer.msg("{yYou currently have a +tempdesc set, which you may want to remove or modify with +tempdesc.{n")
         return True
