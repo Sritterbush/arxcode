@@ -610,8 +610,8 @@ class WeeklyEvents(Script):
                 player = PlayerDB.objects.select_related('Dominion__assets').get(username__iexact=name)
                 prestige = player.Dominion.assets.prestige
                 old = self.db.prestige_changes[name]
-                self.db.prestige_changes[name] = (prestige - old, prestige)
-            except AttributeError:
+                self.db.prestige_changes[name] = (prestige - old[1], prestige)
+            except (AttributeError, IndexError, KeyError, ValueError, TypeError):
                 try:
                     self.db.prestige_changes[name] = (0, 0)
                 except (AttributeError, KeyError):
