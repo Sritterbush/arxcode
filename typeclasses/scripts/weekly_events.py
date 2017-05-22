@@ -12,6 +12,7 @@ from django.db.models import Q, F
 from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
 from evennia.utils.evtable import EvTable
+from evennia.utils.idmapper.models import flush_cache
 
 from world.dominion.models import AssetOwner, Army, AssignedTask, Member, AccountTransaction, Orders
 from typeclasses.bulletin_board.bboard import BBoard
@@ -116,6 +117,7 @@ class WeeklyEvents(Script):
             self.count_poses()
         self.db.week += 1
         self.reset_action_points()
+        flush_cache()
 
     def do_dominion_events(self):
         for owner in AssetOwner.objects.filter(
@@ -253,13 +255,13 @@ class WeeklyEvents(Script):
         """
         if reset:
             # our votes are a dict of player to their number of votes
-            self.db.votes = {}
+            self.db.recorded_votes = {}
             self.db.vote_history = {}
             # storing how much xp each player gets to post after
             self.db.xp = {}
             # our praises/condemns are {name: [total adjustment, times, [msgs]]}
-            self.db.praises = {}
-            self.db.condemns = {}
+            self.db.recorded_praises = {}
+            self.db.recorded_condemns = {}
             self.db.prestige_changes = {}
             self.db.xptypes = {}
             self.db.requested_support = {}
@@ -409,10 +411,10 @@ class WeeklyEvents(Script):
         """       
         votes = player.db.votes or []
         for ob in votes:
-            if ob.id in self.db.votes:
-                self.db.votes[ob.id] += 1
+            if ob.id in self.db.recorded_votes:
+                self.db.recorded_votes[ob.id] += 1
             else:
-                self.db.votes[ob.id] = 1
+                self.db.recorded_votes[ob.id] = 1
         if votes:
             self.db.vote_history[player.id] = votes
 
@@ -468,19 +470,19 @@ class WeeklyEvents(Script):
         for name in praises:
             num = praises[name][0]
             msg = praises[name][1]
-            existing = self.db.praises.get(name, [0, 0, []])
+            existing = self.db.recorded_praises.get(name, [0, 0, []])
             existing[0] += base_praise
             existing[1] += num
             existing[2].append((player, msg))
-            self.db.praises[name] = existing
+            self.db.recorded_praises[name] = existing
         # for name in condemns:
         #    num = condemns[name][0]
         #    msg = condemns[name][1]
-        #    existing = self.db.condemns.get(name, [0, 0, []])
+        #    existing = self.db.recorded_condemns.get(name, [0, 0, []])
         #    existing[0] -= prest
         #    existing[1] += num
         #    existing[2].append((player, msg))
-        #    self.db.condemns[name] = existing
+        #    self.db.recorded_condemns[name] = existing
 
     def award_scene_xp(self):
         for char_id in self.db.scenes:
@@ -540,12 +542,12 @@ class WeeklyEvents(Script):
         object of each player we've recorded votes for.
         """
         # go through each key in our votes dict, get player, award xp to their character
-        for player_id in self.db.votes:
+        for player_id in self.db.recorded_votes:
             player = PlayerDB.objects.get(id=player_id)
             # important - get their character, not the player object
             char = player.db.char_ob
             if char:
-                votes = self.db.votes[player_id]
+                votes = self.db.recorded_votes[player_id]
                 xp = self.scale_xp(votes)
 
                 if votes and xp:
@@ -587,21 +589,21 @@ class WeeklyEvents(Script):
             player.inform(resource_msg, "Resources", week=self.db.week, append=True)
 
     def award_prestige(self):
-        for name in self.db.praises:
+        for name in self.db.recorded_praises:
             try:
                 player = PlayerDB.objects.select_related('Dominion__assets').get(username__iexact=name)
                 assets = player.Dominion.assets
             except AttributeError:
                 continue
-            val = self.db.praises[name][0]
+            val = self.db.recorded_praises[name][0]
             assets.adjust_prestige(val)
-        for name in self.db.condemns:
+        for name in self.db.recorded_condemns:
             try:
                 player = PlayerDB.objects.select_related('Dominion__assets').get(username__iexact=name)
                 assets = player.Dominion.assets
             except AttributeError:
                 continue
-            val = self.db.condemns[name][0]
+            val = self.db.recorded_condemns[name][0]
             assets.adjust_prestige(val)
         for name in self.db.prestige_changes:
             try:
@@ -644,7 +646,7 @@ class WeeklyEvents(Script):
     def post_top_prestige(self):
         import random
         board = BBoard.objects.get(db_key__iexact=PRESTIGE_BOARD_NAME)
-        sorted_praises = sorted(self.db.praises.items(), key=lambda x: x[1][1], reverse=True)
+        sorted_praises = sorted(self.db.recorded_praises.items(), key=lambda x: x[1][1], reverse=True)
         sorted_praises = sorted_praises[:20]
         table = EvTable("{wName{n", "{w#{n", "{wMsg{n", border="cells", width=78)
         for tup in sorted_praises:
@@ -657,7 +659,7 @@ class WeeklyEvents(Script):
         prestige_msg = "%s\n%s" % (prestige_msg, str(table).lstrip())
         prestige_msg += "\n\n"
         # prestige_msg += "{wMost Condemned this week{n".center(72)
-        # sorted_condemns = sorted(self.db.condemns.items(), key=lambda x: x[1][1], reverse=True)
+        # sorted_condemns = sorted(self.db.recorded_condemns.items(), key=lambda x: x[1][1], reverse=True)
         # sorted_condemns = sorted_condemns[:20]
         # table = EvTable("{wName{n", "{w#{n", "{wMsg{n", border="cells", width=78)
         # for tup in sorted_condemns:
