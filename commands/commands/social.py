@@ -2635,6 +2635,7 @@ class CmdFirstImpression(MuxCommand):
         +firstimpression <character>
         +firstimpression <character>=<summary of the RP Scene>
         +firstimpression/list
+        +firstimpressions/here
         +firstimpression/quiet <character>=<summary>
         +firstimpression/private <character>=<summary>
 
@@ -2665,7 +2666,11 @@ class CmdFirstImpression(MuxCommand):
         qs = AccountHistory.objects.filter(entry__roster__name="Active", end_date__isnull=True).exclude(
             account=self.caller.roster.current_account)
         qs = qs.exclude(id__in=contacts).order_by('entry__player__username')
-        self.msg("{wPlayers you haven't had a scene with yet:{n %s" % ", ".join(str(ob.entry) for ob in qs))
+        location = ""
+        if "here" in self.switches:
+            location = "at your location "
+            qs = qs.filter(entry__character__db_location=self.caller.location)
+        self.msg("{wPlayers %syou haven't had a scene with yet:{n %s" % (location, ", ".join(str(ob.entry) for ob in qs)))
 
     def func(self):
         if not self.args:
