@@ -262,6 +262,7 @@ class WeeklyEvents(Script):
             # our praises/condemns are {name: [total adjustment, times, [msgs]]}
             self.db.recorded_praises = {}
             self.db.recorded_condemns = {}
+            # records how much each player name has gained or lost prestige
             self.db.prestige_changes = {}
             self.db.xptypes = {}
             self.db.requested_support = {}
@@ -294,10 +295,10 @@ class WeeklyEvents(Script):
             char.ndb.stale_ap = True
             try:
                 old = player.Dominion.assets.prestige
-                self.db.prestige_changes[player.key] = old
+                self.db.prestige_changes[player] = old
             except AttributeError:
                 try:
-                    del self.db.prestige_changes[player.key]
+                    del self.db.prestige_changes[player]
                 except KeyError:
                     pass
             # wipe cached attributes
@@ -411,12 +412,12 @@ class WeeklyEvents(Script):
         """       
         votes = player.db.votes or []
         for ob in votes:
-            if ob.id in self.db.recorded_votes:
-                self.db.recorded_votes[ob.id] += 1
+            if ob in self.db.recorded_votes:
+                self.db.recorded_votes[ob] += 1
             else:
-                self.db.recorded_votes[ob.id] = 1
+                self.db.recorded_votes[ob] = 1
         if votes:
-            self.db.vote_history[player.id] = votes
+            self.db.vote_history[player] = votes
 
     def count_scenes(self, player):
         """
@@ -542,14 +543,12 @@ class WeeklyEvents(Script):
         object of each player we've recorded votes for.
         """
         # go through each key in our votes dict, get player, award xp to their character
-        for player_id in self.db.recorded_votes:
-            player = PlayerDB.objects.get(id=player_id)
+        for player in self.db.recorded_votes:
             # important - get their character, not the player object
             char = player.db.char_ob
             if char:
-                votes = self.db.recorded_votes[player_id]
+                votes = self.db.recorded_votes[player]
                 xp = self.scale_xp(votes)
-
                 if votes and xp:
                     msg = "You received %s votes this week, earning %s xp." % (votes, xp)
                     self.award_xp(char, xp, player, msg, xptype="votes")
@@ -565,7 +564,7 @@ class WeeklyEvents(Script):
                 pass
             xp = int(xp)
             char.adjust_xp(xp)
-            self.db.xp[char.id] = xp + self.db.xp.get(char.id, 0)
+            self.db.xp[char] = xp + self.db.xp.get(char, 0)
         except Exception as err:
             traceback.print_exc()
             print "Award XP encountered ERROR: %s" % err
@@ -605,18 +604,16 @@ class WeeklyEvents(Script):
                 continue
             val = self.db.recorded_condemns[name][0]
             assets.adjust_prestige(val)
-        for name in self.db.prestige_changes:
+        for player in self.db.prestige_changes.keys():
             try:
-                player = PlayerDB.objects.select_related('Dominion__assets').get(username__iexact=name)
+                # our new and old prestige values
                 prestige = player.Dominion.assets.prestige
-                old = self.db.prestige_changes[name]
-                self.db.prestige_changes[name] = (prestige - old[1], prestige)
+                old = self.db.prestige_changes[player]
+                # the amount our prestige has changed
+                self.db.prestige_changes[player] = prestige - old
             except (AttributeError, IndexError, KeyError, ValueError, TypeError):
-                try:
-                    self.db.prestige_changes[name] = (0, 0)
-                except (AttributeError, KeyError):
-                    continue
-    
+                pass
+
     def post_top_rpers(self):
         """
         Post ourselves to a bulletin board to celebrate the highest voted RPers
@@ -633,11 +630,11 @@ class WeeklyEvents(Script):
         for tup in sorted_xp:
             num += 1
             try:
-                char = ObjectDB.objects.get(id=tup[0])
+                char = tup[0]
                 votes = tup[1]
                 name = char.db.longname or char.key
                 string += "{w%s){n %-35s {wXP{n: %s\n" % (num, name, votes)
-            except ObjectDB.DoesNotExist:
+            except AttributeError:
                 print "Could not find character of id %s during posting." % str(tup[0])
         board = BBoard.objects.get(db_key__iexact=VOTES_BOARD_NAME)
         board.bb_post(poster_obj=self, msg=string, subject="Weekly Votes", poster_name="Vote Results")
@@ -669,19 +666,21 @@ class WeeklyEvents(Script):
         # table.reformat_column(1, width=5)
         # table.reformat_column(2, width=55)
         # prestige_msg = "%s\n%s" % (prestige_msg, str(table).lstrip())
-        try:      
-            sorted_changes = sorted(self.db.prestige_changes.items(), key=lambda x: abs(x[1][0]), reverse=True)
+        try:
+            # sort by our prestige change amount
+            sorted_changes = sorted(self.db.prestige_changes.items(), key=lambda x: abs(x[1]), reverse=True)
             sorted_changes = sorted_changes[:20]
             table = EvTable("{wName{n", "{wPrestige Change Amount{n", "{wPrestige Rank{n", border="cells", width=78)
-            qs = AssetOwner.objects.filter(player__player__isnull=False)
+            rank_order = list(AssetOwner.objects.filter(player__player__isnull=False).order_by('-prestige'))
             for tup in sorted_changes:
                 # get our prestige ranking compared to others
-                rank = qs.filter(prestige__gt=tup[1][1]).count()
+                player = tup[0]
+                rank = rank_order.index(player.Dominion.assets) + 1
                 # get the amount that our prestige has changed. add + for positive
-                amt = tup[1][0]
+                amt = tup[1]
                 if amt > 0:
                     amt = "+%s" % amt
-                table.add_row(tup[0].capitalize(), amt, rank)
+                table.add_row(player, amt, rank)
             prestige_msg += "\n\n"
             prestige_msg += "{wTop Prestige Changes{n".center(72)
             prestige_msg = "%s\n%s" % (prestige_msg, str(table).lstrip())
