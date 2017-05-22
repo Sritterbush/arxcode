@@ -2635,7 +2635,7 @@ class CmdFirstImpression(MuxCommand):
         +firstimpression <character>
         +firstimpression <character>=<summary of the RP Scene>
         +firstimpression/list
-        +firstimpressions/here
+        +firstimpression/here
         +firstimpression/quiet <character>=<summary>
         +firstimpression/private <character>=<summary>
 
@@ -2670,7 +2670,8 @@ class CmdFirstImpression(MuxCommand):
         if "here" in self.switches:
             location = "at your location "
             qs = qs.filter(entry__character__db_location=self.caller.location)
-        self.msg("{wPlayers %syou haven't had a scene with yet:{n %s" % (location, ", ".join(str(ob.entry) for ob in qs)))
+        self.msg("{wPlayers %syou haven't had a scene with yet:{n %s" % (location,
+                                                                         ", ".join(str(ob.entry) for ob in qs)))
 
     def func(self):
         if not self.args:

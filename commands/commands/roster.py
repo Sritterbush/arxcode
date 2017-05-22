@@ -1240,6 +1240,10 @@ class CmdRelationship(MuxPlayerCommand):
                 'acquaintance', 'secret', 'rival', 'ally', 'spouse', 'The Crown', 'Crownlands', 'Oathlands',
                 'Lyceum', 'Mourning Isles', 'Northlands', 'deceased']
 
+    def get_help(self, caller, cmdset):
+        msg = self.__doc__ + "\n\nShort relationship types: %s" % ", ".join(self.typelist)
+        return msg
+
     def func(self):
         caller = self.caller
         args = self.args
