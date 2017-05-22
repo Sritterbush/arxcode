@@ -376,7 +376,7 @@ class CmdRequest(MuxPlayerCommand):
         msg = ""
         if actions:
             msg += "\nYou have submitted requests for GMing for a storyaction on: %s." % ", ".join(
-                ob.created.strftime("%x") for ob in actions)
+                ob.db_date_created.strftime("%x") for ob in actions)
         msg += "\nYou are permitted to make %s requests every %s days." % (self.max_requests, self.num_days)
         return msg
 
@@ -419,9 +419,10 @@ class CmdRequest(MuxPlayerCommand):
         priority = 5
         if "accept" in self.switches or "decline" in self.switches:
             targ = self.caller.search(self.args)
-            if not targ:
-                return
             invite_dict = self.caller.db.storyaction_invites or {}
+            if not targ:
+                self.msg("You do have invitations from %s." % ", ".join(str(ob) for ob in invite_dict.keys()))
+                return
             try:
                 ticket = invite_dict.pop(targ)
                 if not invite_dict:
@@ -455,6 +456,9 @@ class CmdRequest(MuxPlayerCommand):
             # append a new dict entry to the target's invitations
             targ.db.storyaction_invites[caller] = ticket
             self.msg("You have invited %s to assist your story action %s." % (targ, ticket))
+            msg = "{c%s{n has invited you to assist the following action: %s" % (caller, ticket.description)
+            msg += "\n\nTo assist them, use +storyrequest/accept <name>. Use +storyrequest/decline to decline."
+            targ.inform(msg, category="Storyrequest Assist")
             return
         if "followup" in self.switches or "comment" in self.switches:
             if not self.lhs or not self.rhs:
