@@ -6,7 +6,7 @@ on whether the player has an existing report for this week.
 """
 from world.msgs.models import Inform
 import traceback
-from django.db.models import Q
+
 
 class Report(object):
     def __init__(self, player, week, category=None):
@@ -37,6 +37,7 @@ class Report(object):
             report = Inform.objects.create(player=player, week=week, category=self.category)
         return report
             
+
 class ProjectReport(Report):
     def __init__(self, player, week, project, new_total):
         self.project = project
@@ -55,50 +56,57 @@ class ProjectReport(Report):
         
 
 class StarvationReport(Report):
-    def __init__(self, player, week):
-        pass
+    pass
+
 
 class BattleReport(Report):
     def __init__(self, player, battle):
         self.battle = battle
         super(BattleReport, self).__init__(player, battle.week, "battle")
         self.generate_battle_report()
-        
+
+    # noinspection PyBroadException
     def generate_battle_report(self):
         try:
             txt = self.text_from_battle()
             Inform.objects.create(player=self.player, week=self.week, text=txt, category="battle")
-        except:
+        except Exception:
             print "ERROR: Could not generate battle report."
             traceback.print_exc()
                    
     def text_from_battle(self):
         sides = "{w(Attacker){n%s vs {w(Defender){n%s\n" % (self.battle.atk_name, self.battle.def_name)
         victor = self.battle.victor
-        if not victor: victor = "Neither side could claim decisive victory"
+        if not victor:
+            victor = "Neither side could claim decisive victory"
         victor = "\n{wVictor:{n %s\n" % str(victor)
-        atkarmy = "\n{wAttacking Units:{n %s\n" % (self.display_units_with_attr(self.battle.atk_units, "starting_quantity"))
-        defarmy = "\n{wDefending Units:{n %s\n" % (self.display_units_with_attr(self.battle.def_units, "starting_quantity"))
+        atkarmy = "\n{wAttacking Units:{n %s\n" % (self.display_units_with_attr(self.battle.atk_units,
+                                                                                "starting_quantity"))
+        defarmy = "\n{wDefending Units:{n %s\n" % (self.display_units_with_attr(self.battle.def_units,
+                                                                                "starting_quantity"))
         atklosses = "\n{wAttacker losses:{n %s\n" % (self.display_units_with_attr(self.battle.atk_units, "losses"))
         deflosses = "\n{wDefender losses:{n %s\n" % (self.display_units_with_attr(self.battle.def_units, "losses"))
-        txt = "Battle Report\n" + sides + atkarmy + defarmy + atklosses + deflosses
+        txt = "Battle Report\n" + victor + sides + atkarmy + defarmy + atklosses + deflosses
         return txt
-    
-    def display_units_with_attr(self, units, attr):
+
+    @staticmethod
+    def display_units_with_attr(units, attr):
         display = ["%s: %s" % (unit.name, getattr(unit, attr)) for unit in units]
         return ", ".join(display)
+
 
 class ExplorationReport(Report):
     def __init__(self, player, exploration):
         self.explore = exploration
-        super(ExplorationReport, self).__init__(player, explore.week, "explore")
+        super(ExplorationReport, self).__init__(player, self.explore.week, "explore")
         self.generate_explore_report()
-        
+
+    # noinspection PyBroadException
     def generate_explore_report(self):
         try:
             txt = self.text_from_explore()
             Inform.objects.create(player=self.player, week=self.week, text=txt, category="explore")
-        except:
+        except Exception:
             print "ERROR: Could not generate battle report."
             traceback.print_exc()
 
@@ -107,6 +115,7 @@ class ExplorationReport(Report):
         army = "Exploring army: %s\n" % str(self.explore.army)
         outcome = "Outcome: %s\n" % self.explore.outcome
         return txt + army + outcome
+
 
 class WeeklyReport(Report):
     """
@@ -122,6 +131,9 @@ class WeeklyReport(Report):
         self.failed_payments = []
         self.successful_payments = []
         self.lifestyle_msg = None
+        self.player = player
+        self.week = week
+        self.army_reports = []
 
     def record_income(self, vault, adjust):
         self.vault = vault
@@ -129,8 +141,15 @@ class WeeklyReport(Report):
 
     def add_project_report(self, project, new_total):
         self.projects += 1
-        ProjectReport(player, week, project, new_total)
-   
+        ProjectReport(self.player, self.week, project, new_total)
+
+    def add_army_consumption_report(self, army, food, silver):
+        s_str = ""
+        if silver:
+            s_str = " and cost %s silver" % silver
+        self.army_reports.append("Army %s ate %s food%s." % (army, food, silver))
+
+    # noinspection PyBroadException
     def send_report(self):
         """
         Sends our collected reports to the player as an Inform.
@@ -140,7 +159,7 @@ class WeeklyReport(Report):
         projects = self.get_reports("project")
         if not any((battles, exploration, projects, self.income_change)):
             return
-        self.report = self.get_or_create_report(self.category)
+        report = self.get_or_create_report(self.category)
         txt = ""
         try:
             txt += "Week %s Reports for %s\n" % (self.week, self.owner if self.owner else self.player)
@@ -156,20 +175,21 @@ class WeeklyReport(Report):
                 txt += "Exploration events: %s\n" % str(len(exploration))
             if projects:
                 txt += "Projects completed: %s\n" % str(self.projects)
+            if self.army_reports:
+                txt += "Army reports: %s\n" % ", ".join(self.army_reports)
             if self.lifestyle_msg:
                 txt += self.lifestyle_msg
-            if self.report.message:
-                self.report.message += "\n" + txt
+            if report.message:
+                report.message += "\n" + txt
             else:
-                self.report.message = txt
+                report.message = txt
         except Exception:
             import traceback
-            self.report.message = txt + "\n" + traceback.print_exc()
-        self.report.save()
+            report.message = txt + "\n" + traceback.print_exc()
+        report.save()
 
     def payment_fail(self, payment):
-        self.failed_payments.append( str(payment) )
+        self.failed_payments.append(str(payment))
 
     def add_payment(self, payment):
         self.successful_payments.append(str(payment))
-    

@@ -319,10 +319,17 @@ class AgentAdmin(DomAdmin):
     search_fields = ('name', 'owner__player__player__username', 'owner__organization_owner__name')
 
 
+class MilitaryUnitInline(admin.TabularInline):
+    model = MilitaryUnit
+    extra = 0
+    raw_id_fields = ('origin', 'commander', 'orders')
+
+
 class ArmyAdmin(DomAdmin):
     list_display = ('id', 'name', 'owner', 'domain')
-    raw_id_fields = ('owner', 'domain', 'land', 'castle', 'commander')
+    raw_id_fields = ('owner', 'domain', 'land', 'castle', 'general', 'temp_owner', 'group')
     search_fields = ('name', 'domain__name', 'owner__player__player__username', 'owner__organization_owner__name')
+    inlines = (MilitaryUnitInline,)
 
 
 # Register your models here.

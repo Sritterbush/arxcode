@@ -2554,48 +2554,29 @@ class Army(SharedMemoryModel):
     
     def consume_food(self, report=None):
         """
-        All units eat food. First food is consumed by any stored on the army,
-        then stored in domain, and then from supply lines if we're far away. If
-        we don't have enough food to feed the army, start raising starvation. If
-        starvation level is 2, then we have desertion/starvation.
+        To do: have food eaten while we're executing orders, which limits
+        how far out we can be. Otherwise we're just a drain on our owner
+        or temp owner domain, or it's converted into money cost
         """
-        hunger = self.get_food_consumption()
-        total_need = hunger
-        if self.stored_food > 0:
-            if hunger > self.stored_food:
-                hunger -= self.stored_food
-                self.stored_food = 0
-            else:  # have enough stored food, so reduce it and done
-                self.stored_food -= hunger
-                if self.starvation_level > 0:
-                    self.starvation_level = 0
-                self.save()
-                return
-        # check if we're in land that our ruler owns
-        qs = self.land.domains.filter(ruler__id=self.domain.ruler.id)
-        if len(qs) > 0:
-            near_domain = qs[0]
-            if hunger > near_domain.stored_food:
-                hunger -= near_domain.stored_food
-                near_domain.stored_food = 0
-                near_domain.save()
+        total = self.get_food_consumption()
+        consumed = 0
+        if self.domain:
+            if self.domain.stored_food > total:
+                self.domain.stored_food -= total
+                consumed = total
+                total = 0
             else:
-                near_domain.stored_food -= hunger
-                near_domain.save()
-                if self.starvation_level > 0:
-                    self.starvation_level = 0
-                self.save()
-                return
-        # if we have more than half the food we need, just a morale hit
-        if hunger < total_need/2 and self.starvation_level < 2:
-            self.morale -= hunger/5
-            self.starvation_level += 1
-        else:  # starvation process
-            self.morale -= hunger/4
-            self.starve()
-        # to do, add starvation report later
-        if report:
-            print "Starvation report would go here for %s" % self
+                consumed = self.domain.stored_food
+                total -= self.domain.stored_food
+                self.domain.stored_food = 0
+            self.domain.save()
+        cost = total * 10
+        if cost:
+            owner = self.temp_owner or self.owner
+            if owner:
+                owner.vault -= cost
+                owner.save()
+        report.add_army_consumption_report(self, food=consumed, silver=cost)
 
     def starve(self):
         """
