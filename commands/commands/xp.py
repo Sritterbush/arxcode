@@ -331,7 +331,9 @@ class CmdTrain(MuxCommand):
 
     @staticmethod
     def currently_training(character):
-        return character.db.currently_training or []
+        if character.db.currently_training is None:
+            character.db.currently_training = []
+        return character.db.currently_training
 
     def pay_ap_cost(self, character):
         cost = self.action_point_cost(character)
