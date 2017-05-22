@@ -369,7 +369,7 @@ class CmdRequest(MuxPlayerCommand):
         date = datetime.now()
         offset = timedelta(days=-self.num_days)
         date = date + offset
-        actions = caller.tickets.filter(queue__slug="Story", created__gte=date)
+        actions = caller.tickets.filter(queue__slug="Story", db_date_created__gte=date)
         return actions
 
     def get_actions_disp_str(self, actions):
@@ -393,12 +393,13 @@ class CmdRequest(MuxPlayerCommand):
         self.msg("Use {w+request/followup <#>=<comment>{n to add a comment.")
 
     def check_recent_story_action(self):
+        ap_cost = 40 # the action point cost of starting story actions
         actions = self.get_num_actions(self.caller)
-        if self.caller.roster.action_points < 40:
-            self.msg("It costs 40 Action Points to make a story action.")
+        if self.caller.roster.action_points < ap_cost:
+            self.msg("It costs %s Action Points to make a story action." % ap_cost)
             return True
         if actions.count() < self.max_requests:
-            self.caller.pay_action_points(40)
+            self.caller.pay_action_points(ap_cost)
             return False
         self.msg(self.get_actions_disp_str(actions))
         return True
@@ -420,18 +421,40 @@ class CmdRequest(MuxPlayerCommand):
             targ = self.caller.search(self.args)
             if not targ:
                 return
-            invite_dict = self.caller.db.storyaction_invites or ()
+            invite_dict = self.caller.db.storyaction_invites or {}
             try:
                 ticket = invite_dict.pop(targ)
+                if not invite_dict:
+                    self.caller.attributes.remove("storyaction_invites")
             except KeyError:
-                self.msg("No invite from %s." % targ)
+                self.msg("No invite from {w%s{n." % targ)
                 # list invites
+                self.msg("But you do have invitations from %s." % ", ".join(str(ob) for ob in invite_dict.keys()))
                 return
-            # if we're declinining send message then return, otherwise add us
+            # if we're declining send message then return, otherwise add us
             if "decline" in self.switches:
-                pass
+                self.msg("You have declined an invitation from %s to assist story action %s." % (targ, ticket))
+                return
             else:
-                pass
+                ap_cost = 10 # the action point cost of assisting story actions
+                if not caller.pay_action_points(ap_cost):
+                    self.msg("It costs %s Action Points to assist a story action." % ap_cost)
+                    return
+                ticket.participants.add(caller)
+                self.msg("You have accepted an invitation from %s to assist story action %s." % (targ, ticket))
+                return
+        if "invite" in self.switches:
+            ticket = self.get_ticket_from_args(self.lhs)
+            if not ticket:
+                return
+            targ = self.caller.search(self.rhs)
+            if not targ:
+                return
+            if not targ.db.storyaction_invites:
+                targ.db.storyaction_invites = {}
+            # append a new dict entry to the target's invitations
+            targ.db.storyaction_invites[caller] = ticket
+            self.msg("You have invited %s to assist your story action %s." % (targ, ticket))
             return
         if "followup" in self.switches or "comment" in self.switches:
             if not self.lhs or not self.rhs:

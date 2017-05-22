@@ -29,7 +29,7 @@ def create_ticket(caller, message, priority=5, queue=settings.REQUEST_QUEUE_ID,
             room = None
         ticket = Ticket(title=optional_title,
                         queue=q,
-                        created=datetime.now(),
+                        db_date_created=datetime.now(),
                         submitter_email=email,
                         submitting_player=caller,
                         submitting_room=room,
@@ -106,8 +106,11 @@ def resolve_ticket(caller, ticket_id, message):
 
 def mail_update(ticket, comments, header="New ticket activity\n"):
     player = ticket.submitting_player
+    assistants = ticket.participants.all()
     msg = header
     msg += "{wTicket ID:{n %s\n" % ticket.id
     msg += "{wIssue:{n %s\n\n" % ticket.description
     msg += "{wGM comments:{n %s" % comments
     player.inform(msg, category="requests", append=False)
+    for ob in assistants:
+        ob.inform(msg, category="requests", append=False)

@@ -512,7 +512,7 @@ class Ticket(SharedMemoryModel):
     def save(self, *args, **kwargs):
         if not self.id:
             # This is a new ticket as no ID yet exists.
-            self.created = timezone.now()
+            self.db_date_created = timezone.now()
 
         if not self.priority:
             self.priority = 3
@@ -535,7 +535,7 @@ class Ticket(SharedMemoryModel):
         part = self.participants.all()
         if part:
             msg += "\n{wOther Players:{n %s" % ", ".join(str(ob) for ob in part)
-        msg += "\n{wDate submitted:{n %s" % self.created.strftime("%x %X")
+        msg += "\n{wDate submitted:{n %s" % self.db_date_created.strftime("%x %X")
         msg += "\n{wLast modified:{n %s" % self.modified.strftime("%x %X")
         msg += "\n{wTitle:{n %s" % self.title
         room = self.submitting_room
