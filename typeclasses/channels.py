@@ -105,13 +105,12 @@ class Channel(DefaultChannel):
 
     @property
     def wholist(self):
-        # get list of non_muted_subs if they're not hiding from watch
-        who_list = [ob for ob in self.non_muted_subs if not ob.db.hide_from_watch]
         # check if we have an org
+        who_list = self.non_muted_subs
         if self.org:
             # check if list members are players who are non-secret members of the org
             non_secret = [ob.player.player for ob in self.org.active_members.filter(secret=False)]
-            who_list = [ob for ob in who_list if ob in non_secret]
+            who_list = [ob for ob in who_list if ob in non_secret or ob.check_permstring("builders")]
         # pass final list to format_wholist and return it
         return self.format_wholist(who_list)
 
