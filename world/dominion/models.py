@@ -3743,6 +3743,15 @@ class RPEvent(SharedMemoryModel):
             prestige = 400000
         return prestige
 
+    def can_view(self, player):
+        if self.public_event:
+            return True
+        if player.check_permstring("builders"):
+            return True
+        dom = player.Dominion
+        if dom in self.gms.all() or dom in self.hosts.all() or dom in self.participants.all():
+            return True
+
     def display(self):
         msg = "{wName:{n %s\n" % self.name
         msg += "{wHosts:{n %s\n" % ", ".join(str(ob) for ob in self.hosts.all())

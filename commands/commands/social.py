@@ -1341,6 +1341,9 @@ class CmdCalendar(MuxPlayerCommand):
             except RPEvent.DoesNotExist:
                 caller.msg("No event found by that number.")
                 return
+            if not event.can_view(caller):
+                caller.msg("You can't view this event.")
+                return
             # display info on a given event
             if not rhs:
                 caller.msg(event.display(), options={'box': True})
