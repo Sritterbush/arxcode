@@ -3140,12 +3140,16 @@ class Member(SharedMemoryModel):
         """
         Add ourselves to org channel/board if applicable
         """
-        org_channel = self.organization.org_channel
-        if org_channel:
-            org_channel.connect(self.player.player)
         board = self.organization.org_board
         if board:
             board.subscribe_bboard(self.player.player)
+        # if we're a secret member of non-secret org, don't auto-join
+        if self.secret and not self.organization.secret:
+            return
+        org_channel = self.organization.org_channel
+        if org_channel:
+            org_channel.connect(self.player.player)
+
 
     def work(self, worktype):
         """

@@ -107,7 +107,8 @@ class Channel(DefaultChannel):
     def wholist(self):
         # check if we have an org
         who_list = self.non_muted_subs
-        if self.org:
+        org = self.org
+        if org and org.secret:
             # check if list members are players who are non-secret members of the org
             non_secret = [ob.player.player for ob in self.org.active_members.filter(secret=False)]
             who_list = [ob for ob in who_list if ob in non_secret or ob.check_permstring("builders")]
