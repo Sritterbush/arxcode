@@ -272,19 +272,20 @@ class CmdRosterList(MuxPlayerCommand):
                     if char:
                         email = char.db.player_ob.email
             if not email:
-                caller.msg("You have no defined email address, which is required to apply to play another character.")
+                caller.msg("{rYou have no defined email address, which is required to apply"
+                           " to play another character.{n")
                 if caller.is_guest():
-                    caller.msg("You can add an email address with {w@add/email <address>{n")
+                    caller.msg("{rYou can add an email address with {w@add/email <address>{n")
                 else:
-                    caller.msg("This account is not a guest, so contact a GM to fix your email.")
+                    caller.msg("{rThis account is not a guest, so contact a GM to fix your email.{n")
                 return
             char_name, app_string = self.lhs, self.rhs
             if not char_name or not app_string:
                 caller.msg("Usage: @roster/apply <character name>=<application>")
                 return
             if len(app_string) < 78:
-                caller.msg("Please write a bit more detailed of an application. You should indicate" +
-                           " why you want to play the character, how you intend to roleplay them, etc.")
+                caller.msg("{wPlease write a bit more detailed of an application. You should indicate" +
+                           " why you want to play the character, how you intend to roleplay them, etc.{n")
                 return
             char_name = char_name.lower()
             apps = get_apps_manager(caller)
