@@ -2418,7 +2418,7 @@ class CmdLanguages(MuxCommand):
         known = [ob.capitalize() for ob in self.caller.languages.known_languages]
         known += ["Arvani"]
         self.msg("{wYou can currently speak:{n %s" % ", ".join(known))
-        self.msg("You can learn %s additional languages." % (self.caller.languages.max_languages - (len(known) - 1)))
+        self.msg("You can learn %s additional languages." % self.caller.languages.additional_languages)
 
     def func(self):
         if not self.args:
@@ -2459,7 +2459,7 @@ class CmdLanguages(MuxCommand):
             self.msg("Not found.")
             return
         if "teachme" in self.switches:
-            if self.caller.db.skills.get("linguistics", 0) <= len(self.caller.languages.known_languages):
+            if self.caller.languages.additional_languages <= 0:
                 self.msg("You need a higher rank of linguistics before you can learn anything else.")
                 return
             req = targ.ndb.language_requests or {}

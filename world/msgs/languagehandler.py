@@ -38,3 +38,12 @@ class LanguageHandler(object):
             return 6
         if val >= 5:
             return 9
+
+    @property
+    def additional_languages(self):
+        """
+        How many more languages this character can learn
+        Returns:
+            (int): number of slots left we have
+        """
+        return self.max_languages - len(self.known_languages)
