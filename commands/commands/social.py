@@ -727,7 +727,7 @@ class CmdMessenger(MuxCommand):
         messenger
         messenger <receiver>[,<receiver2>,...]=<message>
         messenger/receive
-        messenger/deliver <receiver>,<object>,<money>,<mat>/<amt>=<message>
+        messenger/deliver <receiver>,<object>[,<money>][,<mat>/<amt>]=<msg>
         messenger/money <receiver>,<amount>=<message>
         messenger/materials <receiver>,<material>/<amount>=<message>
         messenger/old <number>
@@ -1190,6 +1190,8 @@ class CmdMessenger(MuxCommand):
         if delivery or money or mats:
             if delivery:
                 delivery.location = None
+                # call removal hooks
+                delivery.at_after_move(caller)
             if money:
                 caller.pay_money(money)
             targ = targs[0]

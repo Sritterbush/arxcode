@@ -3150,7 +3150,6 @@ class Member(SharedMemoryModel):
         if org_channel:
             org_channel.connect(self.player.player)
 
-
     def work(self, worktype):
         """
         Perform work in a week for our Organization.
