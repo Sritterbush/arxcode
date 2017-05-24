@@ -9,7 +9,7 @@ class QueueAdmin(admin.ModelAdmin):
 
 class TicketAdmin(admin.ModelAdmin):
     list_display = ('id', 'title', 'status', 'assigned_to', 'submitting_player', 'queue')
-    date_hierarchy = 'created'
+    date_hierarchy = 'db_date_created'
     list_filter = ('status', 'queue', 'priority')
     search_fields = ('id', 'title', 'assigned_to__username', 'submitting_player__username', 'description',
                      'resolution')
