@@ -109,99 +109,101 @@ class CmdGossip(MuxCommand):
 
     def func(self):
         """Execute command."""
-        caller = self.caller
-        loc = caller.location
-        rumors = self.get_room_rumors()
-        if not self.args:
-            msg = self.disp_rumors(caller, rumors)
-            caller.msg(msg)
-            return
-        if "start" in self.switches:
-            rumor = create_message(caller, self.lhs, receivers=(loc, caller))
-            rumor.tags.add(self.key, category="msg")
-            if rumor not in loc.messages.gossip:
-                loc.messages.gossip.append(rumor)
-            heard = caller.ndb.heard_rumors or []
-            heard.append(rumor)
-            caller.ndb.heard_rumors = heard
-            caller.msg("You have started the rumor: %s" % self.lhs)
-            return
-        if "story" in self.switches or not self.switches:
-            week = get_week()
-            stories = AssignedTask.objects.filter(finished=True, week__gte=week-3, observer_text__isnull=False)
-            try:
-                story = stories.get(id=int(self.args))
-            except AssignedTask.DoesNotExist:
-                caller.msg("No story for that number.")
-                return
-            except (ValueError, TypeError):
-                caller.msg("Story must be a number.")
-                return
-            caller.msg(story.story, options={'box': True})
-            return
-        if "investigate" in self.switches:
-            try:
-                num = int(self.lhs)
-            except ValueError:
-                caller.msg("Must give a number of the rumor.")
-                return
-            if num < 1 or num > len(rumors):
-                caller.msg("Must give a number between 1 and %s." % len(rumors))
-                return
-            num -= 1
-            rumor = rumors[num]
-            if rumor.db_receivers_objects.filter(id=caller.id):
-                caller.msg("You have already attempted to investigate this rumor.")
-                return
-            header = loc.messages.parse_header(rumor)
-            difficulty = header.get("difficulty", 15)
-            rumor.db_receivers_objects.add(caller)
-            origin = self.investigate(rumor, caller, difficulty)
-            if origin:
-                senders = ", ".join(ob.key for ob in origin if not ob.check_permstring("builders"))
-                if senders:
-                    caller.msg("Your investigation was a success. " +
-                               "You figured out that the rumor was started by: %s." % senders)
-                    return
-            caller.msg("You weren't able to learn anything about this.")
-            return
-        if "squelch" in self.switches:
-            if not rumors:
-                caller.msg("No rumors here to squelch.")
-                return
-            try:
-                rumor = rumors[int(self.args) - 1]
-            except (TypeError, ValueError, IndexError):
-                caller.msg("Must input a number between 1 and %s." % len(rumors))
-                return
-            caller.location.msg_contents("%s attempts to intimidate people here into stop spreading rumors." %
-                                         caller.name)
-            if self.intimidate(caller, 15):
-                rumor.db_receivers_objects.remove(caller.location)
-                caller.msg("People here will 'forget' this rumor existed.")            
-                return
-            caller.msg("Your attempt to intimidate the people talking here may not have been effective.")
-            return
-        if "spread" in self.switches:
-            rumors = caller.ndb.heard_rumors or []
-            if not self.args:
-                caller.msg("Rumors you've heard:")
-                caller.msg(self.disp_rumors(caller, rumors, add_heard=False))
-                return
-            if not rumors:
-                caller.msg("You have heard no rumors recently to repeat.")
-                return
-            try:                
-                rumor = rumors[int(self.args)]
-                rumor.db_receivers_objects.add(loc)
-                rumor.db_sender_objects.add(caller)
-                caller.msg("Rumor added to this location.")
-                return
-            except (ValueError, IndexError):
-                caller.msg("You must select a rumor by number, between 0 and %s." % (len(caller.ndb.heard_rumors)-1))
-                if rumors:
-                    caller.msg(self.disp_rumors(caller, rumors, add_heard=False))
-                return
+        self.msg("Currently disabled.")
+        return
+        # caller = self.caller
+        # loc = caller.location
+        # rumors = self.get_room_rumors()
+        # if not self.args:
+        #     msg = self.disp_rumors(caller, rumors)
+        #     caller.msg(msg)
+        #     return
+        # if "start" in self.switches:
+        #     rumor = create_message(caller, self.lhs, receivers=(loc, caller))
+        #     rumor.tags.add(self.key, category="msg")
+        #     if rumor not in loc.messages.gossip:
+        #         loc.messages.gossip.append(rumor)
+        #     heard = caller.ndb.heard_rumors or []
+        #     heard.append(rumor)
+        #     caller.ndb.heard_rumors = heard
+        #     caller.msg("You have started the rumor: %s" % self.lhs)
+        #     return
+        # if "story" in self.switches or not self.switches:
+        #     week = get_week()
+        #     stories = AssignedTask.objects.filter(finished=True, week__gte=week-3, observer_text__isnull=False)
+        #     try:
+        #         story = stories.get(id=int(self.args))
+        #     except AssignedTask.DoesNotExist:
+        #         caller.msg("No story for that number.")
+        #         return
+        #     except (ValueError, TypeError):
+        #         caller.msg("Story must be a number.")
+        #         return
+        #     caller.msg(story.story, options={'box': True})
+        #     return
+        # if "investigate" in self.switches:
+        #     try:
+        #         num = int(self.lhs)
+        #     except ValueError:
+        #         caller.msg("Must give a number of the rumor.")
+        #         return
+        #     if num < 1 or num > len(rumors):
+        #         caller.msg("Must give a number between 1 and %s." % len(rumors))
+        #         return
+        #     num -= 1
+        #     rumor = rumors[num]
+        #     if rumor.db_receivers_objects.filter(id=caller.id):
+        #         caller.msg("You have already attempted to investigate this rumor.")
+        #         return
+        #     header = loc.messages.parse_header(rumor)
+        #     difficulty = header.get("difficulty", 15)
+        #     rumor.db_receivers_objects.add(caller)
+        #     origin = self.investigate(rumor, caller, difficulty)
+        #     if origin:
+        #         senders = ", ".join(ob.key for ob in origin if not ob.check_permstring("builders"))
+        #         if senders:
+        #             caller.msg("Your investigation was a success. " +
+        #                        "You figured out that the rumor was started by: %s." % senders)
+        #             return
+        #     caller.msg("You weren't able to learn anything about this.")
+        #     return
+        # if "squelch" in self.switches:
+        #     if not rumors:
+        #         caller.msg("No rumors here to squelch.")
+        #         return
+        #     try:
+        #         rumor = rumors[int(self.args) - 1]
+        #     except (TypeError, ValueError, IndexError):
+        #         caller.msg("Must input a number between 1 and %s." % len(rumors))
+        #         return
+        #     caller.location.msg_contents("%s attempts to intimidate people here into stop spreading rumors." %
+        #                                  caller.name)
+        #     if self.intimidate(caller, 15):
+        #         rumor.db_receivers_objects.remove(caller.location)
+        #         caller.msg("People here will 'forget' this rumor existed.")
+        #         return
+        #     caller.msg("Your attempt to intimidate the people talking here may not have been effective.")
+        #     return
+        # if "spread" in self.switches:
+        #     rumors = caller.ndb.heard_rumors or []
+        #     if not self.args:
+        #         caller.msg("Rumors you've heard:")
+        #         caller.msg(self.disp_rumors(caller, rumors, add_heard=False))
+        #         return
+        #     if not rumors:
+        #         caller.msg("You have heard no rumors recently to repeat.")
+        #         return
+        #     try:
+        #         rumor = rumors[int(self.args)]
+        #         rumor.db_receivers_objects.add(loc)
+        #         rumor.db_sender_objects.add(caller)
+        #         caller.msg("Rumor added to this location.")
+        #         return
+        #     except (ValueError, IndexError):
+        #         caller.msg("You must select a rumor by number, between 0 and %s." % (len(caller.ndb.heard_rumors)-1))
+        #         if rumors:
+        #             caller.msg(self.disp_rumors(caller, rumors, add_heard=False))
+        #         return
 
 
 class CmdRumor(CmdGossip):
@@ -259,23 +261,25 @@ class CmdRumor(CmdGossip):
         return arx_more.msg(caller, msg, justify_kwargs=False)
     
     def func(self):
-        caller = self.caller
-        loc = caller.location
-        if "start" in self.switches:
-            if not self.rhs:
-                caller.msg("Syntax: rumors/start <character>=<message>")
-                return
-            player = caller.player.search(self.lhs)
-            if not player:
-                return
-            if not player.db.char_ob:
-                caller.msg("They have no character.")
-                return
-            rumor = create_message(caller, self.rhs, receivers=(loc, caller, player))
-            rumor.tags.add(self.key, category="msg")
-            if rumor not in loc.messages.rumors:
-                loc.messages.rumors.append(rumor)
-            caller.msg("You have started the rumor: %s" % self.lhs)
-            return
-        super(CmdRumor, self).func()
+        self.msg("Currently disabled.")
         return
+        # caller = self.caller
+        # loc = caller.location
+        # if "start" in self.switches:
+        #     if not self.rhs:
+        #         caller.msg("Syntax: rumors/start <character>=<message>")
+        #         return
+        #     player = caller.player.search(self.lhs)
+        #     if not player:
+        #         return
+        #     if not player.db.char_ob:
+        #         caller.msg("They have no character.")
+        #         return
+        #     rumor = create_message(caller, self.rhs, receivers=(loc, caller, player))
+        #     rumor.tags.add(self.key, category="msg")
+        #     if rumor not in loc.messages.rumors:
+        #         loc.messages.rumors.append(rumor)
+        #     caller.msg("You have started the rumor: %s" % self.lhs)
+        #     return
+        # super(CmdRumor, self).func()
+        # return
