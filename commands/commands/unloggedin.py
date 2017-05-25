@@ -70,7 +70,8 @@ class CmdGuestConnect(MuxCommand):
                 pass
             import json
             from urllib2 import urlopen
-            request = "http://tools.xioax.com/networking/v2/json/" + addr
+            api_key = getattr(settings, 'HOST_BLOCKER_API_KEY', "")
+            request = "http://tools.xioax.com/networking/v2/json/%s/%s" % (addr, api_key)
             try:
                 data = json.load(urlopen(request))
                 print "Returned from xiaox: %s" % str(data)
