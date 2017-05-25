@@ -1240,7 +1240,7 @@ class CmdCalendar(MuxPlayerCommand):
         @cal/cancel <event number>
         @cal/movehere <event number>
         @cal/changeroomdesc <event number>=<new desc>
-        @cal/toggleprivate <finished event number>
+        @cal/toggleprivate <event number>
         @cal/old
         @cal/comments <event number>=<comment number>
 
@@ -1260,9 +1260,8 @@ class CmdCalendar(MuxPlayerCommand):
     your current room rather than its previous location. /movehere allows
     an event to be moved to the new room you occupy while in progress.
 
-    If you want to mark an event private or public after finishing hosting
-    it so that it can be viewed by people who didn't attend it on the web,
-    use /toggleprivate.
+    If you want to mark an event private or public so that it can be viewed
+    by people who didn't attend it on the web, use /toggleprivate.
     """
     key = "@cal"
     locks = "cmd:all()"
@@ -1598,7 +1597,7 @@ class CmdCalendar(MuxPlayerCommand):
                 return
             dompc = setup_utils.setup_dom_for_char(char)
         if "toggleprivate" in self.switches:
-            qs = dompc.events_hosted.filter(finished=True)
+            qs = dompc.events_hosted.all()
             try:
                 event = qs.get(id=int(self.args))
             except (RPEvent.DoesNotExist, ValueError, TypeError):
