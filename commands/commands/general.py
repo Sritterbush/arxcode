@@ -1249,6 +1249,7 @@ class CmdInform(MuxPlayerCommand):
     @inform - reads messages sent to you by the game
     Usage:
         @inform
+        @inform/new
         @inform <number>[=<end number>]
         @inform/del <number>[=<end number>]
         @inform/delmatches <string to match in categories>

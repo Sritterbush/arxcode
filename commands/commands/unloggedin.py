@@ -86,7 +86,8 @@ class CmdGuestConnect(MuxCommand):
                 print 'Error code on trying to check VPN:', err
         for pc in playerlist:
             if pc.is_guest():
-                if pc.is_connected:
+                # add session check just to be absolutely sure we don't connect to a guest in-use
+                if pc.is_connected or pc.sessions.all():
                     num_guests += 1
                 else:
                     guest = pc
