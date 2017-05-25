@@ -170,6 +170,18 @@ class Player(MsgMixins, DefaultPlayer):
                     watcher.msg("{wA player you are watching, {c%s{w, has connected.{n" % self)
         except AttributeError:
             pass
+        try:
+            # whenever we log in, add our address to white-list of ones not to check so guests don't use API calls
+            from evennia.server.models import ServerConfig
+            addrs = [ob.address for ob in self.sessions.all()]
+            white_list = ServerConfig.objects.conf("white_list") or []
+            for addr in addrs:
+                if addr not in white_list:
+                    white_list.append(addr)
+            ServerConfig.objects.conf("white_list", white_list)
+        except Exception:
+            import traceback
+            traceback.print_exc()
 
     # noinspection PyBroadException
     def announce_informs(self):
