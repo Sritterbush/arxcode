@@ -1190,7 +1190,6 @@ class CmdListClues(MuxPlayerCommand):
         if not self.switches:
             caller.msg(clue.display())
             return
-
         caller.msg("Invalid switch")
         return
 

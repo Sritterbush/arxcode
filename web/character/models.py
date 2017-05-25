@@ -523,16 +523,17 @@ class ClueDiscovery(SharedMemoryModel):
     def finished(self):
         return self.roll >= (self.clue.rating * DISCO_MULT)
 
-    def display(self):
+    def display(self, show_sharing=False):
         if not self.finished:
             return self.message or "An investigation that hasn't yet yielded anything definite."
         msg = "\n{c%s{n\n" % self.clue.name
         msg += self.clue.desc + "\n"
         if self.message:
             msg += "\n" + self.message
-        shared = self.shared_with
-        if shared:
-            msg += "\n{wShared with{n: %s" % ", ".join(str(ob) for ob in shared)
+        if show_sharing:
+            shared = self.shared_with
+            if shared:
+                msg += "\n{wShared with{n: %s" % ", ".join(str(ob) for ob in shared)
         return msg
 
     def check_revelation_discovery(self):
