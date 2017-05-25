@@ -901,7 +901,8 @@ class CmdMail(MuxPlayerCommand):
     Usage:
       @mail          - lists all mail in player's mailbox
       @mail #        - read mail by the given number
-      @mail/quick [<player>[,<player2,...]/<subject>=<message>]
+      @mail/quick [<player>[,<player2,...]/<subject>=<message>
+      @mail/org <org name>/<subject>=<message>
       @mail/delete # - deletes mail by given number
 
     Switches:
@@ -919,6 +920,75 @@ class CmdMail(MuxPlayerCommand):
     aliases = ["mail", "+mail"]
     locks = "cmd:all()"
     help_category = "Comms"
+
+    def check_valid_receiver(self, pobj):
+        caller = self.caller
+        if pobj in caller.block_list:
+            self.msg("%s is in your block list and would not be able to reply to your mail." % pobj)
+            return
+        if caller.tags.get("chat_banned") and (caller not in pobj.allow_list or pobj not in caller.allow_list):
+            self.msg("You cannot mail someone unless you are in each others' allow lists.")
+            return
+        if ((pobj.tags.get("ic_only") or caller in pobj.block_list or pobj.tags.get("chat_banned"))
+                and not caller.check_permstring("builders")):
+            if caller not in pobj.allow_list:
+                self.msg("%s is IC only and cannot be sent mail." % pobj)
+                return
+        return True
+
+    def send_mail(self):
+        caller = self.caller
+        if not self.rhs:
+            caller.msg("You cannot mail a message with no body.")
+            return
+        recobjs = []
+        message = self.rhs
+        # separate it into receivers, subject. May not have a subject
+        if not self.lhs:
+            caller.msg("You must have a receiver set.")
+            return
+        arglist = self.lhs.split("/")
+        if len(arglist) < 2:
+            subject = "No Subject"
+        else:
+            subject = arglist[1]
+        if "org" in self.switches:
+            from world.dominion.models import Organization
+            try:
+                org = Organization.objects.get(name__iexact=arglist[0])
+            except Organization.DoesNotExist:
+                self.msg("No org by that name.")
+                return
+            if org.secret:
+                self.msg("Cannot mail secret orgs.")
+                return
+            # mail all non-secret members
+            recobjs = [ob.player.player for ob in org.active_members if not ob.secret]
+        else:
+            receivers_raw = arglist[0]
+            receivers = receivers_raw.split(",")
+            for receiver in receivers:
+                receiver = receiver.strip()
+                pobj = caller.search(receiver, global_search=True)
+                # if we got a character instead of player, get their player
+                if hasattr(pobj, 'player') and pobj.player:
+                    pobj = pobj.player
+                # if we found a match
+                if pobj:
+                    if self.check_valid_receiver(pobj):
+                        recobjs.append(pobj)
+        self.send_mails(recobjs, message, subject)
+
+    def send_mails(self, recobjs, message, subject):
+        caller = self.caller
+        sender = str(caller)
+        if not recobjs:
+            caller.msg("No players found.")
+            return
+        receivers = ", ".join(str(ob) for ob in recobjs)
+        for pobj in recobjs:
+            pobj.mail(message, subject, sender, receivers)
+        caller.msg("Mail successfully sent to %s" % receivers)
 
     def func(self):
         """Access mail"""
@@ -1003,54 +1073,9 @@ class CmdMail(MuxPlayerCommand):
             caller.db.readmails.discard(mail)
             caller.msg("Message deleted.")
             return
-        if 'quick' in switches:
-            if not self.rhs:
-                caller.msg("You cannot mail a message with no body.")
-                return
-            recobjs = []
-            message = self.rhs
-            # separate it into receivers, subject. May not have a subject
-            if not self.lhs:
-                caller.msg("You must have a receiver set.")
-                return
-            arglist = self.lhs.split("/")
-            if len(arglist) < 2:
-                subject = "No Subject"
-            else:
-                subject = arglist[1]
-            receivers_raw = arglist[0]
-            receivers = receivers_raw.split(",")
-            sender = str(caller)
-            received_list = []
-            for receiver in receivers:
-                receiver = receiver.strip()
-                pobj = caller.search(receiver, global_search=True)
-                # if we got a character instead of player, get their player
-                if hasattr(pobj, 'player') and pobj.player:
-                    pobj = pobj.player
-                # if we found a match
-                if pobj:
-                    if pobj in caller.block_list:
-                        self.msg("%s is in your block list and would not be able to reply to your mail." % pobj)
-                        continue
-                    if caller.tags.get("chat_banned") and (
-                                    caller not in pobj.allow_list or pobj not in caller.allow_list):
-                        self.msg("You cannot mail someone unless you are in each others' allow lists.")
-                        continue
-                    if ((pobj.tags.get("ic_only") or caller in pobj.block_list or pobj.tags.get("chat_banned"))
-                            and not caller.check_permstring("builders")):
-                        if caller not in pobj.allow_list:
-                            self.msg("%s is IC only and cannot be sent mail." % pobj)
-                            continue
-                    recobjs.append(pobj)
-                    received_list.append(str(pobj))
-            if not recobjs:
-                caller.msg("No players found.")
-                return
-            receivers = ", ".join(received_list)
-            for pobj in recobjs:
-                pobj.mail(message, subject, sender, receivers)
-            caller.msg("Mail successfully sent to %s" % receivers)
+        if 'quick' in switches or 'org' in switches:
+            self.send_mail()
+            return
 
 
 class CmdDirections(MuxCommand):
