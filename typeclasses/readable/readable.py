@@ -33,7 +33,7 @@ class Readable(Object):
             if source_location.db.places and self in source_location.db.places:
                 source_location.db.places.remove(self)
         # if location is a room, add cmdset
-        if location.is_character:                    
+        if location and location.is_character:
             if self.db.written:
                 self.cmdset.add_default(SignCmdSet, permanent=True)
             else:
