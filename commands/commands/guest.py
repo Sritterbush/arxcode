@@ -774,8 +774,6 @@ class CmdGuestAddInput(MuxPlayerCommand):
             if not (DESC_MAX_LEN > len(args) > DESC_MIN_LEN):
                 caller.msg("Description length must be between %s and %s characters." % (DESC_MIN_LEN, DESC_MAX_LEN))
                 return
-            else:
-                print "len args is %s, bool is %s" % (len(args), (DESC_MAX_LEN > len(args) < DESC_MIN_LEN))
             char.desc = args
             char.save()
         else:

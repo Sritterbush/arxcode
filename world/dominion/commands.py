@@ -2169,13 +2169,22 @@ class CmdOrganization(MuxPlayerCommand):
             if not org.access(caller, 'setruler'):
                 caller.msg("You do not have permission to set who handles ruling of your organization's estates.")
                 return
+            targ = tarmember.player
+            # if the character is already a ruler, they'd violate unique constraint to be reassigned
+            try:
+                ruler_check = targ.ruler
+                caller.msg("%s is already acting as a ruler. Tell them to abdicate." % targ)
+                targ.player.msg("You cannot be assigned as a ruler while you are acting as %s's ruler." % ruler_check)
+                return
+            except Ruler.DoesNotExist:
+                pass
             house = org.assets
             try:
                 ruler = Ruler.objects.get(house=house)
             except Ruler.DoesNotExist:
                 ruler = Ruler.objects.create(house=house)
             old = ruler.castellan
-            ruler.castellan = tarmember.player
+            ruler.castellan = targ
             ruler.save()
             if old:
                 caller.msg("Command of armies and holdings has passed from %s to %s." % (old, player))
