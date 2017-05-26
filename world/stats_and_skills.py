@@ -217,6 +217,8 @@ def discounted_cost(caller, cost):
     trainer = caller.db.trainer
     teaching = trainer.db.skills.get("teaching", 0)
     discount -= 0.05 * teaching
+    if 0 > discount > 1:
+        raise ValueError("Error: Training Discount outside valid ranges")
     return int(round(cost * discount))
     
 
