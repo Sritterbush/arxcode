@@ -1233,7 +1233,8 @@ class CmdCalendar(MuxPlayerCommand):
         @cal/roomdesc <description>
         @cal/abort
         @cal/submit
-        @cal/invite <event number>=<player>
+        @cal/invite <event number>=<player>[,player2,...]
+        @cal/uninvite <event number>=<player>[,player2,...]
         @cal/starteventearly <event number>[=here]
         @cal/endevent <event number>
         @cal/reschedule <event number>=<new date>
@@ -1646,6 +1647,20 @@ class CmdCalendar(MuxPlayerCommand):
                 msg += "\nFor details about this event, use {w@cal %s{n" % event.id
                 targ.inform(msg, category="Invitation", append=False)
             self.msg("{wInvited {c%s{w to attend %s." % (", ".join(invited), event))
+            return
+        if "uninvite" in self.switches:
+            uninvited = []
+            for arg in self.rhslist:
+                targ = caller.search(arg)
+                if not targ:
+                    continue
+                pc = targ.Dominion
+                if pc not in event.participants.all():
+                    self.msg("%s is already not invited to attend." % pc)
+                    continue
+                event.participants.remove(pc)
+                uninvited.append(str(pc))
+            self.msg("{wUninvited {c%s{w from attending %s." % (", ".join(uninvited), event))
             return
         if "starteventearly" in self.switches:
             if self.rhs and self.rhs.lower() == "here":
