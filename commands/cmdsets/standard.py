@@ -192,7 +192,7 @@ class MobileCmdSet(CmdSet):
         self.add(general.CmdShout())
         self.add(general.CmdPut())
         self.add(general.CmdLockObject())
-        self.add(xp.CmdTrain())
+        # self.add(xp.CmdTrain())
         self.add(xp.CmdUseXP())
         self.add(cmdset_places.CmdListPlaces())
         self.add(combat.CmdStartCombat())
