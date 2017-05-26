@@ -330,7 +330,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             self.msg("You feel %sbetter." % wound_str)
         else:
             self.msg("You feel %sworse." % wound_str)
-        self.dmg -= roll
+        # ignore temporary damage so we don't convert it to real
+        self.real_dmg -= roll
         if not free:
             self.db.last_recovery_test = time.time()
         if self.dmg <= self.max_hp and self.db.sleep_status != "awake":
@@ -417,6 +418,14 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     @temp_dmg.setter
     def temp_dmg(self, val):
         self.ndb.temp_dmg = val
+
+    @property
+    def real_dmg(self):
+        return self.db.damage or 0
+
+    @real_dmg.setter
+    def real_dmg(self, dmg):
+        self._set_current_damage(dmg)
 
     def start_recovery_script(self):
         # start the script if we have damage
