@@ -73,7 +73,7 @@ class Place(Object):
             if source_location.db.places and self in source_location.db.places:
                 source_location.db.places.remove(self)
         # if location is a room, add cmdset
-        if location.is_room:
+        if location and location.is_room:
             places = location.db.places or []
             self.cmdset.add_default(DefaultCmdSet, permanent=True)
             places.append(self)
