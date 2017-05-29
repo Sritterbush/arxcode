@@ -67,10 +67,7 @@ class WeeklyEvents(Script):
         """
         if self.check_event():
             # check if we've been tagged to not reset next time we run
-            reset = not bool(self.tags.get("next_no_reset"))
-            self.do_weekly_events(reset=reset)
-            if not reset:  # remove tag if it was present
-                self.tags.remove("next_no_reset")
+            self.do_weekly_events()
         else:
             hour = timedelta(minutes=65)
             if self.time_remaining < hour:
@@ -543,15 +540,17 @@ class WeeklyEvents(Script):
         object of each player we've recorded votes for.
         """
         # go through each key in our votes dict, get player, award xp to their character
-        for player in self.db.recorded_votes:
+        for player, votes in self.db.recorded_votes.items():
             # important - get their character, not the player object
-            char = player.db.char_ob
-            if char:
-                votes = self.db.recorded_votes[player]
-                xp = self.scale_xp(votes)
-                if votes and xp:
-                    msg = "You received %s votes this week, earning %s xp." % (votes, xp)
-                    self.award_xp(char, xp, player, msg, xptype="votes")
+            try:
+                char = player.db.char_ob
+                if char:
+                    xp = self.scale_xp(votes)
+                    if votes and xp:
+                        msg = "You received %s votes this week, earning %s xp." % (votes, xp)
+                        self.award_xp(char, xp, player, msg, xptype="votes")
+            except (AttributeError, ValueError, TypeError):
+                print "Error for in award_vote_xp for key %s" % player
 
     def award_xp(self, char, xp, player=None, msg=None, xptype="all"):
         try:
