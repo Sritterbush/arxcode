@@ -147,7 +147,7 @@ class WeeklyReport(Report):
         s_str = ""
         if silver:
             s_str = " and cost %s silver" % silver
-        self.army_reports.append("Army %s ate %s food%s." % (army, food, silver))
+        self.army_reports.append("Army %s ate %s food%s." % (army, food, s_str))
 
     # noinspection PyBroadException
     def send_report(self):
