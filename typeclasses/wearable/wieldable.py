@@ -83,7 +83,8 @@ class Wieldable(Object):
         self.db.sheathed_by = None  # in case we're dropped, no longer sheathed
         self.db.wielded_by = None
         self.db.currently_wielded = False
-        wielder.db.weapon = None
+        if wielder:
+            wielder.db.weapon = None
         return True
 
     def softdelete(self):
