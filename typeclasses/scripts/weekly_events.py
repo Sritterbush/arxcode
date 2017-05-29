@@ -27,7 +27,8 @@ PRESTIGE_BOARD_NAME = 'Prestige Changes'
 
 PLAYER_ATTRS = ("votes", 'claimed_scenelist', 'random_scenelist', 'validated_list', 'praises', 'condemns',
                 'requested_validation', 'donated_ap')
-CHARACTER_ATTRS = ("currently_training", "trainer", 'scene_requests', "num_trained")
+CHARACTER_ATTRS = ("currently_training", "trainer", 'scene_requests', "num_trained", "num_journals",
+                   "num_rel_updates", "num_comments")
 
 
 class WeeklyEvents(Script):
@@ -282,7 +283,7 @@ class WeeklyEvents(Script):
             # aspirations/progress toward goals
             char = player.db.char_ob
             # task resets
-            cooldown = char.db.support_cooldown or {}
+            cooldown = dict(char.db.support_cooldown or {})
             for cid in cooldown:
                 if cooldown[cid] > 0:
                     cooldown[cid] -= 1
@@ -371,7 +372,6 @@ class WeeklyEvents(Script):
                 self.db.xptypes[account.id] = {}
                 total = 0
             journal_total = char.messages.num_weekly_journals
-            char.messages.reset_journal_count()
             xp = 0
             if journal_total > 0:
                 xp += 4

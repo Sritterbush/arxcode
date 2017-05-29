@@ -1535,8 +1535,8 @@ class CmdArmy(MuxPlayerCommand):
         caller = self.caller
         if "resign" in self.switches:
             # clear() disassociates related objects. The More You Know.
-            self.caller.Dominion.armies.all().clear()
-            self.caller.Dominion.units.all().clear()
+            self.caller.Dominion.armies.clear()
+            self.caller.Dominion.units.clear()
             self.msg("You have resigned any military command you held.")
             return
         if not self.args:
@@ -1735,7 +1735,7 @@ class CmdArmy(MuxPlayerCommand):
                 return
             try:
                 # looking for this assetowner to be an org first
-                temp_owner = Organization.objects.filter(name__iexact=self.rhs)
+                temp_owner = Organization.objects.get(name__iexact=self.rhs)
             except Organization.DoesNotExist:
                 # if it isn't an org, must be a player
                 temp_owner = caller.search(self.rhs)
