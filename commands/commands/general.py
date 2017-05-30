@@ -1004,7 +1004,7 @@ class CmdMail(MuxPlayerCommand):
 
         if not switches:
             # if no argument and no switches, list all mail
-            caller.db.newmail = False  # mark mail as read
+            caller.tags.remove("new_mail")  # mark mail as read
             if not self.args or not self.lhs:
                 table = prettytable.PrettyTable(["{wMail #",
                                                  "{wSender",

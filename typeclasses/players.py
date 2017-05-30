@@ -113,10 +113,8 @@ class Player(MsgMixins, DefaultPlayer):
         lockstring = "attrread:perm(Wizards);attredit:perm(Wizards);attrcreate:perm(Wizards)"
         self.attributes.add("_playable_characters", [], lockstring=lockstring)
         self.db.mails = []
-        self.db.newmail = False
         self.db.readmails = set()
         self.db.char_ob = None
-        self.db.player_email = ""
         self.nicks.add('pub', 'public', category="channel")
 
     # noinspection PyBroadException
@@ -130,7 +128,7 @@ class Player(MsgMixins, DefaultPlayer):
         """
         self.db._last_puppet = self.db.char_ob or self.db._last_puppet
         super(Player, self).at_post_login(session)
-        if self.db.newmail:
+        if self.tags.get("new_mail"):
             self.msg("{y*** You have new mail. ***{n")
         if self.db.new_comments:
             self.msg("{wYou have new comments.{n")
@@ -209,7 +207,7 @@ class Player(MsgMixins, DefaultPlayer):
         else:
             from_str = ""
         self.msg("{yYou have new mail%s. Use {w'mail %s' {yto read it.{n" % (from_str, len(self.db.mails)))
-        self.db.newmail = True
+        self.tags.add("new_mail")
 
     def get_fancy_name(self):
         return self.key.capitalize()
