@@ -1717,13 +1717,16 @@ class CrisisAction(SharedMemoryModel):
                                 and caller != self.dompc.player and caller.Dominion not in self.assistants.all())):
             return ""
         msg = "\n{c%s's {wactions in week %s for {m%s{n" % (self.dompc, self.week, self.crisis)
+        # print out non-secret actions of everyone
         msg += self.action_text
+        # print out secret action of owner, if the caller can view it
         if self.secret_action:
             if self.check_view_secret(caller):
                 msg += "\n{c%s's {wsecret actions:{n %s" % (self.dompc, self.secret_action)
-            for ob in self.assisting_actions.all():
-                if ob.secret_action and ob.check_view_secret(caller):
-                    msg += "\n{c%s's {wsecret actions:{n %s" % (ob.dompc, ob.secret_action)
+        # print out secret action of each assistant, if the caller can view it
+        for ob in self.assisting_actions.all():
+            if ob.secret_action and ob.check_view_secret(caller):
+                msg += "\n{c%s's {wsecret actions:{n %s" % (ob.dompc, ob.secret_action)
         if self.sent:
             msg += "\n{wGM Notes:{n %s" % self.gm_notes
             msg += "\n{wRolls:{n %s" % self.rolls
