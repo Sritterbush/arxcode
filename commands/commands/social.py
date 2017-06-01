@@ -995,16 +995,15 @@ class CmdMessenger(MuxCommand):
                 except (TypeError, ValueError):
                     num_disp = 30
                 # display a prettytable of message number, sender, IC date
-                msgtable = PrettyTable(["{wMsg #",
-                                        "{wSender",
-                                        "{wDate", "{wSave"])
+                msgtable = PrettyTable(["{wMsg #", "{wSender", "{wIC Date", "{wOOC Date", "{wSave"])
                 mess_num = 1
                 old = old[:num_disp]
                 for mess in old:
                     name = caller.messages.get_sender_name(mess)
                     date = caller.messages.get_date_from_header(mess) or "Unknown"
+                    ooc_date = mess.db_date_created.strftime("%x")
                     saved = "{w*{n" if "preserve" in mess.tags.all() else ""
-                    msgtable.add_row([mess_num, name, date, saved])
+                    msgtable.add_row([mess_num, name, date, ooc_date, saved])
                     mess_num += 1
                 caller.msg(msgtable)
                 return
