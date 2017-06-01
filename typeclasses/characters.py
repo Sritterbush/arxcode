@@ -290,7 +290,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             msg = "%s is seriously wounded." % name
         elif 0.5 < wound <= 0.75:
             msg = "%s is very seriously wounded." % name
-        elif 0.75 < wound <= 2.0:
+        elif 0.75 < wound <= self.death_threshold:
             msg = "%s is critically wounded." % name
         else:
             msg = "%s is very critically wounded, possibly dying." % name
@@ -396,6 +396,17 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         hp += bonus
         hp += self.boss_rating * 100
         return hp
+
+    @property
+    def death_threshold(self):
+        """
+        Multiplier on how much higher our damage must be than our max health for us to
+        roll to survive dying.
+
+        Returns:
+            float: Multiplier before death checks happen
+        """
+        return 1.25
     
     def _get_current_damage(self):
         """Returns how much damage we've taken."""

@@ -1010,7 +1010,7 @@ class CombatHandler(object):
             return
         target.combat.take_damage(dmg, lethal)
 
-    def take_damage(self, dmg, lethal=True, allow_one_shot=False):
+    def take_damage(self, dmg, lethal=True, allow_one_shot=True):
         target = self.char
         loc = target.location
         # some flags so messaging is in proper order
@@ -1037,33 +1037,32 @@ class CombatHandler(object):
             target.dmg += dmg
         else:
             target.temp_dmg += dmg
-        grace_period = False  # one round delay between incapacitation and death for PCs
+        grace_period = False  # one round delay between incapacitation and death for PCs if allowed
         if target.dmg > target.max_hp:
             # if we're not incapacitated, we start making checks for it
             if target.conscious and not target.sleepless:
                 # check is sta + willpower against % dmg past uncon to stay conscious
                 diff = int((float(target.dmg - target.max_hp)/target.max_hp) * 100)
                 consc_check = do_dice_check(target, stat_list=["stamina", "willpower"], skill="survival",
-                                            stat_keep=True, difficulty=diff)
-                message += "%s rolls stamina+willpower+survival against difficulty %s, getting %s." % (self, diff,
-                                                                                                       consc_check)
-                if consc_check > 0:
-                    message += "%s remains capable of fighting despite their wounds." % self
-                    grace_period = True  # even npc can't be killed if they make the first check
+                                            stat_keep=True, difficulty=diff, quiet=False)
+                if consc_check >= 0:
+                    message = "%s remains capable of fighting." % self
+                    grace_period = True  # we can't be killed if we succeeded this check to remain standing
                     # we're done, so send the message for the attack
                 else:
-                    message += "%s is incapacitated from their wounds." % self
+                    message = "%s is incapacitated." % self
                     knock_uncon = True
                 # for PCs who were knocked unconscious this round
                 if not target.is_npc and not grace_period and not allow_one_shot:
-                    grace_period = True  # always a one round delay before you can kill a player
+                    grace_period = True  # if allow_one_shot is off, we can't be killed yet
             # PC/NPC who was already unconscious before attack, or an NPC who was knocked unconscious by our attack
             if not grace_period:  # we are allowed to kill the character
-                diff = int((float(target.dmg - (2 * target.max_hp))/(2 * target.max_hp)) * 100)
+                dt = target.death_threshold
+                diff = int((float(target.dmg - int(dt * target.max_hp))/int(dt * target.max_hp)) * 100)
                 if diff < 0:
                     diff = 0
                 if do_dice_check(target, stat_list=["stamina", "willpower"], skill="survival",
-                                 stat_keep=True, difficulty=diff) > 0:
+                                 stat_keep=True, difficulty=diff, quiet=False) >= 0:
                     message = "%s remains alive, but close to death." % self
                     if target.combat.multiple:
                         # was incapacitated but not killed, but out of fight and now we're on another targ

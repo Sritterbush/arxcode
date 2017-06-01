@@ -211,6 +211,16 @@ class Npc(Character):
     def is_npc(self):
         return True
 
+    @property
+    def death_threshold(self):
+        """
+        Npcs are easier to kill than player characters. Make death checks immediately.
+        Returns:
+            float: Multiplier on how much higher than our max health our damage must be to
+                make rolls to survive death.
+        """
+        return 1.0
+
     # npcs are easier to hit than players, and have an easier time hitting
     @property
     def defense_modifier(self):
