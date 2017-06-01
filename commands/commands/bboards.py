@@ -334,6 +334,9 @@ class CmdBBReadOrPost(MuxPlayerCommand):
             return
         if 'del' in switches or 'archive' in switches or 'sticky' in switches:
             if "del" in switches:
+                if board.tags.get("only_staff_delete") and not caller.check_permstring("builders"):
+                    self.msg("Only builders may delete from that board.")
+                    return
                 switchname = "del"
                 verb = "delete"
                 method = "delete_post"
