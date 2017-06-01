@@ -311,6 +311,7 @@ class CmdRetainers(MuxPlayerCommand):
         @retainers/buylevel <id #>=<field>
         @retainers/buystat <id #>=<stat>
         @retainers/upgradeweapon <id #>=<field>
+        @retainers/changeweaponskill <id #>=<skill>
         @retainers/upgradearmor <id #>
         @retainers/desc <id #>=<new description>
         @retainers/name <id #>=<new name>
@@ -710,6 +711,22 @@ class CmdRetainers(MuxPlayerCommand):
         self.msg("You have raised %s's %s to %s." % (agent, self.rhs, newval))
         return
 
+    def change_weapon_skill(self, agent):
+        """
+        Changes the weapon skill of agent's dbobj's fakeweapon
+
+        Args:
+            agent: Agent to modify
+        """
+        valid_skills = ('small wpn', 'medium wpn', 'huge wpn', 'archery', 'brawl')
+        if self.rhs not in valid_skills:
+            self.msg("Weapon skill must be one of following: %s" % ", ".join(valid_skills))
+            return
+        fake = agent.dbobj.fakeweapon
+        fake['attack_skill'] = self.rhs
+        agent.dbobj.fakeweapon = fake
+        self.msg("%s will now use %s as their weapon skill." % (agent, self.rhs))
+
     def upgrade_armor(self, agent):
         """
         Upgrade/buy fake armor for the agent. Significantly cheaper than the same
@@ -807,6 +824,9 @@ class CmdRetainers(MuxPlayerCommand):
             return
         if "upgradeweapon" in self.switches:
             self.upgrade_weapon(agent)
+            return
+        if "changeweaponskill" in self.switches:
+            self.change_weapon_skill(agent)
             return
         if "upgradearmor" in self.switches:
             self.upgrade_armor(agent)
