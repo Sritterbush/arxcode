@@ -47,6 +47,31 @@ def args_are_currency(args):
     if len(arglist) > 3:
         return False
     return True
+    
+
+def money_from_args(args, fromobj):
+    """
+    Checks whether fromobj has enough money for transaction
+    
+        Args:
+            args (str): String we parse values from
+            fromobj (ObjectDB): Object we're getting money from
+            
+        Returns:
+            vals (tuple): (Value we're trying to get and available money)
+    """
+    allcoins = ("coins", "coin", "silver", "money", "pieces", "all")
+    currency = fromobj.db.currency or 0
+    currency = float(currency)
+    currency = round(currency, 2)
+    if args in allcoins:
+        val = currency
+    else:
+        arglist = args.split()
+        val = float(arglist[0])
+        val = round(val, 2)
+    vals = (val, currency)
+    return vals
 
 
 def check_volume(obj, char, quiet=False):
@@ -161,17 +186,8 @@ class CmdGet(MuxCommand):
 
     @staticmethod
     def get_money(args, caller, fromobj):
-        allcoins = ("coins", "coin", "silver", "money", "pieces", "all")
-        currency = fromobj.db.currency or 0
-        currency = float(currency)
-        currency = round(currency, 2)
-        if args in allcoins:
-            val = currency
-        else:
-            arglist = args.split()
-            val = float(arglist[0])
-            val = round(val, 2)
-        if val > currency:
+        val, currency = money_from_args(args, fromobj)
+        if val < currency:
             caller.msg("There isn't enough money here. You tried to get %s, and there is only %s here." % (val,
                                                                                                            currency))
             return

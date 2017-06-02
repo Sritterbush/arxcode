@@ -1147,8 +1147,25 @@ class CmdPut(MuxCommand):
     """
     key = "put"
     locks = "cmd:all()"
+    
+    def put_money(self, args, destination):
+        """
+        Puts silver in a destination object.
+        
+            Args:
+                args(str): String we'll get values from
+                destination (ObjectDB): What we're putting money in
+        """
+        from .overrides import money_from_args
+        val, currency = money_from_args(args, self.caller)
+        if val < currency:
+            self.msg("You do not have enough money.")
+            return
+        self.caller.pay_money(val, destination)
+        self.caller.msg("You put %s silver in %s." % (val, destination))
 
     def func(self):
+        from .overrides import args_are_currency
         caller = self.caller
         args = self.args.split(" in ")
         if len(args) != 2:
@@ -1158,6 +1175,9 @@ class CmdPut(MuxCommand):
         if not dest:
             return AT_SEARCH_RESULT(dest, caller, args[1])
         dest = make_iter(dest)[0]
+        if args_are_currency(args[0]):
+            self.put_money(args[0], dest)
+            return
         obj = caller.search(args[0], location=caller, use_nicks=True, quiet=True)
         if not obj:
             return AT_SEARCH_RESULT(obj, caller, args[0])
