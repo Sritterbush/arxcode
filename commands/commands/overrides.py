@@ -187,7 +187,7 @@ class CmdGet(MuxCommand):
     @staticmethod
     def get_money(args, caller, fromobj):
         val, currency = money_from_args(args, fromobj)
-        if val < currency:
+        if val > currency:
             caller.msg("There isn't enough money here. You tried to get %s, and there is only %s here." % (val,
                                                                                                            currency))
             return

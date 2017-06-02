@@ -1158,7 +1158,7 @@ class CmdPut(MuxCommand):
         """
         from .overrides import money_from_args
         val, currency = money_from_args(args, self.caller)
-        if val < currency:
+        if val > currency:
             self.msg("You do not have enough money.")
             return
         self.caller.pay_money(val, destination)
