@@ -95,6 +95,9 @@ def cls_from_str(name_str):
     for cls in _UNIT_TYPES.values():
         if cls.name.lower() == name_str:
             return cls
+            
+def print_unit_names():
+    return ", ".join(cls.name for cls in _UNIT_TYPES.values())
 
 
 @register_unit
@@ -107,6 +110,7 @@ class UnitStats(PositionActor):
     # silver upkeep costs for 1 of a given unit
     silver_upkeep = 10
     food_upkeep = 1
+    hiring_cost = 5
     # how powerful we are in melee combat
     melee_damage = 1
     # how powerful we are at range
@@ -182,6 +186,20 @@ class UnitStats(PositionActor):
                 self.name = dbobj.origin.unit_mods.get(unit_type=self.id).name
             except (ObjectDoesNotExist, AttributeError):
                 pass
+            
+    @classmethod
+    def display_class_stats(cls):
+        """
+        Returns a string of stats about this class.
+        
+            Returns:
+                msg (str): Formatted display of this class's stats
+        """
+        msg = "{wName:{n %s\n" % cls.name
+        msg += "{wHiring Cost (military resources){n: %s\n" % cls.hiring_cost
+        msg += "{wUpkeep Cost (silver){n: %s\n" % cls.silver_upkeep
+        msg += "{wFood Upkeep{n: %s\n" % cls.food_upkeep
+        return msg
             
     def _targ_in_range(self):
         if not self.target:

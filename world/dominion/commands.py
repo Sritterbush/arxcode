@@ -1451,6 +1451,7 @@ class CmdArmy(MuxPlayerCommand):
         @army/recall <army>
         @army/propaganda <character>=<action points>
         @army/morale <army>=<action points>
+        @army/viewclass <unit type>
 
     View details of your army or an army-group therein. Create or dissolve
     smaller army-groups using the main army's units. Hire, discharge, combine,
@@ -1530,6 +1531,17 @@ class CmdArmy(MuxPlayerCommand):
             self.msg("The army is full. Its units must be transferred to a different army or combined first.")
             return False
         return True
+        
+    def view_class_stats(self):
+        """
+        Views stats for a unit class determined from our args.
+        """
+        from .unit_types import cls_from_str, print_unit_names
+        cls = cls_from_str(self.args)
+        if not cls:
+            self.msg("Invalid type. Valid types: %s" % print_unit_names())
+            return
+        self.msg(cls.display_class_stats())
 
     def func(self):
         caller = self.caller
@@ -1550,6 +1562,9 @@ class CmdArmy(MuxPlayerCommand):
                 self.msg("You do not have permission to see that army's details.")
                 return
             caller.msg(army.display())
+            return
+        if "viewclass" in self.switches:
+            self.view_class_stats()
             return
         if "propaganda" in self.switches:
             target = self.caller.search(self.lhs)
