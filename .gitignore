@@ -1,6 +1,9 @@
 *.py[cod]
 *.py~
 
+# cloud 9 temp files
+*c9_invoke_*.py
+
 # C extensions
 *.so
 
