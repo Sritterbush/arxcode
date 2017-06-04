@@ -101,7 +101,11 @@ class Guest(Player):
             chan = ChannelDB.objects.get(db_key__iexact="guest")
             now = timezone.now()
             now = "%02i:%02i" % (now.hour, now.minute)
-            chan.tempmsg("[%s, %s]: %s" % (chan.key, now, message))
+            chan.tempmsg("[%s]: %s" % (now, message))
+            gm_chan = ChannelDB.objects.get(db_key__iexact="staffinfo")
+            addr = self.sessions.all()[0].address
+            message += " from %s" % addr
+            gm_chan.msg(message)
         except Exception as err:
             import traceback
             traceback.print_exc()
