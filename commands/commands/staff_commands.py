@@ -1043,8 +1043,40 @@ class CmdJournalAdminForDummies(MuxPlayerCommand):
         @admin_journal/convert_to_black <character>=<entry #>
     """
     key = "@admin_journal"
+    aliases = ["@admin_journals"]
     locks = "cmd: perm(builders)"
     help_category = "Admin"
+
+    def journal_index(self, character, j_list):
+        from server.utils.prettytable import PrettyTable
+        num = 1
+        table = PrettyTable(["{w#{n", "{wWritten About{n", "{wDate{n", "{wUnread?{n"])
+        fav_tag = "pid_%s_favorite" % self.caller.id
+        for entry in j_list:
+            try:
+                event = character.messages.get_event(entry)
+                name = ", ".join(ob.key for ob in entry.db_receivers_objects.all())
+                if event and not name:
+                    name = event.name[:25]
+                if fav_tag in entry.tags.all():
+                    str_num = str(num) + "{w*{n"
+                else:
+                    str_num = str(num)
+                unread = "" if self.caller in entry.receivers else "{wX{n"
+                date = character.messages.get_date_from_header(entry)
+                table.add_row([str_num, name, date, unread])
+                num += 1
+            except (AttributeError, RuntimeError, ValueError, TypeError):
+                continue
+        return str(table)
+
+    def display_white(self, character):
+        self.msg("White journals for %s" % character)
+        self.msg(self.journal_index(character, character.messages.white_journal))
+
+    def display_black(self, character):
+        self.msg("Black journals for %s" % character)
+        self.msg(self.journal_index(character, character.messages.black_journal))
 
     def func(self):
         player = self.caller.search(self.lhs)
@@ -1054,6 +1086,8 @@ class CmdJournalAdminForDummies(MuxPlayerCommand):
         if not self.switches:
             from commands.commands.roster import display_relationships
             display_relationships(self.caller, charob, show_hidden=True)
+            self.display_white(charob)
+            self.display_black(charob)
             return
         if "convert_short_rel_to_long_rel" in self.switches:
             rel_type, target = self.rhslist[0], self.rhslist[1]
