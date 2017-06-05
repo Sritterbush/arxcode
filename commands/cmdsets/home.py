@@ -1119,6 +1119,9 @@ class CmdBuyFromShop(CmdCraft):
         if self.check_blacklist():
             caller.msg("You are not permitted to buy from this shop.")
             return
+        if self.crafter.roster.roster.name == "Gone":
+            self.msg("The shop owner is dead.")
+            return
         if not self.switches and not self.args:
             caller.msg(self.list_prices())
             project = caller.db.crafting_project

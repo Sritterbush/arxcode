@@ -115,7 +115,7 @@ class CmdWhere(MuxPlayerCommand):
         return name
 
     def list_shops(self):
-        rooms = ArxRoom.objects.filter(db_tags__db_key__iexact="shop")
+        rooms = ArxRoom.objects.filter(db_tags__db_key__iexact="shop").order_by('db_key')
         self.msg("{wList of shops:\n")
         for room in rooms:
             owner = room.db.shopowner
