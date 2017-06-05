@@ -2737,6 +2737,9 @@ class CmdFirstImpression(MuxCommand):
                 self.msg("Your first impression of %s is now marked %s." % (targ, privacy_str))
                 return
             if "toggleshare" in self.switches:
+                if impression.private and not impression.viewable_by_all:
+                    self.msg("A private impression cannot be marked viewable by all.")
+                    return
                 impression.viewable_by_all = not impression.viewable_by_all
                 impression.save()
                 privacy_str = "viewable by all" if impression.viewable_by_all else "viewable only by them"
