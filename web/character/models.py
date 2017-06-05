@@ -175,15 +175,24 @@ class RosterEntry(SharedMemoryModel):
         """
         Gets queryset of all our current first impressions
         """
-        return self.current_history.received_contacts.all()
+        try:
+            return self.current_history.received_contacts.all()
+        except AttributeError:
+            return []
 
     @property
     def public_impressions(self):
-        return self.current_impressions.filter(private=False).order_by('from_account__entry__character__db_key')
+        try:
+            return self.current_impressions.filter(private=False).order_by('from_account__entry__character__db_key')
+        except AttributeError:
+            return []
 
     @property
     def impressions_for_all(self):
-        return self.public_impressions.filter(viewable_by_all=True)
+        try:
+            return self.public_impressions.filter(viewable_by_all=True)
+        except AttributeError:
+            return []
 
     def get_impressions_str(self):
         return "\n\n".join("{c%s{n wrote: %s" % (ob.writer, ob.summary) for ob in self.public_impressions)
