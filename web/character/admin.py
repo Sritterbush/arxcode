@@ -136,6 +136,12 @@ class ClueAdmin(BaseCharAdmin):
     def used_for(obj):
         return ", ".join([str(ob) for ob in obj.revelations.all()])
 
+    readonly_fields = ('event_gms',)
+
+    @staticmethod
+    def event_gms(obj):
+        return ", ".join(str(obj) for obj in obj.creators)
+
 
 class ClueDiscoveryListFilter(admin.SimpleListFilter):
     title = 'Discovered'

@@ -166,6 +166,24 @@ class RosterEntry(SharedMemoryModel):
         disco.save()
         return disco
 
+    @property
+    def current_history(self):
+        return self.accounthistory_set.filter(account=self.current_account).last()
+
+    @property
+    def current_impressions(self):
+        """
+        Gets queryset of all our current first impressions
+        """
+        return self.current_history.received_contacts.all()
+
+    @property
+    def public_impressions(self):
+        return self.current_impressions.filter(private=False).order_by('from_account__entry__character__db_key')
+
+    def get_impressions_str(self):
+        return "\n\n".join("{c%s{n wrote: %s" % (ob.writer, ob.summary) for ob in self.public_impressions)
+
 
 class Story(SharedMemoryModel):
     current_chapter = models.OneToOneField('Chapter', related_name='current_chapter_story',
@@ -295,17 +313,24 @@ class FirstContact(SharedMemoryModel):
     from_account = models.ForeignKey('AccountHistory', related_name='initiated_contacts', db_index=True)
     to_account = models.ForeignKey('AccountHistory', related_name='received_contacts', db_index=True)
     summary = models.TextField(blank=True)
-    wrote_short_rel = models.BooleanField(default=False)
-    wrote_journal = models.BooleanField(default=False)
+    private = models.BooleanField(default=False)
 
     class Meta:
         verbose_name_plural = "First Impressions"
 
     def __str__(self):
         try:
-            return "%s to %s" % (self.from_account.entry, self.to_account.entry)
+            return "%s to %s" % (self.writer, self.receiver)
         except AttributeError:
             return "%s to %s" % (self.from_account, self.to_account)
+
+    @property
+    def writer(self):
+        return self.from_account.entry
+
+    @property
+    def receiver(self):
+        return self.to_account.entry
 
 
 class RPScene(SharedMemoryModel):
@@ -409,6 +434,18 @@ class Clue(SharedMemoryModel):
     @property
     def keywords(self):
         return [ob.name for ob in self.search_tags.all()]
+
+    @property
+    def creators(self):
+        """
+        Returns GMs of the event this clue was made for
+        """
+        if not self.event:
+            return []
+        try:
+            return self.event.gms.all()
+        except (AttributeError, IndexError):
+            return []
 
 
 class SearchTag(SharedMemoryModel):

@@ -22,7 +22,7 @@ from world.dominion.models import AssetOwner, Renown, Reputation, Member
 from typeclasses.characters import Character
 from typeclasses.rooms import ArxRoom
 import random
-from web.character.models import AccountHistory
+from web.character.models import AccountHistory, FirstContact
 
 
 def char_name(character_object, verbose_where=False):
@@ -2659,6 +2659,8 @@ class CmdFirstImpression(MuxCommand):
         +firstimpression/here
         +firstimpression/quiet <character>=<summary>
         +firstimpression/private <character>=<summary>
+        +firstimpression/toggleprivate <character>
+        +firstimpressions/mine
 
 
     This allows you to claim an xp reward for the first time you
@@ -2676,7 +2678,7 @@ class CmdFirstImpression(MuxCommand):
     """
     key = "+firstimpression"
     help_category = "Social"
-    aliases = ["firstimpression"]
+    aliases = ["firstimpression", "firstimpressions", "+firstimpressions"]
 
     def list_valid(self):
         contacts = self.caller.roster.accounthistory_set.last().contacts.all()
@@ -2695,6 +2697,10 @@ class CmdFirstImpression(MuxCommand):
                                                                          ", ".join(str(ob.entry) for ob in qs)))
 
     def func(self):
+        if "mine" in self.switches:
+            self.msg("{wFirst impressions written of you so far:{n")
+            self.msg(self.caller.roster.get_impressions_str())
+            return
         if not self.args:
             self.list_valid()
             return
@@ -2704,14 +2710,30 @@ class CmdFirstImpression(MuxCommand):
             if not history:
                 self.msg("{wNo history found for %s. Use with no arguments to see a list of valid chars.{n" % self.args)
                 return
-            self.msg("First impressions of %s:" % self.args)
-            self.msg("\n".join(ob.summary for ob in history))
+            self.msg("{wFirst impressions of {c%s{n:" % self.args.capitalize())
+
+            def get_privacy_str(roster_object):
+                return "{w(Private){n" if roster_object.private else "{w(Public){n"
+
+            self.msg("\n".join("%s %s" % (get_privacy_str(ob), ob.summary) for ob in history))
             return
         targ = self.caller.player.search(self.lhs)
         if not targ:
             return
         if targ == self.caller.player:
             self.msg("You cannot record a first impression of yourself.")
+            return
+        if "toggleprivate" in self.switches:
+            hist = targ.roster.accounthistory_set.last()
+            try:
+                impression = self.caller.roster.accounthistory_set.last().initiated_contacts.get(to_account=hist)
+            except FirstContact.DoesNotExist:
+                self.msg("No impression found of them.")
+                return
+            impression.private = not impression.private
+            impression.save()
+            privacy_str = "private" if impression.private else "public"
+            self.msg("Your first impression of %s is now marked %s." % (targ, privacy_str))
             return
         # check if the target has written a first impression of us. If not, we'll need to be in the same room
         received = False
@@ -2725,13 +2747,14 @@ class CmdFirstImpression(MuxCommand):
             self.msg("Must have a summary of the RP scene longer than that.")
             return
         hist = targ.roster.accounthistory_set.last()
-        from web.character.models import FirstContact
+
         try:
             self.caller.roster.accounthistory_set.last().initiated_contacts.get(to_account=hist)
             self.msg("You have already written your first impression of them.")
             return
         except FirstContact.DoesNotExist:
-            self.caller.roster.accounthistory_set.last().initiated_contacts.create(to_account=hist,
+            private = "private" in self.switches
+            self.caller.roster.accounthistory_set.last().initiated_contacts.create(to_account=hist, private=private,
                                                                                    summary=self.rhs)
             self.msg("{wYou have recorded your first impression on %s:{n\n%s" % (targ, self.rhs))
             if "quiet" not in self.switches:
