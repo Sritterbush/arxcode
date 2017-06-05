@@ -93,6 +93,7 @@ class CmdWhere(MuxPlayerCommand):
         +where
         +where [<character>,<character 2>,...]
         +where/shops [<ability>]
+        +where/shops/all [<ability>]
         +where/randomscene
         +where/watch
 
@@ -125,6 +126,8 @@ class CmdWhere(MuxPlayerCommand):
                     continue
             name = str(owner)
             if owner and not owner.roster.roster.name == "Active":
+                if "all" not in self.switches:
+                    continue
                 name += " {w(Inactive){n"
             self.msg("%s: %s" % (self.get_room_str(room), name))
 
