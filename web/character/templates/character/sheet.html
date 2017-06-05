@@ -181,12 +181,21 @@
                     <td>Name</td>
                     <td>Summary</td>
                 </tr>
-                {% for impression in character.roster.public_impressions %}
-                    <tr>
-                    <td width="20%">{{ impression.writer }}</td>
-                    <td width="80%">{{ impression.summary }}</td>
-                    </tr>
-                {% endfor %}
+                {% if show_hidden %}
+                    {% for impression in character.roster.public_impressions %}
+                        <tr>
+                        <td width="20%">{{ impression.writer }}</td>
+                        <td width="80%">{{ impression.summary }}</td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    {% for impression in character.roster.impressions_for_all %}
+                        <tr>
+                        <td width="20%">{{ impression.writer }}</td>
+                        <td width="80%">{{ impression.summary }}</td>
+                        </tr>
+                    {% endfor %}
+                {% endif %}
                 </table>
             </div>
         </div>

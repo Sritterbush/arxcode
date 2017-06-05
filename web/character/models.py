@@ -181,6 +181,10 @@ class RosterEntry(SharedMemoryModel):
     def public_impressions(self):
         return self.current_impressions.filter(private=False).order_by('from_account__entry__character__db_key')
 
+    @property
+    def impressions_for_all(self):
+        return self.public_impressions.filter(viewable_by_all=True)
+
     def get_impressions_str(self):
         return "\n\n".join("{c%s{n wrote: %s" % (ob.writer, ob.summary) for ob in self.public_impressions)
 
@@ -314,6 +318,7 @@ class FirstContact(SharedMemoryModel):
     to_account = models.ForeignKey('AccountHistory', related_name='received_contacts', db_index=True)
     summary = models.TextField(blank=True)
     private = models.BooleanField(default=False)
+    viewable_by_all = models.BooleanField(default=False)
 
     class Meta:
         verbose_name_plural = "First Impressions"

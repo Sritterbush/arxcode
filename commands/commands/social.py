@@ -2723,17 +2723,25 @@ class CmdFirstImpression(MuxCommand):
         if targ == self.caller.player:
             self.msg("You cannot record a first impression of yourself.")
             return
-        if "toggleprivate" in self.switches:
+        if "toggleprivate" in self.switches or "toggleshare" in self.switches:
             hist = targ.roster.accounthistory_set.last()
             try:
                 impression = self.caller.roster.accounthistory_set.last().initiated_contacts.get(to_account=hist)
             except FirstContact.DoesNotExist:
                 self.msg("No impression found of them.")
                 return
-            impression.private = not impression.private
-            impression.save()
-            privacy_str = "private" if impression.private else "public"
-            self.msg("Your first impression of %s is now marked %s." % (targ, privacy_str))
+            if "toggleprivate" in self.switches:
+                impression.private = not impression.private
+                impression.save()
+                privacy_str = "private" if impression.private else "public"
+                self.msg("Your first impression of %s is now marked %s." % (targ, privacy_str))
+                return
+            if "toggleshare" in self.switches:
+                impression.viewable_by_all = not impression.viewable_by_all
+                impression.save()
+                privacy_str = "viewable by all" if impression.viewable_by_all else "viewable only by them"
+                self.msg("Your first impression of %s is now marked %s." % (targ, privacy_str))
+                return
             return
         # check if the target has written a first impression of us. If not, we'll need to be in the same room
         received = False
@@ -2753,8 +2761,10 @@ class CmdFirstImpression(MuxCommand):
             self.msg("You have already written your first impression of them.")
             return
         except FirstContact.DoesNotExist:
-            private = "private" in self.switches
+            private = "private" in self.switches or "quiet" in self.switches
+            viewable_by_all = not private
             self.caller.roster.accounthistory_set.last().initiated_contacts.create(to_account=hist, private=private,
+                                                                                   viewable_by_all=viewable_by_all,
                                                                                    summary=self.rhs)
             self.msg("{wYou have recorded your first impression on %s:{n\n%s" % (targ, self.rhs))
             if "quiet" not in self.switches:
