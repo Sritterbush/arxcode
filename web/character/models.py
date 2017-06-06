@@ -168,7 +168,7 @@ class RosterEntry(SharedMemoryModel):
 
     @property
     def current_history(self):
-        return self.accounthistory_set.filter(account=self.current_account).last()
+        return self.accounthistory_set.last()
 
     @property
     def current_impressions(self):
