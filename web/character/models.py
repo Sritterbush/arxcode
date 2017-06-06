@@ -195,7 +195,8 @@ class RosterEntry(SharedMemoryModel):
             return []
 
     def get_impressions_str(self):
-        return "\n\n".join("{c%s{n wrote: %s" % (ob.writer, ob.summary) for ob in self.public_impressions)
+        return "\n\n".join("{c%s{n wrote %s: %s" % (ob.writer, "publicly" if ob.viewable_by_all else "privately",
+                                                    ob.summary) for ob in self.public_impressions)
 
 
 class Story(SharedMemoryModel):

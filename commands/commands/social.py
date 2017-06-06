@@ -2659,7 +2659,9 @@ class CmdFirstImpression(MuxCommand):
         +firstimpression/here
         +firstimpression/quiet <character>=<summary>
         +firstimpression/private <character>=<summary>
+        +firstimpression/only <character>=<summary>
         +firstimpression/toggleprivate <character>
+        +firstimpression/toggleshare <character>
         +firstimpressions/mine
 
 
@@ -2674,7 +2676,15 @@ class CmdFirstImpression(MuxCommand):
 
     The summary should be an IC account. You can choose not to send an
     inform of what you wrote if you use the /private switch, or choose
-    not to send an inform at all with the /quiet switch.
+    not to send an inform at all with the /quiet switch. Using /only
+    will mean only they can see the first impression. If no switches
+    are used, everyone can see it.
+
+    /toggleprivate and /toggleshare determines who can view the first
+    impression you write. A private first impression isn't viewable
+    by anyone but you and staff. /toggleshare will set a non-private
+    first impression to be viewable by everyone, or just the person
+    it was written for.
     """
     key = "+firstimpression"
     help_category = "Social"
@@ -2713,6 +2723,8 @@ class CmdFirstImpression(MuxCommand):
             self.msg("{wFirst impressions of {c%s{n:" % self.args.capitalize())
 
             def get_privacy_str(roster_object):
+                if roster_object.private:
+                    return "{w(Private){n"
                 return "{w(Private){n" if roster_object.private else "{w(Public){n"
 
             self.msg("\n".join("%s %s" % (get_privacy_str(ob), ob.summary) for ob in history))
@@ -2754,7 +2766,7 @@ class CmdFirstImpression(MuxCommand):
         if not received and targ.db.char_ob.location != self.caller.location:
             self.msg("Must be in the same room.")
             return
-        if len(self.rhs) < 10:
+        if not self.rhs or len(self.rhs) < 10:
             self.msg("Must have a summary of the RP scene longer than that.")
             return
         hist = targ.roster.accounthistory_set.last()
@@ -2765,7 +2777,7 @@ class CmdFirstImpression(MuxCommand):
             return
         except FirstContact.DoesNotExist:
             private = "private" in self.switches or "quiet" in self.switches
-            viewable_by_all = not private
+            viewable_by_all = not private and "only" not in self.switches
             self.caller.roster.accounthistory_set.last().initiated_contacts.create(to_account=hist, private=private,
                                                                                    viewable_by_all=viewable_by_all,
                                                                                    summary=self.rhs)
