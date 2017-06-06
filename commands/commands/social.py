@@ -2659,10 +2659,11 @@ class CmdFirstImpression(MuxCommand):
         +firstimpression/here
         +firstimpression/quiet <character>=<summary>
         +firstimpression/private <character>=<summary>
-        +firstimpression/only <character>=<summary>
+        +firstimpression/all <character>=<summary>
         +firstimpression/toggleprivate <character>
         +firstimpression/toggleshare <character>
         +firstimpressions/mine
+        +firstimpression/publish <character>
 
 
     This allows you to claim an xp reward for the first time you
@@ -2674,17 +2675,24 @@ class CmdFirstImpression(MuxCommand):
     requires you to be in the same room, as a small reminder that this
     should take place after an RP scene.
 
-    The summary should be an IC account. You can choose not to send an
-    inform of what you wrote if you use the /private switch, or choose
-    not to send an inform at all with the /quiet switch. Using /only
-    will mean only they can see the first impression. If no switches
-    are used, everyone can see it.
+    The summary should be an IC account. If it is private, it is treated
+    as a black journal entry only to yourself. If it is not private, but
+    marked without the 'all' switch, it is treated as a privately conferred
+    note. If both players choose to share/publish it, it is treated as
+    a white journal. You can choose not to send an inform of what you wrote
+    if you use the /private switch, or choose not to send an inform at all
+    with the /quiet switch. Using /all will mean everyone can see it. If no
+    switches are used, only the receiver can see it.
 
-    /toggleprivate and /toggleshare determines who can view the first
+    /toggleprivate and /share determines who can view the first
     impression you write. A private first impression isn't viewable
-    by anyone but you and staff. /toggleshare will set a non-private
-    first impression to be viewable by everyone, or just the person
-    it was written for.
+    by anyone but you and staff. /share will set the writer's consent for
+    the first impression to be viewable by everyone. The receiver can then
+    grant their consent for it to be a publicly viewable account by using
+    the /publish command, which makes it viewable on their character sheet.
+
+    Using the /publish, /share, or /all switch will grant the user 1 xp.
+    They cannot be reversed once set.
     """
     key = "+firstimpression"
     help_category = "Social"
@@ -2725,7 +2733,7 @@ class CmdFirstImpression(MuxCommand):
             def get_privacy_str(roster_object):
                 if roster_object.private:
                     return "{w(Private){n"
-                return "{w(Private){n" if roster_object.private else "{w(Public){n"
+                return "{w(Shared){n" if roster_object.writer_share else "{w(Not Shared){n"
 
             self.msg("\n".join("%s %s" % (get_privacy_str(ob), ob.summary) for ob in history))
             return
@@ -2735,12 +2743,32 @@ class CmdFirstImpression(MuxCommand):
         if targ == self.caller.player:
             self.msg("You cannot record a first impression of yourself.")
             return
-        if "toggleprivate" in self.switches or "toggleshare" in self.switches:
+        if "toggleprivate" in self.switches or "share" in self.switches or "publish" in self.switches:
             hist = targ.roster.accounthistory_set.last()
+            if "publish" in self.switches:
+                try:
+                    impression = self.caller.roster.accounthistory_set.last().received_contacts.get(from_account=hist)
+                except FirstContact.DoesNotExist:
+                    self.msg("No impression found by them.")
+                    return
+                if impression.private:
+                    self.msg("That impression is private.")
+                    return
+                if impression.receiver_share:
+                    self.msg("You have already shared that.")
+                    return
+                impression.receiver_share = True
+                impression.save()
+                self.caller.adjust_xp(1)
+                self.msg("You have marked %s's impression of you public, and received 1 xp." % targ)
+                return
             try:
                 impression = self.caller.roster.accounthistory_set.last().initiated_contacts.get(to_account=hist)
             except FirstContact.DoesNotExist:
                 self.msg("No impression found of them.")
+                return
+            if impression.viewable_by_all:
+                self.msg("It has already been shared publicly and can no longer be made private.")
                 return
             if "toggleprivate" in self.switches:
                 impression.private = not impression.private
@@ -2748,14 +2776,17 @@ class CmdFirstImpression(MuxCommand):
                 privacy_str = "private" if impression.private else "public"
                 self.msg("Your first impression of %s is now marked %s." % (targ, privacy_str))
                 return
-            if "toggleshare" in self.switches:
-                if impression.private and not impression.viewable_by_all:
+            if "share" in self.switches:
+                if impression.private:
                     self.msg("A private impression cannot be marked viewable by all.")
                     return
-                impression.viewable_by_all = not impression.viewable_by_all
+                if impression.writer_share:
+                    self.msg("You have already marked that as public.")
+                    return
+                impression.writer_share = True
                 impression.save()
-                privacy_str = "viewable by all" if impression.viewable_by_all else "viewable only by them"
-                self.msg("Your first impression of %s is now marked %s." % (targ, privacy_str))
+                self.caller.adjust_xp(1)
+                self.msg("You have marked your impression as publicly viewable and gained 1 xp.")
                 return
             return
         # check if the target has written a first impression of us. If not, we'll need to be in the same room
@@ -2777,9 +2808,9 @@ class CmdFirstImpression(MuxCommand):
             return
         except FirstContact.DoesNotExist:
             private = "private" in self.switches or "quiet" in self.switches
-            viewable_by_all = not private and "only" not in self.switches
+            writer_share = not private and "all" in self.switches
             self.caller.roster.accounthistory_set.last().initiated_contacts.create(to_account=hist, private=private,
-                                                                                   viewable_by_all=viewable_by_all,
+                                                                                   writer_share=writer_share,
                                                                                    summary=self.rhs)
             self.msg("{wYou have recorded your first impression on %s:{n\n%s" % (targ, self.rhs))
             if "quiet" not in self.switches:
@@ -2791,5 +2822,7 @@ class CmdFirstImpression(MuxCommand):
                     msg += "\nSummary of the scene they gave: %s" % self.rhs
                 targ.inform(msg, category="First Impression")
             inform_staff("%s's first impression of %s: %s" % (self.caller.key, targ, self.rhs))
-            self.caller.adjust_xp(1)
+            xp = 2 if writer_share else 1
+            self.caller.adjust_xp(xp)
+            self.msg("You have gained %s xp." % xp)
             targ.db.char_ob.adjust_xp(4)

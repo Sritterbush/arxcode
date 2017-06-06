@@ -190,12 +190,20 @@ class RosterEntry(SharedMemoryModel):
     @property
     def impressions_for_all(self):
         try:
-            return self.public_impressions.filter(viewable_by_all=True)
+            return self.public_impressions.filter(writer_share=True, receiver_share=True)
         except AttributeError:
             return []
 
     def get_impressions_str(self):
-        return "\n\n".join("{c%s{n wrote %s: %s" % (ob.writer, "publicly" if ob.viewable_by_all else "privately",
+        def public_str(obj):
+            if obj.viewable_by_all:
+                return "{w(Shared by Both){n"
+            if obj.writer_share:
+                return "{w(Marked Public by Writer){n"
+            if obj.receiver_share:
+                return "{w(Marked Public by You){n"
+            return "{w(Private){n"
+        return "\n\n".join("{c%s{n wrote %s: %s" % (ob.writer, public_str(ob),
                                                     ob.summary) for ob in self.public_impressions)
 
 
@@ -328,7 +336,8 @@ class FirstContact(SharedMemoryModel):
     to_account = models.ForeignKey('AccountHistory', related_name='received_contacts', db_index=True)
     summary = models.TextField(blank=True)
     private = models.BooleanField(default=False)
-    viewable_by_all = models.BooleanField(default=False)
+    writer_share = models.BooleanField(default=False)
+    receiver_share = models.BooleanField(default=False)
 
     class Meta:
         verbose_name_plural = "First Impressions"
@@ -346,6 +355,10 @@ class FirstContact(SharedMemoryModel):
     @property
     def receiver(self):
         return self.to_account.entry
+
+    @property
+    def viewable_by_all(self):
+        return self.writer_share and self.receiver_share
 
 
 class RPScene(SharedMemoryModel):
