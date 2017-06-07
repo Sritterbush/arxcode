@@ -1533,7 +1533,9 @@ class CmdUndress(MuxCommand):
 
 class CmdDump(MuxCommand):
     """
-    Empty a container of all its objects. Great for re-sorting items or making a complete mess of someone's room.
+    Empty a container of all its objects. Great for re-sorting items or making 
+    a complete mess of someone's room.
+    
     Usage:
         dump <container>
 
@@ -1551,6 +1553,8 @@ class CmdDump(MuxCommand):
             return
 
         obj = caller.search(self.args)
+        if not obj:
+            return
         loc = obj.location
 
         # If the object being dumped is not a container or is not dead and therefore lootable then bail out
