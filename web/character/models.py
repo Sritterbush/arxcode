@@ -982,7 +982,9 @@ class Investigation(SharedMemoryModel):
 
     @property
     def keywords(self):
-        k_words = [str(ob) for ob in self.topic.lower().split()]
+        topic = self.topic.strip("?").strip(".").strip("!").strip(":").strip(",").strip(";")
+        # convert to str from unicode
+        k_words = [str(ob) for ob in topic.split()]
         # add singular version
         k_words.extend([ob[:-1] for ob in k_words if ob.endswith("s") and len(ob) > 1])
         # add back in the phrases for phrase matching
@@ -996,8 +998,8 @@ class Investigation(SharedMemoryModel):
                      "yet", "with", "in", "how", "if", "of"):
             if word in k_words:
                 k_words.remove(str(word))
-        if self.topic.lower() not in k_words:
-            k_words.append(str(self.topic.lower()))
+        if self.topic not in k_words:
+            k_words.append(str(self.topic))
         return set(k_words)
 
     def find_target_clue(self):

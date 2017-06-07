@@ -2661,7 +2661,7 @@ class CmdFirstImpression(MuxCommand):
         +firstimpression/private <character>=<summary>
         +firstimpression/all <character>=<summary>
         +firstimpression/toggleprivate <character>
-        +firstimpression/toggleshare <character>
+        +firstimpression/share <character>
         +firstimpressions/mine
         +firstimpression/publish <character>
 
