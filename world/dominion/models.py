@@ -2927,7 +2927,7 @@ class MilitaryUnit(UnitTypeInfo):
         self.save()
         MilitaryUnit.objects.create(origin=self.origin, army=self.army, orders=self.orders, quantity=qty,
                                     level=self.level, equipment=self.equipment, xp=self.xp,
-                                    hostile_area=self.hostile_area)
+                                    hostile_area=self.hostile_area, unit_type=self.unit_type)
     
     def decimate(self, amount=0.10):
         """
