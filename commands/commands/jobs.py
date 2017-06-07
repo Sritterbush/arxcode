@@ -448,6 +448,9 @@ class CmdRequest(MuxPlayerCommand):
             ticket = self.get_ticket_from_args(self.lhs)
             if not ticket:
                 return
+            if ticket.queue.slug.lower() != "story":
+                self.msg("You can only invite people to story requests.")
+                return
             targ = self.caller.search(self.rhs)
             if not targ:
                 return
