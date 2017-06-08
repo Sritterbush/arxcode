@@ -612,13 +612,18 @@ class MsgMixins(object):
 
 
 class LockMixins(object):
+    def has_lock_permission(self, caller):
+        if caller and not caller.check_permstring("builders") and not self.access(caller, 'usekey'):
+            caller.msg("You do not have a key to %s." % self)
+            return False
+        return True
+    
     def lock(self, caller=None):
         """
         :type self: ObjectDB
         :param caller: ObjectDB
         """
-        if caller and not self.access(caller, 'usekey'):
-            caller.msg("You do not have a key to %s." % self)
+        if not self.has_lock_permission(caller):
             return
         self.locks.add("traverse: perm(builders)")
         if self.db.locked:
@@ -642,8 +647,7 @@ class LockMixins(object):
         :param caller: ObjectDB
         :return:
         """
-        if caller and not self.access(caller, 'usekey'):
-            caller.msg("You do not have a key to %s." % self)
+        if not self.has_lock_permission(caller):
             return
         self.locks.add("traverse: all()")
         if not self.db.locked:
