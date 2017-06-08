@@ -225,16 +225,6 @@ class NameMixins(object):
 
 class AppearanceMixins(object):
 
-    @property
-    def recipe(self):
-        if self.db.recipe:
-            from world.dominion.models import CraftingRecipe
-            try:
-                recipe = CraftingRecipe.objects.get(id=self.db.recipe)
-                return recipe
-            except CraftingRecipe.DoesNotExist:
-                pass
-
     def return_contents(self, pobject, detailed=True, show_ids=False,
                         strip_ansi=False, show_places=True, sep=", "):
         """
@@ -398,54 +388,8 @@ class AppearanceMixins(object):
             string += "\n%s{n" % desc
         if contents and show_contents:
             string += contents
-        string += self.return_crafting_desc()
         return string
 
-    def return_crafting_desc(self):
-        """
-        :type self: ObjectDB
-        """
-        string = ""
-        adorns = self.db.adorns or {}
-        # adorns are a dict of the ID of the crafting material type to amount
-        if adorns:
-            from world.dominion.models import CraftingMaterialType
-            adorn_strs = []
-            for adorn_id in adorns:
-                amt = adorns[adorn_id]
-                try:
-                    mat = CraftingMaterialType.objects.get(id=adorn_id)
-                except CraftingMaterialType.DoesNotExist:
-                    continue
-                adorn_strs.append("%s %s" % (amt, mat.name))
-            string += "\nAdornments: %s" % ", ".join(adorn_strs)
-        # recipe is an integer matching the CraftingRecipe ID
-        recipe = self.recipe
-        if recipe:
-            string += "\nIt is a %s." % recipe.name
-        # quality_level is an integer, we'll get a name from crafter file's dict
-        string += self.get_quality_appearance()
-        if self.db.translation:
-            string += "\nIt contains script in a foreign tongue."
-        # signed_by is a crafter's character object
-        signed = self.db.signed_by
-        if signed:
-            string += "\n%s" % (signed.db.crafter_signature or "")
-        return string
-
-    def get_quality_appearance(self):
-        """
-        :type self: ObjectDB
-        :return str:
-        """
-        if self.db.quality_level:
-            from commands.commands.crafting import QUALITY_LEVELS
-            qual = self.db.quality_level
-            if qual > 11:
-                qual = 11
-            qual = QUALITY_LEVELS.get(qual, "average")
-            return "\nIts level of craftsmanship is %s." % qual
-        return ""
 
 
 class ObjectMixins(DescMixins, AppearanceMixins):
@@ -490,6 +434,103 @@ class ObjectMixins(DescMixins, AppearanceMixins):
                 self.location = room
             except ArxRoom.DoesNotExist:
                 pass
+            
+            
+class CraftingMixins(object):
+    def return_appearance(self, pobject, detailed=False, format_desc=False,
+                          show_contents=True):
+        """
+        This is a convenient hook for a 'look'
+        command to call.
+        :type self: ObjectDB
+        :param pobject: ObjectDB
+        :param detailed: bool
+        :param format_desc: bool
+        :param show_contents: bool
+        """
+        string = super(CraftingMixins, self).return_appearance(pobject, detailed=detailed, format_desc=format_desc,
+                       show_contents=show_contents)
+        string += self.return_crafting_desc()
+        return string
+        
+    @property
+    def recipe(self):
+        if self.db.recipe:
+            from world.dominion.models import CraftingRecipe
+            try:
+                recipe = CraftingRecipe.objects.get(id=self.db.recipe)
+                return recipe
+            except CraftingRecipe.DoesNotExist:
+                pass
+            
+    @property
+    def adorns(self):
+        """
+        Returns a dict of crafting materials we have.
+        
+            Returns:
+                ret (dict): dict of crafting materials as keys to amt
+                
+        SharedMemoryModel causes all .get by ID to be cached inside the class,
+        so these queries will only hit the database once. After that, we're just
+        building a dict so it'll be insignificant.
+        """
+        from world.dominion.models import CraftingMaterialType
+        ret = {}
+        adorns = self.db.adorns or {}
+        for adorn_id in adorns:
+            try:
+                mat = CraftingMaterialType.objects.get(id=adorn_id)
+            except CraftingMaterialType.DoesNotExist:
+                continue
+            ret[mat] = adorns[adorn_id]
+        return ret
+            
+    def return_crafting_desc(self):
+        """
+        :type self: ObjectDB
+        """
+        string = ""
+        adorns = self.adorns
+        # adorns are a dict of the ID of the crafting material type to amount
+        if adorns:
+            adorn_strs = ["%s %s" % (amt, mat.name) for mat, amt in adorns.items()]
+            string += "\nAdornments: %s" % ", ".join(adorn_strs)
+        # recipe is an integer matching the CraftingRecipe ID
+        recipe = self.recipe
+        if recipe:
+            string += "\nIt is a %s." % recipe.name
+        # quality_level is an integer, we'll get a name from crafter file's dict
+        string += self.get_quality_appearance()
+        if self.db.translation:
+            string += "\nIt contains script in a foreign tongue."
+        # signed_by is a crafter's character object
+        signed = self.db.signed_by
+        if signed:
+            string += "\n%s" % (signed.db.crafter_signature or "")
+        return string
+        
+    def get_quality_appearance(self):
+        """
+        :type self: ObjectDB
+        :return str:
+        """
+        if self.db.quality_level:
+            from commands.commands.crafting import QUALITY_LEVELS
+            qual = self.db.quality_level
+            if qual > 11:
+                qual = 11
+            qual = QUALITY_LEVELS.get(qual, "average")
+            return "\nIts level of craftsmanship is %s." % qual
+        return ""
+    
+    def add_adorn(self, material, quantity):
+        adorns = self.db.adorns or {}
+        amt = adorns.get(material.id, 0)
+        adorns[material.id] = amt + quantity
+        self.db.adorns = adorns
+        return
+        
 
 
 # regex removes the ascii inside an ascii tag

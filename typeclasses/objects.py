@@ -11,10 +11,10 @@ inheritance.
 
 """
 from evennia import DefaultObject
-from typeclasses.mixins import ObjectMixins, MsgMixins, NameMixins
+from typeclasses.mixins import ObjectMixins, MsgMixins, NameMixins, CraftingMixins
 
 
-class Object(MsgMixins, ObjectMixins, NameMixins, DefaultObject):
+class Object(CraftingMixins, MsgMixins, ObjectMixins, NameMixins, DefaultObject):
     """
     This is the root typeclass object, implementing an in-game Evennia
     game object, such as having a location, being able to be
