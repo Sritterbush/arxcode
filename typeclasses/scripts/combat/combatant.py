@@ -1034,7 +1034,7 @@ class CombatHandler(object):
             wound_desc = "extremely critical"
         message = "%s takes {r%s{n damage." % (self, wound_desc)
         if lethal:
-            target.dmg += dmg
+            target.real_dmg += dmg
         else:
             target.temp_dmg += dmg
         grace_period = False  # one round delay between incapacitation and death for PCs if allowed
@@ -1067,7 +1067,7 @@ class CombatHandler(object):
                     if target.combat.multiple:
                         # was incapacitated but not killed, but out of fight and now we're on another targ
                         if lethal:
-                            target.dmg = 0
+                            target.real_dmg = 0
                         else:
                             target.temp_dmg = 0
                 elif not target.combat.multiple:
