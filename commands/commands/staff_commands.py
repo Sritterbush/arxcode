@@ -1283,7 +1283,7 @@ class CmdAdminTitles(MuxPlayerCommand):
     Usage:
         @admin_titles <character>
         @admin_titles/add <character>=<title>
-        @admin_titles/remove <character>=<title>
+        @admin_titles/remove <character>=#
     """
     key = "@admin_titles"
     aliases = ["@admin_title"]
@@ -1292,7 +1292,8 @@ class CmdAdminTitles(MuxPlayerCommand):
 
     def display_titles(self, targ):
         titles = targ.db.titles or []
-        self.msg("%s's titles: %s" % (targ, "; ".join(str(ob) for ob in titles)))
+        title_list = ["{w%s){n %s" % (ob[0], ob[1]) for ob in enumerate(titles, start=1)]
+        self.msg("%s's titles: %s" % (targ, "; ".join(title_list)))
 
     def func(self):
         targ = self.caller.search(self.lhs)
@@ -1310,9 +1311,15 @@ class CmdAdminTitles(MuxPlayerCommand):
             self.display_titles(targ)
             return
         if "remove":
-            if self.rhs in titles:
-                titles.remove(self.rhs)
-                targ.db.titles = titles
+            try:
+                titles.pop(int(self.rhs) - 1)
+            except (ValueError, TypeError, IndexError):
+                self.msg("Must give a number of a current title.")
+            else:
+                if not titles:
+                    targ.attributes.remove("titles")
+                else:
+                    targ.db.titles = titles
             self.display_titles(targ)
 
 
