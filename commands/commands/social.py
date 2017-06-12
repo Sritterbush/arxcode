@@ -808,26 +808,38 @@ class CmdMessenger(MuxCommand):
         caller.msg(mssg, options={'box': True})
 
     def get_mats_from_args(self, args):
-        # noinspection PyBroadException
+        """
+        Get crafting materials to send from caller
+        Args:
+            args (str): String we parse for materials
+
+        Returns:
+            mats (tuple): tuple of (Material's ID, amount)
+        """
         try:
             dompc = self.caller.db.player_ob.Dominion
             lhslist = args.split("/")
             material = CraftingMaterialType.objects.get(name__iexact=lhslist[0])
             amt = int(lhslist[1])
             if amt < 1:
-                raise ValueError
+                raise ValueError("You must specify a positive value of a material to send.")
             current_mats = dompc.assets.materials.get(type=material)
             if current_mats < amt:
-                self.msg("You don't have enough of %s" % material)
-                return
+                raise ValueError("You don't have enough of %s" % material)
+        # different errors
+        except (IndexError, AttributeError, TypeError):
+            self.msg("You must specify materials to send.")
+        except CraftingMaterialType.DoesNotExist:
+            self.msg("That is not a valid material type.")
+        except CraftingMaterials.DoesNotExist:
+            self.msg("You don't have any of that material.")
+        except ValueError as err:
+            self.msg(err)
+        # succeeded, decrement amount and return appropriate values
+        else:
             current_mats.amount -= amt
             current_mats.save()
             return material.id, amt
-        except Exception:
-            import traceback
-            traceback.print_exc()
-            self.msg("You must specify a positive value of a material to send.")
-            return None
 
     def func(self):
         """Execute command."""
