@@ -1304,13 +1304,13 @@ class CmdAdminTitles(MuxPlayerCommand):
         if not self.rhs:
             self.display_titles(targ)
             return
-        if "add":
+        if "add" in self.switches:
             if self.rhs not in titles:
                 titles.append(self.rhs)
                 targ.db.titles = titles
             self.display_titles(targ)
             return
-        if "remove":
+        if "remove" in self.switches:
             try:
                 titles.pop(int(self.rhs) - 1)
             except (ValueError, TypeError, IndexError):
