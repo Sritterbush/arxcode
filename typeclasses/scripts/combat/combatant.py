@@ -544,7 +544,7 @@ class CombatHandler(object):
             return took_actions
         if self.char in self.combat.ndb.flee_success:
             # cya nerds
-            self.combat.do_flee(self.char, self.flee_exit)
+            self.do_flee(self.flee_exit)
             return True
         q = self.queued_action       
         if not q:
