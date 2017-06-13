@@ -848,7 +848,14 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
 
     @property
     def is_npc(self):
-        return bool(self.tags.get("npc"))
+        if self.tags.get("npc"):
+            return True
+        try:
+            if self.roster.roster.name == "Unavailable":
+                return True
+        except AttributeError:
+            pass
+        return False
 
     @property
     def attackable(self):
