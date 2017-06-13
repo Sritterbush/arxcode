@@ -240,7 +240,7 @@ def change_quality(crafting_object, new_quality):
 
 class CmdCraft(MuxCommand):
     """
-    craft
+    Crafts an object
     
     Usage:
         craft
@@ -250,35 +250,31 @@ class CmdCraft(MuxCommand):
         craft/altdesc <description>
         craft/adorn <material type>=<amount>
         craft/translated_text <language>=<text>
-        craft/forgery <real material>=<type it's faking as>
         craft/finish [<additional silver to invest>, <action points>
         craft/abandon
         craft/refine <object>[=<additional silver to spend>, <action points>]
         craft/changename <object>=<new name>
+        craft/addadorn <object>=<material type>,<amount>
 
-    Crafts an object. To start crafting, you must know recipes related to your 
-    crafting profession. Select a recipe, then describe the object with /name 
-    and /desc. To add more materials to an object, such as gemstones, use 
-    /adorn, or /forgery for if you are a highly unethical crafter and wish to 
-    pretend materials are something else. No materials or silver are used until 
-    you are ready to /finish the project and make the roll for its quality.
-    Once you /finish an object, it can no longer have materials added to it, 
-    only be /refine'd for a better quality level. Additional money spent when 
-    finishing gives a bonus to the roll. 
+    To start crafting, you must know recipes related to your crafting profession. 
+    Select a recipe then describe the object with /name and /desc. To add extra 
+    materials such as gemstones, use /adorn. No materials or silver are used until 
+    you are ready to /finish the project and make the roll for its quality. 
     
     For things such as perfume, the desc is the description that appears on the 
     character, not a description of the bottle. When crafting masks, the name is 
-    used to identify its wearer: "A Fox Mask" will bestow "A Lady wearing A Fox 
-    Mask" upon its wearer, and the altdesc switch is used for her temporary 
+    used to identify its wearer: "A Fox Mask" will bestow "Someone wearing A Fox 
+    Mask" upon its wearer, and the altdesc switch is used for their temporary 
     description.
     
-    If the item should contain script in a foreign tongue that you know, use 
-    translated_text to display what the language actually says.
+    If the item should contain words in a foreign tongue that you know, use 
+    translated_text to display what the translated words actually say.
 
     To finish a project, use /finish, or /abandon if you wish to stop and do 
     something else. To attempt to change the quality level of a finished object, 
-    use /refine to attempt to improve it, for a price based on how much it took 
-    to create. Refining can never make the object worse.
+    use /refine. Refinement cost is based on how much it took to create, and 
+    can never make the object worse. Use /addadorn to embellish an item with 
+    extra materials post-creation.
 
     Craft with no arguments will display the status of a current project.
     """
@@ -287,7 +283,7 @@ class CmdCraft(MuxCommand):
     help_category = "Crafting"
     crafter = None
     crafting_switches = ("name", "desc", "altdesc", "adorn", "translated_text", "forgery", "finish", "abandon",
-                         "refine", "changename")
+                         "refine", "changename", "addadorn")
 
     def get_refine_price(self, base):
         return 0
@@ -383,118 +379,143 @@ class CmdCraft(MuxCommand):
             caller.msg("{wTo finish it, use /finish after you gather the following:{n")
             caller.msg(recipe.display_reqs(dompc))
             return
-        if "changename" in self.switches:
+        if "changename" in self.switches or "refine" in self.switches or "addadorn" in self.switches:
             targ = caller.search(self.lhs, location=caller)
             if not targ:
                 return
-            if not self.rhs:
-                self.msg("Usage: /changename <object>=<new name>")
-                return
-            if not validate_name(self.rhs):
-                caller.msg("That is not a valid name.")
-                return
-            recipe = targ.db.recipe
-            try:
-                recipe = CraftingRecipe.objects.get(id=recipe)
-                cost = recipe.value / 100
-            except (CraftingRecipe.DoesNotExist, ValueError, TypeError):
+            recipe = getattr(targ, 'recipe', None)
+            if not recipe:
                 caller.msg("No recipe found for that item.")
                 return
-            if cost > caller.db.currency:
-                caller.msg("You cannot afford to have its name changed.")
+            if "changename" in self.switches:
+                if not self.rhs:
+                    self.msg("Usage: /changename <object>=<new name>")
+                    return
+                if not validate_name(self.rhs):
+                    caller.msg("That is not a valid name.")
+                    return
+                cost = recipe.value / 100
+                if cost > caller.db.currency:
+                    caller.msg("You cannot afford to have its name changed.")
+                    return
+                caller.pay_money(cost)
+                targ.aliases.clear()
+                targ.name = self.rhs
+                caller.msg("Changed name to %s." % targ)
                 return
-            caller.pay_money(cost)
-            targ.aliases.clear()
-            targ.name = self.rhs
-            caller.msg("Changed name to %s." % targ)
-            return
-        if "refine" in self.switches:
-            targ = caller.search(self.lhs, location=caller)
-            if not targ:
-                return
-            recipe = targ.db.recipe
-            if not recipe:
-                self.msg("This object has no recipe, and cannot be refined.")
-                return
-            recipe = CraftingRecipe.objects.get(id=recipe)
-            base_cost = recipe.value / 4
-            caller.msg("The base cost of refining this recipe is %s." % base_cost)
-            try:
-                price = self.get_refine_price(base_cost)
-            except ValueError:
-                caller.msg("Price for refining not set.")
-                return
-            if price:
-                caller.msg("The additional price for refining is %s." % price)
-            action_points = 0
-            invest = 0
-            if self.rhs:
+            # adding adorns post-creation
+            if "addadorn" in self.switches:
                 try:
-                    invest = int(self.rhslist[0])
-                    if len(self.rhslist) > 1:
-                        action_points = int(self.rhslist[1])
+                    material = self.rhslist[0]
+                    amt = int(self.rhslist[1])
+                    if amt < 1 and not caller.check_permstring('builders'):
+                        raise ValueError
+                except (IndexError, ValueError, TypeError):
+                    caller.msg("Usage: /addadorn <object>=<adornment>,<amount>")
+                    return
+                if not recipe.allow_adorn:
+                    caller.msg("This recipe does not allow for additional materials to be used.")
+                    return
+                try:
+                    mat = CraftingMaterialType.objects.get(name__iexact=material)
+                except CraftingMaterialType.DoesNotExist:
+                    self.msg("Cannot use %s as it does not appear to be a crafting material." % material)
+                    return
+                # if caller isn't a builder, check and consume their materials
+                if not caller.check_permstring('builders'):
+                    pmats = caller.player.Dominion.assets.materials
+                    try:
+                        pmat = pmats.get(type=mat)
+                        if pmat.amount < amt:
+                            caller.msg("You need %s of %s, and only have %s." % (amt, mat.name, pmat.amount))
+                            return
+                    except CraftingMaterials.DoesNotExist:
+                        caller.msg("You do not have any of the material %s." % mat.name)
+                        return
+                    pmat.amount -= mat[amt]
+                    pmat.save()
+                targ.add_adorn(mat, amt)
+                caller.msg("%s is now adorned with %s of the material %s." % (targ, amt, mat))
+                return
+            if "refine" in self.switches:
+                base_cost = recipe.value / 4
+                caller.msg("The base cost of refining this recipe is %s." % base_cost)
+                try:
+                    price = self.get_refine_price(base_cost)
                 except ValueError:
-                    caller.msg("Amount of silver/action points to invest must be a number.")
+                    caller.msg("Price for refining not set.")
                     return
-                if invest < 0 or action_points < 0:
-                    caller.msg("Amount must be positive.")
+                if price:
+                    caller.msg("The additional price for refining is %s." % price)
+                action_points = 0
+                invest = 0
+                if self.rhs:
+                    try:
+                        invest = int(self.rhslist[0])
+                        if len(self.rhslist) > 1:
+                            action_points = int(self.rhslist[1])
+                    except ValueError:
+                        caller.msg("Amount of silver/action points to invest must be a number.")
+                        return
+                    if invest < 0 or action_points < 0:
+                        caller.msg("Amount must be positive.")
+                        return
+                if not recipe:
+                    caller.msg("This is not a crafted object that can be refined.")
                     return
-            if not recipe:
-                caller.msg("This is not a crafted object that can be refined.")
+                if targ.db.quality_level and targ.db.quality_level >= 10:
+                    caller.msg("This object can no longer be improved.")
+                    return
+                ability = get_ability_val(crafter, recipe)
+                if ability < recipe.level:
+                    err = "You lack" if crafter == caller else "%s lacks" % crafter
+                    caller.msg("%s the skill required to attempt to improve this." % err)
+                    return
+                if not self.check_max_invest(recipe, invest):
+                    return
+                cost = base_cost + invest + price
+                # don't display a random number when they're prepping
+                if caller.ndb.refine_targ != (targ, cost):
+                    diffmod = get_difficulty_mod(recipe, invest)
+                else:
+                    diffmod = get_difficulty_mod(recipe, invest, action_points, ability)
+                # difficulty gets easier by 1 each time we attempt it
+                refine_attempts = crafter.db.refine_attempts or {}
+                attempts = refine_attempts.get(targ.id, 0)
+                if attempts > 60:
+                    attempts = 60
+                diffmod += attempts
+                if diffmod:
+                    self.msg("Based on silver spent and previous attempts, the difficulty is adjusted by %s." % diffmod)
+                if caller.ndb.refine_targ != (targ, cost):
+                    caller.ndb.refine_targ = (targ, cost)
+                    caller.msg("The total cost would be {w%s{n. To confirm this, execute the command again." % cost)
+                    return
+                if cost > caller.db.currency:
+                    caller.msg("This would cost %s, and you only have %s." % (cost, caller.db.currency))
+                    return
+                if action_points and not caller.db.player_ob.pay_action_points(action_points):
+                    self.msg("You do not have enough action points to refine.")
+                    return
+                # pay for it
+                caller.pay_money(cost)
+                self.pay_owner(price, "%s has refined '%s', a %s, at your shop and you earn %s silver." % (caller, targ,
+                                                                                                           recipe.name,
+                                                                                                           price))
+    
+                roll = do_crafting_roll(crafter, recipe, diffmod, diffmult=0.75, room=caller.location)
+                quality = get_quality_lvl(roll, recipe.difficulty)
+                old = targ.db.quality_level or 0
+                attempts += 1
+                refine_attempts[targ.id] = attempts
+                crafter.db.refine_attempts = refine_attempts
+                self.msg("The roll is %s, a quality level of %s." % (roll, QUALITY_LEVELS[quality]))
+                if quality <= old:
+                    caller.msg("You failed to improve %s." % targ)
+                    return
+                caller.msg("New quality level is %s." % QUALITY_LEVELS[quality])
+                change_quality(targ, quality)
                 return
-            if targ.db.quality_level and targ.db.quality_level >= 10:
-                caller.msg("This object can no longer be improved.")
-                return
-            ability = get_ability_val(crafter, recipe)
-            if ability < recipe.level:
-                err = "You lack" if crafter == caller else "%s lacks" % crafter
-                caller.msg("%s the skill required to attempt to improve this." % err)
-                return
-            if not self.check_max_invest(recipe, invest):
-                return
-            cost = base_cost + invest + price
-            # don't display a random number when they're prepping
-            if caller.ndb.refine_targ != (targ, cost):
-                diffmod = get_difficulty_mod(recipe, invest)
-            else:
-                diffmod = get_difficulty_mod(recipe, invest, action_points, ability)
-            # difficulty gets easier by 1 each time we attempt it
-            refine_attempts = crafter.db.refine_attempts or {}
-            attempts = refine_attempts.get(targ.id, 0)
-            if attempts > 60:
-                attempts = 60
-            diffmod += attempts
-            if diffmod:
-                self.msg("Based on silver spent and previous attempts, the difficulty is adjusted by %s." % diffmod)
-            if caller.ndb.refine_targ != (targ, cost):
-                caller.ndb.refine_targ = (targ, cost)
-                caller.msg("The total cost would be {w%s{n. To confirm this, execute the command again." % cost)
-                return
-            if cost > caller.db.currency:
-                caller.msg("This would cost %s, and you only have %s." % (cost, caller.db.currency))
-                return
-            if action_points and not caller.db.player_ob.pay_action_points(action_points):
-                self.msg("You do not have enough action points to refine.")
-                return
-            # pay for it
-            caller.pay_money(cost)
-            self.pay_owner(price, "%s has refined '%s', a %s, at your shop and you earn %s silver." % (caller, targ,
-                                                                                                       recipe.name,
-                                                                                                       price))
-
-            roll = do_crafting_roll(crafter, recipe, diffmod, diffmult=0.75, room=caller.location)
-            quality = get_quality_lvl(roll, recipe.difficulty)
-            old = targ.db.quality_level or 0
-            attempts += 1
-            refine_attempts[targ.id] = attempts
-            crafter.db.refine_attempts = refine_attempts
-            self.msg("The roll is %s, a quality level of %s." % (roll, QUALITY_LEVELS[quality]))
-            if quality <= old:
-                caller.msg("You failed to improve %s." % targ)
-                return
-            caller.msg("New quality level is %s." % QUALITY_LEVELS[quality])
-            change_quality(targ, quality)
-            return
         proj = caller.db.crafting_project
         if not proj:
             caller.msg("You have no crafting project.")
@@ -662,42 +683,45 @@ class CmdCraft(MuxCommand):
                 errmsg = "For %s at %s, recipe %s, cost %s, price %s" % (caller, caller.location, recipe.id, cost,
                                                                          price)
                 raise ValueError(errmsg)
-            if caller.db.currency < cost:
-                caller.msg("The recipe costs %s on its own, and you are trying to spend an additional %s." %
-                           (recipe.additional_cost, invest))
-                if price:
-                    caller.msg("The additional price charged by the crafter for this recipe is %s." % price)
-                caller.msg("You need %s silver total, and have only %s." % (cost, caller.db.currency))
-                return
-            pmats = caller.player.Dominion.assets.materials
-            # add up the total cost of the materials we're using for later
-            realvalue = 0
-            for mat in mats:
-                try:
-                    c_mat = CraftingMaterialType.objects.get(id=mat)
-                except CraftingMaterialType.DoesNotExist:
-                    inform_staff("Attempted to craft using material %s which does not exist." % mat)
-                    self.msg("One of the materials required no longer seems to exist. Informing staff.")
+            if not caller.check_permstring('builders'):
+                if caller.db.currency < cost:
+                    caller.msg("The recipe costs %s on its own, and you are trying to spend an additional %s." %
+                               (recipe.additional_cost, invest))
+                    if price:
+                        caller.msg("The additional price charged by the crafter for this recipe is %s." % price)
+                    caller.msg("You need %s silver total, and have only %s." % (cost, caller.db.currency))
                     return
-                try:
-                    pmat = pmats.get(type=c_mat)
-                    if pmat.amount < mats[mat]:
-                        caller.msg("You need %s of %s, and only have %s." % (mats[mat], c_mat.name, pmat.amount))
+                pmats = caller.player.Dominion.assets.materials
+                # add up the total cost of the materials we're using for later
+                realvalue = 0
+                for mat in mats:
+                    try:
+                        c_mat = CraftingMaterialType.objects.get(id=mat)
+                    except CraftingMaterialType.DoesNotExist:
+                        inform_staff("Attempted to craft using material %s which does not exist." % mat)
+                        self.msg("One of the materials required no longer seems to exist. Informing staff.")
                         return
-                    realvalue += c_mat.value * mats[mat]
-                except CraftingMaterials.DoesNotExist:
-                    caller.msg("You do not have any of the material %s." % c_mat.name)
+                    try:
+                        pmat = pmats.get(type=c_mat)
+                        if pmat.amount < mats[mat]:
+                            caller.msg("You need %s of %s, and only have %s." % (mats[mat], c_mat.name, pmat.amount))
+                            return
+                        realvalue += c_mat.value * mats[mat]
+                    except CraftingMaterials.DoesNotExist:
+                        caller.msg("You do not have any of the material %s." % c_mat.name)
+                        return
+                # check if they have enough action points
+                if not caller.db.player_ob.pay_action_points(2 + action_points):
+                    self.msg("You do not have enough action points left to craft that.")
                     return
-            # check if they have enough action points
-            if not caller.db.player_ob.pay_action_points(2 + action_points):
-                self.msg("You do not have enough action points left to craft that.")
-                return
-            # we're still here, so we have enough materials. spend em all
-            for mat in mats:
-                cmat = CraftingMaterialType.objects.get(id=mat)
-                pmat = pmats.get(type=cmat)
-                pmat.amount -= mats[mat]
-                pmat.save()
+                # pay the money
+                caller.pay_money(cost)
+                # we're still here, so we have enough materials. spend em all
+                for mat in mats:
+                    cmat = CraftingMaterialType.objects.get(id=mat)
+                    pmat = pmats.get(type=cmat)
+                    pmat.amount -= mats[mat]
+                    pmat.save()
             # determine difficulty modifier if we tossed in more money
             ability = get_ability_val(crafter, recipe)
             diffmod = get_difficulty_mod(recipe, invest, action_points, ability)
@@ -734,7 +758,6 @@ class CmdCraft(MuxCommand):
             obj.db.adorns = proj[3]
             obj.db.crafted_by = crafter
             obj.db.volume = int(recipe.resultsdict.get('volume', 0))
-            caller.pay_money(cost)
             self.pay_owner(price, "%s has crafted '%s', a %s, at your shop and you earn %s silver." % (caller, obj,
                                                                                                        recipe.name,
                                                                                                        price))

@@ -965,20 +965,23 @@ class CmdBuyFromShop(CmdCraft):
         +shop
         +shop/buy <item number>
         +shop/look <item number>
-        +shop/refine <object>[=<additional silver to spend>,AP to spend>]
-        +shop/craft <recipe name>
+        +shop/viewdesigns [<key>]
         +shop/name <name>
         +shop/desc <description>
+        +shop/altdesc <description>
         +shop/adorn <material type>=<amount>
+        +shop/translated_text <language>=<text>
         +shop/finish [<additional silver to invest>,<AP to invest>]
+        +shop/abandon
         +shop/changename <object>=<new name>
-        +shop/viewdesigns [<key>]
+        +shop/refine <object>[=<additional silver to spend>,AP to spend>]
+        +shop/addadorn <object>=<material type>,<amount>
 
     Allows you to buy objects from a shop. +shop/craft allows you to use a 
-    crafter's skills to create an item. Check 'help craft' to see the full list 
-    of switches, all of which can be used with +shop. Similarly, +shop/refine 
-    lets you use a crafter's skills to attempt to improve a crafted object. All 
-    costs and materials are covered by you. +shop/viewdesigns lets you see the 
+    crafter's skill to create an item. Similarly, +shop/refine lets you use a 
+    crafter's skill to attempt to improve a crafted object. Check 'help craft' 
+    for an explanation of switches, all of which can be used with +shop. Costs 
+    and materials are covered by you. +shop/viewdesigns lets you see the 
     crafter's pre-made descriptions that you can copy for items you create.
     """
     key = "+shop"
