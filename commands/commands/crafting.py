@@ -258,8 +258,8 @@ class CmdCraft(MuxCommand):
 
     To start crafting, you must know recipes related to your crafting profession. 
     Select a recipe then describe the object with /name and /desc. To add extra 
-    materials such as gemstones, use /adorn. No materials or silver are used until 
-    you are ready to /finish the project and make the roll for its quality. 
+    materials such as gemstones, use /adorn. No materials or silver are used
+    until you are ready to /finish the project and make the roll for its quality.
     
     For things such as perfume, the desc is the description that appears on the 
     character, not a description of the bottle. When crafting masks, the name is 
