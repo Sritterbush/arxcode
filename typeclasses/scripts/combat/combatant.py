@@ -443,11 +443,7 @@ class CombatHandler(object):
                 targ = self.prev_targ
                 if not targ:
                     targ = choice(self.targets)
-                mssg = "{rYou attack %s.{n" % targ
-                defenders = targ.combat.get_defenders()
-                if defenders:
-                    targ = choice(defenders)
-                    mssg += " But {c%s{n gets in your way, and you attack them instead."
+                targ, mssg = self.check_defender_replacement(targ)
                 if self.do_lethal:
                     self.set_queued_action("kill", targ, mssg, do_ready=False)
                 else:
@@ -458,6 +454,43 @@ class CombatHandler(object):
                     self.wants_to_end = True
                     ready = True
                 self.set_queued_action("pass", do_ready=ready)
+
+    @staticmethod
+    def check_defender_replacement(targ):
+        """
+        Check if we replace target with a defender
+        Args:
+            targ (ObjectDB): Character we're attacking
+
+        Returns:
+            (targ, msg): New target, replacement
+
+        So we just try to determine who we're attacking if a target has some defenders. We'll
+        build a dict of defenders with the number of guys per defender (multinpc guards), then
+        do a roll that's weighted by those values. This should make large guard groups much
+        more likely to be attacked, but it's not guaranteed.
+        """
+        mssg = "{rYou attack %s.{n" % targ
+        defenders = targ.combat.get_defenders()
+        if not defenders:
+            return targ, mssg
+        # build dict of our defenders to how many dudes they have
+        chance_dict = {obj: obj.db.num_living or 1 for obj in defenders if obj}
+        # add original target
+        chance_dict[targ] = targ.db.num_living or 1
+        # do a roll from 0 to the total of all dudes in the dict
+        roll = randint(0, sum(chance_dict.values()))
+        # now go through and see if we get a new target
+        for obj, val in chance_dict.items():
+            if roll <= val:
+                # found our result
+                if obj == targ:
+                    return targ, mssg
+                targ = obj
+                mssg += " But {c%s{n gets in your way, and you attack them instead."
+                return targ, mssg
+            # reduce our roll, so we have increasing probability. 100% by end
+            roll -= val
 
     def validate_targets(self, lethal=False):
         """
