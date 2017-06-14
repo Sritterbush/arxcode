@@ -390,6 +390,8 @@ class CmdAdminRoster(MuxPlayerCommand):
                 try:
                     bb = BBoard.objects.get(db_key__iexact="Roster Changes")
                     msg = "%s has been placed on the roster and is now available for applications." % entry.character
+                    url = "http://play.arxmush.org/" + entry.character.get_absolute_url()
+                    msg += "\nCharacter page: %s" % url
                     subject = "%s now available" % entry.character
                     bb.bb_post(self.caller, msg, subject=subject, poster_name="Roster")
                 except BBoard.DoesNotExist:
