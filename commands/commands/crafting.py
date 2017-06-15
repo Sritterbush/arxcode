@@ -432,7 +432,7 @@ class CmdCraft(MuxCommand):
                     except CraftingMaterials.DoesNotExist:
                         caller.msg("You do not have any of the material %s." % mat.name)
                         return
-                    pmat.amount -= mat[amt]
+                    pmat.amount -= amt
                     pmat.save()
                 targ.add_adorn(mat, amt)
                 caller.msg("%s is now adorned with %s of the material %s." % (targ, amt, mat))
