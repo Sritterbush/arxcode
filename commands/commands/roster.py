@@ -390,7 +390,7 @@ class CmdAdminRoster(MuxPlayerCommand):
                 try:
                     bb = BBoard.objects.get(db_key__iexact="Roster Changes")
                     msg = "%s has been placed on the roster and is now available for applications." % entry.character
-                    url = "http://play.arxmush.org/" + entry.character.get_absolute_url()
+                    url = "http://play.arxmush.org" + entry.character.get_absolute_url()
                     msg += "\nCharacter page: %s" % url
                     subject = "%s now available" % entry.character
                     bb.bb_post(self.caller, msg, subject=subject, poster_name="Roster")
@@ -486,6 +486,8 @@ class CmdAdminRoster(MuxPlayerCommand):
                     entry.character.db.total_xp = 0
                 except AccountHistory.DoesNotExist:
                     history = AccountHistory.objects.create(account=current, entry=entry)
+                except AccountHistory.MultipleObjectsReturned:
+                    history = AccountHistory.objects.filter(account=current, entry=entry).last()
                 entry.current_account = None
                 entry.save()
                 date = datetime.now()
@@ -513,6 +515,8 @@ class CmdAdminRoster(MuxPlayerCommand):
                 try:
                     bb = BBoard.objects.get(db_key__iexact="Roster Changes")
                     msg = "%s no longer has an active player and is now available for applications." % entry.character
+                    url = "http://play.arxmush.org" + entry.character.get_absolute_url()
+                    msg += "\nCharacter page: %s" % url
                     subject = "%s now available" % entry.character
                     bb.bb_post(self.caller, msg, subject=subject, poster_name="Roster")
                 except BBoard.DoesNotExist:

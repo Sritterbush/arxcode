@@ -393,7 +393,7 @@ class CmdRequest(MuxPlayerCommand):
         self.msg("Use {w+request/followup <#>=<comment>{n to add a comment.")
 
     def check_recent_story_action(self):
-        ap_cost = 40 # the action point cost of starting story actions
+        ap_cost = 40  # the action point cost of starting story actions
         actions = self.get_num_actions(self.caller)
         if self.caller.roster.action_points < ap_cost:
             self.msg("It costs %s Action Points to make a story action." % ap_cost)
@@ -437,7 +437,7 @@ class CmdRequest(MuxPlayerCommand):
                 self.msg("You have declined an invitation from %s to assist story action %s." % (targ, ticket))
                 return
             else:
-                ap_cost = 10 # the action point cost of assisting story actions
+                ap_cost = 10  # the action point cost of assisting story actions
                 if not caller.pay_action_points(ap_cost):
                     self.msg("It costs %s Action Points to assist a story action." % ap_cost)
                     return
@@ -678,7 +678,7 @@ class CmdApp(MuxPlayerCommand):
                 try:
                     bb = BBoard.objects.get(db_key__iexact="Roster Changes")
                     msg = "%s now has a new player and is on the active roster." % app[1]
-                    url = "http://play.arxmush.org/" + app[1].get_absolute_url()
+                    url = "http://play.arxmush.org" + app[1].get_absolute_url()
                     msg += "\nCharacter page: %s" % url
                     subject = "%s now active" % app[1]
                     bb.bb_post(self.caller, msg, subject=subject, poster_name="Roster")
