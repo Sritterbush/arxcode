@@ -1134,7 +1134,7 @@ class CmdHeal(MuxCommand):
             caller.msg("You can help again in %s seconds." % (3600 - timediff))
             return
         permits = caller.ndb.healing_permits or set()
-        if targ not in permits:
+        if targ.player and targ not in permits:
             self.msg("%s has not granted you permission to heal them. Have them use +heal/permit." % targ)
             targ.msg("%s wants to heal you, but isn't permitted. You can let them with +heal/permit." % caller)
             return
