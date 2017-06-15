@@ -752,12 +752,12 @@ class Retainer(AgentMixin, Npc):
         self.inform_owner(msg)
     
 
+# noinspection PyAttributeOutsideInit
 class Agent(AgentMixin, MultiNpc):
     # -----------------------------------------------
     # AgentHandler Admin client methods
     # -----------------------------------------------
 
-    # noinspection PyAttributeOutsideInit
     def setup_name(self):
         a_type = self.agentob.agent_class.type
         noun = self.agentob.agent_class.name
@@ -770,7 +770,15 @@ class Agent(AgentMixin, MultiNpc):
             self.key = "%s %s" % (self.db.num_living, noun)
         else:
             self.key = noun
-        self.save()     
+        self.save()
+
+    @property
+    def name(self):
+        return self.key
+
+    @name.setter
+    def name(self, val):
+        self.key = val
 
     def lose_agents(self, num, death=False):
         """
