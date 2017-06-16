@@ -1026,7 +1026,12 @@ class CmdSheet(MuxPlayerCommand):
             if not charob:
                 caller.msg("No character found to @sheet.")
                 return
-            if charob.roster.roster.name not in ("Active", "Available", "Gone") and not show_hidden:
+            try:
+                r_name = charob.roster.roster.name
+            except AttributeError:
+                self.msg("That character cannot be viewed.")
+                return
+            if r_name not in ("Active", "Available", "Gone") and not show_hidden:
                 caller.msg("That character is an npc and cannot be viewed.")
                 return
             if 'stats' not in switches:
