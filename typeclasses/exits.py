@@ -86,6 +86,21 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
 
             def func(self):
                 """Default exit traverse if no syscommand is defined."""
+                if self.obj.password:
+                    # get our number of password_failures for this caller
+                    yikes = 10
+                    failures = self.obj.password_failures.get(self.caller, 0)
+                    # return if we had too many failures
+                    if failures > yikes:
+                        msg  = "Attempting this password AGAIN would result in Privacy Disturbance "
+                        msg += "Citation 47c, as per Decree 332 Appendix M of Queen Alaricetta the "
+                        msg += "Prudent. Best not to try it."
+                        self.caller.msg(msg)
+                        return
+                    attempt = yield self.obj.password_question
+                    if attempt != self.obj.password:
+                        self.obj.at_password_fail(self.caller)
+                        return
                 if self.obj.can_traverse(self.caller):
                     self.obj.at_traverse(self.caller, self.obj.destination)
 
@@ -286,3 +301,43 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
                     self.destination.id, self.location.id))
         except AttributeError:
             pass
+        
+    @property
+    def password(self):
+        return self.db.password
+    
+    @property
+    def password_question(self):
+        if not self.db.password_question:
+            return "From the entrance of %s a voice asks for the password." % self.destination
+        return self.db.password_question
+    
+    @property
+    def password_failmsg(self):
+        if not self.db.password_failmsg:
+            return "The voice informs you that is not the correct password."
+        return self.db.password_failmsg
+    
+    @property
+    def password_failures(self):
+        if self.ndb.password_failures is None:
+            self.ndb.password_failures = {}
+        return self.ndb.password_failures
+    
+    def at_password_fail(self, caller):
+        """
+        Called when caller fails to give correct password.
+        
+            Args:
+                caller (Character): The character trying to enter
+                
+        We inform the caller that they failed. We then add them to
+        a dict of people with how many times they failed, to stop
+        people from trying after X failed attempts.
+        """
+        caller.msg(self.password_failmsg)
+        # Add them to dict of shame
+        failures = self.password_failures.get(caller, 0)
+        failures += 1
+        self.password_failures[caller] = failures
+        
