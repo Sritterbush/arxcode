@@ -107,6 +107,22 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         # noinspection PyUnresolvedReferences
         class PassExit(command.Command):
             def func(self):
+                # TODO: Figure out way to make this DRY
+                if self.obj.password:
+                    # get our number of password_failures for this caller
+                    yikes = 10
+                    failures = self.obj.password_failures.get(self.caller, 0)
+                    # return if we had too many failures
+                    if failures > yikes:
+                        msg = "Attempting this password AGAIN would result in Privacy Disturbance "
+                        msg += "Citation 47c, as per Decree 332 Appendix M of Queen Alaricetta the "
+                        msg += "Prudent. Best not to try it."
+                        self.caller.msg(msg)
+                        return
+                    attempt = yield self.obj.password_question
+                    if attempt != self.obj.password:
+                        self.obj.at_password_fail(self.caller)
+                        return
                 # iff locked, then we can pass through it if we have a key
                 if self.obj.db.locked:
                     if not self.obj.access(self.caller, 'usekey'):
