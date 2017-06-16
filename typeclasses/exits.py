@@ -92,7 +92,7 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
                     failures = self.obj.password_failures.get(self.caller, 0)
                     # return if we had too many failures
                     if failures > yikes:
-                        msg  = "Attempting this password AGAIN would result in Privacy Disturbance "
+                        msg = "Attempting this password AGAIN would result in Privacy Disturbance "
                         msg += "Citation 47c, as per Decree 332 Appendix M of Queen Alaricetta the "
                         msg += "Prudent. Best not to try it."
                         self.caller.msg(msg)
@@ -329,7 +329,7 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         Called when caller fails to give correct password.
         
             Args:
-                caller (Character): The character trying to enter
+                caller (ObjectDB): The character trying to enter
                 
         We inform the caller that they failed. We then add them to
         a dict of people with how many times they failed, to stop
@@ -340,4 +340,3 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         failures = self.password_failures.get(caller, 0)
         failures += 1
         self.password_failures[caller] = failures
-        
