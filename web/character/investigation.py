@@ -216,6 +216,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         @helpinvestigate/retainer/changestory <retainer ID>/<id #>=<story>
         @helpinvestigate/retainer/changestat <retainer ID>/<id #>=<stat>
         @helpinvestigate/retainer/changeskill <retainer ID>/<id #>=<skill>
+        @helpinvestigate/retainer/silver, or /resource, etc., as above
 
     Helps with an investigation, or orders a retainer to help
     with the investigation. You may only help with one investigation
@@ -383,10 +384,19 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         return investigation, actions, stat, skill
 
     def disp_currently_helping(self, char):
-        self.msg("%s is helping the following investigations:" % char)
-        table = PrettyTable(["ID", "Investigation Owner", "Currently Helping"])
-        for ob in char.assisted_investigations.all():
-            table.add_row([str(ob.investigation.id), str(ob.investigation.char), str(ob.currently_helping)])
+        self.msg("%s and retainers is helping the following investigations:" % char)
+        table = PrettyTable(["ID", "Character", "Investigation Owner", "Currently Helping"])
+        investigations = list(char.assisted_investigations.all())
+        for retainer in char.db.player_ob.retainers.all():
+            try:
+                retainer_investigations = list(retainer.dbobj.assisted_investigations.all())
+            except AttributeError:
+                continue
+            if retainer_investigations:
+                investigations.extend(retainer_investigations)
+        for ob in investigations:
+            table.add_row([str(ob.investigation.id), str(ob.char), str(ob.investigation.char),
+                           str(ob.currently_helping)])
         self.msg(table)
 
     def check_skill(self):
