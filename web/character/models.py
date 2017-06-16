@@ -715,10 +715,21 @@ class InvestigationAssistant(SharedMemoryModel):
     def shared_discovery(self, clue):
         self.currently_helping = False
         self.save()
+        entry = self.roster_entry
+        if entry:
+            clue.share(entry)
+        
+    @property
+    def roster_entry(self):
+        """Gets roster entry object for either character or a retainer's owner"""
         try:
-            clue.share(self.char.roster)
+            return self.char.roster
         except AttributeError:
-            pass
+            # No roster entry, so we're a retainer. Try to return our owner's roster entry
+            try:
+                return self.char.owner.player.player.roster
+            except AttributeError:
+                pass
         
 
 class Investigation(SharedMemoryModel):
