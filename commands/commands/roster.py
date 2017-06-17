@@ -967,33 +967,50 @@ class CmdSheet(MuxPlayerCommand):
     aliases = ["+sheet", "sheet"]
     help_category = "General"
     locks = "cmd:all()"
+    private_switches = ("secrets", "secret", "visions", "vision")
+
+    def get_character(self):
+        """
+        Gets character and whether we have permission to view.
+
+        Returns:
+            charob, show_hidden: tuple of Character and bool. Character is who we're viewing,
+                the bool is whether we're allowed to view.
+        """
+        caller = self.caller
+        args = self.args
+        show_hidden = False
+        if caller.check_permstring("builders"):
+            show_hidden = True
+        if not args:
+            charob = caller.db.char_ob if not caller.is_guest() else caller.db.char
+            show_hidden = True
+        else:
+            playob = caller.search(args)
+            if not playob:
+                caller.msg("No character found by that name.")
+                return None, False
+            charob = playob.db.char_ob
+        if not charob:
+            caller.msg("No character found to @sheet.")
+            return None, False
+        try:
+            r_name = charob.roster.roster.name
+        except AttributeError:
+            self.msg("That character cannot be viewed.")
+            return None, False
+        if r_name not in ("Active", "Available", "Gone") and not show_hidden:
+            caller.msg("That character is an npc and cannot be viewed.")
+            return None, False
+        return charob, show_hidden
 
     def func(self):
         caller = self.caller
         args = self.args
         switches = self.switches
-        show_hidden = False
-        # permissions = str(caller.permissions)
-        # if 'builders' in permissions or 'wizards' in permissions or 'immortals' in permissions:
-        if caller.check_permstring("builders"):
-            show_hidden = True
         if 'all' in switches:
-            if not args:
-                charob = caller.db.char_ob if not caller.is_guest() else caller.db.char
-                show_hidden = True
-            else:
-                playob = caller.search(args)
-                if not playob:
-                    caller.msg("No character found by that name.")
-                    return
-                charob = playob.db.char_ob
-                if charob == caller.db.char_ob:
-                    show_hidden = True
+            charob, show_hidden = self.get_character()
             if not charob:
-                caller.msg("No character found to @sheet.")
-                return
-            if not show_hidden and charob.roster.roster.name == "Unavailable":
-                caller.msg("You cannot sheet that character.")
                 return
             display_header(caller, charob, show_hidden)
             if show_hidden:
@@ -1014,25 +1031,8 @@ class CmdSheet(MuxPlayerCommand):
             display_comment_list(caller, charob)
             return
         if not switches or 'desc' in switches or 'stats' in switches:
-            if not args:
-                charob = caller.db.char_ob if not caller.is_guest() else caller.db.char
-                show_hidden = True
-            else:
-                playob = caller.search(args)
-                if not playob:
-                    caller.msg("No character found by that name.")
-                    return
-                charob = playob.db.char_ob
+            charob, show_hidden = self.get_character()
             if not charob:
-                caller.msg("No character found to @sheet.")
-                return
-            try:
-                r_name = charob.roster.roster.name
-            except AttributeError:
-                self.msg("That character cannot be viewed.")
-                return
-            if r_name not in ("Active", "Available", "Gone") and not show_hidden:
-                caller.msg("That character is an npc and cannot be viewed.")
                 return
             if 'stats' not in switches:
                 display_header(caller, charob, show_hidden)
@@ -1041,50 +1041,21 @@ class CmdSheet(MuxPlayerCommand):
                 display_skills(caller, charob)
                 display_abilities(caller, charob)                                
             return
-        if 'secrets' in switches or 'secret' in switches:
-            if args and show_hidden:
-                playob = caller.search(args)
-                if not playob:
-                    caller.msg("No player found by that name.")
-                    return
-                charob = playob.db.char_ob
-            else:
-                charob = caller.db.char_ob or caller.db.char
+        if set(switches) & set(self.private_switches):
+            charob, show_hidden = self.get_character()
             if not charob:
-                caller.msg("No character found.")
                 return
-            display_secrets(caller, charob)
-            return
-        if 'visions' in switches or 'vision' in switches:
-            if args and show_hidden:
-                playob = caller.search(args)
-                if not playob:
-                    caller.msg("No player found by that name.")
-                    return
-                charob = playob.db.char_ob
-            else:
-                charob = caller.db.char_ob or caller.db.char
-            if not charob:
-                caller.msg("No character found.")
+            if not show_hidden:
+                self.msg("You lack permission to view them.")
                 return
-            display_visions(caller, charob)
-            return
+            if 'secrets' in switches or 'secret' in switches:
+                display_secrets(caller, charob)
+                return
+            if 'visions' in switches or 'vision' in switches:
+                display_visions(caller, charob)
+                return
         if 'social' in switches or 'background' in switches or 'info' in switches or 'personality' in switches:
-            if not args:
-                charob = caller.db.char_ob or caller.db.char
-                show_hidden = True
-            else:
-                playob = caller.search(args)
-                if not playob:
-                    caller.msg("No character found by that name.")
-                    return
-                charob = playob.db.char_ob
-            if not charob:
-                caller.msg("No character found to @sheet.")
-                return
-            if charob.is_npc and not show_hidden:
-                caller.msg("That character is an npc and cannot be viewed.")
-                return
+            charob, show_hidden = self.get_character()
             if 'social' in switches:
                 display_relationships(caller, charob, show_hidden)
                 return
