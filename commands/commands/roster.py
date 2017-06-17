@@ -1031,8 +1031,8 @@ class CmdSheet(MuxPlayerCommand):
         try:
             ticket = tickets.get(id=self.rhs)
             self.caller.msg(ticket.display())
-        except Ticket.DoesNotExist:
-            self.caller.msg("No Story Request matches that ID#.")
+        except (Ticket.DoesNotExist, ValueError):
+            self.caller.msg("No Story Request matches that ID #.")
             return
 
     def func(self):
