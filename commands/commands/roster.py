@@ -1022,15 +1022,16 @@ class CmdSheet(MuxPlayerCommand):
                                              "{wSubmitting Player",
                                              "{wTopic{n"])
             for ob in tickets:
-                table.add_row([ob.id, ob.submitting_player, ob.title])
+                table.add_row([str(ob.id), str(ob.submitting_player), str(ob.title)])
             # send table to player and return
             self.caller.msg("%s" % table)
             return
         # have self.rhs: get storyrequest, print its display().
+        from web.helpdesk.models import Ticket
         try:
             ticket = tickets.get(id=self.rhs)
             self.caller.msg(ticket.display())
-        except ticket.DoesNotExist:
+        except Ticket.DoesNotExist:
             self.caller.msg("No Story Request matches that ID#.")
             return
 
