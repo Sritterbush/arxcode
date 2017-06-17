@@ -409,3 +409,11 @@ class Player(MsgMixins, DefaultPlayer):
     @property
     def clue_cost(self):
         return int(100.0/float(self.clues_shared_modifier_seed + 1)) + 1
+        
+    @property
+    def participated_storyrequests(self):
+        """Storyrequests we participated in"""
+        from web.helpdesk.models import Ticket
+        from django.db.models import Q
+        return Ticket.objects.filter(Q(queue__slug__iexact="story") & Q(
+            Q(submitting_player=self) | Q(participants=self)))
