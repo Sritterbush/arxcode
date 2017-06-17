@@ -984,8 +984,9 @@ class CmdSheet(MuxPlayerCommand):
         show_hidden = False
         if caller.check_permstring("builders"):
             show_hidden = True
+        my_char = caller.db.char_ob if not caller.is_guest() else caller.db.char
         if not args:
-            charob = caller.db.char_ob if not caller.is_guest() else caller.db.char
+            charob = my_char
             show_hidden = True
         else:
             playob = caller.search(args)
@@ -1004,6 +1005,8 @@ class CmdSheet(MuxPlayerCommand):
         if r_name not in ("Active", "Available", "Gone") and not show_hidden:
             caller.msg("That character is an npc and cannot be viewed.")
             return None, False
+        if my_char == charob:
+            show_hidden = True
         return charob, show_hidden
         
     def display_storyrequests(self, charob):
