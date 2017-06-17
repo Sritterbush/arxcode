@@ -416,4 +416,4 @@ class Player(MsgMixins, DefaultPlayer):
         from web.helpdesk.models import Ticket
         from django.db.models import Q
         return Ticket.objects.filter(Q(queue__slug__iexact="story") & Q(
-            Q(submitting_player=self) | Q(participants=self)))
+            Q(submitting_player=self) | Q(participants=self))).distinct()
