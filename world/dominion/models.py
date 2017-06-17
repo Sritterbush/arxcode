@@ -2062,11 +2062,13 @@ class Organization(SharedMemoryModel):
         from evennia.utils.create import create_object, create_channel
         if not self.org_channel:
             create_channel(key=str(self.name), desc="%s channel" % self,
-                           locks="send: org(%s) or perm(builders);listen: org(%s) or perm(builders)" % (self, self),
+                           locks="send: organization(%s) or perm(builders);listen: organization(%s) or perm(builders)"
+                                 % (self, self),
                            typeclass=Channel)
         if not self.org_board:
             create_object(typeclass=BBoard, key=str(self.name), location=None,
-                          locks="read: org(%s) or perm(builders);write: org(%s) or perm(builders)" % (self, self))
+                          locks="read: organization(%s) or perm(builders);write: organization(%s) or perm(builders)"
+                                % (self, self))
 
 
 class UnitTypeInfo(models.Model):
