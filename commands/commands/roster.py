@@ -349,6 +349,7 @@ class CmdAdminRoster(MuxPlayerCommand):
         @chroster/note   <entry>=<Added note>
         @chroster/email  <entry>=<new email>
         @chroster/retire <entry>=<notes>
+        @chroster/gone   <entry>=<notes>
         @chroster/view <entry>
         @chroster/markavailable <entry>
 
