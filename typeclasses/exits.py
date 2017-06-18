@@ -177,7 +177,9 @@ class Exit(LockMixins, NameMixins, ObjectMixins, DefaultExit):
         checked (in the Exit command) at this point.
         """
         source_location = traversing_object.location
-        if traversing_object.move_to(target_location, quiet=quiet):
+        secret = self.tags.get("secret")
+        mapping = {'secret': secret}
+        if traversing_object.move_to(target_location, quiet=quiet, mapping=mapping):
             # if the door was locked, send a message about it unless we were following
             if key_message and self.db.locked:
                 msg = special_entrance or self.db.success_traverse or \

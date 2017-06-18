@@ -794,30 +794,53 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     def posecount(self, val):
         self.db.pose_count = val
 
-    def announce_move_from(self, destination):
+    def announce_move_from(self, destination, msg=None, mapping=None):
         """
         Called if the move is to be announced. This is
         called while we are still standing in the old
         location.
         Args:
             destination (Object): The place we are going to.
+            msg (str, optional): a replacement message.
+            mapping (dict, optional): additional mapping objects.
         """
+        def format_string(viewer):
+            if msg:
+                return msg
+            if secret:
+                return "%s is leaving." % self.get_display_name(viewer)
+            else:
+                return "%s is leaving, heading for %s." % (self.get_display_name(viewer),
+                                                           destination.get_display_name(viewer))
         if not self.location:
             return
-        string = "%s is leaving, heading for %s."
+        secret = False
+        if mapping:
+            secret = mapping.get('secret', False)
         for obj in self.location.contents:
             if obj != self:
-                obj.msg(string % (self.get_display_name(obj),
-                                  destination.get_display_name(obj)))
+                string = format_string(obj)
+                obj.msg(string)
 
-    def announce_move_to(self, source_location):
+    def announce_move_to(self, source_location, msg=None, mapping=None):
         """
         Called after the move if the move was not quiet. At this point
         we are standing in the new location.
+
         Args:
             source_location (Object): The place we came from
-        """
+            msg (str, optional): the replacement message if location.
+            mapping (dict, optional): additional mapping objects.
 
+        You can override this method and call its parent with a
+        message to simply change the default message.  In the string,
+        you can use the following as mappings (between braces):
+            object: the object which is moving.
+            exit: the exit from which the object is moving (if found).
+            origin: the location of the object before the move.
+            destination: the location of the object after moving.
+
+        """
         if not source_location and self.location.has_player:
             # This was created from nowhere and added to a player's
             # inventory; it's probably the result of a create command.
@@ -825,11 +848,23 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             self.location.msg(string)
             return
 
-        string = "%s arrives%s."
+        secret = False
+        if mapping:
+            secret = mapping.get('secret', False)
+
+        def format_string(viewer):
+            if msg:
+                return msg
+            if secret:
+                return "%s arrives." % self.get_display_name(viewer)
+            else:
+                from_str = " from %s" % source_location.get_display_name(viewer) if source_location else ""
+                return "%s arrives%s." % (self.get_display_name(viewer), from_str)
+
         for obj in self.location.contents:
             if obj != self:
-                obj.msg(string % (self.get_display_name(obj),
-                                  " from %s" % source_location.get_display_name(obj) if source_location else ""))
+                string = format_string(self)
+                obj.msg(string)
 
     @property
     def can_crit(self):
