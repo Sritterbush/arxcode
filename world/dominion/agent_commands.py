@@ -914,17 +914,20 @@ class CmdGuards(MuxCommand):
         if self.args:
             guard = ObjectDB.objects.object_search(self.lhs, candidates=guards, exact=False)
             if not guard:
-                _AT_SEARCH_RESULT(guard, caller, self.lhs)
-                return
+                try:
+                    guard = self.caller.db.player_ob.retainers.get(id=int(self.lhs)).dbobj
+                except (Agent.DoesNotExist, ValueError, AttributeError):
+                    _AT_SEARCH_RESULT(guard, caller, self.lhs)
+                    return
+            else:
+                guard = guard[0]
         else:
             if len(guards) > 1:
                 caller.msg("You must specify which guards.")
                 for guard in guards:
                     caller.msg(guard.display())
                 return
-            guard = guards
-        # object_search returns a list
-        guard = guard[0]
+            guard = guards[0]
         if not self.switches:
             guard.display()
             return

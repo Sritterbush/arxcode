@@ -313,6 +313,13 @@ class Player(MsgMixins, DefaultPlayer):
         except AttributeError:
             return []
 
+    @property
+    def agents(self):
+        try:
+            return self.Dominion.assets.agents.all()
+        except AttributeError:
+            return []
+
     def get_absolute_url(self):
         try:
             return self.db.char_ob.get_absolute_url()
