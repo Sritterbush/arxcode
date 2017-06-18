@@ -1178,10 +1178,9 @@ class CmdPut(MuxCommand):
         if args_are_currency(args[0]):
             self.put_money(args[0], dest)
             return
-        obj = caller.search(args[0], location=caller, use_nicks=True, quiet=True)
+        obj = caller.search(args[0], location=caller)
         if not obj:
-            return AT_SEARCH_RESULT(obj, caller, args[0])
-        obj = make_iter(obj)[0]
+            return
         if obj == dest:
             caller.msg("You can't put an object inside itself.")
             return
