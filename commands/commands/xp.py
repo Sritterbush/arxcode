@@ -42,6 +42,58 @@ class CmdUseXP(MuxCommand):
     locks = "cmd:all()"
     help_category = "Progression"
 
+    def display_traits(self):
+        caller = self.caller
+        caller.msg("{wCurrent Teacher:{n %s" % caller.db.trainer)
+        caller.msg("{wUnspent XP:{n %s" % caller.db.xp)
+        caller.msg("{wLifetime Earned XP:{n %s" % caller.db.total_xp)
+        all_stats = ", ".join(stat for stat in stats_and_skills.VALID_STATS)
+        caller.msg("\n{wStat names:{n")
+        caller.msg(all_stats)
+        caller.msg("\n{wSkill names:{n")
+        caller.msg(", ".join(skill for skill in stats_and_skills.VALID_SKILLS))
+        caller.msg("\n{wDominion skill names:{n")
+        caller.msg(", ".join(skill for skill in stats_and_skills.DOM_SKILLS))
+        caller.msg("\n{wAbility names:{n")
+        crafting = stats_and_skills.CRAFTING_ABILITIES
+        abilities = caller.db.abilities or {}
+        abilities = set(abilities.keys()) | set(crafting)
+        if caller.check_permstring("builder"):
+            caller.msg(", ".join(ability for ability in stats_and_skills.VALID_ABILITIES))
+        else:
+            caller.msg(", ".join(ability for ability in abilities))
+
+    def transfer_xp(self):
+        targ = self.caller.player.search(self.lhs)
+        if not targ:
+            return
+        alt = targ.db.char_ob
+        account = self.caller.roster.current_account
+        if alt.roster.current_account != account:
+            self.msg("%s is not an alt of yours." % alt)
+            return
+        try:
+            amt = int(self.rhs)
+            if amt <= 0:
+                raise ValueError
+        except ValueError:
+            self.msg("Amount must be a positive number.")
+            return
+        history = self.caller.roster.accounthistory_set.get(account=account)
+        if amt > history.xp_earned:
+            self.msg("You cannot transfer more xp than you've earned since playing the character.")
+            return
+        if amt > self.caller.db.xp:
+            self.msg("You do not have enough xp remaining.")
+            return
+        self.caller.adjust_xp(-amt)
+        alt.adjust_xp(amt)
+        self.msg("Transferred %s xp to %s." % (amt, alt))
+        history.xp_earned -= amt
+        history.save()
+        if self.caller.db.total_xp:
+            self.caller.db.total_xp -= amt
+
     # noinspection PyUnresolvedReferences
     def func(self):
         """
@@ -57,55 +109,10 @@ class CmdUseXP(MuxCommand):
             self.switches.append("spend")
         if not self.args:
             # Just display our xp
-            caller.msg("{wCurrent Teacher:{n %s" % caller.db.trainer)
-            caller.msg("{wUnspent XP:{n %s" % caller.db.xp)
-            caller.msg("{wLifetime Earned XP:{n %s" % caller.db.total_xp)
-            all_stats = ", ".join(stat for stat in stats_and_skills.VALID_STATS)
-            caller.msg("\n{wStat names:{n")
-            caller.msg(all_stats)
-            caller.msg("\n{wSkill names:{n")
-            caller.msg(", ".join(skill for skill in stats_and_skills.VALID_SKILLS))
-            caller.msg("\n{wDominion skill names:{n")
-            caller.msg(", ".join(skill for skill in stats_and_skills.DOM_SKILLS))
-            caller.msg("\n{wAbility names:{n")
-            crafting = stats_and_skills.CRAFTING_ABILITIES
-            abilities = caller.db.abilities or {}
-            abilities = set(abilities.keys()) | set(crafting)
-            if caller.check_permstring("builder"):
-                caller.msg(", ".join(ability for ability in stats_and_skills.VALID_ABILITIES))
-            else:
-                caller.msg(", ".join(ability for ability in abilities))
+            self.display_traits()
             return
         if "transfer" in self.switches:
-            targ = self.caller.player.search(self.lhs)
-            if not targ:
-                return
-            alt = targ.db.char_ob
-            account = self.caller.roster.current_account
-            if alt.roster.current_account != account:
-                self.msg("%s is not an alt of yours." % alt)
-                return
-            try:
-                amt = int(self.rhs)
-                if amt <= 0:
-                    raise ValueError
-            except ValueError:
-                self.msg("Amount must be a positive number.")
-                return
-            history = self.caller.roster.accounthistory_set.get(account=account)
-            if amt > history.xp_earned:
-                self.msg("You cannot transfer more xp than you've earned since playing the character.")
-                return
-            if amt > self.caller.db.xp:
-                self.msg("You do not have enough xp remaining.")
-                return
-            self.caller.adjust_xp(-amt)
-            alt.adjust_xp(amt)
-            self.msg("Transferred %s xp to %s." % (amt, alt))
-            history.xp_earned -= amt
-            history.save()
-            if self.caller.db.total_xp:
-                self.caller.db.total_xp -= amt
+            self.transfer_xp()
             return
         args = self.args.lower()
         # get cost already factors in if we have a trainer, so no need to check
@@ -176,7 +183,8 @@ class CmdUseXP(MuxCommand):
             if args in stats_and_skills.CRAFTING_ABILITIES:
                 spec_warning = True
             if current == 5:
-                if caller.db.crafting_profession:
+                if any(key for key, value in caller.db.abilities.items()
+                       if key in stats_and_skills.CRAFTING_ABILITIES and value >= 6):
                     caller.msg("You have already chosen a crafting specialization.")
                     return
                 else:
@@ -224,7 +232,6 @@ class CmdUseXP(MuxCommand):
                 return
             if stype == "ability":
                 if set_specialization:
-                    caller.db.crafting_profession = args
                     caller.msg("You have set your primary ability to be %s." % args)
                 if spec_warning:
                     caller.msg("{wNote: The first crafting ability raised to 6 will be your specialization.{n")
