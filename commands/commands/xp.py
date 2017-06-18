@@ -173,7 +173,6 @@ class CmdUseXP(MuxCommand):
             if current >= 6:
                 caller.msg("%s is already at its maximum." % args)
                 return
-
             if args in stats_and_skills.CRAFTING_ABILITIES:
                 spec_warning = True
             if current == 5:
@@ -220,6 +219,8 @@ class CmdUseXP(MuxCommand):
                 skill_history[args] = spent_list
                 caller.db.skill_history = skill_history
                 caller.msg("You have increased your %s for a cost of %s xp." % (args, cost))
+                if current + 1 == 6:  # legendary rating
+                    inform_staff("%s has bought a rank 6 of %s." % (caller, args))
                 return
             if stype == "ability":
                 if set_specialization:
