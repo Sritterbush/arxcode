@@ -61,7 +61,8 @@ class CmdHome(MuxCommand):
         elif not caller.conscious:
             caller.msg("You must be conscious to go home.")
         else:
-            caller.move_to(home)
+            mapping = {'secret': True}
+            caller.move_to(home, mapping=mapping)
             caller.msg("There's no place like home ...")
             for guard in guards:
                 if guard.location:
