@@ -40,9 +40,11 @@ class Consumable(Object):
 
     def get_quality_appearance(self):
         if self.charges >= 0:
-            return "\nIt has %s uses remaining." % self.charges
+            msg = "\nIt has %s uses remaining." % self.charges
         else:
-            return "\nIt has infinite uses."
+            msg = "\nIt has infinite uses."
+        msg += " It can be used with the {wuse{n command."
+        return msg
 
     @property
     def valid_typeclass_path(self):
