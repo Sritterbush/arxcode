@@ -507,7 +507,8 @@ class AgentMixin(object):
         if not summoner:
             summoner = self.db.guarding
         loc = summoner.location
-        self.move_to(loc)
+        mapping = {'secret': True}
+        self.move_to(loc, mapping=mapping)
         self.follow(self.db.guarding)
         docked_loc = self.db.docked
         if docked_loc and docked_loc.db.docked_guards and self in docked_loc.db.docked_guards:
