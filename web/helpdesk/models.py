@@ -528,6 +528,7 @@ class Ticket(SharedMemoryModel):
             A string with ansi/Evennia markup that displays appropriate ticket
             information. Not meant to be used outside of telnet.
         """
+        from server.utils.arx_utils import raw
         msg = "\n{wQueue:{n %s" % self.queue
         msg += "\n{wTicket Number:{n %s" % self.id
         if self.submitting_player:
@@ -542,13 +543,13 @@ class Ticket(SharedMemoryModel):
         if room:
             msg += "\n{wLocation:{n %s (#%s)" % (room, room.id)
         msg += "\n{wPriority:{n %s" % self.priority
-        msg += "\n{wRequest:{n %s" % self.description
+        msg += "\n{wRequest:{n %s" % raw(self.description)
         if self.assigned_to:
             msg += "\n{wGM:{n %s" % self.assigned_to.key
         for followup in self.followup_set.all():
             msg += "\n{wFollowup by:{n %s" % followup.user
-            msg += "\n{wComment:{n %s" % followup.comment
-        msg += "\n\n{wGM Resolution:{n %s" % self.resolution
+            msg += "\n{wComment:{n %s" % raw(followup.comment)
+        msg += "\n\n{wGM Resolution:{n %s" % raw(self.resolution)
         return msg
 
 

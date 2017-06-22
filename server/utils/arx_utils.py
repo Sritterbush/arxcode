@@ -169,9 +169,24 @@ def broadcast(txt, format_announcement=True):
 
 
 def raw(text):
-    from evennia.utils.ansi import raw
+    """
+    Escape text with Arx-specific codes
+    
+        Args:
+            text: the text string to escape
+            
+        Returns:
+            text: Text with escaped codes
+            
+    First we transform arx-specific codes into the equivalent
+    ansi codes that Evennia uses. Then we escape them all,
+    returning the escaped string.
+    """
+    from evennia.utils.ansi import raw as evennia_raw
+    # get Evennia codes from the Arx-specific codes
     text = sub_old_ansi(text)
+    # if any were turned into newlines, we substitute the code
     text = text.replace('\n', '|/')
-    text = raw(text)
-    text = text.replace('|', '||')
+    # escape all of them
+    text = evennia_raw(text)
     return text

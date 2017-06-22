@@ -8,7 +8,7 @@ from evennia.utils import utils, evtable
 from server.utils import prettytable
 from evennia.utils.utils import make_iter, variable_from_module
 from evennia.objects.models import ObjectDB
-from evennia.utils.ansi import raw
+from server.utils.arx_utils import raw
 
 AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
 
