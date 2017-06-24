@@ -863,7 +863,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
 
         for obj in self.location.contents:
             if obj != self:
-                string = format_string(self)
+                string = format_string(obj)
                 obj.msg(string)
 
     @property
