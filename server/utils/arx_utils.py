@@ -117,6 +117,8 @@ def datetime_format(dtobj):
 
 
 def sub_old_ansi(text):
+    if not text:
+        return ""
     text = text.replace('%r', '|/')
     text = text.replace('%R', '|/')
     text = text.replace('%t', '|-')
@@ -183,6 +185,8 @@ def raw(text):
     returning the escaped string.
     """
     from evennia.utils.ansi import raw as evennia_raw
+    if not text:
+        return ""
     # get Evennia codes from the Arx-specific codes
     text = sub_old_ansi(text)
     # if any were turned into newlines, we substitute the code
