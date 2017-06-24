@@ -1751,7 +1751,7 @@ class CmdAdmRelationship(MuxPlayerCommand):
             charob.db.relationship_short = relshort
             caller.msg("%s' short rel to %s set to %s: %s." % (charob, targ, rtype, desc))
             return
-        if "deleteshort" in self.switches:
+        if "deleteshort" in self.switches or "delshort" in self.switches:
             rtype = self.rhs
             relshort = charob.db.relationship_short or {}
             rel = relshort.get(rtype) or []
