@@ -115,9 +115,9 @@ class CmdBank(MuxCommand):
                 return
             if "endpayment" in self.switches or "adjustpayment" in self.switches:
                 try:
-                    val = int(self.lhs)
                     if "endpayment" in self.switches:
                         debts += list(dompc.assets.incomes.all())
+                    val = int(self.lhs)
                     debt = AccountTransaction.objects.get(id=val, id__in=(ob.id for ob in debts))
                 except (ValueError, AccountTransaction.DoesNotExist):
                     caller.msg("Invalid number. Select one of the following:")
