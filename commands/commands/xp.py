@@ -331,6 +331,8 @@ class CmdTrain(MuxCommand):
         currently_training = self.currently_training(caller)
         # num_trained is redundancy to attempt to prevent cache errors.
         num_trained = caller.db.num_trained or len(currently_training)
+        if num_trained < len(currently_training):
+            num_trained = len(currently_training)
         num_trained += 1
         targ.db.trainer = caller
         currently_training.append(targ)
@@ -395,11 +397,7 @@ class CmdTrain(MuxCommand):
             except (Agent.DoesNotExist, AttributeError):
                 self.msg("Could not find %s's retainer named %s." % (player, self.rhs))
                 return
-            if not targ.can_train(caller):
-                return
-            if not self.pay_ap_cost(caller):
-                return
-            targ.train_agent(caller)
+            targ.train_agent(caller, cmd=self)
             return
         else:
             targ = caller.search(self.lhs)

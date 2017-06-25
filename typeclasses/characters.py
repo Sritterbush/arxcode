@@ -11,7 +11,7 @@ from evennia import DefaultCharacter
 from typeclasses.mixins import MsgMixins, ObjectMixins, NameMixins
 from world.msgs.messagehandler import MessageHandler
 from world.msgs.languagehandler import LanguageHandler
-from evennia.utils.utils import lazy_property
+from evennia.utils.utils import lazy_property, variable_from_module
 import time
 from world.stats_and_skills import do_dice_check
 
@@ -928,3 +928,24 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     @attack_modifier.setter
     def attack_modifier(self, value):
         self.db.attack_modifier = value
+
+    def search(self,  # type: DefaultCharacter
+               searchdata, global_search=False, use_nicks=True, typeclass=None, location=None,
+               attribute_name=None, quiet=False, exact=False, candidates=None, nofound_string=None,
+               multimatch_string=None, use_dbref=True):
+        from django.conf import settings
+        if self.check_permstring("builders"):
+            return super(Character, self).search(searchdata, global_search=global_search, use_nicks=use_nicks,
+                                                 typeclass=typeclass, location=location,
+                                                 attribute_name=attribute_name, quiet=quiet, exact=exact,
+                                                 candidates=candidates, nofound_string=nofound_string,
+                                                 multimatch_string=multimatch_string, use_dbref=use_dbref)
+        results = super(Character, self).search(searchdata, global_search=global_search, use_nicks=use_nicks,
+                                                typeclass=typeclass, location=location, attribute_name=attribute_name,
+                                                quiet=True, exact=exact, candidates=candidates,
+                                                nofound_string=nofound_string, multimatch_string=multimatch_string,
+                                                use_dbref=use_dbref)
+        results = [ob for ob in results if not ob.db.false_name or searchdata.lower() != ob.key.lower()]
+        _AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
+        return _AT_SEARCH_RESULT(results, self, query=searchdata, quiet=quiet,
+                                 nofound_string=nofound_string, multimatch_string=multimatch_string)

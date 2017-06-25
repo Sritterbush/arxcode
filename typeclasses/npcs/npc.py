@@ -628,7 +628,7 @@ class AgentMixin(object):
         """
         return self.agentob.agent_class
 
-    def train_agent(self, trainer):
+    def train_agent(self, trainer, cmd=None):
         trainer.msg("This type of agent cannot be trained.")
         return False
     
@@ -726,20 +726,26 @@ class Retainer(AgentMixin, Npc):
             return False
         return True
 
-    def train_agent(self, trainer):
+    def train_agent(self, trainer, cmd=None):
         """
         Gives xp to this agent if they haven't been trained yet this week.
         The skill used to train them is based on our type - animal ken for
         animals, teaching for non-animals.
         """
+        if not self.can_train(trainer):
+            return
+        if cmd and not cmd.pay_ap_cost(trainer):
+            return
         self.db.trainer = trainer
         currently_training = trainer.db.currently_training or []
         if self in currently_training:
             # this should not be possible. Nonetheless, it has happened.
             trainer.msg("Error: You have already trained this agent despite the check saying you hadn't.")
             return
-        # do training roll
-        roll = do_dice_check(trainer, stat="command", skill=self.training_skill, difficulty=0, quiet=False)
+        # use real name if we're not present. If we're here, use masked name
+        use_real_name = self.location != trainer.location
+        roll = do_dice_check(trainer, stat="command", skill=self.training_skill, difficulty=0, quiet=False,
+                             use_real_name=use_real_name)
         self.agent.xp += roll
         self.agent.save()
         # redundant attribute to try to combat cache errors
