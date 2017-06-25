@@ -934,20 +934,25 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
                attribute_name=None, quiet=False, exact=False, candidates=None, nofound_string=None,
                multimatch_string=None, use_dbref=True):
         from django.conf import settings
+        # if we're staff, we just use the regular search method
         if self.check_permstring("builders"):
             return super(Character, self).search(searchdata, global_search=global_search, use_nicks=use_nicks,
                                                  typeclass=typeclass, location=location,
                                                  attribute_name=attribute_name, quiet=quiet, exact=exact,
                                                  candidates=candidates, nofound_string=nofound_string,
                                                  multimatch_string=multimatch_string, use_dbref=use_dbref)
+        # we're not staff. We get search results, then throw out matches of people wearing masks that were by their key
         results = super(Character, self).search(searchdata, global_search=global_search, use_nicks=use_nicks,
                                                 typeclass=typeclass, location=location, attribute_name=attribute_name,
                                                 quiet=True, exact=exact, candidates=candidates,
                                                 nofound_string=nofound_string, multimatch_string=multimatch_string,
                                                 use_dbref=use_dbref)
+        # we prune results of keys for masked (false_name) objects in results
         results = [ob for ob in results if not ob.db.false_name or searchdata.lower() != ob.key.lower()]
+        # quiet means that messaging is handled elsewhere
         if quiet:
             return results
+        # call the _AT_SEARCH_RESULT func to transform our results and send messages
         _AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
         return _AT_SEARCH_RESULT(results, self, query=searchdata,  nofound_string=nofound_string,
                                  multimatch_string=multimatch_string)
