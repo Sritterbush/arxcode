@@ -119,11 +119,7 @@ class CmdBank(MuxCommand):
                     if "endpayment" in self.switches:
                         debts += list(dompc.assets.incomes.all())
                     debt = AccountTransaction.objects.get(id=val, id__in=(ob.id for ob in debts))
-                except ValueError as err:
-                    caller.msg(err)
-                    caller.msg("Please select a payment by its number.")
-                    return
-                except AccountTransaction.DoesNotExist:
+                except (ValueError, AccountTransaction.DoesNotExist):
                     caller.msg("Invalid number. Select one of the following:")
                     caller.msg(str(self.get_debt_table(debts)), options={'box': True})
                     return
