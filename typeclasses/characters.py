@@ -946,6 +946,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
                                                 nofound_string=nofound_string, multimatch_string=multimatch_string,
                                                 use_dbref=use_dbref)
         results = [ob for ob in results if not ob.db.false_name or searchdata.lower() != ob.key.lower()]
+        if quiet:
+            return results
         _AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
-        return _AT_SEARCH_RESULT(results, self, query=searchdata, quiet=quiet,
-                                 nofound_string=nofound_string, multimatch_string=multimatch_string)
+        return _AT_SEARCH_RESULT(results, self, query=searchdata,  nofound_string=nofound_string,
+                                 multimatch_string=multimatch_string)
