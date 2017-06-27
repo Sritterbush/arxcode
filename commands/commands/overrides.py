@@ -1401,7 +1401,8 @@ class CmdArxAllCom(CmdAllCom):
             return
         channels = ChannelDB.objects.get_subscriptions(caller)
         for channel in channels:
-            caller.execute_cmd("%s off" % channel.key)
+            if channel.mute(caller):
+                self.msg("You mute channel %s." % channel)
 
 
 class CmdArxChannels(CmdChannels):
