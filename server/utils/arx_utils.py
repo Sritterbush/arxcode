@@ -208,13 +208,13 @@ def check_break(caller=None):
     If staff are currently on break, we send an error message to a caller
     if passed along as args, then return True.
     """
-    try:
-        end_date = settings.BREAK_END_DATE
-        if end_date > datetime.now():
-            if caller:
-                caller.msg("That is currently disabled due to staff break.")
-                caller.msg("Staff are on break until %s." % end_date.strftime("%x %X"))
-            return True
-    except AttributeError:
-        pass
+    from evennia.server.models import ServerConfig
+    end_date = ServerConfig.objects.conf("end_break_date")
+    if not end_date:
+        return False
+    if end_date > datetime.now():
+        if caller:
+            caller.msg("That is currently disabled due to staff break.")
+            caller.msg("Staff are on break until %s." % end_date.strftime("%x %X"))
+        return True
     return False
