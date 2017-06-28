@@ -407,6 +407,9 @@ class CmdTrain(MuxCommand):
         if not targ.player:
             caller.msg("Use the /retainer switch to train non-player-characters.")
             return
+        if targ.db.trainer:
+            self.msg("They are already being trained.")
+            return
         if "stat" in switches:
             stat = self.rhs.lower()
             if not self.check_attribute_name(stats_and_skills.VALID_STATS, "stat"):
