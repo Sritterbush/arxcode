@@ -4,10 +4,11 @@ stories, the timeline, etc.
 """
 
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from .models import (Investigation, Clue, InvestigationAssistant, ClueDiscovery, Theory, RevelationDiscovery, SearchTag)
+from .models import (Investigation, Clue, InvestigationAssistant, ClueDiscovery, Theory, RevelationDiscovery, SearchTag,
+                     get_random_clue)
 from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
-from server.utils.arx_utils import inform_staff
+from server.utils.arx_utils import inform_staff, check_break
 from world.dominion.models import Agent, RPEvent
 from django.db.models import Q
 from world.stats_and_skills import VALID_STATS, VALID_SKILLS
@@ -137,6 +138,12 @@ class InvestigationFormCommand(MuxCommand):
         Sets the target of the object we'll create. For an investigation,
         this will be the topic. For an assisting investigation, it'll be the ID of the investigation.
         """
+        if self.target_type == "topic" and check_break():
+            clue = get_random_clue(self.args, self.caller.roster)
+            if not clue:
+                self.msg("Investigations that require writing a new clue are not allowed during the break.")
+                self.msg("Pick a different topic or abort.")
+                return
         self.investigation_form[0] = self.args
         self.disp_investigation_form()
 
@@ -821,6 +828,9 @@ class CmdInvestigate(InvestigationFormCommand):
                     current_active = None
                 if caller.assisted_investigations.filter(currently_helping=True):
                     self.msg("You are currently helping an investigation, and must stop first.")
+                    return
+                if check_break() and not ob.targeted_clue:
+                    self.msg("Investigations that do not target a clue cannot be marked active during the break.")
                     return
                 if current_active:
                     if not current_active.automate_result:

@@ -14,7 +14,7 @@ jumping around to them.
 from django.conf import settings
 from evennia.commands.default.muxcommand import MuxPlayerCommand
 from evennia.utils import utils, create, search
-from server.utils.arx_utils import inform_staff
+from server.utils.arx_utils import inform_staff, check_break
 from evennia.players.models import PlayerDB
 from evennia import syscmdkeys
 from world.stats_and_skills import (get_partial_match, get_skill_cost,
@@ -494,6 +494,11 @@ class CmdGuestCharCreate(MuxPlayerCommand):
                      "entering the same email address, and for your character to be " +
                      "approved while offline, with the password emailed to the address " +
                      "provided.")
+            return
+        if check_break(player):
+            self.msg("Staff are currently on break, and making original characters has been disabled until the "
+                     "break ends. You can still apply to play roster characters until that time, or wait until "
+                     "the break is over.")
             return
         # we check email address to see if it matches an existing unfinished character
         from web.character.models import RosterEntry

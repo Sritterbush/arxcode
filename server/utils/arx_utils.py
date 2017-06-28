@@ -194,3 +194,27 @@ def raw(text):
     # escape all of them
     text = evennia_raw(text)
     return text
+
+
+def check_break(caller=None):
+    """
+    Checks if staff are currently on break
+
+        Args:
+            caller (ObjectDB or PlayerDB): object to .msg our end date
+    Returns:
+        (bool): True if we're on our break, false otherwise
+
+    If staff are currently on break, we send an error message to a caller
+    if passed along as args, then return True.
+    """
+    try:
+        end_date = settings.BREAK_END_DATE
+        if end_date > datetime.now():
+            if caller:
+                caller.msg("That is currently disabled due to staff break.")
+                caller.msg("Staff are on break until %s." % end_date.strftime("%x %X"))
+            return True
+    except AttributeError:
+        pass
+    return False

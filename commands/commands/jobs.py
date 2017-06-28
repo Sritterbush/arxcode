@@ -11,7 +11,7 @@ database migration to add in their functionality.
 from django.conf import settings
 from server.utils import prettytable, helpdesk_api
 from web.helpdesk.models import Ticket, Queue
-from server.utils.arx_utils import inform_staff
+from server.utils.arx_utils import inform_staff, check_break
 from evennia.commands.default.muxcommand import MuxPlayerCommand
 from evennia.objects.models import ObjectDB
 import traceback
@@ -508,6 +508,9 @@ class CmdRequest(MuxPlayerCommand):
             optional_title = "Action"
             queue = Queue.objects.get(slug="Story").id
             if self.check_recent_story_action():
+                return
+            if check_break(caller):
+                self.msg("No storyrequests allowed during staff break.")
                 return
         elif cmdstr == "+prprequest":
             optional_title = "PRP"

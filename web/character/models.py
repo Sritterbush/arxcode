@@ -993,50 +993,14 @@ class Investigation(SharedMemoryModel):
 
     @property
     def keywords(self):
-        topic = self.topic.strip("?").strip(".").strip("!").strip(":").strip(",").strip(";")
-        # convert to str from unicode
-        k_words = [str(ob) for ob in topic.split()]
-        # add singular version
-        k_words.extend([ob[:-1] for ob in k_words if ob.endswith("s") and len(ob) > 1])
-        # add back in the phrases for phrase matching
-        if len(k_words) > 1:
-            for pos in range(0, len(k_words)):
-                phrase = []
-                for s_pos in range(0, pos):
-                    phrase.append(k_words[s_pos])
-                k_words.append(" ".join(phrase))
-        for word in ("a", "or", "an", "the", "and", "but", "not",
-                     "yet", "with", "in", "how", "if", "of"):
-            if word in k_words:
-                k_words.remove(str(word))
-        if self.topic not in k_words:
-            k_words.append(str(self.topic))
-        return set(k_words)
+        return get_keywords_from_topic(self.topic)
 
     def find_target_clue(self):
         """
         Finds a target clue based on our topic and our investigation history.
         We'll choose the lowest rating out of 3 random choices.
         """
-        exact = Clue.objects.filter(Q(allow_investigation=True) &
-                                    Q(search_tags__name__iexact=self.topic) &
-                                    ~Q(characters=self.character)).order_by('rating')
-        if exact:
-            return random.choice(exact)
-        k_words = self.keywords
-        # build a case-insensitive query for each keyword of the investigation
-        query = Q()
-        for k_word in k_words:
-            query |= Q(search_tags__name__iexact=k_word)
-        candidates = Clue.objects.filter(Q(allow_investigation=True) & Q(query) &
-                                         ~Q(characters=self.character)).order_by('rating').distinct()
-        try:
-            choices = []
-            for x in range(0, 3):
-                choices.append(random.randint(0, len(candidates) - 1))
-            return candidates[min(choices)]
-        except (IndexError, ValueError):
-            return None
+        return get_random_clue(self.topic, self.character)
 
     def find_random_keywords(self):
         """
@@ -1132,3 +1096,52 @@ class Theory(SharedMemoryModel):
         msg += "{wDesc{n: %s\n" % self.desc
         msg += "{wRelated Theories{n: %s\n" % ", ".join(str(ob.id) for ob in self.related_theories.all())
         return msg
+
+
+def get_keywords_from_topic(topic):
+    old_topic = topic
+    topic = topic.strip("?").strip(".").strip("!").strip(":").strip(",").strip(";")
+    # convert to str from unicode
+    k_words = [str(ob) for ob in topic.split()]
+    # add singular version
+    k_words.extend([ob[:-1] for ob in k_words if ob.endswith("s") and len(ob) > 1])
+    # add back in the phrases for phrase matching
+    if len(k_words) > 1:
+        for pos in range(0, len(k_words)):
+            phrase = []
+            for s_pos in range(0, pos):
+                phrase.append(k_words[s_pos])
+            k_words.append(" ".join(phrase))
+    for word in ("a", "or", "an", "the", "and", "but", "not",
+                 "yet", "with", "in", "how", "if", "of"):
+        if word in k_words:
+            k_words.remove(str(word))
+    if old_topic not in k_words:
+        k_words.append(str(old_topic))
+    return set(k_words)
+
+
+def get_random_clue(topic, character):
+    """
+    Finds a target clue based on our topic and our investigation history.
+    We'll choose the lowest rating out of 3 random choices.
+    """
+    exact = Clue.objects.filter(Q(allow_investigation=True) &
+                                Q(search_tags__name__iexact=topic) &
+                                ~Q(characters=character)).order_by('rating')
+    if exact:
+        return random.choice(exact)
+    k_words = get_keywords_from_topic(topic)
+    # build a case-insensitive query for each keyword of the investigation
+    query = Q()
+    for k_word in k_words:
+        query |= Q(search_tags__name__iexact=k_word)
+    candidates = Clue.objects.filter(Q(allow_investigation=True) & Q(query) &
+                                     ~Q(characters=character)).order_by('rating').distinct()
+    try:
+        choices = []
+        for x in range(0, 3):
+            choices.append(random.randint(0, len(candidates) - 1))
+        return candidates[min(choices)]
+    except (IndexError, ValueError):
+        return None
