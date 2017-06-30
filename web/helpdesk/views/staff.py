@@ -719,7 +719,7 @@ def ticket_list(request):
 
         query_params = {
             'filtering': {'status__in': [1, 2, 3]},
-            'sorting': 'created',
+            'sorting': 'db_date_created',
         }
     else:
         queues = request.GET.getlist('queue')
@@ -748,11 +748,11 @@ def ticket_list(request):
 
         date_from = request.GET.get('date_from')
         if date_from:
-            query_params['filtering']['created__gte'] = date_from
+            query_params['filtering']['db_date_created__gte'] = date_from
 
         date_to = request.GET.get('date_to')
         if date_to:
-            query_params['filtering']['created__lte'] = date_to
+            query_params['filtering']['db_date_created__lte'] = date_to
 
         ### KEYWORD SEARCHING
         q = request.GET.get('q', None)
@@ -770,8 +770,8 @@ def ticket_list(request):
 
         ### SORTING
         sort = request.GET.get('sort', None)
-        if sort not in ('status', 'assigned_to', 'created', 'title', 'queue', 'priority'):
-            sort = 'created'
+        if sort not in ('status', 'assigned_to', 'db_date_created', 'title', 'queue', 'priority'):
+            sort = 'db_date_created'
         query_params['sorting'] = sort
 
         sortreverse = request.GET.get('sortreverse', None)
@@ -783,7 +783,7 @@ def ticket_list(request):
         # invalid parameters in query, return default query
         query_params = {
             'filtering': {'status__in': [1, 2, 3]},
-            'sorting': 'created',
+            'sorting': 'db_date_created',
         }
         ticket_qs = apply_query(Ticket.objects.select_related(), query_params)
 
@@ -979,13 +979,13 @@ def run_report(request, report):
 
     month_name = lambda m: MONTHS_3[m].title()
 
-    first_ticket = Ticket.objects.all().order_by('created')[0]
-    first_month = first_ticket.created.month
-    first_year = first_ticket.created.year
+    first_ticket = Ticket.objects.all().order_by('db_date_created')[0]
+    first_month = first_ticket.db_date_created.month
+    first_year = first_ticket.db_date_created.year
 
-    last_ticket = Ticket.objects.all().order_by('-created')[0]
-    last_month = last_ticket.created.month
-    last_year = last_ticket.created.year
+    last_ticket = Ticket.objects.all().order_by('-db_date_created')[0]
+    last_month = last_ticket.db_date_created.month
+    last_year = last_ticket.db_date_created.year
 
     periods = []
     year, month = first_year, first_month
@@ -1065,7 +1065,7 @@ def run_report(request, report):
 
         elif report == 'usermonth':
             metric1 = u'%s' % ticket.get_assigned_to
-            metric2 = u'%s %s' % (month_name(ticket.created.month), ticket.created.year)
+            metric2 = u'%s %s' % (month_name(ticket.db_date_created.month), ticket.db_date_created.year)
 
         elif report == 'queuepriority':
             metric1 = u'%s' % ticket.queue.title
@@ -1077,12 +1077,12 @@ def run_report(request, report):
 
         elif report == 'queuemonth':
             metric1 = u'%s' % ticket.queue.title
-            metric2 = u'%s %s' % (month_name(ticket.created.month), ticket.created.year)
+            metric2 = u'%s %s' % (month_name(ticket.db_date_created.month), ticket.db_date_created.year)
 
         elif report == 'daysuntilticketclosedbymonth':
             metric1 = u'%s' % ticket.queue.title
-            metric2 = u'%s %s' % (month_name(ticket.created.month), ticket.created.year)
-            metric3 = ticket.modified - ticket.created
+            metric2 = u'%s %s' % (month_name(ticket.db_date_created.month), ticket.db_date_created.year)
+            metric3 = ticket.modified - ticket.db_date_created
             metric3 = metric3.days
 
 
@@ -1286,7 +1286,7 @@ def calc_average_nbr_days_until_ticket_resolved(Tickets):
     days_each_ticket = list()
 
     for ticket in Tickets:
-        time_ticket_open = ticket.modified - ticket.created
+        time_ticket_open = ticket.modified - ticket.db_date_created
         days_this_ticket = time_ticket_open.days
         days_per_ticket += days_this_ticket
         days_each_ticket.append(days_this_ticket)
@@ -1309,15 +1309,15 @@ def calc_basic_ticket_stats(Ticket):
     date_60_str = date_60.strftime('%Y-%m-%d')
 
     # > 0 & <= 30
-    ota_le_30 = all_open_tickets.filter(created__gte = date_30_str)
+    ota_le_30 = all_open_tickets.filter(db_date_created__gte = date_30_str)
     N_ota_le_30 = len(ota_le_30)
 
     # >= 30 & <= 60
-    ota_le_60_ge_30 = all_open_tickets.filter(created__gte = date_60_str, created__lte = date_30_str)
+    ota_le_60_ge_30 = all_open_tickets.filter(db_date_created__gte = date_60_str, db_date_created__lte = date_30_str)
     N_ota_le_60_ge_30 = len(ota_le_60_ge_30)
 
     # >= 60
-    ota_ge_60 = all_open_tickets.filter(created__lte = date_60_str)
+    ota_ge_60 = all_open_tickets.filter(db_date_created__lte = date_60_str)
     N_ota_ge_60 = len(ota_ge_60)
 
     # (O)pen (T)icket (S)tats
@@ -1331,7 +1331,7 @@ def calc_basic_ticket_stats(Ticket):
     all_closed_tickets = Ticket.objects.filter(status = Ticket.CLOSED_STATUS)
     average_nbr_days_until_ticket_closed = calc_average_nbr_days_until_ticket_resolved(all_closed_tickets)
     # all closed tickets that were opened in the last 60 days.
-    all_closed_last_60_days = all_closed_tickets.filter(created__gte = date_60_str)
+    all_closed_last_60_days = all_closed_tickets.filter(db_date_created__gte = date_60_str)
     average_nbr_days_until_ticket_closed_last_60_days = calc_average_nbr_days_until_ticket_resolved(all_closed_last_60_days)
 
     # put together basic stats
@@ -1352,14 +1352,14 @@ def get_color_for_nbr_days(nbr_days):
 
     return color_string
 
-def days_since_created(today, ticket):
-    return (today - ticket.created).days
+def days_since_db_date_created(today, ticket):
+    return (today - ticket.db_date_created).days
 
 def date_rel_to_today(today, offset):
     return today - timedelta(days = offset)
 
 def sort_string(begin, end):
-    return 'sort=created&date_from=%s&date_to=%s&status=%s&status=%s&status=%s' %(begin, end, Ticket.OPEN_STATUS, Ticket.REOPENED_STATUS, Ticket.RESOLVED_STATUS)
+    return 'sort=db_date_created&date_from=%s&date_to=%s&status=%s&status=%s&status=%s' %(begin, end, Ticket.OPEN_STATUS, Ticket.REOPENED_STATUS, Ticket.RESOLVED_STATUS)
 
 
 
