@@ -116,7 +116,7 @@ class CmdWeaponList(MuxCommand):
                 name += "{w (wielded){n"
             table.add_row([name, weapon.db.damage_bonus, weapon.db.attack_stat,
                           weapon.db.attack_skill, weapon.db.damage_stat])
-        caller.msg(table, formatted=True)
+        caller.msg(str(table))
 
 
 class CmdUnwield(MuxCommand):
