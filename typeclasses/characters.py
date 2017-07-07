@@ -315,7 +315,16 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             return
         diff = 0 + diff_mod
         roll = do_dice_check(self, stat_list=["willpower", "stamina"], difficulty=diff)
-        wound = float(abs(roll))/float(self.max_hp)
+        self.change_health(roll)
+        if not free:
+            self.db.last_recovery_test = time.time()
+        return roll
+        
+    def change_health(self, amount):
+        """
+        Change character's health and give them feedback about it.
+        """
+        wound = float(abs(amount))/float(self.max_hp)
         if wound <= 0:
             wound_str = "no "
         elif wound <= 0.25:
@@ -326,17 +335,14 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             wound_str = "a lot "
         else:
             wound_str = "incredibly "
-        if roll > 0:
+        if amount > 0:
             self.msg("You feel %sbetter." % wound_str)
         else:
             self.msg("You feel %sworse." % wound_str)
         # ignore temporary damage so we don't convert it to real
-        self.real_dmg -= roll
-        if not free:
-            self.db.last_recovery_test = time.time()
+        self.real_dmg -= amount
         if self.dmg <= self.max_hp and self.db.sleep_status != "awake":
             self.wake_up()
-        return roll
 
     def sensing_check(self, difficulty=15, invis=False, allow_wake=False):
         """

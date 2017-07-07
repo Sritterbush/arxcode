@@ -1170,13 +1170,7 @@ class CmdHeal(MuxCommand):
         script = targ.scripts.get("Recovery")
         if script:
             script = script[0]
-            max_heal = script.db.max_healing or 0
-            if heal_roll < max_heal:
-                caller.msg("They have received better care already. You can't help them.")
-                targ.msg("You have received better care already. %s isn't able to help you." % caller)
-                return
-            script.db.max_healing = heal_roll
-        targ.recovery_test(diff_mod=-heal_roll)
+            script.attempt_heal(heal_roll, caller)
 
 
 class CmdStandYoAssUp(MuxCommand):
