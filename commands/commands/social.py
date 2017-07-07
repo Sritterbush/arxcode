@@ -2439,9 +2439,9 @@ class CmdLanguages(MuxCommand):
         +lang/teach <player>
 
     Shows what languages you know and are currently speaking. You can request
-    that a player teach you a language with +lang/teachme. You may know one
-    language per rank of linguistics. Translate allows you to read material 
-    written in other languages.
+    that a player teach you a language with +lang/teachme. Translate allows you
+    to read material written in other languages. Higher ranks of linguistics
+    allow you to learn more languages.
     """
     key = "+lang"
     locks = "cmd:all()"
