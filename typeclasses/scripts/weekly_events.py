@@ -12,7 +12,6 @@ from django.db.models import Q, F
 from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
 from evennia.utils.evtable import EvTable
-from evennia.utils.idmapper.models import flush_cache
 
 from world.dominion.models import AssetOwner, Army, AssignedTask, Member, AccountTransaction, Orders
 from typeclasses.bulletin_board.bboard import BBoard
@@ -115,7 +114,6 @@ class WeeklyEvents(Script):
             self.count_poses()
         self.db.week += 1
         self.reset_action_points()
-        flush_cache()
 
     def do_dominion_events(self):
         for owner in AssetOwner.objects.filter(
