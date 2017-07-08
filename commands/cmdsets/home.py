@@ -576,7 +576,7 @@ class CmdManageRoom(MuxCommand):
                 elif "winterdesc" in self.switches:
                     caller.msg(loc.db.winter_desc)
                 elif "falldesc" in self.switches:
-                    caller.msg(loc.db.fall_desc)
+                    caller.msg(loc.db.autumn_desc)
                 caller.msg("{wCost of changing desc:{n %s economic resources" % cost)
                 if self.args:
                     caller.msg("New desc:")
@@ -604,7 +604,7 @@ class CmdManageRoom(MuxCommand):
             elif "springdesc" in self.switches:
                 loc.db.spring_desc = self.args
             elif "falldesc" in self.switches:
-                loc.db.fall_desc = self.args
+                loc.db.autumn_desc = self.args
             loc.ndb.confirm_desc_change = None
             # force raw_desc to update and parse our descs
             loc.ndb.last_season = None
