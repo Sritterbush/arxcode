@@ -17,6 +17,8 @@ def mush_to_html(value):
     value = value.replace('\n', '<br>')
     value = value.replace('%b', ' ')
     value = value.replace('%t', '&nbsp&nbsp&nbsp&nbsp')
+    value = value.replace('|/', '<br>')
+    value = value.replace('{/', '<br>')
     value = parse_ansi(value, strip_ansi=True)
     return mark_safe(value)
 
