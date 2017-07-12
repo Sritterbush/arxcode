@@ -1642,7 +1642,7 @@ class CmdTidyUp(MuxCommand):
             time = char.idle_time
             player = char.player
             # no sessions connected, character that somehow became headless, such as server crash
-            if not player:
+            if not player or not player.is_connected:
                 char.at_post_unpuppet(player)
                 found.append(char)
                 continue
