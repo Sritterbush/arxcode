@@ -2673,9 +2673,9 @@ class CmdFirstImpression(MuxCommand):
         +firstimpression/private <character>=<summary>
         +firstimpression/all <character>=<summary>
         +firstimpression/toggleprivate <character>
-        +firstimpression/share <character>
+        +firstimpression/share <character>[=-1, -2, etc]
         +firstimpressions/mine
-        +firstimpression/publish <character>
+        +firstimpression/publish <character>[=-1, -2, etc]
 
 
     This allows you to claim an xp reward for the first time you
@@ -2705,6 +2705,11 @@ class CmdFirstImpression(MuxCommand):
 
     Using the /publish, /share, or /all switch will grant the user 1 xp.
     They cannot be reversed once set.
+
+    If you wish to /publish or /share a first impression of a character that
+    was played by a previous character, you must specify a negative number.
+    For example, '+firstimpression/publish bob=-1' is for the previous player
+    of Bob who wrote a first impression of you.
     """
     key = "+firstimpression"
     help_category = "Social"
@@ -2757,7 +2762,15 @@ class CmdFirstImpression(MuxCommand):
             self.msg("You cannot record a first impression of yourself.")
             return
         if "toggleprivate" in self.switches or "share" in self.switches or "publish" in self.switches:
-            hist = targ.roster.accounthistory_set.last()
+            if not self.rhs:
+                hist = targ.roster.accounthistory_set.last()
+            else:
+                try:
+                    # We get previous first impressions by negative index on the queryset
+                    hist = list(targ.roster.accounthistory_set.all())[int(self.rhs) - 1]
+                except (ValueError, TypeError, IndexError):
+                    self.msg("Couldn't find a first impression by that number")
+                    return
             if "publish" in self.switches:
                 try:
                     impression = self.caller.roster.accounthistory_set.last().received_contacts.get(from_account=hist)
@@ -2814,7 +2827,6 @@ class CmdFirstImpression(MuxCommand):
             self.msg("Must have a summary of the RP scene longer than that.")
             return
         hist = targ.roster.accounthistory_set.last()
-
         try:
             self.caller.roster.accounthistory_set.last().initiated_contacts.get(to_account=hist)
             self.msg("You have already written your first impression of them.")
