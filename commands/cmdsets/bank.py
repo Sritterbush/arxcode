@@ -92,7 +92,8 @@ class CmdBank(MuxCommand):
             return
         attr_name = "min_%s_transaction" % attr_type
         if amt >= (player.db.char_ob.attributes.get(attr_name) or 0):
-            msg = ("%s %s %s %s" % (self.caller, verb, amt, mat_str))
+            preposition = "to" if "deposit" in verb.lower() else "from"
+            msg = ("%s %s %s %s %s %s" % (self.caller, verb, amt, mat_str, preposition, owner))
             player.inform(msg, category="Bank Transaction")
         
     def func(self):
