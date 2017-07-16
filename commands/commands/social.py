@@ -306,10 +306,26 @@ class CmdFinger(MuxPlayerCommand):
         titles = char.titles
         if titles:
             msg += "{wFull Titles:{n %s\n" % titles
+        try:
+            rost = str(char.roster.roster)
+            roster_status = "{n, currently"
+            if rost == "Gone":
+                rost = "{rGone{n"
+            elif rost == "Active":
+                rost = "{cActive{n"
+            elif rost == "Inactive":
+                rost = "{yInactive{n"
+            elif rost == "Available":
+                rost = "{gAvailable{n"
+            else:
+                raise AttributeError
+            roster_status += " %s" % rost
+        except AttributeError:
+            roster_status = ""
         if "rostercg" in char.tags.all():
-            msg += "{wRoster Character{n\n"
+            msg += "{wRoster Character%s{n\n" % roster_status
         else:
-            msg += "{wOriginal Character{n\n"
+            msg += "{wOriginal Character%s{n\n" % roster_status
         if show_hidden:
             msg += "{wCharID:{n %s, {wPlayerID:{n %s\n" % (char.id, player.id)
         if char.db.obituary:
