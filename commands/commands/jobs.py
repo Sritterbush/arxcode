@@ -661,6 +661,9 @@ class CmdApp(MuxPlayerCommand):
                         from datetime import datetime
                         date = datetime.now()
                         AccountHistory.objects.create(entry=entry, account=account, start_date=date)
+                    entry.player.nicks.clear()
+                    entry.character.nicks.clear()
+                    entry.player.attributes.remove("playtimes")
                     try:
                         from commands.cmdsets.starting_gear import setup_gear_for_char
                         if not entry.character:

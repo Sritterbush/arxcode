@@ -2191,7 +2191,7 @@ class CmdRandomScene(MuxCommand):
         """
         newness = datetime.now() - timedelta(days=self.DAYS_FOR_NEWBIE_CHECK)
         return self.valid_choices.filter(Q(roster__accounthistory__start_date__gte=newness) &
-                                         Q(roster__accounthistory__end_date__isnull=True)).order_by('db_key')
+                                         Q(roster__accounthistory__end_date__isnull=True)).distinct().order_by('db_key')
 
     @property
     def gms(self):
@@ -2222,7 +2222,7 @@ class CmdRandomScene(MuxCommand):
                                         Q(Q(roster__player__last_login__gte=last_week) |
                                           Q(roster__player__db_is_connected=True)) &
                                         Q(roster__player__is_staff=False) &
-                                        ~Q(roster__player__db_tags__db_key="staff_npc"))
+                                        ~Q(roster__player__db_tags__db_key="staff_npc")).distinct()
 
     def display_lists(self):
         for ob in self.scenelist[:]:
@@ -2723,6 +2723,7 @@ class CmdFirstImpression(MuxCommand):
         if "here" in self.switches:
             location = "at your location "
             qs = qs.filter(entry__character__db_location=self.caller.location)
+        qs = qs.distinct()
         self.msg("{wPlayers %syou haven't had a scene with yet:{n %s" % (location,
                                                                          ", ".join(str(ob.entry) for ob in qs)))
 
