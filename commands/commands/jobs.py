@@ -393,6 +393,9 @@ class CmdRequest(MuxPlayerCommand):
         self.msg("Use {w+request/followup <#>=<comment>{n to add a comment.")
 
     def check_recent_story_action(self):
+        if check_break(self.caller):
+            self.msg("No storyrequests allowed during staff break.")
+            return
         ap_cost = 40  # the action point cost of starting story actions
         actions = self.get_num_actions(self.caller)
         if self.caller.roster.action_points < ap_cost:
@@ -508,9 +511,6 @@ class CmdRequest(MuxPlayerCommand):
             optional_title = "Action"
             queue = Queue.objects.get(slug="Story").id
             if self.check_recent_story_action():
-                return
-            if check_break(caller):
-                self.msg("No storyrequests allowed during staff break.")
                 return
         elif cmdstr == "+prprequest":
             optional_title = "PRP"
