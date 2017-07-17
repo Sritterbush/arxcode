@@ -664,6 +664,7 @@ class CmdApp(MuxPlayerCommand):
                     entry.player.nicks.clear()
                     entry.character.nicks.clear()
                     entry.player.attributes.remove("playtimes")
+                    entry.player.attributes.remove("rp_preferences")
                     try:
                         from commands.cmdsets.starting_gear import setup_gear_for_char
                         if not entry.character:
