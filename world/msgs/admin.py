@@ -9,6 +9,8 @@ from evennia.comms.models import Msg
 from evennia.typeclasses.admin import TagInline
 from evennia.objects.models import ObjectDB
 from evennia.objects.admin import ObjectDBAdmin
+from evennia.help.admin import HelpEntryAdmin
+from evennia.help.models import HelpEntry
 
 
 class InformAdmin(admin.ModelAdmin):
@@ -102,5 +104,13 @@ admin.site.register(Msg, MsgAdmin)
 
 class ArxObjectDBAdmin(ObjectDBAdmin):
     search_fields = ['id', 'db_key', 'db_location__db_key']
+
+    
+class ArxHelpDBAdmin(HelpEntryAdmin):
+    search_fields = ['db_key', 'db_entry_text']
+    
+    
 admin.site.unregister(ObjectDB)
 admin.site.register(ObjectDB, ArxObjectDBAdmin)
+admin.site.unregister(HelpEntry)
+admin.site.register(HelpEntry, ArxHelpDBAdmin)
