@@ -107,7 +107,7 @@ class ArxObjectDBAdmin(ObjectDBAdmin):
 
     
 class ArxHelpDBAdmin(HelpEntryAdmin):
-    search_fields = ['db_key', 'db_entry_text']
+    search_fields = ['db_key', 'db_entrytext']
     
     
 admin.site.unregister(ObjectDB)
