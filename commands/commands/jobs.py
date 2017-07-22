@@ -395,7 +395,7 @@ class CmdRequest(MuxPlayerCommand):
     def check_recent_story_action(self):
         if check_break(self.caller):
             self.msg("No storyrequests allowed during staff break.")
-            return
+            return True
         ap_cost = 40  # the action point cost of starting story actions
         actions = self.get_num_actions(self.caller)
         if self.caller.roster.action_points < ap_cost:
