@@ -5,8 +5,7 @@ from django.shortcuts import render
 from evennia.help.models import HelpEntry
 from world.dominion.models import (CraftingRecipe, CraftingMaterialType,
                                    Organization, Member)
-from commands.default_cmdsets import PlayerCmdSet, CharacterCmdSet
-from commands.cmdsets.situational import SituationalCmdSet
+
 
 
 def topic(request, object_key):
@@ -20,6 +19,8 @@ def topic(request, object_key):
 
 
 def command_help(request, cmd_key):
+    from commands.default_cmdsets import PlayerCmdSet, CharacterCmdSet
+    from commands.cmdsets.situational import SituationalCmdSet
     user = request.user
     cmd_key = cmd_key.lower()
     matches = [ob for ob in PlayerCmdSet() if ob.key.lower() == cmd_key and ob.access(user, 'cmd')]
@@ -144,6 +145,8 @@ def display_org(request, object_id):
 
 
 def list_commands(request):
+    from commands.default_cmdsets import PlayerCmdSet, CharacterCmdSet
+    from commands.cmdsets.situational import SituationalCmdSet
     user = request.user
 
     def sort_name(cmd):

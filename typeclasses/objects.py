@@ -10,7 +10,7 @@ the other types, you can do so by adding this as a multiple
 inheritance.
 
 """
-from evennia import DefaultObject
+from evennia.objects.objects import DefaultObject
 from typeclasses.mixins import ObjectMixins, MsgMixins, NameMixins, CraftingMixins
 
 

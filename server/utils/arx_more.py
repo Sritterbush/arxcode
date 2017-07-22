@@ -5,7 +5,8 @@ Arx implementation of EvMore pager
 from builtins import object, range
 
 from django.conf import settings
-from evennia import Command, CmdSet
+from evennia.commands.command import Command
+from evennia.commands.cmdset import CmdSet
 from evennia.commands import cmdhandler
 from evennia.utils.utils import justify
 

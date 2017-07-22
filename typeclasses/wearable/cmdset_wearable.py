@@ -8,7 +8,7 @@ cmdset - this way you can often re-use the commands too.
 """
 
 from django.conf import settings
-from evennia import CmdSet
+from evennia.commands.cmdset import CmdSet
 from evennia import utils
 from evennia.commands.default.muxcommand import MuxCommand
 

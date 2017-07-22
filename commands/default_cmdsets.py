@@ -14,12 +14,12 @@ own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
 
 """
 from world.dominion import agent_commands
-from evennia import default_cmds
+from evennia.commands.default import cmdset_character, cmdset_player, cmdset_session, cmdset_unloggedin
 from .cmdsets import standard
 from typeclasses.wearable import cmdset_wearable
 
 
-class CharacterCmdSet(default_cmds.CharacterCmdSet):
+class CharacterCmdSet(cmdset_character.CharacterCmdSet):
     """
     The `CharacterCmdSet` contains general in-game commands like `look`,
     `get`, etc available on in-game Character objects. It is merged with
@@ -48,7 +48,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
             traceback.print_exc()
 
 
-class PlayerCmdSet(default_cmds.PlayerCmdSet):
+class PlayerCmdSet(cmdset_player.PlayerCmdSet):
     """
     This is the cmdset available to the Player at all times. It is
     combined with the `CharacterCmdSet` when the Player puppets a
@@ -221,7 +221,7 @@ class PlayerCmdSet(default_cmds.PlayerCmdSet):
             print("<<ERROR>>: Error encountered in loading crisis cmdset: %s" % err)
 
 
-class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):
+class UnloggedinCmdSet(cmdset_unloggedin.UnloggedinCmdSet):
     """
     Command set available to the Session before being logged in.  This
     holds commands like creating a new account, logging in, etc.
@@ -251,7 +251,7 @@ class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):
             print("<<ERROR>>: Error encountered in loading Unlogged cmdset: %s" % err)
 
 
-class SessionCmdSet(default_cmds.SessionCmdSet):
+class SessionCmdSet(cmdset_session.SessionCmdSet):
     """
     This cmdset is made available on Session level once logged in. It
     is empty by default.
