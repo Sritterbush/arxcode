@@ -776,7 +776,6 @@ class CmdWho(MuxPlayerCommand):
         session_list = sorted(session_list, key=lambda o: o.player.key.lower())
         sparse = "sparse" in self.switches
         watch_list = player.db.watching or []
-
         if self.cmdstring == "doing":
             show_session_data = False
         else:
@@ -800,7 +799,6 @@ class CmdWho(MuxPlayerCommand):
                                              "{wOn for",
                                              "{wIdle",
                                              "{wRoom",
-                                             # "{wCmds",
                                              "{wProtocol",
                                              "{wHost"])
             for session in session_list:
@@ -838,14 +836,13 @@ class CmdWho(MuxPlayerCommand):
                     nplayers -= 1
                     continue
                 pname = crop(pname, width=18)
+                protocol = "ajax" if "ajax" in session.protocol_key else session.protocol_key
                 table.add_row([pname,
                                time_format(delta_conn, 0),
                                time_format(delta_cmd, 1),
-                               # hasattr(plr_pobject, "location") and plr_pobject.location.key or "None",
                                hasattr(plr_pobject, "location") and plr_pobject.location and plr_pobject.location.dbref
                                or "None",
-                               # session.cmd_total,
-                               session.protocol_key,
+                               protocol,
                                isinstance(session.address, tuple) and session.address[0] or session.address])
                 already_counted.append(pc)
         else:
