@@ -1462,11 +1462,8 @@ class CmdKeyring(MuxCommand):
     def func(self):
         caller = self.caller
         room_keys = caller.db.keylist or []
-        # remove any deleted objects
-        if None in room_keys:
-            room_keys = [ob for ob in room_keys if hasattr(ob, 'tags')]
-        # remove any duplicates
-        room_keys = list(set(room_keys))
+        # remove any duplicates and ensure only rooms are in keylist
+        room_keys = [ob for ob in set(room_keys) if hasattr(ob, 'is_room') and ob.is_room]
         caller.db.keylist = room_keys
         chest_keys = caller.db.chestkeylist or []
         # remove any deleted objects
