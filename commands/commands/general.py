@@ -1465,10 +1465,13 @@ class CmdKeyring(MuxCommand):
         # remove any deleted objects
         if None in room_keys:
             room_keys = [ob for ob in room_keys if hasattr(ob, 'tags')]
-            caller.db.keylist = room_keys
+        # remove any duplicates
+        room_keys = list(set(room_keys))
+        caller.db.keylist = room_keys
         chest_keys = caller.db.chestkeylist or []
         # remove any deleted objects
         chest_keys = [ob for ob in chest_keys if hasattr(ob, 'tags') and "deleted" not in ob.tags.all()]
+        chest_keys = list(set(chest_keys))
         caller.db.chestkeylist = chest_keys
         if "remove" in self.switches:
             old = set(room_keys + chest_keys)
