@@ -3766,7 +3766,10 @@ class RPEvent(SharedMemoryModel):
         if self.gms.all():
             msg += "{wGMs:{n %s\n" % ", ".join(str(ob) for ob in self.gms.all())
         if not self.finished and not self.public_event:
-            msg += "{wInvited:{n %s\n" % ", ".join(str(ob) for ob in self.participants.all())
+            # prevent seeing names of invites once a private event has started
+            from datetime import datetime
+            if self.date > datetime.now():
+                msg += "{wInvited:{n %s\n" % ", ".join(str(ob) for ob in self.participants.all())
         msg += "{wLocation:{n %s\n" % self.location
         if not self.public_event:
             msg += "{wPrivate:{n Yes\n"

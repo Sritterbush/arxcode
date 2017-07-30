@@ -124,7 +124,7 @@ class CmdWhere(MuxPlayerCommand):
                     continue
                 if self.args.lower() not in owner.db.abilities:
                     continue
-            name = str(owner)
+            name = owner.key
             if owner and not owner.roster.roster.name == "Active":
                 if "all" not in self.switches:
                     continue
