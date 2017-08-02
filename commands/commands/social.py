@@ -2968,6 +2968,7 @@ class CmdGetInLine(MuxCommand):
             return
         self.line = []
         self.hosts = []
+        self.caller.location.msg_contents("The line has been dismissed by %s." % self.caller)
         return
 
     def create_line(self):
