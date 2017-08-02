@@ -2867,3 +2867,143 @@ class CmdFirstImpression(MuxCommand):
             self.caller.adjust_xp(xp)
             self.msg("You have gained %s xp." % xp)
             targ.db.char_ob.adjust_xp(4)
+
+
+class CmdGetInLine(MuxCommand):
+    """
+    Manages lines of people waiting their turn in events
+
+    Usage:
+        +line
+        +line/getinline
+        +line/createline <other people who can use +line/nextinline>
+        +line/nextinline
+        +line/dropout
+        +line/dismiss
+
+    Allows you to recognize people who are standing in a line for their turn
+    to speak. To create a line, use +line/createline with the names of anyone
+    else who you also want to be able to call upon people to speak. To join
+    a line that's been created, use +line/getinline. If you want to give up
+    your turn, use +line/dropout. If you are done recognizing people, use
+    +line/dismiss.
+    """
+    key = "+line"
+    aliases = ["getinline", "nextinline"]
+    locks = "cmd: all()"
+    help_category = "Social"
+
+    @property
+    def line(self):
+        loc = self.caller.location
+        if loc.ndb.event_line is None:
+            loc.ndb.event_line = []
+        loc.ndb.event_line = [ob for ob in loc.ndb.event_line if ob.location == loc]
+        return loc.ndb.event_line
+
+    @line.setter
+    def line(self, val):
+        self.caller.location.ndb.event_line = val
+
+    @property
+    def hosts(self):
+        loc = self.caller.location
+        if loc.ndb.event_line_hosts is None:
+            loc.ndb.event_line_hosts = []
+        loc.ndb.event_line_hosts = [ob for ob in loc.ndb.event_line_hosts if ob.location == loc]
+        return loc.ndb.event_line_hosts
+
+    @hosts.setter
+    def hosts(self, val):
+        self.caller.location.ndb.event_line_hosts = val
+
+    def check_line(self):
+        if not self.hosts and not self.line:
+            self.msg("There is no line here. You can create one with +line/createline.")
+            return
+        return True
+
+    def display_line(self):
+        line = self.line
+        hosts = self.hosts
+        if not self.check_line():
+            return
+        self.msg("|wThis line is hosted by:|n %s" % ", ".join(str(ob) for ob in hosts))
+        self.msg("|wCurrent line order:|n %s" % ", ".join(str(ob) for ob in line))
+
+    def join_line(self):
+        if not self.check_line():
+            return
+        if self.caller in self.line:
+            self.msg("You are already in the line.")
+            return
+        self.line.append(self.caller)
+        self.caller.location.msg_contents("%s has joined the line." % self.caller)
+
+    def next_in_line(self):
+        if not self.check_line():
+            return
+        line = self.line
+        if not line:
+            self.msg("There is no one left in line.")
+            return
+        next_guy = line.pop(0)
+        self.caller.location.msg_contents("|553It is now %s's turn to speak." % next_guy)
+
+    def drop_out(self):
+        line = self.line
+        if self.caller in line:
+            line.remove(self.caller)
+            self.msg("You have been removed from the line.")
+            return
+        self.msg("You are not in the line.")
+        self.display_line()
+
+    def dismiss(self):
+        line = self.line
+        hosts = self.hosts
+        caller = self.caller
+        if line and caller not in hosts and not caller.check_permstring("builders"):
+            self.msg("You do not have permission to dismiss the line.")
+            return
+        self.line = []
+        self.hosts = []
+        return
+
+    def create_line(self):
+        if self.line:
+            self.msg("There is a line here already.")
+            self.display_line()
+            return
+        self.line = []
+        other_hosts = [self.caller.search(arg) for arg in self.lhslist]
+        other_hosts = [ob for ob in other_hosts if ob and ob.player]
+        other_hosts.append(self.caller)
+        self.hosts = other_hosts
+        self.display_line()
+
+    # noinspection PyUnresolvedReferences
+    def func(self):
+        # check what aliases we have used
+        if self.cmdstring == "getinline":
+            self.switches.append("getinline")
+        if self.cmdstring == "nextinline":
+            self.switches.append("nextinline")
+        if not self.args and not self.switches:
+            self.display_line()
+            return
+        if "getinline" in self.switches:
+            self.join_line()
+            return
+        if "nextinline" in self.switches:
+            self.next_in_line()
+            return
+        if "dropout" in self.switches:
+            self.drop_out()
+            return
+        if "dismiss" in self.switches:
+            self.dismiss()
+            return
+        if "createline" in self.switches:
+            self.create_line()
+            return
