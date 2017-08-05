@@ -123,6 +123,7 @@ class CombatManager(BaseScript):
         self.ndb.ready = []  # those ready for phase 2
         self.ndb.not_ready = []  # not ready for phase 2
         self.ndb.lethal = not self.obj.tags.get("nonlethal_combat")
+        self.ndb.random_deaths = not self.obj.tags.get("no_random_deaths")
         self.ndb.max_rounds = 250
         self.ndb.rounds = 0
         # to ensure proper shutdown, prevent some timing errors

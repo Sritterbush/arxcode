@@ -80,6 +80,7 @@ class CombatHandler(object):
             self.autoattack = True
         self._ready = False
         self.lethal = True
+        self.random_deaths = True
         self.initialize_values()
 
     @property
@@ -168,6 +169,7 @@ class CombatHandler(object):
                 self.add_defender(ob)
         if combat:
             self.lethal = combat.ndb.lethal
+            self.random_deaths = combat.ndb.random_deaths
         if not self.combat.ndb.initializing:
             self.reset()
 
@@ -191,6 +193,9 @@ class CombatHandler(object):
             self.char.temp_losses = 0
         except AttributeError:
             pass
+        # reset these values now that we're out of combat
+        self.lethal = True
+        self.random_deaths = True
 
     def setup_weapon(self, weapon=None):
         self.weapon = weapon
@@ -1044,6 +1049,7 @@ class CombatHandler(object):
         target.combat.take_damage(dmg, lethal)
 
     def take_damage(self, dmg, lethal=True, allow_one_shot=True):
+        allow_one_shot = allow_one_shot and self.random_deaths
         target = self.char
         loc = target.location
         # some flags so messaging is in proper order
