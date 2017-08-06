@@ -394,11 +394,9 @@ class CmdCraft(MuxCommand):
                 if not validate_name(self.rhs):
                     caller.msg("That is not a valid name.")
                     return
-                cost = recipe.value / 100
-                if cost > caller.db.currency:
-                    caller.msg("You cannot afford to have its name changed.")
+                if targ.tags.get("plot"):
+                    self.msg("It cannot be renamed.")
                     return
-                caller.pay_money(cost)
                 targ.aliases.clear()
                 targ.name = self.rhs
                 caller.msg("Changed name to %s." % targ)
