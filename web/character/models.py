@@ -1136,7 +1136,7 @@ def get_random_clue(topic, character):
     query = Q()
     for k_word in k_words:
         query |= Q(search_tags__name__iexact=k_word)
-    candidates = Clue.objects.filter(Q(allow_investigation=True) & Q(query) &
+    candidates = Clue.objects.filter(Q(allow_investigation=True) & Q(query) & Q(search_tags__isnull=False) &
                                      ~Q(characters=character)).order_by('rating').distinct()
     try:
         choices = []
