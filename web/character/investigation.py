@@ -25,6 +25,8 @@ class InvestigationFormCommand(MuxCommand):
     def check_ap_cost(self, cost=None):
         if not cost:
             cost = self.ap_cost
+            if cost < 0:
+                cost = 0
         if self.caller.db.player_ob.pay_action_points(cost):
             return True
         else:
@@ -687,7 +689,10 @@ class CmdInvestigate(InvestigationFormCommand):
     @property
     def ap_cost(self):
         try:
-            return 50 - (self.caller.db.skills.get('investigation', 0) * 5)
+            cost = 50 - (self.caller.db.skills.get('investigation', 0) * 5)
+            if cost < 0:
+                cost = 0
+            return cost
         except AttributeError:
             return 50
 
