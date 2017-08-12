@@ -708,7 +708,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         """
         Called just after puppeting has completed.
 
-        :type self: DefaultCharacter
+        :type self: Character
         """
 
         super(Character, self).at_post_puppet()
@@ -733,7 +733,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         otherwise the character object will remain in the room also after the
         player logged off ("headless", so to say).
 
-        :type self: DefaultCharacter
+        :type self: Character
         :type player: Player
         :type session: Session
         """
@@ -935,7 +935,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     def attack_modifier(self, value):
         self.db.attack_modifier = value
 
-    def search(self,  # type: DefaultCharacter
+    def search(self,  # type: Character
                searchdata, global_search=False, use_nicks=True, typeclass=None, location=None,
                attribute_name=None, quiet=False, exact=False, candidates=None, nofound_string=None,
                multimatch_string=None, use_dbref=True):

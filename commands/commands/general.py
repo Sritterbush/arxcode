@@ -1651,7 +1651,7 @@ class CmdTidyUp(MuxCommand):
                 found.append(char)
                 continue
             if time > 3600:
-                player.execute_cmd("@ooc")
+                player.unpuppet_all()
                 found.append(char)
         if not found:
             self.msg("No characters were found to be idle.")
