@@ -325,20 +325,6 @@ class CmdTrain(MuxCommand):
             return 0
         return 100 - 15 * self.max_skill(character)
 
-    def post_training(self, targ):
-        """Set attributes after training checks."""
-        caller = self.caller
-        currently_training = self.currently_training(caller)
-        # num_trained is redundancy to attempt to prevent cache errors.
-        num_trained = caller.db.num_trained or len(currently_training)
-        if num_trained < len(currently_training):
-            num_trained = len(currently_training)
-        num_trained += 1
-        targ.db.trainer = caller
-        currently_training.append(targ)
-        caller.db.currently_training = currently_training
-        caller.db.num_trained = num_trained
-
     @staticmethod
     def currently_training(character):
         if character.db.currently_training is None:
@@ -394,52 +380,54 @@ class CmdTrain(MuxCommand):
                     targ = player.retainers.get(id=self.rhs).dbobj
                 else:
                     targ = player.retainers.get(name__iexact=self.rhs).dbobj
+                if not targ or not targ.pk:
+                    raise Agent.DoesNotExist
             except (Agent.DoesNotExist, AttributeError):
                 self.msg("Could not find %s's retainer named %s." % (player, self.rhs))
                 return
-            targ.train_agent(caller, cmd=self)
-            return
+            caller_msg = "You have trained %s." % targ
+            targ_msg = ""
         else:
             targ = caller.search(self.lhs)
-        if not targ:
-            caller.msg("No one to train by the name of %s." % self.lhs)
-            return
-        if not targ.player:
-            caller.msg("Use the /retainer switch to train non-player-characters.")
-            return
-        if targ.db.trainer:
-            self.msg("They are already being trained.")
-            return
-        if "stat" in switches:
-            stat = self.rhs.lower()
-            if not self.check_attribute_name(stats_and_skills.VALID_STATS, "stat"):
+            if not targ:
+                caller.msg("No one to train by the name of %s." % self.lhs)
                 return
-            if not self.check_attribute_value(caller.attributes.get(stat), targ.attributes.get(stat)):
+            if not targ.player:
+                caller.msg("Use the /retainer switch to train non-player-characters.")
                 return
-        elif "skill" in switches:
-            skill = self.rhs.lower()
-            if not self.check_attribute_name(stats_and_skills.VALID_SKILLS, "skill"):
+            if "stat" in switches:
+                stat = self.rhs.lower()
+                if not self.check_attribute_name(stats_and_skills.VALID_STATS, "stat"):
+                    return
+                if not self.check_attribute_value(caller.attributes.get(stat), targ.attributes.get(stat)):
+                    return
+            elif "skill" in switches:
+                skill = self.rhs.lower()
+                if not self.check_attribute_name(stats_and_skills.VALID_SKILLS, "skill"):
+                    return
+                if not self.check_attribute_value(caller.db.skills.get(skill, 0), targ.db.skills.get(skill, 0)):
+                    return
+            elif "ability" in switches:
+                ability = self.rhs.lower()
+                if not self.check_attribute_name(stats_and_skills.VALID_ABILITIES, "ability"):
+                    return
+                if not caller.db.abilities:
+                    caller.db.abilities = {}
+                if not targ.db.abilities:
+                    targ.db.abilities = {}
+                if not self.check_attribute_value(caller.db.abilities.get(ability, 0),
+                                                  targ.db.abilities.get(ability, 0)):
+                    return
+            else:
+                caller.msg("Usage: train/[stat or skill] <character>=<stat or skill name>")
                 return
-            if not self.check_attribute_value(caller.db.skills.get(skill, 0), targ.db.skills.get(skill, 0)):
-                return
-        elif "ability" in switches:
-            ability = self.rhs.lower()
-            if not self.check_attribute_name(stats_and_skills.VALID_ABILITIES, "ability"):
-                return
-            if not caller.db.abilities:
-                caller.db.abilities = {}
-            if not targ.db.abilities:
-                targ.db.abilities = {}
-            if not self.check_attribute_value(caller.db.abilities.get(ability, 0), targ.db.abilities.get(ability, 0)):
-                return
-        else:
-            caller.msg("Usage: train/[stat or skill] <character>=<stat or skill name>")
+            caller_msg = "You have provided training to %s for them to increase their %s." % (targ.name, self.rhs)
+            targ_msg = "%s has provided you training, helping you increase your %s." % (caller.name, self.rhs)
+        if not targ.can_be_trained_by(caller):
             return
         if not self.pay_ap_cost(caller):
             return
-        self.post_training(targ)
-        caller.msg("You have provided training to %s for them to increase their %s." % (targ.name, self.rhs))
-        targ.msg("%s has provided you training, helping you increase your %s." % (caller.name, self.rhs))
+        targ.post_training(caller, trainer_msg=caller_msg, targ_msg=targ_msg)
         return
          
         

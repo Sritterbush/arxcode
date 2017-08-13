@@ -962,3 +962,43 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         _AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
         return _AT_SEARCH_RESULT(results, self, query=searchdata,  nofound_string=nofound_string,
                                  multimatch_string=multimatch_string)
+
+    def can_be_trained_by(self, trainer):
+        """
+        Checks if we can be trained by trainer. If False, send a message to trainer and let them know why. The default
+        implementation will just return True, but this is overridden in Retainers, for example.
+
+        Args:
+            trainer: Character to check training
+
+        Returns:
+            True if we can be trained, False otherwise.
+        """
+        if self.db.trainer:
+            trainer.msg("They are already being trained.")
+            return False
+        return True
+
+    def post_training(self, trainer, trainer_msg="", targ_msg=""):
+        """
+        Handles bookkeeping after this character is trained.
+
+        Args:
+            trainer: Character that trained us.
+            trainer_msg (str): Message to send to trainer
+            targ_msg (str): Message to send to this Character
+        """
+        currently_training = self.currently_training(trainer)
+        # num_trained is redundancy to attempt to prevent cache errors.
+        num_trained = trainer.db.num_trained or len(currently_training)
+        if num_trained < len(currently_training):
+            num_trained = len(currently_training)
+        num_trained += 1
+        self.db.trainer = trainer
+        currently_training.append(self)
+        trainer.db.currently_training = currently_training
+        trainer.db.num_trained = num_trained
+        if trainer_msg:
+            trainer.msg(trainer_msg)
+        if targ_msg:
+            self.msg(targ_msg)

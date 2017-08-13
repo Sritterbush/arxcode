@@ -628,7 +628,7 @@ class AgentMixin(object):
         """
         return self.agentob.agent_class
 
-    def train_agent(self, trainer, cmd=None):
+    def train_agent(self, trainer):
         trainer.msg("This type of agent cannot be trained.")
         return False
     
@@ -710,7 +710,7 @@ class Retainer(AgentMixin, Npc):
         cost, res_type = ABILITY_COSTS.get(attr)
         return cost, cost, res_type
 
-    def can_train(self, trainer):
+    def can_be_trained_by(self, trainer):
         skill = trainer.db.skills.get(self.training_skill, 0)
         if not skill:
             trainer.msg("You must have %s skill to train them." % self.training_skill)
@@ -726,17 +726,16 @@ class Retainer(AgentMixin, Npc):
             return False
         return True
 
-    def train_agent(self, trainer, cmd=None):
+    def post_training(self, trainer, trainer_msg="", targ_msg=""):
+        self.train_agent(trainer)
+        super(Retainer, self).post_training(trainer, trainer_msg=trainer_msg, targ_msg=targ_msg)
+
+    def train_agent(self, trainer):
         """
         Gives xp to this agent if they haven't been trained yet this week.
         The skill used to train them is based on our type - animal ken for
         animals, teaching for non-animals.
         """
-        if not self.can_train(trainer):
-            return
-        if cmd and not cmd.pay_ap_cost(trainer):
-            return
-        self.db.trainer = trainer
         currently_training = trainer.db.currently_training or []
         if self in currently_training:
             # this should not be possible. Nonetheless, it has happened.
@@ -748,12 +747,6 @@ class Retainer(AgentMixin, Npc):
                              use_real_name=use_real_name)
         self.agent.xp += roll
         self.agent.save()
-        # redundant attribute to try to combat cache errors
-        num_trained = trainer.db.num_trained or len(currently_training)
-        num_trained += 1
-        trainer.db.num_trained = num_trained
-        currently_training.append(self)
-        trainer.db.currently_training = currently_training
         trainer.msg("You have trained %s, giving them %s xp." % (self, roll))
         msg = "%s has trained %s, giving them %s xp." % (trainer, self, roll)
         self.inform_owner(msg)
