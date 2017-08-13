@@ -1143,13 +1143,14 @@ def get_random_clue(topic, character):
     # build a case-insensitive query for each keyword of the investigation
     query = Q()
     for k_word in k_words:
+        if not k_word:
+            continue
         query |= Q(search_tags__name__iexact=k_word)
-    candidates = Clue.objects.filter(Q(allow_investigation=True) & Q(query) & Q(search_tags__isnull=False) &
-                                     ~Q(characters=character)).order_by('rating').distinct()
+    # only certain clues - ones that can be investigated, exclude ones we've already started
+    candidates = Clue.objects.filter(allow_investigation=True, search_tags__isnull=False).exclude(characters=character)
+    # now match them by keyword
+    candidates = candidates.filter(query).distinct()
     try:
-        choices = []
-        for x in range(0, 3):
-            choices.append(random.randint(0, len(candidates) - 1))
-        return candidates[min(choices)]
-    except (IndexError, ValueError):
+        return random.choice(candidates)
+    except (IndexError, TypeError):
         return None
