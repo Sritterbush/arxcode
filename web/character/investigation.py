@@ -1003,12 +1003,16 @@ class CmdAdminInvestigations(MuxPlayerCommand):
         @gminvest/result <ID #>=<result string>
         @gminvest/cluemessage <ID #>=<message>
         @gminvest/setprogress <ID #>=<amount>
+        @gminvest/search <character>=<keyword>
 
     Checks active investigations, and allows you to override their
     automatic results. You can /roll to see a result - base difficulty
     is 50 unless you override it. Specifying a result string will
     cause that to be returned to them in weekly maintenance, otherwise
     it'll process the event as normal to find a clue based on the topic.
+
+    /search is used to search undiscovered clues that match a keyword for
+    a given character to try to find possible matches.
     """
     key = "@gminvest"
     aliases = ["@gminvestigations"]
@@ -1055,6 +1059,14 @@ class CmdAdminInvestigations(MuxPlayerCommand):
         if not self.args:
             self.disp_active()
             return
+        if "search" in self.switches:
+            player = self.caller.search(self.lhs)
+            if not player:
+                return
+            undisco = player.roster.undiscovered_clues.filter(Q(desc__icontains=self.rhs) | Q(name__icontains=self.rhs)
+                                                              | Q(search_tags__name__icontains=self.rhs))
+            self.msg("Clues that match: %s" % ", ".join("(ID:%s, %s)" % (ob.id, ob) for ob in undisco))
+            return
         try:
             if "view" in self.switches or not self.switches:
                 ob = Investigation.objects.get(id=int(self.args))
@@ -1071,6 +1083,9 @@ class CmdAdminInvestigations(MuxPlayerCommand):
                     targ = Clue.objects.get(id=int(self.rhs))
                 except Clue.DoesNotExist:
                     caller.msg("No clue by that ID.")
+                    return
+                if targ in ob.character.discovered_clues:
+                    self.msg("|rThey already have that clue. Aborting.")
                     return
                 ob.clue_target = targ
                 ob.save()

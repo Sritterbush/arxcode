@@ -148,6 +148,14 @@ class RosterEntry(SharedMemoryModel):
         return self.clues.filter(roll__gte=F('clue__rating') * DISCO_MULT)
 
     @property
+    def discovered_clues(self):
+        return Clue.objects.filter(id__in=[ob.clue.id for ob in self.finished_clues])
+
+    @property
+    def undiscovered_clues(self):
+        return Clue.objects.exclude(id__in=[ob.clue.id for ob in self.finished_clues])
+
+    @property
     def alts(self):
         if self.current_account:
             return self.current_account.characters.exclude(id=self.id)
