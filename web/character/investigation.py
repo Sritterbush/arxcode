@@ -1064,7 +1064,7 @@ class CmdAdminInvestigations(MuxPlayerCommand):
             if not player:
                 return
             undisco = player.roster.undiscovered_clues.filter(Q(desc__icontains=self.rhs) | Q(name__icontains=self.rhs)
-                                                              | Q(search_tags__name__icontains=self.rhs))
+                                                              | Q(search_tags__name__icontains=self.rhs)).distinct()
             self.msg("Clues that match: %s" % ", ".join("(ID:%s, %s)" % (ob.id, ob) for ob in undisco))
             return
         try:
