@@ -737,8 +737,15 @@ class CmdVoteAFK(MuxCommand):
         if not combat:
             return
         assert caller in combat.ndb.combatants, "Error: caller not in combat."
-        targ = caller.search(self.args)
+        targ = caller.player.search(self.args)
+        if not targ:
+            return
+        targ = targ.db.char_ob
         if not check_targ(caller, targ, "+vote_afk"):
+            return
+        # if they're no longer there, just remove them automatically
+        if targ.location != combat.ndb.combat_location:
+            combat.remove_combatant(targ)
             return
         combat.afk_check(caller, targ)
 
@@ -798,14 +805,18 @@ class CmdObserveCombat(MuxCommand):
     def func(self):
         """Execute command."""
         caller = self.caller
+        if "stop" in self.switches:
+            combat = self.caller.combat.combat
+            if not combat:
+                self.msg("You are not watching a combat.")
+                return
+            combat.remove_observer(caller, quiet=False)
+            return
         combat = check_combat(caller)
         if not combat:
             return
         if caller in combat.ndb.combatants:
             caller.msg("You are already involved in this combat.")
-            return
-        if "stop" in self.switches:
-            combat.remove_observer(caller, quiet=False)
             return
         combat.add_observer(caller)
 

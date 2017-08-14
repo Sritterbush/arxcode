@@ -470,7 +470,7 @@ class CombatManager(BaseScript):
         self.send_intro_message(character, combatant=False)
         self.display_phase_status(character, disp_intro=False)
         if character not in self.ndb.observers:
-            character.ndb.combat_manager = self
+            character.combat.combat = self
             self.ndb.observers.append(character)
             return
         
@@ -485,6 +485,8 @@ class CombatManager(BaseScript):
             return
         if not quiet:
             character.msg("You were not an observer, but stop anyway.")
+        if character not in self.ndb.combatants:
+            character.combat.combat = None
 
     def build_initiative_list(self):
         """
