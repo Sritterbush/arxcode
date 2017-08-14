@@ -988,7 +988,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             trainer_msg (str): Message to send to trainer
             targ_msg (str): Message to send to this Character
         """
-        currently_training = self.currently_training(trainer)
+        currently_training = trainer.db.currently_training or []
         # num_trained is redundancy to attempt to prevent cache errors.
         num_trained = trainer.db.num_trained or len(currently_training)
         if num_trained < len(currently_training):
