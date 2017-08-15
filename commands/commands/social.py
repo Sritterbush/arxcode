@@ -2277,16 +2277,9 @@ class CmdRandomScene(MuxCommand):
         if newbies:
             choices = choices.exclude(id__in=newbies)
         choices = list(choices)
-        max_iter = 0
-        while len(scenelist) < (self.NUM_SCENES - len(claimlist)):
-            if not choices:
-                break
-            max_iter += 1
-            if max_iter > 10000:
-                raise RuntimeError("Max Recursion Depth Exceeded.")
-            choice = random.choice(choices)
-            if choice not in scenelist:
-                scenelist.append(choice)
+        num_scenes = self.NUM_SCENES - len(claimlist)
+        if num_scenes > 0:
+            scenelist.extend(random.sample(choices, num_scenes))
         scenelist = sorted(scenelist, key=lambda x: x.key.capitalize())
         self.caller.db.player_ob.db.random_scenelist = scenelist
 
