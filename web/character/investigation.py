@@ -717,7 +717,10 @@ class CmdInvestigate(InvestigationFormCommand):
         caller = self.caller
         try:
             skill = caller.db.skills.get("investigation", 0)
-            return self.base_cost - (5 * skill)
+            cost = self.base_cost - (5 * skill)
+            if cost < 0:
+                cost = 0
+            return cost
         except AttributeError:
             return self.base_cost
 
