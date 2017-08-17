@@ -1106,7 +1106,8 @@ class CmdDirections(MuxCommand):
             else:
                 caller.msg("You must give the name of a room.")
             return
-        room = ObjectDB.objects.filter(db_typeclass_path=settings.BASE_ROOM_TYPECLASS, db_key__icontains=self.args)[:10]
+        from rooms import ArxRoom
+        room = ArxRoom.objects.filter(db_key__icontains=self.args)[:10]
         if len(room) > 1:
             exact = [ob for ob in room if self.args in ob.aliases.all()]
             if len(exact) == 1:
@@ -1117,11 +1118,8 @@ class CmdDirections(MuxCommand):
                 caller.msg("Showing directions to %s." % room)
         elif len(room) == 1:
             room = room[0]
-        if not room:
+        if not room or "unmappable" in caller.location.tags.all() or "unmappable" in room.tags.all():
             caller.msg("No matches for %s." % self.args)
-            return
-        if "unmappable" in caller.location.tags.all() or "unmappable" in room.tags.all():
-            self.msg("{rOne of the rooms is unmappable. You cannot get directions there.{n")
             return
         caller.msg("Attempting to find where your destination is in relation to your position." +
                    " Please use {w@map{n if the directions don't have a direct exit there.")
