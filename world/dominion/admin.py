@@ -137,12 +137,29 @@ class MinisterInline(admin.TabularInline):
     extra = 0
 
 
+class RulerListFilter(OrgListFilter):
+    def queryset(self, request, queryset):
+        if self.value() == 'pc':
+            return queryset.filter(house__organization_owner__members__player__player__isnull=False).distinct()
+        if self.value() == 'npc':
+            return queryset.filter(house__organization_owner__members__player__player__isnull=True).distinct()
+
+
 class RulerAdmin(DomAdmin):
     list_display = ('id', 'house', 'liege', 'castellan')
     ordering = ['house']
     search_fields = ['house__organization_owner__name']
     raw_id_fields = ('castellan', 'house', 'liege')
     inlines = (MinisterInline,)
+    list_filter = (RulerListFilter,)
+
+
+class DomainListFilter(OrgListFilter):
+    def queryset(self, request, queryset):
+        if self.value() == 'pc':
+            return queryset.filter(ruler__house__organization_owner__members__player__player__isnull=False).distinct()
+        if self.value() == 'npc':
+            return queryset.filter(ruler__house__organization_owner__members__player__player__isnull=True).distinct()
 
 
 class DomainAdmin(DomAdmin):
@@ -150,6 +167,7 @@ class DomainAdmin(DomAdmin):
     ordering = ['name']
     search_fields = ['name']
     raw_id_fields = ('ruler',)
+    list_filter = (DomainListFilter,)
 
 
 class MaterialTypeAdmin(DomAdmin):
@@ -325,11 +343,20 @@ class MilitaryUnitInline(admin.TabularInline):
     raw_id_fields = ('origin', 'commander', 'orders')
 
 
+class ArmyListFilter(OrgListFilter):
+    def queryset(self, request, queryset):
+        if self.value() == 'pc':
+            return queryset.filter(owner__organization_owner__members__player__player__isnull=False).distinct()
+        if self.value() == 'npc':
+            return queryset.filter(owner__organization_owner__members__player__player__isnull=True).distinct()
+
+
 class ArmyAdmin(DomAdmin):
     list_display = ('id', 'name', 'owner', 'domain')
     raw_id_fields = ('owner', 'domain', 'land', 'castle', 'general', 'temp_owner', 'group')
     search_fields = ('name', 'domain__name', 'owner__player__player__username', 'owner__organization_owner__name')
     inlines = (MilitaryUnitInline,)
+    list_filter = (ArmyListFilter,)
 
 
 # Register your models here.

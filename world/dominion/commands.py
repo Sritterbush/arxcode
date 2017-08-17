@@ -347,13 +347,15 @@ class CmdAdmDomain(MuxPlayerCommand):
             caller.msg("Must provide a domain number.")
             return
         try:
-            d_id = int(self.lhs)
-            dom = Domain.objects.get(id=d_id)
+            if self.lhs.isdigit():
+                dom = Domain.objects.get(id=self.lhs)
+            else:
+                dom = Domain.objects.get(name__iexact=self.lhs)
         except ValueError:
             caller.msg("Domain must be a number for the domain's ID.")
             return
         except Domain.DoesNotExist:
-            caller.msg("No domain by that number.")
+            caller.msg("No domain by that number or name.")
             return
         if "liege" in self.switches:
             try:
