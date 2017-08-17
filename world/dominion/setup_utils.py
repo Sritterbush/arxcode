@@ -199,7 +199,7 @@ def convert_domain(domain, srank=None, male=None):
         castle.save()
             
 
-def setup_army(domain, srank, name, owner, replace=False, setup_army=True, setup_navy=True):
+def setup_army(domain, srank, name, owner, replace=False, setup_armies=True, setup_navy=True):
     """
     Creates an army for a given domain. We determine if the domain is a land or naval
     power and adjust the strength of their army or navy, respectively. If it's a normal
@@ -213,21 +213,21 @@ def setup_army(domain, srank, name, owner, replace=False, setup_army=True, setup
             name (str): Name to give the army
             owner (AssetOwner): The object that owns this army
             replace (bool): Whether we replace existing troops rather than add to them.
-            setup_army (bool): Whether to set up an army.
+            setup_armies (bool): Whether to set up an army.
             setup_navy (bool): Whether to set up a navy
     """
     land_srank = srank
     navy_srank = srank
     # Determine if we should have different navy and land strengths
     # If the Domain's land's region is the Mourning Isles, it's a naval power
-    if domain.region.name == "Mourning Isles":
+    if domain.land.region.name == "Mourning Isles":
         navy_srank -= 1
         land_srank += 1
     # If the Domain is landlocked, it can't have a navy
     elif domain.land.landlocked:
         navy_srank = 11
         land_srank -= 1
-    if not setup_army:
+    if not setup_armies:
         land_srank = None
     if not setup_navy:
         navy_srank = None
@@ -608,10 +608,13 @@ def update_navies_and_armies(adjust_armies=False, adjust_navies=True, replace=Fa
     for domain in pc_domains:
         owner = domain.ruler.house
         name = ""  # Do not override existing name
-        srank = domain.ruler.castellan.player.db.char_ob.db.social_rank
-        if not srank or srank < 1 or srank > 6:
+        try:
+            srank = domain.ruler.castellan.player.db.char_ob.db.social_rank
+            if not srank or srank < 1 or srank > 6:
+                raise ValueError
+        except AttributeError:
             raise ValueError("%s does not have valid srank for ruler." % domain)
-        setup_army(domain, srank, name, owner, replace=replace, setup_army=adjust_armies, setup_navy=adjust_navies)
+        setup_army(domain, srank, name, owner, replace=replace, setup_armies=adjust_armies, setup_navy=adjust_navies)
         
         
 def do_thrax_script():
