@@ -199,8 +199,38 @@ def convert_domain(domain, srank=None, male=None):
         castle.save()
             
 
-def setup_army(domain, srank, name, owner):
-    # create new army in domain
+def setup_army(domain, srank, name, owner, replace=False, setup_army=True, setup_navy=True):
+    """
+    Creates an army for a given domain. We determine if the domain is a land or naval
+    power and adjust the strength of their army or navy, respectively. If it's a normal
+    domain, its naval and land strengths will be normal for its social rank. We can determine
+    whether we set up both our army and our navy with the setup_army and setup_navy optional
+    arguments.
+    
+        Args:
+            domain: Domain object model
+            srank (int): our ruler's social rank, determines our strength
+            name (str): Name to give the army
+            owner (AssetOwner): The object that owns this army
+            replace (bool): Whether we replace existing troops rather than add to them.
+            setup_army (bool): Whether to set up an army.
+            setup_navy (bool): Whether to set up a navy
+    """
+    land_srank = srank
+    navy_srank = srank
+    # Determine if we should have different navy and land strengths
+    # If the Domain's land's region is the Mourning Isles, it's a naval power
+    if domain.region.name == "Mourning Isles":
+        navy_srank -= 1
+        land_srank += 1
+    # If the Domain is landlocked, it can't have a navy
+    elif domain.land.landlocked:
+        navy_srank = 11
+        land_srank -= 1
+    if not setup_army:
+        land_srank = None
+    if not setup_navy:
+        navy_srank = None
     try:
         army = domain.armies.all()[0]
         if name:
@@ -208,51 +238,139 @@ def setup_army(domain, srank, name, owner):
         army.save()
     except (IndexError, AttributeError):
         army = domain.armies.create(name=name, land=domain.land, owner=owner)
-    setup_units(army, srank)
+    setup_units(army, land_srank, navy_srank, replace)
+    
 
-
-def setup_units(army, srank):
+def setup_land_units(srank):
+    """
+    Sets up our land forces for an effective social rank. We go through an populate a dictionary
+    of constants that represent the IDs of unit types and their quantities. That dict is then
+    returned to setup_units for setting the base size of our navy.
+    
+        Args:
+            srank (int): Our effective social rank for determing the size of our army.
+            
+        Returns:
+            A dict of unit IDs to the quanity of those troops.
+    """
     INF = unit_constants.INFANTRY
     PIK = unit_constants.PIKE
     CAV = unit_constants.CAVALRY
     ARC = unit_constants.ARCHERS
     units = {}
     # add more units based on srank
-    if srank == 6:
+    if srank > 6:
+        units[INF] = 75
+        units[PIK] = 30
+        units[CAV] = 15
+        units[ARC] = 30
+    elif srank == 6:
         units[INF] = 200
         units[PIK] = 70
         units[CAV] = 40
         units[ARC] = 70
-    if srank == 5:
+    elif srank == 5:
         units[INF] = 375
         units[PIK] = 125
         units[CAV] = 70
         units[ARC] = 125
-    if srank == 4:
+    elif srank == 4:
         units[INF] = 750
         units[PIK] = 250
         units[CAV] = 125
         units[ARC] = 250
-    if srank == 3:
+    elif srank == 3:
         units[INF] = 1500
         units[PIK] = 500
         units[CAV] = 250
         units[ARC] = 500
-    if srank == 2:
+    elif srank == 2:
         units[INF] = 3000
         units[PIK] = 1000
         units[CAV] = 500
         units[ARC] = 1000
-    if srank == 1:
+    elif srank == 1:
         units[INF] = 5000
         units[PIK] = 1500
         units[CAV] = 1000
         units[ARC] = 1500
+    elif srank < 1:
+        units[INF] = 10000
+        units[PIK] = 3000
+        units[CAV] = 2000
+        units[ARC] = 3000
+    return units
+
+
+def setup_naval_units(srank):
+    """
+    Sets up our naval forces for an effective social rank. We go through an populate a dictionary
+    of constants that represent the IDs of unit types and their quantities. That dict is then
+    returned to setup_units for setting the base size of our navy.
+    
+        Args:
+            srank (int): Our effective social rank for determing the size of our navy.
+            
+        Returns:
+            A dict of unit IDs to the quanity of those ships.
+    """
+    LS = unit_constants.LONGSHIP
+    GAL = unit_constants.GALLEY
+    DRO = unit_constants.DROMOND
+    units = {}
+    if srank == 6:
+        units[LS] = 3
+    elif srank == 5:
+        units[LS] = 3
+        units[GAL] = 1
+    elif srank == 4:
+        units[LS] = 6
+        units[GAL] = 2
+    elif srank == 3:
+        units[LS] = 10
+        units[GAL] = 3
+        units[DRO] = 1
+    elif srank == 2:
+        units[LS] = 20
+        units[GAL] = 5
+        units[DRO] = 2
+    elif srank == 1:
+        units[LS] = 40
+        units[GAL] = 10
+        units[DRO] = 3
+    elif srank < 1:
+        units[LS] = 80
+        units[GAL] = 20
+        units[DRO] = 4
+    return units
+
+
+def setup_units(army, land_srank=None, naval_srank=None, replace=False):
+    """
+    Sets up the units for a given army. When this is called, we should already have determined
+    if the army belongs to a land or naval power, which sets its land_rank and naval_srank.
+    Those values determine the size of its army and navy, respectively.
+    
+        Args:
+            army (Army): The army object that we'll be adding units to.
+            land_srank (int): Our effective social rank for determining the size of land forces.
+            naval_srank (int): Our social rank for determining the size of naval forces.
+            replace (bool): Whether we replace existing troops rather than add to them.
+    """
+    units = {}
+    # get our land and naval unit amounts
+    if land_srank is not None:
+        units.update(setup_land_units(land_srank))
+    if naval_srank is not None:
+        units.update(setup_naval_units(naval_srank))
     # populate the army with units
     for unit in units:
         try:
             squad = army.units.get(unit_type=unit)
-            squad.quantity = units[unit]
+            if replace:
+                squad.quantity = units[unit]
+            else:
+                squad.quantity += units[unit]
             squad.save()
         except ObjectDoesNotExist:
             army.units.create(unit_type=unit, quantity=units[unit])
@@ -475,3 +593,34 @@ def populate(region, end_x, end_y, region_type):
                 # already exists at this x,y, so pass
             except Land.DoesNotExist:
                 region.land_set.create(name=name, terrain=terrain, landlocked=landlocked, x_coord=x, y_coord=y)
+
+
+def update_navies_and_armies(adjust_armies=False, adjust_navies=True, replace=False):
+    """
+    Script we ran a single time in order to update domains with navies.
+    
+        Args:
+            adjust_armies (bool): Whether we adjust their armies too, or just their navies
+            adjust_navies (bool): Whether we should adjust navies.
+            replace (bool): Whether we're replacing existing units or incrementing them
+    """
+    pc_domains = Domain.objects.filter(ruler__house__organization_owner__members__isnull=False).distinct()
+    for domain in pc_domains:
+        owner = domain.ruler.house
+        name = ""  # Do not override existing name
+        srank = domain.ruler.castellan.player.db.char_ob.db.social_rank
+        if not srank or srank < 1 or srank > 6:
+            raise ValueError("%s does not have valid srank for ruler." % domain)
+        setup_army(domain, srank, name, owner, replace=replace, setup_army=adjust_armies, setup_navy=adjust_navies)
+        
+        
+def do_thrax_script():
+    """
+    Call our update_navies_and_armies script with appropriate values to set Thrax and others
+    with the values we want.
+    """
+    # call it twice, with different values
+    # update navies
+    update_navies_and_armies()
+    # now update armies
+    update_navies_and_armies(replace=True, adjust_armies=True, adjust_navies=False)
