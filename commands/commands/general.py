@@ -1106,7 +1106,7 @@ class CmdDirections(MuxCommand):
             else:
                 caller.msg("You must give the name of a room.")
             return
-        from rooms import ArxRoom
+        from typeclasses.rooms import ArxRoom
         room = ArxRoom.objects.filter(db_key__icontains=self.args).exclude(db_tags__db_key="unmappable")[:10]
         if len(room) > 1:
             exact = [ob for ob in room if self.args in ob.aliases.all()]
