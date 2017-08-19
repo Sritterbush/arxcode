@@ -667,6 +667,10 @@ class CmdApp(MuxPlayerCommand):
                     entry.character.nicks.clear()
                     entry.player.attributes.remove("playtimes")
                     entry.player.attributes.remove("rp_preferences")
+                    for character in entry.player.db.watching or []:
+                        watched_by = character.db.watched_by or []
+                        if entry.player in watched_by:
+                            watched_by.remove(entry.player)
                     entry.player.attributes.remove("watching")
                     entry.player.attributes.remove("hide_from_watch")
                     try:
