@@ -2743,8 +2743,15 @@ class CmdFirstImpression(MuxCommand):
 
     def func(self):
         if "mine" in self.switches:
-            self.msg("{wFirst impressions written of you so far:{n")
-            self.msg(self.caller.roster.get_impressions_str())
+            by_str = ""
+            player = None
+            if self.args:
+                player = self.caller.player.search(self.args)
+                if not player:
+                    return
+                by_str = " by %s" % self.args.capitalize()
+            self.msg("{wFirst impressions written of you so far%s:{n" % by_str)
+            self.msg(self.caller.roster.get_impressions_str(player=player))
             return
         if not self.args:
             self.list_valid()

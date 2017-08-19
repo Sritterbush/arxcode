@@ -202,7 +202,11 @@ class RosterEntry(SharedMemoryModel):
         except AttributeError:
             return []
 
-    def get_impressions_str(self):
+    def get_impressions_str(self, player=None):
+        qs = self.current_impressions.filter(private=False)
+        if player:
+            qs = qs.filter(from_account__entry__player=player)
+
         def public_str(obj):
             if obj.viewable_by_all:
                 return "{w(Shared by Both){n"
@@ -212,7 +216,7 @@ class RosterEntry(SharedMemoryModel):
                 return "{w(Marked Public by You){n"
             return "{w(Private){n"
         return "\n\n".join("{c%s{n wrote %s: %s" % (ob.writer, public_str(ob),
-                                                    ob.summary) for ob in self.public_impressions)
+                                                    ob.summary) for ob in qs)
 
 
 class Story(SharedMemoryModel):
