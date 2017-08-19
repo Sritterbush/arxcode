@@ -80,18 +80,18 @@ class EventManager(Script):
             diff = tdiff(event.date).total_seconds()
             if diff < 0:
                 self.start_event(event)
-                return
+                continue
             if diff < 300:
                 if event.id not in self.db.pending_start:
                     reactor.callLater(diff, delayed_start, event.id)
                     self.db.pending_start[event.id] = diff
-                return
+                continue
             if diff < 600:
                 self.announce_upcoming_event(event, diff)
-                return
+                continue
             if 1500 < diff <= 1800:
                 self.announce_upcoming_event(event, diff)
-                return
+                continue
             if 3300 < diff <= 3600:
                 self.announce_upcoming_event(event, diff)
 
