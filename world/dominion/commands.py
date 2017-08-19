@@ -1677,9 +1677,11 @@ class CmdArmy(MuxPlayerCommand):
         army = self.find_army(self.lhs)
         if not army:
             return
-        if "morale":
+        if "morale" in self.switches:
             pass
         if not army.can_change(caller):
+            self.msg("You do not meet the required permission check for 'army' for the army's owner.")
+            self.msg("Org permissions can be set with org/perm and a minimum rank.")
             return
         if "dissolve" in self.switches:
             if army.units.all():
@@ -1688,7 +1690,7 @@ class CmdArmy(MuxPlayerCommand):
             army.delete()
             self.msg("Army disbanded.")
             return
-        if "rename" in self.switches or "desc" in self.switches:
+        if "rename" in self.switches or "desc" in self.switches or "name" in self.switches:
             if not self.rhs:
                 self.msg("Change it how?")
                 return
