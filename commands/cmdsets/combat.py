@@ -117,6 +117,9 @@ class CmdStartCombat(MuxCommand):
             room.ndb.combat_manager = cscript
             cscript.ndb.combat_location = room
             inform_staff("{wCombat:{n {c%s{n started a fight in room {w%s{n." % (caller.key, room.id))
+            announce_exclude = oblist + [caller]
+            room.msg_contents("{rA fight has broken out here. Use @spectate_combat to watch, or +fight to join.",
+                              exclude=announce_exclude)
         cscript.add_combatant(caller, caller)
         caller.msg("You have started a fight.")
         for ob in oblist:
