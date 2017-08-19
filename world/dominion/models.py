@@ -1878,6 +1878,7 @@ class Organization(SharedMemoryModel):
     member_support_multiplier = models.SmallIntegerField(default=5, blank=5)
     clues = models.ManyToManyField('character.Clue', blank=True, null=True, related_name="orgs",
                                    through="ClueForOrg")
+    theories = models.ManyToManyField('character.Theory', blank=True, null=True, related_name="orgs")
     
     def _get_npc_money(self):
         npc_income = self.npc_members * self.income_per_npc

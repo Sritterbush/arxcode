@@ -1787,6 +1787,8 @@ class CmdOrganization(MuxPlayerCommand):
         @org/secret <player>[=<org name>]
         @org/addclue <clue #>[=<org name>]
         @org/briefing <player>/<clue name>[=<org name>]
+        @org/addtheory <theory #>[=<org name>]
+        @org/theorybriefing <player>/<theory #>[=<org name>]
 
     Lists the houses/organizations your character is a member
     of. Give the name of an organization for more detailed information.
@@ -1840,73 +1842,7 @@ class CmdOrganization(MuxPlayerCommand):
         caller = self.caller
         myorgs = Organization.objects.filter(Q(members__player__player=caller)
                                              & Q(members__deguilded=False))
-        if 'briefing' in self.switches:
-            if len(myorgs) == 0:
-                org = myorgs[0]
-            else:
-                try:
-                    org, member = self.get_org_and_member(caller, myorgs, self.rhs)
-                except Organization.DoesNotExist:
-                    caller.msg("You are not a member of any organization named %s." % self.rhs)
-                    return
-            if not org:
-                return
-            if not org.clues.all():
-                self.msg("Your organization has no clues to share.")
-                return
-            try:
-                targname, cluename = self.lhs.split("/")
-            except (TypeError, ValueError, IndexError):
-                self.msg("You must specify the name of a character and a clue. Ex: bob/secrets of haberdashery")
-                return
-            try:
-                tarmember = org.active_members.get(player__player__username__iexact=targname)
-            except Member.DoesNotExist:
-                self.msg("There is no active member in %s by the name %s." % (org, targname))
-                return
-            from web.character.models import Clue
-            try:
-                clue = org.clues.get(name__iexact=cluename)
-            except Clue.DoesNotExist:
-                self.msg("%s does not know of a clue named %s." % (org, cluename))
-                self.msg("Org clues: %s" % ", ".join(ob.name for ob in org.clues.all()))
-                return
-            cost = (caller.clue_cost / (org.social_modifier + 4)) + 1
-            # if tarmember.player.player == self.caller:
-            #     self.msg("You cannot brief yourself.")
-            #     return
-            if not org.access(caller, 'briefing'):
-                self.msg("You do not have permissions to do a briefing.")
-                return
-            if caller.ndb.briefing_cost_warning != org:
-                caller.ndb.briefing_cost_warning = org
-                self.msg("The cost of the briefing will be %s. Execute the command again to brief them." % cost)
-                return
-            if tarmember.player.player.db.char_ob.location != self.caller.db.char_ob.location:
-                self.msg("You must be in the same room to brief them.")
-                self.msg("Please actually have roleplay about briefing things - "
-                         "a 'clue dump' without context is against the rules.")
-                return
-            caller.ndb.briefing_cost_warning = None
-            # check if they don't need this at all
-            entry = tarmember.player.player.roster
-            entry.refresh_from_db()
-            discovered_clues = [ob.clue for ob in entry.finished_clues]
-            if clue in discovered_clues:
-                self.msg("They cannot learn anything from this briefing.")
-                return
-            if not caller.pay_action_points(cost):
-                self.msg("You cannot afford to pay %s action points." % cost)
-                return
-            entry.discover_clue(clue=clue, method="Briefing")
-            entry.investigations.filter(clue_target=clue).update(clue_target=None)
-            text = "You have been briefed and learned a clue. Use @clue to view them: %s" % clue
-            tarmember.player.player.msg("%s has briefed you on %s's secrets." % (caller.db.char_ob, org))
-            tarmember.player.player.inform(text, category="%s briefing" % org)
-            self.msg("You have briefed %s on your organization's secrets." % tarmember)
-            return
-        if 'addclue' in self.switches:
-            from web.character.models import ClueDiscovery
+        if 'briefing' in self.switches or 'theorybriefing' in self.switches:
             if len(myorgs) == 1:
                 org = myorgs[0]
             else:
@@ -1918,31 +1854,167 @@ class CmdOrganization(MuxPlayerCommand):
             if not org:
                 return
             try:
-                clue = caller.roster.finished_clues.get(id=self.lhs).clue
-            except (ClueDiscovery.DoesNotExist, ValueError):
-                self.msg("No clue by that number found.")
+                targname, clue_name_or_theory_id = self.lhs.split("/")
+            except (TypeError, ValueError, IndexError):
+                self.msg("You must specify the name of a character and a clue. Ex: bob/secrets of haberdashery")
                 return
-            if clue in org.clues.all():
-                self.msg("%s already knows about %s." % (org, clue))
+            try:
+                tarmember = org.active_members.get(player__player__username__iexact=targname)
+            except Member.DoesNotExist:
+                self.msg("There is no active member in %s by the name %s." % (org, targname))
                 return
-            if not clue.allow_sharing:
-                self.msg("%s cannot be shared." % clue)
+            entry = tarmember.player.player.roster
+            entry.refresh_from_db()
+            if tarmember.player.player.db.char_ob.location != self.caller.db.char_ob.location:
+                self.msg("You must be in the same room to brief them.")
+                self.msg("Please actually have roleplay about briefing things - "
+                         "a 'clue dump' without context is against the rules.")
                 return
-            cost = 20 - (2 * org.social_modifier)
-            if cost < 1:
-                cost = 1
-            if caller.ndb.org_clue_cost_warning != org:
-                caller.ndb.org_clue_cost_warning = org
-                self.msg("The cost will be %s. Execute the command again to pay it." % cost)
+
+            def check_clues_or_theories(check_type):
+                """
+                Helper function for saying if our org has clues/theories to share
+                Args:
+                    check_type (str): Either "clues" or "theories".
+
+                Returns:
+                    True or False, based on whether we have clues or theories.
+                """
+                if not getattr(org, check_type).all():
+                    self.msg("Your organization has no %s to share." % check_type)
+                    return False
+                return True
+
+            def get_org_clue_or_theory(check_type):
+                """
+                Helper function to get a theory or clue object from our org.
+
+                Args:
+                    check_type (str): Either "clues" or "theories"
+
+                Returns:
+                    A Theory or Clue object based on our check_type, or None and send an error message
+                    to the caller.
+                """
+                from web.character.models import Clue, Theory
+                plural = "clues" if check_type == "clue" else "theories"
+                queryset = getattr(org, plural).all()
+                attr = "id"
+                try:
+                    if clue_name_or_theory_id.isdigit() or check_type == "theory":
+                        return queryset.get(id=clue_name_or_theory_id)
+                    else:
+                        attr = "name"
+                        return queryset.get(name__iexact=clue_name_or_theory_id)
+                except (Clue.DoesNotExist, Theory.DoesNotExist, ValueError):
+                    self.msg("%s does not know of a %s named %s." % (org, check_type, clue_name_or_theory_id))
+                    self.msg("Org %s: %s" % (plural, ", ".join(str(getattr(qs_obj, attr)) for qs_obj in queryset)))
+                    return
+
+            if "briefing" in self.switches:
+                if not check_clues_or_theories("clues"):
+                    return
+                clue = get_org_clue_or_theory("clue")
+                if not clue:
+                    return
+                cost = (caller.clue_cost / (org.social_modifier + 4)) + 1
+                # if tarmember.player.player == self.caller:
+                #     self.msg("You cannot brief yourself.")
+                #     return
+                if not org.access(caller, 'briefing'):
+                    self.msg("You do not have permissions to do a briefing.")
+                    return
+                if caller.ndb.briefing_cost_warning != org:
+                    caller.ndb.briefing_cost_warning = org
+                    self.msg("The cost of the briefing will be %s. Execute the command again to brief them." % cost)
+                    return
+                caller.ndb.briefing_cost_warning = None
+                # check if they don't need this at all
+                discovered_clues = [ob.clue for ob in entry.finished_clues]
+                if clue in discovered_clues:
+                    self.msg("They cannot learn anything from this briefing.")
+                    return
+                if not caller.pay_action_points(cost):
+                    self.msg("You cannot afford to pay %s action points." % cost)
+                    return
+                entry.discover_clue(clue=clue, method="Briefing")
+                entry.investigations.filter(clue_target=clue).update(clue_target=None)
+                share_type = "clue"
+                cmd_string = "@clue"
+                targ = clue
+            else:
+                if not check_clues_or_theories("theories"):
+                    return
+                theory = get_org_clue_or_theory("theory")
+                if not theory:
+                    return
+                player = entry.player
+                if theory in player.known_theories.all():
+                    self.msg("They already know that theory.")
+                    return
+                player.known_theories.add(theory)
+                share_type = "theory"
+                cmd_string = "@theories"
+                targ = theory
+            text = "You have been briefed and learned a %s. Use %s to view them: %s" % (share_type, cmd_string, targ)
+            tarmember.player.player.msg("%s has briefed you on %s's secrets." % (caller.db.char_ob, org))
+            tarmember.player.player.inform(text, category="%s briefing" % org)
+            self.msg("You have briefed %s on your organization's secrets." % tarmember)
+            return
+        if 'addclue' in self.switches or 'addtheory' in self.switches:
+            from web.character.models import ClueDiscovery
+            if len(myorgs) == 1:
+                org = myorgs[0]
+            else:
+                try:
+                    org, member = self.get_org_and_member(caller, myorgs, self.rhs)
+                except Organization.DoesNotExist:
+                    caller.msg("You are not a member of any organization named %s." % self.rhs)
+                    return
+            if not org:
                 return
-            caller.ndb.org_clue_cost_warning = None
-            if not caller.pay_action_points(cost):
-                self.msg("You cannot afford to pay %s AP." % cost)
-                return
-            ClueForOrg.objects.create(clue=clue, org=org, revealed_by=caller.roster)
-            category = "%s: Clue Added" % org
+            if 'addclue' in self.switches:
+                try:
+                    clue = caller.roster.finished_clues.get(id=self.lhs).clue
+                except (ClueDiscovery.DoesNotExist, ValueError):
+                    self.msg("No clue by that number found.")
+                    return
+                if clue in org.clues.all():
+                    self.msg("%s already knows about %s." % (org, clue))
+                    return
+                if not clue.allow_sharing:
+                    self.msg("%s cannot be shared." % clue)
+                    return
+                cost = 20 - (2 * org.social_modifier)
+                if cost < 1:
+                    cost = 1
+                if caller.ndb.org_clue_cost_warning != org:
+                    caller.ndb.org_clue_cost_warning = org
+                    self.msg("The cost will be %s. Execute the command again to pay it." % cost)
+                    return
+                caller.ndb.org_clue_cost_warning = None
+                if not caller.pay_action_points(cost):
+                    self.msg("You cannot afford to pay %s AP." % cost)
+                    return
+                ClueForOrg.objects.create(clue=clue, org=org, revealed_by=caller.roster)
+                category = "%s: Clue Added" % org
+                targ = clue
+            else:
+                from web.character.models import Theory
+                try:
+                    theories = set(caller.editable_theories.all()) | set(caller.created_theories.all())
+                    theory = Theory.objects.filter(id__in=(ob.id for ob in theories)).get(id=self.lhs)
+                except (Theory.DoesNotExist, ValueError):
+                    self.msg("No theory by that ID found.")
+                    return
+                if theory in org.theories.all():
+                    self.msg("%s already knows about %s." % (org, theory))
+                    return
+                org.theories.add(theory)
+                category = "%s: Theory Added" % theory
+                targ = theory
             text = "%s has shared the clue {w%s{n to {c%s{n. It can now be used in a /briefing." % (caller.db.char_ob,
-                                                                                                    clue, org)
+                                                                                                    targ, org)
             org.inform_members(text, category, access="briefing")
             return
         if 'accept' in self.switches:
