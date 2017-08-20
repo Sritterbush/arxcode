@@ -975,7 +975,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             True if we can be trained, False otherwise.
         """
         if self.db.trainer:
-            trainer.msg("They are already being trained.")
+            trainer.msg("They have already been trained.")
             return False
         return True
 
@@ -987,6 +987,9 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             trainer: Character that trained us.
             trainer_msg (str): Message to send to trainer
             targ_msg (str): Message to send to this Character
+
+        Returns:
+            True if everything went off. Used for trying to catch extremely elusive caching errors.
         """
         currently_training = trainer.db.currently_training or []
         # num_trained is redundancy to attempt to prevent cache errors.
@@ -1002,3 +1005,4 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             trainer.msg(trainer_msg)
         if targ_msg:
             self.msg(targ_msg)
+        return True

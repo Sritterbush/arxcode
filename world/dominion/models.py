@@ -594,11 +594,14 @@ class AssetOwner(SharedMemoryModel):
         self.clear_cache()
         super(AssetOwner, self).save(*args, **kwargs)
 
-    def inform_owner(self, text, category=None, append=False):
+    def inform_owner(self, message, category=None, week=0, append=False):
         player = self.inform_target
         week = get_week()
         if player:
-            player.inform(text, category=category, week=week, append=append)
+            player.inform(message, category=category, week=week, append=append)
+
+    # alias for inform_owner
+    inform = inform_owner
 
     def access(self, accessing_obj, access_type='agent', default=False):
         if self.organization_owner:
@@ -2521,11 +2524,12 @@ class Army(SharedMemoryModel):
             temp_owner: an AssetOwner
         """
         if self.temp_owner:
-            self.temp_owner.inform("%s has retrieved an army that you temporarily controlled: %s." % (caller, self))
+            self.temp_owner.inform_owner("%s has retrieved an army that you temporarily controlled: %s." % (caller,
+                                                                                                            self))
         self.temp_owner = temp_owner
         self.save()
         if temp_owner:
-            temp_owner.inform("%s has given you temporary control of army: %s." % (caller, self))
+            temp_owner.inform_owner("%s has given you temporary control of army: %s." % (caller, self))
     
     @property
     def max_units(self):

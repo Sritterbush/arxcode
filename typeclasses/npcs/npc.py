@@ -715,20 +715,19 @@ class Retainer(AgentMixin, Npc):
         if not skill:
             trainer.msg("You must have %s skill to train them." % self.training_skill)
             return False
-        currently_training = trainer.db.currently_training or []
-        if self.db.trainer == trainer:
-            trainer.msg("They have already been trained by %s this week." % self.db.trainer)
-            return False
-        # because of possible cache errors we'll check by ID rather than by self
-        currently_training_ids = [ob.id for ob in currently_training]
-        if self.id in currently_training_ids:
-            trainer.msg("They have already been trained by you this week.")
-            return False
-        return True
+        return super(Retainer, self).can_be_trained_by(trainer)
 
     def post_training(self, trainer, trainer_msg="", targ_msg=""):
-        self.train_agent(trainer)
-        super(Retainer, self).post_training(trainer, trainer_msg=trainer_msg, targ_msg=targ_msg)
+        currently_training = trainer.db.currently_training or []
+        if self in currently_training:
+            # this should not be possible. Nonetheless, it has happened.
+            trainer.msg("Error: You have already trained this agent despite the check saying you hadn't.")
+            return
+        # if post_training works, then we proceed with training the agent
+        if super(Retainer, self).post_training(trainer, trainer_msg=trainer_msg, targ_msg=targ_msg):
+            self.train_agent(trainer)
+        else:
+            raise RuntimeError("Somehow, post_training was not called or did not return a value.")
 
     def train_agent(self, trainer):
         """
@@ -736,11 +735,6 @@ class Retainer(AgentMixin, Npc):
         The skill used to train them is based on our type - animal ken for
         animals, teaching for non-animals.
         """
-        currently_training = trainer.db.currently_training or []
-        if self in currently_training:
-            # this should not be possible. Nonetheless, it has happened.
-            trainer.msg("Error: You have already trained this agent despite the check saying you hadn't.")
-            return
         # use real name if we're not present. If we're here, use masked name
         use_real_name = self.location != trainer.location
         roll = do_dice_check(trainer, stat="command", skill=self.training_skill, difficulty=0, quiet=False,
@@ -750,6 +744,7 @@ class Retainer(AgentMixin, Npc):
         trainer.msg("You have trained %s, giving them %s xp." % (self, roll))
         msg = "%s has trained %s, giving them %s xp." % (trainer, self, roll)
         self.inform_owner(msg)
+        print "Training log: %s" % msg
     
 
 # noinspection PyAttributeOutsideInit
