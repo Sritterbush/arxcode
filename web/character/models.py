@@ -604,6 +604,7 @@ class ClueDiscovery(SharedMemoryModel):
         if not self.finished:
             return self.message or "An investigation that hasn't yet yielded anything definite."
         msg = "\n{c%s{n\n" % self.clue.name
+        msg += "{wRating:{n %s\n" % self.clue.rating
         msg += self.clue.desc + "\n"
         if self.message:
             msg += "\n" + self.message
