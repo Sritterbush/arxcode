@@ -1006,3 +1006,28 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         if targ_msg:
             self.msg(targ_msg)
         return True
+
+    def show_online(self, caller, check_puppet=True):
+        """
+
+        Args:
+            caller: Player who is checking to see if they can see us online
+            check_puppet: Whether the Character needs an active puppet to show as online
+
+        Returns:
+            True if we're online and the player has privileges to see us. False otherwise
+        """
+        if check_puppet:
+            if not self.sessions.all():
+                return False
+            player = self.player
+        else:
+            player = self.db.player_ob
+        if not player:
+            return False
+        if not player.db.hide_from_watch:
+            return True
+        if caller.check_permstring("builders"):
+            return True
+        # we're hiding from watch and caller is not staff, so they don't see us online
+        return False

@@ -424,3 +424,15 @@ class Player(MsgMixins, DefaultPlayer):
         from django.db.models import Q
         return Ticket.objects.filter(Q(queue__slug__iexact="story") & Q(
             Q(submitting_player=self) | Q(participants=self))).distinct()
+
+    def show_online(self, caller, check_puppet=False):
+        """
+        Checks if we're online and caller has privileges to see that
+        Args:
+            caller: Player checking if we're online
+            check_puppet: Whether to check if we're currently puppeting our character object
+
+        Returns:
+            True if they see us as online, False otherwise.
+        """
+        return self.db.char_ob.show_online(caller, check_puppet)

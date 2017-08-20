@@ -332,7 +332,7 @@ class CmdFinger(MuxPlayerCommand):
             msg += "{wObituary:{n %s\n" % char.db.obituary
         else:
             session = player.get_all_sessions() and player.get_all_sessions()[0]
-            if session and (not player.db.hide_from_watch or caller.check_permstring("builders")):
+            if session and player.show_online(caller):
                 idle_time = time.time() - session.cmd_last_visible
                 idle = "Online and is idle" if idle_time > 1200 else "Online, not idle"
                 msg += "{wStatus:{n %s\n" % idle
@@ -2259,8 +2259,8 @@ class CmdRandomScene(MuxCommand):
         newbies = [ob for ob in self.newbies if ob not in claimlist]
         if "online" in self.switches:
             self.msg("{wOnly displaying online characters.{n")
-            scenelist = [ob for ob in scenelist if ob.location]
-            newbies = [ob for ob in newbies if ob.location]
+            scenelist = [ob for ob in scenelist if ob.show_online(self.caller.player)]
+            newbies = [ob for ob in newbies if ob.show_online(self.caller.player)]
         self.msg("{wRandomly generated RP partners for this week:{n %s" % ", ".join(ob.key for ob in scenelist))
         self.msg("{wNew players who can be also RP'd with for credit:{n %s" % ", ".join(ob.key for ob in newbies))
         self.msg("{wGMs for events here that can be claimed for credit:{n %s" % ", ".join(ob.key for ob in gms))

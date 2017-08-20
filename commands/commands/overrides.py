@@ -772,7 +772,7 @@ class CmdWho(MuxPlayerCommand):
         Get all connected players by polling session.
         """
         player = self.caller
-        session_list = [ob for ob in SESSIONS.get_sessions() if ob.player]
+        session_list = [ob for ob in SESSIONS.get_sessions() if ob.player and ob.player.show_online(player)]
         session_list = sorted(session_list, key=lambda o: o.player.key.lower())
         sparse = "sparse" in self.switches
         watch_list = player.db.watching or []
@@ -780,7 +780,7 @@ class CmdWho(MuxPlayerCommand):
             show_session_data = False
         else:
             show_session_data = player.check_permstring("Immortals") or player.check_permstring("Wizards")
-        nplayers = (SESSIONS.player_count())
+        nplayers = len(set(ob.player for ob in session_list))
         total_players = nplayers
         already_counted = []
         public_members = []
