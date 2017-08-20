@@ -15,7 +15,7 @@ import cloudinary.forms
 from cloudinary import api
 from .forms import (PhotoForm, PhotoDirectForm, PhotoUnsignedDirectForm, PortraitSelectForm,
                     PhotoDeleteForm, PhotoEditForm)
-from .models import Photo, Story, Episode
+from .models import Photo, Story, Episode, Chapter
 from cloudinary.forms import cl_init_js_callbacks
 import json
 from django.views.decorators.csrf import csrf_exempt
@@ -400,11 +400,29 @@ def direct_upload_complete(request, object_id):
     return HttpResponse(json.dumps(ret), content_type='application/json')
 
 
-def current_story(request):
-    story = Story.objects.latest('start_date')
-    chapters = story.previous_chapters.order_by('-start_date')
-    return render(request, 'character/story.html', {'story': story, 'chapters': chapters,
-                                                    'page_title': str(story)})
+class ChapterListView(ListView):
+    model = Chapter
+    template_name = 'character/story.html'
+
+    @property
+    def story(self):
+        get = self.request.GET
+        if not get:
+            return Story.objects.latest('start_date')
+        story_name = get.get('story_name', "")
+        return Story.objects.get(name=story_name)
+
+    def get_queryset(self):
+        return Chapter.objects.filter(story=self.story).order_by('-start_date')
+
+    # noinspection PyBroadException
+    def get_context_data(self, **kwargs):
+        context = super(ChapterListView, self).get_context_data(**kwargs)
+        story = self.story
+        context['story'] = story
+        context['page_title'] = str(story)
+        context['all_stories'] = Story.objects.all().order_by('-start_date')
+        return context
 
 
 def episode(request, ep_id):
