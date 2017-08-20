@@ -218,3 +218,10 @@ def check_break(caller=None):
             caller.msg("Staff are on break until %s." % end_date.strftime("%x %X"))
         return True
     return False
+
+
+def delete_empty_tags():
+    from evennia.typeclasses.tags import Tag
+    empty = Tag.objects.filter(objectdb__isnull=True, playerdb__isnull=True, msg__isnull=True, helpentry__isnull=True,
+                               scriptdb__isnull=True, channeldb__isnull=True)
+    empty.delete()

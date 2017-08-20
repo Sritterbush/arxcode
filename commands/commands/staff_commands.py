@@ -955,22 +955,30 @@ class CmdGMNotes(MuxPlayerCommand):
         @gmnotes/set <character>=<notes>
         @gmnotes/no_gming
         @gmnotes/search/all
+        @gmnotes/deltag <tagtype>
     """
     key = "@gmnotes"
     aliases = ["@gmnote"]
     locks = "cmd: perm(builders)"
     help_category = "GMing"
 
+    @property
+    def tags(self):
+        return Tag.objects.filter(db_category="gmnotes")
+
     def list_all_tags(self):
         from evennia.utils.evtable import EvTable
         from evennia.utils.utils import crop
         from server.utils import arx_more
+        if not self.args and not self.switches:
+            self.msg("|wTypes of Search Tags:|n %s" % ", ".join(set(ob.db_key for ob in self.tags)))
+            return
         table = EvTable("{wCharacter{n", "{wType{n", "{wDesc{n", width=78, border="cells")
-        chars = Character.objects.filter(db_tags__db_category="gmnotes").distinct()
+        chars = Character.objects.filter(db_tags__in=self.tags).distinct()
         if "all" not in self.switches:
             chars = chars.filter(roster__roster__name="Active")
         if self.args:
-            chars = chars.filter(db_tags__db_key__iexact=self.args).distinct()
+            chars = chars.filter(db_tags__db_key__icontains=self.args).distinct()
         for character in chars:
             desc = character.db.gm_notes or ""
             desc = crop(desc, width=40)
@@ -1003,10 +1011,22 @@ class CmdGMNotes(MuxPlayerCommand):
         if "no_gming" in self.switches:
             self.list_no_gming()
             return
+        if "deltag" in self.switches:
+            try:
+                tag = self.tags.get(db_key__iexact=self.args)
+            except (Tag.DoesNotExist, ValueError):
+                self.msg("No tag by that name.")
+            else:
+                affected_characters = tag.objectdb_set.all()
+                if affected_characters:
+                    self.msg("Characters who have lost that tag: %s" % ", ".join(ob.key for ob in affected_characters))
+                tag.delete()
+                self.msg("Tag deleted.")
+            return
         if not self.args or "search" in self.switches:
             self.list_all_tags()
             return
-        if not self.switches or not self.rhs:
+        if not self.switches and not self.rhs:
             self.view_char()
             return
         player = self.caller.search(self.lhs)
