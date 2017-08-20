@@ -435,4 +435,6 @@ class Player(MsgMixins, DefaultPlayer):
         Returns:
             True if they see us as online, False otherwise.
         """
+        if not self.db.char_ob:
+            return True
         return self.db.char_ob.show_online(caller, check_puppet)
