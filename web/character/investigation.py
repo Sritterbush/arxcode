@@ -383,7 +383,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         invest_id, actions, stat, skill = form
         if invest_id not in self.valid_targ_ids:
             self.msg("That is not a valid ID of an investigation for %s to assist." % self.helper)
-            self.msg("Valid IDs: %s" % ", ".join(self.valid_targ_ids))
+            self.msg("Valid IDs: %s" % ", ".join(str(ob) for ob in self.valid_targ_ids))
             return
         try:
             investigation = Investigation.objects.get(id=invest_id)
