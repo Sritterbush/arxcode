@@ -225,3 +225,28 @@ def delete_empty_tags():
     empty = Tag.objects.filter(objectdb__isnull=True, playerdb__isnull=True, msg__isnull=True, helpentry__isnull=True,
                                scriptdb__isnull=True, channeldb__isnull=True)
     empty.delete()
+
+
+def trainer_diagnostics(trainer):
+    """
+    Gets a string of diagnostic information
+    Args:
+        trainer: Character object that's doing training
+
+    Returns:
+        String of diagnostic information about trainer and its attributes.
+    """
+    from django.core.exceptions import ObjectDoesNotExist
+    msg = "%s: id: %s" % (repr(trainer), id(trainer))
+
+    def get_attr_value(attr_name):
+        ret = ", %s: " % attr_name
+        try:
+            attr = trainer.db_attributes.get(db_key=attr_name)
+            ret += "id: %s, value: %s" % (attr.id, attr.value)
+        except (AttributeError, ObjectDoesNotExist):
+            ret += "no value"
+        return ret
+    msg += get_attr_value("currently_training")
+    msg += get_attr_value("num_trained")
+    return msg

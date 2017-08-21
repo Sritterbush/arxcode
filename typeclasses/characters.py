@@ -991,6 +991,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         Returns:
             True if everything went off. Used for trying to catch extremely elusive caching errors.
         """
+        from server.utils.arx_utils import trainer_diagnostics
         currently_training = trainer.db.currently_training or []
         # num_trained is redundancy to attempt to prevent cache errors.
         num_trained = trainer.db.num_trained or len(currently_training)
@@ -1005,6 +1006,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             trainer.msg(trainer_msg)
         if targ_msg:
             self.msg(targ_msg)
+        print "Character.post_training call: %s" % trainer_diagnostics(trainer)
         return True
 
     def show_online(self, caller, check_puppet=True):

@@ -718,13 +718,13 @@ class Retainer(AgentMixin, Npc):
         return super(Retainer, self).can_be_trained_by(trainer)
 
     def post_training(self, trainer, trainer_msg="", targ_msg=""):
-        currently_training = trainer.db.currently_training or []
-        if self in currently_training:
-            # this should not be possible. Nonetheless, it has happened.
-            trainer.msg("Error: You have already trained this agent despite the check saying you hadn't.")
-            return
         # if post_training works, then we proceed with training the agent
         if super(Retainer, self).post_training(trainer, trainer_msg=trainer_msg, targ_msg=targ_msg):
+            currently_training = trainer.db.currently_training or []
+            if self not in currently_training:
+                # this should not be possible. Nonetheless, it has happened.
+                from server.utils.arx_utils import trainer_diagnostics
+                raise RuntimeError("Error: Training list not properly updated: %s" % trainer_diagnostics(trainer))
             self.train_agent(trainer)
         else:
             raise RuntimeError("Somehow, post_training was not called or did not return a value.")
