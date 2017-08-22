@@ -444,7 +444,10 @@ class CmdRequest(MuxPlayerCommand):
                 if not caller.pay_action_points(ap_cost):
                     self.msg("It costs %s Action Points to assist a story action." % ap_cost)
                     # readd their invite back so they can accept it when they have enough ap
-                    invite_dict[targ] = ticket
+                    if invite_dict:
+                        invite_dict[targ] = ticket
+                    else:  # invite_dict is now a SaverDict with dead Attribute, so recreate it
+                        self.caller.db.storyaction_invites = {targ: ticket}
                     return
                 ticket.participants.add(caller)
                 self.msg("You have accepted an invitation from %s to assist story action %s." % (targ, ticket))
