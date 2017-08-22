@@ -115,7 +115,6 @@ class Player(MsgMixins, DefaultPlayer):
         self.db.mails = []
         self.db.readmails = set()
         self.db.char_ob = None
-        self.nicks.add('pub', 'public', category="channel")
 
     # noinspection PyBroadException
     def at_post_login(self, session=None):

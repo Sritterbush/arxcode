@@ -250,3 +250,32 @@ def trainer_diagnostics(trainer):
     msg += get_attr_value("currently_training")
     msg += get_attr_value("num_trained")
     return msg
+
+
+# noinspection PyProtectedMember
+def approval_cleanup(entry):
+    """
+    Gets rid of past data for a roster entry from previous players.
+
+    Args:
+        entry: RosterEntry we're initializing
+    """
+    entry.player.nicks.clear()
+    entry.character.nicks.clear()
+    entry.player.attributes.remove("playtimes")
+    entry.player.attributes.remove("rp_preferences")
+    for character in entry.player.db.watching or []:
+        watched_by = character.db.watched_by or []
+        if entry.player in watched_by:
+            watched_by.remove(entry.player)
+    entry.player.attributes.remove("watching")
+    entry.player.attributes.remove("hide_from_watch")
+    # remove and readd all channels
+    from typeclasses.channels import Channel
+    channels = Channel.objects.get_subscriptions(entry.player)
+    for channel in channels:
+        channel.subscriptions._recache()
+    required_channels = Channel.objects.filter(db_key__in=("Info", "Public"))
+    for req_channel in required_channels:
+        if not req_channel.has_connection(entry.player):
+            req_channel.connect(entry.player)

@@ -666,16 +666,8 @@ class CmdApp(MuxPlayerCommand):
                         from datetime import datetime
                         date = datetime.now()
                         AccountHistory.objects.create(entry=entry, account=account, start_date=date)
-                    entry.player.nicks.clear()
-                    entry.character.nicks.clear()
-                    entry.player.attributes.remove("playtimes")
-                    entry.player.attributes.remove("rp_preferences")
-                    for character in entry.player.db.watching or []:
-                        watched_by = character.db.watched_by or []
-                        if entry.player in watched_by:
-                            watched_by.remove(entry.player)
-                    entry.player.attributes.remove("watching")
-                    entry.player.attributes.remove("hide_from_watch")
+                    from server.utils.arx_utils import approval_cleanup
+                    approval_cleanup(entry)
                     try:
                         from commands.cmdsets.starting_gear import setup_gear_for_char
                         if not entry.character:
