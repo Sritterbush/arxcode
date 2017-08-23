@@ -270,6 +270,8 @@ def approval_cleanup(entry):
             watched_by.remove(entry.player)
     entry.player.attributes.remove("watching")
     entry.player.attributes.remove("hide_from_watch")
+    entry.player.db.mails = []
+    entry.player.db.readmails = set()
     # remove and readd all channels
     from typeclasses.channels import Channel
     channels = Channel.objects.get_subscriptions(entry.player)
