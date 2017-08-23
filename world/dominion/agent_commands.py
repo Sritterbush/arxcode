@@ -6,7 +6,7 @@ from typeclasses.npcs.npc_types import get_npc_type, generate_default_name_and_d
 from evennia.objects.models import ObjectDB
 # noinspection PyProtectedMember
 from evennia.objects.objects import _AT_SEARCH_RESULT
-from server.utils.arx_utils import validate_name, strip_ansi
+from server.utils.arx_utils import validate_name, strip_ansi, caller_change_field
 
 
 class CmdAgents(MuxPlayerCommand):
@@ -747,10 +747,7 @@ class CmdRetainers(MuxPlayerCommand):
     # Cosmetic methods
 
     def change_desc(self, agent):
-        old = agent.desc
-        agent.desc = self.rhs
-        agent.save()
-        self.caller.msg("Desc changed from %s to %s." % (old, self.rhs))
+        caller_change_field(self.caller, agent, "desc", self.rhs)
         return
 
     def change_name(self, agent):

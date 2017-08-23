@@ -364,9 +364,7 @@ class CmdAdmDomain(MuxPlayerCommand):
             except (Organization.DoesNotExist, AttributeError):
                 caller.msg("Family %s does not exist or has not been set up properly." % self.rhs)
                 return
-            dom.ruler.liege = estate
-            dom.ruler.save()
-            caller.msg("Liege of %s changed to %s." % (dom.ruler, estate))
+            caller_change_field(caller, dom.ruler, "liege", estate)
             return
         if "view" in self.switches or not self.switches:
             mssg = dom.display()
@@ -403,11 +401,7 @@ class CmdAdmDomain(MuxPlayerCommand):
         else:  # switch is 'name', 'desc', or 'title', so val will be a string
             val = self.rhs
         for switch in switches:
-            # get the attribute with the name given by switch
-            old = getattr(dom, switch)
-            # set the attribute with the name given by switch
-            setattr(dom, switch, val)
-            caller.msg("Domain field %s changed from %s to %s." % (switch, old, val))
+            caller_change_field(caller, dom, switch, val)
         dom.save()
 
 
@@ -2644,9 +2638,7 @@ class CmdTask(MuxCommand):
                     if ass.observer_text and ass.finished:
                         caller.msg("Once the task is finished, only a GM can change an existing rumor.")
                         return
-                    ass.observer_text = self.rhs
-                    ass.save()
-                    caller.msg("Rumors changed to %s." % self.rhs)
+                    caller_change_field(caller, ass, "observer_text", self.rhs, "Rumors")
             except (Task.DoesNotExist, AssignedTask.DoesNotExist, ValueError):
                 caller.msg("No task found by that ID number.")
             return
