@@ -12,7 +12,7 @@ from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.objects.models import ObjectDB
 from evennia.players.models import PlayerDB
-from server.utils.arx_utils import get_week
+from server.utils.arx_utils import get_week, caller_change_field
 from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from . import setup_utils
@@ -446,26 +446,18 @@ class CmdAdmCastle(MuxPlayerCommand):
             caller.msg("Must specify a right hand side argument for that switch.")
             return
         if "desc" in self.switches:
-            old = castle.desc
-            castle.desc = self.rhs
-            castle.save()
-            caller.msg("Desc changed from %s to %s." % (old, self.rhs))
+            caller_change_field(caller, castle, "desc", self.rhs)
             return
         if "name" in self.switches:
-            old = castle.name
-            castle.name = self.rhs
-            castle.save()
-            caller.msg("Name changed from %s to %s." % (old, self.rhs))
+            caller_change_field(caller, castle, "name", self.rhs)
             return
         if "level" in self.switches:
-            old = castle.level
             try:
-                castle.level = int(self.rhs)
+                level = int(self.rhs)
             except (TypeError, ValueError):
                 caller.msg("Level must be a number.")
                 return
-            castle.save()
-            caller.msg("Level changed from %s to %s." % (old, self.rhs))
+            caller_change_field(caller, castle, "level", level)
             return
         if "transfer" in self.switches:
             try:
@@ -473,10 +465,7 @@ class CmdAdmCastle(MuxPlayerCommand):
             except (TypeError, ValueError, Domain.DoesNotExist):
                 caller.msg("Could not find a domain with id of %s" % self.rhs)
                 return
-            old = castle.domain
-            castle.domain = dom
-            castle.save()
-            caller.msg("Castle's domain changed from %s to %s." % (str(old), str(dom)))
+            caller_change_field(caller, castle, "domain", dom)
             return
 
 
@@ -529,16 +518,10 @@ class CmdAdmArmy(MuxPlayerCommand):
             caller.msg("Need an argument after = for 'army_id=<value>'.")
             return
         if "name" in self.switches:
-            old = army.name
-            army.name = self.rhs
-            caller.msg("Name changed from %s to %s." % (old, self.rhs))
-            army.save()
+            caller_change_field(caller, army, "name", self.rhs)
             return
         if "desc" in self.switches:
-            old = army.desc
-            army.desc = self.rhs
-            caller.msg("Desc changed from %s to %s." % (old, self.rhs))
-            army.save()
+            caller_change_field(caller, army, "desc", self.rhs)
             return
         if "unit" in self.switches:
             u_types = ("infantry", "cavalry", "pike", "archers", "warships", "siege weapons")
@@ -586,9 +569,7 @@ class CmdAdmArmy(MuxPlayerCommand):
             except (AssetOwner.DoesNotExist, ValueError, TypeError):
                 caller.msg("No org/family by name of %s." % self.rhs)
                 return
-            army.owner = owner
-            army.save()
-            caller.msg("Army's owner set to %s." % str(owner))
+            caller_change_field(caller, army, "owner", owner)
             return
         if "setservice" in self.switches:
             try:
@@ -596,9 +577,7 @@ class CmdAdmArmy(MuxPlayerCommand):
             except (Domain.DoesNotExist, ValueError, TypeError):
                 caller.msg("No domain found for id of %s." % self.rhs)
                 return
-            army.domain = dom
-            army.save()
-            caller.msg("Army's domain set to %s." % str(dom))
+            caller_change_field(caller, army, "domain", dom)
             return
         if "move" in self.switches:
             x, y = None, None
@@ -613,9 +592,7 @@ class CmdAdmArmy(MuxPlayerCommand):
             except Land.DoesNotExist:
                 caller.msg("No land with coords (%s,%s)." % (x, y))
                 return
-            army.land = land
-            army.save()
-            caller.msg("Army moved to (%s, %s)." % (x, y))
+            caller_change_field(caller, army, "land", land)
             return
 
 
@@ -654,6 +631,10 @@ class CmdAdmAssets(MuxPlayerCommand):
             else:
                 raise AssetOwner.DoesNotExist
         return owner
+
+    def print_owners(self, **query):
+        assets = ", ".join(repr(owner) for owner in AssetOwner.objects.filter(**query))
+        self.msg(assets)
         
     def func(self):
         caller = self.caller
@@ -662,12 +643,10 @@ class CmdAdmAssets(MuxPlayerCommand):
             caller.msg(assets)
             return
         if 'player' in self.switches:
-            assets = ", ".join(repr(owner) for owner in AssetOwner.objects.filter(player__player__isnull=False))
-            caller.msg(assets)
+            self.print_owners(player__player__isnull=False)
             return
         if 'org' in self.switches:
-            assets = ", ".join(repr(owner) for owner in AssetOwner.objects.filter(organization_owner__isnull=False))
-            caller.msg(assets)
+            self.print_owners(organization_owner__isnull=False)
             return
         if "setup" in self.switches:
             player = caller.search(self.lhs)
@@ -691,14 +670,10 @@ class CmdAdmAssets(MuxPlayerCommand):
             return
         if "money" in self.switches or not self.switches:
             try:
-                old = owner.vault
-                owner.vault = int(self.rhs)
-                owner.save()
-                caller.msg("Money for %s changed from %s to %s." % (owner.owner, old, self.rhs))
-                return
+                caller_change_field(caller, owner, "vault", int(self.rhs))
             except (AttributeError, ValueError, TypeError):
                 caller.msg("Could not change account to %s." % self.rhs)
-                return
+            return
         if "transfer" in self.switches:
             tar = None
             try:
@@ -803,10 +778,7 @@ class CmdAdmOrganization(MuxPlayerCommand):
             caller.msg("{wOrganizations:{n %s" % orgs)
             return
         try:
-            if self.lhs.isdigit():
-                org = Organization.objects.get(id=int(self.lhs))
-            else:
-                org = Organization.objects.get(name__iexact=self.lhs)
+            org = self.get_org_from_args()
         except Organization.DoesNotExist:
             # if we had create switch and found no Org, create it
             if 'create' in self.switches:
@@ -845,14 +817,10 @@ class CmdAdmOrganization(MuxPlayerCommand):
                 caller.msg("Could not remove member #%s." % self.rhs)
                 return
         if 'desc' in self.switches:
-            org.desc = self.rhs
-            org.save()
-            caller.msg("Description set to %s." % self.rhs)
+            caller_change_field(caller, org, "desc", self.rhs)
             return
         if 'name' in self.switches:
-            org.name = self.rhs
-            org.save()
-            caller.msg("Name set to %s." % self.rhs)
+            caller_change_field(caller, org, "name", self.rhs)
             return
         if 'add' in self.switches:
             try:
@@ -902,9 +870,7 @@ class CmdAdmOrganization(MuxPlayerCommand):
             try:
                 member = Member.objects.get(organization_id=org.id,
                                             player__player__username__iexact=self.rhslist[0])
-                member.rank = int(self.rhslist[1])
-                member.save()
-                caller.msg("%s set to rank %s." % (member, self.rhslist[1]))
+                caller_change_field(caller, member, "rank", int(self.rhslist[1]))
             except Member.DoesNotExist:
                 caller.msg("No member found by name of %s." % self.rhslist[0])
                 return
@@ -916,10 +882,7 @@ class CmdAdmOrganization(MuxPlayerCommand):
             return
         if 'cptasks' in self.switches:
             try:
-                if self.lhs.isdigit():
-                    org2 = Organization.objects.get(id=int(self.rhs))
-                else:
-                    org2 = Organization.objects.get(name__iexact=self.rhs)
+                org2 = self.get_org_from_args()
             except Organization.DoesNotExist:
                 self.msg("Org not found.")
                 return
@@ -931,6 +894,13 @@ class CmdAdmOrganization(MuxPlayerCommand):
                 bulk_list.append(OrgTaskModel(organization=org, task=task))
             OrgTaskModel.objects.bulk_create(bulk_list)
             self.msg("Tasks copied from %s to %s." % (org2, org))
+
+    def get_org_from_args(self):
+        if self.lhs.isdigit():
+            org = Organization.objects.get(id=int(self.lhs))
+        else:
+            org = Organization.objects.get(name__iexact=self.lhs)
+        return org
 
 
 class CmdAdmFamily(MuxPlayerCommand):
@@ -1839,20 +1809,31 @@ class CmdOrganization(MuxPlayerCommand):
 
     def display_permtypes(self):
         self.msg("Type must be one of the following: %s" % ", ".join(self.org_locks))
+
+    def get_org_from_myorgs(self, myorgs):
+        if len(myorgs) == 1:
+            org = myorgs[0]
+        else:
+            try:
+                org, _ = self.get_org_and_member(self.caller, myorgs, self.rhs)
+            except Organization.DoesNotExist:
+                self.msg("You are not a member of any organization named %s." % self.rhs)
+                return
+        return org
+
+    def get_member_from_player(self, org, player):
+        try:
+            return player.Dominion.memberships.get(organization=org)
+        except Member.DoesNotExist:
+            self.msg("%s is not a member of %s." % (player, org))
+            return
     
     def func(self):
         caller = self.caller
         myorgs = Organization.objects.filter(Q(members__player__player=caller)
                                              & Q(members__deguilded=False))
         if 'briefing' in self.switches or 'theorybriefing' in self.switches:
-            if len(myorgs) == 1:
-                org = myorgs[0]
-            else:
-                try:
-                    org, member = self.get_org_and_member(caller, myorgs, self.rhs)
-                except Organization.DoesNotExist:
-                    caller.msg("You are not a member of any organization named %s." % self.rhs)
-                    return
+            org = self.get_org_from_myorgs(myorgs)
             if not org:
                 return
             try:
@@ -1965,14 +1946,7 @@ class CmdOrganization(MuxPlayerCommand):
             return
         if 'addclue' in self.switches or 'addtheory' in self.switches:
             from web.character.models import ClueDiscovery
-            if len(myorgs) == 1:
-                org = myorgs[0]
-            else:
-                try:
-                    org, member = self.get_org_and_member(caller, myorgs, self.rhs)
-                except Organization.DoesNotExist:
-                    caller.msg("You are not a member of any organization named %s." % self.rhs)
-                    return
+            org = self.get_org_from_myorgs(myorgs)
             if not org:
                 return
             if 'addclue' in self.switches:
@@ -2165,10 +2139,8 @@ class CmdOrganization(MuxPlayerCommand):
             if rank < member.rank:
                 caller.msg("You cannot set someone to be higher rank than yourself.")
                 return
-            try:
-                tarmember = player.Dominion.memberships.get(organization=org)
-            except Member.DoesNotExist:
-                caller.msg("%s is not a member of %s." % (player, org))
+            tarmember = self.get_member_from_player(org, player)
+            if not tarmember:
                 return
             # can demote yourself, but otherwise only people lower than yourself
             if tarmember.rank <= member.rank and tarmember != member:
@@ -2222,10 +2194,8 @@ class CmdOrganization(MuxPlayerCommand):
             msg += "To accept, type {w@org/accept %s{n. To decline, type {worg/decline %s{n." % (org.name, org.name)
             player.inform(msg, category="Invitation")
             return
-        try:
-            tarmember = player.Dominion.memberships.get(organization=org)
-        except Member.DoesNotExist:
-            caller.msg("%s is not a member of %s." % (player, org))
+        tarmember = self.get_member_from_player(org, player)
+        if not tarmember:
             return
         if 'boot' in self.switches:
             if tarmember != member:

@@ -279,3 +279,20 @@ def approval_cleanup(entry):
     for req_channel in required_channels:
         if not req_channel.has_connection(entry.player):
             req_channel.connect(entry.player)
+
+
+def caller_change_field(caller, obj, field, value, field_name=None):
+    """
+    DRY way of changing a field and notifying a caller of the change.
+    Args:
+        caller: Object to msg the result
+        obj: database object to have a field set and saved
+        field (str or unicode): Text value to set
+        value: value to set in the field
+        field_name: Optional value to use for the field name
+    """
+    old = getattr(obj, field)
+    setattr(obj, field, value)
+    obj.save()
+    field_name = field_name or field.capitalize()
+    caller.msg("%s changed from %s to %s." % (field_name, old, value))
