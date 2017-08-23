@@ -596,7 +596,8 @@ class AssetOwner(SharedMemoryModel):
 
     def inform_owner(self, message, category=None, week=0, append=False):
         player = self.inform_target
-        week = get_week()
+        if not week:
+            week = get_week()
         if player:
             player.inform(message, category=category, week=week, append=append)
 
@@ -1979,8 +1980,12 @@ class Organization(SharedMemoryModel):
         msg += "{wSpheres of Influence:{n %s\n" % ", ".join("{w%s{n: %s" % (ob.category, ob.rating)
                                                             for ob in self.spheres.all())
         clues = self.clues.all()
-        if clues and display_clues:
-            msg += "\n{wClues Known:{n %s\n" % "; ".join(str(ob) for ob in clues)
+        if display_clues:
+            if clues:
+                msg += "\n{wClues Known:{n %s\n" % "; ".join(str(ob) for ob in clues)
+            theories = self.theories.all()
+            if theories:
+                msg += "\n{wTheories Known:{n %s\n" % "; ".join("%s (#%s)" % (ob, ob.id) for ob in theories)
         if holdings:
             msg += "{wHoldings{n: %s\n" % ", ".join(ob.name for ob in holdings)
         if viewing_member:

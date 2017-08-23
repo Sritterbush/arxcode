@@ -76,6 +76,7 @@ class OrgAdmin(DomAdmin):
     ordering = ['name']
     search_fields = ['name', 'category', 'members__player__player__username']
     list_filter = (OrgListFilter,)
+    filter_horizontal = ("theories",)
 
     # @staticmethod
     # def membership(obj):

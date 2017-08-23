@@ -1943,7 +1943,7 @@ class CmdOrganization(MuxPlayerCommand):
                 entry.investigations.filter(clue_target=clue).update(clue_target=None)
                 share_type = "clue"
                 cmd_string = "@clue"
-                targ = clue
+                share_str = clue
             else:
                 if not check_clues_or_theories("theories"):
                     return
@@ -1957,8 +1957,8 @@ class CmdOrganization(MuxPlayerCommand):
                 player.known_theories.add(theory)
                 share_type = "theory"
                 cmd_string = "@theories"
-                targ = theory
-            text = "You have been briefed and learned a %s. Use %s to view them: %s" % (share_type, cmd_string, targ)
+                share_str = theory
+            text = "You've been briefed and learned a %s. Use %s to view them: %s" % (share_type, cmd_string, share_str)
             tarmember.player.player.msg("%s has briefed you on %s's secrets." % (caller.db.char_ob, org))
             tarmember.player.player.inform(text, category="%s briefing" % org)
             self.msg("You have briefed %s on your organization's secrets." % tarmember)
@@ -2000,7 +2000,9 @@ class CmdOrganization(MuxPlayerCommand):
                     return
                 ClueForOrg.objects.create(clue=clue, org=org, revealed_by=caller.roster)
                 category = "%s: Clue Added" % org
-                targ = clue
+                share_str = str(clue)
+                targ_type = "clue"
+                briefing_type = "/briefing"
             else:
                 from web.character.models import Theory
                 try:
@@ -2014,9 +2016,12 @@ class CmdOrganization(MuxPlayerCommand):
                     return
                 org.theories.add(theory)
                 category = "%s: Theory Added" % theory
-                targ = theory
-            text = "%s has shared the clue {w%s{n to {c%s{n. It can now be used in a /briefing." % (caller.db.char_ob,
-                                                                                                    targ, org)
+                share_str = "%s (#%s)" % (theory, theory.id)
+                targ_type = "theory"
+                briefing_type = "/theorybriefing"
+            text = "%s has shared the %s {w%s{n to {c%s{n. It can now be used in a %s." % (caller.db.char_ob,
+                                                                                           targ_type, share_str, org,
+                                                                                           briefing_type)
             org.inform_members(text, category, access="briefing")
             return
         if 'accept' in self.switches:
