@@ -421,18 +421,7 @@ class CmdRetainers(MuxPlayerCommand):
         """
         Trains a retainer belonging to a player
         """
-        if not self.rhs:
-            self.msg("You must provide both an owner and the name of their retainer to train.")
-            return
-        player = self.caller.search(self.lhs)
-        if not player:
-            return
-        try:
-            targ = player.retainers.get(name__iexact=self.rhs).dbobj
-        except Agent.DoesNotExist:
-            self.msg("Could not find a retainer by that name.")
-            return
-        targ.train_agent(self.caller.db.char_ob)
+        self.caller.execute_cmd("train/retainer %s" % self.args)
 
     def transfer_xp(self, agent):
         """
