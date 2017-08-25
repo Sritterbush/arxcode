@@ -297,4 +297,7 @@ def caller_change_field(caller, obj, field, value, field_name=None):
     setattr(obj, field, value)
     obj.save()
     field_name = field_name or field.capitalize()
+    if len(str(value)) > 78 or len(str(old)) > 78:
+        old = "\n%s\n" % old
+        value = "\n%s" % value
     caller.msg("%s changed from %s to %s." % (field_name, old, value))
