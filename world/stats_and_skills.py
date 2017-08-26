@@ -240,8 +240,8 @@ def check_training(caller, field, stype):
         return trainerval > callerval + 1
     if stype == "dom":
         try:
-            callerval = getattr(caller.db.player_ob.Dominion, field)
-            trainerval = getattr(trainer.db.player_ob.Dominion, field)
+            callerval = getattr(caller.player_ob.Dominion, field)
+            trainerval = getattr(trainer.player_ob.Dominion, field)
             return trainerval >= callerval + 1
         except AttributeError:
             return False
@@ -286,7 +286,7 @@ def adjust_ability(caller, field, value=1):
 def adjust_dom(caller, field, value=1):
     if field not in DOM_SKILLS:
         raise Exception("Error in adjust_dom: %s not found as a valid dominion skill." % field)
-    dompc = caller.db.player_ob.Dominion
+    dompc = caller.player_ob.Dominion
     current = getattr(dompc, field)
     setattr(dompc, field, current + value)
 

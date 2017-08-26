@@ -300,7 +300,7 @@ class CmdCraft(MuxCommand):
         is crafting. (recipeid, name, desc, adorns, forgerydict)
         """
         caller = self.caller
-        dompc = caller.db.player_ob.Dominion
+        dompc = caller.player_ob.Dominion
         recipe = CraftingRecipe.objects.get(id=proj[0])
         msg = "{wRecipe:{n %s\n" % recipe.name
         msg += "{wName:{n %s\n" % proj[1]
@@ -349,7 +349,7 @@ class CmdCraft(MuxCommand):
             # assets not initialized on player
             dompc = setup_dom_for_char(caller, create_dompc=False)
             assets = dompc.assets
-        recipes = crafter.db.player_ob.Dominion.assets.recipes.all()
+        recipes = crafter.player_ob.Dominion.assets.recipes.all()
         if not self.args and not self.switches:
             # display recipes and any crafting project we have unfinished           
             materials = assets.materials.all()
@@ -492,7 +492,7 @@ class CmdCraft(MuxCommand):
                 if cost > caller.db.currency:
                     caller.msg("This would cost %s, and you only have %s." % (cost, caller.db.currency))
                     return
-                if action_points and not caller.db.player_ob.pay_action_points(action_points):
+                if action_points and not caller.player_ob.pay_action_points(action_points):
                     self.msg("You do not have enough action points to refine.")
                     return
                 # pay for it
@@ -709,7 +709,7 @@ class CmdCraft(MuxCommand):
                         caller.msg("You do not have any of the material %s." % c_mat.name)
                         return
                 # check if they have enough action points
-                if not caller.db.player_ob.pay_action_points(2 + action_points):
+                if not caller.player_ob.pay_action_points(2 + action_points):
                     self.msg("You do not have enough action points left to craft that.")
                     return
                 # pay the money
@@ -938,7 +938,7 @@ class CmdJunk(MuxCommand):
         if obj.location != caller:
             caller.msg("You can only +junk objects you are holding.")
             return
-        if obj.db.player_ob or obj.player:
+        if obj.player_ob or obj.player:
             caller.msg("You cannot +junk a character.")
             return
         if obj.contents:

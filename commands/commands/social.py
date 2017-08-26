@@ -27,7 +27,7 @@ from web.character.models import AccountHistory, FirstContact
 
 def char_name(character_object, verbose_where=False):
     cname = character_object.name
-    if character_object.db.player_ob and character_object.db.player_ob.db.lookingforrp:
+    if character_object.player_ob and character_object.player_ob.db.lookingforrp:
         cname += "|R+|n"
     if not verbose_where:
         return cname
@@ -199,7 +199,7 @@ class CmdWatch(MuxPlayerCommand):
         table = []
         for ob in sorted(watchlist, key=lambda x: x.key):
             name = ob.key.capitalize()
-            if ob.db.player_ob.is_connected and not ob.db.player_ob.db.hide_from_watch:
+            if ob.player_ob.is_connected and not ob.player_ob.db.hide_from_watch:
                 name = "{c*%s{n" % name
             table.append(name)
         caller.msg("Currently watching (online players are highlighted):\n%s" % ", ".join(table), options={'box': True})
@@ -423,7 +423,7 @@ class CmdJournal(MuxCommand):
     def journal_index(self, character, j_list):
         num = 1
         table = PrettyTable(["{w#{n", "{wWritten About{n", "{wDate{n", "{wUnread?{n"])
-        fav_tag = "pid_%s_favorite" % self.caller.db.player_ob.id
+        fav_tag = "pid_%s_favorite" % self.caller.player_ob.id
         for entry in j_list:
             try:
                 event = character.messages.get_event(entry)
@@ -434,7 +434,7 @@ class CmdJournal(MuxCommand):
                     str_num = str(num) + "{w*{n"
                 else:
                     str_num = str(num)
-                unread = "" if self.caller.db.player_ob in entry.receivers else "{wX{n"
+                unread = "" if self.caller.player_ob in entry.receivers else "{wX{n"
                 date = character.messages.get_date_from_header(entry)
                 table.add_row([str_num, name, date, unread])
                 num += 1
@@ -446,7 +446,7 @@ class CmdJournal(MuxCommand):
         caller = self.caller
         from evennia.comms.models import Msg
         msgs = Msg.objects.filter(Q(db_tags__db_key="white_journal")
-                                  & ~Q(db_receivers_players=caller.db.player_ob)).order_by('-db_date_created')
+                                  & ~Q(db_receivers_players=caller.player_ob)).order_by('-db_date_created')
         msgs = [msg.id for msg in msgs]
         if len(msgs) > 500:
             self.msg("Truncating some matches.")
@@ -462,10 +462,10 @@ class CmdJournal(MuxCommand):
 
     def disp_favorite_journals(self):
         caller = self.caller
-        tag_name = "pid_%s_favorite" % caller.db.player_ob.id
+        tag_name = "pid_%s_favorite" % caller.player_ob.id
         from evennia.comms.models import Msg
         msgs = Msg.objects.filter(Q(db_tags__db_key="white_journal")
-                                  & ~Q(db_receivers_players=caller.db.player_ob)
+                                  & ~Q(db_receivers_players=caller.player_ob)
                                   & Q(db_tags__db_key=tag_name)).order_by('-db_date_created')
         msgs = [msg.id for msg in msgs]
         if len(msgs) > 500:
@@ -484,7 +484,7 @@ class CmdJournal(MuxCommand):
     def mark_all_read(self):
         from evennia.comms.models import Msg
         caller = self.caller
-        player = caller.db.player_ob
+        player = caller.player_ob
         all_msgs = Msg.objects.filter(Q(db_tags__db_key="white_journal") &
                                       ~Q(db_receivers_players=player)
                                       # & ~Q(db_sender_objects__roster__current_account=caller.roster.current_account)
@@ -508,7 +508,7 @@ class CmdJournal(MuxCommand):
             # display caller's latest white or black journal entry
             try:
                 self.msg("Number of entries in your %s: %s" % (j_name, char.messages.size(white)))
-                self.msg(char.messages.disp_entry_by_num(num=num, white=white, caller=caller.db.player_ob),
+                self.msg(char.messages.disp_entry_by_num(num=num, white=white, caller=caller.player_ob),
                          options={'box': True})
             except IndexError:
                 caller.msg("No journal entries written yet.")
@@ -557,16 +557,16 @@ class CmdJournal(MuxCommand):
                     try:
                         entry = journal[num - 1]
                         if "favorite" in self.switches:
-                            caller.messages.tag_favorite(entry, caller.db.player_ob)
+                            caller.messages.tag_favorite(entry, caller.player_ob)
                             self.msg("Entry added to favorites.")
                         else:
-                            caller.messages.untag_favorite(entry, caller.db.player_ob)
+                            caller.messages.untag_favorite(entry, caller.player_ob)
                             self.msg("Entry removed from favorites.")
                         return
                     except (IndexError, AttributeError, ValueError, TypeError):
                         self.msg("No such entry to tag as a favorite.")
                         return
-                msg = char.messages.disp_entry_by_num(num, white=white, caller=caller.db.player_ob)
+                msg = char.messages.disp_entry_by_num(num, white=white, caller=caller.player_ob)
                 # if we fail access check, we have 'False' instead of a msg
                 if msg is None:
                     caller.msg("Empty entry.")
@@ -792,11 +792,11 @@ class CmdMessenger(MuxCommand):
         else:
             unread.insert(0, (msg, delivery, (money, mats), m_name))
         # add the message to the player's set to mark it as an unread message sent to them
-        player = targ.db.player_ob
+        player = targ.player_ob
         player.receiver_player_set.add(msg)
         targ.db.pending_messengers = unread
         targ.messenger_notification(2)
-        if caller.db.player_ob.db.nomessengerpreview or caller.ndb.already_previewed:
+        if caller.player_ob.db.nomessengerpreview or caller.ndb.already_previewed:
             caller.msg("You dispatch %s to {c%s{n." % (m_name or "a messenger", targ.key))
         else:
             caller.msg("You dispatch %s to {c%s{n with the following message:\n\n'%s'\n" % (
@@ -833,7 +833,7 @@ class CmdMessenger(MuxCommand):
             mats (tuple): tuple of (Material's ID, amount)
         """
         try:
-            dompc = self.caller.db.player_ob.Dominion
+            dompc = self.caller.player_ob.Dominion
             lhslist = args.split("/")
             material = CraftingMaterialType.objects.get(name__iexact=lhslist[0])
             amt = int(lhslist[1])
@@ -896,7 +896,7 @@ class CmdMessenger(MuxCommand):
                 self.msg("You will not receive messages discreetly.")
                 return
             try:
-                obj = caller.db.player_ob.retainers.get(id=self.args).dbobj
+                obj = caller.player_ob.retainers.get(id=self.args).dbobj
                 if obj.db.abilities.get("discreet_messenger", 0):
                     caller.db.discreet_messenger = obj
                     self.msg("%s will now deliver messages to you discreetly if they are in the same room." % obj)
@@ -917,7 +917,7 @@ class CmdMessenger(MuxCommand):
                 self.msg("You will no longer send messages using %s." % ob)
                 return
             try:
-                obj = caller.db.player_ob.retainers.get(id=self.args).dbobj
+                obj = caller.player_ob.retainers.get(id=self.args).dbobj
                 if obj.db.abilities.get("custom_messenger", 0):
                     caller.db.custom_messenger = obj
                     self.msg("%s will now deliver messages for you." % obj)
@@ -997,7 +997,7 @@ class CmdMessenger(MuxCommand):
                 caller.msg("{wYou receive %s silver coins.{n" % money)
             if mats:
                 material, amt = mats
-                dompc = caller.db.player_ob.Dominion
+                dompc = caller.player_ob.Dominion
                 try:
                     mat = dompc.assets.materials.get(type=material)
                     mat.amount += amt
@@ -2042,7 +2042,7 @@ class CmdSocialScore(MuxCommand):
                 if ob.organization.secret:
                     # only show reputation to people in the or
                     try:
-                        caller_member = ob.organization.active_members.get(player=self.caller.db.player_ob.Dominion)
+                        caller_member = ob.organization.active_members.get(player=self.caller.player_ob.Dominion)
                     except (Member.DoesNotExist, ValueError):
                         continue
                     try:
@@ -2126,7 +2126,7 @@ class CmdDonate(MuxCommand):
     def func(self):
         """Execute command."""
         caller = self.caller
-        dompc = caller.db.player_ob.Dominion
+        dompc = caller.player_ob.Dominion
         donations = caller.db.donations or {}
         if not self.lhs:
             caller.msg("{wDonations:{n")
@@ -2184,19 +2184,19 @@ class CmdRandomScene(MuxCommand):
 
     @property
     def scenelist(self):
-        return self.caller.db.player_ob.db.random_scenelist or []
+        return self.caller.player_ob.db.random_scenelist or []
 
     @property
     def claimlist(self):
-        return set(list(self.caller.db.player_ob.db.claimed_scenelist or []) + list(self.requested_validation))
+        return set(list(self.caller.player_ob.db.claimed_scenelist or []) + list(self.requested_validation))
 
     @property
     def validatedlist(self):
-        return self.caller.db.player_ob.db.validated_list or []
+        return self.caller.player_ob.db.validated_list or []
 
     @property
     def requested_validation(self):
-        return self.caller.db.player_ob.db.requested_validation or []
+        return self.caller.player_ob.db.requested_validation or []
 
     @property
     def newbies(self):
@@ -2247,7 +2247,7 @@ class CmdRandomScene(MuxCommand):
                 ob.roster.refresh_from_db()
                 ob.refresh_from_db()
                 if ob.roster.roster.name != "Active":
-                    self.caller.db.player_ob.db.random_scenelist.remove(ob)
+                    self.caller.player_ob.db.random_scenelist.remove(ob)
             except (AttributeError, TypeError, ValueError):
                 pass
         if len(self.scenelist) + len([ob for ob in self.claimlist if ob not in self.newbies]) < self.NUM_SCENES:
@@ -2281,7 +2281,7 @@ class CmdRandomScene(MuxCommand):
         if num_scenes > 0:
             scenelist.extend(random.sample(choices, num_scenes))
         scenelist = sorted(scenelist, key=lambda x: x.key.capitalize())
-        self.caller.db.player_ob.db.random_scenelist = scenelist
+        self.caller.player_ob.db.random_scenelist = scenelist
 
     def claim_scene(self):
         targ = self.caller.search(self.lhs)
@@ -2315,12 +2315,12 @@ class CmdRandomScene(MuxCommand):
         msg += "\nTo validate, use {w@randomscene/validate %s{n" % name
         msg += "\n{rYou are already flagged for xp, and are not penalized in any way for ignoring a request "
         msg += "from someone who did not meaningfully interact with you.{n"
-        targ.db.player_ob.inform(msg, category="Validate")
+        targ.player_ob.inform(msg, category="Validate")
         inform_staff("%s has completed a random scene with %s. Summary: %s" % (self.caller.key, targ, self.rhs))
         self.msg("You have sent a request to %s to validate your scene." % targ)
         our_requests = self.requested_validation
         our_requests.append(targ)
-        self.caller.db.player_ob.db.requested_validation = our_requests
+        self.caller.player_ob.db.requested_validation = our_requests
 
     def validate_scene(self):
         scene_requests = self.caller.db.scene_requests or {}
@@ -2330,17 +2330,17 @@ class CmdRandomScene(MuxCommand):
             self.msg("No character by that name has sent you a request.")
             self.view_requests()
             return
-        validated = self.caller.db.player_ob.db.validated_list or []
-        claimed = targ.db.player_ob.db.claimed_scenelist or []
+        validated = self.caller.player_ob.db.validated_list or []
+        claimed = targ.player_ob.db.claimed_scenelist or []
         claimed.append(self.caller)
-        targ_scenelist = targ.db.player_ob.db.random_scenelist or []
+        targ_scenelist = targ.player_ob.db.random_scenelist or []
         if self.caller in targ_scenelist:
             targ_scenelist.remove(self.caller)
-            targ.db.player_ob.db.random_scenelist = targ_scenelist
-        targ.db.player_ob.db.claimed_scenelist = claimed
+            targ.player_ob.db.random_scenelist = targ_scenelist
+        targ.player_ob.db.claimed_scenelist = claimed
         self.msg("Validating their scene. Both of you will receive xp for it later.")
         validated.append(targ)
-        self.caller.db.player_ob.db.validated_list = validated
+        self.caller.player_ob.db.validated_list = validated
 
     def view_requests(self):
         requests = self.caller.db.scene_requests or {}

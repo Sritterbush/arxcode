@@ -612,7 +612,7 @@ class AssetOwner(SharedMemoryModel):
             return self.player.player == accessing_obj
         # it's a character, check if it's the character of our player
         try:
-            return accessing_obj.db.player_ob == self.player.player
+            return accessing_obj.player_ob == self.player.player
         except AttributeError:
             return default
 

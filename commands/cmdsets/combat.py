@@ -1091,7 +1091,7 @@ class CmdHarm(MuxCommand):
             if not obj.location:
                 if not message:
                     message = "You have taken %s damage." % amt
-                obj.db.player_ob.inform(message, category="Damage")
+                obj.player_ob.inform(message, category="Damage")
             elif "private" in self.switches and message:
                 obj.msg(message)
             obj.combat.take_damage(amt, lethal=True, allow_one_shot=one_shot)

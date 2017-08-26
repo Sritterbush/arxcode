@@ -22,7 +22,7 @@
 		<td>{{char.db.fealty}}</td>
 		<td>{{char.db.social_rank}}</td>
 		{% if show_hidden %}
-		<td>{{char.db.player_ob.email}}</td>
+		<td>{{char.player_ob.email}}</td>
 		{% endif %}
 	  </tr>
     {% empty %}
@@ -52,7 +52,7 @@
 		<td>{{char.db.concept}}</td>
 		<td>{{char.db.fealty}}</td>
 		<td>{{char.db.social_rank}}</td>
-		<td>{{char.db.player_ob.email}}</td>
+		<td>{{char.player_ob.email}}</td>
 	  </tr>
       {% empty %}
         <li>No characters found.</li>
@@ -80,7 +80,7 @@
 		<td>{{char.db.concept}}</td>
 		<td>{{char.db.fealty}}</td>
 		<td>{{char.db.social_rank}}</td>
-		<td>{{char.db.player_ob.email}}</td>
+		<td>{{char.player_ob.email}}</td>
 	  </tr>
       {% empty %}
         <li>No characters found.</li>

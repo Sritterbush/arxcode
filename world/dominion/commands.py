@@ -2550,7 +2550,7 @@ class CmdTask(MuxCommand):
         Returns the spheres that the character can use for a
         given task
         """
-        orgs = character.db.player_ob.Dominion.current_orgs
+        orgs = character.player_ob.Dominion.current_orgs
         return InfluenceCategory.objects.filter(orgs__in=orgs, tasks=assignment.task).distinct()
     
     def func(self):
@@ -2800,19 +2800,19 @@ class CmdTask(MuxCommand):
                             caller.msg("Sending them a reminder.")
                             reminder = True
 
-                    highest = char.db.player_ob.Dominion.memberships.filter(Q(secret=False) &
+                    highest = char.player_ob.Dominion.memberships.filter(Q(secret=False) &
                                                                             Q(deguilded=False)).order_by('rank')
                     if highest:
                         highest = highest[0]
                     else:
                         highest = None
-                    if highest in org.members.filter(Q(player=char.db.player_ob.Dominion) & Q(deguilded=False)):
+                    if highest in org.members.filter(Q(player=char.player_ob.Dominion) & Q(deguilded=False)):
                         caller.msg("You cannot gain support from a member whose highest " +
                                    "rank is in the same organization as the task.")
                         continue
                     if char not in asklist:
                         # The action point cost of requesting support for a task
-                        if not caller.db.player_ob.pay_action_points(2):
+                        if not caller.player_ob.pay_action_points(2):
                             caller.msg("You don't have enough action points to ask for support from %s." % char.name)
                             continue
                         asklist.append(char)
@@ -2848,7 +2848,7 @@ class CmdTask(MuxCommand):
                         mailmsg += "Pledging a value of 0 will give them 1 free point, while additional points "
                         mailmsg += "are subtracted from your available pool. You can "
                         mailmsg += "also choose to fake your support with the /fake switch. Your current pool "
-                        remaining = char.db.player_ob.Dominion.remaining_points
+                        remaining = char.player_ob.Dominion.remaining_points
                         mailmsg += "at the time of this message is %s points remaining." % remaining
                         mailmsg += "\nIf you decide to give them support, you finalize your choices with "
                         mailmsg += "'{wsupport/finish{n' once you have finished the form."
@@ -2999,7 +2999,7 @@ class CmdSupport(MuxCommand):
 
     def get_support_table(self):
         caller = self.caller
-        dompc = self.caller.db.player_ob.Dominion
+        dompc = self.caller.player_ob.Dominion
         # week = get_week()
         supports = dompc.supported_tasks.filter(Q(task__finished=False)
                                                 # &  Q(allocation__week=week)
@@ -3017,7 +3017,7 @@ class CmdSupport(MuxCommand):
         week = get_week()
         caller = self.caller
         requests = caller.db.requested_support or {}
-        dompc = self.caller.db.player_ob.Dominion
+        dompc = self.caller.player_ob.Dominion
         dompc.refresh_from_db()
         cooldowns = dompc.support_cooldowns
         remaining = dompc.remaining_points

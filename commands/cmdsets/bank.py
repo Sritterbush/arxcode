@@ -88,7 +88,7 @@ class CmdBank(MuxCommand):
     
     def inform_owner(self, owner, verb, amt, attr_type="silver", mat_str="silver"):
         player = owner.inform_target
-        if not player or player == self.caller.db.player_ob:
+        if not player or player == self.caller.player_ob:
             return
         attr_name = "min_%s_transaction" % attr_type
         if amt >= (player.db.char_ob.attributes.get(attr_name) or 0):

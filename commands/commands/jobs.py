@@ -358,8 +358,8 @@ class CmdRequest(MuxPlayerCommand):
     max_requests = 2
         
     def get_help(self, caller, cmdset):
-        if caller.db.player_ob:
-            caller = caller.db.player_ob
+        if caller.player_ob:
+            caller = caller.player_ob
         actions = self.get_num_actions(caller)
         msg = self.__doc__ + self.get_actions_disp_str(actions)
         return msg
@@ -650,7 +650,7 @@ class CmdApp(MuxPlayerCommand):
                 try:
                     
                     entry = RosterEntry.objects.get(character__id=app[1].id,
-                                                    player__id=app[1].db.player_ob.id)
+                                                    player__id=app[1].player_ob.id)
                     active_roster = Roster.objects.get(name="Active")
                     entry.roster = active_roster
                     try:

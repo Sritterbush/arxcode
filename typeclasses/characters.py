@@ -43,8 +43,6 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         # setting up custom attributes for ArxMUSH
         # BriefMode is for toggling brief descriptions from rooms
         self.db.briefmode = False
-        # identification attributes about our player
-        self.db.player_ob = None
         self.db.gender = "Female"
         self.db.age = 20
         self.db.concept = "None"
@@ -566,7 +564,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         we are not hiding from watch.
         """
         watchers = self.db.watched_by or []
-        pc = self.db.player_ob
+        pc = self.player_ob
         if not pc:
             return
         if not watchers or pc.db.hide_from_watch:
@@ -599,7 +597,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
 
     def _get_max_support(self):
         try:
-            dompc = self.db.player_ob.Dominion
+            dompc = self.player_ob.Dominion
             remaining = 0
             for member in dompc.memberships.filter(deguilded=False):
                 remaining += member.pool_share
@@ -755,7 +753,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         num_times -= 1
         if self.db.pending_messengers:
             # send messages to our player object so even an @ooc player will see them
-            player = self.db.player_ob
+            player = self.player_ob
             if not player or not player.is_connected:
                 return
             if not player.db.ignore_messenger_notifications or login:
@@ -1024,7 +1022,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
                 return False
             player = self.player
         else:
-            player = self.db.player_ob
+            player = self.player_ob
         if not player:
             return False
         if not player.db.hide_from_watch:

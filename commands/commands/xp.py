@@ -340,7 +340,7 @@ class CmdTrain(MuxCommand):
             character.ndb.training_cost_confirmation = True
             return
         character.ndb.training_cost_confirmation = False
-        if character.db.player_ob.pay_action_points(cost):
+        if character.player_ob.pay_action_points(cost):
             return True
         self.msg("You don't have enough action points to train another.")
 

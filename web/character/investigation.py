@@ -27,7 +27,7 @@ class InvestigationFormCommand(MuxCommand):
             cost = self.ap_cost
             if cost < 0:
                 cost = 0
-        if self.caller.db.player_ob.pay_action_points(cost):
+        if self.caller.player_ob.pay_action_points(cost):
             return True
         else:
             self.msg("You cannot afford to do that action.")
@@ -82,7 +82,7 @@ class InvestigationFormCommand(MuxCommand):
         return 0
 
     def pay_costs(self):
-        dompc = self.caller.db.player_ob.Dominion
+        dompc = self.caller.player_ob.Dominion
         amt = dompc.assets.social
         amt -= self.start_cost
         if amt < 0:
@@ -290,7 +290,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             self.msg("No form found. Use /new.")
             return
         try:
-            helper = self.caller.db.player_ob.retainers.get(id=self.args).dbobj
+            helper = self.caller.player_ob.retainers.get(id=self.args).dbobj
             if not helper.db.abilities or helper.db.abilities.get("investigation_assistant", 0) < 1:
                 self.msg("%s is not able to assist investigations." % helper)
                 return
@@ -396,7 +396,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         self.msg("%s and retainers is helping the following investigations:" % char)
         table = PrettyTable(["ID", "Character", "Investigation Owner", "Currently Helping"])
         investigations = list(char.assisted_investigations.all())
-        for retainer in char.db.player_ob.retainers.all():
+        for retainer in char.player_ob.retainers.all():
             try:
                 retainer_investigations = list(retainer.dbobj.assisted_investigations.all())
             except AttributeError:
@@ -561,7 +561,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                     return
                 elif "resource" in self.switches or "resources" in self.switches:
                     ob = ob.investigation
-                    dompc = self.caller.db.player_ob.Dominion
+                    dompc = self.caller.player_ob.Dominion
                     try:
                         rtype, val = self.rhslist[0].lower(), int(self.rhslist[1])
                         if val <= 0:
@@ -728,7 +728,7 @@ class CmdInvestigate(InvestigationFormCommand):
         if not (self.related_manager.filter(active=True) or
                 self.caller.assisted_investigations.filter(currently_helping=True)):
             if not self.caller.assisted_investigations.filter(currently_helping=True):
-                if self.caller.db.player_ob.pay_action_points(self.ap_cost):
+                if self.caller.player_ob.pay_action_points(self.ap_cost):
                     created_object.active = True
                     self.msg("New investigation created. This has been set as your active investigation " +
                              "for the week, and you may add resources/silver to increase its chance of success.")
@@ -767,7 +767,7 @@ class CmdInvestigate(InvestigationFormCommand):
             return
         caller = self.caller
         entry = caller.roster
-        dompc = caller.db.player_ob.Dominion
+        dompc = caller.player_ob.Dominion
         investigation = self.investigation_form
         if not self.args and not self.switches:
             if investigation:
@@ -986,7 +986,7 @@ class CmdInvestigate(InvestigationFormCommand):
                 inform_msg += "form with {w@helpinvestigate/new{n, setting the target with "
                 inform_msg += "{w@helpinvestigate/target %s{n, and filling in the other fields." % ob.id
                 inform_msg += "\nThe current actions of their investigation are: %s" % ob.actions
-                char.db.player_ob.inform(inform_msg, category="Investigation Request From %s" % self.caller,
+                char.player_ob.inform(inform_msg, category="Investigation Request From %s" % self.caller,
                                          append=False)
                 return
         caller.msg("Invalid switch.")
@@ -1146,8 +1146,8 @@ class CmdListClues(MuxPlayerCommand):
     help_category = "Investigation"
 
     def get_help(self, caller, cmdset):
-        if caller.db.player_ob:
-            caller = caller.db.player_ob
+        if caller.player_ob:
+            caller = caller.player_ob
         doc = self.__doc__
         doc += "\n\nYour cost of sharing clues is %s." % caller.clue_cost
         return doc

@@ -239,8 +239,8 @@ class MessageHandler(object):
         """
         Returns a list of all gossip entries we've heard (marked as a receiver for)
         """
-        if self.obj.db.player_ob:
-            self._gossip = list(self.obj.db.player_ob.receiver_player_set.filter(db_tags__db_key="gossip"
+        if self.obj.player_ob:
+            self._gossip = list(self.obj.player_ob.receiver_player_set.filter(db_tags__db_key="gossip"
                                                                                  ).order_by('-db_date_created'))
         else:
             self._gossip = list(_GA(self.obj, 'receiver_object_set').filter(db_tags__db_key="gossip"
@@ -337,7 +337,7 @@ class MessageHandler(object):
         """adds message to our journal"""
         if not white:
             try:
-                p_id = self.obj.db.player_ob.id
+                p_id = self.obj.player_ob.id
                 blacklock = "read: perm(Builders) or pid(%s)." % p_id
             except AttributeError:
                 blacklock = "read: perm(Builders)"
@@ -355,7 +355,7 @@ class MessageHandler(object):
             date = get_date()
         header = self.create_date_header(date)
         j_tag = "white_journal" if white else "black_journal"
-        msg = create_message(self.obj, msg, receivers=self.obj.db.player_ob,
+        msg = create_message(self.obj, msg, receivers=self.obj.player_ob,
                              header=header)
         msg.tags.add(j_tag, category="msg")
         msg = self.add_to_journals(msg, white)
@@ -380,7 +380,7 @@ class MessageHandler(object):
             date = get_date()
         header = self.create_date_header(date)
         name = targ.key.lower()
-        receivers = [targ, self.obj.db.player_ob]
+        receivers = [targ, self.obj.player_ob]
         msg = create_message(self.obj, msg, receivers=receivers, header=header)
         msg.tags.add("relationship", category="msg")
         j_tag = "white_journal" if white else "black_journal"
@@ -417,7 +417,7 @@ class MessageHandler(object):
             return
         self.obj.receiver_object_set.add(msg)
         # remove the pending message from the associated player
-        player_ob = self.obj.db.player_ob
+        player_ob = self.obj.player_ob
         player_ob.receiver_player_set.remove(msg)
         if msg not in self.messenger_history:
             self.messenger_history.insert(0, msg)
@@ -461,7 +461,7 @@ class MessageHandler(object):
         msg += "{wOOC Date:{n %s\n\n" % entry.db_date_created.strftime("%x %X")
         msg += entry.db_message
         try:
-            ob = self.obj.db.player_ob
+            ob = self.obj.player_ob
             # don't bother to mark player receivers for a messenger
             if ob not in entry.receivers and "messenger" not in entry.tags.all():
                 entry.receivers = ob
@@ -490,8 +490,8 @@ class MessageHandler(object):
             msg += self.disp_entry(entry)
             # mark the player as having read this
             if caller:
-                if caller.db.player_ob:
-                    caller = caller.db.player_ob
+                if caller.player_ob:
+                    caller = caller.player_ob
                 entry.receivers = caller
         except Exception:  # Catch possible database errors, or bad formatting, etc
             import traceback

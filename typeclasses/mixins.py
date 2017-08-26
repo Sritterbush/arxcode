@@ -391,7 +391,6 @@ class AppearanceMixins(object):
         return string
 
 
-
 class ObjectMixins(DescMixins, AppearanceMixins):
 
     @property
@@ -434,8 +433,24 @@ class ObjectMixins(DescMixins, AppearanceMixins):
                 self.location = room
             except ArxRoom.DoesNotExist:
                 pass
-            
-            
+
+    # properties for determining our Player object, and that we are not a Player object
+    @property
+    def player_ob(self):
+        """
+        Returns our player object if we have one
+        :type self: ObjectDB
+        """
+        try:
+            return self.roster.player
+        except AttributeError:
+            pass
+
+    @property
+    def char_ob(self):
+        return None
+
+
 class CraftingMixins(object):
     def return_appearance(self, pobject, detailed=False, format_desc=False,
                           show_contents=True):
@@ -449,12 +464,19 @@ class CraftingMixins(object):
         :param show_contents: bool
         """
         string = super(CraftingMixins, self).return_appearance(pobject, detailed=detailed, format_desc=format_desc,
-                       show_contents=show_contents)
+                                                               show_contents=show_contents)
         string += self.return_crafting_desc()
         return string
         
     @property
     def recipe(self):
+        """
+        Gets the crafting recipe used to create us if one exists.
+
+        :type self: ObjectDB
+        Returns:
+            The crafting recipe used to create this object.
+        """
         if self.db.recipe:
             from world.dominion.models import CraftingRecipe
             try:
@@ -467,7 +489,8 @@ class CraftingMixins(object):
     def adorns(self):
         """
         Returns a dict of crafting materials we have.
-        
+
+        :type self: ObjectDB
             Returns:
                 ret (dict): dict of crafting materials as keys to amt
                 
@@ -525,12 +548,20 @@ class CraftingMixins(object):
         return ""
     
     def add_adorn(self, material, quantity):
+        """
+        Adds an adornment to this crafted object.
+        :type self: ObjectDB
+        :type material: CraftingMaterialType
+        :type quantity: int
+
+        Args:
+            material: The crafting material type that we're adding
+            quantity: How much we're adding
+        """
         adorns = self.db.adorns or {}
         amt = adorns.get(material.id, 0)
         adorns[material.id] = amt + quantity
         self.db.adorns = adorns
-        return
-        
 
 
 # regex removes the ascii inside an ascii tag
@@ -623,8 +654,8 @@ class MsgMixins(object):
                 msg_sep = self.tags.get("newline_on_messages")
                 player_ob = self
             else:
-                msg_sep = self.db.player_ob.tags.get("newline_on_messages")
-                player_ob = self.db.player_ob
+                msg_sep = self.player_ob.tags.get("newline_on_messages")
+                player_ob = self.player_ob
         except AttributeError:
             msg_sep = None
             player_ob = self
@@ -654,6 +685,17 @@ class MsgMixins(object):
 
 class LockMixins(object):
     def has_lock_permission(self, caller):
+        """
+        Checks if a caller has permission to open this object - assume we're a locked door or chest.
+
+        :type self: ObjectDB
+        :type caller: ObjectDB or PlayerDB
+        Args:
+            caller: Caller object to check access.
+
+        Returns:
+            True if they have access, False otherwise.
+        """
         if caller and not caller.check_permstring("builders") and not self.access(caller, 'usekey'):
             caller.msg("You do not have a key to %s." % self)
             return False

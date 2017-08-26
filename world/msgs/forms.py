@@ -27,7 +27,7 @@ class JournalMarkFavorite(forms.Form):
 
     def tag_msg(self, char):
         msg = self.cleaned_data['tagged']
-        char.messages.tag_favorite(msg, char.db.player_ob)
+        char.messages.tag_favorite(msg, char.player_ob)
 
 
 class JournalRemoveFavorite(forms.Form):
@@ -38,7 +38,7 @@ class JournalRemoveFavorite(forms.Form):
 
     def untag_msg(self, char):
         msg = self.cleaned_data['untagged']
-        char.messages.untag_favorite(msg, char.db.player_ob)
+        char.messages.untag_favorite(msg, char.player_ob)
 
 
 class CharacterChoiceField(forms.ModelChoiceField):

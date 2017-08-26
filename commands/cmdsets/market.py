@@ -160,7 +160,7 @@ class CmdMarket(MuxCommand):
                     return    
             cost = material.value * amt
             try:
-                dompc = caller.db.player_ob.Dominion
+                dompc = caller.player_ob.Dominion
             except AttributeError:
                 dompc = setup_utils.setup_dom_for_char(caller)
             if "buy" in self.switches:
@@ -243,7 +243,7 @@ class CmdMarket(MuxCommand):
             return
         if "economic" in self.switches or "military" in self.switches or "social" in self.switches:
             try:
-                assets = caller.db.player_ob.Dominion.assets
+                assets = caller.player_ob.Dominion.assets
                 amt = int(self.args)
                 if amt <= 0:
                     raise ValueError

@@ -901,7 +901,7 @@ class CmdGuards(MuxCommand):
             guard = ObjectDB.objects.object_search(self.lhs, candidates=guards, exact=False)
             if not guard:
                 try:
-                    guard = self.caller.db.player_ob.retainers.get(id=int(self.lhs)).dbobj
+                    guard = self.caller.player_ob.retainers.get(id=int(self.lhs)).dbobj
                 except (Agent.DoesNotExist, ValueError, AttributeError):
                     _AT_SEARCH_RESULT(guard, caller, self.lhs)
                     return

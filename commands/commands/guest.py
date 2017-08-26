@@ -399,7 +399,7 @@ class CmdGuestLook(MuxPlayerCommand):
                 def_txt = ", ".join(list(_stage3_optional_))
                 caller.msg("Optional fields that can be changed with @add if you wish: {w%s{n" % def_txt)
                 caller.db.tutorial_stage = 4
-                char.db.player_ob.db.tutorial_stage = caller.db.tutorial_stage
+                char.player_ob.db.tutorial_stage = caller.db.tutorial_stage
                 caller.execute_cmd("look")
                 return
             caller.msg("\nTo add a field, '{w@add/<field> <value>'{n. For example,\n" +
@@ -525,7 +525,7 @@ class CmdGuestCharCreate(MuxPlayerCommand):
                     return
                 self.msg("Choosing entry number %s out of the ones for that email." % index)
             new_character = entry.character
-            stage = new_character.db.player_ob.db.tutorial_stage
+            stage = new_character.player_ob.db.tutorial_stage
             if not stage:
                 stage = 1
             player.db.char = new_character
@@ -567,7 +567,6 @@ class CmdGuestCharCreate(MuxPlayerCommand):
                 # this is redundant, but shows up a few times in code, so just setting both
                 new_player.email = email
                 new_player.save()
-                new_character.db.player_ob = new_player
                 new_character.desc = "Description to be set later."
                 new_character.db.unfinished_values = set(_stage3_fields_)
                 # so they don't show up in Arx City Center during character creation
@@ -641,20 +640,20 @@ class CmdGuestAddInput(MuxPlayerCommand):
             caller.msg(string)
             return
         # strip excessive spaces in playername
-        if PlayerDB.objects.filter(username__iexact=playername).exclude(id=char.db.player_ob.id):
+        if PlayerDB.objects.filter(username__iexact=playername).exclude(id=char.player_ob.id):
             # player already exists (we also ignore capitalization here)
             caller.msg("Sorry, there is already a player with the name '%s'." % playername)
             return
         # everything's fine, username is unique and valid
-        char.db.player_ob.key = playername
+        char.player_ob.key = playername
         char.name = playername.capitalize()
         if caller.db.tutorial_stage == 1:
             caller.db.tutorial_stage += 1
-            char.db.player_ob.db.tutorial_stage = caller.db.tutorial_stage
+            char.player_ob.db.tutorial_stage = caller.db.tutorial_stage
         caller.msg("{cName{n set to {w%s{n." % char.key)
         char.save()       
-        char.db.player_ob.db.char_ob = char
-        char.db.player_ob.save()
+        char.player_ob.db.char_ob = char
+        char.player_ob.save()
         caller.execute_cmd("look")
 
     @staticmethod
@@ -694,7 +693,7 @@ class CmdGuestAddInput(MuxPlayerCommand):
         caller.msg("\n{cVocation{n set to {w%s{n." % args)
         if caller.db.tutorial_stage == 2:
             caller.db.tutorial_stage += 1
-            char.db.player_ob.db.tutorial_stage = caller.db.tutorial_stage
+            char.player_ob.db.tutorial_stage = caller.db.tutorial_stage
         caller.execute_cmd("look")
         return
 
@@ -800,7 +799,7 @@ class CmdGuestAddInput(MuxPlayerCommand):
                                                                                list(_stage3_optional_)))
             if caller.db.tutorial_stage == 3:
                 caller.db.tutorial_stage += 1
-                char.db.player_ob.db.tutorial_stage = caller.db.tutorial_stage
+                char.player_ob.db.tutorial_stage = caller.db.tutorial_stage
             caller.execute_cmd("look")
         return
 
@@ -953,7 +952,7 @@ class CmdGuestAddInput(MuxPlayerCommand):
         char.attributes.remove("unfinished_values")
         char.attributes.remove("skill_points")
         char.attributes.remove("stat_points")
-        char.db.player_ob.attributes.remove("tutorial_stage")
+        char.player_ob.attributes.remove("tutorial_stage")
         # set initial starting xp based on social rank
         srank = char.db.social_rank or 0
         # noinspection PyBroadException
@@ -973,7 +972,7 @@ class CmdGuestAddInput(MuxPlayerCommand):
 
         message = "{wNewly created character application by [%s] for %s" % (caller.key.capitalize(),
                                                                             char.key.capitalize())
-        if char.db.player_ob.email == 'dummy@dummy.com' or char.db.player_ob.email == 'none':
+        if char.player_ob.email == 'dummy@dummy.com' or char.player_ob.email == 'none':
             # notify GMs that the player is finished and waiting on approval
             message += ". The guest has not provided an email, and will be awaiting approval."
             message += "\nTo approve this character, manually set @userpassword of the player "
@@ -987,7 +986,7 @@ class CmdGuestAddInput(MuxPlayerCommand):
         else:
             if not args:
                 args = "No message"
-            email = char.db.player_ob.email
+            email = char.player_ob.email
             apps.add_app(char, email, args)
             caller.msg("Thank you for submitting your character for approval.")
             caller.msg("GMs will review your character, and notify you via the email you provided.")
@@ -1031,11 +1030,9 @@ class CmdGuestAddInput(MuxPlayerCommand):
                 return
             args = args.lower()
             if char:
-                player = char.db.player_ob
+                player = char.player_ob
                 player.email = args
                 player.save()
-                char.db.player_ob = player
-                char.save()
             caller.ndb.email = args
             caller.msg("Email set to %s" % args)
             return
@@ -1046,7 +1043,7 @@ class CmdGuestAddInput(MuxPlayerCommand):
         if 'skip' in switches:
             if stage == 3:
                 caller.db.tutorial_stage += 1
-                char.db.player_ob.db.tutorial_stage = caller.db.tutorial_stage
+                char.player_ob.db.tutorial_stage = caller.db.tutorial_stage
                 caller.execute_cmd("look")
                 return
         if stage == 1 or 'name' in switches:

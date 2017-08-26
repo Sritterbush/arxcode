@@ -142,11 +142,11 @@ class CmdInventory(MuxCommand):
         ap = 0
         try:
             # correct possible synchronization errors
-            if char.roster.action_points != char.db.player_ob.roster.action_points or char.ndb.stale_ap:
+            if char.roster.action_points != char.player_ob.roster.action_points or char.ndb.stale_ap:
                 char.roster.refresh_from_db(fields=("action_points",))
-                char.db.player_ob.roster.refresh_from_db(fields=("action_points",))
+                char.player_ob.roster.refresh_from_db(fields=("action_points",))
                 char.ndb.stale_ap = False
-            ap = char.db.player_ob.roster.action_points
+            ap = char.player_ob.roster.action_points
         except AttributeError:
             pass
         self.caller.msg("\n{w%s currently %s {c%s {wxp and {c%s{w ap." % ("You" if not show_other else char.key,
@@ -382,7 +382,7 @@ class CmdGive(MuxCommand):
         if "mats" in self.switches:
             lhslist = self.lhs.split(",")
             try:
-                mat = caller.db.player_ob.Dominion.assets.materials.get(type__name__iexact=lhslist[0])
+                mat = caller.player_ob.Dominion.assets.materials.get(type__name__iexact=lhslist[0])
                 amount = int(lhslist[1])
                 if amount < 1:
                     raise ValueError
@@ -396,9 +396,9 @@ class CmdGive(MuxCommand):
                 caller.msg("Not enough materials.")
                 return
             try:
-                tmat = target.db.player_ob.Dominion.assets.materials.get(type=mat.type)
+                tmat = target.player_ob.Dominion.assets.materials.get(type=mat.type)
             except CraftingMaterials.DoesNotExist:
-                tmat = target.db.player_ob.Dominion.assets.materials.create(type=mat.type)
+                tmat = target.player_ob.Dominion.assets.materials.create(type=mat.type)
             mat.amount -= amount
             tmat.amount += amount
             mat.save()
@@ -420,17 +420,17 @@ class CmdGive(MuxCommand):
             if rtype not in rtypes:
                 caller.msg("Type must be in %s." % ", ".join(rtypes))
                 return
-            cres = getattr(caller.db.player_ob.Dominion.assets, rtype)
+            cres = getattr(caller.player_ob.Dominion.assets, rtype)
             if cres < amount:
                 caller.msg("You do not have enough %s resources." % rtype)
                 return
-            tres = getattr(target.db.player_ob.Dominion.assets, rtype)
+            tres = getattr(target.player_ob.Dominion.assets, rtype)
             cres -= amount
             tres += amount
-            setattr(target.db.player_ob.Dominion.assets, rtype, tres)
-            setattr(caller.db.player_ob.Dominion.assets, rtype, cres)
-            target.db.player_ob.Dominion.assets.save()
-            caller.db.player_ob.Dominion.assets.save()
+            setattr(target.player_ob.Dominion.assets, rtype, tres)
+            setattr(caller.player_ob.Dominion.assets, rtype, cres)
+            target.player_ob.Dominion.assets.save()
+            caller.player_ob.Dominion.assets.save()
             caller.msg("You give %s %s resources to %s." % (amount, rtype, target))
             target.msg("%s gives %s %s resources to you." % (caller, amount, rtype))
             return

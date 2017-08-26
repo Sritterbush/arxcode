@@ -45,8 +45,8 @@ def rank(accessing_obj, accessed_obj, *args, **kwargs):
     """
     if not args:
         return False
-    if accessing_obj.db.player_ob:
-        accessing_obj = accessing_obj.db.player_ob
+    if accessing_obj.player_ob:
+        accessing_obj = accessing_obj.player_ob
     if hasattr(accessing_obj, 'dbobj'):
         accessing_obj = accessing_obj.dbobj
     rank_num = int(args[0])
@@ -77,8 +77,8 @@ def organization(accessing_obj, accessed_obj, *args, **kwargs):
     # if we're accessing as a character, set it to be the player object
     # noinspection PyBroadException
     try:
-        if accessing_obj.db.player_ob:
-            accessing_obj = accessing_obj.db.player_ob
+        if accessing_obj.player_ob:
+            accessing_obj = accessing_obj.player_ob
     except Exception:
         import traceback
         traceback.print_exc()
@@ -219,7 +219,7 @@ def cattr(accessing_obj, accessed_obj, *args, **kwargs):
     """
     from evennia.locks.lockfuncs import attr
     try:
-        if accessing_obj.db.player_ob:
+        if accessing_obj.player_ob:
             return attr(accessing_obj, accessed_obj, *args, **kwargs)
         char_ob = accessing_obj.db.char_ob
         return attr(char_ob, accessed_obj, *args, **kwargs)

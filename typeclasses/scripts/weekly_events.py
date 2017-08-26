@@ -216,7 +216,7 @@ class WeeklyEvents(Script):
             current_time = time.time()
             for ob in qs:
                 # never delete a player character
-                if ob.db.player_ob:
+                if ob.player_ob:
                     ob.undelete()
                     continue
                 # never delete something in-game
@@ -486,7 +486,7 @@ class WeeklyEvents(Script):
                 char = ObjectDB.objects.get(id=char_id)
             except ObjectDB.DoesNotExist:
                 continue
-            player = char.db.player_ob
+            player = char.player_ob
             if char and player:
                 scenes = self.db.scenes[char_id]
                 xp = self.scale_xp(scenes * 2)

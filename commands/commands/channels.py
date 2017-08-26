@@ -68,7 +68,7 @@ class ArxChannelCommand(command.Command):
         """
         channelkey, msg = self.args
         caller = self.caller
-        player = caller.db.player_ob
+        player = caller.player_ob
         if not msg:
             self.msg("Say what?")
             return

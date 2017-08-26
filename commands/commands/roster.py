@@ -270,7 +270,7 @@ class CmdRosterList(MuxPlayerCommand):
                 if not email:
                     char = caller.db.char
                     if char:
-                        email = char.db.player_ob.email
+                        email = char.player_ob.email
             if not email:
                 caller.msg("{rYou have no defined email address, which is required to apply"
                            " to play another character.{n")
@@ -780,7 +780,7 @@ def display_skills(caller, character):
     display_title(caller, title)
     caller.msg(skillstr)
     try:
-        dompc = character.db.player_ob.Dominion
+        dompc = character.player_ob.Dominion
         domskills = ("population", "income", "farming", "productivity",
                      "upkeep", "loyalty", "warfare")
         skillstr = ""
@@ -836,8 +836,8 @@ def display_relationships(caller, character, show_hidden=False):
         name = character.key
     if not name:
         name = "Unknown"
-    if character.db.player_ob and hasattr(character.db.player_ob, 'Dominion'):
-        dompc = character.db.player_ob.Dominion
+    if character.player_ob and hasattr(character.player_ob, 'Dominion'):
+        dompc = character.player_ob.Dominion
         if dompc.patron:
             caller.msg("{wPatron:{n %s" % str(dompc.patron))
         proteges = dompc.proteges.all()
@@ -1017,7 +1017,7 @@ class CmdSheet(MuxPlayerCommand):
             Args:
                 charob (ObjectDB): Character object to retrieve requests from
         """
-        player = charob.db.player_ob
+        player = charob.player_ob
         # Get storyrequests from this player object
         tickets = player.participated_storyrequests
         # check self.rhs - if not self.rhs, list # of all of them

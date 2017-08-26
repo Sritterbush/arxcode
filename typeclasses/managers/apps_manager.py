@@ -80,7 +80,7 @@ class AppsManager(Object):
             return False
         if approve:
             #send approval email
-            player = found_app[1].db.player_ob
+            player = found_app[1].player_ob
             if not player:
                 caller.msg("AppManager error: No player object found for character application.")
                 return False

@@ -559,7 +559,7 @@ class CmdWhisper(MuxCommand):
                                 received[-1])
             else:
                 received.append("{c%s{n" % pobj.name)
-                # afk = pobj.db.player_ob and pobj.db.player_ob.db.afk
+                # afk = pobj.player_ob and pobj.player_ob.db.afk
                 # if afk:
                 #     pobj.msg("{wYou inform {c%s{w that you are AFK:{n %s" % (caller, afk))
                 #     rstrings.append("{c%s{n is AFK: %s" % (pobj.name, afk))

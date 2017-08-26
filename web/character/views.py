@@ -133,7 +133,7 @@ def character_list(request):
             else:
                 return str(relation)
         try:
-            dom = char.db.player_ob.Dominion
+            dom = char.player_ob.Dominion
             parents = []
             uncles_aunts = []
             for parent in dom.all_parents:
@@ -156,7 +156,7 @@ def character_list(request):
 
     def get_dict(char):
         character = {}
-        if char.db.player_ob.is_staff or char.db.npc:
+        if char.player_ob.is_staff or char.db.npc:
             return character
         character = {
             'name': char.key,
@@ -277,7 +277,7 @@ def edit_photo(request, object_id):
     user = request.user
     if not character:
         raise Http404(err)
-    if not (user == character.db.player_ob or user.is_staff):
+    if not (user == character.player_ob or user.is_staff):
         raise Http404("Only owners or staff may edit photos.")
     try:
         photo = Photo.objects.get(pk=request.POST['select_photo'])
@@ -298,7 +298,7 @@ def delete_photo(request, object_id):
     user = request.user
     if not character:
         raise Http404(err)
-    if not (user == character.db.player_ob or user.is_staff):
+    if not (user == character.player_ob or user.is_staff):
         raise Http404("Only owners or staff may delete photos.")
     try:
         photo = Photo.objects.get(pk=request.POST['select_photo'])

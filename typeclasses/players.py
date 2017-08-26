@@ -437,3 +437,14 @@ class Player(MsgMixins, DefaultPlayer):
         if not self.db.char_ob:
             return True
         return self.db.char_ob.show_online(caller, check_puppet)
+
+    @property
+    def player_ob(self):
+        return None
+
+    @property
+    def char_ob(self):
+        try:
+            return self.roster.character
+        except AttributeError:
+            pass

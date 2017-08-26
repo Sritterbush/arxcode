@@ -461,7 +461,7 @@ def setup_dom_for_char(character, create_dompc=True, create_assets=True,
     domain, while 'fealty' will be the Organization that is set as their
     liege.
     """
-    pc = character.db.player_ob
+    pc = character.player_ob
     if not pc:
         raise TypeError("No player object found for character %s." % character)
     if create_dompc:

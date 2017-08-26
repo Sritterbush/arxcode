@@ -91,11 +91,6 @@ class Npc(Character):
         """
         Called once, when this object is first created.
         """
-        # BriefMode is for toggling brief descriptions from rooms
-        self.db.briefmode = False
-        # identification attributes about our player
-        self.db.player_ob = None
-        self.db.dice_string = "Default Dicestring"
         self.db.health_status = "alive"
         self.db.sleep_status = "awake"
         self.db.automate_combat = True

@@ -73,7 +73,7 @@ class CmdManageHome(MuxCommand):
         caller.msg("{wLifestyles:{n")
         for rating in LIFESTYLES:
             num = str(rating)
-            if caller.db.player_ob.Dominion.lifestyle_rating == rating:
+            if caller.player_ob.Dominion.lifestyle_rating == rating:
                 num += '{w*{n'
             table.add_row([num, LIFESTYLES[rating][0], LIFESTYLES[rating][1]])
         caller.msg(str(table), options={'box': True})
@@ -139,8 +139,8 @@ class CmdManageHome(MuxCommand):
                 caller.msg("%s is not a valid lifestyle." % self.args)
                 self.display_lifestyles()
                 return
-            caller.db.player_ob.Dominion.lifestyle_rating = int(self.args)
-            caller.db.player_ob.Dominion.save()
+            caller.player_ob.Dominion.lifestyle_rating = int(self.args)
+            caller.player_ob.Dominion.save()
             caller.msg("Your lifestyle rating has been set to %s." % self.args)
             return
         player = caller.player.search(self.lhs)
@@ -279,7 +279,7 @@ class CmdBuildRoom(CmdDig):
         max_expansions = loc.db.expansion_cap or 20
         assets = None
         # base cost = 1000
-        dompc = caller.db.player_ob.Dominion
+        dompc = caller.player_ob.Dominion
 
         if "org" in self.switches:
             # max_rooms = 100
@@ -457,7 +457,7 @@ class CmdManageRoom(MuxCommand):
             caller.msg("No owner is defined here.")
             return
         org = owner.organization_owner
-        if not org and not (owner == caller.db.player_ob.Dominion.assets
+        if not org and not (owner == caller.player_ob.Dominion.assets
                             or ('confirmhome' in self.switches or
                                 'confirmshop' in self.switches)):
             caller.msg("You are not the owner here.")
@@ -808,7 +808,7 @@ class CmdManageShop(MuxCommand):
         if "addrecipe" in self.switches:
             prices = loc.db.crafting_prices or {}
             try:
-                recipe = caller.db.player_ob.Dominion.assets.recipes.get(name__iexact=self.lhs)
+                recipe = caller.player_ob.Dominion.assets.recipes.get(name__iexact=self.lhs)
                 cost = int(self.rhs)
                 if cost < 0:
                     raise ValueError
@@ -836,7 +836,7 @@ class CmdManageShop(MuxCommand):
                 elif self.lhs.lower() == "refining":
                     arg = "refining"
                 else:
-                    recipe = caller.db.player_ob.Dominion.assets.recipes.get(name__iexact=self.lhs)
+                    recipe = caller.player_ob.Dominion.assets.recipes.get(name__iexact=self.lhs)
                     arg = recipe.id
                 del prices[arg]
                 caller.msg("Price for %s has been removed." % recipe.name if recipe else arg)
@@ -997,7 +997,7 @@ class CmdBuyFromShop(CmdCraft):
         discounts = loc.db.discounts or {}
         if self.caller in char_discounts:
             return char_discounts[self.caller]
-        for org in self.caller.db.player_ob.Dominion.current_orgs:
+        for org in self.caller.player_ob.Dominion.current_orgs:
             odiscount = discounts.get(org.name, 0.0)
             if odiscount and not discount:
                 discount = odiscount
@@ -1047,7 +1047,7 @@ class CmdBuyFromShop(CmdCraft):
         prices = loc.db.crafting_prices or {}
         msg = "{wCrafting Prices{n\n"
         table = PrettyTable(["{wName{n", "{wCraft Price{n", "{wRefine Price{n"])
-        recipes = loc.db.shopowner.db.player_ob.Dominion.assets.recipes.all().order_by('name')
+        recipes = loc.db.shopowner.player_ob.Dominion.assets.recipes.all().order_by('name')
         removed = prices.get("removed", [])
         for recipe in recipes:
             if recipe.id in removed:
@@ -1079,7 +1079,7 @@ class CmdBuyFromShop(CmdCraft):
         loc = self.caller.location
         loc.db.shopowner.pay_money(-price)
         if price >= (loc.db.shopowner.db.min_shop_price_inform or 0):
-            loc.db.shopowner.db.player_ob.inform(msg, category="shop")
+            loc.db.shopowner.player_ob.inform(msg, category="shop")
 
     def buy_item(self, item):
         """Buy an item from inventory - pay the owner and get the item"""
@@ -1106,7 +1106,7 @@ class CmdBuyFromShop(CmdCraft):
         blacklist = loc.db.blacklist or []
         if caller in blacklist:
             return True
-        for org in caller.db.player_ob.Dominion.current_orgs:
+        for org in caller.player_ob.Dominion.current_orgs:
             if org.name in blacklist:
                 return True
         return False
