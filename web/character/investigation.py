@@ -987,7 +987,7 @@ class CmdInvestigate(InvestigationFormCommand):
                 inform_msg += "{w@helpinvestigate/target %s{n, and filling in the other fields." % ob.id
                 inform_msg += "\nThe current actions of their investigation are: %s" % ob.actions
                 char.player_ob.inform(inform_msg, category="Investigation Request From %s" % self.caller,
-                                         append=False)
+                                      append=False)
                 return
         caller.msg("Invalid switch.")
         return
@@ -1360,7 +1360,7 @@ class CmdTheories(MuxPlayerCommand):
             return
         if "search" in self.switches:
             matches = self.caller.known_theories.filter(Q(topic__icontains=self.args) | Q(desc__icontains=self.args))
-            self.msg("Matches: %s" % ", ".join(str(ob.id) for ob in matches))
+            self.msg("Matches: %s" % ", ".join("%s (#%s)" % (ob, ob.id) for ob in matches))
             return
         if "create" in self.switches:
             theory = self.caller.created_theories.create(topic=self.lhs, desc=self.rhs)
