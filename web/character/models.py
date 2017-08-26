@@ -886,9 +886,13 @@ class Investigation(SharedMemoryModel):
         we're trying to uncover.
         """
         if not self.automate_result or not self.targeted_clue:
-            base = 40  # base difficulty for things without clues
+            base = 30  # base difficulty for things without clues
         else:
-            base = self.targeted_clue.rating + 20
+            base = self.targeted_clue.rating
+        try:
+            base = int(base + settings.INVESTIGATION_DIFFICULTY_MOD)
+        except (AttributeError, ValueError, TypeError):
+            pass
         return base - self.resource_mod
 
     @property
