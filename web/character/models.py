@@ -843,6 +843,10 @@ class Investigation(SharedMemoryModel):
                 ability_level = 0
             a_roll += random.randint(0, 5) * ability_level
             roll += a_roll
+        try:
+            roll = int(roll * settings.INVESTIGATION_PROGRESS_RATE)
+        except (AttributeError, TypeError, ValueError):
+            pass
         # save the character's roll
         print("final roll is %s" % roll)
         self.roll = roll
