@@ -4,6 +4,8 @@ A basic inform, as well as other in-game messages.
 
 
 from django.db import models
+from evennia.comms.models import Msg
+from .managers import (WHITE_TAG, BLACK_TAG, JournalManager, WhiteJournalManager, BlackJournalManager,)
 
 
 # ------------------------------------------------------------
@@ -51,3 +53,19 @@ class Inform(models.Model):
         cls.objects.bulk_create(bulk_list)
         for player in players:
             player.announce_informs()
+
+
+# different proxy classes for Msg objects
+class Journal(Msg):
+    """
+    Proxy model for Msg that represents an in-game journal written by a Character.
+    """
+    objects = JournalManager()
+    white_journals = WhiteJournalManager()
+    black_journals = BlackJournalManager()
+    
+    class Meta:
+        proxy = True
+        
+        
+
