@@ -9,6 +9,7 @@ from django.core.urlresolvers import reverse
 from django.core.exceptions import PermissionDenied
 
 from evennia.comms.models import Msg
+from world.msgs.models import Journal
 
 from .forms import (JournalMarkAllReadForm, JournalWriteForm, JournalMarkOneReadForm, JournalMarkFavorite,
                     JournalRemoveFavorite)
@@ -18,7 +19,7 @@ from server.utils.view_mixins import LimitPageMixin
 
 
 class JournalListView(LimitPageMixin, ListView):
-    model = Msg
+    model = Journal
     template_name = 'msgs/journal_list.html'
     paginate_by = 20
 
@@ -63,16 +64,9 @@ class JournalListView(LimitPageMixin, ListView):
     def get_queryset(self):
         user = self.request.user
         if not user or not user.is_authenticated() or not user.db.char_ob:
-            qs = Msg.objects.filter(db_tags__db_key="white_journal").order_by('-db_date_created')
-        elif user.is_staff:
-            qs = Msg.objects.filter((Q(db_tags__db_key='white_journal') |
-                                     Q(db_tags__db_key='black_journal')) &
-                                    ~Q(db_receivers_players=user)).order_by('-db_date_created')
+            qs = Journal.white_journals.order_by('-db_date_created')
         else:
-            qs = Msg.objects.filter((Q(db_tags__db_key='white_journal') |
-                                     (Q(db_tags__db_key='black_journal') &
-                                      Q(db_sender_objects=user.db.char_ob))) & ~Q(db_receivers_players=user)
-                                    ).order_by('-db_date_created')
+            qs = Journal.objects.all_permitted_journals(user).all_unread_by(user).order_by('-db_date_created')
         return self.search_filters(qs)
 
     def get_context_data(self, **kwargs):
@@ -141,15 +135,7 @@ class JournalListReadView(JournalListView):
         user = self.request.user
         if not user or not user.is_authenticated() or not user.db.char_ob:
             raise PermissionDenied("You must be logged in.")
-        if user.is_staff:
-            qs = Msg.objects.filter((Q(db_tags__db_key='white_journal') |
-                                     Q(db_tags__db_key='black_journal')) &
-                                    Q(db_receivers_players=user)).order_by('-db_date_created')
-        else:
-            qs = Msg.objects.filter((Q(db_tags__db_key='white_journal') |
-                                     (Q(db_tags__db_key='black_journal') &
-                                      Q(db_sender_objects=user.db.char_ob))) & Q(db_receivers_players=user)
-                                    ).order_by('-db_date_created')
+        qs = Journal.objects.all_permitted_journals(user).all_read_by(user).order_by('-db_date_created')
         return self.search_filters(qs)
 
 

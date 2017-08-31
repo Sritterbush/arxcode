@@ -5,7 +5,7 @@ A basic inform, as well as other in-game messages.
 
 from django.db import models
 from evennia.comms.models import Msg
-from .managers import (WHITE_TAG, BLACK_TAG, JournalManager, WhiteJournalManager, BlackJournalManager,)
+from .managers import (JournalManager, WhiteJournalManager, BlackJournalManager,)
 
 
 # ------------------------------------------------------------
@@ -55,17 +55,72 @@ class Inform(models.Model):
             player.announce_informs()
 
 
+# noinspection PyUnresolvedReferences
+class MarkReadMixin(object):
+    """
+    Proxy method for Msg that adds a few methods that most uses in Arx will share in common.
+    """
+    def mark_read(self, player):
+        """
+        Mark this Msg object as read by the player
+        Args:
+            player: Player who has read this Journal/Messenger/Board post/etc
+        """
+        self.db_receivers_players.add(player)
+
+    def mark_unread(self, player):
+        """
+        Mark this Msg object as unread by the player
+        Args:
+            player: Player who has read this Journal/Messenger/Board post/etc
+        """
+        self.db_receivers_players.remove(player)
+
+
 # different proxy classes for Msg objects
-class Journal(Msg):
+class Journal(MarkReadMixin, Msg):
     """
     Proxy model for Msg that represents an in-game journal written by a Character.
     """
+    class Meta:
+        proxy = True
     objects = JournalManager()
     white_journals = WhiteJournalManager()
     black_journals = BlackJournalManager()
-    
-    class Meta:
-        proxy = True
-        
-        
 
+    @property
+    def writer(self):
+        """The person who wrote this journal."""
+        try:
+            return self.senders[0]
+        except IndexError:
+            pass
+
+    @property
+    def relationship(self):
+        """Character who a journal is written about."""
+        try:
+            return self.db_receivers_objects.all()[0]
+        except IndexError:
+            pass
+
+    def __str__(self):
+        relationship = self.relationship
+        rel_txt = " on %s" % relationship if relationship else ""
+        return "<Journal written by %s%s>" % (self.writer, rel_txt)
+
+    def tag_favorite(self, player):
+        """
+        Tags this journal as a favorite by the player. We create a custom tag on the Journal to represent that.
+        Args:
+            player: Player tagging this journal as a favorite.
+        """
+        self.tags.add("pid_%s_favorite" % player.id)
+
+    def untag_favorite(self, player):
+        """
+        Removes tag marking this journal as a favorite of the player if it's present.
+        Args:
+            player: Player removing this journal as a favorite.
+        """
+        self.tags.remove("pid_%s_favorite" % player.id)

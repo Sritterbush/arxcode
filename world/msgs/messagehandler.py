@@ -241,7 +241,7 @@ class MessageHandler(object):
         """
         if self.obj.player_ob:
             self._gossip = list(self.obj.player_ob.receiver_player_set.filter(db_tags__db_key="gossip"
-                                                                                 ).order_by('-db_date_created'))
+                                                                              ).order_by('-db_date_created'))
         else:
             self._gossip = list(_GA(self.obj, 'receiver_object_set').filter(db_tags__db_key="gossip"
                                                                             ).order_by('-db_date_created'))

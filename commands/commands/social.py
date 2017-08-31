@@ -557,10 +557,10 @@ class CmdJournal(MuxCommand):
                     try:
                         entry = journal[num - 1]
                         if "favorite" in self.switches:
-                            caller.messages.tag_favorite(entry, caller.player_ob)
+                            entry.tag_favorite(caller.player_ob)
                             self.msg("Entry added to favorites.")
                         else:
-                            caller.messages.untag_favorite(entry, caller.player_ob)
+                            entry.untag_favorite(caller.player_ob)
                             self.msg("Entry removed from favorites.")
                         return
                     except (IndexError, AttributeError, ValueError, TypeError):
