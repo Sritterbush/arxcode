@@ -47,6 +47,18 @@ def q_sender_character(character):
     return Q(db_sender_objects=character)
 
 
+def q_receiver_character(character):
+    """
+    Gets a Q() object for a Character that the Msg is about
+    Args:
+        character: Character object that is targeted by this Msg in some way
+
+    Returns:
+        Q() object for Msgs sent/written about this character
+    """
+    return Q(db_receivers_objects=character)
+
+
 class MsgQuerySet(QuerySet):
     """
     Custom queryset for allowing us to chain together these methods with manager methods.
@@ -73,6 +85,30 @@ class MsgQuerySet(QuerySet):
         """
         return self.exclude(q_read_by_player(user))
 
+    def by_character(self, character):
+        """
+        Gets queryset of Msg objects written by this character. Note that players can
+        also send messages, and that is a different query.
+        Args:
+            character: Character who wrote this Msg
+
+        Returns:
+            QuerySet of Msg objects written by this character
+        """
+        return self.filter(q_sender_character(character))
+
+    def about_character(self, character):
+        """
+        Gets queryset of Msg objects written about this character. Note that players can
+        also receive messages, and that is a different query.
+        Args:
+            character: Character who received this Msg
+
+        Returns:
+            QuerySet of Msg objects written about this character
+        """
+        return self.filter(q_receiver_character(character))
+
 
 class MsgProxyManager(MsgManager):
     white_query = q_tagname(WHITE_TAG)
@@ -83,11 +119,8 @@ class MsgProxyManager(MsgManager):
         return MsgQuerySet(self.model)
 
     # so that custom queryset methods can be used after Model.objects
-    def __getattr__(self, attr, *args):
-        try:
-            return getattr(self.__class__, attr, *args)
-        except AttributeError:
-            return getattr(self.get_queryset(), attr, *args)
+    def __getattr__(self, attr):
+        return getattr(self.get_queryset(), attr)
 
 
 class JournalManager(MsgProxyManager):
