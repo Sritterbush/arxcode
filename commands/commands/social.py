@@ -14,11 +14,12 @@ import time
 import numbers
 from datetime import datetime, timedelta
 from world.dominion import setup_utils
-from world.dominion.models import RPEvent, Agent, CraftingMaterialType, CraftingMaterials
+from world.dominion.models import (RPEvent, Agent, CraftingMaterialType, CraftingMaterials,
+                                   AssetOwner, Renown, Reputation, Member)
+from world.msgs.models import Journal
 from server.utils.arx_utils import inform_staff
 from evennia.scripts.models import ScriptDB
 from django.db.models import Q
-from world.dominion.models import AssetOwner, Renown, Reputation, Member
 from typeclasses.characters import Character
 from typeclasses.rooms import ArxRoom
 import random
@@ -444,9 +445,7 @@ class CmdJournal(MuxCommand):
 
     def disp_unread_journals(self):
         caller = self.caller
-        from evennia.comms.models import Msg
-        msgs = Msg.objects.filter(Q(db_tags__db_key="white_journal")
-                                  & ~Q(db_receivers_players=caller.player_ob)).order_by('-db_date_created')
+        msgs = Journal.white_journals.all_unread_by(self.caller.player_ob).order_by('-db_date_created')
         msgs = [msg.id for msg in msgs]
         if len(msgs) > 500:
             self.msg("Truncating some matches.")
@@ -462,11 +461,7 @@ class CmdJournal(MuxCommand):
 
     def disp_favorite_journals(self):
         caller = self.caller
-        tag_name = "pid_%s_favorite" % caller.player_ob.id
-        from evennia.comms.models import Msg
-        msgs = Msg.objects.filter(Q(db_tags__db_key="white_journal")
-                                  & ~Q(db_receivers_players=caller.player_ob)
-                                  & Q(db_tags__db_key=tag_name)).order_by('-db_date_created')
+        msgs = Journal.white_journals.favorites_of(caller).order_by('-db_date_created')
         msgs = [msg.id for msg in msgs]
         if len(msgs) > 500:
             self.msg("Truncating some matches.")
@@ -482,15 +477,11 @@ class CmdJournal(MuxCommand):
         caller.msg("Writers with journals you have favorited: %s" % ", ".join(msglist))
 
     def mark_all_read(self):
-        from evennia.comms.models import Msg
         caller = self.caller
         player = caller.player_ob
-        all_msgs = Msg.objects.filter(Q(db_tags__db_key="white_journal") &
-                                      ~Q(db_receivers_players=player)
-                                      # & ~Q(db_sender_objects__roster__current_account=caller.roster.current_account)
-                                      ).distinct()
+        all_msgs = Journal.white_journals.all_unread_by(player)
         # we'll do a bulk create of the through-model that represents how journals are marked as read
-        ReadJournalModel = Msg.db_receivers_players.through
+        ReadJournalModel = Journal.db_receivers_players.through
         bulk_list = []
         for msg in all_msgs:
             bulk_list.append(ReadJournalModel(playerdb=player, msg=msg))

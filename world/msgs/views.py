@@ -8,7 +8,6 @@ from django.http import Http404
 from django.core.urlresolvers import reverse
 from django.core.exceptions import PermissionDenied
 
-from evennia.comms.models import Msg
 from world.msgs.models import Journal
 
 from .forms import (JournalMarkAllReadForm, JournalWriteForm, JournalMarkOneReadForm, JournalMarkFavorite,
@@ -182,12 +181,10 @@ def journal_list_json(request):
         timestamp = None
     global API_CACHE
     if timestamp:
-        ret = map(get_response, Msg.objects.filter(Q(db_date_created__gt=timestamp) &
-                                                   Q(db_tags__db_key="white_journal")
-                                                   ).order_by('-db_date_created'))
+        ret = map(get_response, Journal.white_journals.filter(db_date_created__gt=timestamp
+                                                              ).order_by('-db_date_created'))
         return HttpResponse(json.dumps(ret), content_type='application/json')
     if not API_CACHE:  # cache the list of all of them
-        ret = map(get_response, Msg.objects.filter(db_tags__db_key="white_journal"
-                                                   ).order_by('-db_date_created'))
+        ret = map(get_response, Journal.white_journals.order_by('-db_date_created'))
         API_CACHE = json.dumps(ret)
     return HttpResponse(API_CACHE, content_type='application/json')

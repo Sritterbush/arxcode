@@ -3834,9 +3834,8 @@ class RPEvent(SharedMemoryModel):
 
     @property
     def comments(self):
-        from evennia.comms.models import Msg
-        return Msg.objects.filter(db_tags__db_data=self.tagdata,
-                                  db_tags__db_category="event")
+        from world.msgs.models import Journal
+        return Journal.objects.filter(db_tags__db_data=self.tagdata, db_tags__db_category="event")
 
     @property
     def main_host(self):

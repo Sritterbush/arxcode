@@ -5,7 +5,9 @@ A basic inform, as well as other in-game messages.
 
 from django.db import models
 from evennia.comms.models import Msg
-from .managers import (JournalManager, WhiteJournalManager, BlackJournalManager, MessengerManager, WHITE_TAG, BLACK_TAG)
+from .managers import (JournalManager, WhiteJournalManager, BlackJournalManager, MessengerManager, WHITE_TAG, BLACK_TAG,
+                       VISION_TAG, RELATIONSHIP_TAG, MESSENGER_TAG, VisionManager, CommentManager, PostManager,
+                       RumorManager,)
 
 
 # ------------------------------------------------------------
@@ -53,6 +55,23 @@ class Inform(models.Model):
         cls.objects.bulk_create(bulk_list)
         for player in players:
             player.announce_informs()
+
+
+def get_model_from_tags(tag_list):
+    """
+    Given a list of tags, we return the appropriate proxy model
+    Args:
+        tag_list: list of strings that mark the Msg object's type
+
+    Returns:
+        The appropriate proxy class.
+    """
+    if WHITE_TAG in tag_list or BLACK_TAG in tag_list or RELATIONSHIP_TAG in tag_list:
+        return Journal
+    if MESSENGER_TAG in tag_list:
+        return Messenger
+    if VISION_TAG in tag_list:
+        return Vision
 
 
 # noinspection PyUnresolvedReferences
@@ -147,8 +166,44 @@ class Journal(MarkReadMixin, Msg):
 
 class Messenger(MarkReadMixin, Msg):
     """
-    Proxy model for Msg that represents an in-game journal written by a Character.
+    Proxy model for Msg that represents an in-game messenger sent by a Character.
     """
     class Meta:
         proxy = True
     objects = MessengerManager()
+
+
+class Vision(MarkReadMixin, Msg):
+    """
+    Proxy model for Msg that represents a vision received by a Character.
+    """
+    class Meta:
+        proxy = True
+    objects = VisionManager()
+
+
+class Comment(MarkReadMixin, Msg):
+    """
+    Proxy model for Msg that represents an in-game comment written by a Character.
+    """
+    class Meta:
+        proxy = True
+    objects = CommentManager()
+
+
+class Rumor(MarkReadMixin, Msg):
+    """
+    Proxy model for Msg that represents an in-game rumor written by a Character.
+    """
+    class Meta:
+        proxy = True
+    objects = RumorManager()
+
+
+class Post(MarkReadMixin, Msg):
+    """
+    Proxy model for Msg that represents an ooc bulletin board post.
+    """
+    class Meta:
+        proxy = True
+    objects = PostManager()

@@ -8,6 +8,13 @@ from evennia.comms.managers import MsgManager
 
 WHITE_TAG = "white_journal"
 BLACK_TAG = "black_journal"
+VISION_TAG = "visions"
+MESSENGER_TAG = "messenger"
+RELATIONSHIP_TAG = "relationship"
+GOSSIP_TAG = "gossip"
+RUMOR_TAG = "rumors"
+COMMENT_TAG = "comment"
+POST_TAG = "Board Post"
 
 
 # Q functions for our queries
@@ -59,6 +66,44 @@ def q_receiver_character(character):
     return Q(db_receivers_objects=character)
 
 
+def q_favorite_of_player(player):
+    """
+    Gets a Q() object for Msgs tagged as the player's favorite
+    Args:
+        player: Checking this player's favorite Msgs
+
+    Returns:
+        Q() object for the query that represents their favorites
+    """
+    tag_name = "pid_%s_favorite" % player.id
+    return q_tagname(tag_name)
+
+
+# noinspection PyProtectedMember
+def reload_model_as_proxy(msg):
+    """
+    Given a Msg object, we want to clear it from the cache, find the appropriate
+    Proxy class for it, and return it so that it's now loaded into memory. Once
+    it's there, it'll stay there due to SharedMemoryModel
+    Args:
+        msg:Msg object we're reloading
+
+    Returns:
+
+    """
+    # check if we're already a proxy. If so, no reason to reload it
+    from .models import get_model_from_tags
+    if msg._meta.proxy:
+        return msg
+    dbid = msg.id
+    model = get_model_from_tags(msg.tags.all())
+    if not model:
+        return msg
+    type(msg).flush_from_cache(msg, force=True)
+    msg = model.objects.get(id=dbid)
+    return msg
+
+
 class MsgQuerySet(QuerySet):
     """
     Custom queryset for allowing us to chain together these methods with manager methods.
@@ -85,7 +130,7 @@ class MsgQuerySet(QuerySet):
         """
         return self.exclude(q_read_by_player(user))
 
-    def by_character(self, character):
+    def written_by(self, character):
         """
         Gets queryset of Msg objects written by this character. Note that players can
         also send messages, and that is a different query.
@@ -109,11 +154,33 @@ class MsgQuerySet(QuerySet):
         """
         return self.filter(q_receiver_character(character))
 
+    def favorites_of(self, player):
+        """
+        Gets queryset of Msg objects marked as a favorite by this player.
+        Args:
+            player: Player who flagged this as a favorite
+
+        Returns:
+            QuerySet of Msg objects tagged as a favorite by this player
+        """
+        return self.filter(q_favorite_of_player(player))
+
+    def white(self):
+        return self.filter(q_tagname(WHITE_TAG))
+
+    def black(self):
+        return self.filter(q_tagname(BLACK_TAG))
+
+    def get(self, *args, **kwargs):
+        ret = super(MsgQuerySet, self).get(*args, **kwargs)
+        return reload_model_as_proxy(ret)
+
 
 class MsgProxyManager(MsgManager):
     white_query = q_tagname(WHITE_TAG)
     black_query = q_tagname(BLACK_TAG)
     all_journals_query = Q(white_query | black_query)
+    relationship_query = q_tagname(RELATIONSHIP_TAG)
 
     def get_queryset(self):
         return MsgQuerySet(self.model)
@@ -121,6 +188,12 @@ class MsgProxyManager(MsgManager):
     # so that custom queryset methods can be used after Model.objects
     def __getattr__(self, attr):
         return getattr(self.get_queryset(), attr)
+
+    def relationships(self):
+        return self.get_queryset().filter(self.relationship_query)
+
+    def get(self, *args, **kwargs):
+        return self.get_queryset().get(*args, **kwargs)
 
 
 class JournalManager(MsgProxyManager):
@@ -146,4 +219,25 @@ class WhiteJournalManager(MsgProxyManager):
         
         
 class MessengerManager(MsgProxyManager):
-    pass
+    def get_queryset(self):
+        return super(MessengerManager, self).get_queryset().filter(q_tagname(MESSENGER_TAG))
+
+
+class VisionManager(MsgProxyManager):
+    def get_queryset(self):
+        return super(VisionManager, self).get_queryset().filter(q_tagname(VISION_TAG))
+
+
+class CommentManager(MsgProxyManager):
+    def get_queryset(self):
+        return super(CommentManager, self).get_queryset().filter(q_tagname(COMMENT_TAG))
+
+
+class PostManager(MsgProxyManager):
+    def get_queryset(self):
+        return super(PostManager, self).get_queryset().filter(q_tagname(POST_TAG))
+
+
+class RumorManager(MsgProxyManager):
+    def get_queryset(self):
+        return super(RumorManager, self).get_queryset().filter(q_tagname(GOSSIP_TAG) | q_tagname(RUMOR_TAG))

@@ -142,6 +142,3 @@ class ArxChannelCommand(command.Command):
             self.msg("You have that channel muted.")
             return
         channel.msg(msg, senders=caller.db.char_ob or caller, keep_log=True, online=True)
-        # if Msg.objects.get_messages_by_channel(channel.id).count() > 200:
-        #     earliest = Msg.objects.get_messages_by_channel(channel.id).earliest('db_date_created')
-        #     channel.delete_chan_message(earliest)

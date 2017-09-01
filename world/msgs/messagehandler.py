@@ -11,9 +11,11 @@ semicolons.
 
 from evennia.utils.create import create_message
 from server.utils.arx_utils import get_date
+from .managers import reload_model_as_proxy
 
 
 _GA = object.__getattribute__
+_Journal = None
 
 
 class MessageHandler(object):
@@ -160,14 +162,6 @@ class MessageHandler(object):
     def create_date_header(icdate):
         return "date:%s" % icdate
 
-    @staticmethod
-    def tag_favorite(msg, player):
-        msg.tags.add("pid_%s_favorite" % player.id)
-
-    @staticmethod
-    def untag_favorite(msg, player):
-        msg.tags.remove("pid_%s_favorite" % player.id)
-
     def create_messenger_header(self, icdate):
         header = "date:%s" % icdate
         name = self.spoofed_name
@@ -201,9 +195,14 @@ class MessageHandler(object):
         Builds a dictionary of names of people we have relationships with to a list
         of relationship Msgs we've made about that character.
         """
-        rels = _GA(self.obj, 'sender_object_set').filter(db_tags__db_key="relationship")
-        jtype = "white_journal" if white else "black_journal"
-        rels = list(rels.filter(db_tags__db_key=jtype))
+        global _Journal
+        if _Journal is None:
+            from .models import Journal as _Journal
+        rels = _Journal.objects.relationships().written_by(self.obj)
+        if white:
+            rels = rels.white()
+        else:
+            rels = rels.black()
         relsdict = {}
         for rel in rels:
             if rel.db_receivers_objects.all():
@@ -405,12 +404,15 @@ class MessageHandler(object):
         if not msg or not msg.pk:
             self.obj.msg("This messenger appears to have been deleted.")
             return
+        msg = reload_model_as_proxy(msg)
         self.obj.receiver_object_set.add(msg)
         # remove the pending message from the associated player
         player_ob = self.obj.player_ob
         player_ob.receiver_player_set.remove(msg)
+        # add msg to our messenger history
         if msg not in self.messenger_history:
             self.messenger_history.insert(0, msg)
+        # delete our oldest messenger that isn't marked to preserve
         qs = self.obj.receiver_object_set.filter(db_tags__db_key="messenger").exclude(
             db_tags__db_key="preserve").order_by('db_date_created')
         if qs.count() > 30:
