@@ -143,3 +143,7 @@ class BlackJournalManager(MsgProxyManager):
 class WhiteJournalManager(MsgProxyManager):
     def get_queryset(self):
         return super(WhiteJournalManager, self).get_queryset().filter(self.white_query)
+        
+        
+class MessengerManager(MsgProxyManager):
+    pass

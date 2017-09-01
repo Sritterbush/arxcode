@@ -5,7 +5,7 @@ A basic inform, as well as other in-game messages.
 
 from django.db import models
 from evennia.comms.models import Msg
-from .managers import (JournalManager, WhiteJournalManager, BlackJournalManager,)
+from .managers import (JournalManager, WhiteJournalManager, BlackJournalManager, MessengerManager, WHITE_TAG, BLACK_TAG)
 
 
 # ------------------------------------------------------------
@@ -75,6 +75,19 @@ class MarkReadMixin(object):
             player: Player who has read this Journal/Messenger/Board post/etc
         """
         self.db_receivers_players.remove(player)
+        
+    def parse_header(self):
+        """
+        Given a message object, return a dictionary of the different
+        key:value pairs separated by semicolons in the header
+        """
+        header = self.db_header
+        if not header:
+            return {}
+        hlist = header.split(";")
+        keyvalpairs = [pair.split(":") for pair in hlist]
+        keydict = {pair[0].strip(): pair[1].strip() for pair in keyvalpairs if len(pair) == 2}
+        return keydict
 
 
 # different proxy classes for Msg objects
@@ -124,3 +137,18 @@ class Journal(MarkReadMixin, Msg):
             player: Player removing this journal as a favorite.
         """
         self.tags.remove("pid_%s_favorite" % player.id)
+        
+    def convert_to_black(self):
+        self.db_header = self.db_header.replace("white", "black")
+        self.tags.add(BLACK_TAG, category="msg")
+        self.tags.remove(WHITE_TAG, category="msg")
+        self.save()
+
+
+class Messenger(MarkReadMixin, Msg):
+    """
+    Proxy model for Msg that represents an in-game journal written by a Character.
+    """
+    class Meta:
+        proxy = True
+    objects = MessengerManager()

@@ -126,17 +126,7 @@ class MessageHandler(object):
     # -----------------------------------------------------------------
     @staticmethod
     def parse_header(msg):
-        """
-        Given a message object, return a dictionary of the different
-        key:value pairs separated by semicolons in the header
-        """
-        header = msg.db_header
-        if not header:
-            return {}
-        hlist = header.split(";")
-        keyvalpairs = [pair.split(":") for pair in hlist]
-        keydict = {pair[0].strip(): pair[1].strip() for pair in keyvalpairs if len(pair) == 2}
-        return keydict
+        return msg.parse_header()
     
     @staticmethod
     def get_date_from_header(msg):
@@ -180,7 +170,7 @@ class MessageHandler(object):
 
     def create_messenger_header(self, icdate):
         header = "date:%s" % icdate
-        name = self.obj.db.spoofed_messenger_name
+        name = self.spoofed_name
         if name:
             header += ";spoofed_name:%s" % name
         return header
@@ -564,8 +554,32 @@ class MessageHandler(object):
 
     def convert_to_black(self, msg):
         self.white_journal.remove(msg)
-        msg.db_header = msg.db_header.replace("white", "black")
-        msg.tags.add("black_journal", category="msg")
-        msg.tags.remove("white_journal", category="msg")
+        msg.convert_to_black()
         self.add_to_journals(msg, white=False)
-        msg.save()
+        
+    @property
+    def spoofed_name(self):
+        return self.obj.db.spoofed_messenger_name
+        
+    @spoofed_name.setter
+    def spoofed_name(self, name):
+        """Setter for spoofed name. If no name is specified, remove it."""
+        if not name:
+            self.obj.attributes.remove("spoofed_messenger_name")
+            self.obj.msg("You will no longer send messengers with a fake name.")
+            return
+        self.obj.db.spoofed_messenger_name = name
+        self.obj.msg("You will now send messengers by the name %s" % name)
+        
+    @property
+    def discreet_messenger(self):
+        return self.obj.db.discreet_messenger
+        
+    @discreet_messenger.setter
+    def discreet_messenger(self, val):
+        if not val:
+            self.obj.attributes.remove("discreet_messenger")
+            self.obj.msg("You will not receive messages discreetly.")
+            return
+        self.obj.db.discreet_messenger = val
+        self.obj.msg("%s will now deliver messages to you discreetly if they are in the same room." % val)

@@ -856,6 +856,35 @@ class CmdMessenger(MuxCommand):
             current_mats.amount -= amt
             current_mats.save()
             return material.id, amt
+            
+    def set_or_remove_retainer_ability(self, attr_name, attr_desc):
+        """
+        Sets or removes customization options for messengers based on our retainers, such as the ability
+        to send custom messengers, or to receive them discreetly.
+        
+            Args:
+                attr_name (str): name of the Attribute to check/set
+                attr_desc (str): A phrase of what the attr makes retainers do, to send to players.
+        """
+        caller = self.caller
+        handler = caller.messages
+        if not self.args:
+            if not getattr(handler, attr_name):
+                self.msg("You are not using a retainer to %s." % attr_desc)
+                return
+            setattr(handler, attr_name, None)
+            return
+        try:
+            obj = caller.player_ob.retainers.get(id=self.args).dbobj
+        except (Agent.DoesNotExist, ValueError):
+            self.msg("No retainer by that ID.")
+        except AttributeError:
+            self.msg("That agent cannot %s." % attr_desc)
+        else:
+            if obj.db.abilities.get(attr_name, 0):
+                setattr(handler, attr_name, obj)
+            else:
+                self.msg("%s does not have the ability to %s." % (obj, attr_desc))
 
     def func(self):
         """Execute command."""
@@ -880,53 +909,16 @@ class CmdMessenger(MuxCommand):
             if not caller.check_permstring("builders"):
                 self.msg("GM only command for now.")
                 return
-            if not self.args:
-                caller.attributes.remove("spoofed_messenger_name")
-                self.msg("Fake name stripped.")
-                return
-            caller.db.spoofed_messenger_name = self.args
-            self.msg("Messages will be sent with fake name of: %s" % self.args)
+            caller.messages.spoofed_name = self.args
             return
-        if "discreet" in self.switches:
-            if not self.args:
-                if not caller.db.discreet_messenger:
-                    self.msg("You are not using a retainer to receive messages discreetly.")
-                    return
-                caller.attributes.remove("discreet_messenger")
-                self.msg("You will not receive messages discreetly.")
-                return
-            try:
-                obj = caller.player_ob.retainers.get(id=self.args).dbobj
-                if obj.db.abilities.get("discreet_messenger", 0):
-                    caller.db.discreet_messenger = obj
-                    self.msg("%s will now deliver messages to you discreetly if they are in the same room." % obj)
-                else:
-                    self.msg("%s does not have the ability to deliver messages discreetly." % obj)
-            except (Agent.DoesNotExist, ValueError):
-                self.msg("No retainer by that ID.")
-            except AttributeError:
-                self.msg("That agent cannot deliver messages.")
-            return
-        if "custom" in self.switches:
-            if not self.args:
-                ob = caller.db.custom_messenger
-                if not ob:
-                    self.msg("You are not using a custom messenger.")
-                    return
-                caller.attributes.remove("custom_messenger")
-                self.msg("You will no longer send messages using %s." % ob)
-                return
-            try:
-                obj = caller.player_ob.retainers.get(id=self.args).dbobj
-                if obj.db.abilities.get("custom_messenger", 0):
-                    caller.db.custom_messenger = obj
-                    self.msg("%s will now deliver messages for you." % obj)
-                else:
-                    self.msg("%s does not have the ability to deliver messages for you." % obj)
-            except (Agent.DoesNotExist, ValueError):
-                self.msg("No retainer by that ID.")
-            except AttributeError:
-                self.msg("That agent cannot deliver messages.")
+        if "discreet" in self.switches or "custom" in self.switches:
+            if "discreet" in self.switches:
+                attr_name = "discreet_messenger"
+                attr_desc = "receive messages discreetly"
+            else:
+                attr_name = "custom_messenger"
+                attr_desc = "delivery messages for you"
+            self.set_or_remove_retainer_ability(attr_name, attr_desc)
             return
         # get the first new messenger we have waiting
         if "receive" in self.switches:
