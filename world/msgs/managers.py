@@ -14,7 +14,9 @@ RELATIONSHIP_TAG = "relationship"
 GOSSIP_TAG = "gossip"
 RUMOR_TAG = "rumors"
 COMMENT_TAG = "comment"
-POST_TAG = "Board Post"
+POST_TAG = "board post"
+TAG_CATEGORY = "msg"
+_get_model_from_tags = None
 
 
 # Q functions for our queries
@@ -39,7 +41,7 @@ def q_tagname(tag):
     Returns:
         Q() object for determining the type of Msg that we are
     """
-    return Q(db_tags__db_key=tag)
+    return Q(db_tags__db_key__iexact=tag)
 
 
 def q_sender_character(character):
@@ -91,12 +93,14 @@ def reload_model_as_proxy(msg):
     Returns:
 
     """
+    global _get_model_from_tags
+    if _get_model_from_tags is None:
+        from .models import get_model_from_tags as _get_model_from_tags
     # check if we're already a proxy. If so, no reason to reload it
-    from .models import get_model_from_tags
     if msg._meta.proxy:
         return msg
     dbid = msg.id
-    model = get_model_from_tags(msg.tags.all())
+    model = _get_model_from_tags(msg.tags.all())
     if not model:
         return msg
     type(msg).flush_from_cache(msg, force=True)
@@ -236,6 +240,9 @@ class CommentManager(MsgProxyManager):
 class PostManager(MsgProxyManager):
     def get_queryset(self):
         return super(PostManager, self).get_queryset().filter(q_tagname(POST_TAG))
+        
+    def for_board(self, board):
+        return self.get_queryset().about_character(board)
 
 
 class RumorManager(MsgProxyManager):

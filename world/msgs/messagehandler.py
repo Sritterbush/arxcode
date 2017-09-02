@@ -9,13 +9,20 @@ header field will be a list of key:value pairs, separated by
 semicolons.
 """
 
-from evennia.utils.create import create_message
-from server.utils.arx_utils import get_date
-from .managers import reload_model_as_proxy
+from server.utils.arx_utils import get_date, create_arx_message
+from .managers import (reload_model_as_proxy, WHITE_TAG, BLACK_TAG, VISION_TAG, MESSENGER_TAG, RUMOR_TAG,
+                       COMMENT_TAG, RELATIONSHIP_TAG)
 
 
-_GA = object.__getattribute__
-_Journal = None
+_cached_lazy_imports = {}
+
+
+def lazy_import_from_str(clsname):
+    from evennia.utils.utils import class_from_module
+    if clsname in _cached_lazy_imports:
+        return _cached_lazy_imports[clsname]
+    cls = class_from_module("world.msgs.models." + clsname)
+    _cached_lazy_imports[clsname] = cls
 
 
 class MessageHandler(object):
@@ -28,23 +35,23 @@ class MessageHandler(object):
         # the ObjectDB instance
         self.obj = obj
         # comments that obj has received about it
-        self._comments = {}
+        self._comments = None
         # White Journal entries that obj has written
-        self._white_journal = {}
+        self._white_journal = None
         # Black Journal entries that obj has written
-        self._black_journal = {}
+        self._black_journal = None
         # Relationships obj has written in their White Journal
-        self._white_relationships = {}
+        self._white_relationships = None
         # Relationships obj has written in their Black Journal
-        self._black_relationships = {}
-        self._messenger_history = []
-        self._rumors = []
-        self._gossip = []
-        self._visions = []
+        self._black_relationships = None
+        self._messenger_history = None
+        self._rumors = None
+        self._gossip = None
+        self._visions = None
 
     @property
     def comments(self):
-        if not self._comments:
+        if self._comments is None:
             self.build_commentdict()
         return self._comments
 
@@ -54,7 +61,7 @@ class MessageHandler(object):
 
     @property
     def white_journal(self):
-        if not self._white_journal:
+        if self._white_journal is None:
             self.build_whitejournal()
         return self._white_journal
 
@@ -64,7 +71,7 @@ class MessageHandler(object):
 
     @property
     def black_journal(self):
-        if not self._black_journal:
+        if self._black_journal is None:
             self.build_blackjournal()
         return self._black_journal
 
@@ -74,7 +81,7 @@ class MessageHandler(object):
 
     @property
     def white_relationships(self):
-        if not self._white_relationships:
+        if self._white_relationships is None:
             self.build_relationshipdict(True)
         return self._white_relationships
     
@@ -84,7 +91,7 @@ class MessageHandler(object):
 
     @property
     def black_relationships(self):
-        if not self._black_relationships:
+        if self._black_relationships is None:
             self.build_relationshipdict(False)
         return self._black_relationships
     
@@ -94,7 +101,7 @@ class MessageHandler(object):
 
     @property
     def messenger_history(self):
-        if not self._messenger_history:
+        if self._messenger_history is None:
             self.build_messenger_history()
         return self._messenger_history
     
@@ -104,19 +111,19 @@ class MessageHandler(object):
 
     @property
     def rumors(self):
-        if not self._rumors:
+        if self._rumors is None:
             self.build_rumorslist()
         return self._rumors
 
     @property
     def gossip(self):
-        if not self._gossip:
+        if self._gossip is None:
             self.build_gossiplist()
         return self._gossip
 
     @property
     def visions(self):
-        if not self._visions:
+        if self._visions is None:
             self.build_visionslist()
         return self._visions
 
@@ -169,15 +176,26 @@ class MessageHandler(object):
             header += ";spoofed_name:%s" % name
         return header
 
+
     # ---------------------------------------------------------
     # Setup/building methods
     # ---------------------------------------------------------
+    def get_initial_queryset(self, clsname):
+        """
+        Gets an initial queryset for initializing our attributes.
+        
+            Args:
+                clsname (str): Name of class from .models to import
+        """
+        cls = lazy_import_from_str(clsname)
+        return cls.objects.all().order_by('-db_date_created')
+        
 
     def build_commentdict(self):
         """
         Builds a list of all comments we've received, not ones we've written.
         """
-        comments = list(_GA(self.obj, 'receiver_object_set').filter(db_tags__db_key="comment"))
+        comments = self.get_initial_queryset("Comment").about_character(self.obj)
         commentdict = {}
         for comment in comments:
             if comment.db_sender_objects.all():
@@ -195,10 +213,7 @@ class MessageHandler(object):
         Builds a dictionary of names of people we have relationships with to a list
         of relationship Msgs we've made about that character.
         """
-        global _Journal
-        if _Journal is None:
-            from .models import Journal as _Journal
-        rels = _Journal.objects.relationships().written_by(self.obj)
+        rels = self.get_initial_queryset("Journal").relationships().written_by(self.obj)
         if white:
             rels = rels.white()
         else:
@@ -220,8 +235,7 @@ class MessageHandler(object):
         """
         Returns a list of all rumor entries which we've heard (marked as a receiver for)
         """
-        self._rumors = list(_GA(self.obj, 'receiver_object_set').filter(db_tags__db_key="rumors"
-                                                                        ).order_by('-db_date_created'))
+        self._rumors = list(self.get_initial_queryset("Rumor").about_character(self.obj))
         return self._rumors
     
     def build_gossiplist(self):
@@ -229,56 +243,41 @@ class MessageHandler(object):
         Returns a list of all gossip entries we've heard (marked as a receiver for)
         """
         if self.obj.player_ob:
-            self._gossip = list(self.obj.player_ob.receiver_player_set.filter(db_tags__db_key="gossip"
-                                                                              ).order_by('-db_date_created'))
+            self._gossip = list(self.get_initial_queryset("Rumor").all_read_by(self.obj.player_ob))
         else:
-            self._gossip = list(_GA(self.obj, 'receiver_object_set').filter(db_tags__db_key="gossip"
-                                                                            ).order_by('-db_date_created'))
+            self._gossip = self.build_rumorslist()
 
     def build_visionslist(self):
         """
         Returns a list of all messengers this character has received. Does not include pending.
         """
-        self._visions = list(_GA(self.obj, 'receiver_object_set').filter(db_tags__db_key="visions"
-                                                                         ).order_by('-db_date_created'))
+        self._visions = list(self.get_initial_queryset("Vision").about_character(self.obj))
         return self._visions
 
     def build_whitejournal(self):
         """
         Returns a list of all 'white journal' entries our character has written.
         """
-        self._white_journal = list(_GA(self.obj, 'sender_object_set').filter(db_tags__db_key="white_journal"
-                                                                             ).order_by('-db_date_created'))
+        self._white_journal = list(self.get_initial_queryset("Journal").written_by(self.obj).white())
         return self._white_journal
 
     def build_blackjournal(self):
         """
         Returns a list of all 'black journal' entries our character has written.
         """
-        self._black_journal = list(_GA(self.obj, 'sender_object_set').filter(db_tags__db_key="black_journal"
-                                                                             ).order_by('-db_date_created'))
+        self._black_journal = list(self.get_initial_queryset("Journal").written_by(self.obj).black())
         return self._black_journal
 
     def build_messenger_history(self):
         """
         Returns a list of all messengers this character has received. Does not include pending.
         """
-        self._messenger_history = list(_GA(self.obj, 'receiver_object_set').filter(db_tags__db_key="messenger"
-                                                                                   ).order_by('-db_date_created'))
+        self._messenger_history = list(self.get_initial_queryset("Messenger").about_character(self.obj))
         return self._messenger_history
 
     @staticmethod
     def get_event(msg):
-        from world.dominion.models import RPEvent
-        from evennia.typeclasses.tags import Tag
-        try:
-            tag = msg.db_tags.get(db_key__isnull=False,
-                                  db_data__isnull=False,
-                                  db_category="event")
-            return RPEvent.objects.get(id=tag.db_data)
-        except (Tag.DoesNotExist, Tag.MultipleObjectsReturned, AttributeError,
-                TypeError, ValueError, RPEvent.DoesNotExist):
-            return None
+        return msg.event
 
     # --------------------------------------------------------------
     # API/access methods
@@ -303,12 +302,12 @@ class MessageHandler(object):
         Creates a new comment written about us by a commenter. Commenter must be
         the object sending the message.
         """
+        cls = self.get_initial_queryset("Comment")
         if not date:
             date = get_date()
         header = self.create_date_header(date)
         name = commenter.key.lower()
-        msg = create_message(commenter, msg, receivers=self.obj, header=header)
-        msg.tags.add("comment", category="msg")
+        msg = create_arx_message(commenter, msg, receivers=self.obj, header=header, cls=cls, tags=COMMENT_TAG)
         comlist = self.comments.get(name, [])
         comlist.insert(0, msg)
         self.comments[name] = comlist
@@ -340,13 +339,13 @@ class MessageHandler(object):
 
     def add_journal(self, msg, white=True, date=""):
         """creates a new journal message and returns it"""
+        cls = lazy_import_from_str("Journal")
         if not date:
             date = get_date()
         header = self.create_date_header(date)
-        j_tag = "white_journal" if white else "black_journal"
-        msg = create_message(self.obj, msg, receivers=self.obj.player_ob,
-                             header=header)
-        msg.tags.add(j_tag, category="msg")
+        j_tag = WHITE_TAG if white else BLACK_TAG
+        msg = create_arx_message(self.obj, msg, receivers=self.obj.player_ob,
+                             header=header, cls=cls, tags=j_tag)
         msg = self.add_to_journals(msg, white)
         # journals made this week, for xp purposes
         num_journals = self.obj.db.num_journals or 0
@@ -365,15 +364,14 @@ class MessageHandler(object):
 
     def add_relationship(self, msg, targ, white=True, date=""):
         """creates a relationship and adds relationship to our journal"""
+        cls = lazy_import_from_str("Journal")
         if not date:
             date = get_date()
         header = self.create_date_header(date)
         name = targ.key.lower()
         receivers = [targ, self.obj.player_ob]
-        msg = create_message(self.obj, msg, receivers=receivers, header=header)
-        msg.tags.add("relationship", category="msg")
-        j_tag = "white_journal" if white else "black_journal"
-        msg.tags.add(j_tag, category="msg")
+        tags = (WHITE_TAG if white else BLACK_TAG, RELATIONSHIP_TAG)
+        msg = create_arx_message(self.obj, msg, receivers=receivers, header=header, cls=cls, tags=tags)
         msg = self.add_to_journals(msg, white)
         rels = self.white_relationships if white else self.black_relationships
         relslist = rels.get(name, [])
@@ -388,11 +386,11 @@ class MessageHandler(object):
 
     def add_vision(self, msg, sender, vision_obj=None):
         """adds a vision sent by a god or whatever"""
+        cls = lazy_import_from_str("Vision")
         date = get_date()
         header = "date:%s" % date
         if not vision_obj:
-            vision_obj = create_message(sender, msg, receivers=self.obj, header=header)
-            vision_obj.tags.add("visions", category="msg")
+            vision_obj = create_arx_message(sender, msg, receivers=self.obj, header=header, cls=cls, tags=VISION_TAG)
         else:
             self.obj.receiver_object_set.add(vision_obj)
         if vision_obj not in self.visions:
@@ -413,7 +411,7 @@ class MessageHandler(object):
         if msg not in self.messenger_history:
             self.messenger_history.insert(0, msg)
         # delete our oldest messenger that isn't marked to preserve
-        qs = self.obj.receiver_object_set.filter(db_tags__db_key="messenger").exclude(
+        qs = self.init.exclude(
             db_tags__db_key="preserve").order_by('db_date_created')
         if qs.count() > 30:
             self.del_messenger(qs.first())
@@ -425,10 +423,13 @@ class MessageHandler(object):
         They'll attach the msg object to each receiver as an attribute, who
         can then call receive_messenger on the stored msg.
         """
+        global _Messenger
+        if _Messenger is None:
+            from .models import Messenger as _Messenger
         if not date:
             date = get_date()
         header = self.create_messenger_header(date)
-        msg = create_message(self.obj, msg, receivers=None, header=header)
+        msg = create_arx_message(self.obj, msg, receivers=None, header=header, cls=_Messenger)
         msg.tags.add("messenger", category="msg")
         return msg
 
@@ -437,7 +438,7 @@ class MessageHandler(object):
             self.messenger_history.remove(msg)
         self.obj.receiver_object_set.remove(msg)
         # only delete the messenger if no one else has a copy
-        if not msg.db_receivers_objects.all() and not msg.db_receivers_players.all():
+        if not msg.receivers:
             msg.delete()
 
     # ---------------------------------------------------------------------
@@ -495,11 +496,11 @@ class MessageHandler(object):
         """
         Returns all matches for text in character's journal
         """
-        receivers = self.obj.sender_object_set.filter(db_tags__db_key="white_journal",
+        receivers = self.obj.sender_object_set.filter(db_tags__db_key=WHITE_TAG,
                                                       db_receivers_objects__db_key__iexact=text)
-        tags = self.obj.sender_object_set.filter(db_tags__db_key="white_journal").filter(
+        tags = self.obj.sender_object_set.filter(db_tags__db_key=WHITE_TAG).filter(
                                                  db_header__icontains=text)
-        body = self.obj.sender_object_set.filter(db_tags__db_key="white_journal",
+        body = self.obj.sender_object_set.filter(db_tags__db_key=WHITE_TAG,
                                                  db_message__icontains=text)
         total = set(list(receivers) + list(tags) + list(body))
         return total

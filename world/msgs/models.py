@@ -6,8 +6,8 @@ A basic inform, as well as other in-game messages.
 from django.db import models
 from evennia.comms.models import Msg
 from .managers import (JournalManager, WhiteJournalManager, BlackJournalManager, MessengerManager, WHITE_TAG, BLACK_TAG,
-                       VISION_TAG, RELATIONSHIP_TAG, MESSENGER_TAG, VisionManager, CommentManager, PostManager,
-                       RumorManager,)
+                       VISION_TAG, RELATIONSHIP_TAG, MESSENGER_TAG, GOSSIP_TAG, RUMOR_TAG, POST_TAG, COMMENT_TAG, 
+                       VisionManager, CommentManager, PostManager, RumorManager,)
 
 
 # ------------------------------------------------------------
@@ -72,6 +72,12 @@ def get_model_from_tags(tag_list):
         return Messenger
     if VISION_TAG in tag_list:
         return Vision
+    if COMMENT_TAG in tag_list:
+        return Comment
+    if POST_TAG in tag_list:
+        return Post
+    if RUMOR_TAG in tag_list or GOSSIP_TAG in tag_list:
+        return Rumor
 
 
 # noinspection PyUnresolvedReferences
@@ -162,6 +168,19 @@ class Journal(MarkReadMixin, Msg):
         self.tags.add(BLACK_TAG, category="msg")
         self.tags.remove(WHITE_TAG, category="msg")
         self.save()
+        
+    @property
+    def event(self):
+        from world.dominion.models import RPEvent
+        from evennia.typeclasses.tags import Tag
+        try:
+            tag = self.db_tags.get(db_key__isnull=False,
+                                  db_data__isnull=False,
+                                  db_category="event")
+            return RPEvent.objects.get(id=tag.db_data)
+        except (Tag.DoesNotExist, Tag.MultipleObjectsReturned, AttributeError,
+                TypeError, ValueError, RPEvent.DoesNotExist):
+            return None
 
 
 class Messenger(MarkReadMixin, Msg):

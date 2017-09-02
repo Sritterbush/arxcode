@@ -6,8 +6,9 @@ be of use when designing your own game.
 
 """
 import re
-from django.conf import settings
 from datetime import datetime
+from django.conf import settings
+
 
 
 def validate_name(name, formatting=True, not_player=True):
@@ -301,3 +302,51 @@ def caller_change_field(caller, obj, field, value, field_name=None):
         old = "\n%s\n" % old
         value = "\n%s" % value
     caller.msg("%s changed from %s to %s." % (field_name, old, value))
+    
+    
+def create_arx_message(senderobj, message, channels=None, receivers=None, locks=None, header=None, cls=None, tags=None):
+    """
+    Create a new communication Msg. Msgs represent a unit of
+    database-persistent communication between entites. If a proxy class is
+    specified, we use that instead of Msg.
+    Args:
+        senderobj (Object or Player): The entity sending the Msg.
+        message (str): Text with the message. Eventual headers, titles
+            etc should all be included in this text string. Formatting
+            will be retained.
+        channels (Channel, key or list): A channel or a list of channels to
+            send to. The channels may be actual channel objects or their
+            unique key strings.
+        receivers (Object, Player, str or list): A Player/Object to send
+            to, or a list of them. May be Player objects or playernames.
+        locks (str): Lock definition string.
+        header (str): Mime-type or other optional information for the message
+        cls: Proxy class to use for creating this message.
+        tags (str): Tag names to attach to the new Msg to identify its type
+    Notes:
+        The Comm system is created very open-ended, so it's fully possible
+        to let a message both go to several channels and to several
+        receivers at the same time, it's up to the command definitions to
+        limit this as desired.
+    """
+    from evennia.utils.utils import make_iter
+    if not cls:
+        from evennia.comms.models import Msg as cls
+    if not message:
+        # we don't allow empty messages.
+        return None
+    new_message = cls(db_message=message)
+    new_message.save()
+    for sender in make_iter(senderobj):
+        new_message.senders = sender
+    new_message.header = header
+    for channel in make_iter(channels):
+        new_message.channels = channel
+    for receiver in make_iter(receivers):
+        new_message.receivers = receiver
+    if locks:
+        new_message.locks.add(locks)
+    new_message.save()
+    for tag in make_iter(tags):
+        new_message.tags.add(tag, category="msg")
+    return new_message

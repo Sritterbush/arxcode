@@ -4,7 +4,8 @@ Default Typeclass for Bulletin Boards, based loosely on bboards.
 See objects.objects for more information on Typeclassing.
 """
 from typeclasses.objects import Object
-from evennia.comms.models import Msg
+from world.msgs.models import Post
+from world.msgs.managers import POST_TAG, TAG_CATEGORY
 
 
 class BBoard(Object):
@@ -15,16 +16,9 @@ class BBoard(Object):
     @staticmethod
     def tag_obj(post):
         """Tags an object to show it as being a bulletin board post"""
-        tagkey = "Board Post"
-        category = "board"
-        from evennia.typeclasses.tags import Tag
-        try:
-            tag = Tag.objects.get(db_key=tagkey, db_category=category,
-                                  db_model="msg")
-        except Tag.DoesNotExist:
-            tag = Tag.objects.create(db_key=tagkey, db_category=category,
-                                     db_model="msg")
-        post.db_tags.add(tag)
+        tagkey = POST_TAG
+        category = TAG_CATEGORY
+        post.tags.add(tagkey, category=category)
         return post
     
     def bb_post(self, poster_obj, msg, subject="No Subject", poster_name=None,
@@ -32,7 +26,7 @@ class BBoard(Object):
         """
         Post the message to the board.
         """
-        post = Msg(db_message=msg, db_header=subject)
+        post = Post(db_message=msg, db_header=subject)
         post.save()
         posted_by = "Unknown"
         if poster_obj:
@@ -132,7 +126,7 @@ class BBoard(Object):
     def get_latest_post(self):
         try:
             return self.posts.last()
-        except Msg.DoesNotExist:
+        except Post.DoesNotExist:
             return None
 
     def get_all_posts(self, old=False):
@@ -195,11 +189,11 @@ class BBoard(Object):
     
     @property
     def posts(self):
-        return self.receiver_object_set.filter(db_tags__db_key="Board Post").exclude(db_tags__db_key="archived")
+        return Post.objects.for_board(self).exclude(db_tags__db_key="archived")
 
     @property
     def archived_posts(self):
-        return self.receiver_object_set.filter(db_tags__db_key="Board Post").filter(db_tags__db_key="archived")
+        return Post.objects.for_board(self).filter(db_tags__db_key="archived")
 
     def read_post(self, caller, post, old=False):
         """
@@ -258,36 +252,11 @@ class BBoard(Object):
         if not sender:
             sender = "No One"
         return sender
-
-    # def convert_posts(self):
-    #     """
-    #     Helper function to convert old-style posts stored in attribute to new posts
-    #     """
-    #     try:
-    #         from server.utils.utils import broadcast
-    #         broadcast("Converting posts of board %s." % self.key)
-    #     except Exception:
-    #         pass
-    #     for post in self.db.posts:
-    #         posted_by = post['Poster']
-    #         subject = post['Subject']
-    #         msg = post['Msg']
-    #         date = post['Date']
-    #         time = post['Time']
-    #         list_of_readers = post['Readers']
-    #         from typeclasses.players import Player
-    #         try:
-    #             pobj = Player.objects.get(username__iexact=posted_by)
-    #             poster_name=None
-    #         except Player.DoesNotExist:
-    #             pobj = None
-    #             poster_name=posted_by
-    #         post_obj = self.bb_post(poster_obj=pobj, msg=msg, subject=subject,
-    #                                 poster_name=poster_name, announce=False)
-    #         for reader in list_of_readers:
-    #             try:
-    #                 post_obj.db_receivers_players.add(reader)
-    #             except Exception:
-    #                 import traceback
-    #                 traceback.print_exc()
-    #     self.attributes.remove("posts")
+        
+def convert_tag():
+    from evennia.typeclasses.tags import Tag
+    tag = Tag.objects.get(db_key="Board Post")
+    tag.db_key = POST_TAG
+    tag.db_category = TAG_CATEGORY
+    tag.db_model = "msg"
+    tag.save()
