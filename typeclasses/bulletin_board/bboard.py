@@ -105,8 +105,8 @@ class BBoard(Object):
 
     def get_unread_posts(self, pobj, old=False):
         if not old:
-            return self.posts.exclude(db_receivers_players=pobj)
-        return self.archived_posts.exclude(db_receivers_players=pobj)
+            return self.posts.all_read_by(pobj)
+        return self.archived_posts.all_read_by(pobj)
 
     def num_of_unread_posts(self, pobj, old=False):
         return self.get_unread_posts(pobj, old).count()

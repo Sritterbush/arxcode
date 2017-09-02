@@ -41,7 +41,20 @@ def q_tagname(tag):
     Returns:
         Q() object for determining the type of Msg that we are
     """
-    return Q(db_tags__db_key__iexact=tag)
+    return Q(db_tags__db_key=tag)
+    
+    
+def q_msgtag(tag):
+    """
+    Gets a Q object of the tagname with the tag category.
+    
+        Args:
+            tag (str): The key of the Tag.
+            
+        Returns:
+            Q() object of the tag key with the tag category
+    """
+    return Q(q_tagname(tag) & Q(db_category=TAG_CATEGORY))
 
 
 def q_sender_character(character):
@@ -170,10 +183,10 @@ class MsgQuerySet(QuerySet):
         return self.filter(q_favorite_of_player(player))
 
     def white(self):
-        return self.filter(q_tagname(WHITE_TAG))
+        return self.filter(q_msgtag(WHITE_TAG))
 
     def black(self):
-        return self.filter(q_tagname(BLACK_TAG))
+        return self.filter(q_msgtag(BLACK_TAG))
 
     def get(self, *args, **kwargs):
         ret = super(MsgQuerySet, self).get(*args, **kwargs)
@@ -181,10 +194,10 @@ class MsgQuerySet(QuerySet):
 
 
 class MsgProxyManager(MsgManager):
-    white_query = q_tagname(WHITE_TAG)
-    black_query = q_tagname(BLACK_TAG)
+    white_query = q_msgtag(WHITE_TAG)
+    black_query = q_msgtag(BLACK_TAG)
     all_journals_query = Q(white_query | black_query)
-    relationship_query = q_tagname(RELATIONSHIP_TAG)
+    relationship_query = q_msgtag(RELATIONSHIP_TAG)
 
     def get_queryset(self):
         return MsgQuerySet(self.model)
@@ -224,22 +237,22 @@ class WhiteJournalManager(MsgProxyManager):
         
 class MessengerManager(MsgProxyManager):
     def get_queryset(self):
-        return super(MessengerManager, self).get_queryset().filter(q_tagname(MESSENGER_TAG))
+        return super(MessengerManager, self).get_queryset().filter(q_msgtag(MESSENGER_TAG))
 
 
 class VisionManager(MsgProxyManager):
     def get_queryset(self):
-        return super(VisionManager, self).get_queryset().filter(q_tagname(VISION_TAG))
+        return super(VisionManager, self).get_queryset().filter(q_msgtag(VISION_TAG))
 
 
 class CommentManager(MsgProxyManager):
     def get_queryset(self):
-        return super(CommentManager, self).get_queryset().filter(q_tagname(COMMENT_TAG))
+        return super(CommentManager, self).get_queryset().filter(q_msgtag(COMMENT_TAG))
 
 
 class PostManager(MsgProxyManager):
     def get_queryset(self):
-        return super(PostManager, self).get_queryset().filter(q_tagname(POST_TAG))
+        return super(PostManager, self).get_queryset().filter(q_msgtag(POST_TAG))
         
     def for_board(self, board):
         return self.get_queryset().about_character(board)
@@ -247,4 +260,4 @@ class PostManager(MsgProxyManager):
 
 class RumorManager(MsgProxyManager):
     def get_queryset(self):
-        return super(RumorManager, self).get_queryset().filter(q_tagname(GOSSIP_TAG) | q_tagname(RUMOR_TAG))
+        return super(RumorManager, self).get_queryset().filter(q_msgtag(GOSSIP_TAG) | q_msgtag(RUMOR_TAG))
