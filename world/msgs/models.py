@@ -7,7 +7,7 @@ from django.db import models
 from evennia.comms.models import Msg
 from .managers import (JournalManager, WhiteJournalManager, BlackJournalManager, MessengerManager, WHITE_TAG, BLACK_TAG,
                        VISION_TAG, RELATIONSHIP_TAG, MESSENGER_TAG, GOSSIP_TAG, RUMOR_TAG, POST_TAG, COMMENT_TAG, 
-                       VisionManager, CommentManager, PostManager, RumorManager,)
+                       VisionManager, CommentManager, PostManager, RumorManager, PRESERVE_TAG, TAG_CATEGORY)
 
 
 # ------------------------------------------------------------
@@ -27,7 +27,7 @@ class Inform(models.Model):
     stored as well.
 
     The Inform class defines the following properties:
-        player - receipient of the inform
+        player - recipient of the inform
         message - Text that is sent to the player
         date_sent - Time the inform was sent
         is_unread - Whether the player has read the inform
@@ -100,6 +100,9 @@ class MarkReadMixin(object):
             player: Player who has read this Journal/Messenger/Board post/etc
         """
         self.db_receivers_players.remove(player)
+
+    def check_read(self, player):
+        return self.db_receivers_players.filter(id=player.id)
         
     def parse_header(self):
         """
@@ -113,6 +116,40 @@ class MarkReadMixin(object):
         keyvalpairs = [pair.split(":") for pair in hlist]
         keydict = {pair[0].strip(): pair[1].strip() for pair in keyvalpairs if len(pair) == 2}
         return keydict
+
+    @property
+    def event(self):
+        from world.dominion.models import RPEvent
+        from evennia.typeclasses.tags import Tag
+        try:
+            tag = self.db_tags.get(db_key__isnull=False, db_data__isnull=False, db_category="event")
+            return RPEvent.objects.get(id=tag.db_data)
+        except (Tag.DoesNotExist, Tag.MultipleObjectsReturned, AttributeError,
+                TypeError, ValueError, RPEvent.DoesNotExist):
+            return None
+
+    @property
+    def sender(self):
+        senders = self.senders
+        if senders:
+            return senders[0]
+
+    def get_sender_name(self, viewer):
+        sender = self.sender
+        if sender:
+            if sender.db.longname:
+                real_name = sender.db.longname
+            else:
+                real_name = sender.key
+        else:
+            real_name = "Unknown Sender"
+        header = self.parse_header()
+        fake_name = header.get('spoofed_name', None) or ""
+        if not fake_name:
+            return real_name
+        if viewer.check_permstring("builders"):
+            fake_name = "%s {w(%s){n" % (fake_name, real_name)
+        return fake_name
 
 
 # different proxy classes for Msg objects
@@ -168,19 +205,6 @@ class Journal(MarkReadMixin, Msg):
         self.tags.add(BLACK_TAG, category="msg")
         self.tags.remove(WHITE_TAG, category="msg")
         self.save()
-        
-    @property
-    def event(self):
-        from world.dominion.models import RPEvent
-        from evennia.typeclasses.tags import Tag
-        try:
-            tag = self.db_tags.get(db_key__isnull=False,
-                                  db_data__isnull=False,
-                                  db_category="event")
-            return RPEvent.objects.get(id=tag.db_data)
-        except (Tag.DoesNotExist, Tag.MultipleObjectsReturned, AttributeError,
-                TypeError, ValueError, RPEvent.DoesNotExist):
-            return None
 
 
 class Messenger(MarkReadMixin, Msg):
@@ -190,6 +214,13 @@ class Messenger(MarkReadMixin, Msg):
     class Meta:
         proxy = True
     objects = MessengerManager()
+
+    @property
+    def preserved(self):
+        return self.tags.get(PRESERVE_TAG, category=TAG_CATEGORY)
+
+    def preserve(self):
+        self.tags.add(PRESERVE_TAG, category=TAG_CATEGORY)
 
 
 class Vision(MarkReadMixin, Msg):

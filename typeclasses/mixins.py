@@ -316,6 +316,14 @@ class AppearanceMixins(object):
                 string += "\n{wMoney:{n %s" % currency
         return string
 
+    @property
+    def currency(self):
+        return round(self.db.currency or 0.0, 2)
+
+    @currency.setter
+    def currency(self, val):
+        self.db.currency = val
+
     def pay_money(self, amount, receiver=None):
         """
         A method to pay money from this object, possibly to a receiver.
@@ -325,23 +333,20 @@ class AppearanceMixins(object):
         :param amount: int
         :param receiver: ObjectDB
         """
-        currency = self.db.currency or 0.0
-        currency = round(currency, 2)
+        currency = self.currency
         amount = round(amount, 2)
         if amount > currency:
             raise Exception("pay_money called without checking sufficient funds in character. Not enough.")
-        self.db.currency = currency - amount
+        self.currency -= amount
         if receiver:
-            if not receiver.db.currency:
-                receiver.db.currency = 0.0
-            receiver.db.currency += amount
+            receiver.currency += amount
         return True
 
     def return_currency(self):
         """
         :type self: ObjectDB
         """
-        currency = self.db.currency
+        currency = self.currency
         if not currency:
             return None
         string = "coins worth a total of %.2f silver pieces" % currency

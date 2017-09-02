@@ -3,7 +3,6 @@ Module for a number of social commands that we'll add for players. Most
 will be character commands, since they'll deal with the grid.
 """
 import time
-import numbers
 import random
 from datetime import datetime, timedelta
 
@@ -774,8 +773,8 @@ class CmdMessenger(MuxCommand):
                "receive messages", "message"]
     help_category = "Social"
 
-    @staticmethod
-    def send_messenger(caller, targ, msg, delivery=None, money=None, forwarded=False, mats=None):
+    def send_messenger(self, targ, msg, delivery=None, money=None, forwarded=False, mats=None):
+        caller = self.caller
         unread = targ.db.pending_messengers or []
         if type(unread) == 'unicode':
             # attribute was corrupted due to  database conversion, fix it
@@ -808,14 +807,7 @@ class CmdMessenger(MuxCommand):
 
     @staticmethod
     def disp_messenger(caller, msg):
-        if not msg:
-            caller.msg("It appears this messenger was deleted already. If this appears to be an error, "
-                       "inform staff please.")
-            return
-        name = caller.messages.get_sender_name(msg)
-        mssg = "{wSent by:{n %s\n" % name
-        mssg += caller.messages.disp_entry(msg)
-        caller.msg(mssg, options={'box': True})
+        caller.messages.display_messenger(msg)
 
     def get_mats_from_args(self, args):
         """
@@ -916,87 +908,7 @@ class CmdMessenger(MuxCommand):
             return
         # get the first new messenger we have waiting
         if "receive" in self.switches:
-            unread = caller.db.pending_messengers
-            if type(unread) == 'unicode':
-                caller.msg("Your pending_messengers attribute was corrupted " +
-                           "in the database conversion. Sorry! Ask a GM to see "
-                           "if they can find which messages were yours.")
-                caller.db.pending_messengers = []
-            if not unread:
-                caller.msg("You have no messengers waiting to be received.")
-                return
-            # get msg object and any delivered obj
-            msgtuple = unread.pop()
-            messenger_name = "A messenger"
-            msg = None
-            obj = None
-            money = None
-            mats = None
-            forwarded_by = None
-            try:
-                msg = msgtuple[0]
-                obj = msgtuple[1]
-                money_tuple = msgtuple[2]
-                # check if the messenger is of old format, pre-conversion. Possible to sit in database for a long time
-                if isinstance(money_tuple, numbers.Real):
-                    money = money_tuple
-                elif money_tuple:
-                    money = money_tuple[0]
-                    if len(money_tuple) > 1:
-                        mats = money_tuple[1]
-                        try:
-                            mats = (CraftingMaterialType.objects.get(id=mats[0]), mats[1])
-                        except (CraftingMaterialType.DoesNotExist, TypeError, ValueError):
-                            mats = None
-                messenger_name = msgtuple[3] or "A messenger"
-                forwarded_by = msgtuple[4]
-            except IndexError:
-                pass
-            except TypeError:
-                import traceback
-                traceback.print_exc()
-                self.msg("The message object was in the wrong format, possibly a result of a database error.")
-                inform_staff("%s received a buggy messenger." % caller)
-                return
-            caller.db.pending_messengers = unread
-            # adds it to our list of old messages
-            caller.messages.receive_messenger(msg)
-            discreet = caller.db.discreet_messenger
-            try:
-                if discreet.location == caller.location:
-                    self.msg("%s has discreetly informed you of a message delivered by %s." % (discreet,
-                                                                                               messenger_name))
-                else:
-                    discreet = None
-            except AttributeError:
-                discreet = None
-            self.disp_messenger(caller, msg)
-            # handle a delivered object
-            if obj:
-                obj.move_to(caller, quiet=True)
-                caller.msg("{gYou also have received a delivery!")
-                caller.msg("{wYou receive{n %s." % obj)
-            if money and money > 0:
-                currency = caller.db.currency or 0.0
-                currency += money
-                caller.db.currency = currency
-                caller.msg("{wYou receive %s silver coins.{n" % money)
-            if mats:
-                material, amt = mats
-                dompc = caller.player_ob.Dominion
-                try:
-                    mat = dompc.assets.materials.get(type=material)
-                    mat.amount += amt
-                    mat.save()
-                except CraftingMaterials.DoesNotExist:
-                    dompc.assets.materials.create(type=material, amount=amt)
-                caller.msg("{wYou receive %s %s.{n" % (amt, material))
-            if not discreet:
-                ignore = [ob for ob in caller.location.contents if ob.db.ignore_messenger_deliveries and ob != caller]
-                caller.location.msg_contents("%s arrives, delivering a message to {c%s{n before departing." % (
-                    messenger_name, caller.name), exclude=ignore)
-            if forwarded_by:
-                caller.msg("{yThis message was forwarded by {c%s{n." % forwarded_by)
+            caller.messages.receive_pending_messenger()
             return
         # display an old message
         if ("old" in self.switches or 'delete' in self.switches or 'oldindex' in self.switches
@@ -1019,7 +931,7 @@ class CmdMessenger(MuxCommand):
                     name = caller.messages.get_sender_name(mess)
                     date = caller.messages.get_date_from_header(mess) or "Unknown"
                     ooc_date = mess.db_date_created.strftime("%x")
-                    saved = "{w*{n" if "preserve" in mess.tags.all() else ""
+                    saved = "{w*{n" if mess.preserved else ""
                     msgtable.add_row([mess_num, name, date, ooc_date, saved])
                     mess_num += 1
                 caller.msg(msgtable)
@@ -1042,22 +954,15 @@ class CmdMessenger(MuxCommand):
                     if not targs:
                         return
                     for targ in targs:
-                        self.send_messenger(caller, targ, msg, forwarded=True)
+                        self.send_messenger(targ, msg, forwarded=True)
                     return
                 if "delete" in self.switches:
                     caller.messages.del_messenger(msg)
                     caller.msg("You destroy all evidence that you ever received that message.")
                     return
                 if "preserve" in self.switches:
-                    pres_count = caller.receiver_object_set.filter(db_tags__db_key="preserve").count()
-                    if pres_count >= 200:
-                        caller.msg("You are preserving the maximum amount of messages allowed.")
+                    if not caller.messages.preserve_messenger(msg):
                         return
-                    if "preserve" in msg.tags.all():
-                        caller.msg("That message is already being preserved.")
-                        return
-                    msg.tags.add("preserve", category="msg")
-                    caller.msg("This message will no longer be automatically deleted.")
                 self.disp_messenger(caller, msg)
                 return
             except TypeError:
@@ -1123,7 +1028,7 @@ class CmdMessenger(MuxCommand):
             targs, msg = caller.db.messenger_draft[0], caller.db.messenger_draft[1]
             msg = caller.messages.create_messenger(msg)
             for targ in targs:
-                self.send_messenger(caller, targ, msg)
+                self.send_messenger(targ, msg)
             caller.db.messenger_draft = None
             caller.ndb.already_previewed = None
             return
@@ -1211,11 +1116,11 @@ class CmdMessenger(MuxCommand):
             if money:
                 caller.pay_money(money)
             targ = targs[0]
-            self.send_messenger(caller, targ, msg, delivery, money, mats=mats)
+            self.send_messenger(targ, msg, delivery, money, mats=mats)
             caller.ndb.already_previewed = None
             return
         for targ in targs:
-            self.send_messenger(caller, targ, msg, delivery)
+            self.send_messenger(targ, msg, delivery)
         caller.ndb.already_previewed = None
 
 

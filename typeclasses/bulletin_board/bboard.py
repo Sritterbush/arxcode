@@ -105,8 +105,8 @@ class BBoard(Object):
 
     def get_unread_posts(self, pobj, old=False):
         if not old:
-            return self.posts.all_read_by(pobj)
-        return self.archived_posts.all_read_by(pobj)
+            return self.posts.all_unread_by(pobj)
+        return self.archived_posts.all_unread_by(pobj)
 
     def num_of_unread_posts(self, pobj, old=False):
         return self.get_unread_posts(pobj, old).count()
@@ -252,7 +252,8 @@ class BBoard(Object):
         if not sender:
             sender = "No One"
         return sender
-        
+
+
 def convert_tag():
     from evennia.typeclasses.tags import Tag
     tag = Tag.objects.get(db_key="Board Post")

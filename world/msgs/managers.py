@@ -15,6 +15,7 @@ GOSSIP_TAG = "gossip"
 RUMOR_TAG = "rumors"
 COMMENT_TAG = "comment"
 POST_TAG = "board post"
+PRESERVE_TAG = "preserve"
 TAG_CATEGORY = "msg"
 _get_model_from_tags = None
 
@@ -54,7 +55,7 @@ def q_msgtag(tag):
         Returns:
             Q() object of the tag key with the tag category
     """
-    return Q(q_tagname(tag) & Q(db_category=TAG_CATEGORY))
+    return Q(q_tagname(tag) & Q(db_tags__db_category=TAG_CATEGORY))
 
 
 def q_sender_character(character):

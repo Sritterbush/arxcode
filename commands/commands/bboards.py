@@ -109,7 +109,8 @@ def list_messages(caller, board, board_num, old=False):
                                         "{wSubject",
                                         "{wPostDate",
                                         "{wPosted By"])
-    read_posts = caller.receiver_player_set.all()
+    from world.msgs.models import Post
+    read_posts = Post.objects.all_read_by(caller)
     for post in posts:
         unread = post not in read_posts
         msgnum += 1
@@ -142,7 +143,7 @@ def get_unread_posts(caller):
         post = bb.get_latest_post()
         if not post:
             continue
-        if not post.db_receivers_players.filter(id=caller.id):
+        if not post.check_read(caller):
             unread.append(bb)
     if unread:
         msg += ", ".join(bb.key.capitalize() for bb in unread)
@@ -200,8 +201,7 @@ class CmdBBNew(MuxPlayerCommand):
         caller.msg("{w" + "-"*60 + "{n")
         noread = "markread" in self.switches
         for bb in my_subs:
-            posts = bb.get_all_posts()
-            posts = posts.exclude(db_receivers_players=caller)
+            posts = bb.get_unread_posts(caller)
             if not posts:
                 continue
             caller.msg("{wBoard {c%s{n:" % bb.key)

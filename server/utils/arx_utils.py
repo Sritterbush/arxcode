@@ -7,8 +7,8 @@ be of use when designing your own game.
 """
 import re
 from datetime import datetime
-from django.conf import settings
 
+from django.conf import settings
 
 
 def validate_name(name, formatting=True, not_player=True):
@@ -322,7 +322,7 @@ def create_arx_message(senderobj, message, channels=None, receivers=None, locks=
         locks (str): Lock definition string.
         header (str): Mime-type or other optional information for the message
         cls: Proxy class to use for creating this message.
-        tags (str): Tag names to attach to the new Msg to identify its type
+        tags (iterable): Tag names to attach to the new Msg to identify its type
     Notes:
         The Comm system is created very open-ended, so it's fully possible
         to let a message both go to several channels and to several
@@ -331,7 +331,8 @@ def create_arx_message(senderobj, message, channels=None, receivers=None, locks=
     """
     from evennia.utils.utils import make_iter
     if not cls:
-        from evennia.comms.models import Msg as cls
+        from evennia.comms.models import Msg
+        cls = Msg
     if not message:
         # we don't allow empty messages.
         return None
