@@ -25,7 +25,7 @@ from web.character.models import AccountHistory, FirstContact
 from world.dominion import setup_utils
 from world.dominion.models import (RPEvent, Agent, CraftingMaterialType, CraftingMaterials,
                                    AssetOwner, Renown, Reputation, Member)
-from world.msgs.models import Journal
+from world.msgs.models import Journal, Messenger
 
 
 def char_name(character_object, verbose_where=False):
@@ -872,6 +872,18 @@ class CmdMessenger(MuxCommand):
             else:
                 self.msg("%s does not have the ability to %s." % (obj, attr_desc))
 
+    def display_messenger_status(self):
+        caller = self.caller
+        unread = caller.messages.pending_messengers
+        read = caller.messages.messenger_history
+        if not (read or unread):
+            caller.msg("You have no messengers waiting for you, and have never received any messengers." +
+                       " {wEver{n. At all. Not {rone{n.")
+        if read:
+            caller.msg("You have {w%s{n old messages you can re-read." % len(read))
+        if unread:
+            caller.msg("{mYou have {w%s{m new messengers waiting to be received." % len(unread))
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -881,15 +893,7 @@ class CmdMessenger(MuxCommand):
         if cmdstr == "receive messenger" or cmdstr == "receive messengers" or cmdstr == "receive messages":
             self.switches.append("receive")
         if not self.args and not self.switches:
-            unread = caller.db.pending_messengers or []
-            read = caller.messages.messenger_history
-            if not (read or unread):
-                caller.msg("You have no messengers waiting for you, and have never received any messengers." +
-                           " {wEver{n. At all. Not {rone{n.")
-            if read:
-                caller.msg("You have {w%s{n old messages you can re-read." % len(read))
-            if unread:
-                caller.msg("{mYou have {w%s{m new messengers waiting to be received." % len(unread))
+            self.display_messenger_status()
             return
         if "spoof" in self.switches:
             if not caller.check_permstring("builders"):
@@ -972,7 +976,7 @@ class CmdMessenger(MuxCommand):
                 caller.msg("You must supply a number between 1 and %s. You wrote '%s'." % (len(old), self.lhs))
                 return
         if "sent" in self.switches or "sentindex" in self.switches or "oldsent" in self.switches:
-            old = list(caller.sender_object_set.filter(db_tags__db_key="messenger").order_by('-db_date_created'))
+            old = list(Messenger.objects.written_by(caller))
             if not old:
                 caller.msg("There are no traces of old messages you sent. They may have all been destroyed.")
                 return

@@ -82,6 +82,30 @@ def q_receiver_character(character):
     return Q(db_receivers_objects=character)
 
 
+def q_receiver_character_name(name):
+    """
+    Gets a Q() object for a Character that the Msg is about by the given name
+    Args:
+        name: Name to check
+
+    Returns:
+        Q() object for Msgs sent/written about any character by the specified name
+    """
+    return Q(db_receivers_objects__db_key__iexact=name)
+
+
+def q_search_text_body(text_to_search_for):
+    """
+    Gets a Q() object for Msgs that contain specified text.
+    Args:
+        text_to_search_for: Word/phrase to search Msg text bodies for
+
+    Returns:
+        Q() object for Msgs that contain the text to match.
+    """
+    return Q(db_message__icontains=text_to_search_for)
+
+
 def q_favorite_of_player(player):
     """
     Gets a Q() object for Msgs tagged as the player's favorite
