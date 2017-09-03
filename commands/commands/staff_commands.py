@@ -70,7 +70,7 @@ class CmdHome(MuxCommand):
                         guard.summon()
                 else:
                     guard.db.docked = home
-            caller.messenger_notification(login=True)
+            caller.messages.messenger_notification(force=True)
 
 
 class CmdGemit(MuxPlayerCommand):

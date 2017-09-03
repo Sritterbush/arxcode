@@ -222,6 +222,15 @@ class Messenger(MarkReadMixin, Msg):
     def preserve(self):
         self.tags.add(PRESERVE_TAG, category=TAG_CATEGORY)
 
+    def add_receiver(self, character):
+        """
+        Adds a character to our list of object receivers. This indicates that they're intended to receive the
+        messenger, though it may still be pending.
+        Args:
+            character: Character object to add to our list of receivers.
+        """
+        self.db_receivers_objects.add(character)
+
 
 class Vision(MarkReadMixin, Msg):
     """

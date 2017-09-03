@@ -22,7 +22,7 @@ class MessageHandler(messengerhandler.MessengerHandler, journalhandler.JournalHa
         refer to Msg during the loading-up process.
         """
         # the ObjectDB instance
-        super(MessageHandler).__init__(obj)
+        super(MessageHandler, self).__init__(obj)
         # comments that obj has received about it
         self._comments = None
         self._rumors = None

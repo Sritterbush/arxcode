@@ -28,6 +28,18 @@ class MessengerHandler(MsgHandlerBase):
     def messenger_history(self, value):
         self._messenger_history = value
 
+    @property
+    def messenger_draft(self):
+        return self.obj.db.messenger_draft
+
+    @messenger_draft.setter
+    def messenger_draft(self, val):
+        if not val:
+            self.obj.attributes.remove("messenger_draft")
+        else:
+            self.obj.db.messenger_draft = val
+            self.msg("Saved message. To see it, type 'message/proof'.")
+
     def create_messenger_header(self, icdate):
         header = "date:%s" % icdate
         name = self.spoofed_name
@@ -43,7 +55,8 @@ class MessengerHandler(MsgHandlerBase):
         """
         Returns a list of all messengers this character has received. Does not include pending.
         """
-        self._messenger_history = list(self.messenger_qs)
+        pending_ids = [tup[0].id for tup in self.pending_messengers]
+        self._messenger_history = list(self.messenger_qs.exclude(id__in=pending_ids))
         return self._messenger_history
 
     def preserve_messenger(self, msg):
@@ -116,7 +129,7 @@ class MessengerHandler(MsgHandlerBase):
     def pending_messengers(self, val):
         self.obj.db.pending_messengers = val
 
-    def unpack_pending_messenger(self, msgtuple):
+    def unpack_oldest_pending_messenger(self, msgtuple):
         """
         A pending messenger is a tuple of several different values. We'll return values for any that we have, and
         defaults for everything else.
@@ -136,6 +149,8 @@ class MessengerHandler(MsgHandlerBase):
         try:
             import numbers
             msg = msgtuple[0]
+            # Very important: The Msg object is unpickled in Attributes as a Msg. It MUST be reloaded as its proxy
+            msg = reload_model_as_proxy(msg)
             delivered_object = msgtuple[1]
             money_tuple = msgtuple[2]
             # check if the messenger is of old format, pre-conversion. Possible to sit in database for a long time
@@ -174,6 +189,7 @@ class MessengerHandler(MsgHandlerBase):
             obj.move_to(self.obj, quiet=True)
             self.msg("{gYou also have received a delivery!")
             self.msg("{wYou receive{n %s." % obj)
+            obj.tags.remove("in transit")
         if money and money > 0:
             self.obj.currency += money
             self.msg("{wYou receive %s silver coins.{n" % money)
@@ -225,7 +241,7 @@ class MessengerHandler(MsgHandlerBase):
         if not packed:
             return
         # get msg object and any delivered obj
-        msg, obj, money, mats, messenger_name, forwarded_by = self.unpack_pending_messenger(packed)
+        msg, obj, money, mats, messenger_name, forwarded_by = self.unpack_oldest_pending_messenger(packed)
         # adds it to our list of old messages
         self.add_messenger_to_history(msg)
         self.notify_of_messenger_arrival(messenger_name)
@@ -250,8 +266,6 @@ class MessengerHandler(MsgHandlerBase):
         if not msg or not msg.pk:
             self.obj.msg("This messenger appears to have been deleted.")
             return
-        # Very important: The Msg object is unpickled in Attributes as a Msg object. It MUST be reloaded as its proxy
-        msg = reload_model_as_proxy(msg)
         self.obj.receiver_object_set.add(msg)
         # remove the pending message from the associated player
         player_ob = self.obj.player_ob
@@ -267,3 +281,182 @@ class MessengerHandler(MsgHandlerBase):
         qs = self.messenger_qs.exclude(q_msgtag(PRESERVE_TAG)).order_by('db_date_created')
         if qs.count() > 30:
             self.del_messenger(qs.first())
+
+    def messenger_notification(self, num_times=1, force=False):
+        from twisted.internet import reactor
+        if self.pending_messengers:
+            # send messages to our player object so even an @ooc player will see them
+            player = self.obj.player_ob
+            if not player or not player.is_connected:
+                return
+            if force or not player.db.ignore_messenger_notifications:
+                player.msg("{mYou have %s messengers waiting.{n" % len(self.pending_messengers))
+                self.msg("(To receive a messenger, type 'receive messenger')")
+                num_times -= 1
+                if num_times > 0:
+                    reactor.callLater(600, self.messenger_notification, num_times)
+                else:
+                    # after the first one, we only tell them once an hour
+                    reactor.callLater(3600, self.messenger_notification, num_times)
+
+    def send_draft_message(self):
+        """
+        Creates and sends a messenger with a copy of the message that our character has drafted up.
+        """
+        if not self.messenger_draft:
+            self.msg("You have no draft message stored.")
+            return
+        targs, msg = self.messenger_draft
+        msg = self.create_messenger(msg)
+        packed = self.pack_messenger_for_delivery(msg)
+        self.send_packed_messenger_to_receivers(packed, targs)
+        self.messenger_draft = None
+
+    def create_and_send_messenger(self, text, receivers, delivery=None, money=None, mats=None):
+        """
+        Creates a new messenger and sends it off to our receivers
+        Args:
+            text: Message text to send
+            receivers: List of characters to deliver to.
+            delivery: Any object to deliver
+            money: Money to send to each receiver
+            mats: Tuple of materials to send to each receiver
+        """
+        messenger = self.create_messenger(text)
+        self.prep_deliveries(receivers, delivery, money, mats)
+        packed = self.pack_messenger_for_delivery(messenger, delivery=delivery, money=money, mats=mats)
+        self.send_packed_messenger_to_receivers(packed, receivers)
+
+    def prep_deliveries(self, receivers, delivery=None, money=None, mats=None):
+        """
+        Handle deliveries
+        Args:
+            receivers:
+            delivery:
+            money:
+            mats:
+        """
+        # make delivery object unavailable while in transit, if we have one
+        num = len(receivers)
+        if delivery:
+            delivery.location = None
+            # call removal hooks
+            delivery.at_after_move(self.obj)
+            delivery.tags.add("in transit")
+        if money:
+            total = money * num
+            self.obj.pay_money(total)
+        if mats:
+            amt = mats[1] * num
+            pmats = self.obj.player.Dominion.assets.materials
+            pmat = pmats.get(type=mats[0])
+            if pmat.amount < amt:
+                raise ValueError("Attempted to send more materials than you have available.")
+            pmat.amount -= amt
+            pmat.save()
+
+    def forward_messenger(self, receivers, messenger):
+        """
+        Forwards a messenger to the list of receivers
+        Args:
+            receivers: List of Characters for our forwarded Messenger
+            messenger: Messenger object to be forwarded
+        """
+        packed = self.pack_messenger_for_delivery(messenger, delivery=None, money=None, mats=None, forwarder=self.obj)
+        self.send_packed_messenger_to_receivers(packed, receivers)
+
+    def send_packed_messenger_to_receivers(self, packed, receivers):
+        """
+        Sends our packed messenger off to our receivers. The first receiver gets any deliveries,
+        then it's stripped out for the rest of them.
+        Args:
+            packed: tuple of packed data - the messenger, deliveries, and notifications
+            receivers: List of Characters
+        """
+        # only the first receiver gets the whole package
+        receivers[0].messages.add_packed_pending_messenger(packed)
+        # now send the stripped version to remaining receivers
+        stripped = self.strip_deliveries_from_packed(packed)
+        for targ in receivers[1:]:
+            targ.messages.add_packed_pending_messenger(stripped)
+        # Show what we sent. Use initial package to show what was delivered
+        self.display_sent_messenger_report(packed, receivers)
+        # Mark player as having done something that is RP, so they're not inactive
+        self.obj.posecount += 1
+
+    @property
+    def no_messenger_preview(self):
+        return self.obj.player_ob.db.nomessengerpreview
+
+    def display_sent_messenger_report(self, packed_messenger, receivers):
+        """
+        Gives feedback to our character after they've sent off messenger
+        Args:
+            packed_messenger: This is a tuple of a messenger with any deliveries. If we have multiple receivers,
+                any delivery is only sent to the first receiver.
+            receivers: List of Character receivers.
+        """
+        m_name = self.custom_messenger
+        names = ", ".join(ob.key for ob in receivers)
+        messenger = packed_messenger[0]
+        delivery = packed_messenger[1]
+        money = packed_messenger[2][0]
+        mats = packed_messenger[2][1]
+        if self.no_messenger_preview:
+            self.msg("You dispatch %s to {c%s{n." % (m_name or "a messenger", names))
+        else:
+            self.msg("You dispatch %s to {c%s{n with the following message:\n\n'%s'\n" % (
+                m_name or "a messenger", names, messenger.db_message))
+        deliver_str = m_name or "Your messenger"
+        if delivery:
+            self.msg("%s will also deliver %s." % (deliver_str, delivery))
+        if money:
+            self.msg("%s will also deliver %s silver." % (deliver_str, money))
+        if mats:
+            mat = CraftingMaterialType.objects.get(id=mats[0])
+            self.msg("%s will also deliver %s %s." % (deliver_str, mats[1], mat))
+
+    def pack_messenger_for_delivery(self, messenger, delivery=None, money=None, mats=None, forwarder=None):
+        """
+        Gets a list that will be used for serializing into a receiver's list of pending messengers.
+        Args:
+            messenger: Messenger object that is being sent
+            delivery: Object to be delivered, if any
+            money: Silver to be sent, if any
+            mats: Tuple of ID of CraftingMaterialType and integer amount, if any
+            forwarder: Character object who forwarded the mail, if any
+
+        Returns:
+            Tuple of the above values with also the name of our custom messenger, if any
+        """
+        return [messenger, delivery, (money, mats), self.custom_messenger, forwarder]
+
+    @staticmethod
+    def strip_deliveries_from_packed(packed):
+        """
+        Gets a packed messenger/delivery object and strips out any object delivery from it, which is only
+        given to the first receiver.
+        Args:
+            packed: A packed messenger list
+
+        Returns:
+            A new list without an object delivery.
+        """
+        packed = list(packed)
+        packed[1] = None
+        return packed
+
+    @property
+    def custom_messenger(self):
+        return self.obj.db.custom_messenger
+
+    def add_packed_pending_messenger(self, packed_messenger):
+        """
+        Adds a tuple of a messenger with deliveries and other flags to our list of pending messengers.
+        Args:
+            packed_messenger: tuple of Messenger, delivery object, money, materials, and forwarding character.
+        """
+        # cast to new list so that different Attributes don't share a reference to the same list
+        self.pending_messengers.insert(0, list(packed_messenger))
+        packed_messenger[0].add_receiver(self.obj)
+        self.messenger_notification(2)

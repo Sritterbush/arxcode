@@ -739,9 +739,9 @@ class CmdMessenger(MuxCommand):
         messenger
         messenger <receiver>[,<receiver2>,...]=<message>
         messenger/receive
-        messenger/deliver <receiver>,<object>[,<money>][,<mat>/<amt>]=<msg>
-        messenger/money <receiver>,<amount>=<message>
-        messenger/materials <receiver>,<material>/<amount>=<message>
+        messenger/deliver <receivers>|<object>[,<money>][,<mat>/<amt>]=<msg>
+        messenger/money <receivers>|<amount>=<message>
+        messenger/materials <receivers>|<material>/<amount>=<message>
         messenger/old <number>
         messenger/oldindex <amount to display>
         messenger/sent <number>
@@ -766,6 +766,12 @@ class CmdMessenger(MuxCommand):
     To draft a message before sending it, use the 'draft' switch, review
     your message with 'proof', and then finally send it with 'send'.
 
+    When sending deliveries, you can specify more than one receiver. If you
+    are delivering an object, it will be sent to the first receiver you list.
+    Money and crafting materials are sent to each person listed, charging you
+    the total. For example, 'messenger/money copper,prism|50=hi!' would cost
+    a total of 100 silver.
+
     """
     key = "messenger"
     locks = "cmd:all()"
@@ -773,41 +779,8 @@ class CmdMessenger(MuxCommand):
                "receive messages", "message"]
     help_category = "Social"
 
-    def send_messenger(self, targ, msg, delivery=None, money=None, forwarded=False, mats=None):
-        caller = self.caller
-        unread = targ.db.pending_messengers or []
-        if type(unread) == 'unicode':
-            # attribute was corrupted due to  database conversion, fix it
-            unread = []
-        m_name = caller.db.custom_messenger
-        if forwarded:
-            unread.insert(0, (msg, delivery, (money, mats), m_name, caller))
-        else:
-            unread.insert(0, (msg, delivery, (money, mats), m_name))
-        # add the message to the player's set to mark it as an unread message sent to them
-        player = targ.player_ob
-        player.receiver_player_set.add(msg)
-        targ.db.pending_messengers = unread
-        targ.messenger_notification(2)
-        if caller.player_ob.db.nomessengerpreview or caller.ndb.already_previewed:
-            caller.msg("You dispatch %s to {c%s{n." % (m_name or "a messenger", targ.key))
-        else:
-            caller.msg("You dispatch %s to {c%s{n with the following message:\n\n'%s'\n" % (
-                m_name or "a messenger", targ.key, msg.db_message))
-            caller.ndb.already_previewed = True
-        deliver_str = m_name or "Your messenger"
-        if delivery:
-            caller.msg("%s will also deliver %s." % (deliver_str, delivery))
-        if money:
-            caller.msg("%s will also deliver %s silver." % (deliver_str, money))
-        if mats:
-            mat = CraftingMaterialType.objects.get(id=mats[0])
-            caller.msg("%s will also deliver %s %s." % (deliver_str, mats[1], mat))
-        caller.posecount += 1
-
-    @staticmethod
-    def disp_messenger(caller, msg):
-        caller.messages.display_messenger(msg)
+    def disp_messenger(self, msg):
+        self.caller.messages.display_messenger(msg)
 
     def get_mats_from_args(self, args):
         """
@@ -819,15 +792,11 @@ class CmdMessenger(MuxCommand):
             mats (tuple): tuple of (Material's ID, amount)
         """
         try:
-            dompc = self.caller.player_ob.Dominion
             lhslist = args.split("/")
             material = CraftingMaterialType.objects.get(name__iexact=lhslist[0])
             amt = int(lhslist[1])
             if amt < 1:
                 raise ValueError("You must specify a positive value of a material to send.")
-            current_mats = dompc.assets.materials.get(type=material)
-            if current_mats < amt:
-                raise ValueError("You don't have enough of %s" % material)
         # different errors
         except (IndexError, AttributeError, TypeError):
             self.msg("You must specify materials to send.")
@@ -837,10 +806,8 @@ class CmdMessenger(MuxCommand):
             self.msg("You don't have any of that material.")
         except ValueError as err:
             self.msg(err)
-        # succeeded, decrement amount and return appropriate values
+        # succeeded, return amount. It'll be decremented when sent off later
         else:
-            current_mats.amount -= amt
-            current_mats.save()
             return material.id, amt
             
     def set_or_remove_retainer_ability(self, attr_name, attr_desc):
@@ -867,7 +834,7 @@ class CmdMessenger(MuxCommand):
         except AttributeError:
             self.msg("That agent cannot %s." % attr_desc)
         else:
-            if obj.db.abilities.get(attr_name, 0):
+            if obj.db.abilities and obj.db.abilities.get(attr_name, 0):
                 setattr(handler, attr_name, obj)
             else:
                 self.msg("%s does not have the ability to %s." % (obj, attr_desc))
@@ -907,7 +874,7 @@ class CmdMessenger(MuxCommand):
                 attr_desc = "receive messages discreetly"
             else:
                 attr_name = "custom_messenger"
-                attr_desc = "delivery messages for you"
+                attr_desc = "deliver messages for you"
             self.set_or_remove_retainer_ability(attr_name, attr_desc)
             return
         # get the first new messenger we have waiting
@@ -928,17 +895,7 @@ class CmdMessenger(MuxCommand):
                 except (TypeError, ValueError):
                     num_disp = 30
                 # display a prettytable of message number, sender, IC date
-                msgtable = PrettyTable(["{wMsg #", "{wSender", "{wIC Date", "{wOOC Date", "{wSave"])
-                mess_num = 1
-                old = old[:num_disp]
-                for mess in old:
-                    name = caller.messages.get_sender_name(mess)
-                    date = caller.messages.get_date_from_header(mess) or "Unknown"
-                    ooc_date = mess.db_date_created.strftime("%x")
-                    saved = "{w*{n" if mess.preserved else ""
-                    msgtable.add_row([mess_num, name, date, ooc_date, saved])
-                    mess_num += 1
-                caller.msg(msgtable)
+                self.display_received_table(num_disp, old)
                 return
             try:
                 num = int(self.lhs)
@@ -946,19 +903,10 @@ class CmdMessenger(MuxCommand):
                     raise ValueError
                 msg = old[num - 1]
                 if "forward" in self.switches:
-                    targs = []
-                    for arg in self.rhslist:
-                        targ = caller.player.search(arg)
-                        if not targ:
-                            continue
-                        character = targ.db.char_ob
-                        if not character:
-                            continue
-                        targs.append(character)
+                    targs = self.check_valid_receivers(self.rhslist)
                     if not targs:
                         return
-                    for targ in targs:
-                        self.send_messenger(targ, msg, forwarded=True)
+                    caller.messages.forward_messenger(targs, msg)
                     return
                 if "delete" in self.switches:
                     caller.messages.del_messenger(msg)
@@ -967,7 +915,7 @@ class CmdMessenger(MuxCommand):
                 if "preserve" in self.switches:
                     if not caller.messages.preserve_messenger(msg):
                         return
-                self.disp_messenger(caller, msg)
+                self.disp_messenger(msg)
                 return
             except TypeError:
                 caller.msg("You have %s old messages." % len(old))
@@ -986,30 +934,14 @@ class CmdMessenger(MuxCommand):
                 except (TypeError, ValueError):
                     num_disp = 20
                 # display a prettytable of message number, sender, IC date
-                msgtable = PrettyTable(["{wMsg #",
-                                        "{wReceiver",
-                                        "{wDate"])
-                mess_num = 1
-                old = old[:num_disp]
-                for mess in old:
-                    receiver = mess.receivers
-                    if receiver:
-                        receiver = receiver[0]
-                        name = receiver.key
-                    else:
-                        name = "Unknown"
-                    date = caller.messages.get_date_from_header(mess) or "Unknown"
-                    msgtable.add_row([mess_num, name, date])
-                    mess_num += 1
-                caller.msg(msgtable)
-                return
+                return self.display_sent_table(num_disp, old)
             try:
                 num = int(self.lhs)
                 if num < 1:
                     raise ValueError
                 msg = old[num - 1]
                 caller.msg("\n{wMessage to:{n %s" % ", ".join(str(ob) for ob in msg.receivers))
-                self.disp_messenger(caller, msg)
+                self.disp_messenger(msg)
                 return
             except TypeError:
                 caller.msg("You have %s old sent messages." % len(old))
@@ -1026,14 +958,7 @@ class CmdMessenger(MuxCommand):
             caller.msg(msg[1])
             return
         if "send" in self.switches:
-            if not caller.db.messenger_draft:
-                caller.msg("You have no draft message stored.")
-                return
-            targs, msg = caller.db.messenger_draft[0], caller.db.messenger_draft[1]
-            msg = caller.messages.create_messenger(msg)
-            for targ in targs:
-                self.send_messenger(targ, msg)
-            caller.db.messenger_draft = None
+            caller.messages.send_draft_message()
             caller.ndb.already_previewed = None
             return
         if not self.lhs or not self.rhs:
@@ -1045,27 +970,27 @@ class CmdMessenger(MuxCommand):
         delivery = None
         if "deliver" in self.switches or "money" in self.switches or "materials" in self.switches:
             try:
-                targs = [caller.player.search(self.lhslist[0])]
+                name_list, remainder = self.get_list_of_arguments()
+                targs = self.check_valid_receivers(name_list)
+                if not targs:
+                    return
                 if "money" in self.switches:
-                    money = float(self.lhslist[1])
+                    money = float(remainder[0])
                 elif "materials" in self.switches:
-                    mats = self.get_mats_from_args(self.lhslist[1])
+                    mats = self.get_mats_from_args(remainder[0])
                     if not mats:
                         return
                 else:  # deliver
-                    delivery = caller.search(self.lhslist[1], location=caller)
+                    delivery = caller.search(remainder[0], location=caller)
                     if not delivery:
                         return
-                    if len(self.lhslist) > 2:
-                        money = self.lhslist[2]
-                    if len(self.lhslist) > 3:
-                        mats = self.get_mats_from_args(self.lhslist[3])
+                    if len(remainder) > 1:
+                        money = remainder[1]
+                    if len(remainder) > 2:
+                        mats = self.get_mats_from_args(remainder[2])
                 money = float(money)
                 if money < 0:
                     raise ValueError
-                if money and money > caller.db.currency:
-                    caller.msg("You cannot send that much money.")
-                    return
             except IndexError:
                 caller.msg("Must provide both a receiver and an object for a delivery.")
                 caller.msg("Ex: messenger/deliver alaric,a bloody rose=Only for you.")
@@ -1075,57 +1000,122 @@ class CmdMessenger(MuxCommand):
                 return
         # normal messenger
         elif "draft" in self.switches or not self.switches:
-            targs = []
-            for arg in self.lhslist:
-                targ = caller.player.search(arg)
-                if targ:
-                    can_deliver = True
-                    if not targ.db.char_ob:
-                        can_deliver = False
-                    elif "no_messengers" in targ.db.char_ob.tags.all():
-                        can_deliver = False
-                    elif not hasattr(targ, 'roster') or not targ.roster.roster:
-                        can_deliver = False
-                    elif targ.roster.roster.name not in ("Active", "Unavailable", "Available", "Inactive"):
-                        can_deliver = False
-                    if not can_deliver:
-                        self.msg("%s cannot receive messengers." % targ)
-                        continue
-                    targs.append(targ)
+            targs = self.check_valid_receivers(self.lhslist)
         else:  # invalid switch
             self.msg("Unrecognized switch.")
             return
-        if not targs:
-            return
-        # get character objects of each match
-        targs = [targ.db.char_ob for targ in targs if targ and targ.db.char_ob]
-        if not targs:
-            caller.msg("No character found.")
-            return
         if "draft" in self.switches:
-            caller.db.messenger_draft = (targs, self.rhs)
-            caller.msg("Saved message. To see it, type 'message/proof'.")
+            caller.messages.messenger_draft = (targs, self.rhs)
             return
-        if (delivery or money) and len(targs) > 1:
-            caller.msg("You cannot send a delivery or money to more than one person.")
+        # check that we have enough money/mats for every receiver
+        if not self.check_delivery_amounts(targs, delivery, money, mats):
             return
-        # format our messenger
-        msg = caller.messages.create_messenger(self.rhs)
-        # make delivery object unavailable while in transit, if we have one
-        if delivery or money or mats:
-            if delivery:
-                delivery.location = None
-                # call removal hooks
-                delivery.at_after_move(caller)
-            if money:
-                caller.pay_money(money)
-            targ = targs[0]
-            self.send_messenger(targ, msg, delivery, money, mats=mats)
-            caller.ndb.already_previewed = None
-            return
-        for targ in targs:
-            self.send_messenger(targ, msg, delivery)
+        caller.messages.create_and_send_messenger(self.rhs, targs, delivery, money, mats)
         caller.ndb.already_previewed = None
+
+    def get_list_of_arguments(self):
+        """
+        Try to get different types of arguments based on user input. If a | is specified, then
+        they're separating a list of receivers with the pipe. Otherwise, they're assumed to have
+        one receiver, and we just use self.lhslist for the old comma separated arguments.
+        Returns:
+            Two lists: the first being a list of player names, the other a list of remaining
+            arguments.
+        """
+        arglist = self.lhs.split("|")
+        if len(arglist) == 1:
+            return (self.lhslist[0],), self.lhslist[1:]
+        else:
+            return arglist[0].split(","),  arglist[1].split(",")
+
+    def check_delivery_amounts(self, receivers, delivery, money, mats):
+        num = len(receivers)
+        if delivery:
+            if delivery.location != self.caller:
+                self.msg("You do not have the delivery in your possession.")
+                return
+        if money:
+            total = money * num
+            current = self.caller.currency
+            if current < total:
+                self.msg("That delivery would cost %s, and you only have %s." % (total, current))
+        if mats:
+            amt = mats[1] * num
+            try:
+                pmats = self.caller.player.Dominion.assets.materials
+                pmat = pmats.get(type=mats[0])
+            except CraftingMaterials.DoesNotExist:
+                self.msg("You don't have any of that type of material.")
+                return
+            if pmat.amount < amt:
+                self.msg("You want to send %s, but you only have %s available." % (amt, pmat.amount))
+                return
+        return True
+
+    def check_valid_receivers(self, name_list):
+        """
+        Given a list of names, check that each player given by the name_list has a character object that
+        can receive messengers. Return all valid characters.
+        Args:
+            name_list: List of names of players to check
+
+        Returns:
+            List of character objects
+        """
+        targs = []
+        for arg in name_list:
+            targ = self.caller.player.search(arg)
+            if targ:
+                can_deliver = True
+                character = targ.db.char_ob
+                if not character:
+                    can_deliver = False
+                elif "no_messengers" in character.tags.all():
+                    can_deliver = False
+                elif not hasattr(targ, 'roster') or not targ.roster.roster:
+                    can_deliver = False
+                elif targ.roster.roster.name not in ("Active", "Unavailable", "Available", "Inactive"):
+                    can_deliver = False
+                if not can_deliver:
+                    self.msg("%s cannot receive messengers." % targ)
+                    continue
+                targs.append(character)
+        if not targs:
+            self.msg("No valid receivers found.")
+        return targs
+
+    def display_received_table(self, num_disp, old):
+        caller = self.caller
+        msgtable = PrettyTable(["{wMsg #", "{wSender", "{wIC Date", "{wOOC Date", "{wSave"])
+        mess_num = 1
+        old = old[:num_disp]
+        for mess in old:
+            name = caller.messages.get_sender_name(mess)
+            date = caller.messages.get_date_from_header(mess) or "Unknown"
+            ooc_date = mess.db_date_created.strftime("%x")
+            saved = "{w*{n" if mess.preserved else ""
+            msgtable.add_row([mess_num, name, date, ooc_date, saved])
+            mess_num += 1
+        caller.msg(msgtable)
+
+    def display_sent_table(self, num_disp, old):
+        msgtable = PrettyTable(["{wMsg #",
+                                "{wReceiver",
+                                "{wDate"])
+        mess_num = 1
+        old = old[:num_disp]
+        for mess in old:
+            receiver = mess.receivers
+            if receiver:
+                receiver = receiver[0]
+                name = receiver.key
+            else:
+                name = "Unknown"
+            date = self.caller.messages.get_date_from_header(mess) or "Unknown"
+            msgtable.add_row([mess_num, name, date])
+            mess_num += 1
+        self.msg(msgtable)
+        return
 
 
 largesse_types = ('none', 'common', 'refined', 'grand', 'extravagant', 'legendary')
