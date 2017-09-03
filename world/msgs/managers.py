@@ -213,6 +213,9 @@ class MsgQuerySet(QuerySet):
     def black(self):
         return self.filter(q_msgtag(BLACK_TAG))
 
+    def relationships(self):
+        return self.filter(q_msgtag(RELATIONSHIP_TAG))
+
     def get(self, *args, **kwargs):
         ret = super(MsgQuerySet, self).get(*args, **kwargs)
         return reload_model_as_proxy(ret)
@@ -222,7 +225,6 @@ class MsgProxyManager(MsgManager):
     white_query = q_msgtag(WHITE_TAG)
     black_query = q_msgtag(BLACK_TAG)
     all_journals_query = Q(white_query | black_query)
-    relationship_query = q_msgtag(RELATIONSHIP_TAG)
 
     def get_queryset(self):
         return MsgQuerySet(self.model)
@@ -230,9 +232,6 @@ class MsgProxyManager(MsgManager):
     # so that custom queryset methods can be used after Model.objects
     def __getattr__(self, attr):
         return getattr(self.get_queryset(), attr)
-
-    def relationships(self):
-        return self.get_queryset().filter(self.relationship_query)
 
     def get(self, *args, **kwargs):
         return self.get_queryset().get(*args, **kwargs)
