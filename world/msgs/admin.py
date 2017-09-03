@@ -101,5 +101,3 @@ admin.site.unregister(ObjectDB)
 admin.site.register(ObjectDB, ArxObjectDBAdmin)
 admin.site.unregister(HelpEntry)
 admin.site.register(HelpEntry, ArxHelpDBAdmin)
-
-

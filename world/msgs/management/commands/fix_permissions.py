@@ -14,6 +14,7 @@ from __future__ import unicode_literals, absolute_import, division
 
 import sys
 
+# noinspection PyProtectedMember
 from django.contrib.auth.management import _get_all_permissions
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
@@ -27,6 +28,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         for model in apps.get_models():
+            # noinspection PyProtectedMember
             opts = model._meta
             ctype, created = ContentType.objects.get_or_create(
                 app_label=opts.app_label,
