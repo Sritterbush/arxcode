@@ -972,8 +972,6 @@ class CmdMessenger(MuxCommand):
             try:
                 name_list, remainder = self.get_list_of_arguments()
                 targs = self.check_valid_receivers(name_list)
-                if not targs:
-                    return
                 if "money" in self.switches:
                     money = float(remainder[0])
                 elif "materials" in self.switches:
@@ -1003,6 +1001,8 @@ class CmdMessenger(MuxCommand):
             targs = self.check_valid_receivers(self.lhslist)
         else:  # invalid switch
             self.msg("Unrecognized switch.")
+            return
+        if not targs:
             return
         if "draft" in self.switches:
             caller.messages.messenger_draft = (targs, self.rhs)
