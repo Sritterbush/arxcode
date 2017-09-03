@@ -924,7 +924,7 @@ class CmdMessenger(MuxCommand):
                 caller.msg("You must supply a number between 1 and %s. You wrote '%s'." % (len(old), self.lhs))
                 return
         if "sent" in self.switches or "sentindex" in self.switches or "oldsent" in self.switches:
-            old = list(Messenger.objects.written_by(caller))
+            old = list(Messenger.objects.written_by(caller).order_by('-db_date_created'))
             if not old:
                 caller.msg("There are no traces of old messages you sent. They may have all been destroyed.")
                 return
