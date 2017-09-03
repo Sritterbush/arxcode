@@ -162,6 +162,14 @@ class MessengerHandler(MsgHandlerBase):
         return msg, delivered_object, money, mats, messenger_name, forwarded_by
 
     def handle_delivery(self, obj, money, mats):
+        """
+        Handles the delivery of stuff from a Messenger to our character
+        
+            Args:
+                obj (ObjectDB): Delivered object, of any typeclass
+                money (float): Amount of silver
+                mats (tuple): Tuple of CraftingMaterialType and amount
+        """
         if obj:
             obj.move_to(self.obj, quiet=True)
             self.msg("{gYou also have received a delivery!")
@@ -200,26 +208,26 @@ class MessengerHandler(MsgHandlerBase):
             self.obj.location.msg_contents("%s arrives, delivering a message to {c%s{n before departing." % (
                 messenger_name, self.obj.name), exclude=ignore)
 
-    def check_valid_unread_messenger(self, unread):
-        if isinstance(unread, basestring):
+    def get_packed_messenger(self):
+        pending = self.pending_messengers
+        if isinstance(pending, basestring):
             self.msg("Your pending_messengers attribute was corrupted in the database conversion. "
                      "Sorry! Ask a GM to see if they can find which messages were yours.")
             self.obj.db.pending_messengers = []
             return
-        if not unread:
+        if not pending:
             self.msg("You have no messengers waiting to be received.")
             return
-        return True
+        return pending.pop()
 
     def receive_pending_messenger(self):
-        unread = self.pending_messengers
-        if not self.check_valid_unread_messenger(unread):
+        packed = self.get_packed_messenger()
+        if not packed:
             return
         # get msg object and any delivered obj
-        msg, obj, money, mats, messenger_name, forwarded_by = self.unpack_pending_messenger(unread.pop())
-        self.pending_messengers = unread
+        msg, obj, money, mats, messenger_name, forwarded_by = self.unpack_pending_messenger(packed)
         # adds it to our list of old messages
-        self.receive_messenger(msg)
+        self.add_messenger_to_history(msg)
         self.notify_of_messenger_arrival(messenger_name)
         self.display_messenger(msg)
         # handle anything delivered
@@ -237,11 +245,12 @@ class MessengerHandler(MsgHandlerBase):
         mssg += self.disp_entry(msg)
         self.msg(mssg, options={'box': True})
 
-    def receive_messenger(self, msg):
+    def add_messenger_to_history(self, msg):
         """marks us as having received the message"""
         if not msg or not msg.pk:
             self.obj.msg("This messenger appears to have been deleted.")
             return
+        # Very important: The Msg object is unpickled in Attributes as a Msg object. It MUST be reloaded as its proxy
         msg = reload_model_as_proxy(msg)
         self.obj.receiver_object_set.add(msg)
         # remove the pending message from the associated player
@@ -251,7 +260,10 @@ class MessengerHandler(MsgHandlerBase):
         if msg not in self.messenger_history:
             self.messenger_history.insert(0, msg)
         # delete our oldest messenger that isn't marked to preserve
+        self.delete_oldest_unpreserved_messenger()
+        return msg
+        
+    def delete_oldest_unpreserved_messenger(self):
         qs = self.messenger_qs.exclude(q_msgtag(PRESERVE_TAG)).order_by('db_date_created')
         if qs.count() > 30:
             self.del_messenger(qs.first())
-        return msg
