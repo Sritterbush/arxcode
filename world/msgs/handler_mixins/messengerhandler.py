@@ -107,11 +107,11 @@ class MessengerHandler(MsgHandlerBase):
         self.obj.msg("You will now send messengers by the name %s" % name)
 
     @property
-    def discreet_servant(self):
+    def discreet_messenger(self):
         return self.obj.db.discreet_messenger
 
-    @discreet_servant.setter
-    def discreet_servant(self, val):
+    @discreet_messenger.setter
+    def discreet_messenger(self, val):
         if not val:
             self.obj.attributes.remove("discreet_messenger")
             self.obj.msg("You will not receive messages discreetly.")
@@ -211,7 +211,7 @@ class MessengerHandler(MsgHandlerBase):
         Args:
             messenger_name: Name of the messenger that is used.
         """
-        discreet = self.discreet_servant
+        discreet = self.discreet_messenger
         try:
             if discreet.location == self.obj.location:
                 self.msg("%s has discreetly informed you of a message delivered by %s." % (discreet, messenger_name))
