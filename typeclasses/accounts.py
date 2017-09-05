@@ -22,11 +22,11 @@ several more options for customizing the Guest account system.
 
 """
 
-from evennia import DefaultPlayer
+from evennia import DefaultAccount
 from typeclasses.mixins import MsgMixins
 
 
-class Player(MsgMixins, DefaultPlayer):
+class Account(MsgMixins, DefaultAccount):
     """
     This class describes the actual OOC player (i.e. the user connecting
     to the MUD). It does NOT have visual appearance in the game world (that
@@ -101,7 +101,7 @@ class Player(MsgMixins, DefaultPlayer):
     def __unicode__(self):
         return self.name
     
-    def at_player_creation(self):
+    def at_account_creation(self):
         """
         This is called once, the very first time
         the player is created (i.e. first time they

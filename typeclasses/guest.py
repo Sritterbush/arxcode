@@ -3,16 +3,16 @@
 Guest is a child of default Player class.
 
 """
-from .players import Player
+from .accounts import Account
 
 CMDSET_GUEST = "commands.cmdsets.cmdset_guest.GuestCmdSet"
 
-class Guest(Player):
+class Guest(Account):
     """
     See Player object for API. Will be overloading most methods to customize.
     """
     
-    def at_player_creation(self):
+    def at_account_creation(self):(self):
         """
         This is called once, the very first time
         the player is created (i.e. first time they
