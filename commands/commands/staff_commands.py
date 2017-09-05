@@ -8,7 +8,7 @@ from evennia.server.sessionhandler import SESSIONS
 from evennia.utils import evtable
 from server.utils import prettytable
 from server.utils.arx_utils import inform_staff, broadcast
-from commands.command import ArxCommand, ArxPlayerCommand
+from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
 from evennia.accounts.models import AccountDB
 from evennia.objects.models import ObjectDB
 from web.character.models import Story, Episode, StoryEmit, Clue

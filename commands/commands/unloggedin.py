@@ -6,7 +6,7 @@ from evennia.accounts.models import AccountDB
 from evennia.server.models import ServerConfig
 
 from evennia.utils import create, utils, ansi
-from commands.command import ArxCommand
+from server.utils.arx_utils import ArxCommand
 from dns.resolver import query, NXDOMAIN
 
 

@@ -9,7 +9,7 @@ be here, as well as related commands such as voting to give
 other players xp awards for good roleplay.
 """
 
-from commands.command import ArxCommand, ArxPlayerCommand
+from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
 from world import stats_and_skills
 from server.utils.arx_utils import inform_staff
 from evennia.utils.utils import list_to_string

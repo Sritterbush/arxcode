@@ -4,7 +4,7 @@ Container objects. Bags, chests, etc.
 
 """
 from typeclasses.objects import Object as DefaultObject
-from commands.command import ArxCommand
+from server.utils.arx_utils import ArxCommand
 from evennia.commands import cmdset
 from typeclasses.mixins import LockMixins
 

@@ -12,7 +12,7 @@ from django.conf import settings
 from server.utils import prettytable, helpdesk_api
 from web.helpdesk.models import Ticket, Queue
 from server.utils.arx_utils import inform_staff, check_break
-from commands.command import ArxPlayerCommand
+from server.utils.arx_utils import ArxPlayerCommand
 from evennia.objects.models import ObjectDB
 import traceback
 from web.character.models import Roster, RosterEntry, PlayerAccount, AccountHistory

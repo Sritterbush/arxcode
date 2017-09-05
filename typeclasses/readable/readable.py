@@ -4,7 +4,7 @@ Readable/Writable objects
 
 from typeclasses.objects import Object
 from evennia import CmdSet
-from commands.command import ArxCommand
+from server.utils.arx_utils import ArxCommand
 
 
 class Readable(Object):

@@ -1,7 +1,7 @@
 """
 Commands for dice checks.
 """
-from commands.command import ArxCommand
+from server.utils.arx_utils import ArxCommand
 from world import stats_and_skills
 from world.roll import Roll
 

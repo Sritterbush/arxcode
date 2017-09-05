@@ -10,7 +10,7 @@ cmdset - this way you can often re-use the commands too.
 from django.conf import settings
 from evennia import CmdSet, utils
 from server.utils import prettytable
-from commands.command import ArxCommand
+from server.utils.arx_utils import ArxCommand
 
 # error return function, needed by wear/remove command
 AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))

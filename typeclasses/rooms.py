@@ -500,7 +500,7 @@ class CmdExtendedLook(default_cmds.CmdLook):
         looking_at_obj.at_desc(looker=caller)
         self.check_detail()
 
-from commands.command import ArxCommand
+from server.utils.arx_utils import ArxCommand
 class CmdStudyRawAnsi(ArxCommand):
     """
     prints raw ansi codes for a name

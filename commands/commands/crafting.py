@@ -2,7 +2,7 @@
 Crafting commands. BEHOLD THE MINIGAME.
 """
 from django.conf import settings
-from commands.command import ArxCommand
+from server.utils.arx_utils import ArxCommand
 from world.dominion.models import (AssetOwner, PlayerOrNpc, CraftingRecipe, CraftingMaterials, CraftingMaterialType)
 from world.dominion.setup_utils import setup_dom_for_char
 from world.stats_and_skills import do_dice_check

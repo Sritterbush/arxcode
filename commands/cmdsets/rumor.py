@@ -3,7 +3,7 @@ Commands for rumormills.
 """
 
 from evennia import CmdSet
-from commands.command import ArxCommand
+from server.utils.arx_utils import ArxCommand
 from evennia.utils import evtable
 from server.utils.arx_utils import get_week, tnow
 from evennia.utils.create import create_message

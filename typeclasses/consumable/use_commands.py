@@ -1,4 +1,4 @@
-from commands.command import ArxCommand
+from server.utils.arx_utils import ArxCommand
 
 
 class CmdApplyConsumable(ArxCommand):

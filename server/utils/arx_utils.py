@@ -9,6 +9,7 @@ import re
 from datetime import datetime
 
 from django.conf import settings
+from evennia.commands.default.muxcommand import MuxCommand, MuxAccountCommand
 
 
 def validate_name(name, formatting=True, not_player=True):
@@ -351,3 +352,11 @@ def create_arx_message(senderobj, message, channels=None, receivers=None, locks=
     for tag in make_iter(tags):
         new_message.tags.add(tag, category="msg")
     return new_message
+
+
+class ArxCommand(MuxCommand):
+    pass
+
+
+class ArxPlayerCommand(MuxAccountCommand):
+    pass

@@ -233,7 +233,7 @@ class StaffCmdSet(CmdSet):
         # System commands
         self.add(overrides.CmdArxScripts())
         self.add(system.CmdObjects())
-        self.add(system.CmdPlayers())
+        self.add(system.CmdAccounts())
         self.add(system.CmdService())
         self.add(system.CmdAbout())
         self.add(system.CmdTime())

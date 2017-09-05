@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from django.conf import settings
 from django.db.models import Q
 
-from commands.command import ArxCommand, ArxPlayerCommand
+from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
 from evennia.objects.models import ObjectDB
 from evennia.typeclasses.tags import Tag
 from evennia.utils.evtable import EvTable

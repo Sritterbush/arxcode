@@ -12,7 +12,7 @@ jumping around to them.
 
 """
 from django.conf import settings
-from commands.command import ArxPlayerCommand
+from server.utils.arx_utils import ArxPlayerCommand
 from evennia.utils import utils, create, search
 from server.utils.arx_utils import inform_staff, check_break
 from evennia.accounts.models import AccountDB

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from commands.command import ArxPlayerCommand
+from server.utils.arx_utils import ArxPlayerCommand
 from .models import Crisis, CrisisAction, ActionOOCQuestion, CrisisActionAssistant
 from evennia.utils.evtable import EvTable
 from server.utils.arx_utils import inform_staff, get_week

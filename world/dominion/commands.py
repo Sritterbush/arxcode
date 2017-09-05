@@ -9,7 +9,7 @@ from django.conf import settings
 from django.db.models import Q
 
 from evennia import CmdSet
-from commands.command import ArxCommand, ArxPlayerCommand
+from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
 from evennia.objects.models import ObjectDB
 from evennia.accounts.models import AccountDB
 from server.utils.arx_utils import get_week, caller_change_field

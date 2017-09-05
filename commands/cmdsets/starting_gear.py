@@ -14,7 +14,7 @@ creative process.
 """
 from world.dominion.setup_utils import setup_dom_for_char
 from evennia import CmdSet
-from commands.command import ArxCommand, ArxPlayerCommand
+from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
 from server.utils import arx_utils
 from world.dominion.models import (CraftingMaterialType, PlayerOrNpc,
                                    CraftingRecipe, AssetOwner)

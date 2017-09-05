@@ -6,7 +6,7 @@ from server.utils import arx_utils, prettytable
 from evennia.utils import utils
 from evennia.utils.utils import make_iter, crop, time_format, variable_from_module, inherits_from, to_str
 from evennia.commands.cmdhandler import get_and_merge_cmdsets
-from commands.command import ArxCommand, ArxPlayerCommand
+from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
 from evennia.server.sessionhandler import SESSIONS
 import time
 from evennia.commands.default.comms import (CmdCdestroy, CmdChannelCreate, CmdChannels, find_channel,

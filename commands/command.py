@@ -6,9 +6,8 @@ Commands describe the input the player can do to the game.
 """
 
 from evennia import Command as BaseCommand
-from evennia import default_cmds
 from evennia.utils import utils
-from evennia.commands.default.muxcommand import MuxCommand, MuxAccountCommand
+from evennia.commands.default.muxcommand import MuxCommand
 
 
 class Command(BaseCommand):
@@ -182,11 +181,3 @@ class JsonPlayerCommand(JsonCommand):
             self.character = self.caller.get_puppet(self.session)
         else:
             self.character = None
-
-
-class ArxCommand(default_cmds.MuxCommand):
-    pass
-
-
-class ArxPlayerCommand(MuxAccountCommand):
-    pass

@@ -1,6 +1,6 @@
 from django.db.models import Q
 
-from commands.command import ArxCommand, ArxPlayerCommand
+from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
 from .models import Agent, Organization, AssetOwner
 from typeclasses.npcs.npc_types import get_npc_type, generate_default_name_and_desc
 from evennia.objects.models import ObjectDB
