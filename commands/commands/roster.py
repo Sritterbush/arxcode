@@ -10,7 +10,7 @@ players to peruse characters while OOC if they wish.
 from evennia.utils import utils
 from server.utils import prettytable
 from server.utils.arx_utils import inform_staff
-from commands.command import ArxCommand, ArxPlayerCommand
+from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
 from datetime import datetime
 from commands.commands.jobs import get_apps_manager
 from django.db.models import Q

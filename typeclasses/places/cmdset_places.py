@@ -9,7 +9,7 @@ cmdset - this way you can often re-use the commands too.
 
 
 from evennia import CmdSet
-from commands.command import ArxCommand
+from server.utils.arx_utils import ArxCommand
 from evennia.utils.utils import list_to_string
 
 

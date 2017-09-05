@@ -9,6 +9,7 @@ import re
 from datetime import datetime
 
 from django.conf import settings
+from evennia.commands.default.muxcommand import MuxCommand, MuxAccountCommand
 
 
 def validate_name(name, formatting=True, not_player=True):
@@ -368,3 +369,11 @@ def cache_safe_update(queryset, **kwargs):
     for obj in queryset:
         for keyword, value in kwargs.items():
             setattr(obj, keyword, value)
+
+
+class ArxCommand(MuxCommand):
+    pass
+
+
+class ArxPlayerCommand(MuxAccountCommand):
+    pass

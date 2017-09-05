@@ -10,7 +10,7 @@ for easy handling.
 from evennia.utils import create
 from server.utils import prettytable
 from server.utils.arx_utils import inform_staff
-from commands.command import ArxCommand, ArxPlayerCommand
+from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
 from typeclasses.bulletin_board.bboard import BBoard
 
 # limit symbol import for API

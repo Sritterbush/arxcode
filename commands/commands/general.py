@@ -2,7 +2,7 @@
 General Character commands usually available to all characters
 """
 from django.conf import settings
-from commands.command import ArxCommand, ArxPlayerCommand
+from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
 from evennia.comms.models import TempMsg
 from evennia.utils import utils, evtable
 from server.utils import prettytable

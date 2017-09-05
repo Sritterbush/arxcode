@@ -3,7 +3,7 @@ Commands for home spaces/rooms.
 """
 
 from evennia import CmdSet
-from commands.command import ArxCommand
+from server.utils.arx_utils import ArxCommand
 from django.conf import settings
 from world.dominion.models import LIFESTYLES
 from django.db.models import Q

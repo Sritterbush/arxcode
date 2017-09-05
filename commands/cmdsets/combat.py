@@ -14,7 +14,7 @@ creative process.
 """
 from django.db.models import Q
 from evennia import CmdSet
-from commands.command import ArxCommand
+from server.utils.arx_utils import ArxCommand
 from evennia.utils import create, evtable
 from server.utils.arx_utils import inform_staff
 from typeclasses.scripts.combat import combat_settings

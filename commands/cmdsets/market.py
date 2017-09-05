@@ -14,7 +14,7 @@ creative process.
 """
 
 from evennia import CmdSet
-from commands.command import ArxCommand
+from server.utils.arx_utils import ArxCommand
 from server.utils import prettytable
 from evennia.utils.create import create_object
 from world.dominion.models import (CraftingMaterialType, PlayerOrNpc, CraftingMaterials)

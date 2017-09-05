@@ -3,7 +3,7 @@ Commands for the 'Character' app that handles the roster,
 stories, the timeline, etc.
 """
 
-from commands.command import ArxCommand, ArxPlayerCommand
+from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
 from .models import (Investigation, Clue, InvestigationAssistant, ClueDiscovery, Theory, RevelationDiscovery, SearchTag,
                      get_random_clue)
 from server.utils.prettytable import PrettyTable
