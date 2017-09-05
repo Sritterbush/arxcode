@@ -2,12 +2,10 @@ backports-abc==0.5
 backports.ssl-match-hostname==3.5.0.1
 certifi==2017.1.23
 cloudinary==1.5.0
-Django==1.9.9
 django-bootstrap-form==3.2.1
 django-debug-toolbar==1.6
 django-markdown-deux==1.0.5
 dnspython==1.15.0
--e git+https://github.com/TehomCD/evennia.git@9c9cd8d99afc5c8d3238c6842590463c397e37c6#egg=evennia
 funcsigs==1.0.2
 future==0.15.2
 humanize==0.5.1
