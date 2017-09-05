@@ -126,7 +126,7 @@ class Account(MsgMixins, DefaultAccount):
         :type session: Session
         """
         self.db._last_puppet = self.db.char_ob or self.db._last_puppet
-        super(Player, self).at_post_login(session)
+        super(Account, self).at_post_login(session)
         if self.tags.get("new_mail"):
             self.msg("{y*** You have new mail. ***{n")
         if self.db.new_comments:

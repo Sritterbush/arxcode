@@ -1013,3 +1013,15 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             return True
         # we're hiding from watch and caller is not staff, so they don't see us online
         return False
+
+    @property
+    def player(self):
+        return self.account
+
+    @player.setter
+    def player(self, value):
+        self.account = value
+
+    @property
+    def has_player(self):
+        return self.has_account
