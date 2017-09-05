@@ -10,7 +10,7 @@ cmdset - this way you can often re-use the commands too.
 import random
 from django.conf import settings
 from evennia import CmdSet
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 
 
 
@@ -18,7 +18,7 @@ from evennia.commands.default.muxcommand import MuxCommand
 # Commands defined for wearable
 #------------------------------------------------------------
 
-class CmdRoll(MuxCommand):
+class CmdRoll(ArxCommand):
     """
     rolls dice
 

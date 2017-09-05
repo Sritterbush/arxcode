@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from django.conf import settings
 from django.db.models import Q
 
-from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from commands.command import ArxCommand, ArxPlayerCommand
 from evennia.objects.models import ObjectDB
 from evennia.typeclasses.tags import Tag
 from evennia.utils.evtable import EvTable
@@ -48,7 +48,7 @@ def get_char_names(charlist, caller):
                      and (not char.player.db.hide_from_watch or caller.check_permstring("builders")))
 
 
-class CmdHangouts(MuxCommand):
+class CmdHangouts(ArxCommand):
     """
     +hangouts
 
@@ -89,7 +89,7 @@ class CmdHangouts(MuxCommand):
                 caller.msg(name)
 
 
-class CmdWhere(MuxPlayerCommand):
+class CmdWhere(ArxPlayerCommand):
     """
     +where
 
@@ -175,7 +175,7 @@ class CmdWhere(MuxPlayerCommand):
             caller.msg(msg)
 
 
-class CmdWatch(MuxPlayerCommand):
+class CmdWatch(ArxPlayerCommand):
     """
     +watch
 
@@ -256,7 +256,7 @@ class CmdWatch(MuxPlayerCommand):
         caller.msg("You start watching %s." % char.key)
 
 
-class CmdFinger(MuxPlayerCommand):
+class CmdFinger(ArxPlayerCommand):
     """
     +finger
 
@@ -380,7 +380,7 @@ class CmdFinger(MuxPlayerCommand):
         
 
 # for a character writing in their White Journal or Black Reflection
-class CmdJournal(MuxCommand):
+class CmdJournal(ArxCommand):
     """
     journal
 
@@ -707,7 +707,7 @@ class CmdJournal(MuxCommand):
         return
 
 
-class CmdPosebreak(MuxCommand):
+class CmdPosebreak(ArxCommand):
     """
     +posebreak
 
@@ -732,7 +732,7 @@ class CmdPosebreak(MuxCommand):
         return
 
 
-class CmdMessenger(MuxCommand):
+class CmdMessenger(ArxCommand):
     """
     messenger
 
@@ -1148,7 +1148,7 @@ costs = {
     }
 
 
-class CmdCalendar(MuxPlayerCommand):
+class CmdCalendar(ArxPlayerCommand):
     """
     @cal
 
@@ -1705,7 +1705,7 @@ def display_praises(player):
     return msg
 
 
-class CmdPraise(MuxCommand):
+class CmdPraise(ArxCommand):
     """
     praise
 
@@ -1795,7 +1795,7 @@ class CmdCondemn(CmdPraise):
     aliases = ["throw shade"]
 
 
-class CmdAFK(MuxPlayerCommand):
+class CmdAFK(ArxPlayerCommand):
     """
     afk
 
@@ -1822,7 +1822,7 @@ class CmdAFK(MuxPlayerCommand):
         return
 
 
-class CmdRoomHistory(MuxCommand):
+class CmdRoomHistory(ArxCommand):
     """
     Adds a historical note to a room
 
@@ -1853,7 +1853,7 @@ class CmdRoomHistory(MuxCommand):
         return
 
 
-class CmdRoomMood(MuxCommand):
+class CmdRoomMood(ArxCommand):
     """
     Temporarily adds to room description
 
@@ -1884,7 +1884,7 @@ class CmdRoomMood(MuxCommand):
         self.msg("New mood is: %s" % mood[2])
 
 
-class CmdSocialScore(MuxCommand):
+class CmdSocialScore(ArxCommand):
     """
     The who's-who of Arx
 
@@ -1974,7 +1974,7 @@ class CmdSocialScore(MuxCommand):
         caller.msg(str(table))
 
 
-class CmdThink(MuxCommand):
+class CmdThink(ArxCommand):
     """
     Think to yourself
 
@@ -1996,7 +1996,7 @@ class CmdThink(MuxCommand):
         caller.msg("You think: %s" % self.args)
 
 
-class CmdFeel(MuxCommand):
+class CmdFeel(ArxCommand):
     """
     State what your character is feeling
 
@@ -2017,7 +2017,7 @@ class CmdFeel(MuxCommand):
         caller.msg("You feel: %s" % self.args)
 
 
-class CmdDonate(MuxCommand):
+class CmdDonate(ArxCommand):
     """
     Donates money to some group
 
@@ -2061,7 +2061,7 @@ class CmdDonate(MuxCommand):
             return
 
 
-class CmdRandomScene(MuxCommand):
+class CmdRandomScene(ArxCommand):
     """
     @randomscene
 
@@ -2272,7 +2272,7 @@ class CmdRandomScene(MuxCommand):
         self.msg("Invalid switch.")
 
 
-class CmdCensus(MuxPlayerCommand):
+class CmdCensus(ArxPlayerCommand):
     """
     Displays population of active players by fealty
 
@@ -2295,7 +2295,7 @@ class CmdCensus(MuxPlayerCommand):
         self.msg(table)
 
 
-class CmdRoomTitle(MuxCommand):
+class CmdRoomTitle(ArxCommand):
     """
     Displays what your character is currently doing in the room
 
@@ -2320,7 +2320,7 @@ class CmdRoomTitle(MuxCommand):
         return
 
 
-class CmdTempDesc(MuxCommand):
+class CmdTempDesc(ArxCommand):
     """
     Appends a temporary description to your regular description
 
@@ -2343,7 +2343,7 @@ class CmdTempDesc(MuxCommand):
         self.msg("Temporary desc set to: %s" % self.args)
 
 
-class CmdLanguages(MuxCommand):
+class CmdLanguages(ArxCommand):
     """
     Sets the languages you speak, and can teach to others
 
@@ -2436,7 +2436,7 @@ class CmdLanguages(MuxCommand):
             return
 
 
-class CmdIAmHelping(MuxPlayerCommand):
+class CmdIAmHelping(ArxPlayerCommand):
     """
     Donates AP to other players at a poor conversion rate
 
@@ -2491,7 +2491,7 @@ class CmdIAmHelping(MuxPlayerCommand):
         targ.inform(msg, category=msg)
 
 
-class CmdRPHooks(MuxPlayerCommand):
+class CmdRPHooks(ArxPlayerCommand):
     """
     Sets or searches RP hook tags
 
@@ -2576,7 +2576,7 @@ class CmdRPHooks(MuxPlayerCommand):
         self.msg("Invalid switch.")
 
 
-class CmdFirstImpression(MuxCommand):
+class CmdFirstImpression(ArxCommand):
     """
     An award for a first RP scene with another player
 
@@ -2776,7 +2776,7 @@ class CmdFirstImpression(MuxCommand):
             targ.db.char_ob.adjust_xp(4)
 
 
-class CmdGetInLine(MuxCommand):
+class CmdGetInLine(ArxCommand):
     """
     Manages lines of people waiting their turn in events
 

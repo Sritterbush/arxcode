@@ -1,7 +1,7 @@
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 
 
-class CmdApplyConsumable(MuxCommand):
+class CmdApplyConsumable(ArxCommand):
     """
     Uses/applies a consumable object
 

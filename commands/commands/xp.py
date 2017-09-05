@@ -9,14 +9,14 @@ be here, as well as related commands such as voting to give
 other players xp awards for good roleplay.
 """
 
-from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from commands.command import ArxCommand, ArxPlayerCommand
 from world import stats_and_skills
 from server.utils.arx_utils import inform_staff
 from evennia.utils.utils import list_to_string
-from evennia.players.models import PlayerDB
+from evennia.accounts.models import AccountDB
 
 
-class CmdUseXP(MuxCommand):
+class CmdUseXP(ArxCommand):
     """
     xp
 
@@ -259,7 +259,7 @@ class CmdUseXP(MuxCommand):
         caller.msg("Usage: xp/spend <stat, ability or skill>")
 
 
-class CmdTrain(MuxCommand):
+class CmdTrain(ArxCommand):
     """
     train
 
@@ -431,7 +431,7 @@ class CmdTrain(MuxCommand):
         return
          
         
-class CmdAwardXP(MuxPlayerCommand):
+class CmdAwardXP(ArxPlayerCommand):
     """
     @awardxp
 
@@ -464,7 +464,7 @@ class CmdAwardXP(MuxPlayerCommand):
         inform_staff("%s has adjusted %s's xp by %s." % (caller, char, val))
 
 
-class CmdAdjustSkill(MuxPlayerCommand):
+class CmdAdjustSkill(ArxPlayerCommand):
     """
     @adjustskill
 
@@ -603,7 +603,7 @@ class CmdAdjustSkill(MuxPlayerCommand):
             inform_staff("%s set %s's %s skill to %s." % (caller, char, skill, rhs))
         
 
-class CmdVoteXP(MuxPlayerCommand):
+class CmdVoteXP(ArxPlayerCommand):
     """
     vote
 
@@ -625,7 +625,7 @@ class CmdVoteXP(MuxPlayerCommand):
     
     @property
     def caller_alts(self):
-        return PlayerDB.objects.filter(roster__current_account__isnull=False,
+        return AccountDB.objects.filter(roster__current_account__isnull=False,
                                        roster__roster__name="Active",
                                        roster__current_account=self.caller.roster.current_account)
 
@@ -654,7 +654,7 @@ class CmdVoteXP(MuxPlayerCommand):
     def func(self):
         """
         Stores a vote for the player in the caller's player object, to allow
-        for easier sorting from the PlayerDB manager. Players are allowed 5
+        for easier sorting from the AccountDB manager. Players are allowed 5
         votes per week, each needing to be a distinct character with a different
         email address than the caller. Email addresses that are not set (having
         the 'dummy@dummy.com' default, will be rejected as unsuitable.

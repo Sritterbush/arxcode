@@ -3,7 +3,7 @@ Commands for home spaces/rooms.
 """
 
 from evennia import CmdSet
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 from django.conf import settings
 from world.dominion.models import LIFESTYLES
 from django.db.models import Q
@@ -44,7 +44,7 @@ class HomeCmdSet(CmdSet):
         self.add(CmdManageHome())
 
 
-class CmdManageHome(MuxCommand):
+class CmdManageHome(ArxCommand):
     """
     +home
     Usage:
@@ -179,7 +179,7 @@ class CmdManageHome(MuxCommand):
             return
 
 
-class CmdAllowBuilding(MuxCommand):
+class CmdAllowBuilding(ArxCommand):
     """
     @allowbuilding
 
@@ -381,7 +381,7 @@ class CmdBuildRoom(CmdDig):
             loc.db.permitted_builders = permits
 
 
-class CmdManageRoom(MuxCommand):
+class CmdManageRoom(ArxCommand):
     """
     +manageroom
 
@@ -675,7 +675,7 @@ class CmdManageRoom(MuxCommand):
             return
 
 
-class CmdManageShop(MuxCommand):
+class CmdManageShop(ArxCommand):
     """
     +manageshop
 

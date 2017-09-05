@@ -9,9 +9,9 @@ from django.conf import settings
 from django.db.models import Q
 
 from evennia import CmdSet
-from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from commands.command import ArxCommand, ArxPlayerCommand
 from evennia.objects.models import ObjectDB
-from evennia.players.models import PlayerDB
+from evennia.accounts.models import AccountDB
 from server.utils.arx_utils import get_week, caller_change_field
 from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
@@ -31,7 +31,7 @@ BASE_CASTLE_COST = 4000
 
 # ---------------------Admin commands-------------------------------------------------
 
-class CmdAdmDomain(MuxPlayerCommand):
+class CmdAdmDomain(ArxPlayerCommand):
     """
     @admin_domain
     Usage:
@@ -308,7 +308,7 @@ class CmdAdmDomain(MuxPlayerCommand):
             if house.vassals.all():
                 caller.msg("{wDirect vassals of %s:{n %s" % (fealty, ", ".join(str(ob) for ob in house.vassals.all())))
             pcdomlist = []
-            for pc in PlayerDB.objects.filter(Dominion__ruler__isnull=False):
+            for pc in AccountDB.objects.filter(Dominion__ruler__isnull=False):
                 if pc.db.char_ob and pc.db.char_ob.db.fealty == fealty:
                     if pc.db.char_ob.db.family != fealty:
                         for dom in pc.Dominion.ruler.holdings.all():
@@ -405,7 +405,7 @@ class CmdAdmDomain(MuxPlayerCommand):
         dom.save()
 
 
-class CmdAdmCastle(MuxPlayerCommand):
+class CmdAdmCastle(ArxPlayerCommand):
     """
     @admin_castle
     Usage:
@@ -463,7 +463,7 @@ class CmdAdmCastle(MuxPlayerCommand):
             return
 
 
-class CmdAdmArmy(MuxPlayerCommand):
+class CmdAdmArmy(ArxPlayerCommand):
     """
     @admin_army
     Usage:
@@ -590,7 +590,7 @@ class CmdAdmArmy(MuxPlayerCommand):
             return
 
 
-class CmdAdmAssets(MuxPlayerCommand):
+class CmdAdmAssets(ArxPlayerCommand):
     """
     @admin_assets
     @admin_assets/player
@@ -714,7 +714,7 @@ class CmdAdmAssets(MuxPlayerCommand):
             board.bb_post(poster_obj=caller, msg=msg, subject="Prestige Change for %s" % str(owner))
 
 
-class CmdAdmOrganization(MuxPlayerCommand):
+class CmdAdmOrganization(ArxPlayerCommand):
     """
     @admin_org
     Usage:
@@ -897,7 +897,7 @@ class CmdAdmOrganization(MuxPlayerCommand):
         return org
 
 
-class CmdAdmFamily(MuxPlayerCommand):
+class CmdAdmFamily(ArxPlayerCommand):
     """
     @admin_family
     Usage:
@@ -1017,7 +1017,7 @@ class CmdAdmFamily(MuxPlayerCommand):
             return
 
 
-class CmdSetRoom(MuxCommand):
+class CmdSetRoom(ArxCommand):
     """
     @setroom
     Usage:
@@ -1216,7 +1216,7 @@ class CmdSetRoom(MuxCommand):
 
 
 # Player/OOC commands for dominion---------------------
-class CmdDomain(MuxPlayerCommand):
+class CmdDomain(ArxPlayerCommand):
     """
     @domain
     Usage:
@@ -1395,7 +1395,7 @@ class CmdDomain(MuxPlayerCommand):
         self.msg("Invalid switch.")
 
 
-class CmdArmy(MuxPlayerCommand):
+class CmdArmy(ArxPlayerCommand):
     """
     @army
 
@@ -1739,7 +1739,7 @@ class CmdArmy(MuxPlayerCommand):
         self.msg("Invalid switch.")
         
 
-class CmdOrganization(MuxPlayerCommand):
+class CmdOrganization(ArxPlayerCommand):
     """
     @org
     Usage:
@@ -2258,7 +2258,7 @@ class CmdOrganization(MuxPlayerCommand):
         self.msg("Invalid switch.")
 
 
-class CmdFamily(MuxPlayerCommand):
+class CmdFamily(ArxPlayerCommand):
     """
     @family
 
@@ -2325,7 +2325,7 @@ max_proteges = {
     }
 
 
-class CmdPatronage(MuxPlayerCommand):
+class CmdPatronage(ArxPlayerCommand):
     """
     @patron
 
@@ -2446,7 +2446,7 @@ class CmdPatronage(MuxPlayerCommand):
 
 # Character/IC commands------------------------------
 # command to generate money/resources for ourself/org
-class CmdTask(MuxCommand):
+class CmdTask(ArxCommand):
     """
     +task
 
@@ -2898,7 +2898,7 @@ class CmdTask(MuxCommand):
         return
 
 
-class CmdSupport(MuxCommand):
+class CmdSupport(ArxCommand):
     """
     +support
 

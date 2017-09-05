@@ -14,7 +14,7 @@ this is on them, they are dead.
 """
 
 from evennia import CmdSet
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 
 
 class DeathCmdSet(CmdSet):
@@ -53,7 +53,7 @@ class DeathCmdSet(CmdSet):
         self.add(CmdMoveOverride())
         
 
-class DeathCommand(MuxCommand):
+class DeathCommand(ArxCommand):
     """
     You are dead. Many character commands will no longer function.
     """

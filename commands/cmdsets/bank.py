@@ -3,8 +3,8 @@ Commands for banking.
 """
 
 from evennia.commands.cmdset import CmdSet
-from evennia.commands.default.muxcommand import MuxCommand
 from evennia.utils import evtable
+from commands.command import ArxCommand
 from world.dominion import setup_utils
 from world.dominion.models import CraftingMaterials, AccountTransaction, AssetOwner
 
@@ -30,7 +30,7 @@ class BankCmdSet(CmdSet):
         self.add(CmdBank())
 
 
-class CmdBank(MuxCommand):
+class CmdBank(ArxCommand):
     """
     bank
     Usage:

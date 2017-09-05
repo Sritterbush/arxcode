@@ -12,7 +12,7 @@ from evennia.commands.command import Command
 from evennia.help.models import HelpEntry
 from evennia.utils import create
 from evennia.utils.utils import string_suggestions
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 from commands.cmdsets.situational import SituationalCmdSet
 
 # limit symbol import for API
@@ -194,7 +194,7 @@ class CmdHelp(Command):
         self.msg(format_help_entry("", "No help entry found for '%s'" % query, None, suggested=suggestions))
 
 
-class CmdSetHelp(MuxCommand):
+class CmdSetHelp(ArxCommand):
     """
     @help - edit the help database
 

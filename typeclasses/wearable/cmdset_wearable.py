@@ -10,7 +10,7 @@ cmdset - this way you can often re-use the commands too.
 from django.conf import settings
 from evennia.commands.cmdset import CmdSet
 from evennia import utils
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 
 # error return function, needed by wear/remove command
 AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
@@ -20,7 +20,7 @@ AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit(
 # ------------------------------------------------------------
 
 
-class CmdWear(MuxCommand):
+class CmdWear(ArxCommand):
     """
     Put on an item of clothing or armor.
     
@@ -77,7 +77,7 @@ class CmdWear(MuxCommand):
         self.msg("You put on %s." % ", ".join(obj.name for obj in success))
 
 
-class CmdRemove(MuxCommand):
+class CmdRemove(ArxCommand):
     """
     Remove an item of clothing or armor.
     Usage:

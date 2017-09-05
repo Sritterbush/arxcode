@@ -10,7 +10,7 @@ for easy handling.
 from evennia.utils import create
 from server.utils import prettytable
 from server.utils.arx_utils import inform_staff
-from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from commands.command import ArxCommand, ArxPlayerCommand
 from typeclasses.bulletin_board.bboard import BBoard
 
 # limit symbol import for API
@@ -150,7 +150,7 @@ def get_unread_posts(caller):
         caller.msg(msg)
 
 
-class CmdBBNew(MuxPlayerCommand):
+class CmdBBNew(ArxPlayerCommand):
     """
     +bbnew - read an unread post from boards you are subscribed to
 
@@ -221,7 +221,7 @@ class CmdBBNew(MuxPlayerCommand):
             self.msg("No new posts found on boards: %s." % ", ".join(str(sub) for sub in my_subs))
 
 
-class CmdBBReadOrPost(MuxPlayerCommand):
+class CmdBBReadOrPost(ArxPlayerCommand):
     """
     @bb - read or post to boards you are subscribed to
 
@@ -408,7 +408,7 @@ class CmdBBReadOrPost(MuxPlayerCommand):
             board.bb_post(caller, self.rhs, subject)
             
 
-class CmdOrgStance(MuxPlayerCommand):
+class CmdOrgStance(ArxPlayerCommand):
     """
     @bborgstance - post an org's response to a Proclamation
     
@@ -444,7 +444,7 @@ class CmdOrgStance(MuxPlayerCommand):
         board.bb_orgstance(self.caller, org, self.rhs, postnum)
         
 
-class CmdBBSub(MuxPlayerCommand):
+class CmdBBSub(ArxPlayerCommand):
     """
     @bbsub - subscribe to a bulletin board
 
@@ -494,7 +494,7 @@ class CmdBBSub(MuxPlayerCommand):
         caller.msg("Successfully subscribed %s to %s" % (targ, bboard.key.capitalize()))
 
 
-class CmdBBUnsub(MuxPlayerCommand):
+class CmdBBUnsub(ArxPlayerCommand):
     """
     bbunsub - unsubscribe from a bulletin board
 
@@ -532,7 +532,7 @@ class CmdBBUnsub(MuxPlayerCommand):
         caller.msg("Unsubscribed from %s" % bboard.key)
 
 
-class CmdBBCreate(MuxCommand):
+class CmdBBCreate(ArxCommand):
     """
     @bbcreate
     bboardcreate

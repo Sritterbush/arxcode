@@ -3,7 +3,7 @@ Commands for the 'Character' app that handles the roster,
 stories, the timeline, etc.
 """
 
-from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from commands.command import ArxCommand, ArxPlayerCommand
 from .models import (Investigation, Clue, InvestigationAssistant, ClueDiscovery, Theory, RevelationDiscovery, SearchTag,
                      get_random_clue)
 from server.utils.prettytable import PrettyTable
@@ -14,7 +14,7 @@ from django.db.models import Q
 from world.stats_and_skills import VALID_STATS, VALID_SKILLS
 
 
-class InvestigationFormCommand(MuxCommand):
+class InvestigationFormCommand(ArxCommand):
     """
     ABC for creating commands based on investigations that process a form.
     """
@@ -1001,7 +1001,7 @@ class CmdInvestigate(InvestigationFormCommand):
         return
 
 
-class CmdAdminInvestigations(MuxPlayerCommand):
+class CmdAdminInvestigations(ArxPlayerCommand):
     """
     @gminvestigations
     
@@ -1134,7 +1134,7 @@ class CmdAdminInvestigations(MuxPlayerCommand):
         return
 
 
-class CmdListClues(MuxPlayerCommand):
+class CmdListClues(ArxPlayerCommand):
     """
     @clues
     
@@ -1248,7 +1248,7 @@ class CmdListClues(MuxPlayerCommand):
         return
 
 
-class CmdListRevelations(MuxPlayerCommand):
+class CmdListRevelations(ArxPlayerCommand):
     """
     @revelations
     
@@ -1284,7 +1284,7 @@ class CmdListRevelations(MuxPlayerCommand):
         self.msg("Related Clues: %s" % ", ".join(str(clue.clue) for clue in clues))
 
 
-class CmdListMysteries(MuxPlayerCommand):
+class CmdListMysteries(ArxPlayerCommand):
     """
     @mysteries
     
@@ -1300,7 +1300,7 @@ class CmdListMysteries(MuxPlayerCommand):
             return
 
 
-class CmdTheories(MuxPlayerCommand):
+class CmdTheories(ArxPlayerCommand):
     """
     @theories
 
@@ -1495,7 +1495,7 @@ class CmdTheories(MuxPlayerCommand):
         self.msg("Invalid switch.")
 
 
-class CmdPRPClue(MuxPlayerCommand):
+class CmdPRPClue(ArxPlayerCommand):
     """
     Creates a clue for a PRP you ran
 

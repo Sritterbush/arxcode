@@ -2,7 +2,7 @@
 General Character commands usually available to all characters
 """
 from django.conf import settings
-from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from commands.command import ArxCommand, ArxPlayerCommand
 from evennia.comms.models import TempMsg
 from evennia.utils import utils, evtable
 from server.utils import prettytable
@@ -13,7 +13,7 @@ from server.utils.arx_utils import raw
 AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
 
 
-class CmdBriefMode(MuxCommand):
+class CmdBriefMode(ArxCommand):
     """
     brief
 
@@ -37,7 +37,7 @@ class CmdBriefMode(MuxCommand):
             caller.msg("Brief mode is now on.")
 
 
-class CmdGameSettings(MuxPlayerCommand):
+class CmdGameSettings(ArxPlayerCommand):
     """
     @settings toggles different settings.
 
@@ -183,7 +183,7 @@ class CmdGameSettings(MuxPlayerCommand):
         caller.msg("Invalid switch. Valid switches are: %s" % ", ".join(self.valid_switches))
 
 
-class CmdGlance(MuxCommand):
+class CmdGlance(ArxCommand):
     """
     glance
 
@@ -223,7 +223,7 @@ class CmdGlance(MuxCommand):
                 continue
 
 
-class CmdShout(MuxCommand):
+class CmdShout(ArxCommand):
     """
     shout
 
@@ -258,7 +258,7 @@ class CmdShout(MuxCommand):
                                                                    'from_dir': from_dir})
 
 
-class CmdFollow(MuxCommand):
+class CmdFollow(ArxCommand):
     """
     follow
 
@@ -293,7 +293,7 @@ class CmdFollow(MuxCommand):
         caller.follow(f_targ)
 
 
-class CmdDitch(MuxCommand):
+class CmdDitch(ArxCommand):
     """
     ditch
 
@@ -337,7 +337,7 @@ class CmdDitch(MuxCommand):
         
 
 # Note that if extended_room's Extended Look is defined, this is probably not used
-class CmdLook(MuxCommand):
+class CmdLook(ArxCommand):
     """
     look
 
@@ -382,9 +382,7 @@ class CmdLook(MuxCommand):
         looking_at_obj.at_desc(looker=caller)
 
 
-# Whisper largely a modified page
-# Turning it into a MuxCommand rather than MuxPlayerCommand
-class CmdWhisper(MuxCommand):
+class CmdWhisper(ArxCommand):
     """
     whisper - send private IC message
 
@@ -572,7 +570,7 @@ class CmdWhisper(MuxCommand):
                 self.msg("You whispered to %s, %s" % (", ".join(received), message))
 
 
-class CmdPage(MuxPlayerCommand):
+class CmdPage(ArxPlayerCommand):
     """
     page - send private message
 
@@ -614,7 +612,7 @@ class CmdPage(MuxPlayerCommand):
     def func(self):
         """Implement function using the Msg methods"""
 
-        # this is a MuxPlayerCommand, which means caller will be a Player.
+        # this is a ArxPlayerCommand, which means caller will be a Player.
         caller = self.caller
         if "allow" in self.switches or "block" in self.switches:
             if not self.args:
@@ -839,7 +837,7 @@ class CmdPage(MuxPlayerCommand):
                 self.msg("You paged %s with: '%s'." % (", ".join(received), message))
 
 
-class CmdOOCSay(MuxCommand):
+class CmdOOCSay(ArxCommand):
     """
     ooc
 
@@ -894,7 +892,7 @@ class CmdOOCSay(MuxCommand):
 
 # implement CmdMail. player.db.Mails is List of Mail
 # each Mail is tuple of 3 strings - sender, subject, message        
-class CmdMail(MuxPlayerCommand):
+class CmdMail(ArxPlayerCommand):
     """
     Send and check player mail
 
@@ -1080,7 +1078,7 @@ class CmdMail(MuxPlayerCommand):
             return
 
 
-class CmdDirections(MuxCommand):
+class CmdDirections(ArxCommand):
     """
     @directions
 
@@ -1136,7 +1134,7 @@ class CmdDirections(MuxCommand):
         return
 
 
-class CmdPut(MuxCommand):
+class CmdPut(ArxCommand):
     """
     Puts an object inside a container
     Usage:
@@ -1216,7 +1214,7 @@ class CmdPut(MuxCommand):
             caller.location.msg_contents("%s puts %s." % (caller.name, success_str), exclude=caller)
 
 
-class CmdGradient(MuxPlayerCommand):
+class CmdGradient(ArxPlayerCommand):
     """
     @gradient - displays a string formatted with color codes
     Usage:
@@ -1296,7 +1294,7 @@ class CmdGradient(MuxPlayerCommand):
         caller.msg(self.color_string(end, start, text[len(text)/2:]))
 
 
-class CmdInform(MuxPlayerCommand):
+class CmdInform(ArxPlayerCommand):
     """
     @inform - reads messages sent to you by the game
     Usage:
@@ -1515,7 +1513,7 @@ class CmdInform(MuxPlayerCommand):
         self.msg("Toggled importance for selected informs.")
 
 
-class CmdKeyring(MuxCommand):
+class CmdKeyring(ArxCommand):
     """
     Checks keys
     Usage:
@@ -1552,7 +1550,7 @@ class CmdKeyring(MuxCommand):
         return
 
 
-class CmdUndress(MuxCommand):
+class CmdUndress(ArxCommand):
     """
     Completely remove all worn and wielded items on your person.
     Usage:
@@ -1602,7 +1600,7 @@ class CmdUndress(MuxCommand):
         return
 
 
-class CmdDump(MuxCommand):
+class CmdDump(ArxCommand):
     """
     Empty a container of all its objects. Great for re-sorting items or making 
     a complete mess of someone's room.
@@ -1646,7 +1644,7 @@ class CmdDump(MuxCommand):
         return
 
 
-class CmdLockObject(MuxCommand):
+class CmdLockObject(ArxCommand):
     """
     Locks or unlocks an exit or container
 
@@ -1680,7 +1678,7 @@ class CmdLockObject(MuxCommand):
             return
 
 
-class CmdTidyUp(MuxCommand):
+class CmdTidyUp(ArxCommand):
     """
     Removes idle characters from the room
 

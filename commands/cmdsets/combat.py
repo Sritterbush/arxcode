@@ -14,7 +14,7 @@ creative process.
 """
 from django.db.models import Q
 from evennia import CmdSet
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 from evennia.utils import create, evtable
 from server.utils.arx_utils import inform_staff
 from typeclasses.scripts.combat import combat_settings
@@ -70,7 +70,7 @@ protecting does.
 """
 
 
-class CmdStartCombat(MuxCommand):
+class CmdStartCombat(ArxCommand):
     """
     Starts combat.
     Usage:
@@ -131,7 +131,7 @@ class CmdStartCombat(MuxCommand):
         cscript.finish_initialization()
 
 
-class CmdAutoattack(MuxCommand):
+class CmdAutoattack(ArxCommand):
     """
     Turns autoattack on or off
     Usage:
@@ -170,7 +170,7 @@ class CmdAutoattack(MuxCommand):
         caller.combat.autoattack = autoattack_on
 
 
-class CmdProtect(MuxCommand):
+class CmdProtect(ArxCommand):
     """
     Defends a character
     Usage:
@@ -298,7 +298,7 @@ def check_targ(caller, target, verb="Attack"):
 # --------------------------------------------------------
 
 
-class CmdEndCombat(MuxCommand):
+class CmdEndCombat(ArxCommand):
     """
     Votes to end combat.
 
@@ -324,7 +324,7 @@ class CmdEndCombat(MuxCommand):
         combat.vote_to_end(caller)
 
 
-class CmdAttack(MuxCommand):
+class CmdAttack(ArxCommand):
     """
     Attack a character
     Usage:
@@ -437,7 +437,7 @@ class CmdSlay(CmdAttack):
     can_bypass = False
 
 
-class CmdReadyTurn(MuxCommand):
+class CmdReadyTurn(ArxCommand):
     """
     Mark yourself ready for combat to proceed
     Usage:
@@ -476,7 +476,7 @@ class CmdReadyTurn(MuxCommand):
             caller.combat.character_ready()
 
 
-class CmdPassTurn(MuxCommand):
+class CmdPassTurn(ArxCommand):
     """
     Pass your turn in combat
     Usage
@@ -514,7 +514,7 @@ class CmdPassTurn(MuxCommand):
             return
 
 
-class CmdCancelAction(MuxCommand):
+class CmdCancelAction(ArxCommand):
     """
     cancels your current action
     Usage:
@@ -534,7 +534,7 @@ class CmdCancelAction(MuxCommand):
             combat.display_phase_status(self.caller, disp_intro=False)
 
 
-class CmdFlee(MuxCommand):
+class CmdFlee(ArxCommand):
     """
     Attempt to run out of combat
     Usage:
@@ -566,7 +566,7 @@ class CmdFlee(MuxCommand):
         return
 
 
-class CmdFlank(MuxCommand):
+class CmdFlank(ArxCommand):
     """
     Attempt to ambush an opponent
     Usage:
@@ -608,7 +608,7 @@ class CmdFlank(MuxCommand):
         return
 
 
-class CmdCombatStance(MuxCommand):
+class CmdCombatStance(ArxCommand):
     """
     Defines how character fights
     Usage:
@@ -643,7 +643,7 @@ class CmdCombatStance(MuxCommand):
         return
 
 
-class CmdCatch(MuxCommand):
+class CmdCatch(ArxCommand):
     """
     Attempt to stop someone from running
     Usage:
@@ -672,7 +672,7 @@ class CmdCatch(MuxCommand):
         return
 
 
-class CmdCoverRetreat(MuxCommand):
+class CmdCoverRetreat(ArxCommand):
     """
     Attempt to cover the retreat of other characters
     Usage:
@@ -715,7 +715,7 @@ class CmdCoverRetreat(MuxCommand):
             caller.combat.begin_covering(targlist)
 
 
-class CmdVoteAFK(MuxCommand):
+class CmdVoteAFK(ArxCommand):
     """
     Attempt to stop someone from running
     Usage:
@@ -753,7 +753,7 @@ class CmdVoteAFK(MuxCommand):
         combat.afk_check(caller, targ)
 
 
-class CmdCombatStats(MuxCommand):
+class CmdCombatStats(ArxCommand):
     """
     View your combat stats
     Usage:
@@ -793,7 +793,7 @@ as well as changing events.
 """
 
 
-class CmdObserveCombat(MuxCommand):
+class CmdObserveCombat(ArxCommand):
     """
     Enters combat as an observer
     Usage:
@@ -824,7 +824,7 @@ class CmdObserveCombat(MuxCommand):
         combat.add_observer(caller)
 
 
-class CmdFightStatus(MuxCommand):
+class CmdFightStatus(ArxCommand):
     """
     Displays the status of combat
 
@@ -846,7 +846,7 @@ class CmdFightStatus(MuxCommand):
         combat.display_phase_status(self.caller, disp_intro=False)
 
 
-class CmdAdminCombat(MuxCommand):
+class CmdAdminCombat(ArxCommand):
     """
     Admin commands for combat
     Usage:
@@ -918,7 +918,7 @@ NPC = "typeclasses.npcs.npc.MultiNpc"
 UNIQUE_NPC = "typeclasses.npcs.npc.Npc"
 
 
-class CmdCreateAntagonist(MuxCommand):
+class CmdCreateAntagonist(ArxCommand):
     """
     Creates an object to act as an NPC antagonist for combat.
     Usage:
@@ -1035,7 +1035,7 @@ class CmdCreateAntagonist(MuxCommand):
         return
 
 
-class CmdHarm(MuxCommand):
+class CmdHarm(ArxCommand):
     """
     Harms characters and sends them a message
 
@@ -1098,7 +1098,7 @@ class CmdHarm(MuxCommand):
         self.msg("You inflicted %s damage on %s" % (amt, ", ".join(str(obj) for obj in charlist)))
 
 
-class CmdHeal(MuxCommand):
+class CmdHeal(ArxCommand):
     """
     Administers medical care to a character.
     Usage:
@@ -1187,7 +1187,7 @@ class CmdHeal(MuxCommand):
             script.attempt_heal(heal_roll, caller)
 
 
-class CmdStandYoAssUp(MuxCommand):
+class CmdStandYoAssUp(ArxCommand):
     """
     Heals up a player character
     Usage:

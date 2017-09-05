@@ -3,7 +3,7 @@ Commands for rumormills.
 """
 
 from evennia import CmdSet
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 from evennia.utils import evtable
 from server.utils.arx_utils import get_week, tnow
 from evennia.utils.create import create_message
@@ -36,7 +36,7 @@ class RumorCmdSet(CmdSet):
         self.add(CmdRumor())
 
 
-class CmdGossip(MuxCommand):
+class CmdGossip(ArxCommand):
     """
     gossip
     Usage:

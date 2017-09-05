@@ -1,6 +1,6 @@
 from django.db.models import Q
 
-from evennia.commands.default.muxcommand import MuxPlayerCommand, MuxCommand
+from commands.command import ArxCommand, ArxPlayerCommand
 from .models import Agent, Organization, AssetOwner
 from typeclasses.npcs.npc_types import get_npc_type, generate_default_name_and_desc
 from evennia.objects.models import ObjectDB
@@ -9,7 +9,7 @@ from evennia.objects.objects import _AT_SEARCH_RESULT
 from server.utils.arx_utils import validate_name, strip_ansi, caller_change_field
 
 
-class CmdAgents(MuxPlayerCommand):
+class CmdAgents(ArxPlayerCommand):
     """
     @agents
 
@@ -303,7 +303,7 @@ class CmdAgents(MuxPlayerCommand):
         self.msg("Unrecognized switch.")
 
 
-class CmdRetainers(MuxPlayerCommand):
+class CmdRetainers(ArxPlayerCommand):
     """
     @retainers
 
@@ -862,7 +862,7 @@ class CmdRetainers(MuxPlayerCommand):
         caller.msg("Invalid switch.")
 
 
-class CmdGuards(MuxCommand):
+class CmdGuards(ArxCommand):
     """
     +guards
 

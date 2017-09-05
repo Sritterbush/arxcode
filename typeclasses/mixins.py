@@ -717,7 +717,7 @@ class LockMixins(object):
         Checks if a caller has permission to open this object - assume we're a locked door or chest.
 
         :type self: ObjectDB
-        :type caller: ObjectDB or PlayerDB
+        :type caller: ObjectDB or AccountDB
         Args:
             caller: Caller object to check access.
 

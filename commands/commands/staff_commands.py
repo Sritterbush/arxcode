@@ -8,8 +8,8 @@ from evennia.server.sessionhandler import SESSIONS
 from evennia.utils import evtable
 from server.utils import prettytable
 from server.utils.arx_utils import inform_staff, broadcast
-from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from evennia.players.models import PlayerDB
+from commands.command import ArxCommand, ArxPlayerCommand
+from evennia.accounts.models import AccountDB
 from evennia.objects.models import ObjectDB
 from web.character.models import Story, Episode, StoryEmit, Clue
 from world.dominion.models import Organization, RPEvent
@@ -25,7 +25,7 @@ __all__ = ("CmdBoot", "CmdBan", "CmdUnban", "CmdDelPlayer",
            "CmdHome")
 
 
-class CmdHome(MuxCommand):
+class CmdHome(ArxCommand):
     """
     home
 
@@ -73,7 +73,7 @@ class CmdHome(MuxCommand):
             caller.messages.messenger_notification(force=True)
 
 
-class CmdGemit(MuxPlayerCommand):
+class CmdGemit(ArxPlayerCommand):
     """
     @gemit
 
@@ -146,7 +146,7 @@ class CmdGemit(MuxPlayerCommand):
         bboard.bb_post(poster_obj=caller, msg=post_msg, subject=subject, poster_name="Story")
         
             
-class CmdWall(MuxCommand):
+class CmdWall(ArxCommand):
     """
     @wall
 
@@ -171,7 +171,7 @@ class CmdWall(MuxCommand):
         SESSIONS.announce_all(message)
 
 
-class CmdResurrect(MuxCommand):
+class CmdResurrect(ArxCommand):
     """
     @resurrect
 
@@ -208,7 +208,7 @@ class CmdResurrect(MuxCommand):
         caller.msg("%s resurrected." % obj.key)
 
 
-class CmdKill(MuxCommand):
+class CmdKill(ArxCommand):
     """
     @kill
 
@@ -244,7 +244,7 @@ class CmdKill(MuxCommand):
         caller.msg("%s has been murdered." % obj.key)
 
 
-class CmdForce(MuxCommand):
+class CmdForce(ArxCommand):
     """
     @force
 
@@ -286,7 +286,7 @@ class CmdForce(MuxCommand):
             inform_staff("%s forced %s to execute the command '%s'." % (caller, char, self.rhs))
 
 
-class CmdRestore(MuxPlayerCommand):
+class CmdRestore(ArxPlayerCommand):
     """
     @restore
 
@@ -305,7 +305,7 @@ class CmdRestore(MuxPlayerCommand):
         """Implements command"""
         caller = self.caller
         if not self.args:
-            dplayers = [str(ob) for ob in PlayerDB.objects.filter(is_active=False) if not ob.is_guest()]
+            dplayers = [str(ob) for ob in AccountDB.objects.filter(is_active=False) if not ob.is_guest()]
             dobjs = ["%s (ID:%s)" % (ob.key, ob.id) for ob in ObjectDB.objects.filter(
                 db_tags__db_key__iexact="deleted")]
             caller.msg("Deleted players: %s" % ", ".join(dplayers))
@@ -313,12 +313,12 @@ class CmdRestore(MuxPlayerCommand):
             return
         if "player" in self.switches:
             try:
-                targ = PlayerDB.objects.get(username__iexact=self.args)
+                targ = AccountDB.objects.get(username__iexact=self.args)
                 targ.undelete()
                 caller.msg("%s restored." % targ)
                 inform_staff("%s restored player: %s" % (caller, targ))
                 return
-            except PlayerDB.DoesNotExist:
+            except AccountDB.DoesNotExist:
                 caller.msg("No player found for %s." % self.args)
                 return
         try:
@@ -340,7 +340,7 @@ class CmdRestore(MuxPlayerCommand):
             return
 
 
-class CmdPurgeJunk(MuxPlayerCommand):
+class CmdPurgeJunk(ArxPlayerCommand):
     """
     @purgejunk
 
@@ -358,7 +358,7 @@ class CmdPurgeJunk(MuxPlayerCommand):
         """Implements command"""
         caller = self.caller
         if not self.args:
-            dplayers = [str(ob) for ob in PlayerDB.objects.filter(is_active=False) if not ob.is_guest()]
+            dplayers = [str(ob) for ob in AccountDB.objects.filter(is_active=False) if not ob.is_guest()]
             dobjs = ["%s (ID:%s)" % (ob.key, ob.id) for ob in ObjectDB.objects.filter(
                 db_tags__db_key__iexact="deleted")]
             caller.msg("Deleted players: %s" % ", ".join(dplayers))
@@ -382,7 +382,7 @@ class CmdPurgeJunk(MuxPlayerCommand):
             return
 
 
-class CmdSendVision(MuxPlayerCommand):
+class CmdSendVision(ArxPlayerCommand):
     """
     @sendvision
 
@@ -415,7 +415,7 @@ class CmdSendVision(MuxPlayerCommand):
             caller.msg(str(table))
             return
         if "global" in self.switches:
-            targlist = PlayerDB.objects.filter(roster__roster__name="Active")
+            targlist = AccountDB.objects.filter(roster__roster__name="Active")
             rhs = self.args
         else:
             targlist = [caller.search(arg) for arg in self.lhslist if caller.search(arg)]
@@ -469,7 +469,7 @@ class CmdSendVision(MuxPlayerCommand):
         return
 
 
-class CmdAskStaff(MuxPlayerCommand):
+class CmdAskStaff(ArxPlayerCommand):
     """
     @askstaff
 
@@ -497,7 +497,7 @@ class CmdAskStaff(MuxPlayerCommand):
         inform_staff("{c%s {wasking a question:{n %s" % (caller, args))
 
 
-class CmdListStaff(MuxPlayerCommand):
+class CmdListStaff(ArxPlayerCommand):
     """
     +staff
 
@@ -514,7 +514,7 @@ class CmdListStaff(MuxPlayerCommand):
     def func(self):
         """Implements command"""
         caller = self.caller
-        staff = PlayerDB.objects.filter(db_is_connected=True, is_staff=True)
+        staff = AccountDB.objects.filter(db_is_connected=True, is_staff=True)
         table = evtable.EvTable("{wName{n", "{wRole{n", "{wIdle{n", width=78)
         for ob in staff:
             from .overrides import CmdWho
@@ -524,7 +524,7 @@ class CmdListStaff(MuxPlayerCommand):
         caller.msg("{wOnline staff:{n\n%s" % table)
             
             
-class CmdCcolor(MuxPlayerCommand):
+class CmdCcolor(ArxPlayerCommand):
     """
     @ccolor
 
@@ -558,7 +558,7 @@ class CmdCcolor(MuxPlayerCommand):
         return
 
 
-class CmdAdjustReputation(MuxPlayerCommand):
+class CmdAdjustReputation(ArxPlayerCommand):
     """
     @adjustreputation
 
@@ -690,7 +690,7 @@ class CmdAdjustReputation(MuxPlayerCommand):
         self.msg("Invalid switch.")
 
 
-class CmdGMDisguise(MuxCommand):
+class CmdGMDisguise(ArxCommand):
     """
     Disguises an object
         Usage:
@@ -726,7 +726,7 @@ class CmdGMDisguise(MuxCommand):
         self.msg("%s will now appear as %s." % (targ.key, targ.name))
 
 
-class CmdViewLog(MuxPlayerCommand):
+class CmdViewLog(ArxPlayerCommand):
     """
     Views a log
         Usage:
@@ -813,7 +813,7 @@ class CmdViewLog(MuxPlayerCommand):
         self.msg("Invalid switch.")
 
 
-class CmdSetLanguages(MuxPlayerCommand):
+class CmdSetLanguages(ArxPlayerCommand):
     """
     @admin_languages
 
@@ -871,7 +871,7 @@ class CmdSetLanguages(MuxPlayerCommand):
             return
 
 
-class CmdGMEvent(MuxCommand):
+class CmdGMEvent(ArxCommand):
     """
     Creates an event at your current location
 
@@ -957,7 +957,7 @@ class CmdGMEvent(MuxCommand):
             self.msg("Event ended.")
 
 
-class CmdGMNotes(MuxPlayerCommand):
+class CmdGMNotes(ArxPlayerCommand):
     """
     Adds or views notes about a character
 
@@ -1065,7 +1065,7 @@ class CmdGMNotes(MuxPlayerCommand):
         self.msg("invalid switch")
 
 
-class CmdJournalAdminForDummies(MuxPlayerCommand):
+class CmdJournalAdminForDummies(ArxPlayerCommand):
     """
     Admins journal stuff
 
@@ -1180,7 +1180,7 @@ class CmdJournalAdminForDummies(MuxPlayerCommand):
         self.msg("Invalid switch.")
 
 
-class CmdTransferKeys(MuxPlayerCommand):
+class CmdTransferKeys(ArxPlayerCommand):
     """
     adds all keys one player has to another
 
@@ -1213,7 +1213,7 @@ class CmdTransferKeys(MuxPlayerCommand):
         self.msg("Keys transferred.")
 
 
-class CmdAdminKey(MuxCommand):
+class CmdAdminKey(ArxCommand):
     """
     Grants a player a key to a container or room
 
@@ -1284,7 +1284,7 @@ class CmdAdminKey(MuxCommand):
             return
 
 
-class CmdRelocateExit(MuxCommand):
+class CmdRelocateExit(ArxCommand):
     """
     Moves an exit to a new location
 
@@ -1311,7 +1311,7 @@ class CmdRelocateExit(MuxCommand):
         self.msg("Moved %s to %s." % (exit_obj, new_room))
 
 
-class CmdAdminTitles(MuxPlayerCommand):
+class CmdAdminTitles(ArxPlayerCommand):
     """
     Adds or removes titles from a character
 
@@ -1358,7 +1358,7 @@ class CmdAdminTitles(MuxPlayerCommand):
             self.display_titles(targ)
 
 
-class CmdAdminWrit(MuxPlayerCommand):
+class CmdAdminWrit(ArxPlayerCommand):
     """
     Sets or views a character's writs
 

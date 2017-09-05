@@ -1,12 +1,12 @@
 """
 Commands for dice checks.
 """
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 from world import stats_and_skills
 from world.roll import Roll
 
 
-class CmdDiceString(MuxCommand):
+class CmdDiceString(ArxCommand):
     """
     @dicestring
 
@@ -35,7 +35,7 @@ class CmdDiceString(MuxCommand):
         return
 
 
-class CmdDiceCheck(MuxCommand):
+class CmdDiceCheck(ArxCommand):
     """
     @check
 
@@ -143,7 +143,7 @@ class CmdDiceCheck(MuxCommand):
             caller.location.msg_contents(roll_msg, exclude=caller, options={'roll': True})
         
 
-class CmdSpoofCheck(MuxCommand):
+class CmdSpoofCheck(ArxCommand):
     """
     @gmcheck
     

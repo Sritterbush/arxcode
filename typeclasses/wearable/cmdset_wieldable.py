@@ -10,7 +10,7 @@ cmdset - this way you can often re-use the commands too.
 from django.conf import settings
 from evennia import CmdSet, utils
 from server.utils import prettytable
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 
 # error return function, needed by wear/remove command
 AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
@@ -20,7 +20,7 @@ AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit(
 # ------------------------------------------------------------
 
 
-class CmdWield(MuxCommand):
+class CmdWield(ArxCommand):
     """
     Chooses the method you use to attack.
     Usage:
@@ -86,7 +86,7 @@ class CmdWield(MuxCommand):
             return
 
 
-class CmdWeaponList(MuxCommand):
+class CmdWeaponList(ArxCommand):
     """
     Displays information about your weapons.
     Usage:
@@ -119,7 +119,7 @@ class CmdWeaponList(MuxCommand):
         caller.msg(str(table))
 
 
-class CmdUnwield(MuxCommand):
+class CmdUnwield(ArxCommand):
     """
     Removes a weapon from its current state of readiness.
     Usage:

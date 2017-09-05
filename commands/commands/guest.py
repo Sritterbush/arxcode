@@ -12,10 +12,10 @@ jumping around to them.
 
 """
 from django.conf import settings
-from evennia.commands.default.muxcommand import MuxPlayerCommand
+from commands.command import ArxPlayerCommand
 from evennia.utils import utils, create, search
 from server.utils.arx_utils import inform_staff, check_break
-from evennia.players.models import PlayerDB
+from evennia.accounts.models import AccountDB
 from evennia import syscmdkeys
 from world.stats_and_skills import (get_partial_match, get_skill_cost,
                                     CRAFTING_ABILITIES, VALID_SKILLS,
@@ -310,7 +310,7 @@ def stage_title(stage):
     return msg
        
 
-class CmdGuestPrompt(MuxPlayerCommand):
+class CmdGuestPrompt(ArxPlayerCommand):
     """
     This is activated when the text entered by the guest doesn't
     match the other existing commands. If  the tutorial is expecting
@@ -333,7 +333,7 @@ class CmdGuestPrompt(MuxPlayerCommand):
         return
 
 
-class CmdGuestLook(MuxPlayerCommand):
+class CmdGuestLook(ArxPlayerCommand):
     """
     ooc look
 
@@ -464,7 +464,7 @@ cost 10 skill points.""")
             return
 
 
-class CmdGuestCharCreate(MuxPlayerCommand):
+class CmdGuestCharCreate(ArxPlayerCommand):
     """
     Starts or resumes the character creation process
 
@@ -603,7 +603,7 @@ for a character named Alarice.
             player.execute_cmd("look")
 
 
-class CmdGuestAddInput(MuxPlayerCommand):
+class CmdGuestAddInput(ArxPlayerCommand):
     """
     Adding input into the character creator
 
@@ -640,7 +640,7 @@ class CmdGuestAddInput(MuxPlayerCommand):
             caller.msg(string)
             return
         # strip excessive spaces in playername
-        if PlayerDB.objects.filter(username__iexact=playername).exclude(id=char.player_ob.id):
+        if AccountDB.objects.filter(username__iexact=playername).exclude(id=char.player_ob.id):
             # player already exists (we also ignore capitalization here)
             caller.msg("Sorry, there is already a player with the name '%s'." % playername)
             return

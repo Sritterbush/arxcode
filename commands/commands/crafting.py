@@ -2,7 +2,7 @@
 Crafting commands. BEHOLD THE MINIGAME.
 """
 from django.conf import settings
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 from world.dominion.models import (AssetOwner, PlayerOrNpc, CraftingRecipe, CraftingMaterials, CraftingMaterialType)
 from world.dominion.setup_utils import setup_dom_for_char
 from world.stats_and_skills import do_dice_check
@@ -238,7 +238,7 @@ def change_quality(crafting_object, new_quality):
         crafting_object.calc_armor()
 
 
-class CmdCraft(MuxCommand):
+class CmdCraft(ArxCommand):
     """
     Crafts an object
     
@@ -779,7 +779,7 @@ class CmdCraft(MuxCommand):
             return
             
 
-class CmdRecipes(MuxCommand):
+class CmdRecipes(ArxCommand):
     """
     recipes
     Usage:
@@ -907,7 +907,7 @@ class CmdRecipes(MuxCommand):
             caller.msg("Taught %s %s." % (character, recipe.name))
 
 
-class CmdJunk(MuxCommand):
+class CmdJunk(ArxCommand):
     """
     +junk
 
