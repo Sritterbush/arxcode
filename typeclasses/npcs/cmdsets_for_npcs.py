@@ -7,7 +7,7 @@ among the available commands as to what should be included in the
 cmdset - this way you can often re-use the commands too.
 """
 from evennia import CmdSet
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 
 
 # ------------------------------------------------------------
@@ -15,7 +15,7 @@ from evennia.commands.default.muxcommand import MuxCommand
 # ------------------------------------------------------------
 
 
-class CmdHugPoro(MuxCommand):
+class CmdHugPoro(ArxCommand):
     """
     Because you should.
 

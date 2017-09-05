@@ -12,7 +12,7 @@ from django.conf import settings
 from server.utils import prettytable, helpdesk_api
 from web.helpdesk.models import Ticket, Queue
 from server.utils.arx_utils import inform_staff, check_break
-from evennia.commands.default.muxcommand import MuxPlayerCommand
+from commands.command import ArxPlayerCommand
 from evennia.objects.models import ObjectDB
 import traceback
 from web.character.models import Roster, RosterEntry, PlayerAccount, AccountHistory
@@ -47,7 +47,7 @@ def get_apps_manager(caller):
     return apps_manager[0]
 
 
-class CmdJob(MuxPlayerCommand):
+class CmdJob(ArxPlayerCommand):
     """
     @job - read an unread post from boards you are subscribed to
 
@@ -306,7 +306,7 @@ class CmdJob(MuxPlayerCommand):
         caller.msg("Invalid switch for @job.")
                
 
-class CmdRequest(MuxPlayerCommand):
+class CmdRequest(ArxPlayerCommand):
     """
     +request - Make a request for GM help
 
@@ -532,7 +532,7 @@ class CmdRequest(MuxPlayerCommand):
             return
 
 
-class CmdApp(MuxPlayerCommand):
+class CmdApp(ArxPlayerCommand):
     """
     @app - Manage character applications
 

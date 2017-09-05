@@ -4,7 +4,7 @@ Readable/Writable objects
 
 from typeclasses.objects import Object
 from evennia import CmdSet
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 
 
 class Readable(Object):
@@ -80,7 +80,7 @@ class SignCmdSet(CmdSet):
         self.add(CmdSign())
 
 
-class CmdSign(MuxCommand):
+class CmdSign(ArxCommand):
     """
     Signs a document
 
@@ -105,7 +105,7 @@ class CmdSign(MuxCommand):
         return
 
 
-class CmdWrite(MuxCommand):
+class CmdWrite(ArxCommand):
     """
     Write upon a scroll/book/letter.
     

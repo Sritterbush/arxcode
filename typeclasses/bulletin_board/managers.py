@@ -9,7 +9,7 @@ from django.contrib.contenttypes.models import ContentType
 from src.typeclasses.managers import returns_typeclass_list, returns_typeclass
 
 _GA = object.__getattribute__
-_PlayerDB = None
+_AccountDB = None
 _ObjectDB = None
 _bboardDB = None
 _SESSIONS = None

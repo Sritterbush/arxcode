@@ -4,13 +4,13 @@ Container objects. Bags, chests, etc.
 
 """
 from typeclasses.objects import Object as DefaultObject
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 from evennia.commands import cmdset
 from typeclasses.mixins import LockMixins
 
 
 # noinspection PyUnresolvedReferences
-class CmdChestKey(MuxCommand):
+class CmdChestKey(ArxCommand):
     """
     Grants a key to this chest to a player
 

@@ -14,7 +14,7 @@ own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
 
 """
 from world.dominion import agent_commands
-from evennia.commands.default import cmdset_character, cmdset_player, cmdset_session, cmdset_unloggedin
+from evennia.commands.default import cmdset_character, cmdset_account, cmdset_session, cmdset_unloggedin
 from .cmdsets import standard
 from typeclasses.wearable import cmdset_wearable
 
@@ -48,7 +48,7 @@ class CharacterCmdSet(cmdset_character.CharacterCmdSet):
             traceback.print_exc()
 
 
-class PlayerCmdSet(cmdset_player.PlayerCmdSet):
+class AccountCmdSet(cmdset_account.AccountCmdSet):
     """
     This is the cmdset available to the Player at all times. It is
     combined with the `CharacterCmdSet` when the Player puppets a
@@ -63,17 +63,17 @@ class PlayerCmdSet(cmdset_player.PlayerCmdSet):
         Populates the cmdset
         """
         # super(PlayerCmdSet, self).at_cmdset_creation()
-        from evennia.commands.default import (player, building, system,
+        from evennia.commands.default import (account, building, system,
                                               admin, comms)
         # Player-specific commands
-        self.add(player.CmdOOCLook())
-        self.add(player.CmdIC())
-        self.add(player.CmdOOC())
-        self.add(player.CmdOption())
-        self.add(player.CmdQuit())
-        self.add(player.CmdPassword())
-        self.add(player.CmdColorTest())
-        self.add(player.CmdQuell())
+        self.add(account.CmdOOCLook())
+        self.add(account.CmdIC())
+        self.add(account.CmdOOC())
+        self.add(account.CmdOption())
+        self.add(account.CmdQuit())
+        self.add(account.CmdPassword())
+        self.add(account.CmdColorTest())
+        self.add(account.CmdQuell())
         self.add(building.CmdExamine())
         # system commands
         self.add(system.CmdReset())
@@ -81,7 +81,7 @@ class PlayerCmdSet(cmdset_player.PlayerCmdSet):
         self.add(system.CmdPy())
 
         # Admin commands
-        self.add(admin.CmdDelPlayer())
+        self.add(admin.CmdDelAccount())
         self.add(admin.CmdNewPassword())
 
         # Comm commands

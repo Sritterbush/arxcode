@@ -14,7 +14,7 @@ this is on them, they are dead.
 """
 
 from evennia import CmdSet
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 import time
 
 # one hour between recovery tests
@@ -58,7 +58,7 @@ class SleepCmdSet(CmdSet):
         self.add(CmdMoveOverride())
         
 
-class SleepCommand(MuxCommand):
+class SleepCommand(ArxCommand):
     """
     You are sleeping. Many character commands will no longer function.
     """
@@ -77,7 +77,7 @@ class CmdMoveOverride(SleepCommand):
     aliases = ["n", "s", "w", "e"]
 
 
-class CmdWake(MuxCommand):
+class CmdWake(ArxCommand):
     """
     Attempt to wake up from sleep. Automatic if uninjured.
     """

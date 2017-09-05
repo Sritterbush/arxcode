@@ -9,7 +9,7 @@ cmdset - this way you can often re-use the commands too.
 
 
 from evennia import CmdSet
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 from evennia.utils.utils import list_to_string
 
 
@@ -17,7 +17,7 @@ from evennia.utils.utils import list_to_string
 # Commands defined for wearable
 # ------------------------------------------------------------
 
-class CmdJoin(MuxCommand):
+class CmdJoin(ArxCommand):
     """
     Sits down at a place inside a room
 
@@ -69,7 +69,7 @@ class CmdJoin(MuxCommand):
         return
 
         
-class CmdListPlaces(MuxCommand):
+class CmdListPlaces(ArxCommand):
     """
     Lists places in current room for private chat
     Usage:
@@ -151,7 +151,7 @@ class SittingCmdSet(CmdSet):
         self.add(CmdTableTalk())
 
 
-class CmdDepart(MuxCommand):
+class CmdDepart(ArxCommand):
     """
     Stands up from the table you are at.
 
@@ -177,7 +177,7 @@ class CmdDepart(MuxCommand):
         caller.msg("You have left the %s." % table.key)
 
 
-class CmdTableTalk(MuxCommand):
+class CmdTableTalk(ArxCommand):
     """
     Speaks at your current table.
 

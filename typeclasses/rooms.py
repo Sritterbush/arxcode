@@ -500,8 +500,8 @@ class CmdExtendedLook(default_cmds.CmdLook):
         looking_at_obj.at_desc(looker=caller)
         self.check_detail()
 
-
-class CmdStudyRawAnsi(default_cmds.MuxCommand):
+from commands.command import ArxCommand
+class CmdStudyRawAnsi(ArxCommand):
     """
     prints raw ansi codes for a name
     Usage:
@@ -703,7 +703,7 @@ class CmdExtendedDesc(default_cmds.CmdDesc):
 
 
 # Simple command to view the current time and season
-class CmdGameTime(default_cmds.MuxCommand):
+class CmdGameTime(ArxCommand):
     """
     Check the game time
 

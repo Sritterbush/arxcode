@@ -10,7 +10,7 @@ players to peruse characters while OOC if they wish.
 from evennia.utils import utils
 from server.utils import prettytable
 from server.utils.arx_utils import inform_staff
-from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from commands.command import ArxCommand, ArxPlayerCommand
 from datetime import datetime
 from commands.commands.jobs import get_apps_manager
 from django.db.models import Q
@@ -180,7 +180,7 @@ def create_comment(sender, receiver, message):
     receiver.messages.add_comment(message, sender)
 
 
-class CmdRosterList(MuxPlayerCommand):
+class CmdRosterList(ArxPlayerCommand):
     """
     @roster - Displays the roster of player characters
 
@@ -340,7 +340,7 @@ class CmdRosterList(MuxPlayerCommand):
         return
 
 
-class CmdAdminRoster(MuxPlayerCommand):
+class CmdAdminRoster(ArxPlayerCommand):
     """
     @chroster - Changes the roster. Admin commands.
 
@@ -932,7 +932,7 @@ def display_timeline(caller, character):
     pass
 
 
-class CmdSheet(MuxPlayerCommand):
+class CmdSheet(ArxPlayerCommand):
     """
     @sheet - Displays a character's sheet.
 
@@ -1215,7 +1215,7 @@ class CmdSheet(MuxPlayerCommand):
         return
 
 
-class CmdRelationship(MuxPlayerCommand):
+class CmdRelationship(ArxPlayerCommand):
     """
     @relationship - Displays information on a relationship.
 
@@ -1462,7 +1462,7 @@ class CmdRelationship(MuxPlayerCommand):
         return
 
 
-class CmdComment(MuxPlayerCommand):
+class CmdComment(ArxPlayerCommand):
     """
     @comment - Leave a public comment on another character's sheet.
 
@@ -1547,7 +1547,7 @@ class CmdComment(MuxPlayerCommand):
         return
 
 
-class CmdHere(MuxCommand):
+class CmdHere(ArxCommand):
     """
     here - shows information about characters in current room
     Usage:
@@ -1588,7 +1588,7 @@ class CmdHere(MuxCommand):
     pass
 
 
-class CmdAddSecret(MuxPlayerCommand):
+class CmdAddSecret(ArxPlayerCommand):
     """
     @addsecret - adds a secret to a player
     Usage:
@@ -1660,7 +1660,7 @@ class CmdAddSecret(MuxPlayerCommand):
         return
 
 
-class CmdDelComment(MuxPlayerCommand):
+class CmdDelComment(ArxPlayerCommand):
     """
     @delcomment - removes a comment from a character
     Usage:
@@ -1696,7 +1696,7 @@ class CmdDelComment(MuxPlayerCommand):
         return
 
 
-class CmdAdmRelationship(MuxPlayerCommand):
+class CmdAdmRelationship(ArxPlayerCommand):
     """
     Changes a player's relationship
 

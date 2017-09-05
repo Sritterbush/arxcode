@@ -1,7 +1,7 @@
 """
 Messagehandler
 
-This handler takes either a PlayerDB or ObjectDB object and
+This handler takes either a AccountDB or ObjectDB object and
 processes the Msg objects they have in their related sets.
 Msg() objects will be distinguished in how they function based
 on their header field, which we'll parse and process here. The

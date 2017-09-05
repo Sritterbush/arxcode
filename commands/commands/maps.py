@@ -8,14 +8,14 @@ for easy handling.
 
 """
 from evennia.utils import create
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 from evennia.objects.models import ObjectDB
 
 MAP_TYPECLASS = "typeclasses.map.Map"
 
 
 
-class CmdMap(MuxCommand):
+class CmdMap(ArxCommand):
     """
     @map - look at a map of area, if available
 
@@ -46,7 +46,7 @@ class CmdMap(MuxCommand):
 
 
 
-class CmdMapCreate(MuxCommand):
+class CmdMapCreate(ArxCommand):
     """
     @mapcreate
     Usage:
@@ -90,7 +90,7 @@ class CmdMapCreate(MuxCommand):
         self.msg("Created map %s." % new_map.key)
         new_map.save()
 
-class CmdMapRoom(MuxCommand):
+class CmdMapRoom(ArxCommand):
     """
     @maproom
     Usage:

@@ -14,7 +14,7 @@ creative process.
 """
 from world.dominion.setup_utils import setup_dom_for_char
 from evennia import CmdSet
-from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from commands.command import ArxCommand, ArxPlayerCommand
 from server.utils import arx_utils
 from world.dominion.models import (CraftingMaterialType, PlayerOrNpc,
                                    CraftingRecipe, AssetOwner)
@@ -46,7 +46,7 @@ class StartingGearCmdSet(CmdSet):
         self.add(CmdStartingGear())
 
 
-class CmdStartingGear(MuxCommand):
+class CmdStartingGear(ArxCommand):
     """
     startgear
     Usage:
@@ -282,7 +282,7 @@ def setup_gear_for_char(character, money=CASH, reset=False):
     print "Startgear setup finished for %s" % character
 
 
-class CmdSetupGear(MuxPlayerCommand):
+class CmdSetupGear(ArxPlayerCommand):
     """
     @setupgear
     Usage:

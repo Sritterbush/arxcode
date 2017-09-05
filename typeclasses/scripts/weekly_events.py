@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from django.db.models import Q, F
 
 
-from evennia.players.models import PlayerDB
+from evennia.accounts.models import AccountDB
 from evennia.objects.models import ObjectDB
 from evennia.utils.evtable import EvTable
 
@@ -149,7 +149,7 @@ class WeeklyEvents(Script):
         for more efficient bulk update implementation.
         """
         # access via our One-to-One field to be certain we won't run into caching issues
-        qs = [ob.roster for ob in PlayerDB.objects.filter(roster__roster__name="Active")]
+        qs = [ob.roster for ob in AccountDB.objects.filter(roster__roster__name="Active")]
         for ob in qs:
             if 99 < ob.action_points < 200:
                 ob.action_points = 200
@@ -264,7 +264,7 @@ class WeeklyEvents(Script):
             self.db.requested_support = {}
             self.db.scenes = {}
         self.check_freeze()
-        players = [ob for ob in PlayerDB.objects.filter(Q(Q(roster__roster__name="Active") &
+        players = [ob for ob in AccountDB.objects.filter(Q(Q(roster__roster__name="Active") &
                                                         Q(roster__frozen=False)) |
                                                         Q(is_staff=True)) if ob.db.char_ob]
         for player in players:
@@ -318,7 +318,7 @@ class WeeklyEvents(Script):
     def check_freeze():
         try:
             date = datetime.now()
-            PlayerDB.objects.filter(last_login__isnull=True).update(last_login=date)
+            AccountDB.objects.filter(last_login__isnull=True).update(last_login=date)
             offset = timedelta(days=-14)
             date = date + offset
             RosterEntry.objects.filter(player__last_login__lt=date).update(frozen=True)
@@ -330,7 +330,7 @@ class WeeklyEvents(Script):
     def post_inactives(self):
         date = datetime.now()
         cutoffdate = date - timedelta(days=30)
-        qs = PlayerDB.objects.filter(roster__roster__name="Active", last_login__isnull=False).filter(
+        qs = AccountDB.objects.filter(roster__roster__name="Active", last_login__isnull=False).filter(
             last_login__lte=cutoffdate)
         board = BBoard.objects.get(db_key__iexact="staff")
         table = EvTable("{wName{n", "{wLast Login Date{n", border="cells", width=78)
@@ -587,7 +587,7 @@ class WeeklyEvents(Script):
     def award_prestige(self):
         for name in self.db.recorded_praises:
             try:
-                player = PlayerDB.objects.select_related('Dominion__assets').get(username__iexact=name)
+                player = AccountDB.objects.select_related('Dominion__assets').get(username__iexact=name)
                 assets = player.Dominion.assets
             except AttributeError:
                 continue
@@ -595,7 +595,7 @@ class WeeklyEvents(Script):
             assets.adjust_prestige(val)
         for name in self.db.recorded_condemns:
             try:
-                player = PlayerDB.objects.select_related('Dominion__assets').get(username__iexact=name)
+                player = AccountDB.objects.select_related('Dominion__assets').get(username__iexact=name)
                 assets = player.Dominion.assets
             except AttributeError:
                 continue

@@ -6,7 +6,7 @@ from server.utils import arx_utils, prettytable
 from evennia.utils import utils
 from evennia.utils.utils import make_iter, crop, time_format, variable_from_module, inherits_from, to_str
 from evennia.commands.cmdhandler import get_and_merge_cmdsets
-from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
+from commands.command import ArxCommand, ArxPlayerCommand
 from evennia.server.sessionhandler import SESSIONS
 import time
 from evennia.commands.default.comms import (CmdCdestroy, CmdChannelCreate, CmdChannels, find_channel,
@@ -84,7 +84,7 @@ def check_volume(obj, char, quiet=False):
     return True
 
 
-class CmdInventory(MuxCommand):
+class CmdInventory(ArxCommand):
     """
     inventory
 
@@ -169,7 +169,7 @@ class CmdInventory(MuxCommand):
             self.caller.msg("{wMaterials:{n %s" % ", ".join(str(ob) for ob in mats))
 
 
-class CmdGet(MuxCommand):
+class CmdGet(ArxCommand):
     """
     get
 
@@ -268,7 +268,7 @@ class CmdGet(MuxCommand):
         obj.at_get(caller)
 
 
-class CmdDrop(MuxCommand):
+class CmdDrop(ArxCommand):
     """
     drop
 
@@ -334,7 +334,7 @@ class CmdDrop(MuxCommand):
             obj.at_drop(caller)
 
 
-class CmdGive(MuxCommand):
+class CmdGive(ArxCommand):
     """
     give away things
 
@@ -470,7 +470,7 @@ class CmdGive(MuxCommand):
         to_give.at_get(target)
 
 
-class CmdEmit(MuxCommand):
+class CmdEmit(ArxCommand):
     """
     @emit
 
@@ -605,7 +605,7 @@ class CmdEmit(MuxCommand):
                 caller.msg("You are not allowed to emit to %s." % objname)
 
 
-class CmdPose(MuxCommand):
+class CmdPose(ArxCommand):
     """
     pose - strike a pose
 
@@ -695,7 +695,7 @@ class CmdArxSay(CmdSay):
 
 
 # Changed to display room dbref number rather than room name
-class CmdWho(MuxPlayerCommand):
+class CmdWho(ArxPlayerCommand):
     """
     who
 
@@ -1220,7 +1220,7 @@ class CmdDig(ObjManipCommand):
         return new_room
 
 
-class CmdTeleport(MuxCommand):
+class CmdTeleport(ArxCommand):
     """
     teleport object to another location
 

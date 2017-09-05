@@ -19,8 +19,8 @@ def validate_name(name, formatting=True, not_player=True):
     if not not_player:
         player_conflict = False
     else:
-        from evennia.players.models import PlayerDB
-        player_conflict = PlayerDB.objects.filter(username__iexact=name)
+        from evennia.accounts.models import AccountDB
+        player_conflict = AccountDB.objects.filter(username__iexact=name)
     if player_conflict:
         return None
     if formatting:
@@ -202,7 +202,7 @@ def check_break(caller=None):
     Checks if staff are currently on break
 
         Args:
-            caller (ObjectDB or PlayerDB): object to .msg our end date
+            caller (ObjectDB or AccountDB): object to .msg our end date
     Returns:
         (bool): True if we're on our break, false otherwise
 

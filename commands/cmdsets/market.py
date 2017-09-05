@@ -14,7 +14,7 @@ creative process.
 """
 
 from evennia import CmdSet
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 from server.utils import prettytable
 from evennia.utils.create import create_object
 from world.dominion.models import (CraftingMaterialType, PlayerOrNpc, CraftingMaterials)
@@ -73,7 +73,7 @@ class MarketCmdSet(CmdSet):
 
 
 # noinspection PyUnresolvedReferences
-class CmdMarket(MuxCommand):
+class CmdMarket(ArxCommand):
     """
     market
     Usage:

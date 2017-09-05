@@ -10,7 +10,7 @@ from django.template import RequestContext
 from django.conf import settings
 
 from evennia.objects.models import ObjectDB
-from evennia.players.models import PlayerDB
+from evennia.accounts.models import AccountDB
 from web.news.models import NewsEntry
 from web.character.models import Chapter
 from world.dominion.models import RPEvent
@@ -30,12 +30,12 @@ def page_index(request):
     # A QuerySet of recent news entries.
     news_entries = NewsEntry.objects.all().order_by('-date_posted')[:fpage_news_entries]
     # A QuerySet of the most recently connected players.
-    recent_users = [ob for ob in PlayerDB.objects.get_recently_connected_players() if hasattr(ob, 'roster') and
+    recent_users = [ob for ob in AccountDB.objects.get_recently_connected_players() if hasattr(ob, 'roster') and
                     ob.roster.roster.name == "Active"][:fpage_player_limit]
     nplyrs_conn_recent = len(recent_users) or "none"
-    nplyrs = PlayerDB.objects.filter(roster__roster__name="Active").count() or "none"
-    nplyrs_reg_recent = len(PlayerDB.objects.get_recently_created_players()) or "none"
-    nsess = len(PlayerDB.objects.get_connected_players()) or "noone"
+    nplyrs = AccountDB.objects.filter(roster__roster__name="Active").count() or "none"
+    nplyrs_reg_recent = len(AccountDB.objects.get_recently_created_players()) or "none"
+    nsess = len(AccountDB.objects.get_connected_players()) or "noone"
 
     nobjs = ObjectDB.objects.all().count()
     nrooms = ObjectDB.objects.filter(db_location__isnull=True).exclude(db_typeclass_path=_BASE_CHAR_TYPECLASS).count()

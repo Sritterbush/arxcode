@@ -2,11 +2,11 @@
 Commands that are available from the connect screen.
 """
 from django.conf import settings
-from evennia.players.models import PlayerDB
+from evennia.accounts.models import AccountDB
 from evennia.server.models import ServerConfig
 
 from evennia.utils import create, utils, ansi
-from evennia.commands.default.muxcommand import MuxCommand
+from commands.command import ArxCommand
 from dns.resolver import query, NXDOMAIN
 
 
@@ -24,7 +24,7 @@ if not CONNECTION_SCREEN:
 GUEST = "typeclasses.guest.Guest"
 
 
-class CmdGuestConnect(MuxCommand):
+class CmdGuestConnect(ArxCommand):
     """
     Logs in a guest character to the game.
 
@@ -46,7 +46,7 @@ class CmdGuestConnect(MuxCommand):
         """
         session = self.caller
         num_guests = 1
-        playerlist = PlayerDB.objects.typeclass_search(GUEST)
+        playerlist = AccountDB.objects.typeclass_search(GUEST)
         guest = None
         bans = ServerConfig.objects.conf("server_bans")
         addr = session.address
@@ -113,7 +113,7 @@ class CmdGuestConnect(MuxCommand):
         session.sessionhandler.login(session, guest)
 
 
-class CmdUnconnectedHelp(MuxCommand):
+class CmdUnconnectedHelp(ArxCommand):
     """
     This is an unconnected version of the help command,
     for simplicity. It shows a pane of info.

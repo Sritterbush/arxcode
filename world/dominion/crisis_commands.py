@@ -1,13 +1,13 @@
 from datetime import datetime
 
-from evennia.commands.default.muxcommand import MuxPlayerCommand
+from commands.command import ArxPlayerCommand
 from .models import Crisis, CrisisAction, ActionOOCQuestion, CrisisActionAssistant
 from evennia.utils.evtable import EvTable
 from server.utils.arx_utils import inform_staff, get_week
 from django.db.models import Q
 
 
-class CmdGMCrisis(MuxPlayerCommand):
+class CmdGMCrisis(ArxPlayerCommand):
     """
     GMs a crisis
 
@@ -183,7 +183,7 @@ class CmdGMCrisis(MuxPlayerCommand):
         self.msg("Invalid switch")
 
 
-class CmdCrisisAction(MuxPlayerCommand):
+class CmdCrisisAction(ArxPlayerCommand):
     """
     Take action for a current crisis
 

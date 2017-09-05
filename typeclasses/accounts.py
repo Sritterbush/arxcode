@@ -122,7 +122,7 @@ class Account(MsgMixins, DefaultAccount):
         Called at the end of the login process, just before letting
         them loose. This is called before an eventual Character's
         at_post_login hook.
-        :type self: PlayerDB
+        :type self: AccountDB
         :type session: Session
         """
         self.db._last_puppet = self.db.char_ob or self.db._last_puppet
