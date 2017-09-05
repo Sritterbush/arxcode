@@ -3,16 +3,17 @@
 Guest is a child of default Player class.
 
 """
-from .players import Player
+from .accounts import Account
 
 CMDSET_GUEST = "commands.cmdsets.cmdset_guest.GuestCmdSet"
 
-class Guest(Player):
+
+class Guest(Account):
     """
     See Player object for API. Will be overloading most methods to customize.
     """
     
-    def at_player_creation(self):
+    def at_account_creation(self):
         """
         This is called once, the very first time
         the player is created (i.e. first time they
@@ -64,7 +65,6 @@ class Guest(Player):
         """
         return True
 
-
     def basetype_setup(self):
         """
         This sets up the basic properties for a player.
@@ -110,6 +110,3 @@ class Guest(Player):
             import traceback
             traceback.print_exc()
             print "Error in logging messages to guest channel: %s" % err
-            
-        
-       

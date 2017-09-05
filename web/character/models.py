@@ -268,7 +268,7 @@ class StoryEmit(SharedMemoryModel):
                                 on_delete=models.SET_NULL, related_name='emits')
     text = models.TextField(blank=True, null=True)
     date = models.DateTimeField(auto_now_add=True)
-    sender = models.ForeignKey('players.PlayerDB', blank=True, null=True,
+    sender = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True,
                                on_delete=models.SET_NULL, related_name='emits')
 
 
@@ -1097,10 +1097,10 @@ class Theory(SharedMemoryModel):
     Represents a theory that a player has come up with, and is now
     stored and can be shared with others.
     """
-    creator = models.ForeignKey("players.PlayerDB", related_name="created_theories", blank=True, null=True,
+    creator = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="created_theories", blank=True, null=True,
                                 db_index=True)
-    known_by = models.ManyToManyField("players.PlayerDB", related_name="known_theories", blank=True, null=True)
-    can_edit = models.ManyToManyField("players.PlayerDB", related_name="editable_theories", blank=True, null=True)
+    known_by = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="known_theories", blank=True, null=True)
+    can_edit = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="editable_theories", blank=True, null=True)
     topic = models.CharField(max_length=255, blank=True, null=True)
     desc = models.TextField(blank=True, null=True)
     related_clues = models.ManyToManyField("Clue", related_name="theories", blank=True, null=True, db_index=True)
