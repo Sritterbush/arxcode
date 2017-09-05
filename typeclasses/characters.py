@@ -1030,3 +1030,15 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     @property
     def glass_jaw(self):
         return False
+
+    @property
+    def player(self):
+        return self.account
+
+    @player.setter
+    def player(self, value):
+        self.account = value
+
+    @property
+    def has_player(self):
+        return self.has_account
