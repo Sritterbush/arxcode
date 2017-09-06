@@ -1178,34 +1178,42 @@ class CmdPut(MuxCommand):
         if args_are_currency(args[0]):
             self.put_money(args[0], dest)
             return
-        obj = caller.search(args[0], location=caller)
-        if not obj:
-            return
-        if obj == dest:
-            caller.msg("You can't put an object inside itself.")
-            return
-        if not dest.db.container:
-            caller.msg("%s is not a container." % dest.name)
-            return
-        if dest.db.locked:
-            caller.msg("%s is locked. Unlock it first." % dest.name)
-            return
-        if dest in obj.contents:
-            caller.msg("You can't place an object in something it contains.")
-            return
-        max_volume = dest.db.max_volume or 0
-        volume = obj.db.volume or 0
-        if dest.volume + volume > max_volume:
-            caller.msg("That won't fit in there.")
-            return
-        if not obj.access(caller, 'get'):
-            caller.msg("You cannot move that.")
-            return
-        obj.move_to(dest)
-        caller.msg("You put %s in %s." % (obj.name, dest.name))
-        caller.location.msg_contents("%s puts %s in %s." % (caller.name, obj.name, dest.name), exclude=caller)
-        from time import time
-        obj.db.put_time = time()
+        if args[0] == "all":
+            obj_list = caller.contents
+        else:
+            obj_list = [caller.search(args[0], location=caller)]
+        success = []
+        for obj in obj_list:
+            if not obj:
+                continue
+            if obj == dest:
+                caller.msg("You can't put an object inside itself.")
+                continue
+            if not dest.db.container:
+                caller.msg("%s is not a container." % dest.name)
+                continue
+            if dest.db.locked:
+                caller.msg("%s is locked. Unlock it first." % dest.name)
+                continue
+            if dest in obj.contents:
+                caller.msg("You can't place an object in something it contains.")
+                continue
+            max_volume = dest.db.max_volume or 0
+            volume = obj.db.volume or 0
+            if dest.volume + volume > max_volume:
+                caller.msg("That won't fit in there.")
+                continue
+            if not obj.access(caller, 'get'):
+                caller.msg("You cannot move that.")
+                continue
+            obj.move_to(dest)
+            success.append(obj)
+            from time import time
+            obj.db.put_time = time()
+        if success:
+            success_str = "%s in %s" % (", ".join(ob.name for ob in success), dest.name)
+            caller.msg("You put %s." % success_str)
+            caller.location.msg_contents("%s puts %s." % (caller.name, success_str), exclude=caller)
 
 
 class CmdGradient(MuxPlayerCommand):
@@ -1571,14 +1579,10 @@ class CmdDump(MuxCommand):
             return
 
         # Quietly move every object inside the container to container's location
-        for o in obj.contents:
-            if o.access(caller, 'get'):
-                o.move_to(loc, quiet=True)
-
+        obj.transfer_all(loc, caller)
         caller.msg("You dump the contents of %s." % obj)
-        caller.location.msg_contents("%s dumps %s and spills its contents all over the floor." % (caller.name, obj),
-                                     exclude=caller)
-
+        loc.msg_contents("%s dumps %s and spills its contents all over the floor." % (caller.name, obj),
+                         exclude=caller)
         return
 
 

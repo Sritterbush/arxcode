@@ -40,33 +40,41 @@ class CmdWear(MuxCommand):
         if not args:
             caller.msg("Wear what?")
             return
-        # Because the wear command by definition looks for items
-        # in inventory, call the search function using location = caller
-        results = caller.search(args, location=caller, quiet=True)
-        # now we send it into the error handler (this will output consistent
-        # error messages if there are problems).
-        obj = AT_SEARCH_RESULT(results, caller, args, False,
-                               nofound_string="You don't carry %s." % args,
-                               multimatch_string="You carry more than one %s:" % args)
-        if not obj:
-            return
-
-        if not hasattr(obj, 'wear'):
-            caller.msg("You can't wear that.")
-            return
-        if obj.db.currently_worn:
-            caller.msg("You're already wearing %s." % obj.name)
-            return
-        slot_limit = obj.slot_limit
-        slot = obj.slot
-        if slot_limit and slot:
-            worn = [ob for ob in caller.contents if ob.db.currently_worn and ob.slot == slot]
-            if len(worn) >= slot_limit:
-                caller.msg("You are wearing too many things on your %s for it to fit." % slot)
+        if args == "all":
+            obj_list = [ob for ob in caller.contents if hasattr(ob, 'wear')]
+        else:
+            # Because the wear command by definition looks for items
+            # in inventory, call the search function using location = caller
+            results = caller.search(args, location=caller, quiet=True)
+            # now we send it into the error handler (this will output consistent
+            # error messages if there are problems).
+            obj = AT_SEARCH_RESULT(results, caller, args, False,
+                                   nofound_string="You don't carry %s." % args,
+                                   multimatch_string="You carry more than one %s:" % args)
+            if not obj:
                 return
-        if obj.wear(caller):
-            caller.msg("You put on %s." % obj.name)
+            obj_list = [obj]
+        success = []
+        for obj in obj_list:
+            if not hasattr(obj, 'wear'):
+                caller.msg("You can't wear that.")
+                continue
+            if obj.db.currently_worn:
+                caller.msg("You're already wearing %s." % obj.name)
+                continue
+            slot_limit = obj.slot_limit
+            slot = obj.slot
+            if slot_limit and slot:
+                worn = [ob for ob in caller.contents if ob.db.currently_worn and ob.slot == slot]
+                if len(worn) >= slot_limit:
+                    caller.msg("You are wearing too many things on your %s for it to fit." % slot)
+                    continue
+            if obj.wear(caller):
+                success.append(obj)
+        if not success:
+            self.msg("You wore nothing.")
             return
+        self.msg("You put on %s." % ", ".join(obj.name for obj in success))
 
 
 class CmdRemove(MuxCommand):
