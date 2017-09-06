@@ -901,6 +901,7 @@ class CmdMail(MuxPlayerCommand):
     Usage:
       @mail          - lists all mail in player's mailbox
       @mail #        - read mail by the given number
+      @mail/raw # - read mail by given number without ansi evaluation
       @mail/quick [<player>[,<player2,...]/<subject>=<message>
       @mail/org <org name>/<subject>=<message>
       @mail/delete # - deletes mail by given number
@@ -1002,7 +1003,7 @@ class CmdMail(MuxPlayerCommand):
         # error message for invalid argument
         nomatch = "You must supply a number matching a mail message."
 
-        if not switches:
+        if not switches or "raw" in self.switches:
             # if no argument and no switches, list all mail
             caller.tags.remove("new_mail")  # mark mail as read
             if not self.args or not self.lhs:
@@ -1047,8 +1048,9 @@ class CmdMail(MuxPlayerCommand):
                 string += "{wSender:{n %s" % sender + "\n"
                 string += "{wSubject:{n %s" % subject + "\n"
                 string += "{w" + 20 * "-" + "{n\n"
-
-                string += raw(message)
+                if "raw" in self.switches:
+                    message = raw(message)
+                string += message
                 string += "\n{w" + 20 * "-" + "{n\n"
                 caller.msg(string)
                 read_mails = caller.db.readmails or set()
