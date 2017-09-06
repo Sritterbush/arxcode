@@ -397,6 +397,9 @@ class AppearanceMixins(object):
 
 
 class ObjectMixins(DescMixins, AppearanceMixins):
+    @property
+    def has_player(self):
+        return self.has_account
 
     @property
     def is_room(self):

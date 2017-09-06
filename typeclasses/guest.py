@@ -12,7 +12,7 @@ class Guest(Account):
     See Player object for API. Will be overloading most methods to customize.
     """
     
-    def at_account_creation(self):(self):
+    def at_account_creation(self):
         """
         This is called once, the very first time
         the player is created (i.e. first time they
