@@ -476,7 +476,9 @@ class AppearanceMixins(BaseObjectMixins):
 
 
 class ObjectMixins(DescMixins, AppearanceMixins):
-    pass
+    @property
+    def has_player(self):
+        return self.has_account
 
 
 class CraftingMixins(object):

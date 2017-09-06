@@ -1038,7 +1038,3 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     @player.setter
     def player(self, value):
         self.account = value
-
-    @property
-    def has_player(self):
-        return self.has_account
