@@ -335,15 +335,15 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             self.msg("No investigation by that ID.")
             return
         # check that we can't do our own unless it's a retainer
-        if self.investigation_form[4] == self.caller:
+        helper = self.investigation_form[4]
+        if helper == self.caller:
             if self.caller.roster.investigations.filter(ongoing=True, id=targ):
                 self.msg("You cannot assist your own investigation.")
                 return
-        else:
-            helper = self.investigation_form[4]
-            if helper.assisted_investigations.filter(investigation_id=targ):
-                self.msg("%s is already helping that investigation. You can /resume helping it." % helper)
-                return False
+        if helper.assisted_investigations.filter(investigation_id=targ):
+            phrase = "%s is" % str(helper) if helper != self.caller else "You are"
+            self.msg("%s already helping that investigation. You can /resume helping it." % phrase)
+            return
         self.investigation_form[0] = targ
         self.disp_investigation_form()
 
