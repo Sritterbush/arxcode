@@ -641,6 +641,7 @@ class CmdInvestigate(InvestigationFormCommand):
         @investigate/changeskill <id #>=<new skill>
         @investigate/abandon <id #>
         @investigate/resume <id #>
+        @investigate/pause <id #>
         @investigate/requesthelp <id #>=<player>
         @investigate/new
         @investigate/topic <keyword to investigate>
