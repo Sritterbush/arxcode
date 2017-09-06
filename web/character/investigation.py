@@ -416,8 +416,9 @@ class CmdAssistInvestigation(InvestigationFormCommand):
 
     def view_investigation(self):
         try:
-            ob = self.caller.assisted_investigations.get(investigation_id=self.args).investigation
-        except (InvestigationAssistant.DoesNotExist, TypeError, ValueError):
+            character_ids = [self.caller.id] + [ob.dbobj.id for ob in self.caller.player_ob.retainers]
+            ob = Investigation.objects.filter(assistants__char_id__in=character_ids).distinct().get(id=self.args)
+        except (Investigation.DoesNotExist, TypeError, ValueError):
             self.msg("Could not find an investigation you're helping by that number.")
             self.disp_currently_helping(self.caller)
             return
