@@ -1603,6 +1603,9 @@ class CmdCalendar(MuxPlayerCommand):
             if date < now:
                 caller.msg("You cannot schedule an event for the past.")
                 return
+            if event.date < now:
+                self.msg("You cannot reschedule an event that's already started.")
+                return
             event.date = date
             event.save()
             caller.msg("Event now scheduled for %s." % date)
