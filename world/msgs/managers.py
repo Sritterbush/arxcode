@@ -30,7 +30,7 @@ def q_read_by_player(player):
     Returns:
         Q() object for Msgs read by this user
     """
-    return Q(db_receivers_players=player)
+    return Q(db_receivers_accounts=player)
 
 
 def q_tagname(tag):
@@ -229,9 +229,29 @@ class MsgProxyManager(MsgManager):
     def get_queryset(self):
         return MsgQuerySet(self.model)
 
-    # so that custom queryset methods can be used after Model.objects
-    def __getattr__(self, attr):
-        return getattr(self.get_queryset(), attr)
+    def all_read_by(self, user):
+        return self.get_queryset().all_read_by(user)
+
+    def all_unread_by(self, user):
+        return self.get_queryset().all_unread_by(user)
+
+    def written_by(self, character):
+        return self.get_queryset().written_by(character)
+
+    def about_character(self, character):
+        return self.get_queryset().about_character(character)
+
+    def favorites_of(self, player):
+        return self.get_queryset().favorites_of(player)
+
+    def white(self):
+        return self.get_queryset().white()
+
+    def black(self):
+        return self.get_queryset().black()
+
+    def relationships(self):
+        return self.get_queryset().relationships()
 
     def get(self, *args, **kwargs):
         return self.get_queryset().get(*args, **kwargs)
