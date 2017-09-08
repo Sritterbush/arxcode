@@ -223,8 +223,92 @@ class NameMixins(object):
         return self.name
 
 
-class AppearanceMixins(object):
+class BaseObjectMixins(object):
+    @property
+    def is_room(self):
+        return False
 
+    @property
+    def is_exit(self):
+        return False
+
+    @property
+    def is_character(self):
+        return False
+
+    # noinspection PyAttributeOutsideInit
+    def softdelete(self):
+        """
+        Only fake-delete the object, storing the date it was fake deleted for removing it permanently later.
+
+        :type self: ObjectDB
+        """
+        import time
+        self.location = None
+        self.tags.add("deleted")
+        self.db.deleted_time = time.time()
+
+    # noinspection PyAttributeOutsideInit
+    def undelete(self, move=True):
+        """
+        :type self: ObjectDB
+        :type move: Boolean
+        :return:
+        """
+        self.tags.remove("deleted")
+        self.attributes.remove("deleted_time")
+        if move:
+            from typeclasses.rooms import ArxRoom
+            try:
+                room = ArxRoom.objects.get(db_key__iexact="Island of Lost Toys")
+                self.location = room
+            except ArxRoom.DoesNotExist:
+                pass
+
+    # properties for determining our Player object, and that we are not a Player object
+    @property
+    def player_ob(self):
+        """
+        Returns our player object if we have one
+        :type self: ObjectDB
+        """
+        try:
+            return self.roster.player
+        except AttributeError:
+            pass
+
+    @property
+    def has_player(self):
+        """
+        :type self: ObjectDB
+        :return: AccountDB
+        """
+        return self.has_account
+
+    @property
+    def char_ob(self):
+        return None
+
+    def transfer_all(self, destination, caller=None):
+        """
+        Transfers all objects to our new destination.
+        Args:
+            :type self: ObjectDB
+            :type destination: ObjectDB
+            :type caller: ObjectDB
+
+        Returns:
+            Items transferred
+        """
+        obj_list = self.contents
+        if caller:
+            obj_list = [ob for ob in obj_list if ob.access(caller, 'get')]
+        for obj in obj_list:
+            obj.move_to(destination, quiet=True)
+        return obj_list
+
+
+class AppearanceMixins(BaseObjectMixins):
     def return_contents(self, pobject, detailed=True, show_ids=False,
                         strip_ansi=False, show_places=True, sep=", "):
         """
@@ -318,10 +402,18 @@ class AppearanceMixins(object):
 
     @property
     def currency(self):
+        """
+        :type self: ObjectDB
+        :return: float
+        """
         return round(self.db.currency or 0.0, 2)
 
     @currency.setter
     def currency(self, val):
+        """
+        :type self: ObjectDB
+        :param val: float
+        """
         self.db.currency = val
 
     def pay_money(self, amount, receiver=None):
@@ -385,7 +477,6 @@ class AppearanceMixins(object):
                 pass
         if desc and not self.db.recipe and not self.db.do_not_format_desc and "player_made_room" not in self.tags.all():
             if format_desc:
-
                 string += "\n\n%s{n\n" % desc
             else:
                 string += "\n%s{n" % desc
@@ -395,68 +486,13 @@ class AppearanceMixins(object):
             string += contents
         return string
 
+    def transfer_all(self, destination, caller=None):
+        self.pay_money(self.currency, destination)
+        return super(AppearanceMixins, self).transfer_all(destination, caller)
+
 
 class ObjectMixins(DescMixins, AppearanceMixins):
-    @property
-    def has_player(self):
-        return self.has_account
-
-    @property
-    def is_room(self):
-        return False
-
-    @property
-    def is_exit(self):
-        return False
-
-    @property
-    def is_character(self):
-        return False
-
-    # noinspection PyAttributeOutsideInit
-    def softdelete(self):
-        """
-        Only fake-delete the object, storing the date it was fake deleted for removing it permanently later.
-
-        :type self: ObjectDB
-        """
-        import time
-        self.location = None
-        self.tags.add("deleted")
-        self.db.deleted_time = time.time()
-
-    # noinspection PyAttributeOutsideInit
-    def undelete(self, move=True):
-        """
-        :type self: ObjectDB
-        :type move: Boolean
-        :return:
-        """
-        self.tags.remove("deleted")
-        self.attributes.remove("deleted_time")
-        if move:
-            from typeclasses.rooms import ArxRoom
-            try:
-                room = ArxRoom.objects.get(db_key__iexact="Island of Lost Toys")
-                self.location = room
-            except ArxRoom.DoesNotExist:
-                pass
-
-    # properties for determining our Player object, and that we are not a Player object
-    @property
-    def player_ob(self):
-        """
-        Returns our player object if we have one
-        :type self: ObjectDB
-        """
-        try:
-            return self.roster.player
-        except AttributeError:
-            pass
-
-    @property
-    def char_ob(self):
-        return None
+    pass
 
 
 class CraftingMixins(object):
@@ -579,8 +615,8 @@ RE_ALT_ASCII = re.compile(r"<noascii>(.*?)</noascii>", re.IGNORECASE)
 RE_COLOR = re.compile(r'"(.*?)"')
 
 
+# noinspection PyUnresolvedReferences
 class MsgMixins(object):
-    
     @lazy_property
     def namex(self):
         # regex that contains our name inside quotes

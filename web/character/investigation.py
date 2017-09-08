@@ -335,15 +335,15 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             self.msg("No investigation by that ID.")
             return
         # check that we can't do our own unless it's a retainer
-        if self.investigation_form[4] == self.caller:
+        helper = self.investigation_form[4]
+        if helper == self.caller:
             if self.caller.roster.investigations.filter(ongoing=True, id=targ):
                 self.msg("You cannot assist your own investigation.")
                 return
-        else:
-            helper = self.investigation_form[4]
-            if helper.assisted_investigations.filter(investigation_id=targ):
-                self.msg("%s is already helping that investigation. You can /resume helping it." % helper)
-                return False
+        if helper.assisted_investigations.filter(investigation_id=targ):
+            phrase = "%s is" % str(helper) if helper != self.caller else "You are"
+            self.msg("%s already helping that investigation. You can /resume helping it." % phrase)
+            return
         self.investigation_form[0] = targ
         self.disp_investigation_form()
 
@@ -416,8 +416,9 @@ class CmdAssistInvestigation(InvestigationFormCommand):
 
     def view_investigation(self):
         try:
-            ob = self.caller.assisted_investigations.get(investigation_id=self.args).investigation
-        except (InvestigationAssistant.DoesNotExist, TypeError, ValueError):
+            character_ids = [self.caller.id] + [ob.dbobj.id for ob in self.caller.player_ob.retainers]
+            ob = Investigation.objects.filter(assistants__char_id__in=character_ids).distinct().get(id=self.args)
+        except (Investigation.DoesNotExist, TypeError, ValueError):
             self.msg("Could not find an investigation you're helping by that number.")
             self.disp_currently_helping(self.caller)
             return
@@ -640,6 +641,7 @@ class CmdInvestigate(InvestigationFormCommand):
         @investigate/changeskill <id #>=<new skill>
         @investigate/abandon <id #>
         @investigate/resume <id #>
+        @investigate/pause <id #>
         @investigate/requesthelp <id #>=<player>
         @investigate/new
         @investigate/topic <keyword to investigate>

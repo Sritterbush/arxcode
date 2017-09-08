@@ -137,13 +137,15 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
     def is_room(self):
         return True
 
-    @property
-    def is_character(self):
-        return False
+    def softdelete(self):
+        for entrance in self.entrances:
+            entrance.softdelete()
+        super(ArxRoom, self).softdelete()
 
-    @property
-    def is_exit(self):
-        return False
+    def undelete(self, move=True):
+        super(ArxRoom, self).undelete(move=move)
+        for entrance in self.entrances:
+            entrance.undelete(move)
         
     @lazy_property
     def messages(self):
