@@ -357,7 +357,9 @@ class CmdRetainers(MuxPlayerCommand):
 
     def get_agent_from_args(self):
         """Get our retainer's Agent model from an ID number in args"""
-        return self.caller.retainers.get(id=self.lhs)
+        if self.lhs.isdigit():
+            return self.caller.retainers.get(id=self.lhs)
+        return self.caller.retainers.get(agent_objects__dbobj__db_key__iexact=self.lhs)
 
     def display_retainers(self):
         """
@@ -791,7 +793,9 @@ class CmdRetainers(MuxPlayerCommand):
         try:
             agent = self.get_agent_from_args()
         except (Agent.DoesNotExist, ValueError, TypeError):
-            caller.msg("No agent found for that number.")
+            caller.msg("No agent found that matches %s." % self.lhs)
+            self.msg("Your current retainers:")
+            self.display_retainers()
             return
         if "transferxp" in self.switches:
             self.transfer_xp(agent)
@@ -826,7 +830,7 @@ class CmdRetainers(MuxPlayerCommand):
         if "customize" in self.switches:
             self.customize(agent)
             return
-        if "viewstats" in self.switches:
+        if "viewstats" in self.switches or "sheet" in self.switches:
             self.view_stats(agent)
             return
         if "cost" in self.switches:
