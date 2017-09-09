@@ -33,9 +33,9 @@ _vocations_ = ("noble", "courtesan", "charlatan", "soldier", "knight", "priest",
                "jeweler", "tailor", "weaponsmith", "armorsmith", "leatherworker",
                "apothecary", "carpenter")
 _stage3_fields_ = ("concept", "gender", "age", "fealty", "family", "religion", "desc", "personality", "background",
-                   "marital_status", "quote", "birthday", "social_rank")
+                   "marital_status", "quote", "birthday", "social_rank", "skintone", "eyecolor", "haircolor", "height")
 _valid_fealty_ = ("Crownsworn", "Grayson", "Redrain", "Thrax", "Valardin", "Velenosa")
-_stage3_optional_ = ("secrets", "real_concept", "real_age", "skintone", "eyecolor", "haircolor", "height")
+_stage3_optional_ = ("secrets", "real_concept", "real_age")
 # Minimum and maximum ages players can set for starting characters
 _min_age_ = 18
 _max_age_ = 65
@@ -772,11 +772,13 @@ class CmdGuestAddInput(MuxPlayerCommand):
         if 'personality' in switches:
             if not (DESC_MAX_LEN > len(args) > DESC_MIN_LEN):
                 caller.msg("Personality length must be between %s and %s characters." % (DESC_MIN_LEN, DESC_MAX_LEN))
+                caller.msg("Current length was: %s" % len(args))
                 return
         if 'desc' in switches:
             # desc is no longer an attribute, so it is a special case
             if not (DESC_MAX_LEN > len(args) > DESC_MIN_LEN):
                 caller.msg("Description length must be between %s and %s characters." % (DESC_MIN_LEN, DESC_MAX_LEN))
+                caller.msg("Current length was: %s" % len(args))
                 return
             char.desc = args
             char.save()
