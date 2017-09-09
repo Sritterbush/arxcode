@@ -779,7 +779,10 @@ class Investigation(SharedMemoryModel):
         return "%s's investigation on %s" % (self.character, self.topic)
 
     def display(self):
-        msg = "{wCharacter{n: %s\n" % self.character
+        msg = "{wID{n: %s" % self.id
+        if not self.active:
+            msg += " {r(Investigation Not Currently Active){n"
+        msg += "\n{wCharacter{n: %s\n" % self.character
         msg += "{wTopic{n: %s\n" % self.topic
         msg += "{wActions{n: %s\n" % self.actions
         msg += "{wModified Difficulty{n: %s\n" % self.difficulty

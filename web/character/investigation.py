@@ -404,8 +404,13 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             if retainer_investigations:
                 investigations.extend(retainer_investigations)
         for ob in investigations:
-            table.add_row([str(ob.investigation.id), str(ob.char), str(ob.investigation.char),
-                           str(ob.currently_helping)])
+            def apply_color(object_to_format):
+                if ob.investigation.active:
+                    return "{w%s{n" % object_to_format
+                return "{r%s{n" % object_to_format
+            row = [apply_color(column) for column in (ob.investigation.id, ob.char, ob.investigation.char,
+                                                      ob.currently_helping)]
+            table.add_row(row)
         self.msg(table)
 
     def check_skill(self):
