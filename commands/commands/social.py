@@ -1090,7 +1090,13 @@ class CmdMessenger(MuxCommand):
         mess_num = 1
         old = old[:num_disp]
         for mess in old:
-            name = caller.messages.get_sender_name(mess)
+            try:
+                name = caller.messages.get_sender_name(mess)
+            except AttributeError:
+                from world.msgs.managers import reload_model_as_proxy
+                mess = reload_model_as_proxy(mess)
+                print "Error: Had to reload Msg ID %s as Messenger when displaying received table." % mess.id
+                name = caller.messages.get_sender_name(mess)
             date = caller.messages.get_date_from_header(mess) or "Unknown"
             ooc_date = mess.db_date_created.strftime("%x")
             saved = "{w*{n" if mess.preserved else ""
@@ -1111,7 +1117,13 @@ class CmdMessenger(MuxCommand):
                 name = receiver.key
             else:
                 name = "Unknown"
-            date = self.caller.messages.get_date_from_header(mess) or "Unknown"
+            try:
+                date = self.caller.messages.get_date_from_header(mess) or "Unknown"
+            except AttributeError:
+                from world.msgs.managers import reload_model_as_proxy
+                mess = reload_model_as_proxy(mess)
+                print "Error: Had to reload Msg ID %s as Messenger when displaying sent table." % mess.id
+                date = self.caller.messages.get_date_from_header(mess) or "Unknown"
             msgtable.add_row([mess_num, name, date])
             mess_num += 1
         self.msg(msgtable)

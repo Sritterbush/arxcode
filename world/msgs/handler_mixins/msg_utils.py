@@ -7,12 +7,13 @@ _cached_lazy_imports = {}
 
 def lazy_import_from_str(clsname):
     """
-    Stores imports
+    Fetches a class from world.msgs.models by name and caches the reference. The idea here is mostly for preventing
+    circular references with lazy imports.
     Args:
-        clsname:
+        clsname: The name of the proxy class in msgs.models to retrieve.
 
     Returns:
-
+        The Msg proxy class we want to get from the name.
     """
     from evennia.utils.utils import class_from_module
     if clsname in _cached_lazy_imports:
