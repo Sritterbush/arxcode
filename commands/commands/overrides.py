@@ -4,7 +4,8 @@ General Character commands usually availabe to all characters
 from django.conf import settings
 from server.utils import arx_utils, prettytable
 from evennia.utils import utils
-from evennia.utils.utils import make_iter, crop, time_format, variable_from_module, inherits_from, to_str
+from evennia.utils.utils import (make_iter, crop, time_format, variable_from_module,
+                                 inherits_from, to_str, list_to_string)
 from evennia.commands.cmdhandler import get_and_merge_cmdsets
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.server.sessionhandler import SESSIONS
@@ -12,7 +13,7 @@ import time
 from evennia.commands.default.comms import (CmdCdestroy, CmdChannelCreate, CmdChannels, find_channel,
                                             CmdClock, CmdCBoot, CmdCdesc, CmdAllCom, CmdCWho)
 # noinspection PyProtectedMember
-from evennia.commands.default.building import CmdExamine, CmdLock, CmdDestroy, _LITERAL_EVAL, ObjManipCommand
+from evennia.commands.default.building import CmdExamine, CmdLock, CmdDestroy, _LITERAL_EVAL, ObjManipCommand, CmdTag
 from evennia.utils import evtable, create
 from world.dominion.models import CraftingMaterials
 from evennia.commands.default.general import CmdSay
@@ -1506,6 +1507,23 @@ class CmdArxCWho(CmdCWho):
 class CmdArxLock(CmdLock):
     __doc__ = CmdLock.__doc__
     aliases = ["@locks", "locks"]
+
+
+class CmdArxTag(CmdTag):
+    __doc__ = CmdTag.__doc__
+
+    def display_tags(self):
+        from evennia.typeclasses.tags import Tag
+        qs = Tag.objects.filter(db_tagtype=None, db_category=None, db_data=None).exclude(
+            db_key__icontains="barracks").exclude(db_key__icontains="owned_room").exclude(db_key__icontains="_favorite")
+        string = list_to_string([ob.db_key for ob in qs])
+        self.msg("Types of tags (excluding custom ones for individuals, or those with categories): %s" % string)
+
+    def func(self):
+        if not self.args:
+            self.display_tags()
+            return
+        super(CmdArxTag, self).func()
 
 
 class CmdArxExamine(CmdExamine):

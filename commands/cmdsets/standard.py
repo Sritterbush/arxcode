@@ -266,7 +266,7 @@ class StaffCmdSet(CmdSet):
         self.add(overrides.CmdArxLock())
         self.add(building.CmdScript())
         self.add(building.CmdSetHome())
-        self.add(building.CmdTag())
+        self.add(overrides.CmdArxTag())
         # Batchprocessor commands
         self.add(batchprocess.CmdBatchCommands())
         self.add(batchprocess.CmdBatchCode())
