@@ -26,6 +26,7 @@ from world.dominion import setup_utils
 from world.dominion.models import (RPEvent, Agent, CraftingMaterialType, CraftingMaterials,
                                    AssetOwner, Renown, Reputation, Member)
 from world.msgs.models import Journal, Messenger
+from world.msgs.managers import reload_model_as_proxy
 
 
 def char_name(character_object, verbose_where=False):
@@ -780,7 +781,11 @@ class CmdMessenger(MuxCommand):
     help_category = "Social"
 
     def disp_messenger(self, msg):
-        self.caller.messages.display_messenger(msg)
+        try:
+            self.caller.messages.display_messenger(msg)
+        except AttributeError:
+            msg = reload_model_as_proxy(msg)
+            self.caller.messages.display_messenger(msg)
 
     def get_mats_from_args(self, args):
         """
@@ -1093,7 +1098,6 @@ class CmdMessenger(MuxCommand):
             try:
                 name = caller.messages.get_sender_name(mess)
             except AttributeError:
-                from world.msgs.managers import reload_model_as_proxy
                 mess = reload_model_as_proxy(mess)
                 print "Error: Had to reload Msg ID %s as Messenger when displaying received table." % mess.id
                 name = caller.messages.get_sender_name(mess)
@@ -1120,7 +1124,6 @@ class CmdMessenger(MuxCommand):
             try:
                 date = self.caller.messages.get_date_from_header(mess) or "Unknown"
             except AttributeError:
-                from world.msgs.managers import reload_model_as_proxy
                 mess = reload_model_as_proxy(mess)
                 print "Error: Had to reload Msg ID %s as Messenger when displaying sent table." % mess.id
                 date = self.caller.messages.get_date_from_header(mess) or "Unknown"

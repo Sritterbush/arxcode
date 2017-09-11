@@ -382,6 +382,9 @@ class CmdCrisisAction(MuxPlayerCommand):
             qs = CrisisAction.objects.filter(Q(dompc=dompc) | Q(assistants=dompc)).distinct()
         try:
             action = qs.get(id=self.lhs)
+            if not action.pk:
+                self.msg("That action has been deleted.")
+                return
             if return_assistant:
                 try:
                     return action.assisting_actions.get(dompc=dompc)

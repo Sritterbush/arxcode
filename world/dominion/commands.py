@@ -1635,6 +1635,8 @@ class CmdArmy(MuxPlayerCommand):
                     unit.change_commander(self.caller, None)
                     return
                 commander = self.get_commander(self.rhs)
+                if not commander:
+                    return
                 self.msg("You set %s to command unit %s." % (commander, unit.id))
                 unit.change_commander(self.caller, commander)
                 return
@@ -1709,6 +1711,8 @@ class CmdArmy(MuxPlayerCommand):
                 army.change_general(self.caller, None)
                 return
             general = self.get_commander(self.rhs)
+            if not general:
+                return
             self.msg("You set %s to be the general of army: %s." % (general, army))
             army.change_general(self.caller, general)
             return
