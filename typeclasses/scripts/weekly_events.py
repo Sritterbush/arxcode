@@ -16,7 +16,7 @@ from evennia.utils.evtable import EvTable
 from world.dominion.models import AssetOwner, Army, AssignedTask, Member, AccountTransaction, Orders
 from typeclasses.bulletin_board.bboard import BBoard
 from .scripts import Script
-from server.utils.arx_utils import inform_staff
+from server.utils.arx_utils import inform_staff, cache_safe_update
 from web.character.models import Investigation, RosterEntry
 
 
@@ -126,7 +126,7 @@ class WeeklyEvents(Script):
                 traceback.print_exc()
                 print "Error in %s's weekly adjustment: %s" % (owner, err)
         # resets the weekly record of work command
-        Member.objects.filter(deguilded=False).update(work_this_week=0)
+        cache_safe_update(Member.objects.filter(deguilded=False), work_this_week=0)
         # decrement timer of limited transactions, remove transactions that are over
         AccountTransaction.objects.filter(repetitions_left__gt=0).update(repetitions_left=F('repetitions_left') - 1)
         AccountTransaction.objects.filter(repetitions_left=0).delete()

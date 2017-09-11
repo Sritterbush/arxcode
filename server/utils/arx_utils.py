@@ -351,3 +351,20 @@ def create_arx_message(senderobj, message, channels=None, receivers=None, locks=
     for tag in make_iter(tags):
         new_message.tags.add(tag, category="msg")
     return new_message
+
+
+def cache_safe_update(queryset, **kwargs):
+    """
+    Does a table-wide queryset update and then iterates through and
+    changes all models in memory so that they do not overwrite the
+    changes upon saving themselves. Note that F() objects may behave
+    very strangely and should not be used as kwargs.
+
+    Args:
+        queryset: The queryset to modify.
+        **kwargs: The fields we're changing with their values.
+    """
+    queryset.update(**kwargs)
+    for obj in queryset:
+        for keyword, value in kwargs.items():
+            setattr(obj, keyword, value)
