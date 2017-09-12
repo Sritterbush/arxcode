@@ -277,12 +277,20 @@ class CrisisActionAssistantInline(admin.TabularInline):
     raw_id_fields = ('crisis_action', 'dompc',)
 
 
+class CrisisArmyOrdersInline(admin.TabularInline):
+    model = Orders
+    show_change_link = True
+    extra = 0
+    raw_id_fields = ('army',)
+    exclude = ('target_domain', 'target_character', 'type', 'week',)
+
+
 class CrisisActionAdmin(DomAdmin):
     list_display = ('id', 'crisis', 'dompc', 'player_action', 'week', 'sent')
     search_fields = ('crisis__name', 'dompc__player__username')
     list_filter = ('sent', 'crisis')
     raw_id_fields = ('dompc',)
-    inlines = (CrisisActionAssistantInline,)
+    inlines = (CrisisActionAssistantInline, CrisisArmyOrdersInline)
 
     @staticmethod
     def player_action(obj):
@@ -360,6 +368,12 @@ class ArmyAdmin(DomAdmin):
     list_filter = (ArmyListFilter,)
 
 
+class OrdersAdmin(DomAdmin):
+    list_display = ('id', 'army', 'type', 'action', 'complete')
+    raw_id_fields = ('assisting', 'target_land', 'target_domain', 'target_character')
+    list_filter = ('complete',)
+
+
 # Register your models here.
 admin.site.register(PlayerOrNpc, PCAdmin)
 admin.site.register(Organization, OrgAdmin)
@@ -368,7 +382,7 @@ admin.site.register(Agent, AgentAdmin)
 admin.site.register(AgentOb, AgentObAdmin)
 admin.site.register(AssetOwner, AssetAdmin)
 admin.site.register(Army, ArmyAdmin)
-admin.site.register(Orders, DomAdmin)
+admin.site.register(Orders, OrdersAdmin)
 admin.site.register(MilitaryUnit, UnitAdmin)
 admin.site.register(Region, DomAdmin)
 admin.site.register(Land, DomAdmin)

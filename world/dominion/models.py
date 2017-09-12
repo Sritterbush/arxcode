@@ -1756,6 +1756,9 @@ class CrisisAction(SharedMemoryModel):
                     msg += "\n{wAnswer:{n %s" % ans.text
         return msg
 
+    def __str__(self):
+        return "%s's action for %s" % (self.dompc, self.crisis)
+
 
 class CrisisActionAssistant(SharedMemoryModel):
     crisis_action = models.ForeignKey("CrisisAction", db_index=True, related_name="assisting_actions")
@@ -1783,6 +1786,9 @@ class CrisisActionAssistant(SharedMemoryModel):
     @property
     def crisis(self):
         return self.crisis_action.crisis
+
+    def __str__(self):
+        return "%s assisting %s" % (self.dompc, self.crisis_action)
 
 
 class ActionOOCQuestion(SharedMemoryModel):
