@@ -972,7 +972,7 @@ class CmdSheet(MuxPlayerCommand):
     private_switches = ("secrets", "secret", "visions", "vision",
                         "storyrequest", "storyrequests")
 
-    def get_character(self):
+    def get_character(self, check_storyrequests=False):
         """
         Gets character and whether we have permission to view.
 
@@ -998,6 +998,10 @@ class CmdSheet(MuxPlayerCommand):
         if not charob:
             caller.msg("No character found to @sheet.")
             return None, False
+        if my_char == charob:
+            return charob, True
+        if check_storyrequests:
+            return charob, show_hidden or charob.player_ob.tickets.filter(participants=my_char.player_ob).exists()
         try:
             r_name = charob.roster.roster.name
         except AttributeError:
@@ -1006,8 +1010,7 @@ class CmdSheet(MuxPlayerCommand):
         if r_name not in ("Active", "Available", "Gone") and not show_hidden:
             caller.msg("That character is an npc and cannot be viewed.")
             return None, False
-        if my_char == charob:
-            show_hidden = True
+
         return charob, show_hidden
         
     def display_storyrequests(self, charob):
@@ -1077,7 +1080,8 @@ class CmdSheet(MuxPlayerCommand):
                 display_abilities(caller, charob)                                
             return
         if set(switches) & set(self.private_switches):
-            charob, show_hidden = self.get_character()
+            check_storyrequests = ('storyrequest' in switches or 'storyrequests' in switches) and self.rhs
+            charob, show_hidden = self.get_character(check_storyrequests)
             if not charob:
                 return
             if not show_hidden:
