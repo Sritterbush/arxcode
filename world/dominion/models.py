@@ -51,19 +51,22 @@ Every week, a script is called that will run execute_orders() on every
 Army, and then do weekly_adjustment() in every assetowner. So only domains
 that currently have a ruler designated will change on a weekly basis.
 """
+from datetime import datetime
+import traceback
+
 from evennia.typeclasses.models import SharedMemoryModel
+from evennia.locks.lockhandler import LockHandler
+from evennia.utils.utils import lazy_property
 from django.db import models
 from django.db.models import Q
 from django.conf import settings
+from django.core.urlresolvers import reverse
+
 from . import unit_types, unit_constants
 from .reports import WeeklyReport
 from .battle import Battle
 from .agenthandler import AgentHandler
 from server.utils.arx_utils import get_week
-from evennia.locks.lockhandler import LockHandler
-from evennia.utils.utils import lazy_property
-import traceback
-from django.core.urlresolvers import reverse
 from typeclasses.npcs import npc_types
 
 # Dominion constants
@@ -1625,11 +1628,19 @@ class Crisis(SharedMemoryModel):
         return self.name
 
     @property
+    def time_remaining(self):
+        now = datetime.now()
+        if self.end_date > now:
+            return self.end_date - now
+
+    @property
     def rating(self):
         return self.escalation_points - sum(ob.outcome_value for ob in self.actions.filter(sent=True))
 
     def display(self):
         msg = "\n{wName:{n %s" % self.name
+        if self.time_remaining:
+            msg += "\n{yTime Remaining:{n %s" % str(self.time_remaining).split(".")[0]
         msg += "\n{wDescription:{n %s" % self.desc
         if self.orgs.all():
             msg += "\n{wOrganizations affected:{n %s" % ", ".join(str(ob) for ob in self.orgs.all())
@@ -3783,7 +3794,6 @@ class RPEvent(SharedMemoryModel):
             msg += "{wGMs:{n %s\n" % ", ".join(str(ob) for ob in self.gms.all())
         if not self.finished and not self.public_event:
             # prevent seeing names of invites once a private event has started
-            from datetime import datetime
             if self.date > datetime.now():
                 msg += "{wInvited:{n %s\n" % ", ".join(str(ob) for ob in self.participants.all())
         msg += "{wLocation:{n %s\n" % self.location
