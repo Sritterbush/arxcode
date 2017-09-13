@@ -2805,7 +2805,7 @@ class CmdTask(MuxCommand):
                             reminder = True
 
                     highest = char.player_ob.Dominion.memberships.filter(Q(secret=False) &
-                                                                            Q(deguilded=False)).order_by('rank')
+                                                                         Q(deguilded=False)).order_by('rank')
                     if highest:
                         highest = highest[0]
                     else:

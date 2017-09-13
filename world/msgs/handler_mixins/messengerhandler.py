@@ -450,6 +450,15 @@ class MessengerHandler(MsgHandlerBase):
     def custom_messenger(self):
         return self.obj.db.custom_messenger
 
+    @custom_messenger.setter
+    def custom_messenger(self, val):
+        if not val:
+            self.obj.attributes.remove("custom_messenger")
+            self.msg("You will no longer have a custom messenger deliver messages for you.")
+            return
+        self.obj.db.custom_messenger = val
+        self.msg("You will now have %s act as your messenger." % val)
+
     def add_packed_pending_messenger(self, packed_messenger):
         """
         Adds a tuple of a messenger with deliveries and other flags to our list of pending messengers.
