@@ -622,7 +622,20 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
 
     @property
     def guards(self):
-        return self.db.assigned_guards or []
+        if self.db.assigned_guards is None:
+            self.db.assigned_guards = []
+        return self.db.assigned_guards
+
+    def remove_guard(self, guard):
+        """
+        This discontinues anything we were using the guard for.
+        Args:
+            guard: Previously a guard, possibly a retainer.
+        """
+        if guard in self.guards:
+            self.guards.remove(guard)
+        if self.messages.custom_messenger == guard:
+            self.messages.custom_messenger = None
 
     @property
     def num_guards(self):
@@ -739,7 +752,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             table = self.db.sitting_at_table
             if table:
                 table.leave(self)
-            guards = self.db.assigned_guards or []
+            guards = self.guards
             for guard in guards:
                 try:
                     if guard.location and 'persistent_guard' not in guard.tags.all():

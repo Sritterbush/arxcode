@@ -158,7 +158,10 @@ class CmdAgents(MuxPlayerCommand):
                         caller.msg("They can only have %s guards assigned to them." % cap)
                         return
                     avail_agent.assign(targ, amt)
-                    caller.msg("Assigned %s %s to %s." % (amt, avail_agent.name, targ))
+                    if avail_agent.unique:
+                        self.msg("Assigned %s to %s." % (avail_agent, targ))
+                    else:
+                        caller.msg("Assigned %s %s to %s." % (amt, avail_agent.name, targ))
                     return
                 except ValueError as err:
                     caller.msg(err)
@@ -192,7 +195,10 @@ class CmdAgents(MuxPlayerCommand):
                     caller.msg("No agents assigned to %s by %s." % (player, owner_names))
                     return
                 num = agentob.recall(amt)
-                caller.msg("You have recalled %s from %s. They have %s left." % (num, player, agentob.quantity))
+                if agent.unique:
+                    caller.msg("You have recalled %s from %s." % (agent, player))
+                else:
+                    caller.msg("You have recalled %s from %s. They have %s left." % (num, player, agentob.quantity))
                 return
             except Agent.DoesNotExist:
                 caller.msg("No agents found for those arguments.")

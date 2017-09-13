@@ -833,7 +833,10 @@ class CmdMessenger(MuxCommand):
             setattr(handler, attr_name, None)
             return
         try:
-            obj = caller.player_ob.retainers.get(id=self.args).dbobj
+            if self.args.isdigit():
+                obj = caller.player_ob.retainers.get(id=self.args).dbobj
+            else:
+                obj = caller.player_ob.retainers.get(agent_objects__dbobj__db_key__iexact=self.args).dbobj
         except (Agent.DoesNotExist, ValueError):
             self.msg("No retainer by that ID.")
         except AttributeError:

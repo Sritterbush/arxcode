@@ -409,7 +409,7 @@ class AgentMixin(object):
         # base lock - the 'command' lock string
         lockfunc = ["command: %s", "desc: %s"]
         player_owner = None
-        assigned_char = self.db.guarding
+        assigned_char = self.guarding
         owner = self.agentob.agent_class.owner
         if owner.player:
             player_owner = owner.player.player
@@ -441,12 +441,37 @@ class AgentMixin(object):
         if self not in guards:
             guards.append(self)
         targ.db.assigned_guards = guards
-        self.db.guarding = targ
+        self.guarding = targ
         self.setup_locks()
         self.setup_name()
         if self.agentob.quantity < 1:
             self.agentob.quantity = 1
             self.agentob.save()
+
+    @property
+    def guarding(self  # type: Retainer or Agent
+                 ):
+        return self.db.guarding
+
+    @guarding.setter
+    def guarding(self,  # type: Retainer or Agent
+                 val):
+        if not val:
+            self.attributes.remove("guarding")
+            return
+        self.db.guarding = val
+
+    def start_guarding(self, val):
+        self.guarding = val
+
+    def stop_guarding(self  # type: Retainer or Agent
+                      ):
+        targ = self.guarding
+        if targ:
+            targ.remove_guard(self)
+        self.stop_follow(unassigning=True)
+        self.guarding = None
+        self.assisted_investigations.update(currently_helping=False)
 
     def lose_agents(self, num, death=False):
         if num < 1:
@@ -467,15 +492,9 @@ class AgentMixin(object):
         ourselves from their guards list and then call unassign in our
         associated AgentOb.
         """
-        targ = self.db.guarding
-        if targ:
-            guards = targ.db.assigned_guards or []
-            if self in guards:
-                guards.remove(self)
-        self.stop_follow(unassigning=True)
         self.agentob.unassign()
         self.locks.add("command: false()")
-        self.db.guarding = None
+        self.stop_guarding()
 
     def _get_npc_type(self):
         return self.agent.type
