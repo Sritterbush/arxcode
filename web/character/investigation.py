@@ -988,12 +988,13 @@ class CmdInvestigate(InvestigationFormCommand):
                 self.msg("Asking %s to assist with %s." % (char, ob))
                 current.append(ob.id)
                 char.db.investigation_invitations = current
-                inform_msg = "%s has requested your help in their investigation, ID %s.\n" % (caller, ob.id)
+                name = caller.key
+                inform_msg = "%s has requested your help in their investigation, ID %s.\n" % (name, ob.id)
                 inform_msg += "To assist them, use the {w@helpinvestigate{n command, creating a "
                 inform_msg += "form with {w@helpinvestigate/new{n, setting the target with "
                 inform_msg += "{w@helpinvestigate/target %s{n, and filling in the other fields." % ob.id
                 inform_msg += "\nThe current actions of their investigation are: %s" % ob.actions
-                char.player_ob.inform(inform_msg, category="Investigation Request From %s" % self.caller,
+                char.player_ob.inform(inform_msg, category="Investigation Request From %s" % name,
                                       append=False)
                 return
         caller.msg("Invalid switch.")
