@@ -606,7 +606,7 @@ class CmdJournal(MuxCommand):
             caller.msg("New %s added:" % ("white journal" if white else "black reflection"))
             caller.msg(caller.messages.disp_entry(entry), options={'box': True})
             if white:
-                caller.msg_watchlist("A player you are watching, {c%s{n, has updated their white journal." % caller)
+                caller.msg_watchlist("A player you are watching, {c%s{n, has updated their white journal." % caller.key)
             return
         if "search" in self.switches:
             rhs = self.rhs
