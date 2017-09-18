@@ -527,8 +527,7 @@ class AssetOwner(SharedMemoryModel):
                     self.estate.castellan.player.roster.roster == "Active"):
                 player = self.estate.castellan.player
             elif self.organization_owner:  # otherwise send it to the highest ranked active player
-                members = self.organization_owner.members.filter(player__player__roster__roster__name="Active"
-                                                                 ).order_by('rank')
+                members = self.organization_owner.active_members.order_by('rank')
                 if members:
                     player = members[0].player.player
         return player
