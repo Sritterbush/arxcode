@@ -1047,6 +1047,7 @@ class CmdMessenger(MuxCommand):
             current = self.caller.currency
             if current < total:
                 self.msg("That delivery would cost %s, and you only have %s." % (total, current))
+                return
         if mats:
             amt = mats[1] * num
             try:
