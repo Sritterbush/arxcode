@@ -216,6 +216,10 @@ class Npc(Character):
         """
         return 1.0
 
+    @property
+    def glass_jaw(self):
+        return "story_npc" not in self.tags.all()
+
     # npcs are easier to hit than players, and have an easier time hitting
     @property
     def defense_modifier(self):

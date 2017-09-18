@@ -1026,3 +1026,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             return True
         # we're hiding from watch and caller is not staff, so they don't see us online
         return False
+
+    @property
+    def glass_jaw(self):
+        return False

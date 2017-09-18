@@ -1081,9 +1081,12 @@ class CombatHandler(object):
             # if we're not incapacitated, we start making checks for it
             if target.conscious and not target.sleepless:
                 # check is sta + willpower against % dmg past uncon to stay conscious
-                diff = int((float(target.dmg - target.max_hp)/target.max_hp) * 100)
-                consc_check = do_dice_check(target, stat_list=["stamina", "willpower"], skill="survival",
-                                            stat_keep=True, difficulty=diff, quiet=False)
+                if not target.glass_jaw:
+                    diff = int((float(target.dmg - target.max_hp)/target.max_hp) * 100)
+                    consc_check = do_dice_check(target, stat_list=["stamina", "willpower"], skill="survival",
+                                                stat_keep=True, difficulty=diff, quiet=False)
+                else:
+                    consc_check = -1
                 if consc_check >= 0:
                     message = "%s remains capable of fighting." % self
                     grace_period = True  # we can't be killed if we succeeded this check to remain standing
@@ -1100,8 +1103,9 @@ class CombatHandler(object):
                 diff = int((float(target.dmg - int(dt * target.max_hp))/int(dt * target.max_hp)) * 100)
                 if diff < 0:
                     diff = 0
-                if do_dice_check(target, stat_list=["stamina", "willpower"], skill="survival",
-                                 stat_keep=True, difficulty=diff, quiet=False) >= 0:
+                # npcs always die. Sucks for them.
+                if not target.glass_jaw and do_dice_check(target, stat_list=["stamina", "willpower"], skill="survival",
+                                                          stat_keep=True, difficulty=diff, quiet=False) >= 0:
                     message = "%s remains alive, but close to death." % self
                     if target.combat.multiple:
                         # was incapacitated but not killed, but out of fight and now we're on another targ
