@@ -1308,6 +1308,7 @@ class CmdInform(MuxPlayerCommand):
         @inform/shopminimum <number>
         @inform/bankminimum <type>,<number>
         @inform/important <number>
+        @inform/readall
         @inform/org[/other switches] <name>[/rest as above]
 
     Displays your informs. /shopminimum sets a minimum amount that must be paid
@@ -1395,6 +1396,15 @@ class CmdInform(MuxPlayerCommand):
             self.read_inform(inform)
             return
         informs = list(inform_target.informs.all())
+        if "readall" in self.switches:
+            read_informs = list(self.caller.read_informs.all())
+            informs = [ob for ob in informs if ob not in read_informs]
+            if not informs:
+                self.msg("Nothing new.")
+                return
+            for inform in informs:
+                self.read_inform(inform)
+            return
         if "shopminimum" in self.switches:
             if not self.check_permission(inform_target):
                 return
@@ -1492,7 +1502,7 @@ class CmdInform(MuxPlayerCommand):
         self.msg("You do not have permission to set transactions for %s." % inform_target)
 
     def toggle_important(self, inform_target, inform):
-        if not inform.important and inform_target.filter(important=True).count() > 20:
+        if not inform.important and inform_target.informs.filter(important=True).count() > 20:
             self.msg("You may only have 20 informs marked as important.")
             return
         inform.important = not inform.important
