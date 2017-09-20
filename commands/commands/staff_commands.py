@@ -564,7 +564,7 @@ class CmdAdjustReputation(MuxPlayerCommand):
 
     Usage:
         @adjustreputation player,player2,...=org,affection,respect
-        @adjustreputation/post <message to post>
+        @adjustreputation/post [<subject>/]<message to post>
         @adjustreputation/finish
 
     Adjusts a player's affection/respect with a given org.
@@ -575,12 +575,21 @@ class CmdAdjustReputation(MuxPlayerCommand):
 
     def display_form(self):
         rep_form = self.caller.ndb.reputation_form or [{}, ""]
+        post_list = (rep_form[1] or "").split("/")
+        if len(post_list) < 2:
+            subject = "Reputation Changes"
+            post = post_list[0]
+        else:
+            subject = post_list[0]
+            post = post_list[1]
+
         self.msg("{wReputation Form:{n")
         for player in rep_form[0].keys():
             change_string = ", ".join("%s: Affection: %s Respect: %s" % (
                 org, values[0], values[1]) for org, values in rep_form[0][player].items())
             self.msg("{wPlayer{n: %s {wChanges{n: %s" % (player, change_string))
-        self.msg("{wPost:{n %s" % rep_form[1])
+        self.msg("{wSubject{n %s" % subject)
+        self.msg("{wPost:{n %s" % post)
         self.msg("Warning - form saved in memory only. Use /finish to avoid losing it in reloads.")
 
     def do_finish(self):
@@ -606,7 +615,12 @@ class CmdAdjustReputation(MuxPlayerCommand):
         # post changes
         from typeclasses.bulletin_board.bboard import BBoard
         board = BBoard.objects.get(db_key__iexact="vox populi")
-        subject = "Reputation changes"
+        post_list = post_msg.split("/")
+        if len(post_list) < 2:
+            subject = "Reputation changes"
+        else:
+            subject = post_list[0]
+            post_msg = post_list[1]
         post = board.bb_post(poster_obj=self.caller, msg=post_msg, subject=subject)
         post.tags.add("reputation_change")
         for character in character_list:
