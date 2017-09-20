@@ -1454,6 +1454,8 @@ class CmdInform(MuxPlayerCommand):
             self.msg(table)
             return
         if "delmatches" in self.switches:
+            if not self.check_permission(inform_target):
+                return
             informs = inform_target.informs.filter(category__icontains=lhs)
             if informs:
                 informs.delete()
@@ -1487,6 +1489,8 @@ class CmdInform(MuxPlayerCommand):
             self.toggle_important(inform_target, inform)
             return
         if "del" in self.switches:
+            if not self.check_permission(inform_target):
+                return
             for inform in informs:
                 inform.delete()
                 self.msg("Inform deleted.")
@@ -1499,7 +1503,8 @@ class CmdInform(MuxPlayerCommand):
             return True
         if inform_target.access(self.caller, "transactions"):
             return True
-        self.msg("You do not have permission to set transactions for %s." % inform_target)
+        self.msg("You do not have permission to set transactions/delete informs for %s." % inform_target)
+        self.msg("This is controlled by the 'transaction' permission under @org/perm.")
 
     def toggle_important(self, inform_target, inform):
         if not inform.important and inform_target.informs.filter(important=True).count() > 20:
