@@ -68,6 +68,7 @@ from .battle import Battle
 from .agenthandler import AgentHandler
 from server.utils.arx_utils import get_week
 from typeclasses.npcs import npc_types
+from typeclasses.mixins import InformMixin
 
 # Dominion constants
 BASE_WORKER_COST = 0.10
@@ -411,6 +412,10 @@ class AssetOwner(SharedMemoryModel):
     economic = models.PositiveIntegerField(default=0, blank=0)
     military = models.PositiveIntegerField(default=0, blank=0)
     social = models.PositiveIntegerField(default=0, blank=0)
+
+    min_silver_for_inform = models.PositiveIntegerField(default=0)
+    min_resources_for_inform = models.PositiveIntegerField(default=0)
+    min_materials_for_inform = models.PositiveIntegerField(default=0)
        
     def _get_owner(self):
         if self.player:
@@ -517,20 +522,11 @@ class AssetOwner(SharedMemoryModel):
         """
         Determines who should get some sort of inform for this assetowner
         """
-        player = None
         if self.player and self.player.player:
-            player = self.player.player
+            target = self.player.player
         else:
-            # if we're an organization, we see if we have a player Castellan to send reports
-            if (hasattr(self, 'estate') and self.estate.castellan and self.estate.castellan.player
-                and hasattr(self.estate.castellan.player, 'roster') and self.estate.castellan.player.roster.roster and
-                    self.estate.castellan.player.roster.roster == "Active"):
-                player = self.estate.castellan.player
-            elif self.organization_owner:  # otherwise send it to the highest ranked active player
-                members = self.organization_owner.active_members.order_by('rank')
-                if members:
-                    player = members[0].player.player
-        return player
+            target = self.organization_owner
+        return target
         
     def do_weekly_adjustment(self, week):
         amount = 0
@@ -597,11 +593,11 @@ class AssetOwner(SharedMemoryModel):
         super(AssetOwner, self).save(*args, **kwargs)
 
     def inform_owner(self, message, category=None, week=0, append=False):
-        player = self.inform_target
+        target = self.inform_target
         if not week:
             week = get_week()
-        if player:
-            player.inform(message, category=category, week=week, append=append)
+        if target:
+            target.inform(message, category=category, week=week, append=append)
 
     # alias for inform_owner
     inform = inform_owner
@@ -1844,7 +1840,7 @@ class Reputation(SharedMemoryModel):
         unique_together = ('player', 'organization')
  
 
-class Organization(SharedMemoryModel):
+class Organization(InformMixin, SharedMemoryModel):
     """
     An in-game entity, which may contain both player characters and
     non-player characters, the latter possibly not existing outside
@@ -2038,6 +2034,10 @@ class Organization(SharedMemoryModel):
         return self.members.filter(deguilded=False)
 
     @property
+    def online_members(self):
+        return self.active_members.filter(player__player__db_is_connected=True)
+
+    @property
     def support_pool(self):
         return self.base_support_value + (self.active_members.count()) * self.member_support_multiplier
 
@@ -2071,15 +2071,12 @@ class Organization(SharedMemoryModel):
         except BBoard.MultipleObjectsReturned:
             print "More than one match for org %s's BBoard" % self
 
-    def inform_members(self, text, category=None, access=None):
-        from world.msgs.models import Inform
-        if not category:
-            category = self.name
-        if not access:
-            players = [ob.player.player for ob in self.active_members]
-        else:
-            players = [ob.player.player for ob in self.active_members if self.access(ob.player.player, access)]
-        Inform.bulk_inform(players, text=text, category=category)
+    def notify_inform(self, new_inform):
+        index = list(self.informs.all()).index(new_inform) + 1
+        members = [pc for pc in self.online_members if pc.player and pc.player.player and self.access(pc.player.player,
+                                                                                                      "informs")]
+        for pc in members:
+            pc.msg("{y%s has new @informs. Use {w@informs/org %s/%s{y to read them." % (self, self, index))
 
     def setup(self):
         from typeclasses.channels import Channel

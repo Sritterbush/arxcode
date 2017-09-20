@@ -87,14 +87,11 @@ class CmdBank(MuxCommand):
         return account.vault - debits
     
     def inform_owner(self, owner, verb, amt, attr_type="silver", mat_str="silver"):
-        player = owner.inform_target
-        if not player or player == self.caller.player_ob:
-            return
-        attr_name = "min_%s_transaction" % attr_type
-        if amt >= (player.db.char_ob.attributes.get(attr_name) or 0):
+        attr_name = "min_%s_for_inform" % attr_type
+        if amt >= getattr(owner, attr_name):
             preposition = "to" if "deposit" in verb.lower() else "from"
             msg = ("%s %s %s %s %s %s" % (self.caller, verb, amt, mat_str, preposition, owner))
-            player.inform(msg, category="Bank Transaction")
+            owner.inform(msg, category="Bank Transaction")
         
     def func(self):
         """Execute command."""

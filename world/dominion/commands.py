@@ -1773,7 +1773,7 @@ class CmdOrganization(MuxPlayerCommand):
     help_category = "Dominion"
     org_locks = ("edit", "boot", "withdraw", "setrank", "invite",
                  "setruler", "view", "guards", "build", "briefing", 
-                 "declarations", "army")
+                 "declarations", "army", "informs")
 
     @staticmethod
     def get_org_and_member(caller, myorgs, args):
@@ -1994,7 +1994,7 @@ class CmdOrganization(MuxPlayerCommand):
             text = "%s has shared the %s {w%s{n to {c%s{n. It can now be used in a %s." % (caller.db.char_ob,
                                                                                            targ_type, share_str, org,
                                                                                            briefing_type)
-            org.inform_members(text, category, access="briefing")
+            org.inform(text, category)
             return
         if 'accept' in self.switches:
             org = caller.ndb.orginvite

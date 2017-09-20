@@ -23,10 +23,10 @@ several more options for customizing the Guest account system.
 """
 
 from evennia import DefaultPlayer
-from typeclasses.mixins import MsgMixins
+from typeclasses.mixins import MsgMixins, InformMixin
 
 
-class Player(MsgMixins, DefaultPlayer):
+class Player(InformMixin, MsgMixins, DefaultPlayer):
     """
     This class describes the actual OOC player (i.e. the user connecting
     to the MUD). It does NOT have visual appearance in the game world (that
@@ -171,9 +171,15 @@ class Player(MsgMixins, DefaultPlayer):
     # noinspection PyBroadException
     def announce_informs(self):
         try:
-            unread = self.informs.filter(is_unread=True).count()
+            unread = self.informs.filter(read_by__isnull=True).count()
             if unread:
                 self.msg("{w*** You have %s unread informs. Use @informs to read them. ***{n" % unread)
+            for org in self.current_orgs:
+                if not org.access(self, "informs"):
+                    continue
+                unread = org.informs.exclude(read_by=self).count()
+                if unread:
+                    self.msg("{w*** You have %s unread informs for %s. ***{n" % (unread, org))
         except Exception:
             pass
 
@@ -216,22 +222,6 @@ class Player(MsgMixins, DefaultPlayer):
         self.key = value
     name = property(get_fancy_name, set_name)
 
-    def inform(self, message, category=None, week=0, append=True):
-        if not append:
-            inform = self.informs.create(message=message, category=category)
-        else:
-            informs = self.informs.filter(category=category, week=week,
-                                          is_unread=True)
-            if informs:
-                inform = informs[0]
-                inform.message += "\n\n" + message
-                inform.save()
-            else:
-                inform = self.informs.create(message=message, category=category,
-                                             week=week)
-        index = list(self.informs.all()).index(inform) + 1
-        self.msg("{yYou have new informs. Use {w@inform %s{y to read them.{n" % index)
-
     def send_or_queue_msg(self, message):
         if self.is_connected:
             self.msg(message, options={'box': True})
@@ -260,13 +250,17 @@ class Player(MsgMixins, DefaultPlayer):
         except AttributeError:
             return []
 
+    @property
+    def assets(self):
+        return self.Dominion.assets
+
     def pay_resources(self, rtype, amt):
         """
         Attempt to pay resources. If we don't have enough,
         return False.
         """
         try:
-            assets = self.Dominion.assets
+            assets = self.assets
             current = getattr(assets, rtype)
             if current < amt:
                 return False
@@ -308,14 +302,14 @@ class Player(MsgMixins, DefaultPlayer):
     @property
     def retainers(self):
         try:
-            return self.Dominion.assets.agents.filter(unique=True)
+            return self.assets.agents.filter(unique=True)
         except AttributeError:
             return []
 
     @property
     def agents(self):
         try:
-            return self.Dominion.assets.agents.all()
+            return self.assets.agents.all()
         except AttributeError:
             return []
 

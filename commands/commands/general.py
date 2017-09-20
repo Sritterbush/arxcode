@@ -1307,6 +1307,8 @@ class CmdInform(MuxPlayerCommand):
         @inform/delmatches <string to match in categories>
         @inform/shopminimum <number>
         @inform/bankminimum <type>,<number>
+        @inform/important <number>
+        @inform/org <name>[/rest as above]
 
     Displays your informs. /shopminimum sets a minimum amount that must be paid
     before you are informed of activity in your shops.
@@ -1316,17 +1318,15 @@ class CmdInform(MuxPlayerCommand):
     locks = "cmd: all()"
     banktypes = ("resources", "materials", "silver")
 
-    @staticmethod
-    def read_inform(caller, inform):
+    def read_inform(self, inform):
         msg = "\n{wCategory:{n %s\n" % inform.category
         msg += "{w" + "-"*70 + "{n\n\n%s\n" % inform.message
-        caller.msg(msg, options={'box': True})
-        if inform.is_unread:
-            inform.is_unread = False
-            inform.save()
+        self.msg(msg, options={'box': True})
+        if self.caller not in inform.read_by.all():
+            inform.read_by.add(self.caller)
 
-    def get_inform(self, val):
-        informs = self.caller.informs.all()
+    def get_inform(self, inform_target, val):
+        informs = inform_target.informs.all()
         try:
             val = int(val)
             if val <= 0:
@@ -1336,7 +1336,7 @@ class CmdInform(MuxPlayerCommand):
         except (ValueError, IndexError):
             self.msg("You must specify a number between 1 and %s." % len(informs))
 
-    def set_attr(self, attr, valuestr):
+    def set_attr(self, asset_owner, attr, valuestr):
         try:
             value = int(valuestr)
             if value <= 0:
@@ -1344,67 +1344,87 @@ class CmdInform(MuxPlayerCommand):
         except (TypeError, ValueError):
             # remove attribute
             self.msg("Removing minimum.")
-            self.caller.db.char_ob.attributes.remove(attr)
+            setattr(asset_owner, attr, 0)
+            asset_owner.save()
             return
         # set attribute with value
-        self.caller.db.char_ob.attributes.add(attr, value)
-        self.display_minimums()
+        setattr(asset_owner, attr, value)
+        asset_owner.save()
+        self.display_minimums(asset_owner)
 
-    def display_minimums(self):
+    def display_minimums(self, asset_owner):
         table = evtable.EvTable("{wPurpose{n", "{wResource{n", "{wThreshold{n",  width=78, pad_width=0)
-        attrs = ('min_shop_price_inform', 'min_silver_transaction', 'min_materials_transaction',
-                 'min_resources_transaction')
-        for attr in attrs:
-            purp = "bank"
-            res = "silver"
-            if attr == "min_shop_price_inform":
-                purp = "shop"
-            if attr == "min_materials_transaction":
-                res = "materials"
-            if attr == "min_resources_transaction":
-                res = "resources"
-            val = self.caller.db.char_ob.attributes.get(attr) or 0
+        attrs = (("min_silver_for_inform", "silver", "shop/banking"),
+                 ("min_materials_for_inform", "materials", "banking"),
+                 ("min_resources_for_inform", "resources", "banking"))
+        for attr, res, purp in attrs:
+            val = getattr(asset_owner, attr)
             table.add_row(purp, res, val)
         self.caller.msg(table)
 
     def func(self):
-        caller = self.caller
+        inform_target = self.caller
+        lhs = self.lhs
+        lhslist = self.lhslist
+        if "org" in self.switches:
+            self.switches.remove("org")
+            from world.dominion.models import Organization
+            try:
+                lhsargs = lhs.split("/")
+                name = lhsargs[0]
+                if len(lhsargs) > 1:
+                    lhs = lhsargs[1]
+                else:
+                    lhs = ""
+                lhslist = lhs.split(",")
+                org = self.caller.current_orgs.get(name__iexact=name)
+                if not org.access(self.caller, "informs"):
+                    self.msg("You do not have permission to read informs.")
+                    return
+            except Organization.DoesNotExist:
+                self.msg("No organization by that name.")
+                return
+            else:
+                inform_target = org
+
         if "new" in self.switches:
-            inform = self.caller.informs.filter(is_unread=True).first()
+            inform = inform_target.informs.exclude(read_by=self.caller).first()
             if not inform:
                 self.msg("No unread inform found.")
                 return
-            self.read_inform(caller, inform)
+            self.read_inform(inform)
             return
-        informs = list(caller.informs.all())
+        informs = list(inform_target.informs.all())
         if "shopminimum" in self.switches:
-            self.set_attr("min_shop_price_inform", self.args)
+            self.set_attr(inform_target.assets, "min_silver_for_inform", lhs)
             return
         if "bankminimum" in self.switches:
             valuestr = None
             attr = None
             try:
-                attr = self.lhslist[0]
-                valuestr = self.lhslist[1]
+                attr = lhslist[0]
+                valuestr = lhslist[1]
             except IndexError:
                 pass
             if attr not in self.banktypes:
                 self.msg("Must be one of the following: %s" % ", ".join(self.banktypes))
+                self.display_minimums(inform_target.assets)
                 return
-            attr = "min_%s_transaction" % attr
-            self.set_attr(attr, valuestr)
+            attr = "min_%s_for_inform" % attr
+            self.set_attr(inform_target.assets, attr, valuestr)
             return
         if not informs:
-            caller.msg("You have no messages from the game waiting for you.")
+            self.msg("You have no messages from the game waiting for you.")
             return
-        if not self.args:
+        if not lhs:
             table = evtable.EvTable("{w#{n", "{wCategory{n", "{wDate{n", width=78, pad_width=0)
             x = 0
+            read_informs = list(self.caller.read_informs.all())
             for info in informs:
                 x += 1
 
                 def highlight(ob_str, add_star=False):
-                    if not info.is_unread:
+                    if info in read_informs:
                         return ob_str
                     if add_star:
                         return "{w*%s{n" % ob_str
@@ -1417,10 +1437,10 @@ class CmdInform(MuxPlayerCommand):
             table.reformat_column(index=0, width=7)
             table.reformat_column(index=1, width=52)
             table.reformat_column(index=2, width=19)
-            caller.msg(table)
+            self.msg(table)
             return
         if "delmatches" in self.switches:
-            informs = caller.informs.filter(category__icontains=self.args)
+            informs = inform_target.informs.filter(category__icontains=lhs)
             if informs:
                 informs.delete()
                 self.msg("Informs deleted.")
@@ -1428,31 +1448,45 @@ class CmdInform(MuxPlayerCommand):
             self.msg("No matches.")
             return
         if not self.rhs:
-            inform = self.get_inform(self.lhs)
+            inform = self.get_inform(inform_target, lhs)
             if not inform:
                 return
             informs = [inform]
         else:
             try:
-                vals = range(int(self.lhs), int(self.rhs) + 1)
+                vals = range(int(lhs), int(self.rhs) + 1)
                 if not vals:
                     raise ValueError
             except ValueError:
                 self.msg("Invalid numbers.")
                 return
-            informs = [self.get_inform(val) for val in vals]
+            informs = [self.get_inform(inform_target, val) for val in vals]
             informs = [ob for ob in informs if ob]
         if not self.switches:
             for inform in informs:
-                self.read_inform(caller, inform)
+                self.read_inform(inform)
+            return
+        if "important" in self.switches:
+            inform = self.get_inform(inform_target, lhs)
+            if not inform:
+                return
+            self.toggle_important(inform_target, inform)
             return
         if "del" in self.switches:
             for inform in informs:
                 inform.delete()
-                caller.msg("Inform deleted.")
+                self.msg("Inform deleted.")
             return
-        caller.msg("Invalid switch.")
+        self.msg("Invalid switch.")
         return
+
+    def toggle_important(self, inform_target, inform):
+        if not inform.important and inform_target.filter(important=True).count() > 20:
+            self.msg("You may only have 20 informs marked as important.")
+            return
+        inform.important = not inform.important
+        inform.save()
+        self.msg("Toggled importance for selected informs.")
 
 
 class CmdKeyring(MuxCommand):

@@ -788,3 +788,25 @@ class LockMixins(object):
         base = super(LockMixins, self).return_appearance(pobject, detailed=detailed,
                                                          format_desc=format_desc, show_contents=show_contents)
         return base + "\nIt is currently %s." % ("locked" if self.db.locked else "unlocked")
+
+
+# noinspection PyUnresolvedReferences
+class InformMixin(object):
+    def inform(self, message, category=None, week=0, append=True):
+        if not append:
+            inform = self.informs.create(message=message, week=week, category=category)
+        else:
+            informs = self.informs.filter(category=category, week=week,
+                                          read_by__isnull=True)
+            if informs:
+                inform = informs[0]
+                inform.message += "\n\n" + message
+                inform.save()
+            else:
+                inform = self.informs.create(message=message, category=category,
+                                             week=week)
+        self.notify_inform(inform)
+
+    def notify_inform(self, new_inform):
+        index = list(self.informs.all()).index(new_inform) + 1
+        self.msg("{yYou have new informs. Use {w@inform %s{y to read them.{n" % index)

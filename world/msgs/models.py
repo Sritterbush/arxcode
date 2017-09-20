@@ -2,7 +2,7 @@
 A basic inform, as well as other in-game messages.
 """
 
-
+from django.conf import settings
 from django.db import models
 from evennia.comms.models import Msg
 from .managers import (JournalManager, WhiteJournalManager, BlackJournalManager, MessengerManager, WHITE_TAG, BLACK_TAG,
@@ -33,28 +33,22 @@ class Inform(models.Model):
         is_unread - Whether the player has read the inform
         week - The # of the week during which this inform was created.
     """
-    player = models.ForeignKey("players.PlayerDB", related_name="informs", blank=True, db_index=True)
-    message = models.TextField("Information sent to players")
+    player = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="informs", blank=True, null=True)
+    organization = models.ForeignKey("dominion.Organization", related_name="informs", blank=True, null=True)
+    message = models.TextField("Information sent to player or org")
     # send date
     date_sent = models.DateTimeField(editable=False, auto_now_add=True, db_index=True)
     # the week # of the maintenance cycle during which this inform was created
     week = models.PositiveSmallIntegerField(default=0, blank=0, db_index=True)
-    is_unread = models.BooleanField(default=True)
+    read_by = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="read_informs")
     # allow for different types of informs/reports
     category = models.CharField(blank=True, null=True, max_length=80)
+    # let them mark important messages for saving
+    important = models.BooleanField(default=False)
 
     class Meta:
         app_label = "msgs"
         db_table = "comms_inform"
-
-    @classmethod
-    def bulk_inform(cls, players, text, category):
-        bulk_list = []
-        for ob in players:
-            bulk_list.append(cls(player=ob, message=text, category=category))
-        cls.objects.bulk_create(bulk_list)
-        for player in players:
-            player.announce_informs()
 
 
 def get_model_from_tags(tag_list):

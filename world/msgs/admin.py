@@ -14,9 +14,9 @@ from evennia.help.models import HelpEntry
 
 
 class InformAdmin(admin.ModelAdmin):
-    list_display = ('id', 'player', 'message', 'date_sent', 'category')
+    list_display = ('id', 'player', 'organization', 'message', 'date_sent', 'category')
     list_display_links = ("id",)
-    search_fields = ['id', 'player__username', 'message', 'category']
+    search_fields = ['id', 'player__username', 'organization__name', 'message', 'category']
 admin.site.register(Inform, InformAdmin)
 
 
