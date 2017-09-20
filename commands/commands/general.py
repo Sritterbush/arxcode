@@ -1308,7 +1308,7 @@ class CmdInform(MuxPlayerCommand):
         @inform/shopminimum <number>
         @inform/bankminimum <type>,<number>
         @inform/important <number>
-        @inform/org <name>[/rest as above]
+        @inform/org[/other switches] <name>[/rest as above]
 
     Displays your informs. /shopminimum sets a minimum amount that must be paid
     before you are informed of activity in your shops.
