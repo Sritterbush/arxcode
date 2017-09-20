@@ -1396,9 +1396,13 @@ class CmdInform(MuxPlayerCommand):
             return
         informs = list(inform_target.informs.all())
         if "shopminimum" in self.switches:
+            if not self.check_permission(inform_target):
+                return
             self.set_attr(inform_target.assets, "min_silver_for_inform", lhs)
             return
         if "bankminimum" in self.switches:
+            if not self.check_permission(inform_target):
+                return
             valuestr = None
             attr = None
             try:
@@ -1479,6 +1483,13 @@ class CmdInform(MuxPlayerCommand):
             return
         self.msg("Invalid switch.")
         return
+
+    def check_permission(self, inform_target):
+        if inform_target == self.caller:
+            return True
+        if inform_target.access(self.caller, "transactions"):
+            return True
+        self.msg("You do not have permission to set transactions for %s." % inform_target)
 
     def toggle_important(self, inform_target, inform):
         if not inform.important and inform_target.filter(important=True).count() > 20:
