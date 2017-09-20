@@ -4,13 +4,12 @@ of bad events that have occurred. The Reports here will be wrappers
 around an Inform object that is either created or retrieved based
 on whether the player has an existing report for this week.
 """
-from world.msgs.models import Inform
 import traceback
 
 
 class Report(object):
-    def __init__(self, player, week, category=None):
-        self.player = player
+    def __init__(self, owner, week, category=None):
+        self.owner = owner
         self.week = week
         self.category = category
         
@@ -21,10 +20,9 @@ class Report(object):
         if create is True, we return the object created, while if it's
         False we return a queryset.
         """
-        player = self.player
+        owner = self.owner
         week = self.week
-        reports = Inform.objects.filter(player_id=player.id, week=week,
-                                        category=category, is_unread=True)
+        reports = owner.informs.filter(week=week, category=category, read_by__isnull=True)
         return reports
     
     def get_or_create_report(self, category):
@@ -32,17 +30,17 @@ class Report(object):
         if reports:
             report = reports[0]
         else:
-            player = self.player
+            owner = self.owner
             week = self.week
-            report = Inform.objects.create(player=player, week=week, category=self.category)
+            report = owner.informs.create(week=week, category=self.category)
         return report
             
 
 class ProjectReport(Report):
-    def __init__(self, player, week, project, new_total):
+    def __init__(self, owner, week, project, new_total):
         self.project = project
         self.new_total = new_total
-        super(ProjectReport, self).__init__(player, week, "project")
+        super(ProjectReport, self).__init__(owner, week, "project")
         self.generate_project_report()
 
     def generate_project_report(self):
@@ -60,16 +58,16 @@ class StarvationReport(Report):
 
 
 class BattleReport(Report):
-    def __init__(self, player, battle):
+    def __init__(self, owner, battle):
         self.battle = battle
-        super(BattleReport, self).__init__(player, battle.week, "battle")
+        super(BattleReport, self).__init__(owner, battle.week, "battle")
         self.generate_battle_report()
 
     # noinspection PyBroadException
     def generate_battle_report(self):
         try:
             txt = self.text_from_battle()
-            Inform.objects.create(player=self.player, week=self.week, text=txt, category="battle")
+            self.owner.informs.create(week=self.week, message=txt, category="battle")
         except Exception:
             print "ERROR: Could not generate battle report."
             traceback.print_exc()
@@ -96,16 +94,16 @@ class BattleReport(Report):
 
 
 class ExplorationReport(Report):
-    def __init__(self, player, exploration):
+    def __init__(self, owner, exploration):
         self.explore = exploration
-        super(ExplorationReport, self).__init__(player, self.explore.week, "explore")
+        super(ExplorationReport, self).__init__(owner, self.explore.week, "explore")
         self.generate_explore_report()
 
     # noinspection PyBroadException
     def generate_explore_report(self):
         try:
             txt = self.text_from_explore()
-            Inform.objects.create(player=self.player, week=self.week, text=txt, category="explore")
+            self.owner.informs.create(week=self.week, message=txt, category="explore")
         except Exception:
             print "ERROR: Could not generate battle report."
             traceback.print_exc()
@@ -122,8 +120,8 @@ class WeeklyReport(Report):
     This report will act as a synopsis of all other reports we've accumulated
     during this weekly cycle.
     """
-    def __init__(self, player, week, owner=None):
-        super(WeeklyReport, self).__init__(player, week, "synopsis")        
+    def __init__(self, owner, week):
+        super(WeeklyReport, self).__init__(owner, week, "synopsis")
         self.projects = 0
         self.vault = 0
         self.income_change = 0
@@ -131,7 +129,7 @@ class WeeklyReport(Report):
         self.failed_payments = []
         self.successful_payments = []
         self.lifestyle_msg = None
-        self.player = player
+        self.owner = owner
         self.week = week
         self.army_reports = []
 
@@ -141,7 +139,7 @@ class WeeklyReport(Report):
 
     def add_project_report(self, project, new_total):
         self.projects += 1
-        ProjectReport(self.player, self.week, project, new_total)
+        ProjectReport(self.owner, self.week, project, new_total)
 
     def add_army_consumption_report(self, army, food, silver):
         s_str = ""
@@ -162,7 +160,7 @@ class WeeklyReport(Report):
         report = self.get_or_create_report(self.category)
         txt = ""
         try:
-            txt += "Week %s Reports for %s\n" % (self.week, self.owner if self.owner else self.player)
+            txt += "Week %s Reports for %s\n" % (self.week, self.owner)
             txt += "This week's income: %s\n" % self.income_change
             if self.successful_payments:
                 txt += "Payments received: %s\n" % ", ".join(self.successful_payments)

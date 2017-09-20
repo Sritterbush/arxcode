@@ -13,9 +13,27 @@ from evennia.help.admin import HelpEntryAdmin
 from evennia.help.models import HelpEntry
 
 
+class InformFilter(admin.SimpleListFilter):
+    title = 'PC or Org'
+    parameter_name = 'played'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('pc', 'Players'),
+            ('org', 'Orgs'),
+            )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'pc':
+            return queryset.filter(player__isnull=False).distinct()
+        if self.value() == 'org':
+            return queryset.filter(organization__isnull=False).distinct()
+
+
 class InformAdmin(admin.ModelAdmin):
     list_display = ('id', 'player', 'organization', 'message', 'date_sent', 'category')
     list_display_links = ("id",)
+    list_filter = (InformFilter,)
     search_fields = ['id', 'player__username', 'organization__name', 'message', 'category']
 admin.site.register(Inform, InformAdmin)
 

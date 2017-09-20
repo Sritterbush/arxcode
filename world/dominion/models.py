@@ -532,15 +532,11 @@ class AssetOwner(SharedMemoryModel):
         amount = 0
         report = None
         npc = True
-        player = self.inform_target
+        inform_target = self.inform_target
         org = self.organization_owner
-        if player:
-            report = WeeklyReport(player, week, self)
+        if inform_target and inform_target.can_receive_informs:
+            report = WeeklyReport(inform_target, week)
             npc = False
-        elif org:
-            if org.members.filter(Q(player__player__roster__roster__name="Active") &
-                                  Q(player__player__roster__frozen=False)):
-                npc = False
         if hasattr(self, 'estate'):
             for domain in self.estate.holdings.all():
                 amount += domain.do_weekly_adjustment(week, report, npc)
@@ -2028,6 +2024,10 @@ class Organization(InformMixin, SharedMemoryModel):
     @property
     def active_members(self):
         return self.members.filter(Q(player__player__roster__roster__name="Active") & Q(deguilded=False)).distinct()
+
+    @property
+    def can_receive_informs(self):
+        return bool(self.active_members)
     
     @property
     def all_members(self):

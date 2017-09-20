@@ -810,3 +810,7 @@ class InformMixin(object):
     def notify_inform(self, new_inform):
         index = list(self.informs.all()).index(new_inform) + 1
         self.msg("{yYou have new informs. Use {w@inform %s{y to read them.{n" % index)
+
+    @property
+    def can_receive_informs(self):
+        return True
