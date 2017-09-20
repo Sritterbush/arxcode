@@ -183,7 +183,7 @@ class WeeklyEvents(Script):
         date = date + offset
         try:
             from world.msgs.models import Inform
-            qs = Inform.objects.filter(date_sent__lte=date)
+            qs = Inform.objects.filter(date_sent__lte=date).exclude(important=True)
             qs.delete()
         except Exception as err:
             traceback.print_exc()
