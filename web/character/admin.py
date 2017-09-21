@@ -185,7 +185,8 @@ class EntryAdmin(NoDeleteAdmin):
     list_display = ('id', 'character', 'roster', 'current_alts')
     ordering = ['roster', 'character__db_key']
     search_fields = ['character__db_key', 'roster__name']
-    raw_id_fields = ("character", "player", "current_account")
+    raw_id_fields = ("current_account", "profile_picture",)
+    readonly_fields = ('character', 'player',)
     list_filter = ('roster', 'frozen', 'inactive')
     form = EntryForm
     inlines = [MystForEntry, RevForEntry, AccountHistoryInline]
