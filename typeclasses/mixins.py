@@ -278,6 +278,14 @@ class BaseObjectMixins(object):
             pass
 
     @property
+    def has_player(self):
+        """
+        :type self: ObjectDB
+        :return: AccountDB
+        """
+        return self.has_account
+
+    @property
     def char_ob(self):
         return None
 
@@ -394,10 +402,18 @@ class AppearanceMixins(BaseObjectMixins):
 
     @property
     def currency(self):
+        """
+        :type self: ObjectDB
+        :return: float
+        """
         return round(self.db.currency or 0.0, 2)
 
     @currency.setter
     def currency(self, val):
+        """
+        :type self: ObjectDB
+        :param val: float
+        """
         self.db.currency = val
 
     def pay_money(self, amount, receiver=None):
@@ -601,8 +617,8 @@ RE_ALT_ASCII = re.compile(r"<noascii>(.*?)</noascii>", re.IGNORECASE)
 RE_COLOR = re.compile(r'"(.*?)"')
 
 
+# noinspection PyUnresolvedReferences
 class MsgMixins(object):
-    
     @lazy_property
     def namex(self):
         # regex that contains our name inside quotes

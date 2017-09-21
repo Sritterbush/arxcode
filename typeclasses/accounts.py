@@ -21,13 +21,12 @@ possibility to connect with a guest account. The setting file accepts
 several more options for customizing the Guest account system.
 
 """
-
-
 from evennia import DefaultAccount
 from typeclasses.mixins import MsgMixins, InformMixin
 
 
 class Account(InformMixin, MsgMixins, DefaultAccount):
+
     """
     This class describes the actual OOC player (i.e. the user connecting
     to the MUD). It does NOT have visual appearance in the game world (that

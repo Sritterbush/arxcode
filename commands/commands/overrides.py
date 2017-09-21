@@ -773,15 +773,15 @@ class CmdWho(ArxPlayerCommand):
         Get all connected players by polling session.
         """
         player = self.caller
-        session_list = [ob for ob in SESSIONS.get_sessions() if ob.player and ob.player.show_online(player)]
-        session_list = sorted(session_list, key=lambda o: o.player.key.lower())
+        session_list = [ob for ob in SESSIONS.get_sessions() if ob.account and ob.account.show_online(player)]
+        session_list = sorted(session_list, key=lambda o: o.account.key.lower())
         sparse = "sparse" in self.switches
         watch_list = player.db.watching or []
         if self.cmdstring == "doing":
             show_session_data = False
         else:
             show_session_data = player.check_permstring("Immortals") or player.check_permstring("Wizards")
-        nplayers = len(set(ob.player for ob in session_list))
+        nplayers = len(set(ob.account for ob in session_list))
         total_players = nplayers
         already_counted = []
         public_members = []
@@ -803,7 +803,7 @@ class CmdWho(ArxPlayerCommand):
                                              "{wProtocol",
                                              "{wHost"])
             for session in session_list:
-                pc = session.get_player()
+                pc = session.get_account()
                 if pc in already_counted:
                     continue
                 if not session.logged_in:
@@ -821,8 +821,8 @@ class CmdWho(ArxPlayerCommand):
                 delta_conn = time.time() - session.conn_time
                 plr_pobject = session.get_puppet()
                 plr_pobject = plr_pobject or pc
-                base = str(session.get_player())
-                pname = self.format_pname(session.get_player())
+                base = str(session.get_account())
+                pname = self.format_pname(session.get_account())
                 char = pc.db.char_ob
                 if "watch" in self.switches and char not in watch_list:
                     already_counted.append(pc)
@@ -853,7 +853,7 @@ class CmdWho(ArxPlayerCommand):
                 table = prettytable.PrettyTable(["{wPlayer name", "{wIdle"])
 
             for session in session_list:
-                pc = session.get_player()
+                pc = session.get_account()
                 if pc in already_counted:
                     continue
                 if not session.logged_in:
