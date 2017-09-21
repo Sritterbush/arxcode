@@ -9,7 +9,11 @@ import re
 from datetime import datetime
 
 from django.conf import settings
-from evennia.commands.default.muxcommand import MuxCommand, MuxAccountCommand
+from evennia.commands.default.muxcommand import MuxCommand
+try:
+    from evennia.commands.default.muxcommand import MuxAccountCommand
+except ImportError:
+    from evennia.commands.default.muxcommand import MuxPlayerCommand as MuxAccountCommand
 
 
 def validate_name(name, formatting=True, not_player=True):
