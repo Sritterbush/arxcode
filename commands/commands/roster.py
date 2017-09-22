@@ -9,7 +9,7 @@ players to peruse characters while OOC if they wish.
 """
 from evennia.utils import utils
 from server.utils import prettytable
-from server.utils.arx_utils import inform_staff
+from server.utils.arx_utils import inform_staff, text_box
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from datetime import datetime
 from commands.commands.jobs import get_apps_manager
@@ -913,15 +913,15 @@ def display_visions(caller, character):
     """
     Displays visions
     """
-    caller.msg("{wVisions for %s:{n" % character.key.capitalize())
-    caller.msg("{w-------------------------------{n")
+    msg = "{wVisions for %s:{n" % character.key.capitalize()
+    msg += "{w-------------------------------{n"
     visions = character.messages.visions
     if not visions:
-        caller.msg("No visions to display.")
-        return
-    for vision in visions:
-        caller.msg(character.messages.disp_entry(vision), options={'box': True})
-        vision.receivers = caller
+        msg += "No visions to display."
+    else:
+        for vision in visions:
+            msg += text_box(character.messages.disp_entry(vision))
+    arx_more.msg(caller, msg, justify_kwargs=False)
 
 
 # noinspection PyUnusedLocal

@@ -368,3 +368,8 @@ def cache_safe_update(queryset, **kwargs):
     for obj in queryset:
         for keyword, value in kwargs.items():
             setattr(obj, keyword, value)
+
+
+def text_box(text):
+    boxchars = '\n{w' + '*' * 70 + '{n\n'
+    return boxchars + text + boxchars
