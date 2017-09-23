@@ -145,6 +145,11 @@ class MarkReadMixin(object):
             fake_name = "%s {w(%s){n" % (fake_name, real_name)
         return fake_name
 
+    @property
+    def ic_date(self):
+        header = self.parse_header()
+        return header.get('date', None) or ""
+
 
 # different proxy classes for Msg objects
 class Journal(MarkReadMixin, Msg):

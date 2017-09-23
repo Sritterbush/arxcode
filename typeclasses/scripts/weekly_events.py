@@ -177,39 +177,34 @@ class WeeklyEvents(Script):
 
     @staticmethod
     def do_cleanup():
-        # cleanup old informs
         date = datetime.now()
         offset = timedelta(days=-30)
         date = date + offset
         try:
-            from world.msgs.models import Inform
-            qs = Inform.objects.filter(date_sent__lte=date).exclude(important=True)
-            qs.delete()
+            WeeklyEvents.cleanup_old_informs(date)
+            WeeklyEvents.cleanup_old_tickets(date)
+            WeeklyEvents.cleanup_django_admin_logs(date)
+            WeeklyEvents.cleanup_soft_deleted_objects()
+            WeeklyEvents.cleanup_stale_attributes()
+            WeeklyEvents.cleanup_empty_tags()
         except Exception as err:
             traceback.print_exc()
-            print "Error in cleaning informs: %s" % err
-        # cleanup old tickets
-        try:
-            from web.helpdesk.models import Ticket, Queue
-            try:
-                queue = Queue.objects.get(slug__iexact="story")
-                qs = Ticket.objects.filter(status__in=(Ticket.RESOLVED_STATUS, Ticket.CLOSED_STATUS),
-                                           modified__lte=date
-                                           ).exclude(queue=queue)
-                qs.delete()
-            except Queue.DoesNotExist:
-                pass
-        except Exception as err:
-            traceback.print_exc()
-            print "Error in cleaning tickets: %s" % err
-        try:
-            from django.contrib.admin.models import LogEntry
-            qs = LogEntry.objects.filter(action_time__lte=date)
-            qs.delete()
-        except Exception as err:
-            traceback.print_exc()
-            print "Error in cleaning Django Admin Change History: %s" % err
-        # cleanup soft-deleted objects
+            print "Error in cleanup: %s" % err
+
+    @staticmethod
+    def cleanup_empty_tags():
+        from server.utils.arx_utils import delete_empty_tags
+        delete_empty_tags()
+
+    @staticmethod
+    def cleanup_stale_attributes():
+        from evennia.typeclasses.attributes import Attribute
+        attr_names = CHARACTER_ATTRS + PLAYER_ATTRS
+        qs = Attribute.objects.filter(db_key__in=attr_names)
+        qs.delete()
+
+    @staticmethod
+    def cleanup_soft_deleted_objects():
         try:
             import time
             qs = ObjectDB.objects.filter(db_tags__db_key__iexact="deleted")
@@ -234,11 +229,42 @@ class WeeklyEvents(Script):
         except Exception as err:
             traceback.print_exc()
             print "Error in cleaning up deleted objects: %s" % err
-        # wipe all attributes we wish to refresh this week
-        from evennia.typeclasses.attributes import Attribute
-        attr_names = CHARACTER_ATTRS + PLAYER_ATTRS
-        qs = Attribute.objects.filter(db_key__in=attr_names)
-        qs.delete()
+
+    @staticmethod
+    def cleanup_django_admin_logs(date):
+        try:
+            from django.contrib.admin.models import LogEntry
+            qs = LogEntry.objects.filter(action_time__lte=date)
+            qs.delete()
+        except Exception as err:
+            traceback.print_exc()
+            print "Error in cleaning Django Admin Change History: %s" % err
+
+    @staticmethod
+    def cleanup_old_tickets(date):
+        try:
+            from web.helpdesk.models import Ticket, Queue
+            try:
+                queue = Queue.objects.get(slug__iexact="story")
+                qs = Ticket.objects.filter(status__in=(Ticket.RESOLVED_STATUS, Ticket.CLOSED_STATUS),
+                                           modified__lte=date
+                                           ).exclude(queue=queue)
+                qs.delete()
+            except Queue.DoesNotExist:
+                pass
+        except Exception as err:
+            traceback.print_exc()
+            print "Error in cleaning tickets: %s" % err
+
+    @staticmethod
+    def cleanup_old_informs(date):
+        try:
+            from world.msgs.models import Inform
+            qs = Inform.objects.filter(date_sent__lte=date).exclude(important=True)
+            qs.delete()
+        except Exception as err:
+            traceback.print_exc()
+            print "Error in cleaning informs: %s" % err
 
     # noinspection PyProtectedMember
     def do_events_per_player(self, reset=True):
@@ -652,17 +678,6 @@ class WeeklyEvents(Script):
         prestige_msg = "{wMost Praised this week{n".center(72)
         prestige_msg = "%s\n%s" % (prestige_msg, str(table).lstrip())
         prestige_msg += "\n\n"
-        # prestige_msg += "{wMost Condemned this week{n".center(72)
-        # sorted_condemns = sorted(self.db.recorded_condemns.items(), key=lambda x: x[1][1], reverse=True)
-        # sorted_condemns = sorted_condemns[:20]
-        # table = EvTable("{wName{n", "{w#{n", "{wMsg{n", border="cells", width=78)
-        # for tup in sorted_condemns:
-        #     condemn_messages = [con_msg for _, con_msg in tup[1][2] if con_msg] or [None]
-        #     table.add_row(tup[0].capitalize()[:18], tup[1][1], "'%s'" % random.choice(condemn_messages))
-        # table.reformat_column(0, width=18)
-        # table.reformat_column(1, width=5)
-        # table.reformat_column(2, width=55)
-        # prestige_msg = "%s\n%s" % (prestige_msg, str(table).lstrip())
         try:
             # sort by our prestige change amount
             sorted_changes = sorted(self.db.prestige_changes.items(), key=lambda x: abs(x[1]), reverse=True)
