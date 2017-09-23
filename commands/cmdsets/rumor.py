@@ -5,8 +5,7 @@ Commands for rumormills.
 from evennia import CmdSet
 from evennia.commands.default.muxcommand import MuxCommand
 from evennia.utils import evtable
-from server.utils.arx_utils import get_week, tnow
-from evennia.utils.create import create_message
+from server.utils.arx_utils import get_week, time_now
 from world.stats_and_skills import do_dice_check
 from world.dominion.models import AssignedTask
 from server.utils import arx_more
@@ -80,7 +79,7 @@ class CmdGossip(MuxCommand):
         heard_rumors = caller.ndb.heard_rumors or []
         week = get_week()
         for rumor in rumors:
-            now = tnow()
+            now = time_now()
             if (now - rumor.db_date_created).days > RUMOR_LIFETIME:
                 continue
             x += 1

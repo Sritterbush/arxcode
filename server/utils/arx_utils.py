@@ -35,7 +35,7 @@ def inform_staff(message):
     from evennia.comms.models import ChannelDB
     try:
         wizchan = ChannelDB.objects.get(db_key__iexact="staffinfo")
-        now = tnow().strftime("%H:%M")
+        now = time_now().strftime("%H:%M")
         wizchan.tempmsg("{r[%s]:{n %s" % (now, message))
     except Exception as err:
         print("ERROR when attempting utils.inform_staff() : %s" % err)
@@ -43,13 +43,13 @@ def inform_staff(message):
 
 def setup_log(logfile):
     import logging
-    fileh = logging.FileHandler(logfile, 'a')
+    file_handle = logging.FileHandler(logfile, 'a')
     formatter = logging.Formatter(fmt=settings.LOG_FORMAT, datefmt=settings.DATE_FORMAT)
-    fileh.setFormatter(formatter)   
+    file_handle.setFormatter(formatter)
     log = logging.getLogger()
-    for hdlr in log.handlers:
-        log.removeHandler(hdlr)
-    log.addHandler(fileh)
+    for handler in log.handlers:
+        log.removeHandler(handler)
+    log.addHandler(file_handle)
     log.setLevel(logging.DEBUG)
     return log
 
@@ -74,7 +74,8 @@ def get_week():
     return weekly.db.week
 
 
-def tnow(aware=False):
+def time_now(aware=False):
+    """Gets naive or aware datetime."""
     if aware:
         from django.utils import timezone
         return timezone.localtime(timezone.now())
@@ -82,29 +83,35 @@ def tnow(aware=False):
     return datetime.now()
 
 
-def tdiff(date):
+def time_from_now(date):
+    """
+    Gets timedelta compared to now
+    Args:
+        date: Datetime object to compare to now
+
+    Returns:
+        Timedelta object of difference between date and the current time.
+    """
     try:
-        diff = date - tnow()
+        diff = date - time_now()
     except (TypeError, ValueError):
-        diff = date - tnow(aware=True)
+        diff = date - time_now(aware=True)
     return diff
 
 
-def datetime_format(dtobj):
+def datetime_format(date):
     """
     Takes a datetime object instance (e.g. from django's DateTimeField)
     and returns a string describing how long ago that date was.
-
     """
-
-    year, month, day = dtobj.year, dtobj.month, dtobj.day
-    hour, minute, second = dtobj.hour, dtobj.minute, dtobj.second
+    year, month, day = date.year, date.month, date.day
+    hour, minute, second = date.hour, date.minute, date.second
     now = datetime.now()
 
     if year < now.year:
         # another year
-        timestring = str(dtobj.date())
-    elif dtobj.date() < now.date():
+        timestring = str(date.date())
+    elif date.date() < now.date():
         # another date, same year
         # put month before day because of FREEDOM
         timestring = "%02i-%02i %02i:%02i" % (month, day, hour, minute)
@@ -222,6 +229,7 @@ def check_break(caller=None):
 
 
 def delete_empty_tags():
+    """Deletes any tag that isn't currently connected to any objects."""
     from evennia.typeclasses.tags import Tag
     empty = Tag.objects.filter(objectdb__isnull=True, playerdb__isnull=True, msg__isnull=True, helpentry__isnull=True,
                                scriptdb__isnull=True, channeldb__isnull=True)
@@ -273,7 +281,7 @@ def approval_cleanup(entry):
     entry.player.attributes.remove("hide_from_watch")
     entry.player.db.mails = []
     entry.player.db.readmails = set()
-    # remove and readd all channels
+    # remove and re-add all channels
     from typeclasses.channels import Channel
     channels = Channel.objects.get_subscriptions(entry.player)
     for channel in channels:
