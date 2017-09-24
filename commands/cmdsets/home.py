@@ -976,6 +976,7 @@ class CmdBuyFromShop(CmdCraft):
         +shop/changename <object>=<new name>
         +shop/refine <object>[=<additional silver to spend>,AP to spend>]
         +shop/addadorn <object>=<material type>,<amount>
+        +shop/craft
 
     Allows you to buy objects from a shop. +shop/craft allows you to use a 
     crafter's skill to create an item. Similarly, +shop/refine lets you use a 
