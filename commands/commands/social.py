@@ -2184,7 +2184,7 @@ class CmdRandomScene(MuxCommand):
         if newbies:
             choices = choices.exclude(id__in=newbies)
         choices = list(choices)
-        num_scenes = self.NUM_SCENES - len(claimlist)
+        num_scenes = self.NUM_SCENES - (len(claimlist) + len(scenelist))
         if num_scenes > 0:
             scenelist.extend(random.sample(choices, num_scenes))
         scenelist = sorted(scenelist, key=lambda x: x.key.capitalize())
