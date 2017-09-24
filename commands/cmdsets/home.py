@@ -1080,7 +1080,7 @@ class CmdBuyFromShop(CmdCraft):
         loc.db.shopowner.pay_money(-price)
         assets = loc.db.shopowner.player_ob.assets
         if price >= assets.min_silver_for_inform:
-            assets.inform(msg, category="shop")
+            assets.inform(msg, category="shop", append=True)
 
     def buy_item(self, item):
         """Buy an item from inventory - pay the owner and get the item"""

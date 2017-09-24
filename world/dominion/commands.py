@@ -1505,7 +1505,7 @@ class CmdArmy(MuxPlayerCommand):
         from .unit_types import cls_from_str, print_unit_names
         cls = cls_from_str(self.args)
         if not cls:
-            self.msg("Invalid type. Valid types: %s" % print_unit_names())
+            self.msg("{wValid types:{n %s" % print_unit_names())
             return
         self.msg(cls.display_class_stats())
 
@@ -1516,6 +1516,9 @@ class CmdArmy(MuxPlayerCommand):
             self.caller.Dominion.armies.clear()
             self.caller.Dominion.units.clear()
             self.msg("You have resigned any military command you held.")
+            return
+        if "viewclass" in self.switches:
+            self.view_class_stats()
             return
         if not self.args:
             self.display_armies()
@@ -1528,9 +1531,6 @@ class CmdArmy(MuxPlayerCommand):
                 self.msg("You do not have permission to see that army's details.")
                 return
             caller.msg(army.display())
-            return
-        if "viewclass" in self.switches:
-            self.view_class_stats()
             return
         if "propaganda" in self.switches:
             target = self.caller.search(self.lhs)

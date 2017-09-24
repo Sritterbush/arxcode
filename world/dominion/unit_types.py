@@ -101,7 +101,6 @@ def print_unit_names():
     return ", ".join(cls.name for cls in _UNIT_TYPES.values())
 
 
-@register_unit
 class UnitStats(PositionActor):
     """
     Contains all the stats for a military unit.
