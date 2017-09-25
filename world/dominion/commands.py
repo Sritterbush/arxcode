@@ -1415,7 +1415,7 @@ class CmdArmy(MuxPlayerCommand):
         @army/resign
         @army/grant <army>=<character or org>
         @army/recall <army>
-        @army/propaganda <character>=<action points>
+        @army/propaganda <character>=<action points in addition to 30 base>
         @army/morale <army>=<action points>
         @army/viewclass <unit type>
 
@@ -1899,9 +1899,6 @@ class CmdOrganization(MuxPlayerCommand):
                 if not clue:
                     return
                 cost = (caller.clue_cost / (org.social_modifier + 4)) + 1
-                # if tarmember.player.player == self.caller:
-                #     self.msg("You cannot brief yourself.")
-                #     return
                 if not org.access(caller, 'briefing'):
                     self.msg("You do not have permissions to do a briefing.")
                     return
@@ -1933,7 +1930,7 @@ class CmdOrganization(MuxPlayerCommand):
                 if theory in player.known_theories.all():
                     self.msg("They already know that theory.")
                     return
-                player.known_theories.add(theory)
+                theory.share_with(player)
                 share_type = "theory"
                 cmd_string = "@theories"
                 share_str = theory
