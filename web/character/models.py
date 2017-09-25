@@ -1097,10 +1097,10 @@ class Theory(SharedMemoryModel):
     Represents a theory that a player has come up with, and is now
     stored and can be shared with others.
     """
-    creator = models.ForeignKey("players.PlayerDB", related_name="created_theories", blank=True, null=True,
+    creator = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="created_theories", blank=True, null=True,
                                 db_index=True)
-    known_by = models.ManyToManyField("players.PlayerDB", related_name="known_theories", blank=True, null=True)
-    can_edit = models.ManyToManyField("players.PlayerDB", related_name="editable_theories", blank=True, null=True)
+    known_by = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="known_theories", blank=True, null=True,
+                                      through="TheoryPermissions")
     topic = models.CharField(max_length=255, blank=True, null=True)
     desc = models.TextField(blank=True, null=True)
     related_clues = models.ManyToManyField("Clue", related_name="theories", blank=True, null=True, db_index=True)
@@ -1120,6 +1120,42 @@ class Theory(SharedMemoryModel):
         msg += "{wDesc{n: %s\n" % self.desc
         msg += "{wRelated Theories{n: %s\n" % ", ".join(str(ob.id) for ob in self.related_theories.all())
         return msg
+
+    def share_with(self, player):
+        permission, _ = self.theory_permissions.get_or_create(player=player)
+
+    def forget_by(self, player):
+        permission = self.theory_permissions.filter(player=player)
+        permission.delete()
+
+    def add_editor(self, player):
+        permission, _ = self.theory_permissions.get_or_create(player=player)
+        permission.can_edit = True
+        permission.save()
+
+    def remove_editor(self, player):
+        """
+        Removes a player as an editor if they already were one.
+        Args:
+            player: Player to stop being an editor
+        """
+        # if they're not an editor, we don't create a theory_permission for them, since that would share theory
+        try:
+            permission = self.theory_permissions.get(player=player)
+            permission.can_edit = False
+            permission.save()
+        except TheoryPermissions.DoesNotExist:
+            pass
+
+    @property
+    def can_edit(self):
+        return self.known_by.filter(theory_permissions__can_edit=True)
+
+
+class TheoryPermissions(SharedMemoryModel):
+    player = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="theory_permissions")
+    theory = models.ForeignKey("Theory", related_name="theory_permissions")
+    can_edit = models.BooleanField(default=False)
 
 
 def get_keywords_from_topic(topic):

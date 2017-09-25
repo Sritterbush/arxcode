@@ -442,3 +442,8 @@ class Player(InformMixin, MsgMixins, DefaultPlayer):
             return self.roster.character
         except AttributeError:
             pass
+
+    @property
+    def editable_theories(self):
+        ids = [ob.theory.id for ob in self.theory_permissions.filter(can_edit=True)]
+        return self.known_theories.filter(id__in=ids)

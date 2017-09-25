@@ -1335,8 +1335,7 @@ class CmdTheories(MuxPlayerCommand):
     def display_theories(self):
         table = EvTable("{wID #{n", "{wTopic{n")
         if "mine" in self.switches:
-            qs = list(self.caller.created_theories.all().order_by('id'))
-            qs += list(self.caller.editable_theories.all().order_by('id'))
+            qs = self.caller.editable_theories.all().order_by('id')
         else:
             qs = self.caller.known_theories.all()
             qs.order_by('id')
@@ -1372,7 +1371,7 @@ class CmdTheories(MuxPlayerCommand):
             return
         if "create" in self.switches:
             theory = self.caller.created_theories.create(topic=self.lhs, desc=self.rhs)
-            self.caller.known_theories.add(theory)
+            theory.add_editor(self.caller)
             self.msg("You have created a new theory.")
             return
         if "share" in self.switches or "shareall" in self.switches:
@@ -1414,7 +1413,7 @@ class CmdTheories(MuxPlayerCommand):
                 if theory in targ.known_theories.all():
                     self.msg("They already know that theory.")
                     continue
-                targ.known_theories.add(theory)
+                theory.share_with(targ)
                 self.msg("Theory %s added to %s." % (self.lhs, targ))
                 targ.inform("%s has shared a theory with you." % self.caller, category="Theories")
             return
@@ -1424,8 +1423,7 @@ class CmdTheories(MuxPlayerCommand):
             except (Theory.DoesNotExist, ValueError):
                 self.msg("No theory by that ID.")
                 return
-            self.caller.known_theories.remove(theory)
-            self.caller.editable_theories.remove(theory)
+            theory.forget_by(self.caller)
             self.msg("Theory forgotten.")
             if not theory.known_by.all():  # if no one knows about it now
                 theory.delete()
@@ -1439,16 +1437,19 @@ class CmdTheories(MuxPlayerCommand):
             player = self.caller.search(self.rhs)
             if not player:
                 return
+            if not theory.known_by.filter(id=player.id).exists():
+                self.msg("They do not know the theory yet.")
+                return
             if "addeditor" in self.switches:
-                player.editable_theories.add(theory)
-                self.msg("%s added as an editor." % player)
+                theory.add_editor(player)
+                self.msg("%s can now edit the theory." % player)
                 return
             if "rmeditor" in self.switches:
-                player.editable_theories.remove(theory)
-                self.msg("%s added as an editor." % player)
+                theory.remove_editor(player)
+                self.msg("%s cannot edit the theory." % player)
                 return
         try:
-            theory = Theory.objects.filter(Q(can_edit=self.caller) | Q(creator=self.caller)).distinct().get(id=self.lhs)
+            theory = self.caller.editable_theories.get(id=self.lhs)
         except (Theory.DoesNotExist, ValueError):
             self.msg("You cannot edit a theory by that number.")
             return
