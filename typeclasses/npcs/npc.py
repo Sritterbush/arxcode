@@ -686,6 +686,18 @@ class AgentMixin(object):
         except (AttributeError, KeyError):
             return False
 
+    @property
+    def xp(self):
+        return self.agent.xp
+
+    @xp.setter
+    def xp(self, value):
+        self.agent.xp = value
+        self.agent.save()
+
+    def adjust_xp(self, value):
+        self.xp += value
+
 
 class Retainer(AgentMixin, Npc):
 

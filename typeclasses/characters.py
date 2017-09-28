@@ -467,6 +467,14 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     
     dmg = property(_get_current_damage, _set_current_damage)
 
+    @property
+    def xp(self):
+        return self.db.xp or 0
+
+    @xp.setter
+    def xp(self, value):
+        self.db.xp = value
+
     def adjust_xp(self, value):
         """
         Spend or earn xp. Total xp keeps track of all xp we've earned on this
@@ -476,8 +484,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         """
         if not self.db.total_xp:
             self.db.total_xp = 0
-        if not self.db.xp:
-            self.db.xp = 0
+        if not self.xp:
+            self.xp = 0
         if value > 0:
             self.db.total_xp += value
             try:
@@ -485,10 +493,10 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             except (AttributeError, ValueError, TypeError):
                 pass
         else:
-            if self.db.xp < abs(value):
+            if self.xp < abs(value):
                 raise ValueError("Bad value passed to adjust_xp -" +
                                  " character did not have enough xp to pay for the value.")
-        self.db.xp += value
+        self.xp += value
 
     def follow(self, targ):
         if not targ.ndb.followers:

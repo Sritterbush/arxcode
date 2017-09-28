@@ -2291,6 +2291,10 @@ class Agent(SharedMemoryModel):
             raise ValueError("Undefined category")
         return attr_max
 
+    def adjust_xp(self, value):
+        self.xp += value
+        self.save()
+
 
 class AgentMission(SharedMemoryModel):
     """

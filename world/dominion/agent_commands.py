@@ -311,7 +311,7 @@ class CmdRetainers(MuxPlayerCommand):
         @retainers
         @retainers/create <name>,<type>
         @retainers/train <owner>=<retainer name>
-        @retainers/transferxp <id #>=<xp>
+        @retainers/transferxp <id #>=<xp>[,retainer ID]
         @retainers/buyability <id #>=<ability>
         @retainers/buyskill <id #>=<skill>
         @retainers/buylevel <id #>=<field>
@@ -361,11 +361,11 @@ class CmdRetainers(MuxPlayerCommand):
                     "skintone", "height")
     valid_categories = ("skill", "stat", "ability", "level", "armor", "weapon")
 
-    def get_agent_from_args(self):
+    def get_agent_from_args(self, args):
         """Get our retainer's Agent model from an ID number in args"""
-        if self.lhs.isdigit():
-            return self.caller.retainers.get(id=self.lhs)
-        return self.caller.retainers.get(agent_objects__dbobj__db_key__iexact=self.lhs)
+        if args.isdigit():
+            return self.caller.retainers.get(id=args)
+        return self.caller.retainers.get(agent_objects__dbobj__db_key__iexact=args)
 
     def display_retainers(self):
         """
@@ -437,21 +437,30 @@ class CmdRetainers(MuxPlayerCommand):
         resources. XP transferred to a retainer is multiplied to make
         it appealing to dump xp on them rather than spend it personally.
         """
-        char = self.caller.db.char_ob
+        if len(self.rhslist) < 2:
+            char = self.caller.db.char_ob
+            multiplier = 3
+        else:
+            try:
+                char = self.get_agent_from_args(self.rhslist[1])
+                multiplier = 1
+            except (Agent.DoesNotExist, ValueError):
+                self.msg("Could not find an agent by those args.")
+                return
         try:
-            amt = int(self.rhs)
+            amt = int(self.rhslist[0])
             if amt < 1:
                 raise ValueError
         except (TypeError, ValueError):
             self.msg("You must specify a positive xp value to transfer to your retainer.")
             return
-        if char.db.xp < amt:
-            self.msg("You want to transfer %s xp, but only have %s." % (amt, char.db.xp))
+        if char.xp < amt:
+            self.msg("You want to transfer %s xp, but only have %s." % (amt, char.xp))
             return
-        char.db.xp -= amt
-        amt *= 3
-        agent.xp += amt
-        agent.save()
+        char.adjust_xp(-amt)
+        self.msg("%s has %s xp remaining." % (char, char.xp))
+        amt *= multiplier
+        agent.adjust_xp(amt)
         self.msg("%s now has %s xp to spend." % (agent, agent.xp))
         return
 
@@ -797,7 +806,7 @@ class CmdRetainers(MuxPlayerCommand):
             return
         # methods that require an agent below
         try:
-            agent = self.get_agent_from_args()
+            agent = self.get_agent_from_args(self.lhs)
         except (Agent.DoesNotExist, ValueError, TypeError):
             caller.msg("No agent found that matches %s." % self.lhs)
             self.msg("Your current retainers:")
