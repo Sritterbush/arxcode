@@ -346,7 +346,8 @@ class CmdRetainers(MuxPlayerCommand):
     is free. The cost of a new retainer is 100 resources, with champions
     and large animals requiring military, assistants using economic, and
     spies requiring social. Small animals, due to their limited use, only
-    cost 25 social resources.
+    cost 25 social resources. Retainers can also be trained to grant them
+    xp, but this can only match amounts given to them with transfers.
 
     /delete will remove a retainer that you own forever.
     """
@@ -439,11 +440,13 @@ class CmdRetainers(MuxPlayerCommand):
         """
         if len(self.rhslist) < 2:
             char = self.caller.db.char_ob
-            multiplier = 3
+            xp_multiplier = 3
+            training_cap_multiplier = 6
         else:
             try:
                 char = self.get_agent_from_args(self.rhslist[1])
-                multiplier = 1
+                xp_multiplier = 1
+                training_cap_multiplier = 0
             except (Agent.DoesNotExist, ValueError):
                 self.msg("Could not find an agent by those args.")
                 return
@@ -459,8 +462,10 @@ class CmdRetainers(MuxPlayerCommand):
             return
         char.adjust_xp(-amt)
         self.msg("%s has %s xp remaining." % (char, char.xp))
-        amt *= multiplier
+        training_cap_amount = amt * training_cap_multiplier
+        amt *= xp_multiplier
         agent.adjust_xp(amt)
+        agent.training_cap += training_cap_amount
         self.msg("%s now has %s xp to spend." % (agent, agent.xp))
         return
 
