@@ -23,6 +23,7 @@ from web.character.models import Investigation, RosterEntry
 EVENT_SCRIPT_NAME = "Weekly Update"
 VOTES_BOARD_NAME = 'Votes'
 PRESTIGE_BOARD_NAME = 'Prestige Changes'
+TRAINING_CAP_PER_WEEK = 10
 
 PLAYER_ATTRS = ("votes", 'claimed_scenelist', 'random_scenelist', 'validated_list', 'praises', 'condemns',
                 'requested_validation', 'donated_ap')
@@ -336,6 +337,7 @@ class WeeklyEvents(Script):
                     continue
             for agent in player.retainers:
                 try:
+                    agent.training_cap += TRAINING_CAP_PER_WEEK
                     del agent.dbobj.attributes._cache["trainer-None"]
                 except (KeyError, AttributeError):
                     continue

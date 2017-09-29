@@ -793,6 +793,11 @@ class Retainer(AgentMixin, Npc):
         msg += " Their current cap on how much xp they can receive from training is: %s" % self.training_cap
         self.inform_owner(msg)
         print "Training log: %s" % msg
+
+    def view_stats(self, viewer, combat=False):
+        super(Retainer, self).view_stats(viewer, combat)
+        msg = "\n{wCurrent Training Cap:{n %s" % self.training_cap
+        viewer.msg(msg)
     
 
 # noinspection PyAttributeOutsideInit
