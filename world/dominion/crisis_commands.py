@@ -597,7 +597,8 @@ class CmdCrisisAction(MuxPlayerCommand):
             self.ask_question()
             return
         if "cancel" in self.switches:
-            self.cancel_action()
+            self.msg("This is temporarily disabled.")
+            # self.cancel_action()
             return
         if "append" in self.switches:
             self.append_action()
