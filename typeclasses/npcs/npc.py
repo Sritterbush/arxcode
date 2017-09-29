@@ -755,6 +755,9 @@ class Retainer(AgentMixin, Npc):
         if not skill:
             trainer.msg("You must have %s skill to train them." % self.training_skill)
             return False
+        if self.training_cap <= 0:
+            trainer.msg("They have a current training cap of: %s." % self.training_cap)
+            return False
         return super(Retainer, self).can_be_trained_by(trainer)
 
     def post_training(self, trainer, trainer_msg="", targ_msg=""):
