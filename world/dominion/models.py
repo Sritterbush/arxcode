@@ -2296,12 +2296,12 @@ class Agent(SharedMemoryModel):
         self.save()
 
     @property
-    def training_cap(self):
-        return self.dbobj.training_cap
+    def xp_transfer_cap(self):
+        return self.dbobj.xp_transfer_cap
 
-    @training_cap.setter
-    def training_cap(self, value):
-        self.dbobj.training_cap = value
+    @xp_transfer_cap.setter
+    def xp_transfer_cap(self, value):
+        self.dbobj.xp_transfer_cap = value
 
 
 class AgentMission(SharedMemoryModel):

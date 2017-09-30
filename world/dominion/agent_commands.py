@@ -460,14 +460,22 @@ class CmdRetainers(MuxPlayerCommand):
         if char.xp < amt:
             self.msg("You want to transfer %s xp, but only have %s." % (amt, char.xp))
             return
+        if hasattr(char, 'xp_transfer_cap'):
+            if amt > char.xp_transfer_cap:
+                self.msg("You are trying to transfer %s xp and their transfer cap is %s." % (amt, char.xp_transfer_cap))
+                return
+            self.adjust_transfer_cap(char, -amt)
         char.adjust_xp(-amt)
         self.msg("%s has %s xp remaining." % (char, char.xp))
-        training_cap_amount = amt * training_cap_multiplier
         amt *= xp_multiplier
         agent.adjust_xp(amt)
-        agent.training_cap += training_cap_amount
+        self.adjust_transfer_cap(agent, amt)
         self.msg("%s now has %s xp to spend." % (agent, agent.xp))
         return
+
+    def adjust_transfer_cap(self, agent, amt):
+        agent.xp_transfer_cap += amt
+        self.msg("%s's xp transfer cap is now %s." % (agent, agent.xp_transfer_cap))
 
     # ------ Helper methods for performing pre-purchase checks -------------
     def check_categories(self, category):

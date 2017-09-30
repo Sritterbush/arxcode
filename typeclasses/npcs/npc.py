@@ -699,14 +699,14 @@ class AgentMixin(object):
         self.xp += value
 
     @property
-    def training_cap(self  # type: Retainer or Agent
-                     ):
-        return self.db.training_cap or 0
+    def xp_transfer_cap(self  # type: Retainer or Agent
+                        ):
+        return self.db.xp_transfer_cap or 0
 
-    @training_cap.setter
-    def training_cap(self,  # type: Retainer or Agent
-                     value):
-        self.db.training_cap = value
+    @xp_transfer_cap.setter
+    def xp_transfer_cap(self,  # type: Retainer or Agent
+                        value):
+        self.db.xp_transfer_cap = value
 
 
 class Retainer(AgentMixin, Npc):
@@ -755,9 +755,6 @@ class Retainer(AgentMixin, Npc):
         if not skill:
             trainer.msg("You must have %s skill to train them." % self.training_skill)
             return False
-        if self.training_cap <= 0:
-            trainer.msg("They have a current training cap of: %s." % self.training_cap)
-            return False
         return super(Retainer, self).can_be_trained_by(trainer)
 
     def post_training(self, trainer, trainer_msg="", targ_msg=""):
@@ -772,6 +769,11 @@ class Retainer(AgentMixin, Npc):
         else:
             raise RuntimeError("Somehow, post_training was not called or did not return a value.")
 
+    @property
+    def training_difficulty(self):
+        div = 2 if self.training_skill == "animal ken" else 1
+        return (self.agent.xp + (self.agent.quality * 20))/div
+
     def train_agent(self, trainer):
         """
         Gives xp to this agent if they haven't been trained yet this week.
@@ -780,23 +782,23 @@ class Retainer(AgentMixin, Npc):
         """
         # use real name if we're not present. If we're here, use masked name
         use_real_name = self.location != trainer.location
-        roll = do_dice_check(trainer, stat="command", skill=self.training_skill, difficulty=0, quiet=False,
-                             use_real_name=use_real_name)
-        if roll > self.training_cap:
-            trainer.msg("The amount of xp they would have gained is over their current training cap.")
-            roll = self.training_cap
-        self.training_cap -= roll
-        self.agent.xp += roll
-        self.agent.save()
-        trainer.msg("You have trained %s, giving them %s xp." % (self, roll))
-        msg = "%s has trained %s, giving them %s xp." % (trainer, self, roll)
-        msg += " Their current cap on how much xp they can receive from training is: %s" % self.training_cap
+        name = trainer.key if use_real_name else str(trainer)
+        roll = do_dice_check(trainer, stat="command", skill=self.training_skill, difficulty=self.training_difficulty,
+                             quiet=False, use_real_name=use_real_name)
+        if roll < 0:
+            trainer.msg("You have failed to teach them anything.")
+            msg = "%s has attempted to train %s, but utterly failed to teach them anything." % (name, self)
+        else:
+            self.agent.xp += roll
+            self.agent.save()
+            trainer.msg("You have trained %s, giving them %s xp." % (self, roll))
+            msg = "%s has trained %s, giving them %s xp." % (name, self, roll)
         self.inform_owner(msg)
         print "Training log: %s" % msg
 
     def view_stats(self, viewer, combat=False):
         super(Retainer, self).view_stats(viewer, combat)
-        msg = "\n{wCurrent Training Cap:{n %s" % self.training_cap
+        msg = "\n{wCurrent Training Difficulty:{n %s" % self.training_difficulty
         viewer.msg(msg)
     
 

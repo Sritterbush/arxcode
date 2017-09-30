@@ -337,7 +337,6 @@ class WeeklyEvents(Script):
                     continue
             for agent in player.retainers:
                 try:
-                    agent.training_cap += TRAINING_CAP_PER_WEEK
                     del agent.dbobj.attributes._cache["trainer-None"]
                 except (KeyError, AttributeError):
                     continue
