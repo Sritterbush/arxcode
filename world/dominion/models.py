@@ -2102,6 +2102,7 @@ class UnitTypeInfo(models.Model):
     SIEGE_WEAPON = unit_constants.SIEGE_WEAPON
     GALLEY = unit_constants.GALLEY
     DROMOND = unit_constants.DROMOND
+    COG = unit_constants.COG
     
     UNIT_CHOICES = (
         (INFANTRY, 'Infantry'),
@@ -2111,6 +2112,7 @@ class UnitTypeInfo(models.Model):
         (LONGSHIP, 'Longship'),
         (SIEGE_WEAPON, 'Siege Weapon'),
         (GALLEY, 'Galley'),
+        (COG, 'Cog'),
         (DROMOND, 'Dromond'),
         )
     # type will be used to derive units and their stats elsewhere 
