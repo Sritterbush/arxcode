@@ -771,8 +771,8 @@ class Retainer(AgentMixin, Npc):
 
     @property
     def training_difficulty(self):
-        div = 2 if self.training_skill == "animal ken" else 1
-        return (self.agent.xp + (self.agent.quality * 20))/div
+        mult = 0.75 if self.training_skill == "animal ken" else 1
+        return int((self.agent.xp/3 + (self.agent.quality * 15)) * mult)
 
     def train_agent(self, trainer):
         """
