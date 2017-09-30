@@ -646,7 +646,7 @@ class AgentMixin(object):
         """
         return self.agentob.agent_class
 
-    def train_agent(self, trainer):
+    def train_agent(self, trainer, conditioning):
         trainer.msg("This type of agent cannot be trained.")
         return False
     
@@ -708,6 +708,16 @@ class AgentMixin(object):
                         value):
         self.db.xp_transfer_cap = value
 
+    @property
+    def conditioning(self  # type: Retainer or Agent
+                     ):
+        return self.db.conditioning_for_training or 0
+
+    @conditioning.setter
+    def conditioning(self,  # type: Retainer or Agent
+                     value):
+        self.db.conditioning_for_training = value
+
 
 class Retainer(AgentMixin, Npc):
 
@@ -757,7 +767,7 @@ class Retainer(AgentMixin, Npc):
             return False
         return super(Retainer, self).can_be_trained_by(trainer)
 
-    def post_training(self, trainer, trainer_msg="", targ_msg=""):
+    def post_training(self, trainer, trainer_msg="", targ_msg="", ap_spent=0, **kwargs):
         # if post_training works, then we proceed with training the agent
         if super(Retainer, self).post_training(trainer, trainer_msg=trainer_msg, targ_msg=targ_msg):
             currently_training = trainer.db.currently_training or []
@@ -765,16 +775,16 @@ class Retainer(AgentMixin, Npc):
                 # this should not be possible. Nonetheless, it has happened.
                 from server.utils.arx_utils import trainer_diagnostics
                 raise RuntimeError("Error: Training list not properly updated: %s" % trainer_diagnostics(trainer))
-            self.train_agent(trainer)
+            self.train_agent(trainer, ap_spent)
         else:
             raise RuntimeError("Somehow, post_training was not called or did not return a value.")
 
     @property
     def training_difficulty(self):
         mult = 0.75 if self.training_skill == "animal ken" else 1
-        return int((self.agent.xp/3 + (self.agent.quality * 15)) * mult)
+        return int((self.agent.xp/3 + (self.agent.quality * 15)) * mult) - self.conditioning
 
-    def train_agent(self, trainer):
+    def train_agent(self, trainer, conditioning):
         """
         Gives xp to this agent if they haven't been trained yet this week.
         The skill used to train them is based on our type - animal ken for
@@ -783,6 +793,7 @@ class Retainer(AgentMixin, Npc):
         # use real name if we're not present. If we're here, use masked name
         use_real_name = self.location != trainer.location
         name = trainer.key if use_real_name else str(trainer)
+        self.conditioning += conditioning
         roll = do_dice_check(trainer, stat="command", skill=self.training_skill, difficulty=self.training_difficulty,
                              quiet=False, use_real_name=use_real_name)
         if roll < 0:
@@ -793,6 +804,7 @@ class Retainer(AgentMixin, Npc):
             self.agent.save()
             trainer.msg("You have trained %s, giving them %s xp." % (self, roll))
             msg = "%s has trained %s, giving them %s xp." % (name, self, roll)
+            self.conditioning = 0
         self.inform_owner(msg)
         print "Training log: %s" % msg
 

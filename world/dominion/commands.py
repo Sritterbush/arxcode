@@ -1613,8 +1613,8 @@ class CmdArmy(MuxPlayerCommand):
                 if unit.quantity <= qty:
                     self.msg("You cannot split the entirety of a unit.")
                     return
-                self.msg("Splitting unit %s. %s will go to a new unit and %s remain." % (unit.id, qty, unit.quantity))
                 unit.split(qty)
+                self.msg("Splitting unit %s. %s will go to a new unit and %s remain." % (unit.id, qty, unit.quantity))
                 return
             if "transfer" in self.switches:
                 army = self.find_army(self.rhs)

@@ -980,7 +980,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             return False
         return True
 
-    def post_training(self, trainer, trainer_msg="", targ_msg=""):
+    def post_training(self, trainer, trainer_msg="", targ_msg="", **kwargs):
         """
         Handles bookkeeping after this character is trained.
 
