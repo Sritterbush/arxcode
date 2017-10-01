@@ -1559,8 +1559,9 @@ class CmdArmy(MuxPlayerCommand):
             return
         if "create" in self.switches:
             # get owner for army from self.lhs
+            dompc = caller.Dominion
             try:
-                org = caller.Dominion.current_orgs.get(name__iexact=self.lhs)
+                org = dompc.current_orgs.get(name__iexact=self.lhs)
             except Organization.DoesNotExist:
                 self.msg("You are not in an organization by that name.")
                 return
@@ -1568,7 +1569,8 @@ class CmdArmy(MuxPlayerCommand):
             if not name:
                 caller.msg("The army needs a name.")
                 return
-            if not org.access(caller, "army"):
+            if not org.access(caller, "army") and not dompc.appointments.filter(category=Minister.WARFARE,
+                                                                                ruler__house=org.assets):
                 caller.msg("You don't hold rank in %s for building armies." % org)
                 return
             # create army
