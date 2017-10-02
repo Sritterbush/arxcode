@@ -724,6 +724,7 @@ class CmdRetainers(MuxPlayerCommand):
             newval *= -1
         fake[self.rhs] = newval
         agent.dbobj.fakeweapon = fake
+        agent.dbobj.combat.setup_weapon(fake)
         self.msg("You have raised %s's %s to %s." % (agent, self.rhs, newval))
         return
 
