@@ -35,7 +35,9 @@ class Npc(Character):
     """
     NPC objects
 
-    """    
+    """
+    ATK_MOD = 30
+    DEF_MOD = -30
     # ------------------------------------------------
     # PC command methods
     # ------------------------------------------------
@@ -223,11 +225,11 @@ class Npc(Character):
     # npcs are easier to hit than players, and have an easier time hitting
     @property
     def defense_modifier(self):
-        return super(Npc, self).defense_modifier - 30
+        return super(Npc, self).defense_modifier + self.DEF_MOD
 
     @property
     def attack_modifier(self):
-        return super(Npc, self).attack_modifier + 30
+        return super(Npc, self).attack_modifier + self.ATK_MOD
 
     # ------------------------------------------------
     # New npc methods
@@ -720,6 +722,8 @@ class AgentMixin(object):
 
 
 class Retainer(AgentMixin, Npc):
+    ATK_MOD = 0
+    DEF_MOD = 0
 
     def display(self):
         if self.db.guarding:
