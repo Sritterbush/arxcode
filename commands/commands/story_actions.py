@@ -1,9 +1,13 @@
 from datetime import datetime
 
+from django.db.models import Q
+
 from evennia.commands.default.muxcommand import MuxPlayerCommand
 from evennia.utils.evtable import EvTable
+
 from server.utils.arx_utils import inform_staff, get_week
-from django.db.models import Q
+
+from world.dominion.models import Crisis, CrisisAction
 
 
 class CmdAction(MuxPlayerCommand):
@@ -44,13 +48,17 @@ class CmdAction(MuxPlayerCommand):
     key = "@action"
     locks = "cmd:all()"
     help_category = "Dominion"
+    max_requests = 2
+    num_days = 30
     
     def func(self):
+        if not self.args:
+            self.list_actions()
         if "newaction" in self.switches:
             return self.new_action()
-        # action = self.get_action(self.lhs)
-        # if not action:
-        #     return
+        action = self.get_action(self.lhs)
+        if not action:
+            return
         # if "stat" in self.switches or "skill" in self.switches:
         #     return self.set_stat_or_skill(action)
         # elif "ooc" in self.switches:
@@ -73,10 +81,19 @@ class CmdAction(MuxPlayerCommand):
         #     return self.toggle_view(action)
         # elif "togglepublic" in self.switches:
         #     return self.toggle_public(action)
-        # elif not self.switches or if "public" in self.switches:
-        #     return self.list_actions()
         else:
             self.msg("Invalid switch. See 'help @action'.")
+            
+    @property
+    def dompc(self):
+        return self.caller.Dominion
+            
+    def list_actions(self):
+        table = EvTable("ID", "Crisis", "Status")
+        actions = self.dompc.actions.all()
+        for action in actions:
+            table.add_row(action.id, action.crisis, action.status)
+        self.msg(table)
     
     def new_action(self):
         """Create a new action."""
@@ -85,6 +102,7 @@ class CmdAction(MuxPlayerCommand):
             return
         crisis = None
         crisis_msg = ""
+        story = self.lhs
         if self.rhs:
             crisis = self.get_crisis(self.lhs)
             story = self.rhs
@@ -93,23 +111,67 @@ class CmdAction(MuxPlayerCommand):
                 return
         if not self.can_create(crisis):
             return
-        if not self.rhs:
-            story = self.lhs
-        self.caller.Dominion.actions.create(story=story, crisis=crisis)
+        self.dompc.actions.create(story=story, crisis=crisis)
         self.msg("You have drafted a new action%s: %s" % (crisis_msg, story))
-        return
     
     def get_crisis(self, arg):
-        """Returns a Crisis from ID# in args"""
-        pass
+        """Returns a Crisis from ID# in args."""
+        try:
+            if arg.isdigit():
+                return Crisis.objects.get(id=arg)
+            else:
+                return Crisis.objects.get(name__iexact=arg)
+        except Crisis.DoesNotExist:
+            self.msg("No crisis matches %s." % arg)
         
     def get_action(self, arg):
-        """Returns an action from ID# args"""
-        pass
+        """Returns an action we are involved in from ID# args."""
+        try:
+            dompc = self.dompc
+            return CrisisAction.objects.filter(Q(dompc=dompc) | Q(assistants=dompc)).distinct().get(id=arg)
+        except CrisisAction.DoesNotExist:
+            self.msg("No action found by that ID.")
+            self.list_actions()
+    
+    def get_my_actions(self, crisis=False, assists=False):
+        """Returns caller's actions."""
+        dompc = self.dompc
+        if not assists:
+            actions = dompc.actions.all()
+        else:
+            actions = CrisisAction.objects.filter(Q(dompc=dompc) | Q(assistants=dompc)).distinct()
+        if not crisis:
+            actions = actions.filter(crisis__isnull=True)
+        return actions
         
     def can_create(self, crisis=None):
-        #fucky crisis
-        #ap
-        #too many actions
-        #already has one
+        """Checks criteria for creating a new action."""
+        if crisis:
+            time = datetime.now()
+            if crisis.end_date < time:
+                self.msg("It is past the submit date for that crisis.")
+                return False
+            elif crisis.actions.filter(sent=False, dompc=self.dompc):
+                self.msg("You have unresolved actions for that crisis already.")
+                return False
+        my_actions = self.get_my_actions()
+        from datetime import timedelta
+        offset = timedelta(days=-self.num_days)
+        old = datetime.now() + offset
+        recent_actions = my_actions.filter(db_date_submitted__gte=old)
+        if recent_actions.count() >= self.max_requests:
+            self.msg("You are permitted to make %s requests every %s days. Recent actions: %s" \
+                     % (self.max_requests, self.num_days, ", ".join(ob.id for ob in recent_actions)))
+            return False
+        my_draft = my_actions.filter(db_date_submitted__isnull=True).last()
+        if my_draft:
+            self.msg("You have drafted an action which needs to be submitted or canceled: %s" % my_draft.id)
+            return False
+        if not self.caller.pay_action_points(50):
+            self.msg("You do not have enough action points.")
+            return False
+        return True
+        
+    def set_stat_or_skill(self, action):
+        """Sets a stat or skill for action or assistant"""
         pass

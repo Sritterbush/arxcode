@@ -1685,6 +1685,8 @@ class CrisisAction(SharedMemoryModel):
                                                 help_text="Additional military resources added by the player")
     social = models.PositiveSmallIntegerField(default=0, blank=0,
                                               help_text="Additional social resources added by the player")
+    ap = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Additional ap added by the player")
+    db_date_submitted = models.DateTimeField(default=datetime.now)
 
     def send(self, update):
         msg = "{wGM Response to action for crisis:{n %s" % self.crisis
@@ -2877,7 +2879,7 @@ class Orders(SharedMemoryModel):
     # an individual's support for training, morale, equipment
     target_character = models.ForeignKey("PlayerOrNpc", on_delete=models.SET_NULL, related_name="orders", blank=True,
                                          null=True, db_index=True)
-    # if we're targeting a crisis action
+    # if we're targeting an action
     action = models.ForeignKey("CrisisAction", related_name="orders", null=True, blank=True, db_index=True)
     # if we're assisting another army's orders
     assisting = models.ForeignKey("self", related_name="assisting_orders", null=True, blank=True, db_index=True)
