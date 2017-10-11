@@ -1644,6 +1644,10 @@ class Crisis(SharedMemoryModel):
         except AttributeError:
             pass
         return msg
+        
+    def check_taken_action(self, dompc):
+        """Whether player has submitted action for the current crisis update."""
+        return self.actions.filter(Q(dompc=dompc) & Q(update__isnull=True)).exists()
 
 
 class CrisisUpdate(SharedMemoryModel):
@@ -1658,16 +1662,40 @@ class CrisisUpdate(SharedMemoryModel):
 
     def __str__(self):
         return "Update %s for %s" % (self.id, self.crisis)
+        
+        
+class AbstractAction(SharedMemoryModel):
+    summary = models.CharField("tldr of our action", max_length=255, blank=True)
+    action = models.TextField("What actions the player is taking", blank=True)
+    secret_action = models.TextField("Secret actions the player is taking", blank=True)
+    ooc_intent = models.TextField("OOC description of what the player hopes to achieve", blank=True)
+    silver = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Additional silver added by the player")
+    economic = models.PositiveSmallIntegerField(default=0, blank=0,
+                                                help_text="Additional economic resources added by the player")
+    military = models.PositiveSmallIntegerField(default=0, blank=0,
+                                                help_text="Additional military resources added by the player")
+    social = models.PositiveSmallIntegerField(default=0, blank=0,
+                                              help_text="Additional social resources added by the player")
+    ap = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Additional ap added by the player")
+    
+    class Meta:
+        abstract = True
+        
+    def refund(self):
+        self.dompc.player.pay_action_points(-self.ap)
+        for resource in ('military', 'economic', 'social'):
+            value = getattr(self, resource)
+            self.dompc.player.gain_resources(resource, value)
+        self.dompc.assets.vault += self.silver
+        self.dompc.assets.save()
 
 
-class CrisisAction(SharedMemoryModel):
+class CrisisAction(AbstractAction):
     """
     An action that a player is taking for the crisis.
     """
     week = models.PositiveSmallIntegerField(default=0, blank=0, db_index=True)
     dompc = models.ForeignKey("PlayerOrNpc", db_index=True, blank=True, null=True, related_name="actions")
-    action = models.TextField("What actions the player is taking", blank=True)
-    secret_action = models.TextField("Secret actions the player is taking", blank=True)
     crisis = models.ForeignKey("Crisis", db_index=True, blank=True, null=True, related_name="actions")
     update = models.ForeignKey("CrisisUpdate", db_index=True, blank=True, null=True, related_name="actions")
     public = models.BooleanField(default=True, blank=True)
@@ -1678,15 +1706,23 @@ class CrisisAction(SharedMemoryModel):
     sent = models.BooleanField(default=False, blank=True)
     assistants = models.ManyToManyField("PlayerOrNpc", blank=True, null=True, through="CrisisActionAssistant",
                                         related_name="assisted_actions")
-    silver = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Additional silver added by the player")
-    economic = models.PositiveSmallIntegerField(default=0, blank=0,
-                                                help_text="Additional economic resources added by the player")
-    military = models.PositiveSmallIntegerField(default=0, blank=0,
-                                                help_text="Additional military resources added by the player")
-    social = models.PositiveSmallIntegerField(default=0, blank=0,
-                                              help_text="Additional social resources added by the player")
-    ap = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Additional ap added by the player")
-    db_date_submitted = models.DateTimeField(default=datetime.now)
+    date_submitted = models.DateTimeField(default=datetime.now)
+        
+    @property
+    def total_social(self):
+        return self.social + sum(ob.social for ob in self.assisting_actions.all())
+        
+    @property
+    def total_economic(self):
+        return self.economic + sum(ob.economic for ob in self.assisting_actions.all())
+        
+    @property
+    def total_military(self):
+        return self.military + sum(ob.military for ob in self.assisting_actions.all())
+        
+    @property
+    def total_silver(self):
+        return self.silver + sum(ob.silver for ob in self.assisting_actions.all())
 
     def send(self, update):
         msg = "{wGM Response to action for crisis:{n %s" % self.crisis
@@ -1743,7 +1779,7 @@ class CrisisAction(SharedMemoryModel):
         else:
             msg += "\n{wAdditional Action Points Spent:{n {c%s{n" % self.outcome_value
             msg += "\n{wResources Being Used:{n {c%s{n silver, {c%s{n economic, {c%s{n military, {c%s{n social" % (
-                self.silver, self.economic, self.military, self.social)
+                self.total_silver, self.total_economic, self.total_military, self.total_social)
             orders = self.orders.all()
             if orders:
                 msg += "\n{wArmed Forces Appointed:{n %s" % ", ".join(str(ob.army) for ob in orders)
@@ -1762,13 +1798,26 @@ class CrisisAction(SharedMemoryModel):
 
     def __str__(self):
         return "%s's action for %s" % (self.dompc, self.crisis)
+        
+    def check_can_cancel(self):
+        """Whether a player is permitted to cancel this action."""
+        return not self.sent
+        
+    def cancel(self, refund=True):
+        for action in self.assisting_actions.all():
+            action.cancel(refund)
+        if refund:
+            self.refund()
+        if not self.date_submitted:
+            self.delete()
+        else:
+            self.cancelled = True
+            self.save()
 
 
-class CrisisActionAssistant(SharedMemoryModel):
+class CrisisActionAssistant(AbstractAction:
     crisis_action = models.ForeignKey("CrisisAction", db_index=True, related_name="assisting_actions")
     dompc = models.ForeignKey("PlayerOrNpc", db_index=True, related_name="assisting_actions")
-    action = models.TextField("What action the assistant is taking", blank=True)
-    secret_action = models.TextField("Secret action the assistant is taking", blank=True)
     # whether the assistant can see any secret action of the owner
     can_see_secret = models.BooleanField(default=False)
     # whether the owner is allowed to see our own secret action
@@ -1793,6 +1842,14 @@ class CrisisActionAssistant(SharedMemoryModel):
 
     def __str__(self):
         return "%s assisting %s" % (self.dompc, self.crisis_action)
+        
+    def check_can_cancel(self):
+        return self.crisis_action.check_can_cancel()
+        
+    def cancel(self, refund=True):
+        if refund:
+            self.refund()
+        
 
 
 class ActionOOCQuestion(SharedMemoryModel):
