@@ -16,9 +16,9 @@ class CmdAction(MuxPlayerCommand):
     
     Usage:
         @action/newaction [<crisis #>=]<action you're taking>
-        @action/tldr <action #>=<summary of your action>
-        @action/stat <action #>=<stat>
-        @action/skill <action #>=<skill>
+        @action/tldr <action #>=<summary or title>
+        @action/catgegory <action #>=<category>
+        @action/roll <action #>=<stat>,<skill>
         @action/ooc <action #>=<ooc description of your intent, or follow-up question>
         @action/cancel <action #>
         @action/submit <action #>
@@ -32,6 +32,7 @@ class CmdAction(MuxPlayerCommand):
         @action/add <action #>,<resource or 'ap' or 'army'>=<amount or army ID#>
         @action/toggleview <action #>[=<assistant>]
         @action/togglepublic <action #>
+        @action/togglesabotage <action #>
         
     Creating a new action costs Action Points (ap). It requires that you set stat/skill
     and a clear out-of-character description of your action's single goal before
@@ -51,6 +52,8 @@ class CmdAction(MuxPlayerCommand):
     help_category = "Dominion"
     max_requests = 2
     num_days = 30
+    action_categories = ("combat", "scouting", "support", "diplomacy", "sabotage", "research")
+    change_switches = ("roll", "tldr", "summary", "ooc")
     
     def func(self):
         if not self.args:
@@ -60,12 +63,19 @@ class CmdAction(MuxPlayerCommand):
         action = self.get_action(self.lhs)
         if not action:
             return
-        if "stat" in self.switches or "skill" in self.switches:
-            return self.set_stat_or_skill(action)
+        if set(self.switches) & set(self.change_switches):
+            # PS - NV is fucking amazing
+            if not action.check_can_edit():
+                self.msg("You cannot edit that action at this time.")
+                return
+        if "roll" in self.switches:
+            return self.set_roll(action)
         if "tldr" in self.switches or "summary" in self.switches:
-            return self.set_action_field(action, "summary", self.rhs)
+            return self.set_summary(action)
+        elif "category" in self.switches:
+            return self.set_category(action)
         elif "ooc" in self.switches:
-            return self.set_action_field(action, "ooc_intent", self.rhs, "OOC intentions for the action")
+            return self.set_ooc(action)
         elif "cancel" in self.switches:
             return self.cancel_action(action)
         # elif "submit" in self.switches:
@@ -84,6 +94,8 @@ class CmdAction(MuxPlayerCommand):
         #     return self.toggle_view(action)
         # elif "togglepublic" in self.switches:
         #     return self.toggle_public(action)
+        elif "togglesabotage" in self.switches:
+            return self.toggle_sabotage(action)
         else:
             self.msg("Invalid switch. See 'help @action'.")
             
@@ -187,25 +199,40 @@ class CmdAction(MuxPlayerCommand):
             self.msg("You have already submitted action for this stage of the crisis.")
             return False
         
-    def set_stat_or_skill(self, action):
-        """Sets a stat or skill for action or assistant"""
-        if "skill" in self.switches:
-            field_name = "skill"
-        else:
-            field_name = "stat"
-        #TODO: make sure action is editable
-        self.set_action_field(action, field_name, self.rhs)
+    def set_category(self, action):
+        if not hasattr(action, 'category'):
+            self.msg("Only the main action has a category.")
+            return
+        if self.rhs not in self.action_categories:
+            self.msg("Usage: @action/tldr <action #>=<category>/<summary or title>\n" \
+                     "Categories: %s" % ", ".join(self.action_categories))
+            return
+        self.set_action_field(action, 'category', self.rhs)
         
     def set_action_field(self, action, field_name, value, verbose_name=None):
-        if field_name == "ooc_intent" and action.ooc_intent:
-            # TODO: if field exists, the command is being used to add a follow-up question
-            # This may be better off as a method that points to set_action_field
-            pass
-        #TODO: make sure action is editable
         setattr(action, field_name, value)
         action.save()
         verbose_name = verbose_name or field_name
         self.msg("%s set to %s." % (verbose_name, value))
+      
+    def set_roll(self, action):
+        """Sets a stat and skill for action or assistant"""
+        if not self.rhs[1]:
+            self.msg("Usage: @action/roll <action #>=<stat>,<skill>")
+            return
+        field_name = "stat"
+        self.set_action_field(action, field_name, self.rhs[0])
+        field_name = "skill"
+        return self.set_action_field(action, field_name, self.rhs[1])
+        
+    def set_summary(self, action):
+        return self.set_action_field(action, "summary", self.rhs)
+      
+    def set_ooc(self, action):
+        # @action/ooc <action #>=<ooc description of your intent, or follow-up question>
+        if not action.ooc_intent:
+            return self.set_action_field(action, "ooc_intent", self.rhs, "OOC intentions for the action")
+        pass
         
     def cancel_action(self, action):
         if not action.check_can_cancel():
@@ -227,3 +254,8 @@ class CmdAction(MuxPlayerCommand):
                 return
         #TODO
         pass
+    
+    def toggle_sabotage(self, action):
+        action.sabotage = not action.sabotage
+        action.save()
+        self.msg("Sabotage is now set to: %s" % action.sabotage)

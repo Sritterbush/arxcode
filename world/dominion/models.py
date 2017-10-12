@@ -1677,6 +1677,7 @@ class AbstractAction(SharedMemoryModel):
     social = models.PositiveSmallIntegerField(default=0, blank=0,
                                               help_text="Additional social resources added by the player")
     ap = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Additional ap added by the player")
+    sabotage = models.BooleanField(default=False)
     
     class Meta:
         abstract = True
@@ -1707,6 +1708,7 @@ class CrisisAction(AbstractAction):
     assistants = models.ManyToManyField("PlayerOrNpc", blank=True, null=True, through="CrisisActionAssistant",
                                         related_name="assisted_actions")
     date_submitted = models.DateTimeField(default=datetime.now)
+    category = models.CharField(blank=True, max_length=50)
         
     @property
     def total_social(self):
@@ -1803,6 +1805,10 @@ class CrisisAction(AbstractAction):
         """Whether a player is permitted to cancel this action."""
         return not self.sent
         
+    def check_can_edit(self):
+        """Whether a player is permitted to edit this action."""
+        return not bool(self.gm_notes or self.story or self.update or self.sent)
+        
     def cancel(self, refund=True):
         for action in self.assisting_actions.all():
             action.cancel(refund)
@@ -1815,7 +1821,7 @@ class CrisisAction(AbstractAction):
             self.save()
 
 
-class CrisisActionAssistant(AbstractAction:
+class CrisisActionAssistant(AbstractAction):
     crisis_action = models.ForeignKey("CrisisAction", db_index=True, related_name="assisting_actions")
     dompc = models.ForeignKey("PlayerOrNpc", db_index=True, related_name="assisting_actions")
     # whether the assistant can see any secret action of the owner
@@ -1845,6 +1851,9 @@ class CrisisActionAssistant(AbstractAction:
         
     def check_can_cancel(self):
         return self.crisis_action.check_can_cancel()
+        
+    def check_can_edit(self):
+        return self.crisis_action.check_can_edit()
         
     def cancel(self, refund=True):
         if refund:
