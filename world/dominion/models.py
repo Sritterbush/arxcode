@@ -69,6 +69,7 @@ from .agenthandler import AgentHandler
 from server.utils.arx_utils import get_week
 from typeclasses.npcs import npc_types
 from typeclasses.mixins import InformMixin
+from .web.character.models import AbstractPlayerAllocations
 
 # Dominion constants
 BASE_WORKER_COST = 0.10
@@ -1664,20 +1665,10 @@ class CrisisUpdate(SharedMemoryModel):
         return "Update %s for %s" % (self.id, self.crisis)
         
         
-class AbstractAction(SharedMemoryModel):
-    summary = models.CharField("tldr of our action", max_length=255, blank=True)
-    action = models.TextField("What actions the player is taking", blank=True)
-    secret_action = models.TextField("Secret actions the player is taking", blank=True)
+class AbstractAction(AbstractPlayerAllocations):
+    secret_actions = models.TextField("Secret actions the player is taking", blank=True)
     ooc_intent = models.TextField("OOC description of what the player hopes to achieve", blank=True)
-    silver = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Additional silver added by the player")
-    economic = models.PositiveSmallIntegerField(default=0, blank=0,
-                                                help_text="Additional economic resources added by the player")
-    military = models.PositiveSmallIntegerField(default=0, blank=0,
-                                                help_text="Additional military resources added by the player")
-    social = models.PositiveSmallIntegerField(default=0, blank=0,
-                                              help_text="Additional social resources added by the player")
-    ap = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Additional ap added by the player")
-    sabotage = models.BooleanField(default=False)
+    traitor = models.BooleanField(default=False)
     
     class Meta:
         abstract = True
@@ -1689,6 +1680,19 @@ class AbstractAction(SharedMemoryModel):
             self.dompc.player.gain_resources(resource, value)
         self.dompc.assets.vault += self.silver
         self.dompc.assets.save()
+        
+    def check_view_secret(self, caller):
+        if not caller:
+            return
+        if caller.check_permstring("builders") or caller == self.dompc.player:
+            return True
+    
+    def get_action_text(self, secret=False, assist=False):
+        secret_txt = "" or "Secret " == secret
+        traitor_txt = "" or "{rTraitorous{w " == secret and self.traitor
+        noun = "Action" or "Assist [%s]" % self.id == assist
+        action = self.actions or self.secret_actions == secret
+        return "\n{w%s%s%s by {c%s{w:{n %s" % (secret_txt, traitor_txt, noun, self.dompc, action)
 
 
 class CrisisAction(AbstractAction):
@@ -1700,15 +1704,60 @@ class CrisisAction(AbstractAction):
     crisis = models.ForeignKey("Crisis", db_index=True, blank=True, null=True, related_name="actions")
     update = models.ForeignKey("CrisisUpdate", db_index=True, blank=True, null=True, related_name="actions")
     public = models.BooleanField(default=True, blank=True)
-    rolls = models.TextField(blank=True)
-    gm_notes = models.TextField(blank=True)
+    gm_notes = models.TextField("Any ooc notes for other GMs", blank=True)
     story = models.TextField("Story written by the GM for the player", blank=True)
+    difficulty = models.SmallIntegerField(default=0, blank=0)
     outcome_value = models.SmallIntegerField(default=0, blank=0)
-    sent = models.BooleanField(default=False, blank=True)
     assistants = models.ManyToManyField("PlayerOrNpc", blank=True, null=True, through="CrisisActionAssistant",
                                         related_name="assisted_actions")
     date_submitted = models.DateTimeField(default=datetime.now)
-    category = models.CharField(blank=True, max_length=50)
+    
+    UNKNOWN = 0
+    COMBAT = 1
+    SUPPORT = 2
+    SABOTAGE = 3
+    DIPLOMACY = 4
+    SCOUTING = 5
+    RESEARCH = 6
+    
+    CATEGORY_CHOICES = (
+        (UNKNOWN, 'Unknown'),
+        (COMBAT, 'Combat'),
+        (SUPPORT, 'Support'),
+        (SABOTAGE, 'Sabotage'),
+        (DIPLOMACY, 'Diplomacy'),
+        (SCOUTING, 'Scouting'),
+        (RESEARCH, 'Research')
+        )
+    category = models.PositiveSmallIntegerField(choices=CATEGORY_CHOICES, default=UNKNOWN)
+    
+    DRAFT = 0
+    NEEDS_GM = 1
+    NEEDS_PLAYER = 2
+    PENDING_PUBLISH = 3
+    CANCELLED = 4
+    PUBLISHED = 5
+    
+    STATUS_CHOICES = (
+        (DRAFT, 'Draft'),
+        (NEEDS_GM, 'Needs GM Input'),
+        (NEEDS_PLAYER, 'Needs Player Input'),
+        (PENDING_PUBLISH, 'Pending Publish'),
+        (CANCELLED, 'Cancelled'),
+        (PUBLISHED, 'Published')
+        )
+    status = models.PositiveSmallIntegerField(choices=STATUS_CHOICES, default=DRAFT)
+    
+    def __str__(self):
+        if self.crisis:
+            crisis = " for {m%s{n Week %s" % (self.crisis, self.week)
+        else:
+            crisis = ""
+        return "Action #%s by {c%s{n%s" % (self.id, self.dompc, crisis)
+    
+    @property
+    def sent(self):
+        return bool(self.status == self.PUBLISHED)
         
     @property
     def total_social(self):
@@ -1735,72 +1784,57 @@ class CrisisAction(AbstractAction):
                                  append=True)
         for assistant in self.assistants.all():
             assistant.player.inform(msg, category="Action", week=self.week, append=True)
-        self.sent = True
+        self.status = 5
         self.save()
 
-    @property
-    def action_text(self):
-        msg = "\n{wAction:{n %s" % self.action
-        for ob in self.assisting_actions.all():
-            msg += "\n{c%s{n's assisting action: %s" % (ob.dompc, ob.action)
-        return msg
-
-    def check_view_secret(self, caller):
-        if not caller:
-            return
-        if caller.check_permstring("builders"):
-            return True
-        if caller == self.dompc.player:
-            return True
-        try:
-            ass = self.assisting_actions.get(dompc=caller.Dominion)
-            return ass.can_see_secret
-        except CrisisActionAssistant.DoesNotExist:
-            return
-
     def view_action(self, caller=None, disp_pending=True, disp_old=False):
-        if not self.public and (not caller or (not caller.check_permstring("builders")
-                                and caller != self.dompc.player and caller.Dominion not in self.assistants.all())):
+        if caller:
+            staff_viewer = caller.check_permstring("builders")
+            participant_viewer = caller == self.dompc.player or caller.Dominion in self.assistants.all()
+        else:
+            staff_viewer = False
+            participant_viewer = False
+        if not self.public and not (staff_viewer or participant_viewer):
             return ""
-        msg = "\n{c%s's {wactions in week %s for {m%s{n" % (self.dompc, self.week, self.crisis)
-        # print out non-secret actions of everyone
-        msg += self.action_text
-        # print out secret action of owner, if the caller can view it
-        if self.secret_action:
-            if self.check_view_secret(caller):
-                msg += "\n{c%s's {wsecret actions:{n %s" % (self.dompc, self.secret_action)
-        # print out secret action of each assistant, if the caller can view it
-        for ob in self.assisting_actions.all():
-            if ob.secret_action and ob.check_view_secret(caller):
-                msg += "\n{c%s's {wsecret actions:{n %s" % (ob.dompc, ob.secret_action)
+        # print out actions of everyone
+        msg = "\n{w%s {wsummary:{n %s" % (str(self), self.summary)
+        msg += self.get_action_text()
+        all_actions = [self] + list(self.assisting_actions.all())
+        for ob in all_actions:
+            assist = bool(ob != self)
+            msg += ob.get_action_text(assist)
+            view_secrets = staff_viewer or ob.check_view_secret(caller)
+            if ob.secret_action and view_secrets:
+                msg += ob.get_action_text(assist, secret=True)
+            if (self.sent and view_secrets) or (not ob.roll.UNSET_ROLL and staff_viewer):
+                msg += "\n{wRoll:{n %s" % ob.roll
+            if (disp_pending or disp_old) and view_secrets:
+                questions = ob.questions.all()
+                if questions and not disp_old:
+                    questions = questions.filter(answers__isnull=True)
+                if questions:
+                    for question in questions:
+                        msg += "\n{wOOC Question:{n %s" % ob.text
+                        if disp_old:
+                            answers = question.answers.all()
+                            msg += "\n".join("{wGM {c%s {wAnswers:{n %s") % ((ob.gm, ob.text) for ob in answers)
         if self.sent:
-            msg += "\n{wGM Notes:{n %s" % self.gm_notes
-            msg += "\n{wRolls:{n %s" % self.rolls
+            if staff_viewer:
+                msg += "\n{wGM Notes:{n %s" % self.gm_notes
             msg += "\n{wOutcome Value:{n %s" % self.outcome_value
             msg += "\n{wStory:{n %s" % self.story
         else:
             msg += "\n{wAdditional Action Points Spent:{n {c%s{n" % self.outcome_value
             msg += "\n{wResources Being Used:{n {c%s{n silver, {c%s{n economic, {c%s{n military, {c%s{n social" % (
                 self.total_silver, self.total_economic, self.total_military, self.total_social)
-            orders = self.orders.all()
-            if orders:
+            orders = []
+            for ob in all_actions:
+                orders += list(ob.orders.all())
+            orders = set(orders)
+            if len(orders) >  0:
                 msg += "\n{wArmed Forces Appointed:{n %s" % ", ".join(str(ob.army) for ob in orders)
-        if disp_pending:
-            pend = self.questions.filter(answers__isnull=True)
-            for ob in pend:
-                msg += "\n{wQuestion:{n %s" % ob.text
-        if disp_old:
-            answered = self.questions.filter(answers__isnull=False)
-            for ob in answered:
-                msg += "\n{wQuestion:{n %s" % ob.text
-                for ans in ob.answers.all():
-                    msg += "\n{wGM:{n %s" % ans.gm
-                    msg += "\n{wAnswer:{n %s" % ans.text
         return msg
-
-    def __str__(self):
-        return "%s's action for %s" % (self.dompc, self.crisis)
-        
+    
     def check_can_cancel(self):
         """Whether a player is permitted to cancel this action."""
         return not self.sent
@@ -1832,22 +1866,12 @@ class CrisisActionAssistant(AbstractAction):
     class Meta:
         unique_together = ('crisis_action', 'dompc')
 
-    def check_view_secret(self, caller):
-        if not caller:
-            return
-        if caller.check_permstring("builders"):
-            return True
-        if caller == self.dompc.player:
-            return True
-        if caller == self.crisis_action.dompc:
-            return self.share_secret
-
     @property
     def crisis(self):
         return self.crisis_action.crisis
 
     def __str__(self):
-        return "%s assisting %s" % (self.dompc, self.crisis_action)
+        return "{c%s{n assisting %s" % (self.dompc, self.crisis_action)
         
     def check_can_cancel(self):
         return self.crisis_action.check_can_cancel()
@@ -1858,7 +1882,6 @@ class CrisisActionAssistant(AbstractAction):
     def cancel(self, refund=True):
         if refund:
             self.refund()
-        
 
 
 class ActionOOCQuestion(SharedMemoryModel):
@@ -1867,6 +1890,7 @@ class ActionOOCQuestion(SharedMemoryModel):
     or asked about independently.
     """
     action = models.ForeignKey("CrisisAction", db_index=True, related_name="questions")
+    action_assist = models.ForeignKey("CrisisActionAssistant", db_index=True, related_name="questions")
     text = models.TextField(blank=True)
 
 
@@ -2945,8 +2969,9 @@ class Orders(SharedMemoryModel):
     # an individual's support for training, morale, equipment
     target_character = models.ForeignKey("PlayerOrNpc", on_delete=models.SET_NULL, related_name="orders", blank=True,
                                          null=True, db_index=True)
-    # if we're targeting an action
+    # if we're targeting an action or asist. omg skorpins.
     action = models.ForeignKey("CrisisAction", related_name="orders", null=True, blank=True, db_index=True)
+    action_assist = models.ForeignKey("CrisisActionAssistant", related_name="orders", null=True, blank=True, db_index=True)
     # if we're assisting another army's orders
     assisting = models.ForeignKey("self", related_name="assisting_orders", null=True, blank=True, db_index=True)
     type = models.PositiveSmallIntegerField(choices=ORDER_CHOICES, default=TRAIN)

@@ -17,7 +17,7 @@ class CmdAction(MuxPlayerCommand):
     Usage:
         @action/newaction [<crisis #>=]<action you're taking>
         @action/tldr <action #>=<summary or title>
-        @action/catgegory <action #>=<category>
+        @action/category <action #>=<category>
         @action/roll <action #>=<stat>,<skill>
         @action/ooc <action #>=<ooc description of your intent, or follow-up question>
         @action/cancel <action #>
@@ -53,7 +53,7 @@ class CmdAction(MuxPlayerCommand):
     max_requests = 2
     num_days = 30
     action_categories = ("combat", "scouting", "support", "diplomacy", "sabotage", "research")
-    change_switches = ("roll", "tldr", "summary", "ooc")
+    change_switches = ("roll", "tldr", "summary", "ooc", "category")
     
     def func(self):
         if not self.args:

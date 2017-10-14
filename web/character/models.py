@@ -409,6 +409,29 @@ class RPScene(SharedMemoryModel):
         return self.locks.check(accessing_obj, access_type=access_type, default=default)
 
 
+class AbstractPlayerAllocations(SharedMemoryModel):
+    UNSET_ROLL = -9999
+    topic = models.CharField(blank=True, max_length=255, help_text="Keywords or tldr or summary")
+    actions = models.TextField(blank=True, help_text="The writeup the player submits of their actions, used for GMing.")
+    stat_used = models.CharField(blank=True, max_length=80, default="perception",
+                                 help_text="The stat the player chose to use")
+    skill_used = models.CharField(blank=True, max_length=80, default="investigation",
+                                  help_text="The skill the player chose to use")
+    silver = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Additional silver added by the player")
+    economic = models.PositiveSmallIntegerField(default=0, blank=0,
+                                                help_text="Additional economic resources added by the player")
+    military = models.PositiveSmallIntegerField(default=0, blank=0,
+                                                help_text="Additional military resources added by the player")
+    social = models.PositiveSmallIntegerField(default=0, blank=0,
+                                              help_text="Additional social resources added by the player")
+    action_points = models.PositiveSmallIntegerField(default=0, blank=0,
+                                                     help_text="How many action points spent by player/assistants.")
+    roll = models.SmallIntegerField(default=UNSET_ROLL, blank=True, help_text="Current dice roll")
+    
+    class Meta:
+        abstract = True
+        
+
 class Mystery(SharedMemoryModel):
     name = models.CharField(max_length=255, db_index=True)
     desc = models.TextField("Description", help_text="Description of the mystery given to the player " +
@@ -743,10 +766,9 @@ class InvestigationAssistant(SharedMemoryModel):
                 return self.char.owner.player.player.roster
             except AttributeError:
                 pass
-        
 
-class Investigation(SharedMemoryModel):
-    UNSET_ROLL = -9999
+
+class Investigation(AbstractPlayerAllocations):
     character = models.ForeignKey('RosterEntry', related_name="investigations", db_index=True)
     ongoing = models.BooleanField(default=True, help_text="Whether this investigation is finished or not",
                                   db_index=True)
@@ -758,22 +780,6 @@ class Investigation(SharedMemoryModel):
                                help_text="The text to send the player, either set by GM or generated automatically " +
                                "by script if automate_result is set.")
     clue_target = models.ForeignKey('Clue', blank=True, null=True)
-    actions = models.TextField(blank=True, help_text="The writeup the player submits of their actions, used for GMing.")
-    topic = models.CharField(blank=True, max_length=255, help_text="Keyword to try to search for clues against")
-    stat_used = models.CharField(blank=True, max_length=80, default="perception",
-                                 help_text="The stat the player chose to use")
-    skill_used = models.CharField(blank=True, max_length=80, default="investigation",
-                                  help_text="The skill the player chose to use")
-    silver = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Additional silver added by the player")
-    economic = models.PositiveSmallIntegerField(default=0, blank=0,
-                                                help_text="Additional economic resources added by the player")
-    military = models.PositiveSmallIntegerField(default=0, blank=0,
-                                                help_text="Additional military resources added by the player")
-    social = models.PositiveSmallIntegerField(default=0, blank=0,
-                                              help_text="Additional social resources added by the player")
-    action_points = models.PositiveSmallIntegerField(default=0, blank=0,
-                                                     help_text="How many action points spent by player/assistants.")
-    roll = models.SmallIntegerField(default=UNSET_ROLL, blank=True, help_text="Current roll for investigation.")
 
     def __str__(self):
         return "%s's investigation on %s" % (self.character, self.topic)
