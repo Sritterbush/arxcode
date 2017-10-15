@@ -15,11 +15,11 @@ class CmdAction(MuxPlayerCommand):
     A character's story actions that a GM responds to.
     
     Usage:
-        @action/newaction [<crisis #>=]<action you're taking>
-        @action/tldr <action #>=<summary or title>
+        @action/newaction [<crisis #>=]<story of action>
+        @action/tldr <action #>=<title or brief summary>
         @action/category <action #>=<category>
         @action/roll <action #>=<stat>,<skill>
-        @action/ooc <action #>=<ooc description of your intent, or follow-up question>
+        @action/ooc <action #>=<ooc intent, then follow-up questions>
         @action/cancel <action #>
         @action/submit <action #>
     Options:
@@ -27,25 +27,33 @@ class CmdAction(MuxPlayerCommand):
         @action/invite <action #>=<character>
         @action/decline <action #>
         @action/setaction <action #>=<action text>
-        @action/setsecret <action #>=<secret action>
+        @action/setsecret[/traitor] <action #>=<secret action>
         @action/setcrisis <action #>=<crisis #>
         @action/add <action #>,<resource or 'ap' or 'army'>=<amount or army ID#>
-        @action/toggleview <action #>[=<assistant>]
         @action/togglepublic <action #>
-        @action/togglesabotage <action #>
+        @action/toggletraitor <action #>
+        @action/toggleattend <action #>
         
-    Creating a new action costs Action Points (ap). It requires that you set stat/skill
-    and a clear out-of-character description of your action's single goal before
-    submitting it for GM response. The GM may require additional ooc information or
-    ask you to edit with /setaction and then /submit again.
+    Creating /newaction costs Action Points (ap). Requires a summary, category,
+    stat/skill for dice check, and clear /ooc description of this action's
+    intent before submitting it for GM response. GMs may require additional
+    information or ask you to edit with /setaction and then /submit again.
+    Categories: combat, scouting, support, diplomacy, sabotage, research.
     
-    With /invite you ask others to assist your action. Join (or edit) with /setaction;
-    /decline to reject the invitation. A covert action can be added with /setsecret.
-    With /setcrisis this becomes your response to a Crisis. Allocate resources with 
-    /add by specifying which type (ap, army, social, silver, etc.,) and an amount, 
-    or the ID# of the army. The /toggleview switch lets an assistant see the owner's
-    secret action or vice-versa. The /togglepublic switch allows everyone to see
-    your action once a GM writes an outcome and publishes it.
+    With /invite you ask others to assist your action. Use /setaction to assist
+    or edit action. Can /decline invitations. A covert action can be added with
+    /setsecret; optional /traitor (or /toggletraitor) switch makes dice roll 
+    detract from goal. With /setcrisis this becomes your response to a Crisis.
+    Allocate resources with /add by specifying which type (ap, army, social,
+    silver, etc.,) and an amount, or the ID# of the army. The /togglepublic 
+    switch allows everyone to see your action once a GM writes and publishes an
+    outcome. 
+    
+    Using /toggleattend switches whether your character is physically present,
+    or arranging for the action's occurance in other ways. One action may be 
+    attended per crisis update; all others must be passive to represent 
+    simultaneous response by everyone involved. Up to 5 attendees are allowed
+    per crisis response action.
     """
     key = "@action"
     locks = "cmd:all()"
@@ -65,19 +73,7 @@ class CmdAction(MuxPlayerCommand):
             return
         if set(self.switches) & set(self.change_switches):
             # PS - NV is fucking amazing
-            if not action.check_can_edit():
-                self.msg("You cannot edit that action at this time.")
-                return
-        if "roll" in self.switches:
-            return self.set_roll(action)
-        if "tldr" in self.switches or "summary" in self.switches:
-            return self.set_summary(action)
-        elif "category" in self.switches:
-            return self.set_category(action)
-        elif "ooc" in self.switches:
-            return self.set_ooc(action)
-        elif "cancel" in self.switches:
-            return self.cancel_action(action)
+            return self.do_change_switches(action)
         # elif "submit" in self.switches:
         #     return self.submit_action(action)
         # elif "invite" in self.switches:
@@ -94,10 +90,25 @@ class CmdAction(MuxPlayerCommand):
         #     return self.toggle_view(action)
         # elif "togglepublic" in self.switches:
         #     return self.toggle_public(action)
-        elif "togglesabotage" in self.switches:
-            return self.toggle_sabotage(action)
+        elif "toggletraitor" in self.switches:
+            return self.toggle_traitor(action)
         else:
             self.msg("Invalid switch. See 'help @action'.")
+            
+    def do_change_switches(self, action):
+        if not action.check_can_edit():
+            self.msg("You cannot edit that action at this time.")
+            return
+        if "roll" in self.switches:
+            return self.set_roll(action)
+        if "tldr" in self.switches or "summary" in self.switches:
+            return self.set_summary(action)
+        elif "category" in self.switches:
+            return self.set_category(action)
+        elif "ooc" in self.switches:
+            return self.set_ooc(action)
+        elif "cancel" in self.switches:
+            return self.cancel_action(action)
             
     @property
     def dompc(self):
@@ -175,7 +186,7 @@ class CmdAction(MuxPlayerCommand):
         if not crisis:
             actions = actions.filter(crisis__isnull=True)
         return actions
-        
+    
     def can_create(self, crisis=None):
         """Checks criteria for creating a new action."""
         if crisis and not self.can_set_crisis(crisis):
@@ -255,7 +266,7 @@ class CmdAction(MuxPlayerCommand):
         #TODO
         pass
     
-    def toggle_sabotage(self, action):
-        action.sabotage = not action.sabotage
+    def toggle_traitor(self, action):
+        action.traitor = not action.traitor
         action.save()
-        self.msg("Sabotage is now set to: %s" % action.sabotage)
+        self.msg("Traitor is now set to: %s" % action.traitor)

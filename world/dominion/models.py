@@ -1667,7 +1667,7 @@ class CrisisUpdate(SharedMemoryModel):
         
 class AbstractAction(AbstractPlayerAllocations):
     secret_actions = models.TextField("Secret actions the player is taking", blank=True)
-    ooc_intent = models.TextField("OOC description of what the player hopes to achieve", blank=True)
+    attending = models.BooleanField(default=True)
     traitor = models.BooleanField(default=False)
     
     class Meta:
@@ -1687,12 +1687,23 @@ class AbstractAction(AbstractPlayerAllocations):
         if caller.check_permstring("builders") or caller == self.dompc.player:
             return True
     
-    def get_action_text(self, secret=False, assist=False):
-        secret_txt = "" or "Secret " == secret
-        traitor_txt = "" or "{rTraitorous{w " == secret and self.traitor
-        noun = "Action" or "Assist [%s]" % self.id == assist
-        action = self.actions or self.secret_actions == secret
-        return "\n{w%s%s%s by {c%s{w:{n %s" % (secret_txt, traitor_txt, noun, self.dompc, action)
+    def get_action_text(self, secret=False, assist=False, tldr=False):
+        prefix_txt = ""
+        if secret:
+            prefix_txt = "Secret "
+            action = self.secret_actions
+            if self.traitor:
+                prefix_txt += "{rTraitorous{w "
+        if tldr:
+            noun = "---[Summary of #%s]" % self.id
+            action = self.topic
+        elif assist:
+            noun = "Assist"
+            action = self.actions
+        else:
+            noun = "Action"
+            action = self.actions
+        return "\n{w%s%s by {c%s{w:{n %s" % (prefix_txt, noun, self.dompc, action)
 
 
 class CrisisAction(AbstractAction):
@@ -1732,16 +1743,16 @@ class CrisisAction(AbstractAction):
     category = models.PositiveSmallIntegerField(choices=CATEGORY_CHOICES, default=UNKNOWN)
     
     DRAFT = 0
-    NEEDS_GM = 1
-    NEEDS_PLAYER = 2
+    NEEDS_PLAYER = 1
+    NEEDS_GM = 2
     PENDING_PUBLISH = 3
     CANCELLED = 4
     PUBLISHED = 5
     
     STATUS_CHOICES = (
         (DRAFT, 'Draft'),
-        (NEEDS_GM, 'Needs GM Input'),
         (NEEDS_PLAYER, 'Needs Player Input'),
+        (NEEDS_GM, 'Needs GM Input'),
         (PENDING_PUBLISH, 'Pending Publish'),
         (CANCELLED, 'Cancelled'),
         (PUBLISHED, 'Published')
@@ -1788,6 +1799,18 @@ class CrisisAction(AbstractAction):
         self.save()
 
     def view_action(self, caller=None, disp_pending=True, disp_old=False):
+        """
+        Returns a text string of the display of an action.
+        
+            Args:
+                caller: Player who is viewing this
+                disp_pending (bool): Whether to display pending questions
+                disp_old (bool): Whether to display answered questions
+                
+            Returns:
+                Text string to display.
+        """
+        msg = ""
         if caller:
             staff_viewer = caller.check_permstring("builders")
             participant_viewer = caller == self.dompc.player or caller.Dominion in self.assistants.all()
@@ -1795,29 +1818,29 @@ class CrisisAction(AbstractAction):
             staff_viewer = False
             participant_viewer = False
         if not self.public and not (staff_viewer or participant_viewer):
-            return ""
+            return msg
         # print out actions of everyone
-        msg = "\n{w%s {wsummary:{n %s" % (str(self), self.summary)
-        msg += self.get_action_text()
         all_actions = [self] + list(self.assisting_actions.all())
         for ob in all_actions:
             assist = bool(ob != self)
+            msg += ob.get_action_text(tldr=True)
             msg += ob.get_action_text(assist)
             view_secrets = staff_viewer or ob.check_view_secret(caller)
             if ob.secret_action and view_secrets:
                 msg += ob.get_action_text(assist, secret=True)
-            if (self.sent and view_secrets) or (not ob.roll.UNSET_ROLL and staff_viewer):
-                msg += "\n{wRoll:{n %s" % ob.roll
+            if (self.sent and view_secrets) or (ob.roll_is_set and staff_viewer):
+                color = "{r" == bool(ob.roll >= 0) or "{c"
+                msg += "\n{w[Roll: %s%s{w ]{n" % (color, ob.roll)
             if (disp_pending or disp_old) and view_secrets:
                 questions = ob.questions.all()
                 if questions and not disp_old:
                     questions = questions.filter(answers__isnull=True)
                 if questions:
                     for question in questions:
-                        msg += "\n{wOOC Question:{n %s" % ob.text
+                        msg += "\n{c%s{w OOC:{n %s" % (ob.dompc, ob.text)
                         if disp_old:
                             answers = question.answers.all()
-                            msg += "\n".join("{wGM {c%s {wAnswers:{n %s") % ((ob.gm, ob.text) for ob in answers)
+                            msg += "\n".join("{wReply by {c%s{w:{n %s") % ((ob.gm, ob.text) for ob in answers)
         if self.sent:
             if staff_viewer:
                 msg += "\n{wGM Notes:{n %s" % self.gm_notes
@@ -1841,7 +1864,7 @@ class CrisisAction(AbstractAction):
         
     def check_can_edit(self):
         """Whether a player is permitted to edit this action."""
-        return not bool(self.gm_notes or self.story or self.update or self.sent)
+        return bool(self.status <= 1)
         
     def cancel(self, refund=True):
         for action in self.assisting_actions.all():

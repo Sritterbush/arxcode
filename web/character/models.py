@@ -431,6 +431,10 @@ class AbstractPlayerAllocations(SharedMemoryModel):
     class Meta:
         abstract = True
         
+    @property
+    def roll_is_set(self):
+        return self.roll != self.UNSET_ROLL
+        
 
 class Mystery(SharedMemoryModel):
     name = models.CharField(max_length=255, db_index=True)
