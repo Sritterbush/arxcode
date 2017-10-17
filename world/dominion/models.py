@@ -66,7 +66,7 @@ from . import unit_types, unit_constants
 from .reports import WeeklyReport
 from .battle import Battle
 from .agenthandler import AgentHandler
-from server.utils.arx_utils import get_week
+from server.utils.arx_utils import get_week, inform_staff
 from typeclasses.npcs import npc_types
 from typeclasses.mixins import InformMixin
 from .web.character.models import AbstractPlayerAllocations
@@ -1669,9 +1669,15 @@ class AbstractAction(AbstractPlayerAllocations):
     secret_actions = models.TextField("Secret actions the player is taking", blank=True)
     attending = models.BooleanField(default=True)
     traitor = models.BooleanField(default=False)
+    date_submitted = models.DateTimeField(blank=True, null=True)
+    editable = models.BooleanField(default=True)
     
     class Meta:
         abstract = True
+        
+    @property
+    def submitted(self):
+        return bool(self.date_submitted)
         
     def refund(self):
         self.dompc.player.pay_action_points(-self.ap)
@@ -1704,6 +1710,21 @@ class AbstractAction(AbstractPlayerAllocations):
             noun = "Action"
             action = self.actions
         return "\n{w%s%s by {c%s{w:{n %s" % (prefix_txt, noun, self.dompc, action)
+        
+    @property
+    def ooc_intent(self):
+        return self.questions.first()
+        
+    def set_ooc_intent(self, text):
+        if not self.ooc_intent:
+            self.questions.create(text=text)
+        else:
+            self.ooc_intent.text = text
+            self.ooc_intent.save()
+            
+    def ask_question(self, text):
+        inform_staff("{c%s{n added a comment/question about %s:\n%s" % (self.dompc, self, text))
+        self.questions.create(text=text)
 
 
 class CrisisAction(AbstractAction):
@@ -1721,7 +1742,6 @@ class CrisisAction(AbstractAction):
     outcome_value = models.SmallIntegerField(default=0, blank=0)
     assistants = models.ManyToManyField("PlayerOrNpc", blank=True, null=True, through="CrisisActionAssistant",
                                         related_name="assisted_actions")
-    date_submitted = models.DateTimeField(default=datetime.now)
     
     UNKNOWN = 0
     COMBAT = 1
@@ -1862,10 +1882,6 @@ class CrisisAction(AbstractAction):
         """Whether a player is permitted to cancel this action."""
         return not self.sent
         
-    def check_can_edit(self):
-        """Whether a player is permitted to edit this action."""
-        return bool(self.status <= 1)
-        
     def cancel(self, refund=True):
         for action in self.assisting_actions.all():
             action.cancel(refund)
@@ -1898,9 +1914,6 @@ class CrisisActionAssistant(AbstractAction):
         
     def check_can_cancel(self):
         return self.crisis_action.check_can_cancel()
-        
-    def check_can_edit(self):
-        return self.crisis_action.check_can_edit()
         
     def cancel(self, refund=True):
         if refund:

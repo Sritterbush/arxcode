@@ -19,7 +19,7 @@ class CmdAction(MuxPlayerCommand):
         @action/tldr <action #>=<title or brief summary>
         @action/category <action #>=<category>
         @action/roll <action #>=<stat>,<skill>
-        @action/ooc <action #>=<ooc intent, then follow-up questions>
+        @action/ooc <action #>=<ooc intent, then post-submission questions>
         @action/cancel <action #>
         @action/submit <action #>
     Options:
@@ -30,24 +30,24 @@ class CmdAction(MuxPlayerCommand):
         @action/setsecret[/traitor] <action #>=<secret action>
         @action/setcrisis <action #>=<crisis #>
         @action/add <action #>,<resource or 'ap' or 'army'>=<amount or army ID#>
-        @action/togglepublic <action #>
+        @action/makepublic <action #>
         @action/toggletraitor <action #>
         @action/toggleattend <action #>
         
     Creating /newaction costs Action Points (ap). Requires a summary, category,
     stat/skill for dice check, and clear /ooc description of this action's
-    intent before submitting it for GM response. GMs may require additional
-    information or ask you to edit with /setaction and then /submit again.
-    Categories: combat, scouting, support, diplomacy, sabotage, research.
+    intent. Use /submit after all other options, when ready for GM review.
+    GMs may require more information or ask you to edit with /setaction and 
+    /submit again. Categories: combat, scouting, support, diplomacy, sabotage, 
+    research.
     
-    With /invite you ask others to assist your action. Use /setaction to assist
-    or edit action. Can /decline invitations. A covert action can be added with
-    /setsecret; optional /traitor (or /toggletraitor) switch makes dice roll 
-    detract from goal. With /setcrisis this becomes your response to a Crisis.
-    Allocate resources with /add by specifying which type (ap, army, social,
-    silver, etc.,) and an amount, or the ID# of the army. The /togglepublic 
-    switch allows everyone to see your action once a GM writes and publishes an
-    outcome. 
+    With /invite you ask others to assist your action. They use /setaction or
+    /decline. A covert action can be added with /setsecret. Optional /traitor 
+    (and /toggletraitor) switch makes your dice roll detract from goal. With 
+    /setcrisis this becomes your response to a Crisis. Allocate resources with 
+    /add by specifying which type (ap, army, social, silver, etc.,) and amount, 
+    or the ID# of the army. The /makepublic switch allows everyone to see your 
+    action after a GM publishes an outcome.
     
     Using /toggleattend switches whether your character is physically present,
     or arranging for the action's occurance in other ways. One action may be 
@@ -61,7 +61,10 @@ class CmdAction(MuxPlayerCommand):
     max_requests = 2
     num_days = 30
     action_categories = ("combat", "scouting", "support", "diplomacy", "sabotage", "research")
-    change_switches = ("roll", "tldr", "summary", "ooc", "category")
+    requires_editable_switches = ("roll", "tldr", "summary", "category", "cancel", "invite", \
+                       "setaction", "setcrisis", "add", "toggletraitor", "toggleattend")
+    anytime_switches = ("ooc",)
+    requires_owner_switches = ("invite", "makepublic")
     
     def func(self):
         if not self.args:
@@ -71,32 +74,24 @@ class CmdAction(MuxPlayerCommand):
         action = self.get_action(self.lhs)
         if not action:
             return
-        if set(self.switches) & set(self.change_switches):
+        if set(self.switches) & set(self.requires_editable_switches):
             # PS - NV is fucking amazing
-            return self.do_change_switches(action)
+            return self.do_requires_editable_switches(action)
+        elif set(self.switches) & set(self.anytime_switches):
+            return self.do_anytime_switches(action)
+        elif "ooc" in self.switches:
+            return self.set_ooc(action)
         # elif "submit" in self.switches:
         #     return self.submit_action(action)
-        # elif "invite" in self.switches:
-        #     return self.invite_assistant(action)
         # elif "decline" in self.switches:
         #     return self.decline_action(action)
-        # elif "setaction" in self.switches:
-        #     return self.set_action(action)
-        # elif "setcrisis" in self.switches:
-        #     return self.set_crisis(action)
-        # elif "add" in self.switches:
-        #     return self.add_resource(action)
-        # elif "toggleview" in self.switches:
-        #     return self.toggle_view(action)
-        # elif "togglepublic" in self.switches:
-        #     return self.toggle_public(action)
-        elif "toggletraitor" in self.switches:
-            return self.toggle_traitor(action)
+        # elif "makepublic" in self.switches:
+        #     return self.make_public(action)
         else:
             self.msg("Invalid switch. See 'help @action'.")
             
-    def do_change_switches(self, action):
-        if not action.check_can_edit():
+    def do_requires_editable_switches(self, action):
+        if not action.editable:
             self.msg("You cannot edit that action at this time.")
             return
         if "roll" in self.switches:
@@ -105,10 +100,20 @@ class CmdAction(MuxPlayerCommand):
             return self.set_summary(action)
         elif "category" in self.switches:
             return self.set_category(action)
-        elif "ooc" in self.switches:
-            return self.set_ooc(action)
         elif "cancel" in self.switches:
             return self.cancel_action(action)
+        # elif "invite" in self.switches:
+        #     return self.invite_assistant(action)
+        # elif "setaction" in self.switches:
+        #     return self.set_action(action)
+        # elif "setcrisis" in self.switches:
+        #     return self.set_crisis(action)
+        # elif "add" in self.switches:
+        #     return self.add_resource(action)
+        elif "toggletraitor" in self.switches:
+            return self.toggle_traitor(action)
+        # elif "toggleattend" in self.switches:
+        #     return self.toggle_attend(action)
             
     @property
     def dompc(self):
@@ -240,10 +245,14 @@ class CmdAction(MuxPlayerCommand):
         return self.set_action_field(action, "summary", self.rhs)
       
     def set_ooc(self, action):
-        # @action/ooc <action #>=<ooc description of your intent, or follow-up question>
-        if not action.ooc_intent:
-            return self.set_action_field(action, "ooc_intent", self.rhs, "OOC intentions for the action")
-        pass
+        """
+        Sets our ooc intent, or if we're already submitted and have an intent set, it asks a question.
+        """
+        if not action.submitted:
+            action.set_ooc_intent(self.rhs)
+            self.msg("You have set your ooc intent to be: %s" % self.rhs)
+        else:
+            self.msg("You have submitted a question: %s" % self.rhs)
         
     def cancel_action(self, action):
         if not action.check_can_cancel():
@@ -268,5 +277,6 @@ class CmdAction(MuxPlayerCommand):
     
     def toggle_traitor(self, action):
         action.traitor = not action.traitor
+        color = "{r" if action.traitor else "{w"
         action.save()
-        self.msg("Traitor is now set to: %s" % action.traitor)
+        self.msg("Traitor is now set to: %s%s{n" % (color, action.traitor))
