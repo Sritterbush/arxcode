@@ -25,7 +25,6 @@ class CmdAction(MuxPlayerCommand):
     Options:
         @action[/public] [<action #>]
         @action/invite <action #>=<character>
-        @action/decline <action #>
         @action/setaction <action #>=<action text>
         @action/setsecret[/traitor] <action #>=<secret action>
         @action/setcrisis <action #>=<crisis #>
@@ -34,15 +33,14 @@ class CmdAction(MuxPlayerCommand):
         @action/toggletraitor <action #>
         @action/toggleattend <action #>
         
-    Creating /newaction costs Action Points (ap). Requires a summary, category,
-    stat/skill for dice check, and clear /ooc description of this action's
-    intent. Use /submit after all other options, when ready for GM review.
-    GMs may require more information or ask you to edit with /setaction and 
-    /submit again. Categories: combat, scouting, support, diplomacy, sabotage, 
-    research.
+    Creating /newaction costs Action Points (ap). Requires summary, category,
+    stat/skill for dice check, and /ooc specifics about this single action's
+    intent. Use /submit after all options, when ready for GM review. GMs may 
+    require more info or ask you to edit with /setaction and /submit again. 
+    Categories: combat, scouting, support, diplomacy, sabotage, research.
     
     With /invite you ask others to assist your action. They use /setaction or
-    /decline. A covert action can be added with /setsecret. Optional /traitor 
+    /cancel. A covert action can be added with /setsecret. Optional /traitor 
     (and /toggletraitor) switch makes your dice roll detract from goal. With 
     /setcrisis this becomes your response to a Crisis. Allocate resources with 
     /add by specifying which type (ap, army, social, silver, etc.,) and amount, 
@@ -61,10 +59,10 @@ class CmdAction(MuxPlayerCommand):
     max_requests = 2
     num_days = 30
     action_categories = ("combat", "scouting", "support", "diplomacy", "sabotage", "research")
-    requires_editable_switches = ("roll", "tldr", "summary", "category", "cancel", "invite", \
-                       "setaction", "setcrisis", "add", "toggletraitor", "toggleattend")
-    anytime_switches = ("ooc",)
-    requires_owner_switches = ("invite", "makepublic")
+    requires_editable_switches = ("roll", "tldr", "summary", "category", "submit", "invite", \
+                                  "setaction", "setcrisis", "add", "toggletraitor", "toggleattend")
+    requires_unpublished_switches = ("ooc", "cancel")
+    requires_owner_switches = ("invite", "makepublic", "category", "setcrisis")
     
     def func(self):
         if not self.args:
@@ -74,34 +72,52 @@ class CmdAction(MuxPlayerCommand):
         action = self.get_action(self.lhs)
         if not action:
             return
+        if not self.check_valid_switch_for_action_type(action):
+            return
+        if "makepublic" in self.switches:
+            return self.make_public(action)
         if set(self.switches) & set(self.requires_editable_switches):
             # PS - NV is fucking amazing
             return self.do_requires_editable_switches(action)
-        elif set(self.switches) & set(self.anytime_switches):
-            return self.do_anytime_switches(action)
-        elif "ooc" in self.switches:
-            return self.set_ooc(action)
-        # elif "submit" in self.switches:
-        #     return self.submit_action(action)
-        # elif "decline" in self.switches:
-        #     return self.decline_action(action)
-        # elif "makepublic" in self.switches:
-        #     return self.make_public(action)
+        if set(self.switches) & set(self.requires_unpublished_switches):
+            return self.do_requires_unpublished_switches(action)
         else:
             self.msg("Invalid switch. See 'help @action'.")
             
+    def check_valid_switch_for_action_type(self, action):
+        """
+        Checks if the specified switches require the main action, and if so, whether our action is the main action.
+        
+            Args:
+                action (CrisisAction or CrisisActionAssistant): action or assisting action
+                
+            Returns:
+                True or False for whether we're okay to proceed.
+        """
+        if not (set(self.switches) & set(self.requires_owner_switches)):
+            return True
+        if action.is_main_action:
+            return True
+        self.msg("Those switches can only be performed on the main action.")
+        return False
+        
+    def make_public(self, action):
+        if action.public:
+            self.msg("That action has already been made public.")
+            return
+        self.set_action_field(action, "public", True)
+            
     def do_requires_editable_switches(self, action):
         if not action.editable:
-            self.msg("You cannot edit that action at this time.")
-            return
+            return self.send_no_edits_msg()
         if "roll" in self.switches:
             return self.set_roll(action)
         if "tldr" in self.switches or "summary" in self.switches:
             return self.set_summary(action)
         elif "category" in self.switches:
             return self.set_category(action)
-        elif "cancel" in self.switches:
-            return self.cancel_action(action)
+        # elif "submit" in self.switches:
+        #     return self.submit_action(action)
         # elif "invite" in self.switches:
         #     return self.invite_assistant(action)
         # elif "setaction" in self.switches:
@@ -114,11 +130,22 @@ class CmdAction(MuxPlayerCommand):
             return self.toggle_traitor(action)
         # elif "toggleattend" in self.switches:
         #     return self.toggle_attend(action)
+        
+    def do_requires_unpublished_switches(self, action):
+        if action.status in (CrisisAction.PUBLISHED, CrisisAction.PENDING_PUBLISH):
+            return self.send_no_edits_msg()
+        elif "ooc" in self.switches:
+            return self.set_ooc(action)
+        elif "cancel" in self.switches:
+            return self.cancel_action(action)
             
     @property
     def dompc(self):
         """Shortcut for getting their dominion playerornpc object"""
         return self.caller.Dominion
+            
+    def send_no_edits_msg(self):
+        self.msg("You cannot edit that action at this time.")
             
     def list_actions(self):
         """Prints a table of the actions we've taken"""
@@ -220,7 +247,7 @@ class CmdAction(MuxPlayerCommand):
             self.msg("Only the main action has a category.")
             return
         if self.rhs not in self.action_categories:
-            self.msg("Usage: @action/tldr <action #>=<category>/<summary or title>\n" \
+            self.msg("Usage: @action/category <action #>=<category>\n" \
                      "Categories: %s" % ", ".join(self.action_categories))
             return
         self.set_action_field(action, 'category', self.rhs)
@@ -262,18 +289,24 @@ class CmdAction(MuxPlayerCommand):
         self.msg("Action cancelled.")
         
     def submit_action(self, action):
-        """I love a bishi."""
-        if not action.crisis:
-            from datetime import timedelta
-            offset = timedelta(days=-self.num_days)
-            old = datetime.now() + offset
-            recent_actions = self.get_my_actions().filter(db_date_submitted__gte=old)
-            if recent_actions.count() >= self.max_requests:
-                self.msg("You are permitted to make %s requests every %s days. Recent actions: %s" \
-                         % (self.max_requests, self.num_days, ", ".join(ob.id for ob in recent_actions)))
-                return
-        #TODO
-        pass
+        """I love a bishi. He too will submit."""
+        if action.is_main_action and not self.check_action_against_maximum_allowed(action):
+            return
+        msg = action.submit()
+        self.msg(msg)
+    
+    def check_action_against_maximum_allowed(self, action):
+        if action.status != CrisisAction.DRAFT or action.crisis:
+            return True
+        from datetime import timedelta
+        offset = timedelta(days=-self.num_days)
+        old = datetime.now() + offset
+        recent_actions = self.get_my_actions().filter(db_date_submitted__gte=old)
+        if recent_actions.count() < self.max_requests:
+            return True
+        else:
+            self.msg("You are permitted to make %s requests every %s days. Recent actions: %s" \
+                     % (self.max_requests, self.num_days, ", ".join(ob.id for ob in recent_actions)))
     
     def toggle_traitor(self, action):
         action.traitor = not action.traitor

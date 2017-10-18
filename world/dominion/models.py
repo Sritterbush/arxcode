@@ -1666,6 +1666,8 @@ class CrisisUpdate(SharedMemoryModel):
         
         
 class AbstractAction(AbstractPlayerAllocations):
+    NOUN = "Action"
+    BASE_AP_COST = 50
     secret_actions = models.TextField("Secret actions the player is taking", blank=True)
     attending = models.BooleanField(default=True)
     traitor = models.BooleanField(default=False)
@@ -1680,7 +1682,7 @@ class AbstractAction(AbstractPlayerAllocations):
         return bool(self.date_submitted)
         
     def refund(self):
-        self.dompc.player.pay_action_points(-self.ap)
+        self.dompc.player.pay_action_points(-(self.ap + self.BASE_AP_COST))
         for resource in ('military', 'economic', 'social'):
             value = getattr(self, resource)
             self.dompc.player.gain_resources(resource, value)
@@ -1703,13 +1705,10 @@ class AbstractAction(AbstractPlayerAllocations):
         if tldr:
             noun = "---[Summary of #%s]" % self.id
             action = self.topic
-        elif assist:
-            noun = "Assist"
-            action = self.actions
         else:
-            noun = "Action"
+            noun = self.NOUN
             action = self.actions
-        return "\n{w%s%s by {c%s{w:{n %s" % (prefix_txt, noun, self.dompc, action)
+        return "\n{w%s%s by {c%s{w:{n %s" % (prefix_txt, noun, self.author, action)
         
     @property
     def ooc_intent(self):
@@ -1723,19 +1722,70 @@ class AbstractAction(AbstractPlayerAllocations):
             self.ooc_intent.save()
             
     def ask_question(self, text):
-        inform_staff("{c%s{n added a comment/question about %s:\n%s" % (self.dompc, self, text))
+        inform_staff("{c%s{n added a comment/question about %s:\n%s" % (self.author, self, text))
         self.questions.create(text=text)
+        
+    @property
+    def is_main_action(self):
+        return self.NOUN == "Action"
+        
+    @property
+    def action_status(self):
+        if self.is_main_action:
+            return self.status
+        else:
+            return self.crisis_action.status
+        
+    @property
+    def author(self):
+        return self.dompc
+        
+    def inform(self, text, category=None, append=False):
+        if self.is_main_action:
+            week = self.week
+        else:
+            week = self.crisis_action.week
+        self.dompc.inform(text, category=category, week=week, append=append)
+        
+    def submit(self):
+        msg = self.check_completed_required_fields()
+        if msg:
+            return msg
+        if self.is_main_action and self.action_status == CrisisAction.DRAFT:
+            self.status = CrisisAction.NEEDS_GM
+            valid_submissions = [self]
+            for assist in self.assisting_actions.all():
+                if not assist.check_completed_required_fields():
+                    refund = bool(assist.actions)
+                    if refund:
+                        msg += "Cancelling incomplete assist: #%s by %s\n" % (assist.id, assist.author)
+                        text = "Your assist for %s was incomplete and has been refunded." % assist.crisis_action
+                        assist.inform(text, category="Action")
+                    assist.cancel(refund)
+                else:
+                    valid_submissions += [assist]
+            for ob in valid_submissions:
+                ob.date_submitted = datetime.now()
+                ob.editable = False
+                ob.save()
+        #TODO: continue building msg and informs and shit.
+        return msg
+            
+    def check_completed_required_fields(self):
+        msg = ""
+        return msg
 
 
 class CrisisAction(AbstractAction):
     """
-    An action that a player is taking for the crisis.
+    An action that a player is taking. May be in response to a Crisis.
     """
+    NOUN = "Action"
     week = models.PositiveSmallIntegerField(default=0, blank=0, db_index=True)
     dompc = models.ForeignKey("PlayerOrNpc", db_index=True, blank=True, null=True, related_name="actions")
     crisis = models.ForeignKey("Crisis", db_index=True, blank=True, null=True, related_name="actions")
     update = models.ForeignKey("CrisisUpdate", db_index=True, blank=True, null=True, related_name="actions")
-    public = models.BooleanField(default=True, blank=True)
+    public = models.BooleanField(default=False, blank=True)
     gm_notes = models.TextField("Any ooc notes for other GMs", blank=True)
     story = models.TextField("Story written by the GM for the player", blank=True)
     difficulty = models.SmallIntegerField(default=0, blank=0)
@@ -1765,16 +1815,16 @@ class CrisisAction(AbstractAction):
     DRAFT = 0
     NEEDS_PLAYER = 1
     NEEDS_GM = 2
-    PENDING_PUBLISH = 3
-    CANCELLED = 4
+    CANCELLED = 3
+    PENDING_PUBLISH = 4
     PUBLISHED = 5
     
     STATUS_CHOICES = (
         (DRAFT, 'Draft'),
         (NEEDS_PLAYER, 'Needs Player Input'),
         (NEEDS_GM, 'Needs GM Input'),
-        (PENDING_PUBLISH, 'Pending Publish'),
         (CANCELLED, 'Cancelled'),
+        (PENDING_PUBLISH, 'Pending Publish'),
         (PUBLISHED, 'Published')
         )
     status = models.PositiveSmallIntegerField(choices=STATUS_CHOICES, default=DRAFT)
@@ -1784,7 +1834,7 @@ class CrisisAction(AbstractAction):
             crisis = " for {m%s{n Week %s" % (self.crisis, self.week)
         else:
             crisis = ""
-        return "Action #%s by {c%s{n%s" % (self.id, self.dompc, crisis)
+        return "%s #%s by {c%s{n%s" % (self.NOUN, self.id, self.author, crisis)
     
     @property
     def sent(self):
@@ -1815,7 +1865,7 @@ class CrisisAction(AbstractAction):
                                  append=True)
         for assistant in self.assistants.all():
             assistant.player.inform(msg, category="Action", week=self.week, append=True)
-        self.status = 5
+        self.status = CrisisAction.PUBLISHED
         self.save()
 
     def view_action(self, caller=None, disp_pending=True, disp_old=False):
@@ -1895,12 +1945,10 @@ class CrisisAction(AbstractAction):
 
 
 class CrisisActionAssistant(AbstractAction):
+    NOUN = "Assist"
+    BASE_AP_COST = 10
     crisis_action = models.ForeignKey("CrisisAction", db_index=True, related_name="assisting_actions")
     dompc = models.ForeignKey("PlayerOrNpc", db_index=True, related_name="assisting_actions")
-    # whether the assistant can see any secret action of the owner
-    can_see_secret = models.BooleanField(default=False)
-    # whether the owner is allowed to see our own secret action
-    share_secret = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ('crisis_action', 'dompc')
@@ -1910,7 +1958,7 @@ class CrisisActionAssistant(AbstractAction):
         return self.crisis_action.crisis
 
     def __str__(self):
-        return "{c%s{n assisting %s" % (self.dompc, self.crisis_action)
+        return "{c%s{n assisting %s" % (self.author, self.crisis_action)
         
     def check_can_cancel(self):
         return self.crisis_action.check_can_cancel()
@@ -1918,6 +1966,11 @@ class CrisisActionAssistant(AbstractAction):
     def cancel(self, refund=True):
         if refund:
             self.refund()
+        self.delete()
+    
+    @property
+    def status(self):
+        return self.crisis_action.status
 
 
 class ActionOOCQuestion(SharedMemoryModel):
