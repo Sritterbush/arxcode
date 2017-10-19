@@ -28,10 +28,11 @@ class CmdAction(MuxPlayerCommand):
         @action/setaction <action #>=<action text>
         @action/setsecret[/traitor] <action #>=<secret action>
         @action/setcrisis <action #>=<crisis #>
-        @action/add <action #>,<resource or 'ap' or 'army'>=<amount or army ID#>
+        @action/add <action#>,<resource or 'ap' or 'army'>=<amount or army ID#>
         @action/makepublic <action #>
         @action/toggletraitor <action #>
         @action/toggleattend <action #>
+        @action/noscene <action #>
         
     Creating /newaction costs Action Points (ap). Requires summary, category,
     stat/skill for dice check, and /ooc specifics about this single action's
@@ -43,27 +44,26 @@ class CmdAction(MuxPlayerCommand):
     /cancel, and require all the same fields, except category. A covert action 
     can be added with /setsecret. Optional /traitor (and /toggletraitor) switch
     makes your dice roll detract from goal. With /setcrisis this becomes your 
-    response to a Crisis. Allocate resources with /add by specifying which type
-    (ap, army, social, silver, etc.,) and amount, or the ID# of the army. The 
+    response to a Crisis. Allocate resources with /add by specifying a type
+    (ap, army, social, silver, etc.) and amount, or the ID# of your army. The 
     /makepublic switch allows everyone to see your action after a GM publishes 
-    an outcome.
+    an outcome. If you prefer offscreen resolution, use /noscene toggle.
     
     Using /toggleattend switches whether your character is physically present,
     or arranging for the action's occurance in other ways. One action may be 
     attended per crisis update; all others must be passive to represent 
     simultaneous response by everyone involved. Up to 5 attendees are allowed
-    per crisis response action.
+    per crisis response action, unless it is /noscene.
     """
     key = "@action"
     locks = "cmd:all()"
     help_category = "Dominion"
-    max_requests = 2
-    num_days = 30
     action_categories = ("combat", "scouting", "support", "diplomacy", "sabotage", "research")
+    requires_draft_switches = ("invite", "setcrisis")
     requires_editable_switches = ("roll", "tldr", "summary", "category", "submit", "invite", \
                                   "setaction", "setcrisis", "add", "toggletraitor", "toggleattend")
-    requires_unpublished_switches = ("ooc", "cancel")
-    requires_owner_switches = ("invite", "makepublic", "category", "setcrisis")
+    requires_unpublished_switches = ("ooc", "cancel", "noscene")
+    requires_owner_switches = ("invite", "makepublic", "category", "setcrisis", "noscene")
     
     def func(self):
         if not self.args:
@@ -77,6 +77,8 @@ class CmdAction(MuxPlayerCommand):
             return
         if "makepublic" in self.switches:
             return self.make_public(action)
+        if set(set.switches) & set(self.requires_draft_switches):
+            return self.do_requires_draft_switches(action)
         if set(self.switches) & set(self.requires_editable_switches):
             # PS - NV is fucking amazing
             return self.do_requires_editable_switches(action)
@@ -107,7 +109,15 @@ class CmdAction(MuxPlayerCommand):
             self.msg("That action has already been made public.")
             return
         self.set_action_field(action, "public", True)
-            
+    
+    def do_requires_draft_switches(self, action):
+        if not action.status == CrisisAction.DRAFT:
+            return self.send_too_late_msg
+        # elif "invite" in self.switches:
+        #     return self.invite_assistant(action)
+        # elif "setcrisis" in self.switches:
+        #     return self.set_crisis(action)
+    
     def do_requires_editable_switches(self, action):
         if not action.editable:
             return self.send_no_edits_msg()
@@ -117,14 +127,10 @@ class CmdAction(MuxPlayerCommand):
             return self.set_summary(action)
         elif "category" in self.switches:
             return self.set_category(action)
-        # elif "submit" in self.switches:
-        #     return self.submit_action(action)
-        # elif "invite" in self.switches:
-        #     return self.invite_assistant(action)
+        elif "submit" in self.switches:
+            return self.submit_action(action)
         # elif "setaction" in self.switches:
         #     return self.set_action(action)
-        # elif "setcrisis" in self.switches:
-        #     return self.set_crisis(action)
         # elif "add" in self.switches:
         #     return self.add_resource(action)
         elif "toggletraitor" in self.switches:
@@ -139,6 +145,8 @@ class CmdAction(MuxPlayerCommand):
             return self.set_ooc(action)
         elif "cancel" in self.switches:
             return self.cancel_action(action)
+        elif "noscene" in self.switches:
+            return self.toggle_noscene(action)
             
     @property
     def dompc(self):
@@ -147,20 +155,27 @@ class CmdAction(MuxPlayerCommand):
             
     def send_no_edits_msg(self):
         self.msg("You cannot edit that action at this time.")
+        
+    def send_too_late_msg(self):
+        self.msg("Can only be done while the action is in Draft status.")
             
     def list_actions(self):
         """Prints a table of the actions we've taken"""
-        table = EvTable("ID", "Crisis", "Status")
+        table = EvTable("ID", "Crisis", "Category", "Attend", "Status")
         actions = self.dompc.actions.all()
         for action in actions:
-            table.add_row(action.id, action.crisis, action.status)
+            table.add_row(action.id, action.crisis, action.category, action.attending, action.status)
         self.msg(table)
+    
+    def send_no_args_msg(self, noun):
+        if not noun:
+            noun = "args"
+        self.msg("You need to include %s." % noun)
     
     def new_action(self):
         """Create a new action."""
         if not self.args:
-            self.msg("What action are you trying to take?")
-            return
+            return self.send_no_args_msg("a story")
         crisis = None
         crisis_msg = ""
         story = self.lhs
@@ -172,8 +187,12 @@ class CmdAction(MuxPlayerCommand):
                 return
         if not self.can_create(crisis):
             return
-        self.dompc.actions.create(story=story, crisis=crisis)
+        action = self.dompc.actions.create(story=story, crisis=crisis)
         self.msg("You have drafted a new action%s: %s" % (crisis_msg, story))
+        if crisis:
+            warning_msg = self.warn_crisis_omnipresence(action)
+            if warning_msg:
+                self.msg(warning_msg)
     
     def get_crisis(self, arg):
         """Returns a Crisis from ID# in args."""
@@ -184,6 +203,12 @@ class CmdAction(MuxPlayerCommand):
                 return Crisis.objects.get(name__iexact=arg)
         except Crisis.DoesNotExist:
             self.msg("No crisis matches %s." % arg)
+            
+    def warn_crisis_omnipresence(self, action):
+        try:
+            action.check_crisis_omnipresence()
+        except ActionSubmissionError as err:
+            return "{yWarning:{n " + err
         
     def get_action(self, arg, return_assist=True):
         """Returns an action we are involved in from ID# args.
@@ -244,9 +269,11 @@ class CmdAction(MuxPlayerCommand):
             return False
         
     def set_category(self, action):
-        if not hasattr(action, 'category'):
+        if not action.is_main_action:
             self.msg("Only the main action has a category.")
             return
+        if not self.rhs:
+            return self.send_no_args_msg("a category")
         if self.rhs not in self.action_categories:
             self.msg("Usage: @action/category <action #>=<category>\n" \
                      "Categories: %s" % ", ".join(self.action_categories))
@@ -270,6 +297,11 @@ class CmdAction(MuxPlayerCommand):
         return self.set_action_field(action, field_name, self.rhs[1])
         
     def set_summary(self, action):
+        if not self.rhs:
+            return self.send_no_args_msg("a title")
+        if len(self.rhs) > 140:
+            self.msg("Too long for a title.")
+            return
         return self.set_action_field(action, "summary", self.rhs)
       
     def set_ooc(self, action):
@@ -291,30 +323,70 @@ class CmdAction(MuxPlayerCommand):
         
     def submit_action(self, action):
         """I love a bishi. He too will submit."""
-        if action.is_main_action and not self.check_action_against_maximum_allowed(action):
-            return
         try:
             action.submit()
         except ActionSubmissionError as err:
             self.msg(err)
         else:
             self.msg("You have submitted your action.")
-    
-    def check_action_against_maximum_allowed(self, action):
-        if action.status != CrisisAction.DRAFT or action.crisis:
-            return True
-        from datetime import timedelta
-        offset = timedelta(days=-self.num_days)
-        old = datetime.now() + offset
-        recent_actions = self.get_my_actions().filter(db_date_submitted__gte=old)
-        if recent_actions.count() < self.max_requests:
-            return True
-        else:
-            self.msg("You are permitted to make %s requests every %s days. Recent actions: %s" \
-                     % (self.max_requests, self.num_days, ", ".join(ob.id for ob in recent_actions)))
+            
+    def toggle_noscene(self, action):
+        action.prefer_offscreen = not action.prefer_offscreen
+        action.save()
+        color = "{r" if action.prefer_offscreen else "{w"
+        self.msg("Preference for offscreen resolution set to: %s%s" % (color, action.prefer_offscreen))
     
     def toggle_traitor(self, action):
         action.traitor = not action.traitor
         color = "{r" if action.traitor else "{w"
         action.save()
         self.msg("Traitor is now set to: %s%s{n" % (color, action.traitor))
+        
+    def invite_assistant(self, action):
+        #TODO
+        pass
+    
+    def set_action(self, action):
+        if not self.rhs:
+            return self.send_no_args_msg("a story")
+        if not action.is_main_action:
+            warning_msg = ""
+            if not action.actions and action.crisis:
+                do_warnings = True
+            try:
+                action.setaction(self.rhs)
+                if do_warnings:
+                    omnipresent = self.warn_crisis_omnipresence(action)
+                    if omnipresent:
+                        warning_msg += "\n" + omnipresent
+                    elif not action.prefer_offscreen:
+                        overcrowd = self.warn_crisis_overcrowd(action)
+                        if overcrowd:
+                            warning_msg += "\n" + overcrowd
+                self.msg("%s now has your assistance: %s%s" % (action.crisis_action, self.rhs, warning_msg))
+            except ActionSubmissionError as err:
+                self.msg(err)
+                return
+        else:
+            self.set_action_field(action, "actions", self.rhs)
+            
+    def warn_crisis_overcrowd(self, action):
+        try:
+            action.check_crisis_overcrowd()
+        except ActionSubmissionError as err:
+            return "{yWarning:{n " + err
+    
+    def set_crisis(self, action):
+        # UGH TODO
+        overcrowd = self.warn_crisis_overcrowd(action)
+        if overcrowd:
+            warning_msg += "\n" + overcrowd
+        pass
+        
+    def add_resource(self, action):
+        if not action.actions:
+            self.msg("No.")
+            return
+        #TODO
+        pass
+    
