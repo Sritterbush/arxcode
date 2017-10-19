@@ -1665,6 +1665,10 @@ class CrisisUpdate(SharedMemoryModel):
         return "Update %s for %s" % (self.id, self.crisis)
         
         
+class ActionSubmissionError(ValueError):
+    pass
+        
+        
 class AbstractAction(AbstractPlayerAllocations):
     NOUN = "Action"
     BASE_AP_COST = 50
@@ -1730,6 +1734,12 @@ class AbstractAction(AbstractPlayerAllocations):
         return self.NOUN == "Action"
         
     @property
+    def main_action(self):
+        if self.is_main_action:
+            return self
+        return self.crisis_action
+        
+    @property
     def action_status(self):
         if self.is_main_action:
             return self.status
@@ -1739,7 +1749,7 @@ class AbstractAction(AbstractPlayerAllocations):
     @property
     def author(self):
         return self.dompc
-        
+    
     def inform(self, text, category=None, append=False):
         if self.is_main_action:
             week = self.week
@@ -1748,32 +1758,41 @@ class AbstractAction(AbstractPlayerAllocations):
         self.dompc.inform(text, category=category, week=week, append=append)
         
     def submit(self):
-        msg = self.check_completed_required_fields()
-        if msg:
-            return msg
-        if self.is_main_action and self.action_status == CrisisAction.DRAFT:
-            self.status = CrisisAction.NEEDS_GM
-            valid_submissions = [self]
-            for assist in self.assisting_actions.all():
-                if not assist.check_completed_required_fields():
-                    refund = bool(assist.actions)
-                    if refund:
-                        msg += "Cancelling incomplete assist: #%s by %s\n" % (assist.id, assist.author)
-                        text = "Your assist for %s was incomplete and has been refunded." % assist.crisis_action
-                        assist.inform(text, category="Action")
-                    assist.cancel(refund)
-                else:
-                    valid_submissions += [assist]
-            for ob in valid_submissions:
-                ob.date_submitted = datetime.now()
-                ob.editable = False
-                ob.save()
-        #TODO: continue building msg and informs and shit.
-        return msg
+        self.raise_submission_errors()
+        self.on_submit_success()
+        
+    def on_submit_success(self):
+        if not self.date_submitted:
+            self.date_submitted = datetime.now()
+        self.editable = False
+        self.save()
+        self.post_edit()
+        
+    def raise_submission_errors(self):
+        fields = self.check_incomplete_required_fields()
+        if fields:
+            raise ActionSubmissionError("Incomplete fields: %s" % ", ".join(fields))
             
-    def check_completed_required_fields(self):
-        msg = ""
-        return msg
+    def check_incomplete_required_fields(self):
+        fields = []
+        if not self.actions:
+            fields.append("action text")
+        if not self.questions.all():
+            fields.append("ooc intent")
+        if not self.topic:
+            fields.append("tldr")
+        if not self.skill or not self.stat:
+            fields.append("roll")
+        if self.is_main_action and not self.category:
+            fields.append("category")
+        return fields
+        
+    def post_edit(self):
+        """In both cases this check occurs after a resubmit."""
+        if self.status == CrisisAction.NEEDS_PLAYER and not self.all_editable:
+            self.status = CrisisAction.NEEDS_GM
+            self.main_action.save()
+            inform_staff("%s has been resubmitted for GM review." % self.main_action)
 
 
 class CrisisAction(AbstractAction):
@@ -1855,7 +1874,15 @@ class CrisisAction(AbstractAction):
     @property
     def total_silver(self):
         return self.silver + sum(ob.silver for ob in self.assisting_actions.all())
-
+    
+    @property
+    def action_and_assists(self):
+        return [self] + list(self.assisting_actions.all())
+        
+    @property
+    def all_editable(self):
+        return [ob for ob in self.action_and_assists if ob.editable]
+    
     def send(self, update):
         msg = "{wGM Response to action for crisis:{n %s" % self.crisis
         msg += "\n{wRolls:{n %s" % self.rolls
@@ -1890,7 +1917,7 @@ class CrisisAction(AbstractAction):
         if not self.public and not (staff_viewer or participant_viewer):
             return msg
         # print out actions of everyone
-        all_actions = [self] + list(self.assisting_actions.all())
+        all_actions = self.action_and_assists
         for ob in all_actions:
             assist = bool(ob != self)
             msg += ob.get_action_text(tldr=True)
@@ -1926,6 +1953,11 @@ class CrisisAction(AbstractAction):
             orders = set(orders)
             if len(orders) >  0:
                 msg += "\n{wArmed Forces Appointed:{n %s" % ", ".join(str(ob.army) for ob in orders)
+            needs_edits = ""
+            if self.status == CrisisAction.NEEDS_PLAYER:
+                needs_edits = " Awaiting edits to be submitted by: %s" % \
+                              ", ".join(ob.author for ob in self.all_editable)
+            msg += "\n{w[STATUS: %s]{n%s" % (self.status, needs_edits)
         return msg
     
     def check_can_cancel(self):
@@ -1942,6 +1974,14 @@ class CrisisAction(AbstractAction):
         else:
             self.cancelled = True
             self.save()
+            
+    def on_submit_success(self):
+        if self.action_status == CrisisAction.DRAFT:
+            self.status = CrisisAction.NEEDS_GM
+            for assist in self.assisting_actions.filter(date_submitted__isnull=True):
+                assist.submit_or_refund()
+            inform_staff("%s has submitted action #%s." % (self.author, self.id))
+        super(CrisisAction, self).on_submit_success()
 
 
 class CrisisActionAssistant(AbstractAction):
@@ -1971,6 +2011,24 @@ class CrisisActionAssistant(AbstractAction):
     @property
     def status(self):
         return self.crisis_action.status
+        
+    @status.setter
+    def status(self, value):
+        return self.crisis_action.status = value
+    
+    @property
+    def all_editable(self):
+        return self.crisis_action.all_editable
+        
+    def submit_or_refund(self):
+        try:
+            self.submit()
+        except ActionSubmissionError:
+            main_action_msg = "Cancelling incomplete assist: #%s by %s\n" % (self.id, self.author)
+            assist_action_msg = "Your assist for %s was incomplete and has been refunded." % self.crisis_action
+            self.crisis_action.inform(main_action_msg, category="Action")
+            self.inform(assist_action_msg, category="Action")
+            self.cancel()
 
 
 class ActionOOCQuestion(SharedMemoryModel):

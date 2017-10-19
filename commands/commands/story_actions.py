@@ -7,7 +7,7 @@ from evennia.utils.evtable import EvTable
 
 from server.utils.arx_utils import inform_staff, get_week
 
-from world.dominion.models import Crisis, CrisisAction, CrisisActionAssistant
+from world.dominion.models import Crisis, CrisisAction, CrisisActionAssistant, ActionSubmissionError
 
 
 class CmdAction(MuxPlayerCommand):
@@ -40,12 +40,13 @@ class CmdAction(MuxPlayerCommand):
     Categories: combat, scouting, support, diplomacy, sabotage, research.
     
     With /invite you ask others to assist your action. They use /setaction or
-    /cancel. A covert action can be added with /setsecret. Optional /traitor 
-    (and /toggletraitor) switch makes your dice roll detract from goal. With 
-    /setcrisis this becomes your response to a Crisis. Allocate resources with 
-    /add by specifying which type (ap, army, social, silver, etc.,) and amount, 
-    or the ID# of the army. The /makepublic switch allows everyone to see your 
-    action after a GM publishes an outcome.
+    /cancel, and require all the same fields, except category. A covert action 
+    can be added with /setsecret. Optional /traitor (and /toggletraitor) switch
+    makes your dice roll detract from goal. With /setcrisis this becomes your 
+    response to a Crisis. Allocate resources with /add by specifying which type
+    (ap, army, social, silver, etc.,) and amount, or the ID# of the army. The 
+    /makepublic switch allows everyone to see your action after a GM publishes 
+    an outcome.
     
     Using /toggleattend switches whether your character is physically present,
     or arranging for the action's occurance in other ways. One action may be 
@@ -292,8 +293,12 @@ class CmdAction(MuxPlayerCommand):
         """I love a bishi. He too will submit."""
         if action.is_main_action and not self.check_action_against_maximum_allowed(action):
             return
-        msg = action.submit()
-        self.msg(msg)
+        try:
+            action.submit()
+        except ActionSubmissionError as err:
+            self.msg(err)
+        else:
+            self.msg("You have submitted your action.")
     
     def check_action_against_maximum_allowed(self, action):
         if action.status != CrisisAction.DRAFT or action.crisis:
