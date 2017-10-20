@@ -411,7 +411,7 @@ class RPScene(SharedMemoryModel):
 
 class AbstractPlayerAllocations(SharedMemoryModel):
     UNSET_ROLL = -9999
-    topic = models.CharField(blank=True, max_length=255, help_text="Keywords or tldr or summary")
+    topic = models.CharField(blank=True, max_length=255, help_text="Keywords or tldr or title")
     actions = models.TextField(blank=True, help_text="The writeup the player submits of their actions, used for GMing.")
     stat_used = models.CharField(blank=True, max_length=80, default="perception",
                                  help_text="The stat the player chose to use")

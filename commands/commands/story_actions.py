@@ -16,7 +16,7 @@ class CmdAction(MuxPlayerCommand):
     
     Usage:
         @action/newaction [<crisis #>=]<story of action>
-        @action/tldr <action #>=<title or brief summary>
+        @action/tldr <action #>=<title>
         @action/category <action #>=<category>
         @action/roll <action #>=<stat>,<skill>
         @action/ooc <action #>=<ooc intent, then post-submission questions>
@@ -34,14 +34,14 @@ class CmdAction(MuxPlayerCommand):
         @action/toggleattend <action #>
         @action/noscene <action #>
         
-    Creating /newaction costs Action Points (ap). Requires summary, category,
+    Creating /newaction costs Action Points (ap). Requires title, category,
     stat/skill for dice check, and /ooc specifics about this single action's
     intent. Use /submit after all options, when ready for GM review. GMs may 
     require more info or ask you to edit with /setaction and /submit again. 
     Categories: combat, scouting, support, diplomacy, sabotage, research.
     
     With /invite you ask others to assist your action. They use /setaction or
-    /cancel, and require all the same fields, except category. A covert action 
+    /cancel, and require all the same fields except category. A covert action 
     can be added with /setsecret. Optional /traitor (and /toggletraitor) switch
     makes your dice roll detract from goal. With /setcrisis this becomes your 
     response to a Crisis. Allocate resources with /add by specifying a type
@@ -60,7 +60,7 @@ class CmdAction(MuxPlayerCommand):
     help_category = "Dominion"
     action_categories = ("combat", "scouting", "support", "diplomacy", "sabotage", "research")
     requires_draft_switches = ("invite", "setcrisis")
-    requires_editable_switches = ("roll", "tldr", "summary", "category", "submit", "invite", \
+    requires_editable_switches = ("roll", "tldr", "title", "category", "submit", "invite", \
                                   "setaction", "setcrisis", "add", "toggletraitor", "toggleattend")
     requires_unpublished_switches = ("ooc", "cancel", "noscene")
     requires_owner_switches = ("invite", "makepublic", "category", "setcrisis", "noscene")
@@ -123,8 +123,8 @@ class CmdAction(MuxPlayerCommand):
             return self.send_no_edits_msg()
         if "roll" in self.switches:
             return self.set_roll(action)
-        if "tldr" in self.switches or "summary" in self.switches:
-            return self.set_summary(action)
+        if "tldr" in self.switches or "title" in self.switches:
+            return self.set_topic(action)
         elif "category" in self.switches:
             return self.set_category(action)
         elif "submit" in self.switches:
@@ -296,13 +296,13 @@ class CmdAction(MuxPlayerCommand):
         field_name = "skill"
         return self.set_action_field(action, field_name, self.rhs[1])
         
-    def set_summary(self, action):
+    def set_topic(self, action):
         if not self.rhs:
             return self.send_no_args_msg("a title")
-        if len(self.rhs) > 140:
-            self.msg("Too long for a title.")
+        if len(self.rhs) > 80:
+            self.msg("Too long for a title, aim for under 80 characters.")
             return
-        return self.set_action_field(action, "summary", self.rhs)
+        return self.set_action_field(action, "topic", self.rhs)
       
     def set_ooc(self, action):
         """
@@ -315,9 +315,6 @@ class CmdAction(MuxPlayerCommand):
             self.msg("You have submitted a question: %s" % self.rhs)
         
     def cancel_action(self, action):
-        if not action.check_can_cancel():
-            self.msg("You cannot cancel the action at this time.")
-            return
         action.cancel()
         self.msg("Action cancelled.")
         

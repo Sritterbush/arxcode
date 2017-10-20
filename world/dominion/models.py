@@ -1704,8 +1704,6 @@ class AbstractAction(AbstractPlayerAllocations):
             return True
     
     def get_action_text(self, secret=False, tldr=False):
-        prefix_txt = ""
-        suffix_txt = ""
         noun = self.NOUN
         author = " by {c%s{w"
         if secret:
@@ -1713,16 +1711,20 @@ class AbstractAction(AbstractPlayerAllocations):
             action = self.secret_actions
             if self.traitor:
                 prefix_txt += "{rTraitorous{w "
+            suffix_txt = ":{n %s" % action
         if tldr:
-            prefix_txt = "---Summary "
+            prefix_txt = "--- "
+            action = self.topic
             if noun == "Action":
                 noun = "%s" % str(self)
                 author = ""
-            suffix_txt = " (physically attending)" if bool(self.crisis and self.attending)
-            action = self.topic
+            attend = "(physically attending)" if bool(self.crisis and self.attending) else ""
+            suffix_txt = "{w%s:{n %s {w---" % (attend, action)
         else:
+            prefix_txt = ""
             action = self.actions
-        return "\n{w%s%s%s%s:{n %s" % (prefix_txt, noun, author, suffix_txt, action)
+            suffix_txt = ":{n %s" % action
+        return "\n{w%s%s%s%s{n" % (prefix_txt, noun, author, suffix_txt)
         
     @property
     def ooc_intent(self):
@@ -1957,7 +1959,7 @@ class CrisisAction(AbstractAction):
             if ob.secret_action and view_secrets:
                 msg += ob.get_action_text(secret=True)
             if view_secrets and ob.stat_used and ob.skill_used:
-                msg += "\n{wDice check: %s, %s {n " % (ob.stat_used, ob.skill_used)
+                msg += "\n{wDice check:{n %s, %s  " % (ob.stat_used, ob.skill_used)
                 if self.sent or (ob.roll_is_set and staff_viewer):
                     color = "{r" if bool(ob.roll >= 0) else "{c"
                     msg += "{w[Roll: %s%s{w ]{n " % (color, ob.roll)
@@ -1972,14 +1974,14 @@ class CrisisAction(AbstractAction):
                             answers = question.answers.all()
                             msg += "\n".join("{wReply by {c%s{w:{n %s") % ((ob.gm, ob.text) for ob in answers)
         if staff_viewer and self.gm_notes or self.prefer_offscreen:
-            offscreen = "Offscreen resolution preferred. " == self.prefer_offscreen else ""
+            offscreen = "Offscreen resolution preferred. " if self.prefer_offscreen else ""
             msg += "\n{wGM Notes:{n %s%s" % (offscreen, self.gm_notes)
         if self.sent or (self.PENDING_PUBLISH and staff_viewer):
             msg += "\n{wOutcome Value:{n %s" % self.outcome_value
             msg += "\n{wStory:{n %s" % self.story
         else:
             msg += "\n{wAdditional Action Points Spent:{n {c%s{n" % self.total_action_points
-            msg += "\n{wResources Being Used:{n {c%s{n silver, {c%s{n economic, {c%s{n military, {c%s{n social" % 
+            msg += "\n{wResources Being Used:{n {c%s{n silver, {c%s{n economic, {c%s{n military, {c%s{n social" % \
                    (self.total_silver, self.total_economic, self.total_military, self.total_social)
             orders = []
             for ob in all_actions:
@@ -1994,10 +1996,6 @@ class CrisisAction(AbstractAction):
             msg += "\n{w[STATUS: %s]{n%s" % (self.status, needs_edits)
         return msg
     
-    def check_can_cancel(self):
-        """Whether a player is permitted to cancel this action."""
-        return True
-        
     def cancel(self):
         for action in self.assisting_actions.all():
             action.cancel()
@@ -2066,10 +2064,7 @@ class CrisisActionAssistant(AbstractAction):
 
     def __str__(self):
         return "{c%s{n assisting %s" % (self.author, self.crisis_action)
-        
-    def check_can_cancel(self):
-        return self.crisis_action.check_can_cancel()
-        
+    
     def cancel(self):
         if self.actions:
             self.refund()
