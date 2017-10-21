@@ -226,14 +226,10 @@ class CmdCrisisAction(MuxPlayerCommand):
 
     @property
     def viewable_crises(self):
-        if self.caller.check_permstring("builders"):
-            qs = Crisis.objects.all()
-        else:
-            qs = Crisis.objects.filter(
-                Q(public=True) | Q(required_clue__discoveries__in=self.caller.roster.finished_clues))
+        qs = Crisis.objects.viewable_by_player(self.caller).order_by('end_date')
         if "old" in self.switches:
             qs = qs.filter(resolved=True)
-        return qs.order_by('end_date')
+        return qs
 
     @property
     def current_actions(self):

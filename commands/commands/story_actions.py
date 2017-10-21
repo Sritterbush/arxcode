@@ -113,8 +113,8 @@ class CmdAction(MuxPlayerCommand):
     def do_requires_draft_switches(self, action):
         if not action.status == CrisisAction.DRAFT:
             return self.send_too_late_msg
-        # elif "invite" in self.switches:
-        #     return self.invite_assistant(action)
+        elif "invite" in self.switches:
+            return self.invite_assistant(action)
         # elif "setcrisis" in self.switches:
         #     return self.set_crisis(action)
     
@@ -340,8 +340,17 @@ class CmdAction(MuxPlayerCommand):
         self.msg("Traitor is now set to: %s%s{n" % (color, action.traitor))
         
     def invite_assistant(self, action):
-        #TODO
-        pass
+        # get dompc from args
+        player = self.caller.search(self.rhs)
+        if not player:
+            return
+        dompc = player.Dominion
+        try:
+            action.invite(dompc)
+        except ActionSubmissionError as err:
+            self.msg(err)
+        else:
+            self.msg("You have invited %s to join your action." % dompc)
     
     def set_action(self, action):
         if not self.rhs:
@@ -374,11 +383,34 @@ class CmdAction(MuxPlayerCommand):
             return "{yWarning:{n " + err
     
     def set_crisis(self, action):
-        # UGH TODO
+        if not self.rhs:
+            action.crisis = None
+            action.save()
+            self.msg("Your action no longer targets any crisis.")
+            return
+        crisis = self.get_valid_crisis(self.rhs)
+        if not crisis:
+            return
+        if not self.can_set_crisis(crisis):
+            return
+        action.crisis = crisis
+        action.save()
+        warning_msg = ""
+        self.msg("You have set the action to be for crisis: %s" % crisis)
         overcrowd = self.warn_crisis_overcrowd(action)
         if overcrowd:
             warning_msg += "\n" + overcrowd
-        pass
+        if warning_msg:
+            self.msg(warning_msg)
+    
+    def get_valid_crisis(self, name):
+        try:
+            qs = Crisis.objects.viewable_by_player(self.caller)
+            if self.rhs.isdigit():
+                return qs.get(id=self.rhs)
+            return qs.get(name__iexact=self.rhs)
+        except Crisis.DoesNotExist:
+            self.msg("No crisis found by that name or ID.")
         
     def add_resource(self, action):
         if not action.actions:

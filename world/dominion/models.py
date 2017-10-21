@@ -66,6 +66,7 @@ from . import unit_types, unit_constants
 from .reports import WeeklyReport
 from .battle import Battle
 from .agenthandler import AgentHandler
+from .managers import CrisisManager
 from server.utils.arx_utils import get_week, inform_staff
 from typeclasses.npcs import npc_types
 from typeclasses.mixins import InformMixin
@@ -1611,6 +1612,7 @@ class Crisis(SharedMemoryModel):
     end_date = models.DateTimeField(blank=True, null=True)
     chapter = models.ForeignKey('character.Chapter', related_name="crises", blank=True, null=True,
                                 on_delete=models.SET_NULL)
+    objects = CrisisManager()
 
     class Meta:
         """Define Django meta options"""
@@ -2016,8 +2018,16 @@ class CrisisAction(AbstractAction):
         super(CrisisAction, self).raise_submission_errors()
         self.check_action_against_maximum_allowed()
         if self.crisis:
+            self.raise_error_if_crisis_invalid()
             self.check_crisis_attendance()
             self.check_crisis_overcrowd()
+            
+    def raise_error_if_crisis_invalid(self):
+        crisis = self.crisis
+        if crisis.resolved:
+            raise ActionSubmissionError("%s has been marked as resolved." % crisis)
+        if datetime.now() > crisis.end_date:
+            raise ActionSubmissionError("It is past the deadline for %s." % crisis)
             
     def check_action_against_maximum_allowed(self):
         if self.status != CrisisAction.DRAFT or self.crisis:
@@ -2047,6 +2057,13 @@ class CrisisAction(AbstractAction):
             self.status = CrisisAction.NEEDS_GM
             self.save()
             inform_staff("%s has been resubmitted for GM review." % self)
+            
+    def invite(self, dompc):
+        if dompc in self.assistants.all():
+            raise ActionSubmissionError("They have already been invited.")
+        self.assisting_actions.create(dompc=dompc)
+        dompc.inform("You have been invited by %s to participate in action %s." % (self.author, self.id),
+                     category="Action Invitation")
 
 
 class CrisisActionAssistant(AbstractAction):
