@@ -1651,6 +1651,17 @@ class Crisis(SharedMemoryModel):
     def check_taken_action(self, dompc):
         """Whether player has submitted action for the current crisis update."""
         return self.actions.filter(Q(dompc=dompc) & Q(update__isnull=True)).exists()
+        
+    def raise_submission_errors(self):
+        if self.resolved:
+            raise ActionSubmissionError("%s has been marked as resolved." % self)
+        if datetime.now() > self.end_date:
+            raise ActionSubmissionError("It is past the deadline for %s." % self)
+            
+    def raise_creation_errors(self, dompc):
+        self.raise_submission_errors()
+        if self.check_taken_action(dompc=dompc):
+            raise ActionSubmissionError("You have already submitted action for this stage of the crisis.")
 
 
 class CrisisUpdate(SharedMemoryModel):
@@ -1691,8 +1702,11 @@ class AbstractAction(AbstractPlayerAllocations):
     def ap_refund_amount(self):
         return self.ap + self.BASE_AP_COST
         
+    def pay_action_points(self, amount):
+        return self.dompc.player.pay_action_points(amount)
+        
     def refund(self):
-        self.dompc.player.pay_action_points(-self.ap_refund_amount)
+        self.pay_action_points(-self.ap_refund_amount)
         for resource in ('military', 'economic', 'social'):
             value = getattr(self, resource)
             self.dompc.player.gain_resources(resource, value)
@@ -2018,16 +2032,9 @@ class CrisisAction(AbstractAction):
         super(CrisisAction, self).raise_submission_errors()
         self.check_action_against_maximum_allowed()
         if self.crisis:
-            self.raise_error_if_crisis_invalid()
+            self.crisis.raise_submission_errors()
             self.check_crisis_attendance()
             self.check_crisis_overcrowd()
-            
-    def raise_error_if_crisis_invalid(self):
-        crisis = self.crisis
-        if crisis.resolved:
-            raise ActionSubmissionError("%s has been marked as resolved." % crisis)
-        if datetime.now() > crisis.end_date:
-            raise ActionSubmissionError("It is past the deadline for %s." % crisis)
             
     def check_action_against_maximum_allowed(self):
         if self.status != CrisisAction.DRAFT or self.crisis:
@@ -2128,17 +2135,29 @@ class CrisisActionAssistant(AbstractAction):
     def post_edit(self):
         self.crisis_action.post_edit()
         
-    def setaction(self, story):
-        if not self.actions:
-            try: 
-                self.can_assist()
-            except ActionSubmissionError as err:
-                raise ActionSubmissionError(err)
+    @property
+    def has_paid_initial_ap_cost(self):
+        return bool(self.actions)
+        
+    def set_action(self, story):
+        """
+        Sets our assist's actions. If the action has not been set yet, we'll attempt to pay the initial ap cost,
+        raising an error if that fails.
+        
+            Args:
+                story (str or unicode): The story of the character's actions, written by the player.
+                
+            Raises:
+                ActionSubmissionError if we have not yet paid our AP cost and the player fails to do so here.
+        """
+        if not self.has_paid_initial_ap_cost:
+            self.pay_initial_ap_cost()
         self.actions = story
         self.save()
                     
-    def can_assist(self):
-        if not self.caller.pay_action_points(self.BASE_AP_COST):
+    def pay_initial_ap_cost(self):
+        """Pays our initial AP cost or raises an ActionSubmissionError"""
+        if not self.pay_action_points(self.BASE_AP_COST):
             raise ActionSubmissionError("You do not have enough action points.")
 
 

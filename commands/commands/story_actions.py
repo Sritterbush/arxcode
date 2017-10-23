@@ -115,8 +115,8 @@ class CmdAction(MuxPlayerCommand):
             return self.send_too_late_msg
         elif "invite" in self.switches:
             return self.invite_assistant(action)
-        # elif "setcrisis" in self.switches:
-        #     return self.set_crisis(action)
+        elif "setcrisis" in self.switches:
+            return self.set_crisis(action)
     
     def do_requires_editable_switches(self, action):
         if not action.editable:
@@ -129,8 +129,8 @@ class CmdAction(MuxPlayerCommand):
             return self.set_category(action)
         elif "submit" in self.switches:
             return self.submit_action(action)
-        # elif "setaction" in self.switches:
-        #     return self.set_action(action)
+        elif "setaction" in self.switches:
+            return self.set_action(action)
         # elif "add" in self.switches:
         #     return self.add_resource(action)
         elif "toggletraitor" in self.switches:
@@ -203,12 +203,6 @@ class CmdAction(MuxPlayerCommand):
                 return Crisis.objects.get(name__iexact=arg)
         except Crisis.DoesNotExist:
             self.msg("No crisis matches %s." % arg)
-            
-    def warn_crisis_omnipresence(self, action):
-        try:
-            action.check_crisis_omnipresence()
-        except ActionSubmissionError as err:
-            return "{yWarning:{n " + err
         
     def get_action(self, arg, return_assist=True):
         """Returns an action we are involved in from ID# args.
@@ -260,13 +254,12 @@ class CmdAction(MuxPlayerCommand):
         
     def can_set_crisis(self, crisis):
         """Checks criteria for linking to a Crisis."""
-        time = datetime.now()
-        if crisis.end_date < time:
-            self.msg("It is past the submit date for that crisis.")
+        try:
+            crisis.raise_creation_errors(self.dompc)
+        except ActionSubmissionError as err:
+            self.msg(err)
             return False
-        elif crisis.check_taken_action(dompc=self.dompc):
-            self.msg("You have already submitted action for this stage of the crisis.")
-            return False
+        return True
         
     def set_category(self, action):
         if not action.is_main_action:
@@ -356,23 +349,17 @@ class CmdAction(MuxPlayerCommand):
         if not self.rhs:
             return self.send_no_args_msg("a story")
         if not action.is_main_action:
-            warning_msg = ""
-            if not action.actions and action.crisis:
-                do_warnings = True
+            do_warnings = bool(action.crisis)
             try:
-                action.setaction(self.rhs)
-                if do_warnings:
-                    omnipresent = self.warn_crisis_omnipresence(action)
-                    if omnipresent:
-                        warning_msg += "\n" + omnipresent
-                    elif not action.prefer_offscreen:
-                        overcrowd = self.warn_crisis_overcrowd(action)
-                        if overcrowd:
-                            warning_msg += "\n" + overcrowd
-                self.msg("%s now has your assistance: %s%s" % (action.crisis_action, self.rhs, warning_msg))
+                action.set_action(self.rhs)
             except ActionSubmissionError as err:
                 self.msg(err)
-                return
+            else:
+                self.msg("%s now has your assistance: %s" % (action.crisis_action, self.rhs))
+                if do_warnings:
+                    self.warn_crisis_omnipresence(action)
+                    if not action.prefer_offscreen:
+                        self.warn_crisis_overcrowd(action)
         else:
             self.set_action_field(action, "actions", self.rhs)
             
@@ -380,7 +367,13 @@ class CmdAction(MuxPlayerCommand):
         try:
             action.check_crisis_overcrowd()
         except ActionSubmissionError as err:
-            return "{yWarning:{n " + err
+            self.msg("{yWarning:{n " + err)
+                
+    def warn_crisis_omnipresence(self, action):
+        try:
+            action.check_crisis_omnipresence()
+        except ActionSubmissionError as err:
+            self.msg("{yWarning:{n " + err)
     
     def set_crisis(self, action):
         if not self.rhs:
@@ -395,13 +388,8 @@ class CmdAction(MuxPlayerCommand):
             return
         action.crisis = crisis
         action.save()
-        warning_msg = ""
         self.msg("You have set the action to be for crisis: %s" % crisis)
-        overcrowd = self.warn_crisis_overcrowd(action)
-        if overcrowd:
-            warning_msg += "\n" + overcrowd
-        if warning_msg:
-            self.msg(warning_msg)
+        self.warn_crisis_overcrowd(action)
     
     def get_valid_crisis(self, name):
         try:
