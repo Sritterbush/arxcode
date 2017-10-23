@@ -1829,6 +1829,17 @@ class AbstractAction(AbstractPlayerAllocations):
             raise ActionSubmissionError("A crisis action can have %s people attending in person. %s of you should check your " \
                                         "story, then change to a passive role with @action/toggleattend. Current attendees:" \
                                         " %s" % (self.attending_limit, excess, ",".join(str(ob) for ob in attendees)))
+                                        
+    def check_crisis_errors(self):
+        if self.crisis:
+            self.crisis.raise_submission_errors()
+            self.check_crisis_omnipresence()
+            self.check_crisis_overcrowd()
+            
+    def mark_attending(self):
+        self.check_crisis_errors()
+        self.attending = True
+        self.save()
     
     def add_resource(self, r_type, value):
         if not self.actions:
@@ -2102,10 +2113,7 @@ class CrisisAction(AbstractAction):
     def raise_submission_errors(self):
         super(CrisisAction, self).raise_submission_errors()
         self.check_action_against_maximum_allowed()
-        if self.crisis:
-            self.crisis.raise_submission_errors()
-            self.check_crisis_attendance()
-            self.check_crisis_overcrowd()
+        self.check_crisis_errors()
             
     def check_action_against_maximum_allowed(self):
         if self.status != CrisisAction.DRAFT or self.crisis:

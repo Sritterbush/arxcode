@@ -132,8 +132,8 @@ class CmdAction(MuxPlayerCommand):
             return self.submit_action(action)
         elif "setaction" in self.switches:
             return self.set_action(action)
-        # elif "add" in self.switches:
-        #     return self.add_resource(action)
+        elif "add" in self.switches:
+            return self.add_resource(action)
         elif "toggletraitor" in self.switches:
             return self.toggle_traitor(action)
         # elif "toggleattend" in self.switches:
@@ -397,9 +397,19 @@ class CmdAction(MuxPlayerCommand):
             action.add_resource(r_type, value)
         except ActionSubmissionError as err:
             self.msg(err)
-        if r_type.lower() == "army":
-            self.msg("You have successfully relayed new orders to that army.")
-            return
         else:
-            totals = action.view_total_resources_msg()
-            self.msg("{c%s{n %s added. Action %s" % (value, r_type, totals))
+            if r_type.lower() == "army":
+                self.msg("You have successfully relayed new orders to that army.")
+                return
+            else:
+                totals = action.view_total_resources_msg()
+                self.msg("{c%s{n %s added. Action %s" % (value, r_type, totals))
+                
+    def toggle_attend(self, action):
+        if action.attending:
+            action.attending = False
+            action.save()
+            self.msg("You are marked as no longer attending the action.")
+            return
+        action.mark_attending()
+        self.msg("You have marked yourself as physically being present for that action.")
