@@ -68,6 +68,7 @@ from .battle import Battle
 from .agenthandler import AgentHandler
 from .managers import CrisisManager
 from server.utils.arx_utils import get_week, inform_staff
+from server.utils.exceptions import ActionSubmissionError, PayError
 from typeclasses.npcs import npc_types
 from typeclasses.mixins import InformMixin
 from .web.character.models import AbstractPlayerAllocations
@@ -1678,10 +1679,6 @@ class CrisisUpdate(SharedMemoryModel):
         return "Update %s for %s" % (self.id, self.crisis)
         
         
-class ActionSubmissionError(ValueError):
-    pass
-        
-        
 class AbstractAction(AbstractPlayerAllocations):
     NOUN = "Action"
     BASE_AP_COST = 50
@@ -1690,6 +1687,7 @@ class AbstractAction(AbstractPlayerAllocations):
     traitor = models.BooleanField(default=False)
     date_submitted = models.DateTimeField(blank=True, null=True)
     editable = models.BooleanField(default=True)
+    resource_types = ('silver', 'military', 'economic', 'social', 'ap', 'action points', 'army')
     
     class Meta:
         abstract = True
@@ -1831,7 +1829,63 @@ class AbstractAction(AbstractPlayerAllocations):
             raise ActionSubmissionError("A crisis action can have %s people attending in person. %s of you should check your " \
                                         "story, then change to a passive role with @action/toggleattend. Current attendees:" \
                                         " %s" % (self.attending_limit, excess, ",".join(str(ob) for ob in attendees)))
-
+    
+    def add_resource(self, r_type, value):
+        if not self.actions:
+            raise ActionSubmissionError("Join first with the /setaction switch.")
+        if self.crisis:
+            try:
+                self.crisis.raise_creation_errors(self.dompc)
+            except ActionSubmissionError as err:
+                raise ActionSubmissionError(err)
+        r_type = r_type.lower()
+        if r_type not in self.resource_types:
+            raise ActionSubmissionError("Invalid type of resource.")
+        if r_type == "army":
+            try:
+                return self.add_army(value)
+            except ActionSubmissionError as err:
+                raise ActionSubmissionError(err)
+        try:
+            value = int(value)
+            if value <= 0:
+                raise ValueError
+        except ValueError:
+            raise ActionSubmissionError("Amount must be a positive number.")
+        if r_type == "silver":
+            try:
+                self.dompc.player.char_ob.pay_money(value)
+            except PayError:
+                raise ActionSubmissionError("You cannot afford that.")
+        elif r_type == 'ap' or r_type == 'action points':
+            if not self.dompc.player.pay_action_points(value):
+                raise ActionSubmissionError("You do not have enough action points to exert that kind of effort.")
+            r_type = "action_points"
+        else:
+            if not self.dompc.player.pay_resources(r_type, value):
+                raise ActionSubmissionError("You cannot afford that.")
+        value += getattr(self, r_type)
+        setattr(self, r_type, value)
+        self.save()
+    
+    def add_army(self, name_or_id):
+        try:
+            if name_or_id.isdigit():
+                army = Army.objects.get(id=int(name_or_id))
+            else:
+                army = Army.objects.get(name__iexact=name_or_id)
+        except (AttributeError, Army.DoesNotExist):
+            raise ActionSubmissionError("No army by that ID# was found.")
+        if self.is_main_action:
+            action = self
+            action_assist = None
+        else:
+            action = self.crisis_action
+            action_assist = self
+        orders = army.send_orders(player=self.dompc, order_type=Orders.CRISIS, action=action, action_assist=action_assist)
+        if not orders:
+            return
+        
 
 class CrisisAction(AbstractAction):
     """
@@ -1934,14 +1988,20 @@ class CrisisAction(AbstractAction):
         return [ob for ob in self.action_and_assists_and_invites if ob.editable]
     
     def send(self, update):
-        msg = "{wGM Response to action for crisis:{n %s" % self.crisis
+        if self.crisis:
+            msg = "{wGM Response to action for crisis:{n %s" % self.crisis
+        else:
+            msg = "{GM Response to story action of %s" % self.author
         msg += "\n{wRolls:{n %s" % self.rolls
         msg += "\n\n{wStory:{n %s\n\n" % self.story
+        self.week = get_week()
         self.update = update
-        self.dompc.player.inform(msg, category="Action", week=self.week,
-                                 append=True)
+        self.inform(msg, category="Action")
         for assistant in self.assistants.all():
-            assistant.player.inform(msg, category="Action", week=self.week, append=True)
+            assistant.inform(msg, category="Action")
+        for orders in self.orders.all():
+            orders.complete = True
+            orders.save()
         self.status = CrisisAction.PUBLISHED
         self.save()
 
@@ -1996,9 +2056,7 @@ class CrisisAction(AbstractAction):
             msg += "\n{wOutcome Value:{n %s" % self.outcome_value
             msg += "\n{wStory:{n %s" % self.story
         else:
-            msg += "\n{wAdditional Action Points Spent:{n {c%s{n" % self.total_action_points
-            msg += "\n{wResources Being Used:{n {c%s{n silver, {c%s{n economic, {c%s{n military, {c%s{n social" % \
-                   (self.total_silver, self.total_economic, self.total_military, self.total_social)
+            msg += self.view_total_resources_msg()
             orders = []
             for ob in all_actions:
                 orders += list(ob.orders.all())
@@ -2010,6 +2068,19 @@ class CrisisAction(AbstractAction):
                 needs_edits = " Awaiting edits to be submitted by: %s" % \
                               ", ".join(ob.author for ob in self.all_editable)
             msg += "\n{w[STATUS: %s]{n%s" % (self.status, needs_edits)
+        return msg
+    
+    def view_total_resources_msg(self):
+        msg = ""
+        fields = {'extra action points' : self.total_action_points, 
+                  'silver' : self.total_silver, 
+                  'economic' : self.total_economic, 
+                  'military' : self.total_military, 
+                  'social' : self.total_social
+        }
+        totals = ", ".join("{c%s{n %s" % (key, value) for key,value in fields.items() if value > 0)
+        if totals:
+            msg = "\n{wResources:{n %s" % totals
         return msg
     
     def cancel(self):
@@ -2121,6 +2192,9 @@ class CrisisActionAssistant(AbstractAction):
     @property
     def all_editable(self):
         return self.crisis_action.all_editable
+    
+    def view_total_resources_msg(self):
+        return self.crisis_action.view_total_resources_msg()
         
     def submit_or_refund(self):
         try:
@@ -2866,14 +2940,10 @@ class Army(SharedMemoryModel):
         """
         Returns pending orders if they exist.
         """
-        week = get_week()
-        try:
-            return self.orders.get(week=week)
-        except Orders.DoesNotExist:
-            return None
+        return self.orders.filter(complete=False)
     
     def send_orders(self, player, order_type, target_domain=None, target_land=None, target_character=None,
-                    action=None, assisting=None):
+                    action=None, action_assist=None, assisting=None):
         """
         Checks permission to send orders to an army, then records the category 
         of orders and their target.
@@ -2887,7 +2957,8 @@ class Army(SharedMemoryModel):
             player.msg("That army has pending orders that must be canceled first.")
             return
         return self.orders.create(type=order_type, target_domain=target_domain, target_land=target_land,
-                                  target_character=target_character, action=action, assisting=assisting)
+                                  target_character=target_character, action=action, action_assist=action_assist,
+                                  assisting=assisting)
         
     def find_unit(self, unit_type):
         """
@@ -3014,9 +3085,8 @@ class Army(SharedMemoryModel):
         along with do_weekly_adjustment. Error checking on the validity
         of orders should be done at the player-command level, not here.
         """
-        # orders = self.pending_orders
         # stoof here later
-        self.orders.filter(week__lt=week - 1).update(complete=True)
+        self.orders.filter(week__lt=week - 1, action__isnull=True).update(complete=True)
         # if not orders:
         #     self.morale += 1
         #     self.save()

@@ -6,8 +6,9 @@ from evennia.commands.default.muxcommand import MuxPlayerCommand
 from evennia.utils.evtable import EvTable
 
 from server.utils.arx_utils import inform_staff, get_week
+from server.utils.exceptions import ActionSubmissionError
 
-from world.dominion.models import Crisis, CrisisAction, CrisisActionAssistant, ActionSubmissionError
+from world.dominion.models import Crisis, CrisisAction, CrisisActionAssistant
 
 
 class CmdAction(MuxPlayerCommand):
@@ -28,7 +29,7 @@ class CmdAction(MuxPlayerCommand):
         @action/setaction <action #>=<action text>
         @action/setsecret[/traitor] <action #>=<secret action>
         @action/setcrisis <action #>=<crisis #>
-        @action/add <action#>,<resource or 'ap' or 'army'>=<amount or army ID#>
+        @action/add <action#>=<resource or 'ap' or 'army'>,<amount or army ID#>
         @action/makepublic <action #>
         @action/toggletraitor <action #>
         @action/toggleattend <action #>
@@ -180,7 +181,7 @@ class CmdAction(MuxPlayerCommand):
         crisis_msg = ""
         story = self.lhs
         if self.rhs:
-            crisis = self.get_crisis(self.lhs)
+            crisis = self.get_valid_crisis(self.lhs)
             story = self.rhs
             crisis_msg = " to respond to %s" % str(crisis)
             if not crisis:
@@ -190,26 +191,13 @@ class CmdAction(MuxPlayerCommand):
         action = self.dompc.actions.create(story=story, crisis=crisis)
         self.msg("You have drafted a new action%s: %s" % (crisis_msg, story))
         if crisis:
-            warning_msg = self.warn_crisis_omnipresence(action)
-            if warning_msg:
-                self.msg(warning_msg)
+            self.warn_crisis_omnipresence(action)
     
-    def get_crisis(self, arg):
-        """Returns a Crisis from ID# in args."""
-        try:
-            if arg.isdigit():
-                return Crisis.objects.get(id=arg)
-            else:
-                return Crisis.objects.get(name__iexact=arg)
-        except Crisis.DoesNotExist:
-            self.msg("No crisis matches %s." % arg)
-        
-    def get_action(self, arg, return_assist=True):
+    def get_action(self, arg):
         """Returns an action we are involved in from ID# args.
         
             Args:
                 arg (str): String to use to find the ID of the crisis action.
-                return_assist (bool): Whether to return a CrisisActionAssistant instead if caller is an assistant.
                 
             Returns:
                 A CrisisAction or a CrisisActionAssistant depending if the caller is the owner of the main action or
@@ -218,11 +206,10 @@ class CmdAction(MuxPlayerCommand):
         try:
             dompc = self.dompc
             action = CrisisAction.objects.filter(Q(dompc=dompc) | Q(assistants=dompc)).distinct().get(id=arg)
-            if return_assist:
-                try:
-                    action = action.assisting_actions.get(assistant=dompc)
-                except CrisisActionAssistant.DoesNotExist:
-                    pass
+            try:
+                action = action.assisting_actions.get(assistant=dompc)
+            except CrisisActionAssistant.DoesNotExist:
+                pass
             return action
         except CrisisAction.DoesNotExist:
             self.msg("No action found by that ID.")
@@ -238,6 +225,15 @@ class CmdAction(MuxPlayerCommand):
         if not crisis:
             actions = actions.filter(crisis__isnull=True)
         return actions
+    
+    def get_valid_crisis(self, name_or_id):
+        try:
+            qs = Crisis.objects.viewable_by_player(self.caller)
+            if name_or_id.isdigit():
+                return qs.get(id=name_or_id)
+            return qs.get(name__iexact=name_or_id)
+        except Crisis.DoesNotExist:
+            self.msg("No crisis found by that name or ID.")
     
     def can_create(self, crisis=None):
         """Checks criteria for creating a new action."""
@@ -268,8 +264,7 @@ class CmdAction(MuxPlayerCommand):
         if not self.rhs:
             return self.send_no_args_msg("a category")
         if self.rhs not in self.action_categories:
-            self.msg("Usage: @action/category <action #>=<category>\n" \
-                     "Categories: %s" % ", ".join(self.action_categories))
+            self.send_no_args_msg("one of these categories: %s" % ", ".join(self.action_categories))
             return
         self.set_action_field(action, 'category', self.rhs)
         
@@ -293,7 +288,7 @@ class CmdAction(MuxPlayerCommand):
         if not self.rhs:
             return self.send_no_args_msg("a title")
         if len(self.rhs) > 80:
-            self.msg("Too long for a title, aim for under 80 characters.")
+            self.send_no_args_msg("a shorter title; aim for under 80 characters")
             return
         return self.set_action_field(action, "topic", self.rhs)
       
@@ -333,7 +328,6 @@ class CmdAction(MuxPlayerCommand):
         self.msg("Traitor is now set to: %s%s{n" % (color, action.traitor))
         
     def invite_assistant(self, action):
-        # get dompc from args
         player = self.caller.search(self.rhs)
         if not player:
             return
@@ -349,19 +343,17 @@ class CmdAction(MuxPlayerCommand):
         if not self.rhs:
             return self.send_no_args_msg("a story")
         if not action.is_main_action:
-            do_warnings = bool(action.crisis)
             try:
                 action.set_action(self.rhs)
             except ActionSubmissionError as err:
                 self.msg(err)
+                return
             else:
                 self.msg("%s now has your assistance: %s" % (action.crisis_action, self.rhs))
-                if do_warnings:
-                    self.warn_crisis_omnipresence(action)
-                    if not action.prefer_offscreen:
-                        self.warn_crisis_overcrowd(action)
         else:
             self.set_action_field(action, "actions", self.rhs)
+        if action.crisis:
+            self.do_passive_warnings(action)
             
     def warn_crisis_overcrowd(self, action):
         try:
@@ -374,6 +366,11 @@ class CmdAction(MuxPlayerCommand):
             action.check_crisis_omnipresence()
         except ActionSubmissionError as err:
             self.msg("{yWarning:{n " + err)
+    
+    def do_passive_warnings(self, action):
+        self.warn_crisis_omnipresence(action) 
+        if not action.prefer_offscreen:
+            self.warn_crisis_overcrowd(action)
     
     def set_crisis(self, action):
         if not self.rhs:
@@ -389,21 +386,20 @@ class CmdAction(MuxPlayerCommand):
         action.crisis = crisis
         action.save()
         self.msg("You have set the action to be for crisis: %s" % crisis)
-        self.warn_crisis_overcrowd(action)
-    
-    def get_valid_crisis(self, name):
-        try:
-            qs = Crisis.objects.viewable_by_player(self.caller)
-            if self.rhs.isdigit():
-                return qs.get(id=self.rhs)
-            return qs.get(name__iexact=self.rhs)
-        except Crisis.DoesNotExist:
-            self.msg("No crisis found by that name or ID.")
-        
+        self.do_passive_warnings(action)
+
     def add_resource(self, action):
-        if not action.actions:
-            self.msg("No.")
+        if not self.rhs[1]:
+            self.send_no_args_msg("a resource type such as 'economic' or 'ap' and the amount. Or 'army' and an army ID#")
             return
-        #TODO
-        pass
-    
+        r_type, value = self.rhs
+        try:
+            action.add_resource(r_type, value)
+        except ActionSubmissionError as err:
+            self.msg(err)
+        if r_type.lower() == "army":
+            self.msg("You have successfully relayed new orders to that army.")
+            return
+        else:
+            totals = action.view_total_resources_msg()
+            self.msg("{c%s{n %s added. Action %s" % (value, r_type, totals))

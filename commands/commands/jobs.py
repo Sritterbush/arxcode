@@ -74,10 +74,10 @@ class CmdJob(MuxPlayerCommand):
     closing a ticket. Please remember to be polite and respectful
     of players when answering tickets.
 
-    To view other queues, use @bug, @code, @gm, @typo, or @prp.
+    To view other queues, use @bug, @code, @typo, or @prp.
     """
     key = "@job"
-    aliases = ["@jobs", "@bug", "@code", "@gm", "@typo", "@prp"]
+    aliases = ["@jobs", "@bug", "@code", "@typo", "@prp"]
     help_category = "Admin"
     locks = "cmd:perm(job) or perm(Builders)"
     query_open_switches = ("mine", "all", "low", "only")
@@ -319,10 +319,6 @@ class CmdRequest(MuxPlayerCommand):
        +featurerequest <report>
        +request/followup <#>=<message>
        +request <#>
-       +storyrequest <title>=<action you wish to take>
-       +storyrequest/invite <ticket #>=<player>
-       +storyrequest/accept <player>
-       +storyrequest/decline <player>
        +prprequest <title>=<question about a player run plot>
 
     Send a message to the GMs for help. This is usually because
@@ -344,14 +340,13 @@ class CmdRequest(MuxPlayerCommand):
     'typo' may be used to report errors in descriptions or formatting.
     'bug' is used for reporting game errors in code.
     '+featurerequest' is used for making requests for code changes.
-    '+storyrequest' is used for asking for GM resolution of IC actions.
     '+prprequest' is used for asking questions about a PRP.
 
-    Story requests cost 40 action points.
+    To make an IC action, use @action instead.
     """
     key = "+request"
     aliases = ["@request", "+requests", "@requests", "+911", "+ineedanadult",
-               "bug", "typo", "+featurerequest", "+storyrequest", "+prprequest"]
+               "bug", "typo", "+featurerequest", "+prprequest"]
     help_category = "Admin"
     locks = "cmd:perm(request) or perm(Players)"
     num_days = 30

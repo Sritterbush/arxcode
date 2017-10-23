@@ -412,7 +412,8 @@ class AppearanceMixins(BaseObjectMixins):
         currency = self.currency
         amount = round(amount, 2)
         if amount > currency:
-            raise Exception("pay_money called without checking sufficient funds in character. Not enough.")
+            from server.utils.exceptions import PayError
+            raise PayError("pay_money called without checking sufficient funds in character. Not enough.")
         self.currency -= amount
         if receiver:
             receiver.currency += amount

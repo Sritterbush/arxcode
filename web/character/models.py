@@ -407,7 +407,7 @@ class RPScene(SharedMemoryModel):
         default - what to return if no lock of access_type was found
         """
         return self.locks.check(accessing_obj, access_type=access_type, default=default)
-
+        
 
 class AbstractPlayerAllocations(SharedMemoryModel):
     UNSET_ROLL = -9999
@@ -435,7 +435,7 @@ class AbstractPlayerAllocations(SharedMemoryModel):
     def roll_is_set(self):
         return self.roll != self.UNSET_ROLL
         
-
+    
 class Mystery(SharedMemoryModel):
     name = models.CharField(max_length=255, db_index=True)
     desc = models.TextField("Description", help_text="Description of the mystery given to the player " +
