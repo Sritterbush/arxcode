@@ -1,11 +1,8 @@
-from datetime import datetime
-
 from django.db.models import Q
 
 from evennia.commands.default.muxcommand import MuxPlayerCommand
 from evennia.utils.evtable import EvTable
 
-from server.utils.arx_utils import inform_staff, get_week
 from server.utils.exceptions import ActionSubmissionError
 
 from world.dominion.models import Crisis, CrisisAction, CrisisActionAssistant
@@ -61,7 +58,7 @@ class CmdAction(MuxPlayerCommand):
     help_category = "Dominion"
     action_categories = ("combat", "scouting", "support", "diplomacy", "sabotage", "research")
     requires_draft_switches = ("invite", "setcrisis")
-    requires_editable_switches = ("roll", "tldr", "title", "category", "submit", "invite", \
+    requires_editable_switches = ("roll", "tldr", "title", "category", "submit", "invite",
                                   "setaction", "setcrisis", "add", "toggletraitor", "toggleattend")
     requires_unpublished_switches = ("ooc", "cancel", "noscene")
     requires_owner_switches = ("invite", "makepublic", "category", "setcrisis", "noscene")
@@ -78,7 +75,7 @@ class CmdAction(MuxPlayerCommand):
             return
         if "makepublic" in self.switches:
             return self.make_public(action)
-        if set(set.switches) & set(self.requires_draft_switches):
+        if set(self.switches) & set(self.requires_draft_switches):
             return self.do_requires_draft_switches(action)
         if set(self.switches) & set(self.requires_editable_switches):
             # PS - NV is fucking amazing
@@ -359,13 +356,13 @@ class CmdAction(MuxPlayerCommand):
         try:
             action.check_crisis_overcrowd()
         except ActionSubmissionError as err:
-            self.msg("{yWarning:{n " + err)
+            self.msg("{yWarning:{n %s" % err)
                 
     def warn_crisis_omnipresence(self, action):
         try:
             action.check_crisis_omnipresence()
         except ActionSubmissionError as err:
-            self.msg("{yWarning:{n " + err)
+            self.msg("{yWarning:{n %s" % err)
     
     def do_passive_warnings(self, action):
         self.warn_crisis_omnipresence(action) 
@@ -390,7 +387,8 @@ class CmdAction(MuxPlayerCommand):
 
     def add_resource(self, action):
         if not self.rhs[1]:
-            self.send_no_args_msg("a resource type such as 'economic' or 'ap' and the amount. Or 'army' and an army ID#")
+            self.send_no_args_msg("a resource type such as 'economic' or 'ap' and the amount."
+                                  " Or 'army' and an army ID#")
             return
         try:
             r_type = self.rhslist[0].lower()

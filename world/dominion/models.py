@@ -71,7 +71,7 @@ from server.utils.arx_utils import get_week, inform_staff
 from server.utils.exceptions import ActionSubmissionError, PayError
 from typeclasses.npcs import npc_types
 from typeclasses.mixins import InformMixin
-from .web.character.models import AbstractPlayerAllocations
+from web.character.models import AbstractPlayerAllocations
 
 # Dominion constants
 BASE_WORKER_COST = 0.10
@@ -1726,7 +1726,7 @@ class AbstractAction(AbstractPlayerAllocations):
             if self.traitor:
                 prefix_txt += "{rTraitorous{w "
             suffix_txt = ":{n %s" % action
-        if tldr:
+        elif tldr:
             prefix_txt = "--- "
             action = self.topic
             if noun == "Action":
@@ -1819,16 +1819,17 @@ class AbstractAction(AbstractPlayerAllocations):
             already_attending = self.crisis_attendance
             if already_attending:
                 already_attending = already_attending[-1]
-                raise ActionSubmissionError("You are marked as physically present at %s. Use @action/toggleattend" \
+                raise ActionSubmissionError("You are marked as physically present at %s. Use @action/toggleattend"
                                             " and also ensure this story reads as a passive role." % already_attending)
                                             
     def check_crisis_overcrowd(self):
         attendees = self.attendees
         if attendees.count() > self.attending_limit and not self.prefer_offscreen:
             excess = attendees.count() - self.attending_limit
-            raise ActionSubmissionError("A crisis action can have %s people attending in person. %s of you should check your " \
-                                        "story, then change to a passive role with @action/toggleattend. Current attendees:" \
-                                        " %s" % (self.attending_limit, excess, ",".join(str(ob) for ob in attendees)))
+            raise ActionSubmissionError("A crisis action can have %s people attending in person. %s of you should "
+                                        "check your story, then change to a passive role with @action/toggleattend. "
+                                        "Current attendees: %s" % (self.attending_limit, excess,
+                                                                   ",".join(str(ob) for ob in attendees)))
                                         
     def check_crisis_errors(self):
         if self.crisis:
@@ -1893,7 +1894,8 @@ class AbstractAction(AbstractPlayerAllocations):
         else:
             action = self.crisis_action
             action_assist = self
-        orders = army.send_orders(player=self.dompc, order_type=Orders.CRISIS, action=action, action_assist=action_assist)
+        orders = army.send_orders(player=self.dompc, order_type=Orders.CRISIS, action=action,
+                                  action_assist=action_assist)
         if not orders:
             return
         
@@ -1915,7 +1917,7 @@ class CrisisAction(AbstractAction):
     assistants = models.ManyToManyField("PlayerOrNpc", blank=True, null=True, through="CrisisActionAssistant",
                                         related_name="assisted_actions")
     prefer_offscreen = models.BooleanField(default=False, blank=True)
-    gemit = models.ForeignKey("character.Gemit", blank=True, null=True, related_name="actions")
+    gemit = models.ForeignKey("character.StoryEmit", blank=True, null=True, related_name="actions")
     
     UNKNOWN = 0
     COMBAT = 1
@@ -2073,7 +2075,7 @@ class CrisisAction(AbstractAction):
             for ob in all_actions:
                 orders += list(ob.orders.all())
             orders = set(orders)
-            if len(orders) >  0:
+            if len(orders) > 0:
                 msg += "\n{wArmed Forces Appointed:{n %s" % ", ".join(str(ob.army) for ob in orders)
             needs_edits = ""
             if self.status == CrisisAction.NEEDS_PLAYER:
@@ -2084,13 +2086,12 @@ class CrisisAction(AbstractAction):
     
     def view_total_resources_msg(self):
         msg = ""
-        fields = {'extra action points' : self.total_action_points, 
-                  'silver' : self.total_silver, 
-                  'economic' : self.total_economic, 
-                  'military' : self.total_military, 
-                  'social' : self.total_social
-        }
-        totals = ", ".join("{c%s{n %s" % (key, value) for key,value in fields.items() if value > 0)
+        fields = {'extra action points': self.total_action_points,
+                  'silver': self.total_silver,
+                  'economic': self.total_economic,
+                  'military': self.total_military,
+                  'social': self.total_social}
+        totals = ", ".join("{c%s{n %s" % (key, value) for key, value in fields.items() if value > 0)
         if totals:
             msg = "\n{wResources:{n %s" % totals
         return msg
@@ -2124,8 +2125,9 @@ class CrisisAction(AbstractAction):
         old = datetime.now() + offset
         recent_actions = self.dompc.actions.filter(Q(db_date_submitted__gte=old) & Q(crisis__isnull=True))
         if recent_actions.count() >= self.max_requests:
-            raise ActionSubmissionError("You are permitted %s action requests every %s days. Recent actions: %s" \
-                     % (self.max_requests, self.num_days, ", ".join(str(ob.id) for ob in recent_actions)))
+            raise ActionSubmissionError("You are permitted %s action requests every %s days. Recent actions: %s"
+                                        % (self.max_requests, self.num_days,
+                                           ", ".join(str(ob.id) for ob in recent_actions)))
     
     @property
     def attendees(self):
@@ -2451,7 +2453,6 @@ class Organization(InformMixin, SharedMemoryModel):
         if viewing_member:
             msg += "\n{wMember stats for {c%s{n\n" % viewing_member
             msg += viewing_member.display()
-
         return msg
     
     def __init__(self, *args, **kwargs):
@@ -3327,7 +3328,8 @@ class Orders(SharedMemoryModel):
                                          null=True, db_index=True)
     # if we're targeting an action or asist. omg skorpins.
     action = models.ForeignKey("CrisisAction", related_name="orders", null=True, blank=True, db_index=True)
-    action_assist = models.ForeignKey("CrisisActionAssistant", related_name="orders", null=True, blank=True, db_index=True)
+    action_assist = models.ForeignKey("CrisisActionAssistant", related_name="orders", null=True, blank=True,
+                                      db_index=True)
     # if we're assisting another army's orders
     assisting = models.ForeignKey("self", related_name="assisting_orders", null=True, blank=True, db_index=True)
     type = models.PositiveSmallIntegerField(choices=ORDER_CHOICES, default=TRAIN)
