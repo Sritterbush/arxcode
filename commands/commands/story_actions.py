@@ -392,13 +392,18 @@ class CmdAction(MuxPlayerCommand):
         if not self.rhs[1]:
             self.send_no_args_msg("a resource type such as 'economic' or 'ap' and the amount. Or 'army' and an army ID#")
             return
-        r_type, value = self.rhs
+        try:
+            r_type = self.rhslist[0].lower()
+            value = self.rhslist[1]
+        except (IndexError, ValueError, TypeError, AttributeError):
+            self.msg("Must have a resource type and value.")
+            return
         try:
             action.add_resource(r_type, value)
         except ActionSubmissionError as err:
             self.msg(err)
         else:
-            if r_type.lower() == "army":
+            if r_type == "army":
                 self.msg("You have successfully relayed new orders to that army.")
                 return
             else:
@@ -413,3 +418,37 @@ class CmdAction(MuxPlayerCommand):
             return
         action.mark_attending()
         self.msg("You have marked yourself as physically being present for that action.")
+
+
+class CmdGMAction(MuxPlayerCommand):
+    """
+    Allows you to resolve character actions for GMing
+    
+    Usage:
+        Commands for viewing actions:
+        @gm [<action #> or <character or alias>]
+        @gm/mine
+        @gm/old [<action #>]
+        @gm[/status or /needgm or /needplayer or /canceled or /unpublished]
+        
+        Commands for modifying an action stats or results:
+        @gm/story <action #>=<the IC result of their action, told as a story>
+        @gm/secretstory <action #>=<the IC result of their secret actions>
+        @gm/charge <action #>[,assistant name]=<resource type>,<value>
+        @gm/check <action #>=<character>,<stat>/<skill> at <difficulty>
+        @gm/checkall <action #>
+        @gm/stat <action #>[,assistant name]=<stat>
+        @gm/skill <action #>[,assistant name]=<skill>
+        @gm/diff <action #>=<difficulty # or hard | normal | easy>
+        
+        Commands for answering questions or requiring player response:
+        @gm/ooc[/allowedit] <action #>[,assistant name]=<answer to OOC question>
+        @gm/oocsecret[/allowedit] <action #>[,assistant name]=<secret answer>
+        
+        Commands for action administration:
+        @gm/publish <action #>[=<story>]
+        @gm/markpending <action #>
+        @gm/cancel <action #>
+        @gm/assign <action #>=<gm>
+        @gm/gemit <action #>[,<action #>,...]=<text to post>
+    """

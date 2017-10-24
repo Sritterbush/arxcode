@@ -24,6 +24,8 @@ class CmdGMCrisis(MuxPlayerCommand):
         @gmcrisis/outcome <action #>=<IC notes>
         @gmcrisis/sendresponses <crisis name>=<story update text>
         @gmcrisis/appendresponses <crisis name>
+        
+        @gmcrisis/update <crisis name>=<story update text, will make a gemit>
 
     Use /needgm or /needgm/listquestions to list ones
     that have not been answered. To use this command properly, use /check to make

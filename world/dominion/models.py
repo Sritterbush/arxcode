@@ -1915,6 +1915,7 @@ class CrisisAction(AbstractAction):
     assistants = models.ManyToManyField("PlayerOrNpc", blank=True, null=True, through="CrisisActionAssistant",
                                         related_name="assisted_actions")
     prefer_offscreen = models.BooleanField(default=False, blank=True)
+    gemit = models.ForeignKey("character.Gemit", blank=True, null=True, related_name="actions")
     
     UNKNOWN = 0
     COMBAT = 1
