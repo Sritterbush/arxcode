@@ -1899,6 +1899,13 @@ class AbstractAction(AbstractPlayerAllocations):
         if not orders:
             return
         
+    def roll(self, stat=None, skill=None, difficulty=None):
+        from world.stats_and_skills import do_dice_check
+        stat = stat or self.stat
+        skill = skill or self.skill
+        difficulty = difficulty or self.difficulty or 15
+        return do_dice_check(self.dompc.player.char_ob, stat=stat, skill=skill, difficulty=difficulty)
+        
 
 class CrisisAction(AbstractAction):
     """
@@ -1912,6 +1919,7 @@ class CrisisAction(AbstractAction):
     public = models.BooleanField(default=False, blank=True)
     gm_notes = models.TextField("Any ooc notes for other GMs", blank=True)
     story = models.TextField("Story written by the GM for the player", blank=True)
+    secret_story = models.TextField("Any secret story written for the player", blank=True)
     difficulty = models.SmallIntegerField(default=0, blank=0)
     outcome_value = models.SmallIntegerField(default=0, blank=0)
     assistants = models.ManyToManyField("PlayerOrNpc", blank=True, null=True, through="CrisisActionAssistant",
@@ -2042,10 +2050,10 @@ class CrisisAction(AbstractAction):
             return msg
         # print out actions of everyone
         all_actions = self.action_and_assists
+        view_secrets = staff_viewer or ob.check_view_secret(caller)
         for ob in all_actions:
             msg += ob.get_action_text(tldr=True)
             msg += ob.get_action_text()
-            view_secrets = staff_viewer or ob.check_view_secret(caller)
             if ob.secret_action and view_secrets:
                 msg += ob.get_action_text(secret=True)
             if view_secrets and ob.stat_used and ob.skill_used:
@@ -2066,9 +2074,11 @@ class CrisisAction(AbstractAction):
         if staff_viewer and self.gm_notes or self.prefer_offscreen:
             offscreen = "Offscreen resolution preferred. " if self.prefer_offscreen else ""
             msg += "\n{wGM Notes:{n %s%s" % (offscreen, self.gm_notes)
-        if self.sent or (self.PENDING_PUBLISH and staff_viewer):
+        if self.sent or staff_viewer:
             msg += "\n{wOutcome Value:{n %s" % self.outcome_value
             msg += "\n{wStory:{n %s" % self.story
+            if self.secret_story and view_secrets:
+                msg += "\n{wSecret Story{n %s" % self.secret_story
         else:
             msg += self.view_total_resources_msg()
             orders = []
@@ -2153,6 +2163,12 @@ class CrisisAction(AbstractAction):
         self.assisting_actions.create(dompc=dompc)
         dompc.inform("You have been invited by %s to participate in action %s." % (self.author, self.id),
                      category="Action Invitation")
+    
+    def roll_all(self):
+        value = sum(ob.roll() for ob in self.actions_and_assists)
+        self.outcome_value = value
+        self.save()
+        return value
 
 
 class CrisisActionAssistant(AbstractAction):

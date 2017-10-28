@@ -8,7 +8,18 @@ from server.utils.exceptions import ActionSubmissionError
 from world.dominion.models import Crisis, CrisisAction, CrisisActionAssistant
 
 
-class CmdAction(MuxPlayerCommand):
+class ActionCommandMixin(object):
+    def set_action_field(self, action, field_name, value, verbose_name=None):
+        setattr(action, field_name, value)
+        action.save()
+        verbose_name = verbose_name or field_name
+        self.msg("%s set to %s." % (verbose_name, value))
+        
+    def check_switches(self, switch_set):
+        return set(self.switches) & set(switch_set)
+
+
+class CmdAction(ActionCommandMixin, MuxPlayerCommand):
     """
     A character's story actions that a GM responds to.
     
@@ -75,12 +86,12 @@ class CmdAction(MuxPlayerCommand):
             return
         if "makepublic" in self.switches:
             return self.make_public(action)
-        if set(self.switches) & set(self.requires_draft_switches):
+        if self.check_switches(self.requires_draft_switches):
             return self.do_requires_draft_switches(action)
-        if set(self.switches) & set(self.requires_editable_switches):
+        if self.check_switches(self.requires_editable_switches):
             # PS - NV is fucking amazing
             return self.do_requires_editable_switches(action)
-        if set(self.switches) & set(self.requires_unpublished_switches):
+        if self.check_switches(self.requires_unpublished_switches):
             return self.do_requires_unpublished_switches(action)
         else:
             self.msg("Invalid switch. See 'help @action'.")
@@ -133,8 +144,8 @@ class CmdAction(MuxPlayerCommand):
             return self.add_resource(action)
         elif "toggletraitor" in self.switches:
             return self.toggle_traitor(action)
-        # elif "toggleattend" in self.switches:
-        #     return self.toggle_attend(action)
+        elif "toggleattend" in self.switches:
+            return self.toggle_attend(action)
         
     def do_requires_unpublished_switches(self, action):
         if action.status in (CrisisAction.PUBLISHED, CrisisAction.PENDING_PUBLISH):
@@ -264,12 +275,6 @@ class CmdAction(MuxPlayerCommand):
             self.send_no_args_msg("one of these categories: %s" % ", ".join(self.action_categories))
             return
         self.set_action_field(action, 'category', self.rhs)
-        
-    def set_action_field(self, action, field_name, value, verbose_name=None):
-        setattr(action, field_name, value)
-        action.save()
-        verbose_name = verbose_name or field_name
-        self.msg("%s set to %s." % (verbose_name, value))
       
     def set_roll(self, action):
         """Sets a stat and skill for action or assistant"""
@@ -418,16 +423,16 @@ class CmdAction(MuxPlayerCommand):
         self.msg("You have marked yourself as physically being present for that action.")
 
 
-class CmdGMAction(MuxPlayerCommand):
+class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
     """
     Allows you to resolve character actions for GMing
     
     Usage:
         Commands for viewing actions:
-        @gm [<action #> or <character or alias>]
+        @gm [<action #> or <character or alias> or <crisis name> or <gm name>]
         @gm/mine
-        @gm/old [<action #>]
-        @gm[/status or /needgm or /needplayer or /canceled or /unpublished]
+        @gm/old
+        @gm[/needgm or /needplayer or /canceled or /pending or /draft]
         
         Commands for modifying an action stats or results:
         @gm/story <action #>=<the IC result of their action, told as a story>
@@ -449,4 +454,130 @@ class CmdGMAction(MuxPlayerCommand):
         @gm/cancel <action #>
         @gm/assign <action #>=<gm>
         @gm/gemit <action #>[,<action #>,...]=<text to post>
+        @gm/allowedit <action #>[,assistant name]
     """
+    key = "@gm"
+    locks = "cmd:perm(builders)"
+    help_category = "GMing"
+    gming_switches = ("story", "secretstory", "charge", "check", "checkall", "stat", "skill", "diff")
+    followup_switches = ("ooc", "oocsecret")
+    admin_switches = ("publish", "markpending", "cancel", "assign", "gemit", "allowedit")
+    
+    def func(self):
+        if not self.args or (not self.switches and not self.args.isdigit()):
+            return self.list_actions()
+        try:
+            action = CrisisAction.objects.get(id=self.lhslist[0])
+        except (CrisisAction.DoesNotExist, ValueError):
+            self.msg("No action by that ID #.")
+            return
+        if not self.switches or "old" in self.switches:
+            return self.view_action(action)
+        if self.check_switches(self.gming_switches):
+            return self.do_gming(action)
+        if self.check_switches(self.followup_switches):
+            return self.do_followup(action)
+        if self.check_switches(self.admin_switches):
+            return self.do_admin(action)
+        self.msg("Invalid switch.")
+            
+    def list_actions(self):
+        qs = self.get_queryset_from_switches()
+        table = EvTable("ID", "player", "tldr", "category", "crisis")
+        for action in qs:
+            table.add_row(action.id, action.dompc, action.summary, action.category, action.crisis)
+        self.msg(table)
+    
+    def get_queryset_from_switches(self):
+        old_status = CrisisAction.PUBLISHED
+        draft_status = CrisisAction.DRAFT
+        cancelled_status = CrisisAction.CANCELLED
+        if "old" in self.switches:
+            qs = CrisisAction.objects.filter(status=old_status)
+        elif "draft" in self.switches:
+            qs = CrisisAction.objects.filter(status=draft_status)
+        elif "needgm" in self.switches:
+            qs = CrisisAction.objects.filter(status=CrisisAction.NEEDS_GM)
+        elif "needplayer" in self.switches:
+            qs = CrisisAction.objects.filter(status=CrisisAction.NEEDS_PLAYER)
+        elif "cancelled" in self.switches:
+            qs = CrisisAction.objects.filter(status=cancelled_status)
+        else:
+            qs = CrisisAction.objects.exclude(status__in=(old_status, draft_status, cancelled_status))
+        if "mine" in self.switches:
+            qs = qs.filter(gm=self.caller.Dominion)
+        return qs
+    
+    def view_action(self, action):
+        self.msg(action.view_action(caller=self.caller))
+        
+    def do_gming(self, action):
+        if "story" in self.switches:
+            return self.set_action_field(action, "story", self.rhs)
+        if "secretstory" in self.switches:
+            return self.set_action_field(action, "secret_story", self.rhs)
+        if "check" in self.switches or "checkall" in self.switches:
+            return self.do_checks(action)
+        if "charge"in self.switches:
+            return self.charge_additional_resources(action)
+        if "diff" in self.switches:
+            return self.set_difficulty(action)
+        if len(self.lhslist) > 1:
+            action = self.replace_action_with_assistant_if_provided(action, self.lhslist[1])
+            if not action:
+                return
+        if "stat" in self.switches:
+            return self.set_action_field(action, "stat", self.rhs)
+        if "skill" in self.switches:
+            return self.set_action_field(action, "skill", self.rhs)
+            
+    def do_checks(self, action):
+        if "checkall" in self.switches:
+            result = action.roll_all()
+            self.msg("Setting result to be action's outcome value.")
+        else:
+            try:
+                name = self.rhslist[0]
+                args = self.rhslist[1].split(" at ")
+                diff = int(args[1])
+                stat, skill = args[0].split("/")
+            except (TypeError, ValueError, IndexError):
+                self.msg("Invalid syntax.")
+                return
+            else:
+                try:
+                    action = self.replace_action_with_assistant_if_provided(action, name)
+                    if not action:
+                        return
+                    result = action.roll(stat=stat, skill=skill, difficulty=diff)
+                except ActionSubmissionError as err:
+                    self.msg(err)
+                    return
+        self.msg("Roll result was: %s" % result)
+        
+    
+    def charge_additional_resources(self, action):
+        pass
+    
+    def set_difficulty(self, action):
+        try:
+            value = int(self.rhs)
+        except (TypeError, ValueError):
+            self.msg("Difficulty must be a number.")
+        else:
+            self.set_action_field(action, "difficulty", value)
+            
+    def replace_action_with_assistant_if_provided(self, action, name):
+        if action.dompc.player.username.lower() == name:
+            return action
+        try:
+            return action.assisting_actions.get(dompc__player__username__iexact=name)
+        except CrisisActionAssistant.DoesNotExist:
+            self.msg("No assistant by that name.")
+    
+    def do_followup(self, action):
+        pass
+    
+    def do_admin(self, action):
+        pass
+    
