@@ -1737,7 +1737,7 @@ class AbstractAction(AbstractPlayerAllocations):
     
     def get_action_text(self, secret=False, tldr=False):
         noun = self.NOUN
-        author = " by {c%s{w"
+        author = " by {c%s{w" % self.author
         if secret:
             prefix_txt = "Secret "
             action = self.secret_actions
@@ -2094,7 +2094,7 @@ class CrisisAction(AbstractAction):
         for ob in all_actions:
             msg += ob.get_action_text(tldr=True)
             msg += ob.get_action_text()
-            if ob.secret_action and view_secrets:
+            if ob.secret_actions and view_secrets:
                 msg += ob.get_action_text(secret=True)
             if view_secrets and ob.stat_used and ob.skill_used:
                 msg += "\n{wDice check:{n %s, %s  " % (ob.stat_used, ob.skill_used)

@@ -7,6 +7,14 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
+def set_status(apps, schema_editor):
+    CrisisAction = apps.get_model("dominion", "CrisisAction")
+    PUBLISHED = 5
+    NEEDS_GM = 2
+    CrisisAction.objects.filter(story="").update(status=NEEDS_GM)
+    CrisisAction.objects.exclude(story="").update(status=PUBLISHED)
+
+
 def convert_storyactions(apps, schema_editor):
     Ticket = apps.get_model("helpdesk", "Ticket")
     CrisisAction = apps.get_model("dominion", "CrisisAction")
@@ -24,7 +32,9 @@ def convert_storyactions(apps, schema_editor):
         actions = ticket.description or ""
         story = ticket.resolution or ""
         topic = ticket.title
-        action = CrisisAction(dompc=dompc, actions=actions, gm=gm, story=story, status=status, topic=topic)
+        date_submitted = ticket.db_date_created
+        action = CrisisAction(dompc=dompc, actions=actions, gm=gm, story=story, status=status, topic=topic,
+                              date_submitted=date_submitted)
         action.save()
         for player in ticket.participants.all():
             action.assisting_actions.create(dompc=player.Dominion)
@@ -306,5 +316,6 @@ class Migration(migrations.Migration):
                 (0, b'Infantry'), (1, b'Pike'), (2, b'Cavalry'), (3, b'Archers'), (4, b'Longship'),
                 (5, b'Siege Weapon'), (6, b'Galley'), (8, b'Cog'), (7, b'Dromond')], default=0),
         ),
+        migrations.RunPython(set_status),
         migrations.RunPython(convert_storyactions)
     ]

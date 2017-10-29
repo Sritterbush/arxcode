@@ -467,7 +467,7 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
     admin_switches = ("publish", "markpending", "cancel", "assign", "gemit", "allowedit")
     
     def func(self):
-        if not self.args or (not self.switches and not self.args.isdigit()):
+        if not self.args or ((not self.switches or "old" in self.switches) and not self.args.isdigit()):
             return self.list_actions()
         try:
             action = CrisisAction.objects.get(id=self.lhslist[0])
@@ -486,9 +486,9 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
             
     def list_actions(self):
         qs = self.get_queryset_from_switches()
-        table = EvTable("ID", "player", "tldr", "category", "crisis")
-        for action in qs:
-            table.add_row(action.id, action.dompc, action.summary, action.category, action.crisis)
+        table = EvTable("ID", "player", "tldr", "category", "crisis", width=78, border="cells")
+        for action in list(qs)[-50:]:
+            table.add_row(action.id, action.dompc, action.topic, action.get_category_display(), action.crisis)
         self.msg(table)
     
     def get_queryset_from_switches(self):
@@ -509,11 +509,13 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
             qs = CrisisAction.objects.exclude(status__in=(old_status, draft_status, cancelled_status))
         if "mine" in self.switches:
             qs = qs.filter(gm=self.caller)
+        elif not self.args:
+            qs = qs.filter(gm__isnull=True)
         if self.args:
             name = self.args
-            qs.filter(Q(crisis__name__iexact=name) | Q(dompc__player__username__iexact=name) | 
-                      Q(category__iexact=name) | Q(assistants__player__username__iexact=name) |
-                      Q(gm__username__iexact=name))
+            qs = qs.filter(Q(crisis__name__iexact=name) | Q(dompc__player__username__iexact=name) |
+                           Q(category__iexact=name) | Q(assistants__player__username__iexact=name) |
+                           Q(gm__username__iexact=name))
         return qs
     
     def view_action(self, action):

@@ -219,6 +219,11 @@ class PlayerCmdSet(cmdset_player.PlayerCmdSet):
             self.add(crisis_commands.CmdGMCrisis())
         except Exception as err:
             print("<<ERROR>>: Error encountered in loading crisis cmdset: %s" % err)
+        try:
+            from .commands import story_actions
+            self.add(story_actions.CmdGMAction)
+        except Exception as err:
+            print("<<ERROR>>: Error encountered in loading action cmdset: %s" % err)
 
 
 class UnloggedinCmdSet(cmdset_unloggedin.UnloggedinCmdSet):

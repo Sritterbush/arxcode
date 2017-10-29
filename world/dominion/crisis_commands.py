@@ -45,8 +45,8 @@ class CmdGMCrisis(MuxPlayerCommand):
         if "old" in self.switches:
             qs = CrisisAction.objects.filter(status=CrisisAction.PUBLISHED, crisis__isnull=False)
         else:
-            qs = CrisisAction.objects.exclude(crisis__isnull=True, status__in=(CrisisAction.PUBLISHED, 
-                                                                               CrisisAction.CANCELLED))
+            qs = CrisisAction.objects.exclude(crisis__isnull=True).exclude(status__in=(CrisisAction.PUBLISHED,
+                                                                                       CrisisAction.CANCELLED))
         if "needgm" in self.switches:
             qs = qs.filter(story__exact="")
         if "listquestions" in self.switches:

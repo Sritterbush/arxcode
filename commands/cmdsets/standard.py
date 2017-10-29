@@ -107,6 +107,11 @@ try:
 except Exception as err:
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in roll commands: %s" % err)
+try:
+    from commands.commands import story_actions
+except Exception as err:
+    traceback.print_exc()
+    print("<<ERROR>>: Error encountered in storyaction commands: %s" % err)
 from evennia.commands.cmdset import CmdSet
 
 
@@ -170,6 +175,7 @@ class StateIndependentCmdSet(CmdSet):
         self.add(social.CmdTempDesc())
         self.add(social.CmdLanguages())
         self.add(maps.CmdMap())
+        self.add(story_actions.CmdAction())
 
 
 class MobileCmdSet(CmdSet):
