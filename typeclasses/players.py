@@ -411,12 +411,12 @@ class Player(InformMixin, MsgMixins, DefaultPlayer):
         return int(100.0/float(self.clues_shared_modifier_seed + 1)) + 1
         
     @property
-    def participated_storyrequests(self):
+    def participated_actions(self):
         """Storyrequests we participated in"""
-        from web.helpdesk.models import Ticket
+        from world.dominion.models import CrisisAction
         from django.db.models import Q
-        return Ticket.objects.filter(Q(queue__slug__iexact="story") & Q(
-            Q(submitting_player=self) | Q(participants=self))).distinct()
+        dompc = self.Dominion
+        return CrisisAction.objects.filter(status=CrisisAction.PUBLISHED).filter(Q(assistants=dompc) | Q(dompc=dompc))
 
     def show_online(self, caller, check_puppet=False):
         """
@@ -447,3 +447,8 @@ class Player(InformMixin, MsgMixins, DefaultPlayer):
     def editable_theories(self):
         ids = [ob.theory.id for ob in self.theory_permissions.filter(can_edit=True)]
         return self.known_theories.filter(id__in=ids)
+        
+    @property
+    def actions(self):
+        from world.dominion.models import CrisisAction
+        return self.Dominion.actions.filter(status=CrisisAction.PUBLISHED)

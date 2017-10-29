@@ -72,15 +72,6 @@ def add_followup(caller, ticket, message, mail_player=True):
     return True
 
 
-def do_check(caller, ticket, stat, skill, difficulty, char):
-    from world.stats_and_skills import do_dice_check
-    result = do_dice_check(char, stat=stat, skill=skill, difficulty=difficulty)
-    msg = "%s has called for %s to check %s + %s at difficulty %s.\n" % (caller, char, stat, skill, difficulty)
-    msg += "The result is %s. A positive number is a success, a negative number is a failure." % result
-    if add_followup(caller, ticket, msg):
-        return msg
-
-
 def resolve_ticket(caller, ticket_id, message):
     """
     Closes ticket.

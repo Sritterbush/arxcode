@@ -930,7 +930,7 @@ class CmdSheet(MuxPlayerCommand):
         @sheet/privaterels <character name>=<other character>
         @sheet/secrets
         @sheet/visions
-        @sheet/storyrequests <character>=<#>
+        @sheet/actions <character>=<#>
         @sheet/background <character>
         @sheet/personality <character>
         @sheet/comments <character>=<commenting character>
@@ -954,8 +954,7 @@ class CmdSheet(MuxPlayerCommand):
     aliases = ["+sheet", "sheet"]
     help_category = "General"
     locks = "cmd:all()"
-    private_switches = ("secrets", "secret", "visions", "vision",
-                        "storyrequest", "storyrequests")
+    private_switches = ("secrets", "secret", "visions", "vision", "actions")
 
     def func(self):
         caller = self.caller
@@ -995,8 +994,8 @@ class CmdSheet(MuxPlayerCommand):
                 display_abilities(caller, charob)                                
             return
         if set(switches) & set(self.private_switches):
-            check_storyrequests = ('storyrequest' in switches or 'storyrequests' in switches) and self.rhs
-            charob, show_hidden = self.get_character(check_storyrequests)
+            check_storyactions = ('actions' in switches or 'storyrequests' in switches) and self.rhs
+            charob, show_hidden = self.get_character(check_storyactions)
             if not charob:
                 return
             if not show_hidden:
@@ -1008,8 +1007,8 @@ class CmdSheet(MuxPlayerCommand):
             if 'visions' in switches or 'vision' in switches:
                 self.display_visions(charob)
                 return
-            if 'storyrequest' in switches or 'storyrequests' in switches:
-                self.display_storyrequests(charob)
+            if 'actions' in switches or 'storyrequests' in switches:
+                self.display_storyactions(charob)
                 return
         if 'social' in switches or 'background' in switches or 'info' in switches or 'personality' in switches:
             charob, show_hidden = self.get_character()
@@ -1133,7 +1132,7 @@ class CmdSheet(MuxPlayerCommand):
         caller.msg("Usage: @sheet/switches <character>")
         return
 
-    def get_character(self, check_storyrequests=False):
+    def get_character(self, check_storyactions=False):
         """
         Gets character and whether we have permission to view.
 
@@ -1161,8 +1160,8 @@ class CmdSheet(MuxPlayerCommand):
             return None, False
         if my_char == charob:
             return charob, True
-        if check_storyrequests:
-            return charob, show_hidden or charob.player_ob.tickets.filter(participants=my_char.player_ob).exists()
+        if check_storyactions:
+            return charob, show_hidden or charob.actions.filter(assistants__player=my_char.player_ob).exists()
         try:
             r_name = charob.roster.roster.name
         except AttributeError:
@@ -1171,38 +1170,35 @@ class CmdSheet(MuxPlayerCommand):
         if r_name not in ("Active", "Available", "Gone") and not show_hidden:
             caller.msg("That character is an npc and cannot be viewed.")
             return None, False
-
         return charob, show_hidden
 
-    def display_storyrequests(self, charob):
+    def display_storyactions(self, charob):
         """
-        Displays a list of storyrequests or body of specified request
+        Displays a list of story actions or body of specified request
 
             Args:
                 charob (ObjectDB): Character object to retrieve requests from
         """
         player = charob.player_ob
         # Get storyrequests from this player object
-        tickets = player.participated_storyrequests
+        actions = player.participated_actions
         # check self.rhs - if not self.rhs, list # of all of them
-        ticket_num = self.get_num_from_args()
-        if not ticket_num:
-            table = prettytable.PrettyTable(["{wID",
-                                             "{wSubmitting Player",
-                                             "{wTopic{n"])
-            for ob in tickets:
-                table.add_row([str(ob.id), str(ob.submitting_player), str(ob.title)])
+        action_num = self.get_num_from_args()
+        if not action_num:
+            table = prettytable.PrettyTable(["{wID", "{wSubmitting Player", "{wTopic{n", "{wCrisis{n"])
+            for ob in actions:
+                table.add_row([str(ob.id), str(ob.author), str(ob.title), str(ob.crisis)])
             # send table to player and return
-            self.caller.msg("%s" % table)
+            self.msg("%s" % table)
             return
         # have self.rhs: get storyrequest, print its display().
-        from web.helpdesk.models import Ticket
+        from world.dominion.models import CrisisAction
         try:
-            ticket = tickets.get(id=ticket_num)
-            self.caller.msg(ticket.display())
-        except (Ticket.DoesNotExist, ValueError):
-            self.caller.msg("No Story Request matches that ID #.")
-            return
+            action = actions.get(id=action_num)
+        except (CrisisAction.DoesNotExist, ValueError):
+            self.msg("No Story Action matches that ID #.")
+        else:
+            self.msg(action.view_action(caller=self.caller, disp_pending=False, disp_old=False))
 
     def display_visions(self, character):
         """

@@ -1038,3 +1038,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     @property
     def glass_jaw(self):
         return False
+        
+    @property
+    def actions(self):
+        return self.player_ob.actions

@@ -1663,6 +1663,22 @@ class Crisis(SharedMemoryModel):
         self.raise_submission_errors()
         if self.check_taken_action(dompc=dompc):
             raise ActionSubmissionError("You have already submitted action for this stage of the crisis.")
+            
+    def create_update(self, gemit_text, caller=None, gm_notes=None, do_gemit=True):
+        from server.utils.arx_utils import broadcast_msg_and_post
+        gm_notes = gm_notes or ""
+        from web.character.models import Episode
+        latest_episode = Episode.objects.last()
+        update = self.updates.create(date=datetime.now(), desc=gemit_text, gm_notes=gm_notes, episode=latest_episode)
+        qs = self.actions.filter(status__in=(CrisisAction.PUBLISHED, CrisisAction.PENDING_PUBLISH, 
+                                             CrisisAction.CANCELLED), update__isnull=True)
+        for action in qs:
+            if action.status == CrisisAction.PENDING_PUBLISH:
+                action.status = CrisisAction.PUBLISHED
+            action.update = update
+            action.save()
+        if do_gemit:
+            broadcast_msg_and_post(gemit_text, caller, latest_episode.name)
 
 
 class CrisisUpdate(SharedMemoryModel):
@@ -1674,6 +1690,8 @@ class CrisisUpdate(SharedMemoryModel):
     desc = models.TextField("Story of what happened this update", blank=True)
     gm_notes = models.TextField("Any ooc notes of consequences", blank=True)
     date = models.DateTimeField(blank=True, null=True)
+    episode = models.ForeignKey("character.Episode", related_name="crisis_updates", blank=True, null=True, 
+                                on_delete=models.SET_NULL)
 
     def __str__(self):
         return "Update %s for %s" % (self.id, self.crisis)
@@ -1785,6 +1803,9 @@ class AbstractAction(AbstractPlayerAllocations):
         fields = self.check_incomplete_required_fields()
         if fields:
             raise ActionSubmissionError("Incomplete fields: %s" % ", ".join(fields))
+        from server.utils.arx_utils import check_break
+        if check_break():
+            raise ActionSubmissionError("Cannot submit an action while staff are on break.")
             
     def check_incomplete_required_fields(self):
         fields = []

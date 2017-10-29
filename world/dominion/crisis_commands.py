@@ -22,10 +22,9 @@ class CmdGMCrisis(MuxPlayerCommand):
         @gmcrisis/check[/asst] <action #>=<stat> + <skill> at <diff>[,asst]
         @gmcrisis/gmnotes <action #>=<ooc notes>/<crisis value>
         @gmcrisis/outcome <action #>=<IC notes>
-        @gmcrisis/sendresponses <crisis name>=<story update text>
-        @gmcrisis/appendresponses <crisis name>
         
-        @gmcrisis/update <crisis name>=<story update text, will make a gemit>
+        @gmcrisis/update <crisis name>=<gemit text>[/<ooc notes>]
+        @gmcrisis/update/nogemit <as above>
 
     Use /needgm or /needgm/listquestions to list ones
     that have not been answered. To use this command properly, use /check to make
@@ -44,9 +43,10 @@ class CmdGMCrisis(MuxPlayerCommand):
     def list_actions(self):
         from server.utils.prettytable import PrettyTable
         if "old" in self.switches:
-            qs = CrisisAction.objects.filter(sent=True)
+            qs = CrisisAction.objects.filter(status=CrisisAction.PUBLISHED, crisis__isnull=False)
         else:
-            qs = CrisisAction.objects.filter(sent=False)
+            qs = CrisisAction.objects.exclude(crisis__isnull=True, status__in=(CrisisAction.PUBLISHED, 
+                                                                               CrisisAction.CANCELLED))
         if "needgm" in self.switches:
             qs = qs.filter(story__exact="")
         if "listquestions" in self.switches:
@@ -72,7 +72,7 @@ class CmdGMCrisis(MuxPlayerCommand):
                 difficulty = int(args[0])
                 from django.core.exceptions import ObjectDoesNotExist
                 try:
-                    char = action.assistants.get(player__username__iexact=args[1]).player.db.char_ob
+                    action = action.assisting_actions.get(dompc__player__username__iexact=args[1])
                 except ObjectDoesNotExist:
                     self.msg("Assistant not found.")
                     return
@@ -82,15 +82,8 @@ class CmdGMCrisis(MuxPlayerCommand):
         except (IndexError, ValueError, TypeError):
             self.msg("Failed to parse skill string. Blame Apostate again.")
             return
-        from world.stats_and_skills import do_dice_check
-        result = do_dice_check(char, stat=stat, skill=skill, difficulty=difficulty)
-        msg = "%s has called for %s to check %s + %s at difficulty %s.\n" % (self.caller, char, stat, skill, difficulty)
-        msg += "The result is %s. A positive number is a success, a negative number is a failure." % result
-        if action.rolls:
-            msg = "\n" + msg
-        action.rolls += msg
-        action.save()
-        self.msg("Appended message: %s" % msg)
+        result = action.do_roll(stat=stat, skill=skill, difficulty=difficulty)
+        self.msg("Roll result is: %s" % result)
 
     def answer_question(self, action):
         question = action.questions.last()
@@ -117,39 +110,27 @@ class CmdGMCrisis(MuxPlayerCommand):
     def view_action(self, action):
         view_answered = "old" in self.switches
         self.msg(action.view_action(self.caller, disp_pending=True, disp_old=view_answered))
-        self.msg("{wCurrent GM story:{n %s" % action.story)
-        self.msg("{wRolls:{n %s" % action.rolls)
-        self.msg("{wGM Notes:{n %s" % action.gm_notes)
-
-    def send_responses(self, create_update=True):
+        
+    def create_update(self):
         try:
             crisis = Crisis.objects.get(name__iexact=self.lhs)
         except Crisis.DoesNotExist:
-            self.msg("No crisis by that name: %s" % ", ".join(str(ob) for ob in Crisis.objects.all()))
+            self.msg("No crisis by that name.")
             return
-        qs = crisis.actions.filter(sent=False).exclude(story="")
-        if not qs:
-            self.msg("No messages need updates.")
-            return
-        date = datetime.now()
-        if create_update:
-            update = crisis.updates.create(desc=self.rhs, date=date)
-        else:
-            update = crisis.updates.last()
-        if not update:
-            self.msg("Create_update was false and no last update found.")
-            return
-        for ob in qs:
-            ob.send(update)
-        self.msg("Sent responses.")
+        rhs = self.rhs.split("/")
+        gemit = rhs[0]
+        gm_notes = None
+        if len(rhs) > 1:
+            gm_notes = rhs[1]
+        crisis.create_update(gemit, self.caller, gm_notes, do_gemit="nogemit" not in self.switches)
+        inform_staff("%s has updated crisis %s." % (self.caller, crisis))
 
     def func(self):
-        if not self.args or (not self.lhs.isdigit() and not self.rhs) and "appendresponses" not in self.switches:
+        if not self.args or (not self.lhs.isdigit() and not self.rhs):
             self.list_actions()
             return
-        if "sendresponses" in self.switches or "appendresponses" in self.switches:
-            create = "sendresponses" in self.switches
-            self.send_responses(create_update=create)
+        if "update" in self.switches:
+            self.create_update()
             return
         if "create" in self.switches:
             lhs = self.lhs.split("/")

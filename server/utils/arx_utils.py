@@ -381,3 +381,39 @@ def cache_safe_update(queryset, **kwargs):
 def text_box(text):
     boxchars = '\n{w' + '*' * 70 + '{n\n'
     return boxchars + text + boxchars
+
+
+def create_gemit_and_post(msg, caller, episode_name=None):
+    # current story
+    from web.character.models import Story, Episode, StoryEmit
+    story = Story.objects.latest('start_date')
+    chapter = story.current_chapter
+    if episode_name:
+        date = datetime.now()
+        episode = Episode.objects.create(name=episode_name, date=date, chapter=chapter)
+    else:
+        episode = Episode.objects.latest('date')
+        episode_name = episode.name
+    gemit = StoryEmit.objects.create(episode=episode, chapter=chapter, text=msg,
+                                     sender=caller)
+    broadcast_msg_and_post(msg, caller, True)
+    return gemit
+    
+    
+def broadcast_msg_and_post(msg, caller, episode_name=None):
+    caller.msg("Announcing to all connected players ...")
+    if not msg.startswith("{") and not msg.startswith("|"):
+        msg = "|g" + msg
+    # save this non-formatted version for posting to BB
+    post_msg = msg
+    # format msg for logs and announcement
+    box_chars = '\n{w' + '*' * 70 + '{n\n'
+    msg = box_chars + msg + box_chars
+    broadcast(msg, format_announcement=False)
+    # get board and post
+    from typeclasses.bulletin_board.bboard import BBoard
+    bboard = BBoard.objects.get(db_key__iexact="story updates")
+    subject = "Story Update"
+    if episode_name:
+        subject = "Episode: %s" % episode_name
+    bboard.bb_post(poster_obj=caller, msg=post_msg, subject=subject, poster_name="Story")

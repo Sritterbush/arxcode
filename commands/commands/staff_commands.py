@@ -7,22 +7,17 @@ from django.conf import settings
 from evennia.server.sessionhandler import SESSIONS
 from evennia.utils import evtable
 from server.utils import prettytable
-from server.utils.arx_utils import inform_staff, broadcast
+from server.utils.arx_utils import inform_staff, broadcast, create_gemit_and_post
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
 from evennia.players.models import PlayerDB
 from evennia.objects.models import ObjectDB
-from web.character.models import Story, Episode, StoryEmit, Clue
+from web.character.models import Clue
 from world.dominion.models import Organization, RPEvent
 from evennia.typeclasses.tags import Tag
 from evennia.scripts.models import ScriptDB
 from typeclasses.characters import Character
 
 PERMISSION_HIERARCHY = [p.lower() for p in settings.PERMISSION_HIERARCHY]
-
-# limit members for API inclusion
-__all__ = ("CmdBoot", "CmdBan", "CmdUnban", "CmdDelPlayer",
-           "CmdEmit", "CmdNewPassword", "CmdPerm", "CmdWall", "CmdGemit",
-           "CmdHome")
 
 
 class CmdHome(MuxCommand):
@@ -105,45 +100,19 @@ class CmdGemit(MuxPlayerCommand):
                 self.args = "|g" + self.args
             broadcast(self.args, format_announcement=False)
             return
-
-        # current story
-        story = Story.objects.latest('start_date')
-        chapter = story.current_chapter
-        episode = None
-        msg = self.lhs
         if "startepisode" in self.switches:
-            if not self.lhs:
+            msg = self.rhs
+            episode_name = self.lhs
+            if not episode_name:
                 caller.msg("You must give a name for the new episode.")
                 return
-            if not self.rhs:
+            if not msg:
                 caller.msg("You must give a message for the emit.")
                 return
-            from datetime import datetime
-            date = datetime.now()
-            episode = Episode.objects.create(name=self.lhs, date=date, chapter=chapter)
-            msg = self.rhs
-        elif "noepisode" not in self.switches:
-            episode = Episode.objects.latest('date')
-        StoryEmit.objects.create(episode=episode, chapter=chapter, text=msg,
-                                 sender=caller)
-        self.msg("Announcing to all connected players ...")
-        if not msg.startswith("{") and not msg.startswith("|"):
-            msg = "|g" + msg
-        # save this non-formatted version for posting to BB
-        post_msg = msg
-        # format msg for logs and announcement
-        box_chars = '\n{w' + '*' * 70 + '{n\n'
-        msg = box_chars + msg + box_chars
-        broadcast(msg, format_announcement=False)
-        # get board and post
-        from typeclasses.bulletin_board.bboard import BBoard
-        bboard = BBoard.objects.get(db_key__iexact="story updates")
-        subject = "Story Update"
-        if episode:
-            subject = "Episode: %s" % episode.name
-        elif chapter:
-            subject = "Chapter: %s" % chapter.name
-        bboard.bb_post(poster_obj=caller, msg=post_msg, subject=subject, poster_name="Story")
+            create_gemit_and_post(msg, caller, episode_name)
+        else:
+            msg = self.lhs
+            create_gemit_and_post(msg, caller)
         
             
 class CmdWall(MuxCommand):

@@ -64,7 +64,6 @@ class CmdJob(MuxPlayerCommand):
         @job/followup <#>=<message> - add update to ticket #
         @job/priority <#>=<priority number>
         @job/low = List low priority messages
-        @job/check <ticket #>/<stat> + <skill> at <diff>=<character>
         @job/mine
         @job/all
         @job/assign <#>=<GM>
@@ -197,36 +196,6 @@ class CmdJob(MuxPlayerCommand):
                                ticket.queue.slug])
             caller.msg("{wClosed Tickets:{n\n%s" % table)
             return
-        if 'check' in switches:
-            try:
-                largs = self.lhs.split("/")
-                ticket = Ticket.objects.get(id=largs[0])
-                largs = largs[1].split("+")
-                stat = largs[0].strip()
-                largs = largs[1].split(" at ")
-                skill = largs[0].strip()
-                difficulty = int(largs[1])
-            except (IndexError, TypeError, ValueError):
-                self.msg("Invalid syntax. It's Apostate's fault that it's a complicated syntax so yell at him.")
-                return
-            except Ticket.DoesNotExist:
-                self.msg("Ticket not found.")
-                return
-            try:
-                char = caller.search(self.rhs).db.char_ob
-            except AttributeError:
-                self.msg("No character found.")
-                return
-            if char.attributes.get(stat) is None:
-                self.msg("Error. The stat %s for the player is undefined. You probably switched stat and skill." % stat)
-                self.msg("Otherwise, set the stat for the character to be 0.")
-                return
-            result = helpdesk_api.do_check(caller, ticket, stat, skill, difficulty, char)
-            if result:
-                self.msg(result)
-            else:
-                self.msg("Error in trying to make check.")
-            return
         try:
             ticket = Ticket.objects.get(id=self.lhs)
         except (ValueError, Ticket.DoesNotExist):
@@ -355,24 +324,7 @@ class CmdRequest(MuxPlayerCommand):
     def get_help(self, caller, cmdset):
         if caller.player_ob:
             caller = caller.player_ob
-        actions = self.get_num_actions(caller)
-        msg = self.__doc__ + self.get_actions_disp_str(actions)
-        return msg
-
-    def get_num_actions(self, caller):
-        from datetime import datetime, timedelta
-        date = datetime.now()
-        offset = timedelta(days=-self.num_days)
-        date = date + offset
-        actions = caller.tickets.filter(queue__slug="Story", db_date_created__gte=date)
-        return actions
-
-    def get_actions_disp_str(self, actions):
-        msg = ""
-        if actions:
-            msg += "\nYou have submitted requests for GMing for a storyaction on: %s." % ", ".join(
-                ob.db_date_created.strftime("%x") for ob in actions)
-        msg += "\nYou are permitted to make %s requests every %s days." % (self.max_requests, self.num_days)
+        msg = self.__doc__
         return msg
 
     def display_ticket(self, ticket):
@@ -387,21 +339,6 @@ class CmdRequest(MuxPlayerCommand):
         self.msg("Use {w+request <#>{n to view an individual ticket.")
         self.msg("Use {w+request/followup <#>=<comment>{n to add a comment.")
 
-    def check_recent_story_action(self):
-        if check_break(self.caller):
-            self.msg("No storyrequests allowed during staff break.")
-            return True
-        ap_cost = 40  # the action point cost of starting story actions
-        actions = self.get_num_actions(self.caller)
-        if self.caller.roster.action_points < ap_cost:
-            self.msg("It costs %s Action Points to make a story action." % ap_cost)
-            return True
-        if actions.count() < self.max_requests:
-            self.caller.pay_action_points(ap_cost)
-            return False
-        self.msg(self.get_actions_disp_str(actions))
-        return True
-
     def get_ticket_from_args(self, args):
         try:
             ticket = self.caller.tickets.get(id=args)
@@ -415,57 +352,6 @@ class CmdRequest(MuxPlayerCommand):
         caller = self.caller
         args = self.args
         priority = 5
-        if "accept" in self.switches or "decline" in self.switches:
-            targ = self.caller.search(self.args)
-            invite_dict = self.caller.db.storyaction_invites or {}
-            if not targ:
-                self.msg("You do have invitations from %s." % ", ".join(str(ob) for ob in invite_dict.keys()))
-                return
-            try:
-                ticket = invite_dict.pop(targ)
-                if not invite_dict:
-                    self.caller.attributes.remove("storyaction_invites")
-            except KeyError:
-                self.msg("No invite from {w%s{n." % targ)
-                # list invites
-                self.msg("But you do have invitations from %s." % ", ".join(str(ob) for ob in invite_dict.keys()))
-                return
-            # if we're declining send message then return, otherwise add us
-            if "decline" in self.switches:
-                self.msg("You have declined an invitation from %s to assist story action %s." % (targ, ticket))
-                return
-            else:
-                ap_cost = 10  # the action point cost of assisting story actions
-                if not caller.pay_action_points(ap_cost):
-                    self.msg("It costs %s Action Points to assist a story action." % ap_cost)
-                    # readd their invite back so they can accept it when they have enough ap
-                    if invite_dict:
-                        invite_dict[targ] = ticket
-                    else:  # invite_dict is now a SaverDict with dead Attribute, so recreate it
-                        self.caller.db.storyaction_invites = {targ: ticket}
-                    return
-                ticket.participants.add(caller)
-                self.msg("You have accepted an invitation from %s to assist story action %s." % (targ, ticket))
-                return
-        if "invite" in self.switches:
-            ticket = self.get_ticket_from_args(self.lhs)
-            if not ticket:
-                return
-            if ticket.queue.slug.lower() != "story":
-                self.msg("You can only invite people to story requests.")
-                return
-            targ = self.caller.search(self.rhs)
-            if not targ:
-                return
-            if not targ.db.storyaction_invites:
-                targ.db.storyaction_invites = {}
-            # append a new dict entry to the target's invitations
-            targ.db.storyaction_invites[caller] = ticket
-            self.msg("You have invited %s to assist your story action %s." % (targ, ticket))
-            msg = "{c%s{n has invited you to assist the following action: %s" % (caller, ticket.description)
-            msg += "\n\nTo assist them, use +storyrequest/accept <name>. Use +storyrequest/decline to decline."
-            targ.inform(msg, category="Storyrequest Assist")
-            return
         if "followup" in self.switches or "comment" in self.switches:
             if not self.lhs or not self.rhs:
                 caller.msg("Missing arguments required.")
@@ -507,11 +393,6 @@ class CmdRequest(MuxPlayerCommand):
         elif cmdstr == "+featurerequest":
             optional_title = "Features"
             queue = Queue.objects.get(slug="Code").id
-        elif cmdstr == "+storyrequest":
-            optional_title = "Action"
-            queue = Queue.objects.get(slug="Story").id
-            if self.check_recent_story_action():
-                return
         elif cmdstr == "+prprequest":
             optional_title = "PRP"
             queue = Queue.objects.get(slug="PRP").id

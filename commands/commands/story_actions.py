@@ -455,7 +455,7 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         @gm/markpending <action #>
         @gm/cancel <action #>
         @gm/assign <action #>=<gm>
-        @gm/gemit <action #>[,<action #>,...]=<text to post>
+        @gm/gemit <action #>[,<action #>,...]=<text to post>[/<new episode name>]
         @gm/allowedit <action #>[,assistant name]
     """
     key = "@gm"
@@ -603,19 +603,63 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
     
     def do_admin(self, action):
         if "publish" in self.switches:
-            return self.publish(action)
+            return self.publish_action(action)
         if "markpending" in self.switches:
             return self.set_action_field(action, "status", CrisisAction.PENDING_PUBLISH)
         if "cancel" in self.switches:
-            pass
+            return self.cancel_action(action)
         if "assign" in self.switches:
-            pass
+            return self.assign_action(action)
         if "gemit" in self.switches:
-            pass
+            return self.do_gemit_for_action(action)
         if "allowedit" in self.switches:
-            pass
+            return self.toggle_editable(action)
         
-    def publish(self, action):
+    def publish_action(self, action):
         action.send()
         self.msg("You have published the action and sent the players informs.")
+        
+    def cancel_action(self, action):
+        action.cancel()
+        self.msg("Action cancelled.")
+    
+    def assign_action(self, action):
+        player = None
+        if self.rhs:
+            player = self.caller.search(self.rhs)
+            if not player:
+                return
+        self.set_action_field(action, "gm", player)
+        self.msg("GM for the action set to %s" % player)
+    
+    def do_gemit_for_action(self, action):
+        from server.utils.arx_utils import create_gemit_and_post
+        actions = [action]
+        for id_num in self.lhslist[1:]:
+            try:
+                another_action = CrisisAction.objects.get(id=id_num)
+            except (CrisisAction.DoesNotExist, ValueError, TypeError):
+                self.msg("Invalid ID.")
+                return
+            else:
+                actions.append(another_action)
+        rhslist = self.rhs.split("/")
+        msg = rhslist[0]
+        episode_name = None
+        if len(rhslist) > 1:
+            episode_name = rhslist[1]
+        gemit = create_gemit_and_post(msg, self.caller, episode_name)
+        for action_object in actions:
+            action_object.gemit = gemit
+            action_object.save()
+        self.msg("StoryEmit created.")
+    
+    def toggle_editable(self, action):
+        action.editable = not action.editable
+        action.save()
+        if action.editable:
+            action.inform("Your action is now editable and changes are required.")
+            self.msg("You have made their action editable and the player has been informed.")
+        else:
+            self.msg("Their action is no longer editable.")
     
