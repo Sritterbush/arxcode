@@ -1899,12 +1899,24 @@ class AbstractAction(AbstractPlayerAllocations):
         if not orders:
             return
         
-    def roll(self, stat=None, skill=None, difficulty=None):
+    def do_roll(self, stat=None, skill=None, difficulty=None, reset_total=True):
         from world.stats_and_skills import do_dice_check
-        stat = stat or self.stat
-        skill = skill or self.skill
-        difficulty = difficulty or self.difficulty or 15
-        return do_dice_check(self.dompc.player.char_ob, stat=stat, skill=skill, difficulty=difficulty)
+        self.stat = stat or self.stat
+        self.skill = skill or self.skill
+        if difficulty is not None:
+            self.difficulty = difficulty
+        self.roll = do_dice_check(self.dompc.player.char_ob, stat=self.stat, skill=self.skill, 
+                                  difficulty=self.difficulty)
+        self.save()
+        if reset_total:
+            self.calculate_outcome_value()
+        return self.roll
+        
+    def display_followups(self):
+        return "\n".join(question.display() for question in self.questions.all())
+        
+    def add_answer(self, gm, text):
+        self.questions.last().add_answer(gm, text)
         
 
 class CrisisAction(AbstractAction):
@@ -2009,15 +2021,16 @@ class CrisisAction(AbstractAction):
     def all_editable(self):
         return [ob for ob in self.action_and_assists_and_invites if ob.editable]
     
-    def send(self, update):
+    def send(self, update=None):
         if self.crisis:
             msg = "{wGM Response to action for crisis:{n %s" % self.crisis
         else:
             msg = "{GM Response to story action of %s" % self.author
-        msg += "\n{wRolls:{n %s" % self.rolls
+        msg += "\n{wRolls:{n %s" % self.outcome_value
         msg += "\n\n{wStory:{n %s\n\n" % self.story
         self.week = get_week()
-        self.update = update
+        if update:
+            self.update = update
         self.inform(msg, category="Action")
         for assistant in self.assistants.all():
             assistant.inform(msg, category="Action")
@@ -2050,7 +2063,7 @@ class CrisisAction(AbstractAction):
             return msg
         # print out actions of everyone
         all_actions = self.action_and_assists
-        view_secrets = staff_viewer or ob.check_view_secret(caller)
+        view_secrets = staff_viewer or self.check_view_secret(caller)
         for ob in all_actions:
             msg += ob.get_action_text(tldr=True)
             msg += ob.get_action_text()
@@ -2061,16 +2074,10 @@ class CrisisAction(AbstractAction):
                 if self.sent or (ob.roll_is_set and staff_viewer):
                     color = "{r" if bool(ob.roll >= 0) else "{c"
                     msg += "{w[Roll: %s%s{w ]{n " % (color, ob.roll)
-            if (disp_pending or disp_old) and view_secrets:
-                questions = ob.questions.all()
-                if questions and not disp_old:
-                    questions = questions.filter(answers__isnull=True)
-                if questions:
-                    for question in questions:
-                        msg += "\n{c%s{w OOC:{n %s" % (ob.dompc, ob.text)
-                        if disp_old:
-                            answers = question.answers.all()
-                            msg += "\n".join("{wReply by {c%s{w:{n %s") % ((ob.gm, ob.text) for ob in answers)
+        if (disp_pending or disp_old) and view_secrets:
+            q_and_a_str = self.get_questions_and_answers_display(answered=disp_old, assistants=staff_viewer)
+            if q_and_a_str:
+                msg += "\n{wOOC Notes and GM responses\n%s" % q_and_a_str
         if staff_viewer and self.gm_notes or self.prefer_offscreen:
             offscreen = "Offscreen resolution preferred. " if self.prefer_offscreen else ""
             msg += "\n{wGM Notes:{n %s%s" % (offscreen, self.gm_notes)
@@ -2165,10 +2172,28 @@ class CrisisAction(AbstractAction):
                      category="Action Invitation")
     
     def roll_all(self):
-        value = sum(ob.roll() for ob in self.actions_and_assists)
+        for ob in self.actions_and_assists:
+            ob.do_roll(reset_total=False)
+        return self.calculate_outcome_value()
+        
+    def calculate_outcome_value(self):
+        value = sum(ob.roll for ob in self.actions_and_assists)
         self.outcome_value = value
         self.save()
-        return value
+        return self.outcome_value
+        
+    def get_questions_and_answers_display(self, answered=False, assistants=False):
+        qs = self.questions.all()
+        if not answered:
+            qs = qs.filter(answers__isnull=True)
+        qs = list(qs)
+        if assistants:
+            for ob in self.assisting_actions.all():
+                if answered:
+                    qs.extend(list(ob.questions.all()))
+                else:
+                    qs.extend(list(ob.questions.filter(answers__isnull=True)))
+        return "\n".join(question.display() for question in qs)
 
 
 class CrisisActionAssistant(AbstractAction):
@@ -2223,6 +2248,9 @@ class CrisisActionAssistant(AbstractAction):
     def view_total_resources_msg(self):
         return self.crisis_action.view_total_resources_msg()
         
+    def calculate_outcome_value(self):
+        return self.crisis_action.calculate_outcome_value()
+        
     def submit_or_refund(self):
         try:
             self.submit()
@@ -2239,6 +2267,10 @@ class CrisisActionAssistant(AbstractAction):
     @property
     def has_paid_initial_ap_cost(self):
         return bool(self.actions)
+        
+    @property
+    def outcome_value(self):
+        return self.crisis_action.outcome_value
         
     def set_action(self, story):
         """
@@ -2270,6 +2302,26 @@ class ActionOOCQuestion(SharedMemoryModel):
     action = models.ForeignKey("CrisisAction", db_index=True, related_name="questions")
     action_assist = models.ForeignKey("CrisisActionAssistant", db_index=True, related_name="questions")
     text = models.TextField(blank=True)
+    
+    @property
+    def target(self):
+        if self.action:
+            return self.action
+        return self.action_assist
+        
+    @property
+    def author(self):
+        return self.target.author
+    
+    def display(self):
+        msg = "{c%s{w OOC:{n %s" % (self.author, self.text)
+        answers = self.answers.all()
+        if answers:
+            msg += "\n%s" % "\n".join(ob.display() for ob in answers)
+        return msg
+        
+    def add_answer(self, gm, text):
+        self.answers.create(gm=gm, text=text)
 
 
 class ActionOOCAnswer(SharedMemoryModel):
@@ -2279,6 +2331,9 @@ class ActionOOCAnswer(SharedMemoryModel):
     gm = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, related_name="answers_given")
     question = models.ForeignKey("ActionOOCQuestion", db_index=True, related_name="answers")
     text = models.TextField(blank=True)
+    
+    def display(self):
+        return "{wReply by {c%s{w:{n %s" % (self.gm, self.text)
 
 
 class OrgRelationship(SharedMemoryModel):

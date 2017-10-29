@@ -13,10 +13,35 @@ class ActionCommandMixin(object):
         setattr(action, field_name, value)
         action.save()
         verbose_name = verbose_name or field_name
+        if field_name == "status":
+            value = action.get_status_display()
         self.msg("%s set to %s." % (verbose_name, value))
         
     def check_switches(self, switch_set):
         return set(self.switches) & set(switch_set)
+        
+    def add_resource(self, action):
+        if not self.rhs[1]:
+            self.send_no_args_msg("a resource type such as 'economic' or 'ap' and the amount."
+                                  " Or 'army' and an army ID#")
+            return
+        try:
+            r_type = self.rhslist[0].lower()
+            value = self.rhslist[1]
+        except (IndexError, ValueError, TypeError, AttributeError):
+            self.msg("Must have a resource type and value.")
+            return
+        try:
+            action.add_resource(r_type, value)
+        except ActionSubmissionError as err:
+            self.msg(err)
+        else:
+            if r_type == "army":
+                self.msg("You have successfully relayed new orders to that army.")
+                return
+            else:
+                totals = action.view_total_resources_msg()
+                self.msg("{c%s{n %s added. Action %s" % (value, r_type, totals))
 
 
 class CmdAction(ActionCommandMixin, MuxPlayerCommand):
@@ -389,29 +414,6 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
         action.save()
         self.msg("You have set the action to be for crisis: %s" % crisis)
         self.do_passive_warnings(action)
-
-    def add_resource(self, action):
-        if not self.rhs[1]:
-            self.send_no_args_msg("a resource type such as 'economic' or 'ap' and the amount."
-                                  " Or 'army' and an army ID#")
-            return
-        try:
-            r_type = self.rhslist[0].lower()
-            value = self.rhslist[1]
-        except (IndexError, ValueError, TypeError, AttributeError):
-            self.msg("Must have a resource type and value.")
-            return
-        try:
-            action.add_resource(r_type, value)
-        except ActionSubmissionError as err:
-            self.msg(err)
-        else:
-            if r_type == "army":
-                self.msg("You have successfully relayed new orders to that army.")
-                return
-            else:
-                totals = action.view_total_resources_msg()
-                self.msg("{c%s{n %s added. Action %s" % (value, r_type, totals))
                 
     def toggle_attend(self, action):
         if action.attending:
@@ -505,7 +507,12 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         else:
             qs = CrisisAction.objects.exclude(status__in=(old_status, draft_status, cancelled_status))
         if "mine" in self.switches:
-            qs = qs.filter(gm=self.caller.Dominion)
+            qs = qs.filter(gm=self.caller)
+        if self.args:
+            name = self.args
+            qs.filter(Q(crisis__name__iexact=name) | Q(dompc__player__username__iexact=name) | 
+                      Q(category__iexact=name) | Q(assistants__player__username__iexact=name) |
+                      Q(gm__username__iexact=name))
         return qs
     
     def view_action(self, action):
@@ -523,7 +530,7 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         if "diff" in self.switches:
             return self.set_difficulty(action)
         if len(self.lhslist) > 1:
-            action = self.replace_action_with_assistant_if_provided(action, self.lhslist[1])
+            action = self.replace_action_with_assistant_if_provided(action)
             if not action:
                 return
         if "stat" in self.switches:
@@ -533,8 +540,7 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
             
     def do_checks(self, action):
         if "checkall" in self.switches:
-            result = action.roll_all()
-            self.msg("Setting result to be action's outcome value.")
+            outcome = action.roll_all()
         else:
             try:
                 name = self.rhslist[0]
@@ -549,15 +555,19 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
                     action = self.replace_action_with_assistant_if_provided(action, name)
                     if not action:
                         return
-                    result = action.roll(stat=stat, skill=skill, difficulty=diff)
+                    result = action.do_roll(stat=stat, skill=skill, difficulty=diff)
+                    self.msg("Roll result was: %s" % result)
+                    outcome = action.outcome_value
                 except ActionSubmissionError as err:
                     self.msg(err)
                     return
-        self.msg("Roll result was: %s" % result)
-        
+        self.msg("The new outcome value for the overall action is: %s" % outcome)
     
     def charge_additional_resources(self, action):
-        pass
+        action = self.replace_action_with_assistant_if_provided(action)
+        if not action:
+            return
+        self.add_resource(action)
     
     def set_difficulty(self, action):
         try:
@@ -567,7 +577,12 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         else:
             self.set_action_field(action, "difficulty", value)
             
-    def replace_action_with_assistant_if_provided(self, action, name):
+    def replace_action_with_assistant_if_provided(self, action, name=None):
+        if not name:
+            try:
+                name = self.lhslist[1]
+            except IndexError:
+                return action
         if action.dompc.player.username.lower() == name:
             return action
         try:
@@ -576,8 +591,31 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
             self.msg("No assistant by that name.")
     
     def do_followup(self, action):
-        pass
+        action = self.replace_action_with_assistant_if_provided(action)
+        if not action:
+            return
+        if "allowedit" in self.switches:
+            self.set_action_field(action, "editable", True)
+        if not self.rhs:
+            self.msg(action.display_followups())
+        else:
+            action.add_answer(gm=self.caller, text=self.rhs)
     
     def do_admin(self, action):
-        pass
+        if "publish" in self.switches:
+            return self.publish(action)
+        if "markpending" in self.switches:
+            return self.set_action_field(action, "status", CrisisAction.PENDING_PUBLISH)
+        if "cancel" in self.switches:
+            pass
+        if "assign" in self.switches:
+            pass
+        if "gemit" in self.switches:
+            pass
+        if "allowedit" in self.switches:
+            pass
+        
+    def publish(self, action):
+        action.send()
+        self.msg("You have published the action and sent the players informs.")
     
