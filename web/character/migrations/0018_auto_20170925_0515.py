@@ -25,6 +25,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='theory',
             name='known_by',
-            field=models.ManyToManyField(blank=True, null=True, related_name='known_theories', through='character.TheoryPermissions', to=settings.AUTH_USER_MODEL),
+            field=models.ManyToManyField(blank=True, null=True, related_name='known_theories',
+                                         through='character.TheoryPermissions', to=settings.AUTH_USER_MODEL),
         ),
     ]

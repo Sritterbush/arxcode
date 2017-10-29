@@ -78,7 +78,6 @@ class CmdGMCrisis(MuxPlayerCommand):
                     return
             else:
                 difficulty = int(args[1])
-                char = action.dompc.player.db.char_ob
         except (IndexError, ValueError, TypeError):
             self.msg("Failed to parse skill string. Blame Apostate again.")
             return
@@ -86,9 +85,8 @@ class CmdGMCrisis(MuxPlayerCommand):
         self.msg("Roll result is: %s" % result)
 
     def answer_question(self, action):
-        question = action.questions.last()
-        question.answers.create(text=self.rhs)
-        self.msg("Question: %s\nAnswer: %s" % (question.text, self.rhs))
+        action.add_answer(gm=self.caller, text=self.rhs)
+        self.msg("Answer added.")
 
     def add_gm_notes(self, action):
         rhs = self.rhs.split("/")

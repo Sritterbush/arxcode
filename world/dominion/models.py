@@ -1760,14 +1760,18 @@ class AbstractAction(AbstractPlayerAllocations):
         
     @property
     def ooc_intent(self):
-        return self.questions.first()
+        try:
+            self.questions.get(is_intent=True)
+        except ActionOOCQuestion.DoesNotExist:
+            return None
         
     def set_ooc_intent(self, text):
-        if not self.ooc_intent:
-            self.questions.create(text=text)
+        ooc_intent = self.ooc_intent
+        if not ooc_intent:
+            self.questions.create(text=text, is_intent=True)
         else:
-            self.ooc_intent.text = text
-            self.ooc_intent.save()
+            ooc_intent.text = text
+            ooc_intent.save()
             
     def ask_question(self, text):
         inform_staff("{c%s{n added a comment/question about %s:\n%s" % (self.author, self, text))
@@ -1959,6 +1963,8 @@ class CrisisAction(AbstractAction):
                                         related_name="assisted_actions")
     prefer_offscreen = models.BooleanField(default=False, blank=True)
     gemit = models.ForeignKey("character.StoryEmit", blank=True, null=True, related_name="actions")
+    gm = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, related_name="gmd_actions",
+                           on_delete=models.SET_NULL)
     
     UNKNOWN = 0
     COMBAT = 1
@@ -2321,8 +2327,10 @@ class ActionOOCQuestion(SharedMemoryModel):
     or asked about independently.
     """
     action = models.ForeignKey("CrisisAction", db_index=True, related_name="questions")
-    action_assist = models.ForeignKey("CrisisActionAssistant", db_index=True, related_name="questions")
+    action_assist = models.ForeignKey("CrisisActionAssistant", db_index=True, related_name="questions", null=True,
+                                      blank=True)
     text = models.TextField(blank=True)
+    is_intent = models.BooleanField(default=False)
     
     @property
     def target(self):

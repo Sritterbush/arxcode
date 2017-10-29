@@ -393,10 +393,11 @@ def create_gemit_and_post(msg, caller, episode_name=None):
         episode = Episode.objects.create(name=episode_name, date=date, chapter=chapter)
     else:
         episode = Episode.objects.latest('date')
-        episode_name = episode.name
+        if episode:
+            episode_name = episode.name
     gemit = StoryEmit.objects.create(episode=episode, chapter=chapter, text=msg,
                                      sender=caller)
-    broadcast_msg_and_post(msg, caller, True)
+    broadcast_msg_and_post(msg, caller, episode_name=episode_name)
     return gemit
     
     

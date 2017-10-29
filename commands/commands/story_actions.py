@@ -8,6 +8,7 @@ from server.utils.exceptions import ActionSubmissionError
 from world.dominion.models import Crisis, CrisisAction, CrisisActionAssistant
 
 
+# noinspection PyUnresolvedReferences
 class ActionCommandMixin(object):
     def set_action_field(self, action, field_name, value, verbose_name=None):
         setattr(action, field_name, value)
@@ -600,6 +601,7 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
             self.msg(action.display_followups())
         else:
             action.add_answer(gm=self.caller, text=self.rhs)
+            self.msg("Answer added.")
     
     def do_admin(self, action):
         if "publish" in self.switches:
@@ -662,4 +664,3 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
             self.msg("You have made their action editable and the player has been informed.")
         else:
             self.msg("Their action is no longer editable.")
-    
