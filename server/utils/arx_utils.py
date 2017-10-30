@@ -28,7 +28,7 @@ def validate_name(name, formatting=True, not_player=True):
     return re.findall('^[\w\']+$', name)
 
 
-def inform_staff(message):
+def inform_staff(message, post=False, subject=None):
     """
     Sends a message to the 'Mudinfo' channel for staff announcements.
     """
@@ -37,6 +37,11 @@ def inform_staff(message):
         wizchan = ChannelDB.objects.get(db_key__iexact="staffinfo")
         now = time_now().strftime("%H:%M")
         wizchan.tempmsg("{r[%s]:{n %s" % (now, message))
+        if post:
+            from typeclasses.bulletin_board.bboard import BBoard
+            board = BBoard.objects.get(db_key__iexact="staff")
+            subject = subject or "Staff Activity"
+            board.bb_post(poster_obj=None, msg=message, subject=subject, poster_name="Staff")
     except Exception as err:
         print("ERROR when attempting utils.inform_staff() : %s" % err)
 

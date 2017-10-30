@@ -171,26 +171,6 @@ class CmdCrisisAction(MuxPlayerCommand):
     Usage:
         +crisis [#]
         +crisis/old <#>
-        +crisis/newaction <crisis #>=<action you are taking>
-        +crisis/append <action #>=<additional text>
-        +crisis/secret <action #>=<action you are taking>
-        +crisis/secret/append <action #>=<additional text>
-        +crisis/toggleview <action #>=<assistant>
-        +crisis/cancel <action #>
-        +crisis/invite <action #>=<player>
-        +crisis/assist <action #>=<action you are taking>
-        +crisis/assist/append <action #>=<additional text>
-        +crisis/assist/secret <action #>=<action you are taking>
-        +crisis/assist/secret/append <action #>=<additional text>
-        +crisis/assist/toggleview <action #>
-        +crisis/assist/cancel <action #>
-        +crisis/decline <action #>
-        +crisis/viewaction <action #>
-        +crisis/addpoints <action #>=<points to add>
-        +crisis/addresource <action#>=<type>,<amount>
-        +crisis/addarmy <action #>=<army name or #>
-        +crisis/question <action #>=<question>
-        +crisis/togglepublic <action #>
 
     Crisis actions are queued and simultaneously resolved by GMs periodically. 
     To view crises that have since been resolved, use /old switch. A secret 
@@ -199,6 +179,8 @@ class CmdCrisisAction(MuxPlayerCommand):
     keep the action from being publically listed. The addition of resources,
     armies, and extra action points is taken into account when deciding outcomes.
     New actions cost 50 action points, while assisting costs 10.
+
+    To create a new action, use the @action command.
     """
     key = "+crisis"
     aliases = ["crisis"]
@@ -214,7 +196,7 @@ class CmdCrisisAction(MuxPlayerCommand):
 
     @property
     def current_actions(self):
-        return self.caller.Dominion.actions.filter(sent=False)
+        return self.caller.Dominion.actions.exclude(status=CrisisAction.PUBLISHED)
 
     @property
     def assisted_actions(self):
@@ -235,14 +217,12 @@ class CmdCrisisAction(MuxPlayerCommand):
         self.msg(table)
         self.msg("{wYour pending actions:{n")
         table = EvTable("{w#{n", "{wCrisis{n")
-        current_actions = list(self.current_actions) + [ass.crisis_action for ass in self.assisted_actions.filter(
-                crisis_action__sent=False)]
+        current_actions = list(self.current_actions) + [ass.crisis_action for ass in self.assisted_actions.exclude(
+            crisis_action__status=CrisisAction.PUBLISHED)]
         for ob in current_actions:
             table.add_row(ob.id, ob.crisis)
         self.msg(table)
-        past_actions = self.caller.Dominion.actions.filter(sent=True)
-        past_actions = list(past_actions) + [ob.crisis_action for ob in self.assisted_actions.filter(
-            crisis_action__sent=True)]
+        past_actions = self.caller.past_participated_actions
         if past_actions:
             table = EvTable("{w#{n", "{wCrisis{n")
             self.msg("{wYour past actions:{n")
@@ -265,91 +245,6 @@ class CmdCrisisAction(MuxPlayerCommand):
             return
         self.msg(crisis.display())
         return
-
-    def invite_assistant(self):
-        targ = self.caller.search(self.rhs)
-        if not targ:
-            return
-        action = self.get_action()
-        if not action:
-            return
-        if action.assistants.filter(id=targ.Dominion.id):
-            self.msg("%s is already helping you.")
-            return
-        invitations = targ.db.crisis_action_invitations or []
-        if action.id not in invitations:
-            invitations.append(action.id)
-        targ.db.crisis_action_invitations = invitations
-        text = "%s has asked you to help crisis action #%s for %s.\n\n%s\n\nUse +crisis/assist to help." % (
-            self.caller, action.id, action.crisis, action.action_text)
-        targ.inform(text, category="Crisis action invitation")
-        self.msg("You have invited %s to assist you in your crisis action." % targ)
-        return
-
-    def assist_action(self):
-        invitations = self.caller.db.crisis_action_invitations or []
-        if not self.rhs:
-            try:
-                actions = [CrisisAction.objects.get(id=act_id) for act_id in invitations]
-                for act in actions:
-                    if act.crisis.end_date < datetime.now() or act.sent:
-                        invitations.remove(act.id)
-            except (CrisisAction.DoesNotExist, ValueError, TypeError, AttributeError):
-                pass
-            self.msg("You have the following invitations: %s" % ", ".join(str(ob) for ob in invitations))
-            return
-        try:
-            act_id = int(self.lhs)
-            if act_id not in invitations:
-                self.msg("You do not have an invitation to assist that crisis action.")
-                return
-            action = CrisisAction.objects.get(id=act_id)
-        except (ValueError, CrisisAction.DoesNotExist):
-            self.msg("Could not get a crisis action by that id.")
-            return
-        invitations.remove(act_id)
-        self.caller.db.crisis_action_invitations = invitations
-        crisis = action.crisis
-        if crisis.end_date < datetime.now():
-            self.msg("It is past the update time for that crisis.")
-            return
-        if self.caller.Dominion.actions.filter(crisis=crisis, sent=False):
-            self.msg("You already have a pending action for that crisis, and cannot assist in another.")
-            return
-        if self.caller.Dominion.assisting_actions.filter(crisis_action__crisis=crisis).exclude(
-                crisis_action__sent=True):
-            self.msg("You are assisting pending actions for that crisis, and cannot assist another.")
-            return
-        if not self.caller.pay_action_points(10):
-            self.msg("You do not have enough action points to respond to this crisis.")
-            return
-        action.assisting_actions.create(dompc=self.caller.Dominion, action=self.rhs)
-        self.msg("Action created.")
-        inform_staff("%s is assisting action %s for crisis %s" % (self.caller, action.id, crisis))
-        action.dompc.player.inform("%s is now assisting action %s: %s" % (self.caller, action.id, self.rhs))
-        return
-
-    def new_action(self):
-        crisis = self.get_crisis()
-        if not crisis:
-            return
-        time = datetime.now()
-        if crisis.end_date < time:
-            self.msg("It is past the submit date for that crisis.")
-            return
-        if crisis.actions.filter(sent=False, dompc=self.caller.Dominion):
-            self.msg("You have unresolved actions. Use /append instead.")
-            return
-        if not self.rhs:
-            self.msg("Must specify an action.")
-            return
-        if not self.caller.pay_action_points(50):
-            self.msg("You do not have enough action points to respond to this crisis.")
-            return
-        week = get_week()
-        action = crisis.actions.create(dompc=self.caller.Dominion, action=self.rhs, week=week)
-        self.msg("You are going to perform this action: %s" % self.rhs)
-        inform_staff("%s has created a new crisis action for crisis %s: #%s" % (self.caller, crisis, action.id))
 
     def get_action(self, get_all=False, get_assisted=False, return_assistant=False):
         dompc = self.caller.Dominion
@@ -383,180 +278,6 @@ class CmdCrisisAction(MuxPlayerCommand):
             msg = "You are not able to view that action."
         self.msg(msg)
 
-    def cancel_action(self):
-        action = self.get_action(get_assisted=True, return_assistant="assist" in self.switches)
-        if not action:
-            return
-        if hasattr(action, 'crisis_action'):
-            parent = action.crisis_action
-        else:
-            parent = action
-        if parent.story:
-            self.msg("That has already had GM action taken.")
-            return
-        action.delete()
-        self.msg("Action deleted.")
-
-    def append_action(self):
-        assisting = "assist" in self.switches
-        action = self.get_action(get_assisted=assisting, return_assistant=assisting)
-        if not action:
-            return
-        field_name = "action"
-        if "secret" in self.switches:
-            field_name = "secret_action"
-        text = getattr(action, field_name) + "\n%s" % self.rhs 
-        setattr(action, field_name, text)
-        action.save()
-        self.msg("Action is now: %s" % text)
-
-    def set_secret_action(self):
-        assisting = "assist" in self.switches
-        action = self.get_action(get_assisted=assisting, return_assistant=assisting)
-        if not action:
-            return
-        if action.secret_action:
-            self.msg("You have unresolved secret actions. Use an append switch instead.")
-            return
-        action.secret_action = self.rhs
-        action.save()
-        self.msg("Secret action created.")
-        inform_staff("%s adds a secret to action %s for crisis %s" % (self.caller, action.id, action.crisis))
-
-    def add_action_points(self):
-        action = self.adding_checks()
-        if not action:
-            return
-        try:
-            val = int(self.rhs)
-            if val <= 0:
-                raise ValueError
-            if not self.caller.pay_action_points(val):
-                self.msg("You do not have the action points to put more effort into this crisis.")
-                return
-        except (TypeError, ValueError):
-            self.msg("You must specify a positive amount that you can afford.")
-            return
-        action.outcome_value += val
-        action.save()
-        self.msg("You add %s action points. Current action points allocated: %s" % (self.rhs, action.outcome_value))
-    
-    # retrieves action and checks if its crisis has been resolved
-    def adding_checks(self):
-        action = self.get_action(get_assisted=True)
-        if not action:
-            return
-        time = datetime.now()
-        crisis = action.crisis
-        if crisis.end_date < time:
-            self.msg("It is past the submit date for that crisis.")
-            return
-        return action
-        
-    def add_resource(self):
-        action = self.adding_checks()
-        if not action:
-            return
-        try:
-            res_type = self.rhslist[0]
-            val = int(self.rhslist[1])
-            if val <= 0:
-                raise ValueError
-            res_types = ('silver', 'military', 'economic', 'social')
-            if res_type not in res_types:
-                self.msg("Must be one of the following: %s" % ", ".join(res_types))
-                return
-            if res_type == "silver":
-                if val > self.caller.db.char_ob.db.currency:
-                    self.msg("You cannot afford that.")
-                    return
-                self.caller.db.char_ob.pay_money(val)
-            else:
-                if not self.caller.pay_resources(res_type, val):
-                    self.msg("You cannot afford that.")
-                    return
-        except IndexError:
-            self.msg("You must specify a type of resource and an amount.")
-            return
-        except (TypeError, ValueError):
-            self.msg("You must specify a positive amount that you can afford.")
-            return
-        # get parent action if we're an assistant
-        if hasattr(action, 'crisis_action'):
-            action = action.crisis_action
-        total = getattr(action, res_type) + val
-        setattr(action, res_type, total)
-        action.save()
-        self.msg("You add %s %s. New value: %s" % (val, res_type, total))
-
-    def add_army(self):
-        action = self.adding_checks()
-        if not action:
-            return
-        # gonda get army
-        from .models import Army, Orders
-        try:
-            if self.rhs.isdigit():
-                army = Army.objects.get(id=int(self.rhs))
-            else:
-                army = Army.objects.get(name__iexact=self.rhs)
-        except (AttributeError, Army.DoesNotExist):
-            self.msg("No armies found by that name or number.")
-            return
-        # check permissions for army and adjust orders
-        orders = army.send_orders(player=self.caller, order_type=Orders.CRISIS, action=action)
-        if not orders:
-            return
-        self.msg("You have relayed orders for %s to assist with crisis action %s." % (army, action.id))
-
-    def ask_question(self):
-        action = self.get_action()
-        if not action:
-            return
-        try:
-            question = action.questions.get(answers__isnull=True)
-            self.msg("Found an unanswered question. Appending your question to it.")
-            question.text += "\n%s" % self.rhs
-        except ActionOOCQuestion.DoesNotExist:
-            question = action.questions.create(text="")
-        question.text += self.rhs
-        question.save()
-        self.msg("Asked the question: %s" % self.rhs)
-        inform_staff("%s has asked a question about a crisis action: %s" % (self.caller, self.rhs))
-
-    def toggle_secret(self):
-        action = self.get_action()
-        if not action:
-            return
-        action.public = not action.public
-        action.save()
-        self.msg("Public status of action is now %s" % action.public)
-        
-    def toggle_secret_sharing(self):
-        action = self.get_action(get_all=True)
-        if not action:
-            return
-        if "assist" in self.switches:
-            try:
-                assist = action
-                assist.share_secret = not assist.share_secret
-                assist.save()
-                self.msg("Your sharing of your secret action is set to %s" % assist.share_secret)
-            except CrisisActionAssistant.DoesNotExist:
-                self.msg("You are not assisting that action.")
-            return
-        try:
-            targ = self.caller.search(self.rhs)
-            if not targ:
-                return
-            assist = action.assisting_actions.get(dompc=targ.Dominion)
-            assist.can_see_secret = not assist.can_see_secret
-            assist.save()
-            self.msg("%s's ability to see your secret actions is now %s." % (targ, assist.can_see_secret))
-            return
-        except CrisisActionAssistant.DoesNotExist:
-            self.msg("No assistant for that action by that name.")
-
     def func(self):
         if not self.args and (not self.switches or "old" in self.switches):
             self.list_crises()
@@ -564,60 +285,7 @@ class CmdCrisisAction(MuxPlayerCommand):
         if not self.switches or "old" in self.switches:
             self.view_crisis()
             return
-        if "newaction" in self.switches:
-            self.new_action()
-            return
         if "viewaction" in self.switches:
             self.view_action()
-            return
-        if "question" in self.switches:
-            self.ask_question()
-            return
-        if "cancel" in self.switches:
-            self.msg("This is temporarily disabled.")
-            # self.cancel_action()
-            return
-        if "append" in self.switches:
-            self.append_action()
-            return
-        if "togglepublic" in self.switches:
-            self.toggle_secret()
-            return
-        if "toggleview" in self.switches:
-            self.toggle_secret_sharing()
-            return
-        if "addpoints" in self.switches:
-            self.add_action_points()
-            return
-        if "addresource" in self.switches:
-            self.add_resource()
-            return
-        if "addarmy" in self.switches:
-            self.add_army()
-            return
-        if "invite" in self.switches:
-            self.invite_assistant()
-            return
-        if "secret" in self.switches:
-            self.set_secret_action()
-            return
-        # banished assist to the bottom because it is a default thing
-        if "assist" in self.switches:
-            self.assist_action()
-            return
-        if "decline" in self.switches:
-            try:
-                act_id = int(self.args)
-            except ValueError:
-                self.msg("Must supply an action number.")
-                return
-            invitations = self.caller.db.crisis_action_invitations or []
-            if act_id in invitations:
-                invitations.remove(act_id)
-            if invitations:
-                self.caller.db.crisis_action_invitations = invitations
-            else:
-                self.caller.attributes.remove("crisis_action_invitations")
-            self.msg("Your remaining invitations: %s" % ", ".join(str(ob) for ob in invitations))
             return
         self.msg("Invalid switch")

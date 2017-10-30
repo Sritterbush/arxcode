@@ -1161,7 +1161,7 @@ class CmdSheet(MuxPlayerCommand):
         if my_char == charob:
             return charob, True
         if check_storyactions:
-            return charob, show_hidden or charob.actions.filter(assistants__player=my_char.player_ob).exists()
+            return charob, show_hidden
         try:
             r_name = charob.roster.roster.name
         except AttributeError:
@@ -1181,7 +1181,7 @@ class CmdSheet(MuxPlayerCommand):
         """
         player = charob.player_ob
         # Get storyrequests from this player object
-        actions = player.participated_actions
+        actions = player.past_participated_actions
         # check self.rhs - if not self.rhs, list # of all of them
         action_num = self.get_num_from_args()
         if not action_num:

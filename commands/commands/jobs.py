@@ -87,8 +87,6 @@ class CmdJob(MuxPlayerCommand):
                 queues = Queue.objects.filter(slug="Code")
         elif self.cmdstring == "@bug":
             queues = Queue.objects.filter(slug="Bugs")
-        elif self.cmdstring == "@gm":
-            queues = Queue.objects.filter(slug="Story")
         elif self.cmdstring == "@typo":
             queues = Queue.objects.filter(slug="Typo")
         elif self.cmdstring == "@prp":
@@ -96,7 +94,7 @@ class CmdJob(MuxPlayerCommand):
         elif "only" in self.switches:
             queues = Queue.objects.filter(slug="Request")
         else:
-            queues = Queue.objects.all()
+            queues = Queue.objects.exclude(slug="Story")
         return queues
 
     def display_open_tickets(self):
@@ -215,7 +213,6 @@ class CmdJob(MuxPlayerCommand):
                 return
             if helpdesk_api.resolve_ticket(caller, numticket, rhs):
                 caller.msg("Ticket successfully closed.")
-                inform_staff("{w%s has closed a ticket.{n" % caller.key.capitalize())
                 return
             else:
                 caller.msg("Ticket closure failed for unknown reason.")
@@ -326,10 +323,14 @@ class CmdRequest(MuxPlayerCommand):
     def display_ticket(self, ticket):
         self.msg(ticket.display())
 
+    @property
+    def tickets(self):
+        return self.caller.tickets.exclude(queue__slug="Story")
+
     def list_tickets(self):
-        self.msg("{wClosed tickets:{n %s" % ", ".join(str(ticket.id) for ticket in self.caller.tickets.filter(
+        self.msg("{wClosed tickets:{n %s" % ", ".join(str(ticket.id) for ticket in self.tickets.filter(
                 status__in=[Ticket.CLOSED_STATUS, Ticket.RESOLVED_STATUS])))
-        self.msg("{wOpen tickets:{n %s" % ", ".join(str(ticket.id) for ticket in self.caller.tickets.filter(
+        self.msg("{wOpen tickets:{n %s" % ", ".join(str(ticket.id) for ticket in self.tickets.filter(
             status=Ticket.OPEN_STATUS)
         ))
         self.msg("Use {w+request <#>{n to view an individual ticket.")
@@ -351,7 +352,7 @@ class CmdRequest(MuxPlayerCommand):
         if "followup" in self.switches or "comment" in self.switches:
             if not self.lhs or not self.rhs:
                 caller.msg("Missing arguments required.")
-                ticketnumbers = ", ".join(str(ticket.id) for ticket in caller.tickets.all())
+                ticketnumbers = ", ".join(str(ticket.id) for ticket in self.tickets)
                 caller.msg("Your tickets: %s" % ticketnumbers)
                 return
             ticket = self.get_ticket_from_args(self.lhs)

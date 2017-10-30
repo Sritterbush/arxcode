@@ -1630,7 +1630,8 @@ class Crisis(SharedMemoryModel):
 
     @property
     def rating(self):
-        return self.escalation_points - sum(ob.outcome_value for ob in self.actions.filter(sent=True))
+        return self.escalation_points - sum(ob.outcome_value for ob in self.actions.filter(
+            status=CrisisAction.PUBLISHED))
 
     def display(self):
         msg = "\n{wName:{n %s" % self.name
@@ -1679,6 +1680,9 @@ class Crisis(SharedMemoryModel):
             action.save()
         if do_gemit:
             broadcast_msg_and_post(gemit_text, caller, latest_episode.name)
+        post = "Gemit:\n%s\nGM Notes: %s" % (gemit_text, gm_notes)
+        subject = "%s Update" % self
+        inform_staff("Crisis update posted by %s for %s:\n%s" % (caller, self, post), post=True, subject=subject)
 
 
 class CrisisUpdate(SharedMemoryModel):
@@ -2066,6 +2070,8 @@ class CrisisAction(AbstractAction):
             orders.save()
         self.status = CrisisAction.PUBLISHED
         self.save()
+        subject = "Action Published"
+        inform_staff("Action %s has been published by %s:\n%s" % (self.id, self.gm, msg), post=True, subject=subject)
 
     def view_action(self, caller=None, disp_pending=True, disp_old=False):
         """

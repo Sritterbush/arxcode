@@ -102,7 +102,7 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
     
     def func(self):
         if not self.args:
-            self.list_actions()
+            return self.list_actions()
         if "newaction" in self.switches:
             return self.new_action()
         action = self.get_action(self.lhs)
@@ -245,7 +245,7 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
             except CrisisActionAssistant.DoesNotExist:
                 pass
             return action
-        except CrisisAction.DoesNotExist:
+        except (CrisisAction.DoesNotExist, ValueError):
             self.msg("No action found by that ID.")
             self.list_actions()
     
@@ -273,7 +273,7 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
         """Checks criteria for creating a new action."""
         if crisis and not self.can_set_crisis(crisis):
             return False
-        my_draft = self.get_my_actions().filter(db_date_submitted__isnull=True).last()
+        my_draft = self.get_my_actions().filter(date_submitted__isnull=True).last()
         if my_draft:
             self.msg("You have drafted an action which needs to be submitted or canceled: %s" % my_draft.id)
             return False
@@ -435,7 +435,7 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         @gm [<action #> or <character or alias> or <crisis name> or <gm name>]
         @gm/mine
         @gm/old
-        @gm[/needgm or /needplayer or /canceled or /pending or /draft]
+        @gm[/needgm or /needplayer or /cancelled or /pending or /draft]
         
         Commands for modifying an action stats or results:
         @gm/story <action #>=<the IC result of their action, told as a story>
@@ -462,19 +462,21 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
     key = "@gm"
     locks = "cmd:perm(builders)"
     help_category = "GMing"
+    list_switches = ("old", "pending", "draft", "cancelled", "needgm", "needplayer")
     gming_switches = ("story", "secretstory", "charge", "check", "checkall", "stat", "skill", "diff")
     followup_switches = ("ooc", "oocsecret")
     admin_switches = ("publish", "markpending", "cancel", "assign", "gemit", "allowedit")
     
     def func(self):
-        if not self.args or ((not self.switches or "old" in self.switches) and not self.args.isdigit()):
+        if not self.args or ((not self.switches or self.check_switches(self.list_switches))
+                             and not self.args.isdigit()):
             return self.list_actions()
         try:
             action = CrisisAction.objects.get(id=self.lhslist[0])
         except (CrisisAction.DoesNotExist, ValueError):
             self.msg("No action by that ID #.")
             return
-        if not self.switches or "old" in self.switches:
+        if not self.switches or self.check_switches(self.list_switches):
             return self.view_action(action)
         if self.check_switches(self.gming_switches):
             return self.do_gming(action)
@@ -486,7 +488,7 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
             
     def list_actions(self):
         qs = self.get_queryset_from_switches()
-        table = EvTable("ID", "player", "tldr", "category", "crisis", width=78, border="cells")
+        table = EvTable("{wID", "{wplayer", "{wtldr", "{wcategory", "{wcrisis", width=78, border="cells")
         for action in list(qs)[-50:]:
             table.add_row(action.id, action.dompc, action.topic, action.get_category_display(), action.crisis)
         self.msg(table)
@@ -495,6 +497,7 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         old_status = CrisisAction.PUBLISHED
         draft_status = CrisisAction.DRAFT
         cancelled_status = CrisisAction.CANCELLED
+        pending_status = CrisisAction.PENDING_PUBLISH
         if "old" in self.switches:
             qs = CrisisAction.objects.filter(status=old_status)
         elif "draft" in self.switches:
@@ -503,10 +506,12 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
             qs = CrisisAction.objects.filter(status=CrisisAction.NEEDS_GM)
         elif "needplayer" in self.switches:
             qs = CrisisAction.objects.filter(status=CrisisAction.NEEDS_PLAYER)
+        elif "pending" in self.switches:
+            qs = CrisisAction.objects.filter(status=pending_status)
         elif "cancelled" in self.switches:
             qs = CrisisAction.objects.filter(status=cancelled_status)
         else:
-            qs = CrisisAction.objects.exclude(status__in=(old_status, draft_status, cancelled_status))
+            qs = CrisisAction.objects.exclude(status__in=(old_status, draft_status, cancelled_status, pending_status))
         if "mine" in self.switches:
             qs = qs.filter(gm=self.caller)
         elif not self.args:
@@ -515,7 +520,7 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
             name = self.args
             qs = qs.filter(Q(crisis__name__iexact=name) | Q(dompc__player__username__iexact=name) |
                            Q(category__iexact=name) | Q(assistants__player__username__iexact=name) |
-                           Q(gm__username__iexact=name))
+                           Q(gm__username__iexact=name)).distinct()
         return qs
     
     def view_action(self, action):

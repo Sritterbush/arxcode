@@ -1040,5 +1040,9 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         return False
         
     @property
-    def actions(self):
-        return self.player_ob.actions
+    def past_actions(self):
+        return self.player_ob.past_actions
+
+    @property
+    def past_participated_actions(self):
+        return self.player_ob.past_participated_actions

@@ -416,7 +416,12 @@ class Player(InformMixin, MsgMixins, DefaultPlayer):
         from world.dominion.models import CrisisAction
         from django.db.models import Q
         dompc = self.Dominion
-        return CrisisAction.objects.filter(status=CrisisAction.PUBLISHED).filter(Q(assistants=dompc) | Q(dompc=dompc))
+        return CrisisAction.objects.filter(Q(assistants=dompc) | Q(dompc=dompc))
+
+    @property
+    def past_participated_actions(self):
+        from world.dominion.models import CrisisAction
+        return self.participated_actions.filter(status=CrisisAction.PUBLISHED)
 
     def show_online(self, caller, check_puppet=False):
         """
@@ -449,6 +454,6 @@ class Player(InformMixin, MsgMixins, DefaultPlayer):
         return self.known_theories.filter(id__in=ids)
         
     @property
-    def actions(self):
+    def past_actions(self):
         from world.dominion.models import CrisisAction
         return self.Dominion.actions.filter(status=CrisisAction.PUBLISHED)

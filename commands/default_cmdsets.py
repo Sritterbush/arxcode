@@ -13,10 +13,25 @@ to add/remove commands from the default lineup. You can create your
 own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
 
 """
-from world.dominion import agent_commands
+from functools import wraps
+
 from evennia.commands.default import cmdset_character, cmdset_player, cmdset_session, cmdset_unloggedin
+
+from world.dominion import agent_commands
 from .cmdsets import standard
 from typeclasses.wearable import cmdset_wearable
+
+
+def check_errors(func):
+    # noinspection PyBroadException
+    @wraps(func)
+    def new_func(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+    return new_func
 
 
 class CharacterCmdSet(cmdset_character.CharacterCmdSet):
@@ -36,16 +51,19 @@ class CharacterCmdSet(cmdset_character.CharacterCmdSet):
         #
         # any commands you add below will overload the default ones.
         #
-        # noinspection PyBroadException
-        try:
-            self.add(standard.StateIndependentCmdSet)
-            self.add(standard.MobileCmdSet)
-            self.add(standard.OOCCmdSet)
-            self.add(standard.StaffCmdSet)
-            self.add(cmdset_wearable.WearCmdSet)
-        except Exception:
-            import traceback
-            traceback.print_exc()
+        self.add_standard_cmdsets()
+        self.add_other_cmdsets()
+
+    @check_errors
+    def add_standard_cmdsets(self):
+        self.add(standard.StateIndependentCmdSet)
+        self.add(standard.MobileCmdSet)
+        self.add(standard.OOCCmdSet)
+        self.add(standard.StaffCmdSet)
+
+    @check_errors
+    def add_other_cmdsets(self):
+        self.add(cmdset_wearable.WearCmdSet)
 
 
 class PlayerCmdSet(cmdset_player.PlayerCmdSet):
@@ -62,9 +80,21 @@ class PlayerCmdSet(cmdset_player.PlayerCmdSet):
         """
         Populates the cmdset
         """
-        # super(PlayerCmdSet, self).at_cmdset_creation()
-        from evennia.commands.default import (player, building, system,
-                                              admin, comms)
+        self.add_default_commands()
+        self.add_overridden_commands()
+        self.add_general_commands()
+        self.add_bboard_commands()
+        self.add_roster_commands()
+        self.add_jobs_commands()
+        self.add_dominion_commands()
+        self.add_social_commands()
+        self.add_staff_commands()
+        self.add_investigation_commands()
+        self.add_gming_actions_commands()
+
+    @check_errors
+    def add_default_commands(self):
+        from evennia.commands.default import (player, building, system, admin, comms)
         # Player-specific commands
         self.add(player.CmdOOCLook())
         self.add(player.CmdIC())
@@ -79,151 +109,138 @@ class PlayerCmdSet(cmdset_player.PlayerCmdSet):
         self.add(system.CmdReset())
         self.add(system.CmdShutdown())
         self.add(system.CmdPy())
-
         # Admin commands
         self.add(admin.CmdDelPlayer())
         self.add(admin.CmdNewPassword())
-
         # Comm commands
         self.add(comms.CmdAddCom())
         self.add(comms.CmdDelCom())
         self.add(comms.CmdCemit())
         self.add(comms.CmdIRC2Chan())
         self.add(comms.CmdRSS2Chan())
-                 
+
+    @check_errors
+    def add_overridden_commands(self):
         #
         # any commands you add below will overload the default ones.
         #
-        try:
-            from .commands import help
-            self.add(help.CmdHelp())
-        except Exception as err:
-            print("<<ERROR>>: Error in overriding help: %s." % err)
-        try:
-            from .commands import overrides
-            self.add(overrides.CmdWho())
-            self.add(overrides.CmdSetAttribute())
-            self.add(overrides.CmdArxCdestroy())
-            self.add(overrides.CmdArxChannelCreate())
-            self.add(overrides.CmdArxClock())
-            self.add(overrides.CmdArxCBoot())
-            self.add(overrides.CmdArxCdesc())
-            self.add(overrides.CmdArxAllCom())
-            self.add(overrides.CmdArxChannels())
-            self.add(overrides.CmdArxCWho())
-            self.add(overrides.CmdArxReload())
-        except Exception as err:
-            print("<<ERROR>>: Error in overrides: %s." % err)
-        try:
-            from .commands import general
-            self.add(general.CmdPage())
-            self.add(general.CmdMail())
-            self.add(general.CmdGradient())
-            self.add(general.CmdInform())
-            self.add(general.CmdGameSettings())
-        except Exception as err:
-            print("<<ERROR>>: Error encountered in loading general cmdset in Player: %s" % err)
-        try:
-            from .commands import bboards
-            self.add(bboards.CmdBBReadOrPost())
-            self.add(bboards.CmdBBSub())
-            self.add(bboards.CmdBBUnsub())
-            self.add(bboards.CmdBBCreate())
-            self.add(bboards.CmdBBNew())
-            self.add(bboards.CmdOrgStance())
-        except Exception as err:
-            print("<<ERROR>>: Error encountered in loading bboards cmdset in Player: %s" % err)
-        try:
-            from .commands import roster
-            self.add(roster.CmdRosterList())
-            self.add(roster.CmdAdminRoster())
-            self.add(roster.CmdSheet())
-            self.add(roster.CmdComment())
-            self.add(roster.CmdRelationship())
-            self.add(roster.CmdAddSecret())
-            self.add(roster.CmdDelComment())
-            self.add(roster.CmdAdmRelationship())
-        except Exception as err:
-            print("<<ERROR>>: Error encountered in loading roster cmdset in Player: %s" % err)
-        try:
-            from .commands import jobs
-            self.add(jobs.CmdJob())
-            self.add(jobs.CmdRequest())
-            self.add(jobs.CmdApp())
-        except Exception as err:
-            print("<<ERROR>>: Error encountered in loading jobs cmdset in Player: %s" % err)
-        try:
-            from world.dominion import commands as domcommands
-            self.add(domcommands.CmdAdmDomain())
-            self.add(domcommands.CmdAdmArmy())
-            self.add(domcommands.CmdAdmCastle())
-            self.add(domcommands.CmdAdmAssets())
-            self.add(domcommands.CmdAdmFamily())
-            self.add(domcommands.CmdAdmOrganization())
-            self.add(domcommands.CmdDomain())
-            self.add(domcommands.CmdFamily())
-            self.add(domcommands.CmdOrganization())
-            self.add(domcommands.CmdArmy())
-            self.add(agent_commands.CmdAgents())
-            self.add(domcommands.CmdPatronage())
-            self.add(agent_commands.CmdRetainers())
-        except Exception as err:
-            print("<<ERROR>>: Error encountered in loading Dominion cmdset in Player: %s" % err)
-        try:
-            from .commands import social
-            self.add(social.CmdFinger())
-            self.add(social.CmdWatch())
-            self.add(social.CmdCalendar())
-            self.add(social.CmdAFK())
-            self.add(social.CmdWhere())
-            self.add(social.CmdCensus())
-            self.add(social.CmdIAmHelping())
-            self.add(social.CmdRPHooks())
-        except Exception as err:
-            print("<<ERROR>>: Error encountered in loading social cmdset in Player: %s" % err)
-        try:
-            from .commands import staff_commands
-            # more recently implemented staff commands
-            self.add(staff_commands.CmdRestore())
-            self.add(staff_commands.CmdSendVision())
-            self.add(staff_commands.CmdAskStaff())
-            self.add(staff_commands.CmdListStaff())
-            self.add(staff_commands.CmdPurgeJunk())
-            self.add(staff_commands.CmdAdjustReputation())
-            self.add(staff_commands.CmdViewLog())
-            self.add(staff_commands.CmdSetLanguages())
-            self.add(staff_commands.CmdGMNotes())
-            self.add(staff_commands.CmdJournalAdminForDummies())
-            self.add(staff_commands.CmdTransferKeys())
-            self.add(staff_commands.CmdAdminTitles())
-            self.add(staff_commands.CmdAdminWrit())
-        except Exception as err:
-            print("<<ERROR>>: Error encountered in loading staff_commands cmdset in Player: %s" % err)
-        try:
-            from .cmdsets import starting_gear
-            self.add(starting_gear.CmdSetupGear())
-        except Exception as err:
-            print("<<ERROR>>: Error encountered in loading staff_commands cmdset in Player: %s" % err)
-        try:
-            from web.character import investigation
-            self.add(investigation.CmdAdminInvestigations())
-            self.add(investigation.CmdListClues())
-            self.add(investigation.CmdTheories())
-            self.add(investigation.CmdListRevelations())
-            self.add(investigation.CmdPRPClue())
-        except Exception as err:
-            print("<<ERROR>>: Error encountered in loading investigation cmdset: %s" % err)
-        try:
-            from world.dominion import crisis_commands
-            self.add(crisis_commands.CmdCrisisAction())
-            self.add(crisis_commands.CmdGMCrisis())
-        except Exception as err:
-            print("<<ERROR>>: Error encountered in loading crisis cmdset: %s" % err)
-        try:
-            from .commands import story_actions
-            self.add(story_actions.CmdGMAction)
-        except Exception as err:
-            print("<<ERROR>>: Error encountered in loading action cmdset: %s" % err)
+        from .commands import help, overrides
+        self.add(help.CmdHelp())
+        self.add(overrides.CmdWho())
+        self.add(overrides.CmdSetAttribute())
+        self.add(overrides.CmdArxCdestroy())
+        self.add(overrides.CmdArxChannelCreate())
+        self.add(overrides.CmdArxClock())
+        self.add(overrides.CmdArxCBoot())
+        self.add(overrides.CmdArxCdesc())
+        self.add(overrides.CmdArxAllCom())
+        self.add(overrides.CmdArxChannels())
+        self.add(overrides.CmdArxCWho())
+        self.add(overrides.CmdArxReload())
+
+    @check_errors
+    def add_general_commands(self):
+        from .commands import general
+        self.add(general.CmdPage())
+        self.add(general.CmdMail())
+        self.add(general.CmdGradient())
+        self.add(general.CmdInform())
+        self.add(general.CmdGameSettings())
+
+    @check_errors
+    def add_bboard_commands(self):
+        from .commands import bboards
+        self.add(bboards.CmdBBReadOrPost())
+        self.add(bboards.CmdBBSub())
+        self.add(bboards.CmdBBUnsub())
+        self.add(bboards.CmdBBCreate())
+        self.add(bboards.CmdBBNew())
+        self.add(bboards.CmdOrgStance())
+
+    @check_errors
+    def add_roster_commands(self):
+        from .commands import roster
+        self.add(roster.CmdRosterList())
+        self.add(roster.CmdAdminRoster())
+        self.add(roster.CmdSheet())
+        self.add(roster.CmdComment())
+        self.add(roster.CmdRelationship())
+        self.add(roster.CmdAddSecret())
+        self.add(roster.CmdDelComment())
+        self.add(roster.CmdAdmRelationship())
+
+    @check_errors
+    def add_jobs_commands(self):
+        from .commands import jobs
+        self.add(jobs.CmdJob())
+        self.add(jobs.CmdRequest())
+        self.add(jobs.CmdApp())
+
+    @check_errors
+    def add_dominion_commands(self):
+        from world.dominion import commands as domcommands
+        self.add(domcommands.CmdAdmDomain())
+        self.add(domcommands.CmdAdmArmy())
+        self.add(domcommands.CmdAdmCastle())
+        self.add(domcommands.CmdAdmAssets())
+        self.add(domcommands.CmdAdmFamily())
+        self.add(domcommands.CmdAdmOrganization())
+        self.add(domcommands.CmdDomain())
+        self.add(domcommands.CmdFamily())
+        self.add(domcommands.CmdOrganization())
+        self.add(domcommands.CmdArmy())
+        self.add(agent_commands.CmdAgents())
+        self.add(domcommands.CmdPatronage())
+        self.add(agent_commands.CmdRetainers())
+
+    @check_errors
+    def add_social_commands(self):
+        from .commands import social
+        self.add(social.CmdFinger())
+        self.add(social.CmdWatch())
+        self.add(social.CmdCalendar())
+        self.add(social.CmdAFK())
+        self.add(social.CmdWhere())
+        self.add(social.CmdCensus())
+        self.add(social.CmdIAmHelping())
+        self.add(social.CmdRPHooks())
+
+    @check_errors
+    def add_staff_commands(self):
+        from .commands import staff_commands
+        # more recently implemented staff commands
+        self.add(staff_commands.CmdRestore())
+        self.add(staff_commands.CmdSendVision())
+        self.add(staff_commands.CmdAskStaff())
+        self.add(staff_commands.CmdListStaff())
+        self.add(staff_commands.CmdPurgeJunk())
+        self.add(staff_commands.CmdAdjustReputation())
+        self.add(staff_commands.CmdViewLog())
+        self.add(staff_commands.CmdSetLanguages())
+        self.add(staff_commands.CmdGMNotes())
+        self.add(staff_commands.CmdJournalAdminForDummies())
+        self.add(staff_commands.CmdTransferKeys())
+        self.add(staff_commands.CmdAdminTitles())
+        self.add(staff_commands.CmdAdminWrit())
+        from .cmdsets import starting_gear
+        self.add(starting_gear.CmdSetupGear())
+
+    @check_errors
+    def add_investigation_commands(self):
+        from web.character import investigation
+        self.add(investigation.CmdAdminInvestigations())
+        self.add(investigation.CmdListClues())
+        self.add(investigation.CmdTheories())
+        self.add(investigation.CmdListRevelations())
+        self.add(investigation.CmdPRPClue())
+
+    @check_errors
+    def add_gming_actions_commands(self):
+        from world.dominion import crisis_commands
+        self.add(crisis_commands.CmdCrisisAction())
+        self.add(crisis_commands.CmdGMCrisis())
+        from .commands import story_actions
+        self.add(story_actions.CmdGMAction)
 
 
 class UnloggedinCmdSet(cmdset_unloggedin.UnloggedinCmdSet):

@@ -7,26 +7,29 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
+# can't access Class constants in migrations, so we need to copy them here. No way around the DRY violation, sadly.
+# Ticket constants
+RESOLVED = 3
+CLOSED = 4
+# CrisisAction constants
+PUBLISHED = 5
+DRAFT = 0
+
+
 def set_status(apps, schema_editor):
     CrisisAction = apps.get_model("dominion", "CrisisAction")
-    PUBLISHED = 5
-    NEEDS_GM = 2
-    CrisisAction.objects.filter(story="").update(status=NEEDS_GM)
+    CrisisAction.objects.filter(story="").update(status=DRAFT)
     CrisisAction.objects.exclude(story="").update(status=PUBLISHED)
 
 
 def convert_storyactions(apps, schema_editor):
     Ticket = apps.get_model("helpdesk", "Ticket")
     CrisisAction = apps.get_model("dominion", "CrisisAction")
-    RESOLVED = 3
-    CLOSED = 4
-    PUBLISHED = 5
-    NEEDS_GM = 2
     for ticket in Ticket.objects.filter(queue__slug__iexact="story"):
         if ticket.status in (RESOLVED, CLOSED):
             status = PUBLISHED
         else:
-            status = NEEDS_GM
+            status = DRAFT
         dompc = ticket.submitting_player.Dominion
         gm = ticket.assigned_to
         actions = ticket.description or ""
