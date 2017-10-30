@@ -2131,7 +2131,7 @@ class CrisisAction(AbstractAction):
             if self.status == CrisisAction.NEEDS_PLAYER:
                 needs_edits = " Awaiting edits to be submitted by: %s" % \
                               ", ".join(ob.author for ob in self.all_editable)
-            msg += "\n{w[STATUS: %s]{n%s" % (self.status, needs_edits)
+            msg += "\n{w[STATUS: %s]{n%s" % (self.get_status_display(), needs_edits)
         return msg
     
     def view_total_resources_msg(self):

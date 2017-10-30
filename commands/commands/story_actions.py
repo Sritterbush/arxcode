@@ -44,6 +44,9 @@ class ActionCommandMixin(object):
                 totals = action.view_total_resources_msg()
                 self.msg("{c%s{n %s added. Action %s" % (value, r_type, totals))
 
+    def view_action(self, action):
+        self.msg(action.view_action(caller=self.caller))
+
 
 class CmdAction(ActionCommandMixin, MuxPlayerCommand):
     """
@@ -108,6 +111,8 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
         action = self.get_action(self.lhs)
         if not action:
             return
+        if not self.switches:
+            return self.view_action(action)
         if not self.check_valid_switch_for_action_type(action):
             return
         if "makepublic" in self.switches:
@@ -241,7 +246,7 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
             dompc = self.dompc
             action = CrisisAction.objects.filter(Q(dompc=dompc) | Q(assistants=dompc)).distinct().get(id=arg)
             try:
-                action = action.assisting_actions.get(assistant=dompc)
+                action = action.assisting_actions.get(dompc=dompc)
             except CrisisActionAssistant.DoesNotExist:
                 pass
             return action
@@ -522,9 +527,6 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
                            Q(category__iexact=name) | Q(assistants__player__username__iexact=name) |
                            Q(gm__username__iexact=name)).distinct()
         return qs
-    
-    def view_action(self, action):
-        self.msg(action.view_action(caller=self.caller))
         
     def do_gming(self, action):
         if "story" in self.switches:
