@@ -2286,11 +2286,11 @@ class CrisisAction(AbstractAction):
         return self
 
 
-PROPS = ['crisis', 'action_and_assists', 'status', 'prefer_offscreen', 'attendees', 'all_editable', 'outcome_value',
-         'difficulty']
+NAMES_OF_PROPERTIES_TO_PASS_THROUGH = ['crisis', 'action_and_assists', 'status', 'prefer_offscreen', 'attendees',
+                                       'all_editable', 'outcome_value', 'difficulty']
 
 
-@passthrough_properties('crisis_action', *PROPS)
+@passthrough_properties('crisis_action', *NAMES_OF_PROPERTIES_TO_PASS_THROUGH)
 class CrisisActionAssistant(AbstractAction):
     NOUN = "Assist"
     BASE_AP_COST = 10
