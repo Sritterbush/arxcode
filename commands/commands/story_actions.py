@@ -4,6 +4,7 @@ from evennia.commands.default.muxcommand import MuxPlayerCommand
 from evennia.utils.evtable import EvTable
 
 from server.utils.exceptions import ActionSubmissionError
+from server.utils.arx_utils import dict_from_choices_field
 
 from world.dominion.models import Crisis, CrisisAction, CrisisActionAssistant
 
@@ -14,15 +15,15 @@ class ActionCommandMixin(object):
         setattr(action, field_name, value)
         action.save()
         verbose_name = verbose_name or field_name
-        if field_name == "status":
-            value = action.get_status_display()
+        if field_name in ("status", "category"):
+            value = getattr(action, "get_%s_display" % field_name)()
         self.msg("%s set to %s." % (verbose_name, value))
         
     def check_switches(self, switch_set):
         return set(self.switches) & set(switch_set)
         
     def add_resource(self, action):
-        if not self.rhs[1]:
+        if len(self.rhslist) < 2:
             self.send_no_args_msg("a resource type such as 'economic' or 'ap' and the amount."
                                   " Or 'army' and an army ID#")
             return
@@ -96,12 +97,23 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
     key = "@action"
     locks = "cmd:all()"
     help_category = "Dominion"
-    action_categories = ("combat", "scouting", "support", "diplomacy", "sabotage", "research")
+    aliases = ["@actions"]
+    action_categories = dict_from_choices_field(CrisisAction, "CATEGORY_CHOICES")
     requires_draft_switches = ("invite", "setcrisis")
     requires_editable_switches = ("roll", "tldr", "title", "category", "submit", "invite",
                                   "setaction", "setcrisis", "add", "toggletraitor", "toggleattend")
     requires_unpublished_switches = ("ooc", "cancel", "noscene")
     requires_owner_switches = ("invite", "makepublic", "category", "setcrisis", "noscene")
+
+    @property
+    def dompc(self):
+        """Shortcut for getting their dominion playerornpc object"""
+        return self.caller.Dominion
+
+    @property
+    def actions_and_invites(self):
+        return CrisisAction.objects.filter(Q(dompc=self.dompc) | Q(assistants=self.dompc)).exclude(
+            status=CrisisAction.CANCELLED).distinct()
     
     def func(self):
         if not self.args:
@@ -152,7 +164,7 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
     
     def do_requires_draft_switches(self, action):
         if not action.status == CrisisAction.DRAFT:
-            return self.send_too_late_msg
+            return self.send_too_late_msg()
         elif "invite" in self.switches:
             return self.invite_assistant(action)
         elif "setcrisis" in self.switches:
@@ -188,11 +200,6 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
         elif "noscene" in self.switches:
             return self.toggle_noscene(action)
             
-    @property
-    def dompc(self):
-        """Shortcut for getting their dominion playerornpc object"""
-        return self.caller.Dominion
-            
     def send_no_edits_msg(self):
         self.msg("You cannot edit that action at this time.")
         
@@ -202,9 +209,10 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
     def list_actions(self):
         """Prints a table of the actions we've taken"""
         table = EvTable("ID", "Crisis", "Category", "Attend", "Status")
-        actions = self.dompc.actions.all()
+        actions = self.actions_and_invites
         for action in actions:
-            table.add_row(action.id, action.crisis, action.category, action.attending, action.status)
+            table.add_row(action.id, action.crisis, action.get_category_display(), action.attending,
+                          action.get_status_display())
         self.msg(table)
     
     def send_no_args_msg(self, noun):
@@ -218,17 +226,19 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
             return self.send_no_args_msg("a story")
         crisis = None
         crisis_msg = ""
-        story = self.lhs
+        actions = self.lhs
         if self.rhs:
             crisis = self.get_valid_crisis(self.lhs)
-            story = self.rhs
+            actions = self.rhs
             crisis_msg = " to respond to %s" % str(crisis)
             if not crisis:
                 return
         if not self.can_create(crisis):
             return
-        action = self.dompc.actions.create(story=story, crisis=crisis)
-        self.msg("You have drafted a new action%s: %s" % (crisis_msg, story))
+        diff = CrisisAction.NORMAL_DIFFICULTY
+        action = self.dompc.actions.create(actions=actions, crisis=crisis, stat_used="", skill_used="", difficulty=diff)
+        self.msg("You have drafted a new action%s: %s" % (crisis_msg, actions))
+        self.msg("Please note that you cannot invite players to an action once it is submitted.")
         if crisis:
             self.warn_crisis_omnipresence(action)
     
@@ -244,7 +254,7 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
         """
         try:
             dompc = self.dompc
-            action = CrisisAction.objects.filter(Q(dompc=dompc) | Q(assistants=dompc)).distinct().get(id=arg)
+            action = self.actions_and_invites.get(id=arg)
             try:
                 action = action.assisting_actions.get(dompc=dompc)
             except CrisisActionAssistant.DoesNotExist:
@@ -302,20 +312,20 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
             return
         if not self.rhs:
             return self.send_no_args_msg("a category")
-        if self.rhs not in self.action_categories:
-            self.send_no_args_msg("one of these categories: %s" % ", ".join(self.action_categories))
+        if self.rhs not in self.action_categories.keys():
+            self.send_no_args_msg("one of these categories: %s" % ", ".join(self.action_categories.keys()))
             return
-        self.set_action_field(action, 'category', self.rhs)
+        self.set_action_field(action, "category", self.action_categories[self.rhs])
       
     def set_roll(self, action):
         """Sets a stat and skill for action or assistant"""
-        if not self.rhs[1]:
+        if len(self.rhslist) < 2 or not self.rhslist[0] or not self.rhslist[1]:
             self.msg("Usage: @action/roll <action #>=<stat>,<skill>")
             return
-        field_name = "stat"
-        self.set_action_field(action, field_name, self.rhs[0])
-        field_name = "skill"
-        return self.set_action_field(action, field_name, self.rhs[1])
+        field_name = "stat_used"
+        self.set_action_field(action, field_name, self.rhslist[0], verbose_name="stat")
+        field_name = "skill_used"
+        return self.set_action_field(action, field_name, self.rhslist[1], verbose_name="skill")
         
     def set_topic(self, action):
         if not self.rhs:
@@ -329,6 +339,9 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
         """
         Sets our ooc intent, or if we're already submitted and have an intent set, it asks a question.
         """
+        if not self.rhs:
+            self.msg("You must enter a message.")
+            return
         if not action.submitted:
             action.set_ooc_intent(self.rhs)
             self.msg("You have set your ooc intent to be: %s" % self.rhs)
@@ -471,6 +484,8 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
     gming_switches = ("story", "secretstory", "charge", "check", "checkall", "stat", "skill", "diff")
     followup_switches = ("ooc", "oocsecret")
     admin_switches = ("publish", "markpending", "cancel", "assign", "gemit", "allowedit")
+    difficulties = {"easy": CrisisAction.EASY_DIFFICULTY, "normal": CrisisAction.NORMAL_DIFFICULTY,
+                    "hard": CrisisAction.HARD_DIFFICULTY}
     
     def func(self):
         if not self.args or ((not self.switches or self.check_switches(self.list_switches))
@@ -580,12 +595,15 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         self.add_resource(action)
     
     def set_difficulty(self, action):
-        try:
-            value = int(self.rhs)
-        except (TypeError, ValueError):
-            self.msg("Difficulty must be a number.")
+        if self.rhs in self.difficulties:
+            value = self.difficulties[self.rhs]
         else:
-            self.set_action_field(action, "difficulty", value)
+            try:
+                value = int(self.rhs)
+            except (TypeError, ValueError):
+                self.msg("Difficulty must be a number or %s." % ", ".join(self.difficulties.keys()))
+                return
+        self.set_action_field(action, "difficulty", value)
             
     def replace_action_with_assistant_if_provided(self, action, name=None):
         if not name:
@@ -627,6 +645,10 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
             return self.toggle_editable(action)
         
     def publish_action(self, action):
+        if self.rhs and action.story:
+            self.msg("That story already has an action written. To prevent accidental overwrites, please change "
+                     "it manually and then /publish without additional arguments.")
+            return
         action.send()
         self.msg("You have published the action and sent the players informs.")
         
@@ -666,6 +688,9 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         self.msg("StoryEmit created.")
     
     def toggle_editable(self, action):
+        action = self.replace_action_with_assistant_if_provided(action)
+        if not action:
+            return
         action.editable = not action.editable
         action.save()
         if action.editable:

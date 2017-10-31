@@ -423,3 +423,8 @@ def broadcast_msg_and_post(msg, caller, episode_name=None):
     if episode_name:
         subject = "Episode: %s" % episode_name
     bboard.bb_post(poster_obj=caller, msg=post_msg, subject=subject, poster_name="Story")
+
+
+def dict_from_choices_field(cls, field_name):
+    choices_tuple = getattr(cls, field_name)
+    return {string.lower(): integer for integer, string in choices_tuple}

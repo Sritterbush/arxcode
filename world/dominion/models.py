@@ -1720,7 +1720,7 @@ class AbstractAction(AbstractPlayerAllocations):
         
     @property
     def ap_refund_amount(self):
-        return self.ap + self.BASE_AP_COST
+        return self.action_points + self.BASE_AP_COST
         
     def pay_action_points(self, amount):
         return self.dompc.player.pay_action_points(amount)
@@ -1739,7 +1739,7 @@ class AbstractAction(AbstractPlayerAllocations):
         if caller.check_permstring("builders") or caller == self.dompc.player:
             return True
     
-    def get_action_text(self, secret=False, tldr=False):
+    def get_action_text(self, secret=False, disp_summary=False):
         noun = self.NOUN
         author = " by {c%s{w" % self.author
         if secret:
@@ -1748,24 +1748,25 @@ class AbstractAction(AbstractPlayerAllocations):
             if self.traitor:
                 prefix_txt += "{rTraitorous{w "
             suffix_txt = ":{n %s" % action
-        elif tldr:
-            prefix_txt = "--- "
-            action = self.topic
-            if noun == "Action":
-                noun = "%s" % str(self)
-                author = ""
-            attend = "(physically attending)" if bool(self.crisis and self.attending) else ""
-            suffix_txt = "{w%s:{n %s {w---" % (attend, action)
         else:
             prefix_txt = ""
             action = self.actions
-            suffix_txt = ":{n %s" % action
+            if noun == "Action":
+                noun = "%s" % str(self)
+                author = ""
+            summary = ""
+            if disp_summary:
+                summary = "\n%s" % self.get_summary_text()
+            suffix_txt = "%s\n{wAction:{n %s" % (summary, action)
         return "\n{w%s%s%s%s{n" % (prefix_txt, noun, author, suffix_txt)
+
+    def get_summary_text(self):
+        return "{wSummary:{n %s" % self.topic
         
     @property
     def ooc_intent(self):
         try:
-            self.questions.get(is_intent=True)
+            return self.questions.get(is_intent=True)
         except ActionOOCQuestion.DoesNotExist:
             return None
         
@@ -1779,7 +1780,7 @@ class AbstractAction(AbstractPlayerAllocations):
             
     def ask_question(self, text):
         inform_staff("{c%s{n added a comment/question about %s:\n%s" % (self.author, self, text))
-        self.questions.create(text=text)
+        return self.questions.create(text=text)
         
     @property
     def is_main_action(self):
@@ -1789,12 +1790,8 @@ class AbstractAction(AbstractPlayerAllocations):
     def author(self):
         return self.dompc
     
-    def inform(self, text, category=None, append=False):
-        if self.is_main_action:
-            week = self.week
-        else:
-            week = self.crisis_action.week
-        self.dompc.inform(text, category=category, week=week, append=append)
+    def inform(self, text, category="Actions", append=False):
+        self.dompc.inform(text, category=category, append=append)
         
     def submit(self):
         self.raise_submission_errors()
@@ -1853,7 +1850,7 @@ class AbstractAction(AbstractPlayerAllocations):
                                             
     def check_crisis_overcrowd(self):
         attendees = self.attendees
-        if attendees.count() > self.attending_limit and not self.prefer_offscreen:
+        if len(attendees) > self.attending_limit and not self.prefer_offscreen:
             excess = attendees.count() - self.attending_limit
             raise ActionSubmissionError("A crisis action can have %s people attending in person. %s of you should "
                                         "check your story, then change to a passive role with @action/toggleattend. "
@@ -1930,11 +1927,11 @@ class AbstractAction(AbstractPlayerAllocations):
         
     def do_roll(self, stat=None, skill=None, difficulty=None, reset_total=True):
         from world.stats_and_skills import do_dice_check
-        self.stat = stat or self.stat
-        self.skill = skill or self.skill
+        self.stat_used = stat or self.stat_used
+        self.skill_used = skill or self.skill_used
         if difficulty is not None:
             self.difficulty = difficulty
-        self.roll = do_dice_check(self.dompc.player.char_ob, stat=self.stat, skill=self.skill, 
+        self.roll = do_dice_check(self.dompc.player.char_ob, stat=self.stat_used, skill=self.skill_used,
                                   difficulty=self.difficulty)
         self.save()
         if reset_total:
@@ -1946,6 +1943,10 @@ class AbstractAction(AbstractPlayerAllocations):
         
     def add_answer(self, gm, text):
         self.questions.last().add_answer(gm, text)
+
+    @property
+    def main_id(self):
+        return self.main_action.id
         
 
 class CrisisAction(AbstractAction):
@@ -1953,6 +1954,9 @@ class CrisisAction(AbstractAction):
     An action that a player is taking. May be in response to a Crisis.
     """
     NOUN = "Action"
+    EASY_DIFFICULTY = 15
+    NORMAL_DIFFICULTY = 30
+    HARD_DIFFICULTY = 60
     week = models.PositiveSmallIntegerField(default=0, blank=0, db_index=True)
     dompc = models.ForeignKey("PlayerOrNpc", db_index=True, blank=True, null=True, related_name="actions")
     crisis = models.ForeignKey("Crisis", db_index=True, blank=True, null=True, related_name="actions")
@@ -2011,10 +2015,10 @@ class CrisisAction(AbstractAction):
     
     def __str__(self):
         if self.crisis:
-            crisis = " for {m%s{n Week %s" % (self.crisis, self.week)
+            crisis = " for {m%s{n" % self.crisis
         else:
             crisis = ""
-        return "%s #%s by {c%s{n%s" % (self.NOUN, self.id, self.author, crisis)
+        return "%s by {c%s{n%s" % (self.NOUN, self.author, crisis)
     
     @property
     def sent(self):
@@ -2056,9 +2060,9 @@ class CrisisAction(AbstractAction):
         if self.crisis:
             msg = "{wGM Response to action for crisis:{n %s" % self.crisis
         else:
-            msg = "{GM Response to story action of %s" % self.author
+            msg = "{wGM Response to story action of %s" % self.author
         msg += "\n{wRolls:{n %s" % self.outcome_value
-        msg += "\n\n{wStory:{n %s\n\n" % self.story
+        msg += "\n\n{wStory Result:{n %s\n\n" % self.story
         self.week = get_week()
         if update:
             self.update = update
@@ -2073,7 +2077,7 @@ class CrisisAction(AbstractAction):
         subject = "Action Published"
         inform_staff("Action %s has been published by %s:\n%s" % (self.id, self.gm, msg), post=True, subject=subject)
 
-    def view_action(self, caller=None, disp_pending=True, disp_old=False):
+    def view_action(self, caller=None, disp_pending=True, disp_old=False, disp_ooc=True):
         """
         Returns a text string of the display of an action.
         
@@ -2081,6 +2085,7 @@ class CrisisAction(AbstractAction):
                 caller: Player who is viewing this
                 disp_pending (bool): Whether to display pending questions
                 disp_old (bool): Whether to display answered questions
+                disp_ooc (bool): Whether to only display IC information
                 
             Returns:
                 Text string to display.
@@ -2096,30 +2101,38 @@ class CrisisAction(AbstractAction):
             return msg
         # print out actions of everyone
         all_actions = self.action_and_assists
-        view_secrets = staff_viewer or self.check_view_secret(caller)
+        view_main_secrets = staff_viewer or self.check_view_secret(caller)
         for ob in all_actions:
-            msg += ob.get_action_text(tldr=True)
-            msg += ob.get_action_text()
+            msg += "\n"
+            view_secrets = staff_viewer or ob.check_view_secret(caller)
+            msg += ob.get_action_text(disp_summary=view_secrets)
             if ob.secret_actions and view_secrets:
                 msg += ob.get_action_text(secret=True)
-            if view_secrets and ob.stat_used and ob.skill_used:
-                msg += "\n{wDice check:{n %s, %s  " % (ob.stat_used, ob.skill_used)
+            if view_secrets and disp_ooc:
+                attending = "[%s] " % ("physically present" if self.attending else "offscreen")
+                msg += "\n{w%sDice check: Stat:{n %s, {wSkill:{n %s  " % (attending, ob.stat_used or "No stat set",
+                                                                          ob.skill_used or "No skill set")
+                if staff_viewer:
+                    msg += "{wDiff:{n %s" % self.difficulty
                 if self.sent or (ob.roll_is_set and staff_viewer):
                     color = "{r" if bool(ob.roll >= 0) else "{c"
                     msg += "{w[Roll: %s%s{w ]{n " % (color, ob.roll)
-        if (disp_pending or disp_old) and view_secrets:
-            q_and_a_str = self.get_questions_and_answers_display(answered=disp_old, assistants=staff_viewer)
+                if ob.ooc_intent:
+                    msg += "\n%s" % ob.ooc_intent.display()
+        if (disp_pending or disp_old) and disp_ooc:
+            q_and_a_str = self.get_questions_and_answers_display(answered=disp_old, staff=staff_viewer, caller=caller)
             if q_and_a_str:
                 msg += "\n{wOOC Notes and GM responses\n%s" % q_and_a_str
         if staff_viewer and self.gm_notes or self.prefer_offscreen:
             offscreen = "Offscreen resolution preferred. " if self.prefer_offscreen else ""
             msg += "\n{wGM Notes:{n %s%s" % (offscreen, self.gm_notes)
         if self.sent or staff_viewer:
-            msg += "\n{wOutcome Value:{n %s" % self.outcome_value
-            msg += "\n{wStory:{n %s" % self.story
-            if self.secret_story and view_secrets:
+            if disp_ooc:
+                msg += "\n{wOutcome Value:{n %s" % self.outcome_value
+            msg += "\n{wStory Result:{n %s" % self.story
+            if self.secret_story and view_main_secrets:
                 msg += "\n{wSecret Story{n %s" % self.secret_story
-        else:
+        if disp_ooc:
             msg += self.view_total_resources_msg()
             orders = []
             for ob in all_actions:
@@ -2153,7 +2166,7 @@ class CrisisAction(AbstractAction):
         if not self.date_submitted:
             self.delete()
         else:
-            self.cancelled = True
+            self.status = CrisisAction.CANCELLED
             self.save()
     
     def check_incomplete_required_fields(self):
@@ -2164,27 +2177,54 @@ class CrisisAction(AbstractAction):
     
     def raise_submission_errors(self):
         super(CrisisAction, self).raise_submission_errors()
-        self.check_action_against_maximum_allowed()
         self.check_crisis_errors()
+        self.check_draft_errors()
+
+    def check_draft_errors(self):
+        if self.status != CrisisAction.DRAFT:
+            return
+        self.check_action_against_maximum_allowed()
+        self.check_warning_prompt_sent()
             
     def check_action_against_maximum_allowed(self):
-        if self.status != CrisisAction.DRAFT or self.crisis:
+        if self.crisis:
             return
         from datetime import timedelta
         offset = timedelta(days=-self.num_days)
         old = datetime.now() + offset
-        recent_actions = self.dompc.actions.filter(Q(db_date_submitted__gte=old) & Q(crisis__isnull=True))
+        recent_actions = self.dompc.actions.filter(Q(date_submitted__gte=old) & Q(crisis__isnull=True))
         if recent_actions.count() >= self.max_requests:
             raise ActionSubmissionError("You are permitted %s action requests every %s days. Recent actions: %s"
                                         % (self.max_requests, self.num_days,
                                            ", ".join(str(ob.id) for ob in recent_actions)))
-    
+
+    def check_warning_prompt_sent(self):
+        if self.dompc.player.ndb.action_submission_prompt != self:
+            self.dompc.player.ndb.action_submission_prompt = self
+            warning = ("{yBefore submitting this action, make certain that you have invited all players you wish to "
+                       "help with the action, and add any resources necessary. Any invited players who have incomplete "
+                       "actions will have their assists deleted.")
+            unready = ", ".join(str(ob.author) for ob in self.get_unready_assisting_actions())
+            if unready:
+                warning += "\n{rThe following assistants are not ready and will be deleted: %s" % unready
+            warning += "\n{yWhen ready, /submit the action again.{n"
+            raise ActionSubmissionError(warning)
+
+    def get_unready_assisting_actions(self):
+        unready = []
+        for ob in self.assisting_actions.all():
+            try:
+                ob.raise_submission_errors()
+            except ActionSubmissionError:
+                unready.append(ob)
+        return unready
+
     @property
     def attendees(self):
-        return [ob.author for ob in self.actions_and_assists if ob.attending]
+        return [ob.author for ob in self.action_and_assists if ob.attending]
     
     def on_submit_success(self):
-        if self.action_status == CrisisAction.DRAFT:
+        if self.status == CrisisAction.DRAFT:
             self.status = CrisisAction.NEEDS_GM
             for assist in self.assisting_actions.filter(date_submitted__isnull=True):
                 assist.submit_or_refund()
@@ -2196,37 +2236,54 @@ class CrisisAction(AbstractAction):
             self.status = CrisisAction.NEEDS_GM
             self.save()
             inform_staff("%s has been resubmitted for GM review." % self)
+            if self.gm:
+                self.gm.inform("Action %s has been updated." % self.id, category="Actions")
             
     def invite(self, dompc):
         if dompc in self.assistants.all():
             raise ActionSubmissionError("They have already been invited.")
-        self.assisting_actions.create(dompc=dompc)
-        dompc.inform("You have been invited by %s to participate in action %s." % (self.author, self.id),
-                     category="Action Invitation")
+        if dompc == self.dompc:
+            raise ActionSubmissionError("You cannot invite yourself.")
+        self.assisting_actions.create(dompc=dompc, stat_used="", skill_used="")
+        msg = "You have been invited by %s to participate in action %s." % (self.author, self.id)
+        msg += " It will now display under the {w@action{n command. To assist, simply fill out"
+        msg += " the required fields, starting with {w@action/setaction{n, and then {w@action/submit %s{n." % self.id
+        msg += " If the owner submits the action to the GMs before your assist is valid, it will be"
+        msg += " deleted and you will be refunded any AP and resources."
+        msg += " To decline this invitation, use {w@action/cancel %s{n." % self.id
+        dompc.inform(msg, category="Action Invitation")
     
     def roll_all(self):
-        for ob in self.actions_and_assists:
+        for ob in self.action_and_assists:
             ob.do_roll(reset_total=False)
         return self.calculate_outcome_value()
         
     def calculate_outcome_value(self):
-        value = sum(ob.roll for ob in self.actions_and_assists)
+        value = sum(ob.roll for ob in self.action_and_assists)
         self.outcome_value = value
         self.save()
         return self.outcome_value
         
-    def get_questions_and_answers_display(self, answered=False, assistants=False):
-        qs = self.questions.all()
+    def get_questions_and_answers_display(self, answered=False, staff=False, caller=None):
+        qs = self.questions.filter(is_intent=False)
         if not answered:
             qs = qs.filter(answers__isnull=True)
+        if not staff:
+            dompc = caller.Dominion
+            # players can only see questions they wrote themselves and their answers
+            qs = qs.filter(Q(action_assist__dompc=dompc) | Q(Q(action__dompc=dompc) & Q(action_assist__isnull=True)))
         qs = list(qs)
-        if assistants:
+        if staff:
             for ob in self.assisting_actions.all():
                 if answered:
-                    qs.extend(list(ob.questions.all()))
+                    qs.extend(list(ob.questions.filter(is_intent=False)))
                 else:
-                    qs.extend(list(ob.questions.filter(answers__isnull=True)))
+                    qs.extend(list(ob.questions.filter(answers__isnull=True, is_intent=False)))
         return "\n".join(question.display() for question in qs)
+
+    @property
+    def main_action(self):
+        return self
 
 
 class CrisisActionAssistant(AbstractAction):
@@ -2304,6 +2361,14 @@ class CrisisActionAssistant(AbstractAction):
     @property
     def outcome_value(self):
         return self.crisis_action.outcome_value
+
+    @property
+    def difficulty(self):
+        return self.crisis_action.difficulty
+
+    @property
+    def main_action(self):
+        return self.crisis_action
         
     def set_action(self, story):
         """
@@ -2320,11 +2385,20 @@ class CrisisActionAssistant(AbstractAction):
             self.pay_initial_ap_cost()
         self.actions = story
         self.save()
+
+    def ask_question(self, text):
+        question = super(CrisisActionAssistant, self).ask_question(text)
+        question.action = self.crisis_action
+        question.save()
                     
     def pay_initial_ap_cost(self):
         """Pays our initial AP cost or raises an ActionSubmissionError"""
         if not self.pay_action_points(self.BASE_AP_COST):
             raise ActionSubmissionError("You do not have enough action points.")
+
+    def view_action(self, caller=None, disp_pending=True, disp_old=False, disp_ooc=True):
+        return self.crisis_action.view_action(caller=caller, disp_pending=disp_pending, disp_old=disp_old,
+                                              disp_ooc=disp_ooc)
 
 
 class ActionOOCQuestion(SharedMemoryModel):
@@ -2332,7 +2406,7 @@ class ActionOOCQuestion(SharedMemoryModel):
     OOC Question about a crisis. Can be associated with a given action
     or asked about independently.
     """
-    action = models.ForeignKey("CrisisAction", db_index=True, related_name="questions")
+    action = models.ForeignKey("CrisisAction", db_index=True, related_name="questions", null=True, blank=True)
     action_assist = models.ForeignKey("CrisisActionAssistant", db_index=True, related_name="questions", null=True,
                                       blank=True)
     text = models.TextField(blank=True)
@@ -2340,23 +2414,34 @@ class ActionOOCQuestion(SharedMemoryModel):
     
     @property
     def target(self):
-        if self.action:
-            return self.action
-        return self.action_assist
+        if self.action_assist:
+            return self.action_assist
+        return self.action
         
     @property
     def author(self):
         return self.target.author
+
+    @property
+    def noun(self):
+        return "OOC %s" % ("intentions" if self.is_intent else "Question")
     
     def display(self):
-        msg = "{c%s{w OOC:{n %s" % (self.author, self.text)
+        msg = "{c%s{w %s:{n %s" % (self.author, self.noun, self.text)
         answers = self.answers.all()
         if answers:
             msg += "\n%s" % "\n".join(ob.display() for ob in answers)
         return msg
+
+    @property
+    def main_id(self):
+        return self.target.main_id
         
     def add_answer(self, gm, text):
         self.answers.create(gm=gm, text=text)
+        self.target.inform("GM %s has posted a followup to action %s: %s" % (gm, self.main_id, text))
+        inform_staff("%s has posted a followup to action %s: %s" % (gm, self.main_id, text), post=True,
+                     subject="Action followup")
 
 
 class ActionOOCAnswer(SharedMemoryModel):

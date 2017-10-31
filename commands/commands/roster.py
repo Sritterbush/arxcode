@@ -1198,7 +1198,7 @@ class CmdSheet(MuxPlayerCommand):
         except (CrisisAction.DoesNotExist, ValueError):
             self.msg("No Story Action matches that ID #.")
         else:
-            self.msg(action.view_action(caller=self.caller, disp_pending=False, disp_old=False))
+            self.msg(action.view_action(caller=self.caller, disp_pending=False, disp_old=False, disp_ooc=False))
 
     def display_visions(self, character):
         """

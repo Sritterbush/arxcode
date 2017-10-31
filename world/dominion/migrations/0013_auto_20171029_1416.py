@@ -111,6 +111,12 @@ class Migration(migrations.Migration):
             name='is_intent',
             field=models.BooleanField(default=False),
         ),
+        migrations.AlterField(
+            model_name='actionoocquestion',
+            name='action',
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE,
+                                    related_name='questions', to='dominion.CrisisAction'),
+        ),
         migrations.AddField(
             model_name='crisisaction',
             name='action_points',

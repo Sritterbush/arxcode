@@ -292,9 +292,13 @@ class Player(InformMixin, MsgMixins, DefaultPlayer):
                 return False
             self.roster.action_points -= amt
             self.roster.save()
-            self.msg("{wYou use %s action points and have %s remaining this week.{n" % (amt, self.roster.action_points))
-            # force refresh in inventory command next time it's used to be sure values sync up
-            self.db.char_ob.ndb.stale_ap = True
+            if amt > 0:
+                verb = "use"
+            else:
+                verb = "gain"
+                amt = abs(amt)
+            self.msg("{wYou %s %s action points and have %s remaining this week.{n" % (verb, amt,
+                                                                                       self.roster.action_points))
             return True
         except AttributeError:
             return False
