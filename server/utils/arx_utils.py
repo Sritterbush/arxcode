@@ -428,3 +428,32 @@ def broadcast_msg_and_post(msg, caller, episode_name=None):
 def dict_from_choices_field(cls, field_name):
     choices_tuple = getattr(cls, field_name)
     return {string.lower(): integer for integer, string in choices_tuple}
+
+
+def passthrough_properties(field_name, *property_names):
+    """
+    This function is designed to be used as a class decorator that takes the name of an attribute that
+    different properties of the class pass through to. For example, if we have a self.foo object,
+    and our property 'bar' would return self.foo.bar, then we'd set 'foo' as the field_name,
+    and 'bar' would go in the property_names list.
+    Args:
+        field_name: The name of the attribute of the object we pass property calls through to.
+        *property_names: List of property names that we do the pass-through to.
+
+    Returns:
+        A function that acts as a decorator for the class which attaches the properties to it.
+    """
+    def wrapped(cls):
+        for name in property_names:
+            def generate_property(prop_name):
+                def get_func(self):
+                    parent = getattr(self, field_name)
+                    return getattr(parent, prop_name)
+
+                def set_func(self, value):
+                    parent = getattr(self, field_name)
+                    setattr(parent, prop_name, value)
+                setattr(cls, prop_name, property(get_func, set_func))
+            generate_property(name)
+        return cls
+    return wrapped

@@ -67,7 +67,7 @@ from .reports import WeeklyReport
 from .battle import Battle
 from .agenthandler import AgentHandler
 from .managers import CrisisManager
-from server.utils.arx_utils import get_week, inform_staff
+from server.utils.arx_utils import get_week, inform_staff, passthrough_properties
 from server.utils.exceptions import ActionSubmissionError, PayError
 from typeclasses.npcs import npc_types
 from typeclasses.mixins import InformMixin
@@ -2286,6 +2286,11 @@ class CrisisAction(AbstractAction):
         return self
 
 
+PROPS = ['crisis', 'action_and_assists', 'status', 'prefer_offscreen', 'attendees', 'all_editable', 'outcome_value',
+         'difficulty']
+
+
+@passthrough_properties('crisis_action', *PROPS)
 class CrisisActionAssistant(AbstractAction):
     NOUN = "Assist"
     BASE_AP_COST = 10
@@ -2295,10 +2300,6 @@ class CrisisActionAssistant(AbstractAction):
     class Meta:
         unique_together = ('crisis_action', 'dompc')
 
-    @property
-    def crisis(self):
-        return self.crisis_action.crisis
-
     def __str__(self):
         return "{c%s{n assisting %s" % (self.author, self.crisis_action)
     
@@ -2306,34 +2307,6 @@ class CrisisActionAssistant(AbstractAction):
         if self.actions:
             self.refund()
         self.delete()
-    
-    @property
-    def status(self):
-        return self.crisis_action.status
-        
-    @status.setter
-    def status(self, value):
-        self.crisis_action.status = value
-    
-    @property
-    def attending_limit(self):
-        return self.crisis_action.attending_limit
-        
-    @property
-    def prefer_offscreen(self):
-        return self.crisis_action.prefer_offscreen
-    
-    @property
-    def action_and_assists(self):
-        return self.crisis_action.action_and_assists
-        
-    @property
-    def attendees(self):
-        return self.crisis_action.attendees
-    
-    @property
-    def all_editable(self):
-        return self.crisis_action.all_editable
     
     def view_total_resources_msg(self):
         return self.crisis_action.view_total_resources_msg()
@@ -2357,14 +2330,6 @@ class CrisisActionAssistant(AbstractAction):
     @property
     def has_paid_initial_ap_cost(self):
         return bool(self.actions)
-        
-    @property
-    def outcome_value(self):
-        return self.crisis_action.outcome_value
-
-    @property
-    def difficulty(self):
-        return self.crisis_action.difficulty
 
     @property
     def main_action(self):
