@@ -346,6 +346,7 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
             action.set_ooc_intent(self.rhs)
             self.msg("You have set your ooc intent to be: %s" % self.rhs)
         else:
+            action.ask_question(self.rhs)
             self.msg("You have submitted a question: %s" % self.rhs)
         
     def cancel_action(self, action):
@@ -467,7 +468,6 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         
         Commands for answering questions or requiring player response:
         @gm/ooc[/allowedit] <action #>[,assistant name]=<answer to OOC question>
-        @gm/oocsecret[/allowedit] <action #>[,assistant name]=<secret answer>
         
         Commands for action administration:
         @gm/publish <action #>[=<story>]
@@ -476,13 +476,39 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         @gm/assign <action #>=<gm>
         @gm/gemit <action #>[,<action #>,...]=<text to post>[/<new episode name>]
         @gm/allowedit <action #>[,assistant name]
+
+    Commands for GMing. @actions can be claimed/assigned to GMs with the /assign
+    switch, and then viewed with @gm/mine. Actions are initially in a draft state
+    when players are still in the process of creating them, then are put in the
+    /needgm status when they want a GM response. Players have to mark themselves
+    as physically attending an action if they're there in person, and they're
+    only allowed to be physically present for one crisis action per update.
+
+    If you think players need to change something, or want to answer a question,
+    use the /ooc switch. /allowedit will mark them in a state where the player
+    can change their action/assist, and then they can submit changes again when
+    done. /check allows you to do a roll for an individual, which saves their
+    most recent roll result, while /checkall will roll every character in the
+    action and total their rolls as the outcome value.
+
+    The result of the action is the /story and optional /secretstory. A
+    response may only be written for the main action - players who want an
+    individual response should create their own action.
+
+    When done, actions can either be marked as waiting publish for a later date
+    with /markpending, or published immediately with /publish or /gemit. /gemit
+    will publish the actions, make a gemit, and post on the story board. To
+    make a crisis update, use @gmcrisis/update - this will make a new gemit and
+    associate all published/pending publish action with the update, allowing
+    players to then create a new crisis action if the crisis is not resolved and
+    a new date is set.
     """
     key = "@gm"
     locks = "cmd:perm(builders)"
     help_category = "GMing"
     list_switches = ("old", "pending", "draft", "cancelled", "needgm", "needplayer")
     gming_switches = ("story", "secretstory", "charge", "check", "checkall", "stat", "skill", "diff")
-    followup_switches = ("ooc", "oocsecret")
+    followup_switches = ("ooc",)
     admin_switches = ("publish", "markpending", "cancel", "assign", "gemit", "allowedit")
     difficulties = {"easy": CrisisAction.EASY_DIFFICULTY, "normal": CrisisAction.NORMAL_DIFFICULTY,
                     "hard": CrisisAction.HARD_DIFFICULTY}

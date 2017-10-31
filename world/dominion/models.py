@@ -1779,7 +1779,10 @@ class AbstractAction(AbstractPlayerAllocations):
             ooc_intent.save()
             
     def ask_question(self, text):
-        inform_staff("{c%s{n added a comment/question about %s:\n%s" % (self.author, self, text))
+        msg = "{c%s{n added a comment/question about Action #%s:\n%s" % (self.author, self.main_id, text)
+        inform_staff(msg)
+        if self.gm:
+            self.gm.inform(msg, category="Action questions")
         return self.questions.create(text=text)
         
     @property
@@ -2122,9 +2125,9 @@ class CrisisAction(AbstractAction):
         if (disp_pending or disp_old) and disp_ooc:
             q_and_a_str = self.get_questions_and_answers_display(answered=disp_old, staff=staff_viewer, caller=caller)
             if q_and_a_str:
-                msg += "\n{wOOC Notes and GM responses\n%s" % q_and_a_str
+                msg += "\n\n{wOOC Notes and GM responses\n%s" % q_and_a_str
         if staff_viewer and self.gm_notes or self.prefer_offscreen:
-            offscreen = "Offscreen resolution preferred. " if self.prefer_offscreen else ""
+            offscreen = "[Offscreen resolution preferred.] " if self.prefer_offscreen else ""
             msg += "\n{wGM Notes:{n %s%s" % (offscreen, self.gm_notes)
         if self.sent or staff_viewer:
             if disp_ooc:
@@ -2250,6 +2253,10 @@ class CrisisAction(AbstractAction):
         msg += " the required fields, starting with {w@action/setaction{n, and then {w@action/submit %s{n." % self.id
         msg += " If the owner submits the action to the GMs before your assist is valid, it will be"
         msg += " deleted and you will be refunded any AP and resources."
+        msg += " When writing your assist action, please only write a story that is relevant to attempting"
+        msg += " to modify the main action you're assisting. Actions which are not related to the action"
+        msg += " should be their own independent @action. Secret actions that are attempting to undermine"
+        msg += " the action or crisis should use the 'traitor' option."
         msg += " To decline this invitation, use {w@action/cancel %s{n." % self.id
         dompc.inform(msg, category="Action Invitation")
     
@@ -2279,7 +2286,7 @@ class CrisisAction(AbstractAction):
                     qs.extend(list(ob.questions.filter(is_intent=False)))
                 else:
                     qs.extend(list(ob.questions.filter(answers__isnull=True, is_intent=False)))
-        return "\n".join(question.display() for question in qs)
+        return "\n".join(question.display() for question in set(qs))
 
     @property
     def main_action(self):
@@ -2287,7 +2294,7 @@ class CrisisAction(AbstractAction):
 
 
 NAMES_OF_PROPERTIES_TO_PASS_THROUGH = ['crisis', 'action_and_assists', 'status', 'prefer_offscreen', 'attendees',
-                                       'all_editable', 'outcome_value', 'difficulty']
+                                       'all_editable', 'outcome_value', 'difficulty', 'gm']
 
 
 @passthrough_properties('crisis_action', *NAMES_OF_PROPERTIES_TO_PASS_THROUGH)
@@ -2318,7 +2325,7 @@ class CrisisActionAssistant(AbstractAction):
         try:
             self.submit()
         except ActionSubmissionError:
-            main_action_msg = "Cancelling incomplete assist: #%s by %s\n" % (self.id, self.author)
+            main_action_msg = "Cancelling incomplete assist: %s\n" % self.author
             assist_action_msg = "Your assist for %s was incomplete and has been refunded." % self.crisis_action
             self.crisis_action.inform(main_action_msg, category="Action")
             self.inform(assist_action_msg, category="Action")
