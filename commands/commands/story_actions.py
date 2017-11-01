@@ -496,7 +496,7 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
     individual response should create their own action.
 
     When done, actions can either be marked as waiting publish for a later date
-    with /markpending, or published immediately with /publish or /gemit. /gemit
+    with /markpending, or published immediately with /publish. /gemit
     will publish the actions, make a gemit, and post on the story board. To
     make a crisis update, use @gmcrisis/update - this will make a new gemit and
     associate all published/pending publish action with the update, allowing
@@ -710,7 +710,7 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         gemit = create_gemit_and_post(msg, self.caller, episode_name)
         for action_object in actions:
             action_object.gemit = gemit
-            action_object.save()
+            action_object.send()
         self.msg("StoryEmit created.")
     
     def toggle_editable(self, action):

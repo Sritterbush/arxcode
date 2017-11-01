@@ -86,12 +86,12 @@ class ArxCommandTest(CommandTest):
             receiver.msg(traceback.format_exc())
         finally:
             # clean out prettytable sugar. We only operate on text-type
-            stored_msg = [args[0] if args and args[0] else kwargs.get("text",utils.to_str(kwargs, force_string=True))
-                    for name, args, kwargs in receiver.msg.mock_calls]
+            stored_msg = [args[0] if args and args[0] else kwargs.get("text", utils.to_str(kwargs, force_string=True))
+                          for name, args, kwargs in receiver.msg.mock_calls]
             # Get the first element of a tuple if msg received a tuple instead of a string
             stored_msg = [smsg[0] if hasattr(smsg, '__iter__') else smsg for smsg in stored_msg]
             if msg is not None:
-                returned_msg = "||".join(_RE.sub("", mess) for mess in stored_msg if isinstance(mess, basestring))
+                returned_msg = "||".join(_RE.sub("", str(mess)) for mess in stored_msg)
                 returned_msg = ansi.parse_ansi(returned_msg, strip_ansi=noansi).strip()
                 if msg == "" and returned_msg or not returned_msg.startswith(msg.strip()):
                     sep1 = "\n" + "="*30 + "Wanted message" + "="*34 + "\n"

@@ -1729,9 +1729,11 @@ class AbstractAction(AbstractPlayerAllocations):
         self.pay_action_points(-self.ap_refund_amount)
         for resource in ('military', 'economic', 'social'):
             value = getattr(self, resource)
-            self.dompc.player.gain_resources(resource, value)
-        self.dompc.assets.vault += self.silver
-        self.dompc.assets.save()
+            if value:
+                self.dompc.player.gain_resources(resource, value)
+        if self.silver:
+            self.dompc.assets.vault += self.silver
+            self.dompc.assets.save()
         
     def check_view_secret(self, caller):
         if not caller:
@@ -2069,13 +2071,14 @@ class CrisisAction(AbstractAction):
         self.week = get_week()
         if update:
             self.update = update
-        self.inform(msg, category="Action")
-        for assistant in self.assistants.all():
-            assistant.inform(msg, category="Action")
-        for orders in self.orders.all():
-            orders.complete = True
-            orders.save()
-        self.status = CrisisAction.PUBLISHED
+        if self.status != CrisisAction.PUBLISHED:
+            self.inform(msg, category="Actions")
+            for assistant in self.assistants.all():
+                assistant.inform(msg, category="Actions")
+            for orders in self.orders.all():
+                orders.complete = True
+                orders.save()
+            self.status = CrisisAction.PUBLISHED
         self.save()
         subject = "Action Published"
         inform_staff("Action %s has been published by %s:\n%s" % (self.id, self.gm, msg), post=True, subject=subject)
@@ -2136,7 +2139,7 @@ class CrisisAction(AbstractAction):
             if self.secret_story and view_main_secrets:
                 msg += "\n{wSecret Story{n %s" % self.secret_story
         if disp_ooc:
-            msg += self.view_total_resources_msg()
+            msg += "\n" + self.view_total_resources_msg()
             orders = []
             for ob in all_actions:
                 orders += list(ob.orders.all())
@@ -2159,7 +2162,7 @@ class CrisisAction(AbstractAction):
                   'social': self.total_social}
         totals = ", ".join("{c%s{n %s" % (key, value) for key, value in fields.items() if value > 0)
         if totals:
-            msg = "\n{wResources:{n %s" % totals
+            msg = "{wResources:{n %s" % totals
         return msg
     
     def cancel(self):
@@ -2327,8 +2330,8 @@ class CrisisActionAssistant(AbstractAction):
         except ActionSubmissionError:
             main_action_msg = "Cancelling incomplete assist: %s\n" % self.author
             assist_action_msg = "Your assist for %s was incomplete and has been refunded." % self.crisis_action
-            self.crisis_action.inform(main_action_msg, category="Action")
-            self.inform(assist_action_msg, category="Action")
+            self.crisis_action.inform(main_action_msg, category="Actions")
+            self.inform(assist_action_msg, category="Actions")
             self.cancel()
             
     def post_edit(self):
