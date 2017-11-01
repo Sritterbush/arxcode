@@ -237,7 +237,7 @@ class PlayerCmdSet(cmdset_player.PlayerCmdSet):
     @check_errors
     def add_gming_actions_commands(self):
         from world.dominion import crisis_commands
-        self.add(crisis_commands.CmdCrisisAction())
+        self.add(crisis_commands.CmdViewCrisis())
         self.add(crisis_commands.CmdGMCrisis())
         from .commands import story_actions
         self.add(story_actions.CmdGMAction)

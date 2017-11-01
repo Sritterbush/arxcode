@@ -7,204 +7,17 @@ from server.utils.arx_utils import inform_staff, get_week
 from django.db.models import Q
 
 
-class CmdGMCrisis(MuxPlayerCommand):
-    """
-    GMs a crisis
-
-    Usage:
-        @gmcrisis
-        @gmcrisis <action #>
-        @gmcrisis/create <name>/<headline>=<desc>
-        @gmcrisis/listquestions
-        @gmcrisis/needgm
-        @gmcrisis/old
-        @gmcrisis/answerquestion <action #>=<answer>
-        @gmcrisis/check[/asst] <action #>=<stat> + <skill> at <diff>[,asst]
-        @gmcrisis/gmnotes <action #>=<ooc notes>/<crisis value>
-        @gmcrisis/outcome <action #>=<IC notes>
-        
-        @gmcrisis/update <crisis name>=<gemit text>[/<ooc notes>]
-        @gmcrisis/update/nogemit <as above>
-
-    Use /needgm or /needgm/listquestions to list ones
-    that have not been answered. To use this command properly, use /check to make
-    checks for players, then write /gmnotes and their /outcome for each action.
-    That will make the action ready to be sent. Then use /sendresponses to send
-    all the actions out simultaneously, which will create a new update for that
-    crisis with the text provided and point all those actions to that update.
-
-    If you happen to forget actions in an update, use /appendresponses to send
-    them out for the last update.
-    """
-    key = "@gmcrisis"
-    locks = "cmd:perm(wizards)"
-    help_category = "GMing"
-
-    def list_actions(self):
-        from server.utils.prettytable import PrettyTable
-        if "old" in self.switches:
-            qs = CrisisAction.objects.filter(status=CrisisAction.PUBLISHED, crisis__isnull=False)
-        else:
-            qs = CrisisAction.objects.exclude(crisis__isnull=True).exclude(status__in=(CrisisAction.PUBLISHED,
-                                                                                       CrisisAction.CANCELLED))
-        if "needgm" in self.switches:
-            qs = qs.filter(story__exact="")
-        if "listquestions" in self.switches:
-            qs = qs.filter(questions__isnull=False, questions__answers__isnull=True)
-        if self.args:
-            qs = qs.filter(Q(crisis__name__iexact=self.args) |
-                           Q(dompc__player__username__iexact=self.args))
-        table = PrettyTable(["{w#{n", "{wCrisis{n", "{wPlayer{n", "{wAnswered{n", "{wQuestions{n", "{wDate Set{n"])
-        for ob in qs:
-            date = "--" if not ob.crisis.end_date else ob.crisis.end_date.strftime("%x")
-            questions = "{rYes{n" if ob.questions.filter(answers__isnull=True) else "{wNo{n"
-            table.add_row([ob.id, ob.crisis.name, str(ob.dompc), "{wYes{n" if ob.story else "{rNo{n", questions, date])
-        self.msg(table)
-
-    def do_check(self, action):
-        try:
-            args = self.rhs.split("+")
-            stat = args[0].strip()
-            args = args[1].split(" at ")
-            skill = args[0].strip()
-            if "asst" in self.switches:
-                args = args[1].split(",")
-                difficulty = int(args[0])
-                from django.core.exceptions import ObjectDoesNotExist
-                try:
-                    action = action.assisting_actions.get(dompc__player__username__iexact=args[1])
-                except ObjectDoesNotExist:
-                    self.msg("Assistant not found.")
-                    return
-            else:
-                difficulty = int(args[1])
-        except (IndexError, ValueError, TypeError):
-            self.msg("Failed to parse skill string. Blame Apostate again.")
-            return
-        result = action.do_roll(stat=stat, skill=skill, difficulty=difficulty)
-        self.msg("Roll result is: %s" % result)
-
-    def answer_question(self, action):
-        action.add_answer(gm=self.caller, text=self.rhs)
-        self.msg("Answer added.")
-
-    def add_gm_notes(self, action):
-        rhs = self.rhs.split("/")
-        notes = rhs[0]
-        try:
-            val = int(rhs[1])
-        except (IndexError, ValueError, TypeError):
-            val = 0
-        action.gm_notes = notes
-        action.outcome_value = val
-        action.save()
-        self.msg("Notes set to : %s." % notes)
-
-    def add_outcome(self, action):
-        action.story = self.rhs
-        action.save()
-        self.msg("Story set to: %s" % self.rhs)
-
-    def view_action(self, action):
-        view_answered = "old" in self.switches
-        self.msg(action.view_action(self.caller, disp_pending=True, disp_old=view_answered))
-        
-    def create_update(self):
-        try:
-            crisis = Crisis.objects.get(name__iexact=self.lhs)
-        except Crisis.DoesNotExist:
-            self.msg("No crisis by that name.")
-            return
-        rhs = self.rhs.split("/")
-        gemit = rhs[0]
-        gm_notes = None
-        if len(rhs) > 1:
-            gm_notes = rhs[1]
-        crisis.create_update(gemit, self.caller, gm_notes, do_gemit="nogemit" not in self.switches)
-        inform_staff("%s has updated crisis %s." % (self.caller, crisis))
-
-    def func(self):
-        if not self.args or (not self.lhs.isdigit() and not self.rhs):
-            self.list_actions()
-            return
-        if "update" in self.switches:
-            self.create_update()
-            return
-        if "create" in self.switches:
-            lhs = self.lhs.split("/")
-            if len(lhs) < 2:
-                self.msg("Bad args.")
-                return
-            name, headline = lhs[0], lhs[1]
-            desc = self.rhs
-            Crisis.objects.create(name=name, headline=headline, desc=desc)
-            self.msg("Crisis created. Make gemits or whatever for it.")
-            return
-        try:
-            action = CrisisAction.objects.get(id=self.lhs)
-        except (CrisisAction.DoesNotExist, ValueError):
-            self.list_actions()
-            self.msg("{rNot found.{n")
-            return
-        if self.args and not self.switches:
-            self.view_action(action)
-            return
-        if "answerquestion" in self.switches:
-            self.answer_question(action)
-            return
-        if "check" in self.switches:
-            self.do_check(action)
-            return
-        if "gmnotes" in self.switches:
-            self.add_gm_notes(action)
-            return
-        if "outcome" in self.switches:
-            self.add_outcome(action)
-            return
-        self.msg("Invalid switch")
-
-
-class CmdCrisisAction(MuxPlayerCommand):
-    """
-    Take action for a current crisis
-
-    Usage:
-        +crisis [#]
-        +crisis/old <#>
-
-    Crisis actions are queued and simultaneously resolved by GMs periodically. 
-    To view crises that have since been resolved, use /old switch. A secret 
-    action can be added after an action is submitted, and /toggleview allows 
-    individual assistants (or the action's owner) to see it. Togglepublic can
-    keep the action from being publically listed. The addition of resources,
-    armies, and extra action points is taken into account when deciding outcomes.
-    New actions cost 50 action points, while assisting costs 10.
-
-    To create a new action, use the @action command.
-    """
-    key = "+crisis"
-    aliases = ["crisis"]
-    locks = "cmd:all()"
-    help_category = "Dominion"
-
+class CrisisCmdMixin(object):
     @property
     def viewable_crises(self):
         qs = Crisis.objects.viewable_by_player(self.caller).order_by('end_date')
-        if "old" in self.switches:
-            qs = qs.filter(resolved=True)
         return qs
-
-    @property
-    def current_actions(self):
-        return self.caller.Dominion.actions.exclude(status=CrisisAction.PUBLISHED)
-
-    @property
-    def assisted_actions(self):
-        return self.caller.Dominion.assisting_actions.all()
-
+        
     def list_crises(self):
         qs = self.viewable_crises
-        if "old" not in self.switches:
+        if "old" in self.switches:
+            qs = qs.filter(resolved=True)
+        else:
             qs = qs.filter(resolved=False)
         table = EvTable("{w#{n", "{wName{n", "{wDesc{n", "{wUpdates On{n", width=78, border="cells")
         for ob in qs:
@@ -215,6 +28,124 @@ class CmdCrisisAction(MuxPlayerCommand):
         table.reformat_column(2, width=40)
         table.reformat_column(3, width=11)
         self.msg(table)
+        
+    def get_crisis(self):
+        try:
+            if self.lhs.isdigit():
+                return self.viewable_crises.get(id=self.lhs)
+            else:
+                return self.viewable_crises.get(name__iexact=self.lhs)
+        except (Crisis.DoesNotExist, ValueError):
+            self.msg("Crisis not found by that # or name.")
+            return
+        
+    def view_crisis(self):
+        crisis = self.get_crisis()
+        if not crisis:
+            return self.list_crises()
+        self.msg(crisis.display())
+        return
+
+
+class CmdGMCrisis(CrisisCmdMixin, MuxPlayerCommand):
+    """
+    GMs a crisis
+
+    Usage:
+        @gmcrisis
+        @gmcrisis/old
+        @gmcrisis <crisis #>
+        @gmcrisis/create <name>/<headline>=<desc>
+        
+        @gmcrisis/update <crisis name or #>=<gemit text>[/<ooc notes>]
+        @gmcrisis/update/nogemit <as above>
+
+    Use the @actions command to answer individual actions, or mark then as
+    published or pending publish. When making an update, all current actions
+    for a crisis that aren't attached to a past update will then be attached to
+    the current update, marking them as finished. That then allows players to
+    submit new actions for the next round of the crisis, if the crisis is not
+    resolved.
+    
+    Remember that if a crisis is not public (has a clue to see it), gemits
+    probably shouldn't be sent or should be the vague details that people have
+    no idea the crisis exists might notice.
+    """
+    key = "@gmcrisis"
+    locks = "cmd:perm(wizards)"
+    help_category = "GMing"
+
+    def func(self):
+        if not self.args:
+            return self.list_crises()
+        if "create" in self.switches:
+            return self.create_crisis()
+        if "update" in self.switches:
+            return self.create_update()
+        if not self.switches:
+            return self.view_crisis()
+        self.msg("Invalid switch")
+        
+    def create_crisis(self):
+        lhs = self.lhs.split("/")
+        if len(lhs) < 2:
+            self.msg("Bad args.")
+            return
+        name, headline = lhs[0], lhs[1]
+        desc = self.rhs
+        Crisis.objects.create(name=name, headline=headline, desc=desc)
+        self.msg("Crisis created. Make gemits or whatever for it.")
+            
+    def create_update(self):
+        crisis = self.get_crisis()
+        if not crisis:
+            return
+        rhs = self.rhs.split("/")
+        gemit = rhs[0]
+        gm_notes = None
+        if len(rhs) > 1:
+            gm_notes = rhs[1]
+        crisis.create_update(gemit, self.caller, gm_notes, do_gemit="nogemit" not in self.switches)
+        self.msg("You have updated the crisis.")
+
+
+class CmdViewCrisis(CrisisCmdMixin, MuxPlayerCommand):
+    """
+    View the current or past crises
+
+    Usage:
+        +crisis [# or name]
+        +crisis/old [<# or name>]
+        +crisis/viewaction <action #>
+
+    Crisis actions are queued and simultaneously resolved by GMs periodically. 
+    To view crises that have since been resolved, use /old switch. Each crisis 
+    that isn't resolved can have a rating assigned that determines the current 
+    strength of the crisis, and any action taken can adjust that rating by the
+    action's outcome value. If you choose to secretly support the crisis, you
+    can use the /traitor option for a crisis action, in which case your action's
+    outcome value will strengthen the crisis. Togglepublic can keep the action 
+    from being publically listed. The addition of resources, armies, and extra 
+    action points is taken into account when deciding outcomes. New actions cost
+    50 action points, while assisting costs 10.
+
+    To create a new action, use the @action command.
+    """
+    key = "+crisis"
+    aliases = ["crisis"]
+    locks = "cmd:all()"
+    help_category = "Dominion"
+
+    @property
+    def current_actions(self):
+        return self.caller.Dominion.actions.exclude(status=CrisisAction.PUBLISHED)
+
+    @property
+    def assisted_actions(self):
+        return self.caller.Dominion.assisting_actions.all()
+
+    def list_crises(self):
+        super(CmdCrisisAction, self).list_crises()
         self.msg("{wYour pending actions:{n")
         table = EvTable("{w#{n", "{wCrisis{n")
         current_actions = list(self.current_actions) + [ass.crisis_action for ass in self.assisted_actions.exclude(
@@ -229,22 +160,6 @@ class CmdCrisisAction(MuxPlayerCommand):
             for ob in past_actions:
                 table.add_row(ob.id, ob.crisis)
             self.msg(table)
-
-    def get_crisis(self):
-        try:
-            if not self.switches or "old" in self.switches:
-                return self.viewable_crises.get(id=self.lhs)
-            return self.viewable_crises.get(resolved=False, id=self.lhs)
-        except (Crisis.DoesNotExist, ValueError):
-            self.msg("Crisis not found by that #.")
-            return
-
-    def view_crisis(self):
-        crisis = self.get_crisis()
-        if not crisis:
-            return
-        self.msg(crisis.display())
-        return
 
     def get_action(self, get_all=False, get_assisted=False, return_assistant=False):
         dompc = self.caller.Dominion
