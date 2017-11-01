@@ -116,7 +116,7 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
             status=CrisisAction.CANCELLED).distinct()
     
     def func(self):
-        if not self.args:
+        if not self.args and not self.switches:
             return self.list_actions()
         if "newaction" in self.switches:
             return self.new_action()
