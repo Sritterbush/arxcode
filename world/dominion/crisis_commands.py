@@ -3,7 +3,7 @@ from django.db.models import Q
 from evennia.commands.default.muxcommand import MuxPlayerCommand
 from evennia.utils.evtable import EvTable
 
-from .models import Crisis, CrisisAction, CrisisActionAssistant
+from world.dominion.models import Crisis, CrisisAction, CrisisActionAssistant
 
 
 # noinspection PyUnresolvedReferences

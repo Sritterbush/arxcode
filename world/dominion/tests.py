@@ -7,7 +7,7 @@ from . import crisis_commands
 class TestCrisisCommands(ArxCommandTest):
     def setUp(self):
         super(TestCrisisCommands, self).setUp()
-        from .models import Crisis, CrisisAction
+        from world.dominion.models import Crisis, CrisisAction
         self.crisis = Crisis.objects.create(name="test crisis", escalation_points=100)
         self.action = self.crisis.actions.create(dompc=self.dompc2, actions="test action", outcome_value=50, 
                                                  status=CrisisAction.PENDING_PUBLISH)
