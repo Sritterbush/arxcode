@@ -1625,7 +1625,7 @@ class Crisis(SharedMemoryModel):
     @property
     def time_remaining(self):
         now = datetime.now()
-        if self.end_date > now:
+        if self.end_date and self.end_date > now:
             return self.end_date - now
 
     @property
@@ -1679,9 +1679,9 @@ class Crisis(SharedMemoryModel):
             action.update = update
             action.save()
         if do_gemit:
-            broadcast_msg_and_post(gemit_text, caller, latest_episode.name)
+            broadcast_msg_and_post(gemit_text, caller, episode_name=latest_episode.name)
         post = "Gemit:\n%s\nGM Notes: %s" % (gemit_text, gm_notes)
-        subject = "%s Update" % self
+        subject = "Update for %s" % self
         inform_staff("Crisis update posted by %s for %s:\n%s" % (caller, self, post), post=True, subject=subject)
 
 
@@ -1754,7 +1754,7 @@ class AbstractAction(AbstractPlayerAllocations):
             prefix_txt = ""
             action = self.actions
             if noun == "Action":
-                noun = "%s" % str(self)
+                noun = "%s" % self.pretty_str
                 author = ""
             summary = ""
             if disp_summary:
@@ -2019,6 +2019,14 @@ class CrisisAction(AbstractAction):
     attending_limit = 5
     
     def __str__(self):
+        if self.crisis:
+            crisis = " for %s" % self.crisis
+        else:
+            crisis = ""
+        return "%s by %s%s" % (self.NOUN, self.author, crisis)
+
+    @property
+    def pretty_str(self):
         if self.crisis:
             crisis = " for {m%s{n" % self.crisis
         else:
@@ -2311,6 +2319,10 @@ class CrisisActionAssistant(AbstractAction):
         unique_together = ('crisis_action', 'dompc')
 
     def __str__(self):
+        return "%s assisting %s" % (self.author, self.crisis_action)
+
+    @property
+    def pretty_str(self):
         return "{c%s{n assisting %s" % (self.author, self.crisis_action)
     
     def cancel(self):
@@ -3517,6 +3529,10 @@ class Orders(SharedMemoryModel):
         costs = sum((ob.costs/DIV) + 1 for ob in self.units.all())
         self.coin_cost = costs
         self.save()
+
+    @property
+    def troops_sent(self):
+        return ", ".join("%s %s" % (ob.quantity, ob.type) for ob in self.army.units.all())
     
 
 class MilitaryUnit(UnitTypeInfo):

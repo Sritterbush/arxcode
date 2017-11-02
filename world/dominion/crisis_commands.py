@@ -1,12 +1,12 @@
-from datetime import datetime
-
-from evennia.commands.default.muxcommand import MuxPlayerCommand
-from .models import Crisis, CrisisAction, ActionOOCQuestion, CrisisActionAssistant
-from evennia.utils.evtable import EvTable
-from server.utils.arx_utils import inform_staff, get_week
 from django.db.models import Q
 
+from evennia.commands.default.muxcommand import MuxPlayerCommand
+from evennia.utils.evtable import EvTable
 
+from .models import Crisis, CrisisAction, CrisisActionAssistant
+
+
+# noinspection PyUnresolvedReferences
 class CrisisCmdMixin(object):
     @property
     def viewable_crises(self):
@@ -145,7 +145,7 @@ class CmdViewCrisis(CrisisCmdMixin, MuxPlayerCommand):
         return self.caller.Dominion.assisting_actions.all()
 
     def list_crises(self):
-        super(CmdCrisisAction, self).list_crises()
+        super(CmdViewCrisis, self).list_crises()
         self.msg("{wYour pending actions:{n")
         table = EvTable("{w#{n", "{wCrisis{n")
         current_actions = list(self.current_actions) + [ass.crisis_action for ass in self.assisted_actions.exclude(

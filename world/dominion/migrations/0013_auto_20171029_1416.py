@@ -19,7 +19,11 @@ DRAFT = 0
 def set_status(apps, schema_editor):
     CrisisAction = apps.get_model("dominion", "CrisisAction")
     CrisisAction.objects.filter(story="").update(status=DRAFT)
-    CrisisAction.objects.exclude(story="").update(status=PUBLISHED)
+    for action in CrisisAction.objects.exclude(story=""):
+        action.status = PUBLISHED
+        if not action.update:
+            action.update = action.crisis.upates.last()
+        action.save()
 
 
 def convert_storyactions(apps, schema_editor):
@@ -41,6 +45,11 @@ def convert_storyactions(apps, schema_editor):
         action.save()
         for player in ticket.participants.all():
             action.assisting_actions.create(dompc=player.Dominion)
+
+
+def complete_orders(apps, schema_editor):
+    Orders = apps.get_model("dominion", "Orders")
+    Orders.objects.filter(action__status=PUBLISHED).update(complete=True)
 
 
 class Migration(migrations.Migration):
@@ -92,9 +101,15 @@ class Migration(migrations.Migration):
             model_name='crisisactionassistant',
             name='can_see_secret',
         ),
-        migrations.RemoveField(
+        migrations.AlterField(
             model_name='crisisactionassistant',
             name='secret_action',
+            field=models.TextField(blank=True, verbose_name=b'Secret actions the player is taking')
+        ),
+        migrations.RenameField(
+            model_name='crisisactionassistant',
+            old_name='secret_action',
+            new_name='secret_actions'
         ),
         migrations.RemoveField(
             model_name='crisisactionassistant',
@@ -214,12 +229,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name='crisisactionassistant',
-            name='actions',
-            field=models.TextField(blank=True,
-                                   help_text=b'The writeup the player submits of their actions, used for GMing.'),
-        ),
-        migrations.AddField(
-            model_name='crisisactionassistant',
             name='attending',
             field=models.BooleanField(default=True),
         ),
@@ -249,11 +258,6 @@ class Migration(migrations.Migration):
             model_name='crisisactionassistant',
             name='roll',
             field=models.SmallIntegerField(blank=True, default=-9999, help_text=b'Current dice roll'),
-        ),
-        migrations.AddField(
-            model_name='crisisactionassistant',
-            name='secret_actions',
-            field=models.TextField(blank=True, verbose_name=b'Secret actions the player is taking'),
         ),
         migrations.AddField(
             model_name='crisisactionassistant',
@@ -326,5 +330,6 @@ class Migration(migrations.Migration):
                 (5, b'Siege Weapon'), (6, b'Galley'), (8, b'Cog'), (7, b'Dromond')], default=0),
         ),
         migrations.RunPython(set_status),
-        migrations.RunPython(convert_storyactions)
+        migrations.RunPython(convert_storyactions),
+        migrations.RunPython(complete_orders)
     ]
