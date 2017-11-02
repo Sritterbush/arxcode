@@ -2,15 +2,7 @@
 {% load app_filters %}
 {% block content %}
 <div class="container">
-    <div class="row">
-    <form method="get" action="." class="navbar-form pull-right">
-    <input type="text" id="searchBox" class="input-medium search-query" name="sender_name" placeholder="Written By">
-    <input type="text" id="searchBox" class="input-medium search-query" name="receiver_name" placeholder="Relationship Note On">
-    <input type="text" id="searchBox" class="input-medium search-query" name="search_text" placeholder="Journal Text">
-    <label><input type="checkbox" id="searchBox" class="input-medium search-query" name="favorites">Only Favorites</label>
-    <input type="submit" class="btn" value="Search" >
-    </form>
-    </div>
+    {% include "msgs/_journal_search.html" %}
     <ul class="nav nav-pills">
         <li><a href="{% url 'msgs:list_journals' %}">Unread Journals</a></li>
         <li class="active"><a data-toggle="pill" href="#readjournals">Read Journals</a></li>
@@ -28,16 +20,7 @@
         </div> <!-- write journals-->
         <div id="readjournals" class="tab-pane fade in active">
         {% for obj in object_list %}
-            <h2> Written By {% if obj.writer.get_absolute_url %}
-            <a href="{{ obj.writer.get_absolute_url }}">{{ obj.writer.key }}</a>
-                {% else %}{{ obj.writer.key }}{% endif %}{% if "black_journal" in obj.tags.all %} in Black Journal{% endif %}</h2>
-            <p class="newsDate">{{obj.db_date_created}}({{ obj.db_header|date_from_header }})</p>
-            {% if obj.relationship %}
-                <h2> Relationship Note on {% if obj.relationship.get_absolute_url %}
-            <a href="{{ obj.relationship.get_absolute_url }}">{{ obj.relationship.key }}</a>
-                {% else %}{{ obj.relationship.key }}{% endif %}</h2>
-            {% endif %}
-            <div class="well">{{obj.db_message|mush_to_html}}</div>
+            {% include "msgs/_journal_display.html" %}
                 {% if fav_tag and fav_tag not in obj.tags.all %}
                     <form action="." method="post">
                     {% csrf_token %}
@@ -53,41 +36,8 @@
                 {% endif %}
             <hr />
         {% endfor %}
-
-            {% if is_paginated %}
-            <div class="pagination">
-            <ul class="pagination nav navbar-nav">
-                {% if page_obj.has_previous %}
-                    <li><a href="?page={{ page_obj.previous_page_number }}{{ search_tags }}">previous</a></li>
-                {% endif %}
-                {% for pnum in page_obj_begin %}
-                     <li class="{% if page_obj.number == pnum  %}active{% endif %}"><a href="?page={{ pnum }}{{ search_tags }}">{{ pnum }}</a></li>
-                {% endfor %}
-                {% if page_obj_middle %}
-                    <li><strong>...</strong></li>
-
-                    {% for pnum in page_obj_middle %}
-                       <li class="{% if page_obj.number == pnum  %}active{% endif %}"><a href="?page={{ pnum }}{{ search_tags }}">{{ pnum }}</a></li>
-                    {% endfor %}
-                {% endif %}
-
-                {% if page_obj_end %}
-                    <li><strong>...</strong></li>
-
-                    {% for pnum in page_obj_end %}
-                        <li class="{% if page_obj.number == pnum  %}active{% endif %}"><a href="?page={{ pnum }}{{ search_tags }}">{{ pnum }}</a></li>
-                    {% endfor %}
-                {% endif %}
-
-
-                {% if page_obj.has_next %}
-                    <li><a href="?page={{ page_obj.next_page_number }}{{ search_tags }}">next</a></li>
-                {% endif %}
-            </ul>
-            </div>
-        {% endif %}
+    {% include "msgs/_search_paginator.html" %}
     </div> <!--readjournals-->
     </div> <!--tab content-->
 </div> <!--container-->
-
 {% endblock %}

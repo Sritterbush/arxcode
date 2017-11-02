@@ -39,7 +39,7 @@ def inform_staff(message, post=False, subject=None):
         wizchan.tempmsg("{r[%s]:{n %s" % (now, message))
         if post:
             from typeclasses.bulletin_board.bboard import BBoard
-            board = BBoard.objects.get(db_key__iexact="staff")
+            board = BBoard.objects.get(db_key__iexact="Jobs")
             subject = subject or "Staff Activity"
             board.bb_post(poster_obj=None, msg=message, subject=subject, poster_name="Staff")
     except Exception as err:

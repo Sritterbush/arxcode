@@ -14,10 +14,7 @@
         <div id="actions{{ forloop.counter }}" class="collapse">
         {% for action in actions %}
             {% if action in viewable_actions %}
-            <div class="row">{{ action }}<div class="well"><p class="text-primary">{{ action.actions|mush_to_html }}</p>
-            {% for assist in action.assisting_actions.all %}<p class="text-success">{{ assist.actions|mush_to_html }}</p>{% endfor %}
-                <p class="text-danger">{{ action.story|mush_to_html }}</p></div></div>
-
+            {% include "dominion/_action_display.html" %}
             {% endif %}
         {% endfor %}
         </div>
