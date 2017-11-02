@@ -78,6 +78,7 @@
         <a href="/">Home</a> |
         <a href="/character/{% if user.is_authenticated %}active{% else %}available{% endif %}">Characters</a> |
         <a href="/topics/">World</a> |
+        <a href="/character/story/">Story</a> |
 		<a href="/dom/cal/list/">Events</a> |
 		<a href="/comms/journals/list/">Journals</a>
         {% if user.is_authenticated and user.is_staff %}

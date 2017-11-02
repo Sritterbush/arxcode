@@ -415,12 +415,18 @@ class ChapterListView(ListView):
     def get_queryset(self):
         return Chapter.objects.filter(story=self.story).order_by('-start_date')
 
+    @property
+    def viewable_crises(self):
+        from world.dominion.models import Crisis
+        return Crisis.objects.viewable_by_player(self.request.user).filter(chapter__in=self.get_queryset())
+
     # noinspection PyBroadException
     def get_context_data(self, **kwargs):
         context = super(ChapterListView, self).get_context_data(**kwargs)
         story = self.story
         context['story'] = story
         context['page_title'] = str(story)
+        context['viewable_crises'] = self.viewable_crises
         context['all_stories'] = Story.objects.all().order_by('-start_date')
         return context
 
@@ -430,5 +436,7 @@ def episode(request, ep_id):
         new_episode = Episode.objects.get(id=ep_id)
     except Episode.DoesNotExist:
         raise Http404
+    crisis_updates = new_episode.get_viewable_crisis_updates_for_player(request.user)
     return render(request, 'character/episode.html', {'episode': new_episode,
+                                                      'updates': crisis_updates,
                                                       'page_title': str(new_episode)})

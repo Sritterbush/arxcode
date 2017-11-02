@@ -23,5 +23,12 @@
 </div>
 {% endif %}
 {% endwith %}
+    {% if updates %}
+        <div class="row"><h2 class="text-center">Crisis Updates</h2>
+        {% for update in updates %}
+        <hr /><em>{{update.desc|mush_to_html}}</em>
+        {% endfor %}
+        </div>
+    {% endif %}
 </div>
 {% endblock %}

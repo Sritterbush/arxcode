@@ -247,6 +247,17 @@ class Chapter(SharedMemoryModel):
     def __str__(self):
         return self.name or "Chapter object"
 
+    @property
+    def public_crises(self):
+        return self.crises.filter(public=True)
+
+    def crises_viewable_by_user(self, user):
+        if not user or not user.is_authenticated():
+            return self.public_crises
+        if user.is_staff or user.check_permstring("builders"):
+            return self.crises.all()
+        return self.crises.filter(Q(public=True) | Q(required_clue__discoveries__in=user.roster.discovered_clues))
+
 
 class Episode(SharedMemoryModel):
     name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
@@ -258,6 +269,18 @@ class Episode(SharedMemoryModel):
 
     def __str__(self):
         return self.name or "Episode object"
+
+    @property
+    def public_crisis_updates(self):
+        return self.crisis_updates.filter(crisis__public=True)
+
+    def get_viewable_crisis_updates_for_player(self, player):
+        if not player or not player.is_authenticated():
+            return self.public_crisis_updates
+        if player.is_staff or player.check_permstring("builders"):
+            return self.crisis_updates.all()
+        return self.crisis_updates.filter(Q(crisis__public=True) | Q(
+            crisis__required_clue__discoveries__in=player.roster.discovered_clues)).distinct()
 
 
 class StoryEmit(SharedMemoryModel):

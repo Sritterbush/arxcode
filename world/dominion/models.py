@@ -1684,6 +1684,27 @@ class Crisis(SharedMemoryModel):
         subject = "Update for %s" % self
         inform_staff("Crisis update posted by %s for %s:\n%s" % (caller, self, post), post=True, subject=subject)
 
+    def check_can_view(self, user):
+        if self.public:
+            return True
+        if not user or not user.is_authenticated():
+            return False
+        if user.is_staff or user.check_permstring("builders"):
+            return True
+        return self.required_clue in user.roster.discovered_clues
+
+    @property
+    def finished_actions(self):
+        return self.actions.filter(status=CrisisAction.PUBLISHED)
+
+    def get_viewable_actions(self, user):
+        if not user or not user.is_authenticated():
+            return self.finished_actions.filter(public=True)
+        if user.is_staff or user.check_permstring("builders"):
+            return self.finished_actions
+        dompc = user.Dominion
+        return self.finished_actions.filter(Q(dompc=dompc) | Q(assistants=dompc))
+
 
 class CrisisUpdate(SharedMemoryModel):
     """

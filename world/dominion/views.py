@@ -1,5 +1,5 @@
 from django.views.generic import ListView, DetailView
-from .models import RPEvent, AssignedTask
+from .models import RPEvent, AssignedTask, Crisis
 from .forms import RPEventCommentForm
 from django.http import HttpResponseRedirect
 from django.http import Http404
@@ -103,6 +103,20 @@ class RPEventDetailView(DetailView):
             raise Http404
         context['can_view'] = can_view
         context['page_title'] = str(self.get_object())
+        return context
+
+
+class CrisisDetailView(DetailView):
+    model = Crisis
+    template_name = 'dominion/crisis_view.html'
+
+    def get_context_data(self, **kwargs):
+        context = super(CrisisDetailView, self).get_context_data(**kwargs)
+        if not self.get_object().check_can_view(self.request.user):
+            raise Http404
+        context['page_title'] = str(self.get_object())
+        context['viewable_actions'] = self.get_object().get_viewable_actions(self.request.user)
+        context['updates_with_actions'] = [ob.update for ob in context['viewable_actions']]
         return context
 
 

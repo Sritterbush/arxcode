@@ -15,4 +15,5 @@ urlpatterns = [
     url(r'^cal/detail/(?P<pk>\d+)/$', views.RPEventDetailView.as_view(), name='display_event'),
     url(r'^cal/comment/(?P<pk>\d+)/$', views.event_comment, name='event_comment'),
     url(r'^taskstories/list/$', views.AssignedTaskListView.as_view(), name="list_task_stories"),
+    url(r'^crisis/(?P<pk>\d+)/$', views.CrisisDetailView.as_view(), name="display_crisis")
 ]
