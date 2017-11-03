@@ -461,3 +461,7 @@ class Player(InformMixin, MsgMixins, DefaultPlayer):
     def past_actions(self):
         from world.dominion.models import CrisisAction
         return self.Dominion.actions.filter(status=CrisisAction.PUBLISHED)
+
+    @property
+    def recent_storyactions(self):
+        return self.Dominion.recent_storyactions

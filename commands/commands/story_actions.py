@@ -93,6 +93,9 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
     attended per crisis update; all others must be passive to represent 
     simultaneous response by everyone involved. Up to 5 attendees are allowed
     per crisis response action, unless it is /noscene.
+
+    Actions are private by default, but there's a small xp reward for marking
+    a completed action as public.
     """
     key = "@action"
     locks = "cmd:all()"
@@ -114,6 +117,16 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
     def actions_and_invites(self):
         return CrisisAction.objects.filter(Q(dompc=self.dompc) | Q(assistants=self.dompc)).exclude(
             status=CrisisAction.CANCELLED).distinct()
+
+    def get_help(self, caller, cmdset):
+        from evennia.utils.utils import dedent
+        msg = self.__doc__
+        recent_actions = caller.recent_storyactions
+        max_actions = CrisisAction.max_requests
+        msg += """
+    You are permitted %s non-crisis actions every 30 days, and have currently
+    taken %s.""" % (max_actions, recent_actions.count())
+        return msg
     
     def func(self):
         if not self.args and not self.switches:

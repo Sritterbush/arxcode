@@ -1046,3 +1046,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     @property
     def past_participated_actions(self):
         return self.player_ob.past_participated_actions
+
+    @property
+    def recent_storyactions(self):
+        return self.player_ob.recent_storyactions

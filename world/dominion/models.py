@@ -392,6 +392,13 @@ class PlayerOrNpc(SharedMemoryModel):
         if player:
             player.inform(text, category=category, week=week, append=append)
 
+    @property
+    def recent_storyactions(self):
+        from datetime import timedelta
+        offset = timedelta(days=-CrisisAction.num_days)
+        old = datetime.now() + offset
+        return self.actions.filter(Q(date_submitted__gte=old) & Q(crisis__isnull=True))
+
 
 class AssetOwner(SharedMemoryModel):
     """
@@ -2224,10 +2231,7 @@ class CrisisAction(AbstractAction):
     def check_action_against_maximum_allowed(self):
         if self.crisis:
             return
-        from datetime import timedelta
-        offset = timedelta(days=-self.num_days)
-        old = datetime.now() + offset
-        recent_actions = self.dompc.actions.filter(Q(date_submitted__gte=old) & Q(crisis__isnull=True))
+        recent_actions = self.dompc.recent_storyactions
         if recent_actions.count() >= self.max_requests:
             raise ActionSubmissionError("You are permitted %s action requests every %s days. Recent actions: %s"
                                         % (self.max_requests, self.num_days,
@@ -2334,7 +2338,7 @@ class CrisisAction(AbstractAction):
         if self.crisis and not self.crisis.public:
             xp_value = 1
         self.dompc.player.char_ob.adjust_xp(xp_value)
-        self.dompc.player.msg("You have gained %s xp for making your action public." % xp_value)
+        self.dompc.msg("You have gained %s xp for making your action public." % xp_value)
 
 
 NAMES_OF_PROPERTIES_TO_PASS_THROUGH = ['crisis', 'action_and_assists', 'status', 'prefer_offscreen', 'attendees',
