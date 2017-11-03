@@ -392,6 +392,7 @@ class CmdRetainers(MuxPlayerCommand):
         except IndexError:
             caller.msg("You must provide both a name and a type for your new retainer.")
             return
+        atype = atype.lower()
         if atype not in self.retainer_types:
             caller.msg("The type of retainer must be one of the following: %s" % ", ".join(self.retainer_types))
             return
