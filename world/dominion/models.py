@@ -1980,6 +1980,10 @@ class AbstractAction(AbstractPlayerAllocations):
     @property
     def main_id(self):
         return self.main_action.id
+
+    @property
+    def unanswered_questions(self):
+        return self.questions.filter(answers__isnull=True).exclude(is_intent=True)
         
 
 class CrisisAction(AbstractAction):
@@ -2116,7 +2120,7 @@ class CrisisAction(AbstractAction):
                 orders.save()
             self.status = CrisisAction.PUBLISHED
         self.save()
-        subject = "Action Published"
+        subject = "Action %s Published" % self.id
         inform_staff("Action %s has been published by %s:\n%s" % (self.id, self.gm, msg), post=True, subject=subject)
 
     def view_action(self, caller=None, disp_pending=True, disp_old=False, disp_ooc=True):

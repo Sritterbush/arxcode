@@ -6,7 +6,7 @@ from evennia.utils.evtable import EvTable
 from server.utils.exceptions import ActionSubmissionError
 from server.utils.arx_utils import dict_from_choices_field
 
-from world.dominion.models import Crisis, CrisisAction, CrisisActionAssistant
+from world.dominion.models import Crisis, CrisisAction, CrisisActionAssistant, ActionOOCQuestion
 
 
 # noinspection PyUnresolvedReferences
@@ -549,7 +549,11 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         qs = self.get_queryset_from_switches()
         table = EvTable("{wID", "{wplayer", "{wtldr", "{wcategory", "{wcrisis", width=78, border="cells")
         for action in list(qs)[-50:]:
-            table.add_row(action.id, action.dompc, action.topic, action.get_category_display(), action.crisis)
+            if action.unanswered_questions:
+                action_id = "{c*%s{n" % action.id
+            else:
+                action_id = action.id
+            table.add_row(action_id, action.dompc, action.topic, action.get_category_display(), action.crisis)
         self.msg(table)
     
     def get_queryset_from_switches(self):
@@ -557,20 +561,23 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         draft_status = CrisisAction.DRAFT
         cancelled_status = CrisisAction.CANCELLED
         pending_status = CrisisAction.PENDING_PUBLISH
+        qs = CrisisAction.objects.all()
         if "old" in self.switches:
-            qs = CrisisAction.objects.filter(status=old_status)
+            qs = qs.filter(status=old_status)
         elif "draft" in self.switches:
-            qs = CrisisAction.objects.filter(status=draft_status)
+            qs = qs.filter(status=draft_status)
         elif "needgm" in self.switches:
-            qs = CrisisAction.objects.filter(status=CrisisAction.NEEDS_GM)
+            qs = qs.filter(status=CrisisAction.NEEDS_GM)
         elif "needplayer" in self.switches:
-            qs = CrisisAction.objects.filter(status=CrisisAction.NEEDS_PLAYER)
+            qs = qs.filter(status=CrisisAction.NEEDS_PLAYER)
         elif "pending" in self.switches:
-            qs = CrisisAction.objects.filter(status=pending_status)
+            qs = qs.filter(status=pending_status)
         elif "cancelled" in self.switches:
-            qs = CrisisAction.objects.filter(status=cancelled_status)
+            qs = qs.filter(status=cancelled_status)
         else:
-            qs = CrisisAction.objects.exclude(status__in=(old_status, draft_status, cancelled_status, pending_status))
+            unanswered_questions = ActionOOCQuestion.objects.filter(answers__isnull=True).exclude(is_intent=True)
+            qs = qs.filter(Q(questions__in=unanswered_questions) |
+                           ~Q(status__in=(old_status, draft_status, cancelled_status, pending_status)))
         if "mine" in self.switches:
             qs = qs.filter(gm=self.caller)
         elif not self.args:

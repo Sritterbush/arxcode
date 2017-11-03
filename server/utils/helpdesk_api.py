@@ -89,8 +89,9 @@ def resolve_ticket(caller, ticket_id, message):
     except Exception as err:
         inform_staff("ERROR: Error when attempting to close ticket: %s" % err)
         return False
+    subject = "%s %s closed" % (ticket.queue.slug, ticket.id)
     inform_staff("{w[Requests]{n: %s has closed ticket %s: %s" % (caller.key, ticket_id, message),
-                 post=True, subject="Ticket Closed")
+                 post=True, subject=subject)
     header = "Your ticket has been closed by %s.\n\n" % caller.key
     mail_update(ticket, message, header)
     return True
