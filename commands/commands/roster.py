@@ -1330,11 +1330,11 @@ class CmdRelationship(MuxPlayerCommand):
             if not rels:
                 caller.msg("No relationships found.")
             else:
-                caller.msg("{w%s has relationships with the following characters:{n" % charob)
+                caller.msg("{w%s has relationships with the following characters:{n" % charob.key)
                 caller.msg("{w--------------------------------------------{n")
                 disp = ", ".join(key for key in sorted(rels.keys()))
                 caller.msg(disp)
-                caller.msg("To see the individual relationships, use {w@relationship %s=<name>{n" % charob)
+                caller.msg("To see the individual relationships, use {w@relationship %s=<name>{n" % charob.key)
             caller.msg("\nSocial information for %s:" % charob.key)
             caller.execute_cmd("@sheet/social %s" % charob.key)
             return

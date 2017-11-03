@@ -180,7 +180,7 @@ class Journal(MarkReadMixin, Msg):
 
     def __str__(self):
         relationship = self.relationship
-        rel_txt = " on %s" % relationship if relationship else ""
+        rel_txt = " on %s" % relationship.key if relationship else ""
         return "<Journal written by %s%s>" % (self.writer, rel_txt)
 
     def tag_favorite(self, player):
