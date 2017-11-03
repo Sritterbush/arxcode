@@ -100,6 +100,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             self.stop_follow()
         if self.db.room_title:
             self.attributes.remove("room_title")
+        if self.combat.combat and self in self.combat.combat.ndb.observers:
+            self.combat.combat.remove_observer(self)
 
     def return_appearance(self, pobject, detailed=False, format_desc=False, show_contents=False):
         """

@@ -482,6 +482,7 @@ class CombatManager(BaseScript):
         if character in self.ndb.observers:
             character.msg("You stop spectating the fight.")
             self.ndb.observers.remove(character)
+            character.combat.combat = None
             return
         if not quiet:
             character.msg("You were not an observer, but stop anyway.")
