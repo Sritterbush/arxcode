@@ -23,7 +23,7 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/category 1=foo", "You need to include one of these categories: scouting, combat, diplomacy, "
                                          "unknown, support, research, sabotage.")
         self.call_cmd("/category 1=research", "category set to Research.")
-        self.call_cmd("/ooc 1=testooc", "You have set your ooc intent to be: testooc")
+        self.call_cmd("/ooc_intent 1=testooc", "You have set your ooc intent to be: testooc")
         self.call_cmd("/tldr 1=summary", "topic set to summary.")
         self.call_cmd("/roll 1=strength,athletics", "stat set to strength.|skill set to athletics.")
         self.call_cmd("/invite 1=foo", "Could not find 'foo'.")
@@ -47,6 +47,8 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/makepublic 1", "The action must be finished before you can make details of it public.")
         action.status = CrisisAction.PUBLISHED
         self.call_cmd("/makepublic 1", "You have gained 2 xp for making your action public.")
+        self.call_cmd("/makepublic 1", "That action has already been made public.")
+        self.call_cmd("/question 1=test question", "You have submitted a question: test question")
 
     @patch("world.dominion.models.inform_staff")
     @patch("world.dominion.models.get_week")

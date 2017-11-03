@@ -62,7 +62,7 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
         @action/cancel <action #>
         @action/submit <action #>
     Options:
-        @action[/public] [<action #>]
+        @action [<action #>]
         @action/invite <action #>=<character>
         @action/setaction <action #>=<action text>
         @action/setsecret[/traitor] <action #>=<secret action>
@@ -95,7 +95,7 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
     per crisis response action, unless it is /noscene.
 
     Actions are private by default, but there's a small xp reward for marking
-    a completed action as public.
+    a completed action as public with the /makepublic switch.
     """
     key = "@action"
     locks = "cmd:all()"
@@ -104,8 +104,9 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
     action_categories = dict_from_choices_field(CrisisAction, "CATEGORY_CHOICES")
     requires_draft_switches = ("invite", "setcrisis")
     requires_editable_switches = ("roll", "tldr", "title", "category", "submit", "invite",
-                                  "setaction", "setcrisis", "add", "toggletraitor", "toggleattend")
-    requires_unpublished_switches = ("ooc", "cancel", "noscene")
+                                  "setaction", "setcrisis", "add", "toggletraitor", "toggleattend",
+                                  "ooc_intent")
+    requires_unpublished_switches = ("question", "cancel", "noscene")
     requires_owner_switches = ("invite", "makepublic", "category", "setcrisis", "noscene")
 
     @property
@@ -142,6 +143,8 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
             return
         if "makepublic" in self.switches:
             return self.make_public(action)
+        if "question" in self.switches:
+            return self.ask_question(action)
         if self.check_switches(self.requires_draft_switches):
             return self.do_requires_draft_switches(action)
         if self.check_switches(self.requires_editable_switches):
@@ -202,12 +205,12 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
             return self.toggle_traitor(action)
         elif "toggleattend" in self.switches:
             return self.toggle_attend(action)
+        elif "ooc_intent" in self.switches:
+            return self.set_ooc_intent(action)
         
     def do_requires_unpublished_switches(self, action):
         if action.status in (CrisisAction.PUBLISHED, CrisisAction.PENDING_PUBLISH):
             return self.send_no_edits_msg()
-        elif "ooc" in self.switches:
-            return self.set_ooc(action)
         elif "cancel" in self.switches:
             return self.cancel_action(action)
         elif "noscene" in self.switches:
@@ -348,19 +351,22 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
             return
         return self.set_action_field(action, "topic", self.rhs)
       
-    def set_ooc(self, action):
+    def set_ooc_intent(self, action):
         """
         Sets our ooc intent, or if we're already submitted and have an intent set, it asks a question.
         """
         if not self.rhs:
             self.msg("You must enter a message.")
             return
-        if not action.submitted:
-            action.set_ooc_intent(self.rhs)
-            self.msg("You have set your ooc intent to be: %s" % self.rhs)
-        else:
-            action.ask_question(self.rhs)
-            self.msg("You have submitted a question: %s" % self.rhs)
+        action.set_ooc_intent(self.rhs)
+        self.msg("You have set your ooc intent to be: %s" % self.rhs)
+
+    def ask_question(self, action):
+        if not self.rhs:
+            self.msg("You must enter text for your question.")
+            return
+        action.ask_question(self.rhs)
+        self.msg("You have submitted a question: %s" % self.rhs)
         
     def cancel_action(self, action):
         action.cancel()

@@ -398,7 +398,7 @@ class PlayerOrNpc(SharedMemoryModel):
         offset = timedelta(days=-CrisisAction.num_days)
         old = datetime.now() + offset
         return self.actions.filter(Q(date_submitted__gte=old) & 
-                                   ~Q(status=CrisisAction.CANCELLED) &
+                                   ~Q(status__in=(CrisisAction.CANCELLED, CrisisAction.DRAFT)) &
                                    Q(crisis__isnull=True))
         
     @property
@@ -2466,6 +2466,10 @@ class ActionOOCQuestion(SharedMemoryModel):
         if answers:
             msg += "\n%s" % "\n".join(ob.display() for ob in answers)
         return msg
+        
+    @property
+    def text_of_answers(self):
+        return "\n".join("%s wrote: %s" % (ob.gm, ob.text) for ob in self.answers.all())
 
     @property
     def main_id(self):

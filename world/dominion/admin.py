@@ -5,7 +5,7 @@ from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister
                      CraftingRecipe, CraftingMaterialType, CraftingMaterials, CrisisActionAssistant,
                      RPEvent, AccountTransaction, AssignedTask, Crisis, CrisisAction, CrisisUpdate,
                      OrgRelationship, Reputation, TaskSupporter, InfluenceCategory,
-                     Renown, SphereOfInfluence, TaskRequirement, ClueForOrg)
+                     Renown, SphereOfInfluence, TaskRequirement, ClueForOrg, ActionOOCQuestion)
 
 
 class DomAdmin(admin.ModelAdmin):
@@ -299,6 +299,20 @@ class CrisisArmyOrdersInline(admin.TabularInline):
         ('Troops', {'fields': ['army', 'troops_sent']}),
         ('Costs', {'fields': ['coin_cost', 'food_cost']})
     ]
+    
+    
+class ActionOOCQuestionInline(admin.StackedInline):
+    model = ActionOOCQuestion
+    extra = 0
+    readonly_fields = ('text_of_answers',)
+    
+    def get_queryset(self, request):
+        qs = super(ActionOOCQuestionInline, self).get_queryset(request)
+        return qs.filter(is_intent=False)
+        
+    fieldsets = [
+        (None, {'fields': ['action', 'assisting_action', 'is_intent']}),
+        ('Q&A', {'fields': ['text', 'text_of_answers'], 'classes': ['collapse']})]
 
 
 class CrisisActionAdmin(DomAdmin):
@@ -320,7 +334,7 @@ class CrisisActionAdmin(DomAdmin):
                  ('Resources', {'fields': ['silver', ('action_points', 'social'), ('military', 'economic')],
                                 'classes': ['collapse']})
                  ]
-    inlines = (CrisisActionAssistantInline, CrisisArmyOrdersInline)
+    inlines = (CrisisActionAssistantInline, CrisisArmyOrdersInline, ActionOOCQuestionInline)
 
     @staticmethod
     def player_action(obj):
