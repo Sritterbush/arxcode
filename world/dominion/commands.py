@@ -2149,7 +2149,7 @@ class CmdOrganization(MuxPlayerCommand):
             tarmember.rank = rank
             tarmember.save()
             caller.msg("You have set %s's rank to %s." % (player, rank))
-            player.msg("Your rank has been set to %s by %s." % (rank, caller.db.char_ob))
+            player.msg("Your rank has been set to %s." % rank)
             return
         # other switches can omit the org name if we're only a member of one org   
         if not self.rhs:
@@ -2186,8 +2186,8 @@ class CmdOrganization(MuxPlayerCommand):
                 caller.msg("Player already has an outstanding invite they must accept or decline.")
                 return
             player.ndb.orginvite = org
-            caller.msg("You have invited %s to %s." % (char, org.name))
-            msg = "You have been invited to join %s by %s.\n" % (org.name, caller.db.char_ob)
+            caller.msg("You have invited %s to %s." % (player, org.name))
+            msg = "You have been invited to join %s.\n" % org.name
             msg += "To accept, type {w@org/accept %s{n. To decline, type {worg/decline %s{n." % (org.name, org.name)
             player.inform(msg, category="Invitation")
             return
@@ -2207,7 +2207,7 @@ class CmdOrganization(MuxPlayerCommand):
                     return
             tarmember.fake_delete()
             caller.msg("Booted %s from %s." % (player, org))
-            player.msg("You have been removed from %s by %s." % (org, caller.db.char_ob))
+            player.msg("You have been removed from %s." % org)
             return
         if 'memberview' in self.switches:
             if org.secret and not org.access(caller, 'view'):
