@@ -382,7 +382,7 @@ class PlayerOrNpc(SharedMemoryModel):
 
     def get_absolute_url(self):
         try:
-            return self.player.db.char_ob.get_absolute_url()
+            return self.player.char_ob.get_absolute_url()
         except AttributeError:
             pass
 
@@ -397,7 +397,13 @@ class PlayerOrNpc(SharedMemoryModel):
         from datetime import timedelta
         offset = timedelta(days=-CrisisAction.num_days)
         old = datetime.now() + offset
-        return self.actions.filter(Q(date_submitted__gte=old) & Q(crisis__isnull=True))
+        return self.actions.filter(Q(date_submitted__gte=old) & 
+                                   ~Q(status=CrisisAction.CANCELLED) &
+                                   Q(crisis__isnull=True))
+        
+    @property
+    def past_actions(self):
+        return self.actions.filter(status=CrisisAction.PUBLISHED)
 
 
 class AssetOwner(SharedMemoryModel):
@@ -1849,7 +1855,7 @@ class AbstractAction(AbstractPlayerAllocations):
         fields = []
         if not self.actions:
             fields.append("action text")
-        if not self.questions.all():
+        if not self.ooc_intent:
             fields.append("ooc intent")
         if not self.topic:
             fields.append("tldr")

@@ -277,9 +277,10 @@ class CrisisActionAssistantInline(admin.StackedInline):
     model = CrisisActionAssistant
     extra = 0
     raw_id_fields = ('crisis_action', 'dompc',)
+    readonly_fields = ('ooc_intent',)
     fieldsets = [(None, {'fields': [('dompc', 'topic')]}),
                  ('Status', {'fields': [('editable', 'attending', 'traitor')], 'classes': ['collapse']}),
-                 ('Story', {'fields': ['actions', 'secret_actions'], 'classes': ['collapse']}),
+                 ('Story', {'fields': ['actions', 'secret_actions', 'ooc_intent'], 'classes': ['collapse']}),
                  ('Roll', {'fields': [('stat_used', 'skill_used', 'roll')], 'description': 'Stuff for roll and result',
                            'classes': ['collapse']}),
                  ('Resources', {'fields': ['silver', ('action_points', 'social'), ('military', 'economic')],
@@ -305,11 +306,13 @@ class CrisisActionAdmin(DomAdmin):
     search_fields = ('crisis__name', 'dompc__player__username')
     list_filter = ('crisis', 'status')
     raw_id_fields = ('dompc', 'gemit', 'gm', 'crisis', 'update',)
+    readonly_fields = ('ooc_intent',)
     fieldsets = [(None, {'fields': [('dompc', 'topic')]}),
                  ('Status', {'fields': [('attending', 'traitor', 'prefer_offscreen'), ('status', 'public', 'editable'),
                                         ('crisis', 'update', 'gemit'), ('week', 'public', 'date_submitted')],
                              'classes': ['collapse'], 'description': 'Current ooc status of the action'}),
-                 ('Story', {'fields': [('topic', 'category'), 'actions', 'secret_actions', 'story', 'secret_story'],
+                 ('Story', {'fields': [('topic', 'category'), 'actions', 'secret_actions', 'story', 'secret_story',
+                                        'ooc_intent'],
                             'description': "The player's story, and GM response to it.",
                             'classes': ['collapse']}),
                  ('Roll', {'fields': [('stat_used', 'skill_used', 'roll', 'difficulty'), 'outcome_value'],
