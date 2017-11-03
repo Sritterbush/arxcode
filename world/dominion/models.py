@@ -2352,7 +2352,7 @@ class CrisisAction(AbstractAction):
 
 
 NAMES_OF_PROPERTIES_TO_PASS_THROUGH = ['crisis', 'action_and_assists', 'status', 'prefer_offscreen', 'attendees',
-                                       'all_editable', 'outcome_value', 'difficulty', 'gm']
+                                       'all_editable', 'outcome_value', 'difficulty', 'gm', 'attending_limit']
 
 
 @passthrough_properties('crisis_action', *NAMES_OF_PROPERTIES_TO_PASS_THROUGH)
