@@ -772,7 +772,7 @@ class CmdAdmOrganization(MuxPlayerCommand):
             caller.msg("{wOrganizations:{n %s" % orgs)
             return
         try:
-            org = self.get_org_from_args()
+            org = self.get_org_from_args(self.lhs)
         except Organization.DoesNotExist:
             # if we had create switch and found no Org, create it
             if 'create' in self.switches:
@@ -876,7 +876,7 @@ class CmdAdmOrganization(MuxPlayerCommand):
             return
         if 'cptasks' in self.switches:
             try:
-                org2 = self.get_org_from_args()
+                org2 = self.get_org_from_args(self.rhs)
             except Organization.DoesNotExist:
                 self.msg("Org not found.")
                 return
@@ -889,11 +889,11 @@ class CmdAdmOrganization(MuxPlayerCommand):
             OrgTaskModel.objects.bulk_create(bulk_list)
             self.msg("Tasks copied from %s to %s." % (org2, org))
 
-    def get_org_from_args(self):
-        if self.lhs.isdigit():
-            org = Organization.objects.get(id=int(self.lhs))
+    def get_org_from_args(self, args):
+        if args.isdigit():
+            org = Organization.objects.get(id=int(args))
         else:
-            org = Organization.objects.get(name__iexact=self.lhs)
+            org = Organization.objects.get(name__iexact=args)
         return org
 
 
