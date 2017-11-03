@@ -358,6 +358,9 @@ class CmdRequest(MuxPlayerCommand):
             ticket = self.get_ticket_from_args(self.lhs)
             if not ticket:
                 return
+            if ticket.status == ticket.CLOSED_STATUS:
+                self.msg("That ticket is already closed. Make a new one.")
+                return
             helpdesk_api.add_followup(caller, ticket, self.rhs, mail_player=False)
             caller.msg("Followup added.")
             return
