@@ -737,7 +737,7 @@ class ClueDiscovery(SharedMemoryModel):
             for mystery in mysteries:
                 msg += "\nYou have also discovered a mystery: %s\n%s" % (str(mystery), mystery.desc)
                 message = "Your uncovered a mystery after learning a clue from %s!" % self.character,
-                MysteryDiscovery.objects.create(character=self.character,
+                MysteryDiscovery.objects.create(character=entry,
                                                 message=message,
                                                 mystery=mystery, date=datetime.now())
         pc.inform(msg, category="Investigations", append=False)
