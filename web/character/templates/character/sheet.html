@@ -10,16 +10,19 @@
 {% block content %}
 {% load cloudinary %}
 {% load app_filters %}
+    <div class="container-fluid">
+    <div class="row">
 
     {% if character.db.longname %}
-      <h1 style="text-align:center">{{ character.db.longname }}</h1>
+      <h1 class="text-center">{{ character.db.longname }}</h1>
     {% else %}
-      <h1 style="text-align:center">{{ character.key }}</h1>
+      <h1 class="text-center">{{ character.key }}</h1>
     {% endif %}
+
+    </div>
     {% if character.db.quote %}
-      <i><p style="text-align:center">{{ character.db.quote }}</p></i>
+        <div class="row"><div class="text-center"><q><em>{{ character.db.quote }}</em></q></div></div>
     {% endif %}
-	<div class="container">
 	<div class="row">
 	
     {% if character.portrait %}
@@ -171,6 +174,12 @@
       </form>
     {% endif %}
 	-->
+    <div class="row"><div class="col-md-6 text-center">
+            <h1 class="text-center"><a href="{% url 'character:gallery' character.id %}"><span class="label label-primary">Gallery</span></a></h1>
+            </div>
+        <div class="col-md-6 text-center">
+            <h1 class="text-center"><a href="{% url 'character:character_story' character.id %}"><span class="label label-primary">Past Actions</span></a></h1>
+            </div></div>
     <div class="row">
         <div class="col-md-12 text-center">
             <button data-toggle="collapse" data-target="#Impressions">
@@ -199,9 +208,8 @@
                 </table>
             </div>
         </div>
-    </div>
 
-    <h1 class="text-center"><a href="{% url 'character:gallery' character.id %}"><span class="label label-primary">Gallery</span></a></h1>
+    </div>
     
- 
+ </div>
   {% endblock %}

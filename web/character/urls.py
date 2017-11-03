@@ -26,5 +26,6 @@ urlpatterns = [
     url(r'^sheet/(?P<object_id>\d+)/gallery/select_portrait$', views.select_portrait, name="select_portrait"),
     url(r'^sheet/(?P<object_id>\d+)/gallery/edit_photo$', views.edit_photo, name="edit_photo"),
     url(r'^sheet/(?P<object_id>\d+)/gallery/delete_photo$', views.delete_photo, name="delete_photo"),
+    url(r'^sheet/(?P<object_id>\d+)/story$', views.ActionListView.as_view(), name="character_story"),
     url(r'^api/$', views.character_list, name="character_list")
 ]
