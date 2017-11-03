@@ -420,12 +420,12 @@ class Player(InformMixin, MsgMixins, DefaultPlayer):
         from world.dominion.models import CrisisAction
         from django.db.models import Q
         dompc = self.Dominion
-        return CrisisAction.objects.filter(Q(assistants=dompc) | Q(dompc=dompc))
+        return CrisisAction.objects.filter(Q(assistants=dompc) | Q(dompc=dompc)).distinct()
 
     @property
     def past_participated_actions(self):
         from world.dominion.models import CrisisAction
-        return self.participated_actions.filter(status=CrisisAction.PUBLISHED)
+        return self.participated_actions.filter(status=CrisisAction.PUBLISHED).distinct()
 
     def show_online(self, caller, check_puppet=False):
         """
