@@ -1959,7 +1959,7 @@ class AbstractAction(AbstractPlayerAllocations):
         else:
             action = self.crisis_action
             action_assist = self
-        orders = army.send_orders(player=self.dompc, order_type=Orders.CRISIS, action=action,
+        orders = army.send_orders(player=self.dompc.player, order_type=Orders.CRISIS, action=action,
                                   action_assist=action_assist)
         if not orders:
             return
