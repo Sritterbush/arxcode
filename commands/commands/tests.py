@@ -1,6 +1,7 @@
 from mock import Mock, patch
 
 from server.utils.test_utils import ArxCommandTest
+from world.dominion.models import CrisisAction
 from . import story_actions
 
 
@@ -42,11 +43,14 @@ class StoryActionTests(ArxCommandTest):
                                    "the action again.")
         self.call_cmd("/submit 1", "You have new informs. Use @inform 1 to read them.|You have submitted your action.")
         mock_inform_staff.assert_called_with('Testplayer has submitted action #1.')
+        action = self.dompc.actions.last()
+        self.call_cmd("/makepublic 1", "The action must be finished before you can make details of it public.")
+        action.status = CrisisAction.PUBLISHED
+        self.call_cmd("/makepublic 1", "You have gained 2 xp for making your action public.")
 
     @patch("world.dominion.models.inform_staff")
     @patch("world.dominion.models.get_week")
     def test_cmd_gm_action(self, mock_get_week, mock_inform_staff):
-        from world.dominion.models import CrisisAction
         from datetime import datetime
         mock_get_week.return_value = 1
         action = self.dompc2.actions.create(actions="test", status=CrisisAction.NEEDS_GM, editable=False, silver=50,

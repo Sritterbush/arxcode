@@ -2324,6 +2324,18 @@ class CrisisAction(AbstractAction):
     def main_action(self):
         return self
 
+    def make_public(self):
+        if self.public:
+            raise ActionSubmissionError("That action has already been made public.")
+        if self.status != CrisisAction.PUBLISHED:
+            raise ActionSubmissionError("The action must be finished before you can make details of it public.")
+        self.public = True
+        xp_value = 2
+        if self.crisis and not self.crisis.public:
+            xp_value = 1
+        self.dompc.player.char_ob.adjust_xp(xp_value)
+        self.dompc.player.msg("You have gained %s xp for making your action public." % xp_value)
+
 
 NAMES_OF_PROPERTIES_TO_PASS_THROUGH = ['crisis', 'action_and_assists', 'status', 'prefer_offscreen', 'attendees',
                                        'all_editable', 'outcome_value', 'difficulty', 'gm']

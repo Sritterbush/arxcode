@@ -157,10 +157,10 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
         return False
         
     def make_public(self, action):
-        if action.public:
-            self.msg("That action has already been made public.")
-            return
-        self.set_action_field(action, "public", True)
+        try:
+            action.make_public()
+        except ActionSubmissionError as err:
+            self.msg(err)
     
     def do_requires_draft_switches(self, action):
         if not action.status == CrisisAction.DRAFT:
