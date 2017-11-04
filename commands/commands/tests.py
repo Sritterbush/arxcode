@@ -31,6 +31,7 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/ooc_intent 1=testooc", "You have set your ooc intent to be: testooc")
         self.call_cmd("/tldr 1=summary", "topic set to summary.")
         self.call_cmd("/roll 1=strength,athletics", "stat set to strength.|skill set to athletics.")
+        self.call_cmd("/setsecret 1=sekrit", "Secret actions set to sekrit.")
         self.call_cmd("/invite 1=foo", "Could not find 'foo'.")
         self.call_cmd("/invite 1=TestPlayer2", "You have invited Testplayer2 to join your action.")
         self.caller = self.player2

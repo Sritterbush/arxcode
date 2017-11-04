@@ -107,7 +107,7 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
     requires_draft_switches = ("invite", "setcrisis")
     requires_editable_switches = ("roll", "tldr", "title", "category", "submit", "invite",
                                   "setaction", "setcrisis", "add", "toggletraitor", "toggleattend",
-                                  "ooc_intent")
+                                  "ooc_intent", "setsecret")
     requires_unpublished_switches = ("question", "cancel", "noscene")
     requires_owner_switches = ("invite", "makepublic", "category", "setcrisis", "noscene")
 
@@ -208,6 +208,8 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
             return self.toggle_attend(action)
         elif "ooc_intent" in self.switches:
             return self.set_ooc_intent(action)
+        elif "setsecret" in self.switches:
+            return self.set_secret_action(action)
         
     def do_requires_unpublished_switches(self, action):
         if action.status in (CrisisAction.PUBLISHED, CrisisAction.PENDING_PUBLISH):
@@ -423,6 +425,11 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
             self.set_action_field(action, "actions", self.rhs)
         if action.crisis:
             self.do_passive_warnings(action)
+
+    def set_secret_action(self, action):
+        if not self.rhs:
+            return self.send_no_args_msg("a story of your secret actions")
+        self.set_action_field(action, "secret_actions", self.rhs, verbose_name="Secret actions")
             
     def warn_crisis_overcrowd(self, action):
         try:
