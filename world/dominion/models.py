@@ -2048,8 +2048,8 @@ class CrisisAction(AbstractAction):
         (NEEDS_PLAYER, 'Needs Player Input'),
         (NEEDS_GM, 'Needs GM Input'),
         (CANCELLED, 'Cancelled'),
-        (PENDING_PUBLISH, 'Pending Publish'),
-        (PUBLISHED, 'Published')
+        (PENDING_PUBLISH, 'Pending Resolution'),
+        (PUBLISHED, 'Resolved')
         )
     status = models.PositiveSmallIntegerField(choices=STATUS_CHOICES, default=DRAFT)
     max_requests = 2
@@ -2126,7 +2126,7 @@ class CrisisAction(AbstractAction):
                 orders.save()
             self.status = CrisisAction.PUBLISHED
         self.save()
-        subject = "Action %s Published" % self.id
+        subject = "Action %s Published by %s" % (self.id, caller)
         inform_staff("Action %s has been published by %s:\n%s" % (self.id, self.gm, msg), post=True, subject=subject)
 
     def view_action(self, caller=None, disp_pending=True, disp_old=False, disp_ooc=True):
@@ -2479,7 +2479,7 @@ class ActionOOCQuestion(SharedMemoryModel):
         self.answers.create(gm=gm, text=text)
         self.target.inform("GM %s has posted a followup to action %s: %s" % (gm, self.main_id, text))
         inform_staff("%s has posted a followup to action %s: %s" % (gm, self.main_id, text), post=True,
-                     subject="Action followup")
+                     subject="Action %s followup by %s" % (self.action.id, gm))
 
 
 class ActionOOCAnswer(SharedMemoryModel):
