@@ -120,7 +120,6 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
             status=CrisisAction.CANCELLED).distinct()
 
     def get_help(self, caller, cmdset):
-        from evennia.utils.utils import dedent
         msg = self.__doc__
         recent_actions = caller.recent_storyactions
         max_actions = CrisisAction.max_requests
