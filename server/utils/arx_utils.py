@@ -427,7 +427,10 @@ def broadcast_msg_and_post(msg, caller, episode_name=None):
 
 def dict_from_choices_field(cls, field_name):
     choices_tuple = getattr(cls, field_name)
-    return {string.lower(): integer for integer, string in choices_tuple}
+    lower_case_dict = {string.lower(): integer for integer, string in choices_tuple}
+    upper_case_dict = {string.capitalize(): integer for integer, string in choices_tuple}
+    lower_case_dict.update(upper_case_dict)
+    return lower_case_dict
 
 
 def passthrough_properties(field_name, *property_names):

@@ -26,7 +26,8 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/submit 1", "Incomplete fields: ooc intent, tldr, roll, category")
         self.call_cmd("/category 1=foo", "You need to include one of these categories: scouting, combat, diplomacy, "
                                          "unknown, support, research, sabotage.")
-        self.call_cmd("/category 1=research", "category set to Research.")
+        self.call_cmd("/category 1=Research", "category set to Research.")
+        self.call_cmd("/category 1=combat", "category set to Combat.")
         self.call_cmd("/ooc_intent 1=testooc", "You have set your ooc intent to be: testooc")
         self.call_cmd("/tldr 1=summary", "topic set to summary.")
         self.call_cmd("/roll 1=strength,athletics", "stat set to strength.|skill set to athletics.")

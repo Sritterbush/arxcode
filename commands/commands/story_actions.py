@@ -58,7 +58,8 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
         @action/tldr <action #>=<title>
         @action/category <action #>=<category>
         @action/roll <action #>=<stat>,<skill>
-        @action/ooc <action #>=<ooc intent, then post-submission questions>
+        @action/ooc_intent <action #>=<ooc intent, then post-submission questions>
+        @action/question <action #>=<ask a question>
         @action/cancel <action #>
         @action/submit <action #>
     Options:
@@ -74,7 +75,7 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
         @action/noscene <action #>
         
     Creating /newaction costs Action Points (ap). Requires title, category,
-    stat/skill for dice check, and /ooc specifics about this single action's
+    stat/skill for dice check, and /ooc_intent about this single action's
     intent. Use /submit after all options, when ready for GM review. GMs may 
     require more info or ask you to edit with /setaction and /submit again. 
     Categories: combat, scouting, support, diplomacy, sabotage, research.
@@ -86,7 +87,8 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
     response to a Crisis. Allocate resources with /add by specifying a type
     (ap, army, social, silver, etc.) and amount, or the ID# of your army. The 
     /makepublic switch allows everyone to see your action after a GM publishes 
-    an outcome. If you prefer offscreen resolution, use /noscene toggle.
+    an outcome. If you prefer offscreen resolution, use /noscene toggle. To
+    ask questions for GMs, use /question.
     
     Using /toggleattend switches whether your character is physically present,
     or arranging for the action's occurance in other ways. One action may be 
@@ -327,8 +329,10 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
             return
         if not self.rhs:
             return self.send_no_args_msg("a category")
-        if self.rhs not in self.action_categories.keys():
-            self.send_no_args_msg("one of these categories: %s" % ", ".join(self.action_categories.keys()))
+        category_names = self.action_categories.keys()
+        if self.rhs not in category_names:
+            category_names = set(ob.lower() for ob in category_names)
+            self.send_no_args_msg("one of these categories: %s" % ", ".join(category_names))
             return
         self.set_action_field(action, "category", self.action_categories[self.rhs])
       
