@@ -602,8 +602,8 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
             name = self.args
             qs = qs.filter(Q(crisis__name__iexact=name) | Q(dompc__player__username__iexact=name) |
                            Q(category__iexact=name) | Q(assistants__player__username__iexact=name) |
-                           Q(gm__username__iexact=name)).distinct()
-        return qs
+                           Q(gm__username__iexact=name))
+        return qs.distinct()
         
     def do_gming(self, action):
         if "story" in self.switches:
