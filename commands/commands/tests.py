@@ -1,7 +1,8 @@
 from mock import Mock, patch
+from datetime import datetime
 
 from server.utils.test_utils import ArxCommandTest
-from world.dominion.models import CrisisAction
+from world.dominion.models import CrisisAction, Crisis, Army
 from . import story_actions
 
 
@@ -13,12 +14,15 @@ class StoryActionTests(ArxCommandTest):
         mock_get_week.return_value = 1
         self.cmd_class = story_actions.CmdAction
         self.caller = self.player
+        self.crisis = Crisis.objects.create(name="Test Crisis")
         self.call_cmd("/newaction", "You need to include a story.")
         self.caller.pay_action_points = Mock(return_value=False)
         self.call_cmd("/newaction testing", "You do not have enough action points.")
         self.caller.pay_action_points = Mock(return_value=True)
-        self.call_cmd("/newaction testing", "You have drafted a new action: testing|Please note that you cannot invite "
-                                            "players to an action once it is submitted.")
+        self.call_cmd("/newaction test crisis=testing", "You have drafted a new action to respond to Test Crisis: "
+                                                        "testing|Please note that you cannot invite players to an "
+                                                        "action once it is submitted.")
+        action = self.dompc.actions.last()
         self.call_cmd("/submit 1", "Incomplete fields: ooc intent, tldr, roll, category")
         self.call_cmd("/category 1=foo", "You need to include one of these categories: scouting, combat, diplomacy, "
                                          "unknown, support, research, sabotage.")
@@ -28,8 +32,19 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/roll 1=strength,athletics", "stat set to strength.|skill set to athletics.")
         self.call_cmd("/invite 1=foo", "Could not find 'foo'.")
         self.call_cmd("/invite 1=TestPlayer2", "You have invited Testplayer2 to join your action.")
+        self.caller = self.player2
+        self.call_cmd("/setaction 1=test assist", "You do not have enough action points.")
+        self.caller.pay_action_points = Mock(return_value=True)
+        self.call_cmd("/setaction 1=test assist",
+                      "Action by Testplayer for Test Crisis now has your assistance: test assist")
+        self.caller = self.player
         self.call_cmd("/add 1=foo,bar", "Invalid type of resource.")
         self.call_cmd("/add 1=ap,50", "50 ap added. Action Resources: extra action points 50")
+        army = Army.objects.create(name="test army", owner=self.assetowner2)
+        self.call_cmd("/add 1=army,1", "You don't have access to that Army.|Failed to send orders to the army.")
+        army.owner = self.assetowner
+        army.save()
+        self.call_cmd("/add 1=army,1", "You have successfully relayed new orders to that army.")
         self.call_cmd("/toggletraitor 1", "Traitor is now set to: True")
         self.call_cmd("/toggletraitor 1", "Traitor is now set to: False")
         self.call_cmd("/toggleattend 1", "You are marked as no longer attending the action.")
@@ -43,12 +58,38 @@ class StoryActionTests(ArxCommandTest):
                                    "the action again.")
         self.call_cmd("/submit 1", "You have new informs. Use @inform 1 to read them.|You have submitted your action.")
         mock_inform_staff.assert_called_with('Testplayer has submitted action #1.')
-        action = self.dompc.actions.last()
         self.call_cmd("/makepublic 1", "The action must be finished before you can make details of it public.")
         action.status = CrisisAction.PUBLISHED
         self.call_cmd("/makepublic 1", "You have gained 2 xp for making your action public.")
         self.call_cmd("/makepublic 1", "That action has already been made public.")
         self.call_cmd("/question 1=test question", "You have submitted a question: test question")
+        self.call_cmd("/newaction test crisis=testing",
+                      "You have already submitted an action for this stage of the crisis.")
+        action_2 = self.dompc.actions.create(actions="completed storyaction", status=CrisisAction.PUBLISHED,
+                                             date_submitted=datetime.now())
+        self.dompc.actions.create(actions="another completed storyaction", status=CrisisAction.PUBLISHED,
+                                  date_submitted=datetime.now())
+        draft = self.dompc.actions.create(actions="storyaction draft", status=CrisisAction.DRAFT,
+                                          category=CrisisAction.RESEARCH,
+                                          topic="test summary", stat_used="stat", skill_used="skill")
+        draft.questions.create(is_intent=True, text="intent")
+        self.call_cmd("/submit 4", "You are permitted 2 action requests every 30 days. Recent actions: 2, 3")
+        action_2.status = CrisisAction.CANCELLED
+        action_2.save()
+        self.call_cmd("/submit 4", "Before submitting this action, make certain that you have invited all players you "
+                                   "wish to help with the action, and add any resources necessary. Any invited players "
+                                   "who have incomplete actions will have their assists deleted.\nWhen ready, /submit "
+                                   "the action again.")
+        action.status = CrisisAction.CANCELLED
+        action.save()
+        self.call_cmd("/newaction test crisis=testing",
+                      "You have drafted an action which needs to be submitted or canceled: 4")
+        action_4 = self.dompc.actions.last()
+        action_4.status = CrisisAction.CANCELLED
+        action_4.save()
+        self.call_cmd("/newaction test crisis=testing", "You have drafted a new action to respond to Test Crisis: "
+                                                        "testing|Please note that you cannot invite players to an "
+                                                        "action once it is submitted.")
 
     @patch("world.dominion.models.inform_staff")
     @patch("world.dominion.models.get_week")
@@ -85,7 +126,7 @@ class StoryActionTests(ArxCommandTest):
         self.player2.gain_resources.assert_called_with("economic", 2000)
         self.assertEquals(self.assetowner2.vault, 50)
         self.assertEquals(action.status, CrisisAction.CANCELLED)
-        self.call_cmd("/markpending 1", "status set to Pending Publish.")
+        self.call_cmd("/markpending 1", "status set to Pending Resolution.")
         self.assertEquals(action.status, CrisisAction.PENDING_PUBLISH)
         self.call_cmd("/publish 1", "You have published the action and sent the players informs.")
         self.assertEquals(action.status, CrisisAction.PUBLISHED)
@@ -94,7 +135,7 @@ class StoryActionTests(ArxCommandTest):
                                                append=False, category='Actions', week=1)
         mock_inform_staff.assert_called_with('Action 1 has been published by Testplayer:\n{wGM Response to story action'
                                              ' of Testplayer2\n{wRolls:{n 0\n\n{wStory Result:{n foo\n\n', post=True,
-                                             subject='Action Published')
+                                             subject='Action 1 Published')
         with patch('server.utils.arx_utils.broadcast_msg_and_post') as mock_msg_and_post:
             from web.character.models import Story, Chapter, Episode
             chapter = Chapter.objects.create(name="test chapter")
@@ -104,4 +145,4 @@ class StoryActionTests(ArxCommandTest):
             mock_msg_and_post.assert_called_with("test gemit", self.caller, episode_name="test episode")
             mock_inform_staff.assert_called_with('Action 1 has been published by Testplayer:\n{wGM Response to story '
                                                  'action of Testplayer2\n{wRolls:{n 0\n\n{wStory Result:{n foo\n\n',
-                                                 post=True, subject='Action Published')
+                                                 post=True, subject='Action 1 Published')

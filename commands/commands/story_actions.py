@@ -304,7 +304,7 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
         """Checks criteria for creating a new action."""
         if crisis and not self.can_set_crisis(crisis):
             return False
-        my_draft = self.get_my_actions().filter(date_submitted__isnull=True).last()
+        my_draft = self.get_my_actions().filter(status=CrisisAction.DRAFT).last()
         if my_draft:
             self.msg("You have drafted an action which needs to be submitted or canceled: %s" % my_draft.id)
             return False

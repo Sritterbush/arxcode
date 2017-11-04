@@ -422,13 +422,13 @@ class ActionListView(ListView):
         return get_object_or_404(Character, id=self.kwargs['object_id'])
 
     def get_queryset(self):
-        qs = self.character.past_participated_actions
+        qs = self.character.past_participated_actions.order_by('-date_submitted')
         user = self.request.user
         if not user or not user.is_authenticated():
             return qs.filter(public=True)
         if user.is_staff or user.check_permstring("builders") or user.char_ob == self.character:
             return qs
-        return qs.filter(public=True).order_by('-date_submitted')
+        return qs.filter(public=True)
 
     def get_context_data(self, **kwargs):
         context = super(ActionListView, self).get_context_data(**kwargs)

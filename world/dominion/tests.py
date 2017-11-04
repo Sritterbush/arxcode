@@ -27,9 +27,10 @@ class TestCrisisCommands(ArxCommandTest):
             Story.objects.create(name="test story", current_chapter=chapter)
             self.call_cmd("/update 1=test gemit/test note", "You have updated the crisis.")
             mock_msg_and_post.assert_called_with("test gemit", self.caller, episode_name="test episode")
-            mock_inform_staff.assert_called_with('Crisis update posted by Testplayer for test crisis:\n'
-                                                 'Gemit:\ntest gemit\nGM Notes: test note',
-                                                 post=True, subject='Update for test crisis')
+            mock_inform_staff.assert_called_with('Crisis update posted by Testplayer for test crisis:\nGemit:\ntest '
+                                                 'gemit\nGM Notes: test note\nPending actions published: 1\nAlready '
+                                                 'published actions for this update: ', post=True,
+                                                 subject='Update for test crisis')
         self.call_cmd("1", "Name: test crisis\nDescription: None\nCurrent Rating: 50\nLatest Update:\ntest gemit")
         
     def test_cmd_view_crisis(self):

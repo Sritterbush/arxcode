@@ -1665,18 +1665,19 @@ class Crisis(SharedMemoryModel):
         
     def check_taken_action(self, dompc):
         """Whether player has submitted action for the current crisis update."""
-        return self.actions.filter(Q(dompc=dompc) & Q(update__isnull=True)).exists()
+        return self.actions.filter(Q(dompc=dompc) & Q(update__isnull=True)
+                                   & ~Q(status__in=(CrisisAction.DRAFT, CrisisAction.CANCELLED))).exists()
         
     def raise_submission_errors(self):
         if self.resolved:
             raise ActionSubmissionError("%s has been marked as resolved." % self)
-        if datetime.now() > self.end_date:
+        if self.end_date and datetime.now() > self.end_date:
             raise ActionSubmissionError("It is past the deadline for %s." % self)
             
     def raise_creation_errors(self, dompc):
         self.raise_submission_errors()
         if self.check_taken_action(dompc=dompc):
-            raise ActionSubmissionError("You have already submitted action for this stage of the crisis.")
+            raise ActionSubmissionError("You have already submitted an action for this stage of the crisis.")
             
     def create_update(self, gemit_text, caller=None, gm_notes=None, do_gemit=True):
         from server.utils.arx_utils import broadcast_msg_and_post
@@ -1686,14 +1687,21 @@ class Crisis(SharedMemoryModel):
         update = self.updates.create(date=datetime.now(), desc=gemit_text, gm_notes=gm_notes, episode=latest_episode)
         qs = self.actions.filter(status__in=(CrisisAction.PUBLISHED, CrisisAction.PENDING_PUBLISH, 
                                              CrisisAction.CANCELLED), update__isnull=True)
+        pending = []
+        already_published = []
         for action in qs:
             if action.status == CrisisAction.PENDING_PUBLISH:
-                action.status = CrisisAction.PUBLISHED
-            action.update = update
-            action.save()
+                action.send(update=update)
+                pending.append(str(action.id))
+            else:
+                action.update = update
+                action.save()
+                already_published.append(str(action.id))
         if do_gemit:
             broadcast_msg_and_post(gemit_text, caller, episode_name=latest_episode.name)
-        post = "Gemit:\n%s\nGM Notes: %s" % (gemit_text, gm_notes)
+        pending = "Pending actions published: %s" % ", ".join(pending)
+        already_published = "Already published actions for this update: %s" % ", ".join(already_published)
+        post = "Gemit:\n%s\nGM Notes: %s\n%s\n%s" % (gemit_text, gm_notes, pending, already_published)
         subject = "Update for %s" % self
         inform_staff("Crisis update posted by %s for %s:\n%s" % (caller, self, post), post=True, subject=subject)
 
@@ -1890,7 +1898,7 @@ class AbstractAction(AbstractPlayerAllocations):
     def check_crisis_overcrowd(self):
         attendees = self.attendees
         if len(attendees) > self.attending_limit and not self.prefer_offscreen:
-            excess = attendees.count() - self.attending_limit
+            excess = len(attendees) - self.attending_limit
             raise ActionSubmissionError("A crisis action can have %s people attending in person. %s of you should "
                                         "check your story, then change to a passive role with @action/toggleattend. "
                                         "Current attendees: %s" % (self.attending_limit, excess,
@@ -1962,7 +1970,7 @@ class AbstractAction(AbstractPlayerAllocations):
         orders = army.send_orders(player=self.dompc.player, order_type=Orders.CRISIS, action=action,
                                   action_assist=action_assist)
         if not orders:
-            return
+            raise ActionSubmissionError("Failed to send orders to the army.")
         
     def do_roll(self, stat=None, skill=None, difficulty=None, reset_total=True):
         from world.stats_and_skills import do_dice_check
@@ -2126,8 +2134,10 @@ class CrisisAction(AbstractAction):
                 orders.save()
             self.status = CrisisAction.PUBLISHED
         self.save()
-        subject = "Action %s Published by %s" % (self.id, caller)
-        inform_staff("Action %s has been published by %s:\n%s" % (self.id, self.gm, msg), post=True, subject=subject)
+        if not update:
+            subject = "Action %s Published" % self.id
+            inform_staff("Action %s has been published by %s:\n%s" % (self.id, self.gm, msg),
+                         post=True, subject=subject)
 
     def view_action(self, caller=None, disp_pending=True, disp_old=False, disp_ooc=True):
         """
@@ -3147,7 +3157,7 @@ class Army(SharedMemoryModel):
         """
         # if we can change the army, we can also order it
         if self.can_change(player):
-            return 
+            return True
         dompc = player.Dominion
         # check if we're appointed as general of this army
         if dompc == self.general:
