@@ -48,6 +48,18 @@ class ActionCommandMixin(object):
     def view_action(self, action, disp_old=False):
         self.msg(action.view_action(caller=self.caller, disp_old=disp_old))
 
+    def invite_assistant(self, action):
+        player = self.caller.search(self.rhs)
+        if not player:
+            return
+        dompc = player.Dominion
+        try:
+            action.invite(dompc)
+        except ActionSubmissionError as err:
+            self.msg(err)
+        else:
+            self.msg("You have invited %s to join your action." % dompc)
+
 
 class CmdAction(ActionCommandMixin, MuxPlayerCommand):
     """
@@ -398,17 +410,7 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
         action.save()
         self.msg("Traitor is now set to: %s%s{n" % (color, action.traitor))
         
-    def invite_assistant(self, action):
-        player = self.caller.search(self.rhs)
-        if not player:
-            return
-        dompc = player.Dominion
-        try:
-            action.invite(dompc)
-        except ActionSubmissionError as err:
-            self.msg(err)
-        else:
-            self.msg("You have invited %s to join your action." % dompc)
+
     
     def set_action(self, action):
         if not self.rhs:
@@ -505,6 +507,7 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         @gm/assign <action #>=<gm>
         @gm/gemit <action #>[,<action #>,...]=<text to post>[/<new episode name>]
         @gm/allowedit <action #>[,assistant name]
+        @gm/invite <action #>=<player to add as assistant>
 
     Commands for GMing. @actions can be claimed/assigned to GMs with the /assign
     switch, and then viewed with @gm/mine. Actions are initially in a draft state
@@ -538,7 +541,7 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
     list_switches = ("old", "pending", "draft", "cancelled", "needgm", "needplayer")
     gming_switches = ("story", "secretstory", "charge", "check", "checkall", "stat", "skill", "diff")
     followup_switches = ("ooc",)
-    admin_switches = ("publish", "markpending", "cancel", "assign", "gemit", "allowedit")
+    admin_switches = ("publish", "markpending", "cancel", "assign", "gemit", "allowedit", "invite")
     difficulties = {"easy": CrisisAction.EASY_DIFFICULTY, "normal": CrisisAction.NORMAL_DIFFICULTY,
                     "hard": CrisisAction.HARD_DIFFICULTY}
     
@@ -551,6 +554,8 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         except (CrisisAction.DoesNotExist, ValueError):
             self.msg("No action by that ID #.")
             return
+        if "tldr" in self.switches:
+            return self.msg(action.view_tldr())
         if not self.switches or self.check_switches(self.list_switches):
             return self.view_action(action, disp_old=True)
         if self.check_switches(self.gming_switches):
@@ -705,6 +710,8 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
             return self.do_gemit_for_action(action)
         if "allowedit" in self.switches:
             return self.toggle_editable(action)
+        if "invite" in self.switches:
+            return self.invite_assistant(action)
         
     def publish_action(self, action):
         if self.rhs and action.story:

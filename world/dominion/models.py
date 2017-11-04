@@ -2208,6 +2208,12 @@ class CrisisAction(AbstractAction):
                               ", ".join(ob.author for ob in self.all_editable)
             msg += "\n{w[STATUS: %s]{n%s" % (self.get_status_display(), needs_edits)
         return msg
+
+    def view_tldr(self):
+        msg = "{wSummary of action %s{n" % self.id
+        for action in self.action_and_assists:
+            msg += "\n%s: %s\n" % (action.pretty_str, action.get_summary_text())
+        return msg
     
     def view_total_resources_msg(self):
         msg = ""
@@ -2302,7 +2308,7 @@ class CrisisAction(AbstractAction):
         if dompc in self.assistants.all():
             raise ActionSubmissionError("They have already been invited.")
         if dompc == self.dompc:
-            raise ActionSubmissionError("You cannot invite yourself.")
+            raise ActionSubmissionError("The owner of an action cannot be an assistant.")
         self.assisting_actions.create(dompc=dompc, stat_used="", skill_used="")
         msg = "You have been invited by %s to participate in action %s." % (self.author, self.id)
         msg += " It will now display under the {w@action{n command. To assist, simply fill out"

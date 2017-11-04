@@ -29,6 +29,7 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/category 1=Research", "category set to Research.")
         self.call_cmd("/category 1=combat", "category set to Combat.")
         self.call_cmd("/ooc_intent 1=testooc", "You have set your ooc intent to be: testooc")
+        self.assertEquals(action.questions.first().is_intent, True)
         self.call_cmd("/tldr 1=summary", "topic set to summary.")
         self.call_cmd("/roll 1=strength,athletics", "stat set to strength.|skill set to athletics.")
         self.call_cmd("/setsecret 1=sekrit", "Secret actions set to sekrit.")
@@ -99,18 +100,22 @@ class StoryActionTests(ArxCommandTest):
         from datetime import datetime
         mock_get_week.return_value = 1
         action = self.dompc2.actions.create(actions="test", status=CrisisAction.NEEDS_GM, editable=False, silver=50,
-                                            date_submitted=datetime.now())
+                                            date_submitted=datetime.now(), topic="test summary")
         action.set_ooc_intent("ooc intent test")
         self.cmd_class = story_actions.CmdGMAction
         self.caller = self.player
         self.call_cmd("/story 2=foo", "No action by that ID #.")
         self.call_cmd("/story 1=foo", "story set to foo.")
+        self.call_cmd("/tldr 1", "Summary of action 1\nAction by Testplayer2: Summary: test summary")
         self.call_cmd("/secretstory 1=sekritfoo", "secret_story set to sekritfoo.")
         self.call_cmd("/stat 1=charm", "stat set to charm.")
         self.call_cmd("/skill 1=seduction", "skill set to seduction.")
         self.call_cmd("/diff 1=25", "difficulty set to 25.")
         self.call_cmd("/diff 1=hard", "difficulty set to %s." % CrisisAction.HARD_DIFFICULTY)
         self.call_cmd("/assign 1=Testplayer", "gm set to Testplayer.|GM for the action set to Testplayer")
+        self.call_cmd("/invite 1=TestPlayer2", "The owner of an action cannot be an assistant.")
+        self.call_cmd("/invite 1=TestPlayer", "You have new informs. Use @inform 1 to read them."
+                                              "|You have invited Testplayer to join your action.")
         self.player2.pay_resources = Mock()
         self.call_cmd("/charge 1=economic,2000", "2000 economic added. Action Resources: economic 2000")
         self.player2.pay_resources.assert_called_with("economic", 2000)
