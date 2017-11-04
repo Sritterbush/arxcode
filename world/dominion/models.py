@@ -2455,6 +2455,9 @@ class ActionOOCQuestion(SharedMemoryModel):
                                       blank=True)
     text = models.TextField(blank=True)
     is_intent = models.BooleanField(default=False)
+
+    def __str__(self):
+        return "%s %s: %s" % (self.author, self.noun, self.text)
     
     @property
     def target(self):
