@@ -428,7 +428,7 @@ class ActionListView(ListView):
             return qs.filter(public=True)
         if user.is_staff or user.check_permstring("builders") or user.char_ob == self.character:
             return qs
-        return qs.filter(public=True)
+        return qs.filter(public=True).order_by('-date_submitted')
 
     def get_context_data(self, **kwargs):
         context = super(ActionListView, self).get_context_data(**kwargs)

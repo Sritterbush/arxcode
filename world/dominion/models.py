@@ -1716,7 +1716,7 @@ class Crisis(SharedMemoryModel):
         if user.is_staff or user.check_permstring("builders"):
             return self.finished_actions
         dompc = user.Dominion
-        return self.finished_actions.filter(Q(dompc=dompc) | Q(assistants=dompc))
+        return self.finished_actions.filter(Q(dompc=dompc) | Q(assistants=dompc)).order_by('-date_submitted')
 
 
 class CrisisUpdate(SharedMemoryModel):
