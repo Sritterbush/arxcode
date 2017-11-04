@@ -305,13 +305,14 @@ class ActionOOCQuestionInline(admin.StackedInline):
     model = ActionOOCQuestion
     extra = 0
     readonly_fields = ('text_of_answers',)
+    raw_id_fields = ('action_assist',)
     
     def get_queryset(self, request):
         qs = super(ActionOOCQuestionInline, self).get_queryset(request)
         return qs.filter(is_intent=False)
         
     fieldsets = [
-        (None, {'fields': ['action', 'assisting_action', 'is_intent']}),
+        (None, {'fields': ['action', ('action_assist', 'is_intent')]}),
         ('Q&A', {'fields': ['text', 'text_of_answers'], 'classes': ['collapse']})]
 
 

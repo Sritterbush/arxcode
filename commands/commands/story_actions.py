@@ -45,8 +45,8 @@ class ActionCommandMixin(object):
                 totals = action.view_total_resources_msg()
                 self.msg("{c%s{n %s added. Action %s" % (value, r_type, totals))
 
-    def view_action(self, action):
-        self.msg(action.view_action(caller=self.caller))
+    def view_action(self, action, disp_old=False):
+        self.msg(action.view_action(caller=self.caller, disp_old=disp_old))
 
 
 class CmdAction(ActionCommandMixin, MuxPlayerCommand):
@@ -552,7 +552,7 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
             self.msg("No action by that ID #.")
             return
         if not self.switches or self.check_switches(self.list_switches):
-            return self.view_action(action)
+            return self.view_action(action, disp_old=True)
         if self.check_switches(self.gming_switches):
             return self.do_gming(action)
         if self.check_switches(self.followup_switches):
