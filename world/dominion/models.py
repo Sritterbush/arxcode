@@ -2488,8 +2488,9 @@ class ActionOOCQuestion(SharedMemoryModel):
     def add_answer(self, gm, text):
         self.answers.create(gm=gm, text=text)
         self.target.inform("GM %s has posted a followup to action %s: %s" % (gm, self.main_id, text))
-        inform_staff("%s has posted a followup to action %s: %s" % (gm, self.main_id, text), post=True,
-                     subject="Action %s followup by %s" % (self.action.id, gm))
+        answer = "{c%s{n wrote: %s\n{c%s{n answered: %s" % (self.author, self.text, gm, text)
+        inform_staff("%s has posted a followup to action %s: %s" % (gm, self.main_id, text), post=answer,
+                     subject="Action %s followup" % self.action.id)
 
 
 class ActionOOCAnswer(SharedMemoryModel):

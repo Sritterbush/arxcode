@@ -94,7 +94,7 @@ def resolve_ticket(caller, ticket_id, message):
         subject = None
     else:
         subject = "%s %s closed" % (ticket.queue.slug, ticket.id)
-        post = True
+        post = "{wPlayer:{n %s\n%s" % (ticket.submitting_player, ticket.request_and_response_body())
     inform_staff("{w[Requests]{n: %s has closed ticket %s: %s" % (caller.key, ticket_id, message),
                  post=post, subject=subject)
     header = "Your ticket has been closed by %s.\n\n" % caller.key

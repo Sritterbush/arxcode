@@ -31,6 +31,11 @@ def validate_name(name, formatting=True, not_player=True):
 def inform_staff(message, post=False, subject=None):
     """
     Sends a message to the 'Mudinfo' channel for staff announcements.
+
+        Args:
+            message: text message to broadcast
+            post: If True, we post message. If a truthy value other than True, that's the body of the post.
+            subject: Post subject.
     """
     from evennia.comms.models import ChannelDB
     try:
@@ -41,6 +46,8 @@ def inform_staff(message, post=False, subject=None):
             from typeclasses.bulletin_board.bboard import BBoard
             board = BBoard.objects.get(db_key__iexact="Jobs")
             subject = subject or "Staff Activity"
+            if post is not True:
+                message = post
             board.bb_post(poster_obj=None, msg=message, subject=subject, poster_name="Staff")
     except Exception as err:
         print("ERROR when attempting utils.inform_staff() : %s" % err)
