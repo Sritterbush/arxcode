@@ -193,6 +193,7 @@ class CmdWatch(MuxPlayerCommand):
     locks = "cmd:all()"
     aliases = ["@watch", "watch"]
     help_category = "Social"
+    max_watchlist_size = 30
 
     @staticmethod
     def disp_watchlist(caller):
@@ -247,8 +248,8 @@ class CmdWatch(MuxPlayerCommand):
         if char in watchlist:
             caller.msg("You are already watching %s." % char.key)
             return
-        if len(watchlist) >= 20:
-            self.msg("You may only have 20 characters on your watchlist.")
+        if len(watchlist) >= self.max_watchlist_size:
+            self.msg("You may only have %s characters on your watchlist." % self.max_watchlist_size)
             return
         watched = char.db.watched_by or []
         if caller not in watched:
