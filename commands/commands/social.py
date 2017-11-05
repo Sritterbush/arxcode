@@ -247,6 +247,9 @@ class CmdWatch(MuxPlayerCommand):
         if char in watchlist:
             caller.msg("You are already watching %s." % char.key)
             return
+        if len(watchlist) >= 20:
+            self.msg("You may only have 20 characters on your watchlist.")
+            return
         watched = char.db.watched_by or []
         if caller not in watched:
             watched.append(caller)
