@@ -2364,11 +2364,13 @@ class CrisisAction(AbstractAction):
         if self.status != CrisisAction.PUBLISHED:
             raise ActionSubmissionError("The action must be finished before you can make details of it public.")
         self.public = True
+        self.save()
         xp_value = 2
         if self.crisis and not self.crisis.public:
             xp_value = 1
         self.dompc.player.char_ob.adjust_xp(xp_value)
         self.dompc.msg("You have gained %s xp for making your action public." % xp_value)
+        inform_staff("Action %s has been made public." % self.id)
 
 
 NAMES_OF_PROPERTIES_TO_PASS_THROUGH = ['crisis', 'action_and_assists', 'status', 'prefer_offscreen', 'attendees',
