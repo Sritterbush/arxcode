@@ -2175,7 +2175,7 @@ class CrisisAction(AbstractAction):
             if ob.secret_actions and view_secrets:
                 msg += ob.get_action_text(secret=True)
             if view_secrets and disp_ooc:
-                attending = "[%s] " % ("physically present" if self.attending else "offscreen")
+                attending = "[%s] " % ("physically present" if ob.attending else "offscreen")
                 msg += "\n{w%sDice check: Stat:{n %s, {wSkill:{n %s  " % (attending, ob.stat_used or "No stat set",
                                                                           ob.skill_used or "No skill set")
                 if staff_viewer:

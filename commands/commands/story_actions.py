@@ -470,7 +470,11 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
             action.save()
             self.msg("You are marked as no longer attending the action.")
             return
-        action.mark_attending()
+        try:
+            action.mark_attending()
+        except ActionSubmissionError as err:
+            self.msg(err)
+            return
         self.msg("You have marked yourself as physically being present for that action.")
 
 
