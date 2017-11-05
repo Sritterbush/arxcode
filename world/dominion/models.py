@@ -2136,8 +2136,12 @@ class CrisisAction(AbstractAction):
         self.save()
         if not update:
             subject = "Action %s Published" % self.id
+            post = self.view_tldr()
+            post += "\n{wStory Result:{n %s" % self.story
+            if self.secret_story:
+                post += "\n{wSecret Story{n %s" % self.secret_story
             inform_staff("Action %s has been published by %s:\n%s" % (self.id, self.gm, msg),
-                         post=True, subject=subject)
+                         post=post, subject=subject)
 
     def view_action(self, caller=None, disp_pending=True, disp_old=False, disp_ooc=True):
         """

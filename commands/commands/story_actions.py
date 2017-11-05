@@ -409,9 +409,7 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
         color = "{r" if action.traitor else "{w"
         action.save()
         self.msg("Traitor is now set to: %s%s{n" % (color, action.traitor))
-        
 
-    
     def set_action(self, action):
         if not self.rhs:
             return self.send_no_args_msg("a story")

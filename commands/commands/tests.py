@@ -3,7 +3,7 @@ from datetime import datetime
 
 from server.utils.test_utils import ArxCommandTest
 from world.dominion.models import CrisisAction, Crisis, Army
-from . import story_actions
+from . import story_actions, overrides
 
 
 class StoryActionTests(ArxCommandTest):
@@ -141,7 +141,9 @@ class StoryActionTests(ArxCommandTest):
                                                '{wRolls:{n 0\n\n{wStory Result:{n foo\n\n',
                                                append=False, category='Actions', week=1)
         mock_inform_staff.assert_called_with('Action 1 has been published by Testplayer:\n{wGM Response to story action'
-                                             ' of Testplayer2\n{wRolls:{n 0\n\n{wStory Result:{n foo\n\n', post=True,
+                                             ' of Testplayer2\n{wRolls:{n 0\n\n{wStory Result:{n foo\n\n',
+                                             post='{wSummary of action 1{n\nAction by {cTestplayer2{n: {wSummary:{n '
+                                                  'test summary\n\n{wStory Result:{n foo\n{wSecret Story{n sekritfoo',
                                              subject='Action 1 Published')
         with patch('server.utils.arx_utils.broadcast_msg_and_post') as mock_msg_and_post:
             from web.character.models import Story, Chapter, Episode
@@ -152,4 +154,25 @@ class StoryActionTests(ArxCommandTest):
             mock_msg_and_post.assert_called_with("test gemit", self.caller, episode_name="test episode")
             mock_inform_staff.assert_called_with('Action 1 has been published by Testplayer:\n{wGM Response to story '
                                                  'action of Testplayer2\n{wRolls:{n 0\n\n{wStory Result:{n foo\n\n',
-                                                 post=True, subject='Action 1 Published')
+                                                 post='{wSummary of action 1{n\nAction by {cTestplayer2{n: '
+                                                      '{wSummary:{n test summary\n\n{wStory Result:{n foo\n{wSecret '
+                                                      'Story{n sekritfoo', subject='Action 1 Published')
+
+
+class OverridesTests(ArxCommandTest):
+    def test_cmd_give(self):
+        self.cmd_class = overrides.CmdGive
+        self.caller = self.char1
+        self.call_cmd("obj to char2", "You are not holding Obj.")
+        self.obj1.move_to(self.char1)
+        self.call_cmd("obj to char2", "You give Obj to Char2")
+        self.char1.currency = 50
+        self.call_cmd("-10 silver to char2", "Amount must be positive.")
+        self.call_cmd("75 silver to char2", "You do not have that much money to give.")
+        self.call_cmd("25 silver to char2", "You give coins worth 25.0 silver pieces to Char2.")
+        self.assetowner.economic = 50
+        # self.call_cmd("/resource economic,60 to TestPlayer2", "You do not have enough economic resources.")
+        self.player2.inform = Mock()
+        self.call_cmd("/resource economic,50 to TestPlayer2", "You give 50 economic resources to Char2.")
+        self.assertEqual(self.assetowner2.economic, 50)
+        self.player2.inform.assert_called_with("Char has given 50 economic resources to you.", category="Resources")
