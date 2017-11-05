@@ -332,8 +332,8 @@ class CmdBBReadOrPost(MuxPlayerCommand):
             if not num_read:
                 caller.msg("No posts in range.")
             return
-        if 'del' in switches or 'archive' in switches or 'sticky' in switches:
-            if "del" in switches:
+        if 'del' in switches or 'archive' in switches or 'sticky' in switches or 'delete' in switches:
+            if "del" in switches or "delete" in switches:
                 if board.tags.get("only_staff_delete") and not caller.check_permstring("builders"):
                     self.msg("Only builders may delete from that board.")
                     return

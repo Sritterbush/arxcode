@@ -250,7 +250,7 @@ class CmdJob(MuxPlayerCommand):
             ticket.save()
             self.msg("Ticket %s is now in queue %s." % (ticket.id, queue))
             return
-        if 'delete' in switches:
+        if 'delete' in switches or 'del' in switches:
             if ticket.queue.slug == "Story":
                 self.msg("Cannot delete a storyaction. Please move it to a different queue first.")
                 return
@@ -574,7 +574,7 @@ class CmdApp(MuxPlayerCommand):
             else:
                 caller.msg("Application closure failed.")
                 return
-        if 'delete' in switches:
+        if 'delete' in switches or 'del' in switches:
             try:
                 apps.delete_app(caller, int(self.args))
                 return
