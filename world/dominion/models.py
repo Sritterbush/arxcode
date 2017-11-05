@@ -2622,8 +2622,10 @@ class Organization(InformMixin, SharedMemoryModel):
         active = self.active_members
         if viewing_member:
             # exclude any secret members that are higher in rank than viewing member
-            pcs = pcs.exclude(Q(Q(secret=True) & Q(rank__lte=viewing_member.rank)) &
-                              ~Q(id=viewing_member.id))
+            members_to_exclude = pcs.filter(Q(rank__lte=viewing_member.rank) & ~Q(id=viewing_member.id))
+            if not self.secret:
+                members_to_exclude = members_to_exclude.filter(secret=True)
+            pcs = pcs.exclude(id__in=members_to_exclude)
             
         msg = ""
         for rank in range(start, end+1):
