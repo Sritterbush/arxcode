@@ -4185,6 +4185,7 @@ class AssignedTask(SharedMemoryModel):
         msg += "{wTotal support{n: %s\n" % self.total
         msg += "{wSupporters:{n %s\n" % ", ".join(str(ob) for ob in self.supporters.all())
         msg += "{wNotes:{n\n%s\n" % self.notes
+        msg += "{wCurrent Alt Echo:{n %s\n" % self.current_alt_echo
         msg += "{wStory:{n\n%s\n" % self.story
         return msg
 
