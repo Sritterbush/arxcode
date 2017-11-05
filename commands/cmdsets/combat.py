@@ -1131,7 +1131,7 @@ class CmdHeal(MuxCommand):
             return
         event = caller.location.event
         if "gmallow" in self.switches:
-            if not event or caller.player.Dominion not in event.gms.all():
+            if not event or caller.player.Dominion not in event.gms.all() and not caller.check_permstring("builders"):
                 self.msg("This may only be used by the GM of an event.")
                 return
             modifier = 0
