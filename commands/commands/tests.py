@@ -3,7 +3,7 @@ from datetime import datetime
 
 from server.utils.test_utils import ArxCommandTest
 from world.dominion.models import CrisisAction, Crisis, Army
-from . import story_actions, overrides
+from . import story_actions, overrides, social
 
 
 class StoryActionTests(ArxCommandTest):
@@ -171,8 +171,25 @@ class OverridesTests(ArxCommandTest):
         self.call_cmd("75 silver to char2", "You do not have that much money to give.")
         self.call_cmd("25 silver to char2", "You give coins worth 25.0 silver pieces to Char2.")
         self.assetowner.economic = 50
-        # self.call_cmd("/resource economic,60 to TestPlayer2", "You do not have enough economic resources.")
+        self.call_cmd("/resource economic,60 to TestPlayer2", "You do not have enough economic resources.")
         self.player2.inform = Mock()
         self.call_cmd("/resource economic,50 to TestPlayer2", "You give 50 economic resources to Char2.")
         self.assertEqual(self.assetowner2.economic, 50)
         self.player2.inform.assert_called_with("Char has given 50 economic resources to you.", category="Resources")
+
+
+class SocialTests(ArxCommandTest):
+    def test_cmd_watch(self):
+        self.cmd_class = social.CmdWatch
+        self.caller = self.player
+        max_size = social.CmdWatch.max_watchlist_size
+        self.call_cmd("testplayer2", "You start watching Char2.")
+        self.assertTrue(self.char2 in self.caller.db.watching)
+        self.call_cmd("testplayer2", "You are already watching Char2.")
+        self.call_cmd("/hide", "Hiding set to True.")
+        self.call_cmd("/hide", "Hiding set to False.")
+        self.call_cmd("/stop testplayer2", "Stopped watching Char2.")
+        self.assertTrue(self.char2 not in self.caller.db.watching)
+        for _ in range(max_size):
+            self.caller.db.watching.append(self.char2)
+        self.call_cmd("testplayer2", "You may only have %s characters on your watchlist." % max_size)

@@ -21,6 +21,7 @@ from typeclasses.scripts.combat import combat_settings
 from evennia.objects.models import ObjectDB
 import random
 from typeclasses.npcs import npc_types
+from world.stats_and_skills import do_dice_check
 
 CSCRIPT = "typeclasses.scripts.combat.combat_script.CombatManager"
 
@@ -1104,6 +1105,7 @@ class CmdHeal(MuxCommand):
     Usage:
         +heal <character>
         +heal/permit <character>
+        +heal/gmallow <character>[=<bonus if positive, negative for penalty>]
 
     Helps administer medical care to a character who is not
     presently in combat. This will attempt to wake them up
@@ -1117,7 +1119,7 @@ class CmdHeal(MuxCommand):
     def func(self):
         """Execute command."""
         caller = self.caller
-        targ = caller.search(self.args)
+        targ = caller.search(self.lhs)
         if not targ:
             return
         if "permit" in self.switches:
@@ -1127,7 +1129,23 @@ class CmdHeal(MuxCommand):
             self.msg("{wYou permit {c%s {wto heal you." % targ)
             targ.msg("{c%s {whas permitted you to heal them." % caller)
             return
-        if not targ.db.damage:
+        event = caller.location.event
+        if "gmallow" in self.switches:
+            if not event or caller.player.Dominion not in event.gms.all():
+                self.msg("This may only be used by the GM of an event.")
+                return
+            modifier = 0
+            if self.rhs:
+                try:
+                    modifier = int(self.rhs)
+                except ValueError:
+                    self.msg("Modifier must be a number.")
+                    return
+            targ.ndb.healing_gm_allow = modifier
+            noun = "bonus" if modifier > 0 else "penalty"
+            self.msg("You have allowed %s to use +heal, with a %s to their roll of %s." % (targ, noun, abs(modifier)))
+            return
+        if not targ.dmg:
             caller.msg("%s does not require any medical attention." % targ)
             return
         if not hasattr(targ, 'recovery_test'):
@@ -1138,6 +1156,9 @@ class CmdHeal(MuxCommand):
             if caller in combat.ndb.combatants or targ in combat.ndb.combatants:
                 caller.msg("You cannot heal someone in combat.")
                 return
+        if event and caller.ndb.healing_gm_allow is None:
+            self.msg("There is an event here and you have not been granted GM permission to use +heal.")
+            return
         aid_given = caller.db.administered_aid or {}
         # timestamp of aid time
         aid_time = aid_given.get(targ.id, 0)
@@ -1155,8 +1176,11 @@ class CmdHeal(MuxCommand):
         # record healing timestamp
         aid_given[targ.id] = time.time()
         caller.db.administered_aid = aid_given
+        modifier = 0
+        if caller.ndb.healing_gm_allow is not None:
+            modifier = caller.ndb.healing_gm_allow
+            caller.ndb.healing_gm_allow = None
         # give healin'
-        from world.stats_and_skills import do_dice_check
         blessed = caller.db.blessed_by_lagoma
         antimagic_aura = random.randint(0, 5)
         try:
@@ -1175,10 +1199,11 @@ class CmdHeal(MuxCommand):
             else:
                 blessed = 0
             keep = blessed + caller.db.skills.get("medicine", 0) + 2
+            modifier += 5 * blessed
             heal_roll = do_dice_check(caller, stat_list=["mana", "intellect"], skill="medicine",
-                                      difficulty=15-(5*blessed), keep_override=keep)
+                                      difficulty=15-modifier, keep_override=keep)
         else:
-            heal_roll = do_dice_check(caller, stat="intellect", skill="medicine", difficulty=15)
+            heal_roll = do_dice_check(caller, stat="intellect", skill="medicine", difficulty=15-modifier)
         caller.msg("You rolled a %s on your heal roll." % heal_roll)
         targ.msg("%s tends to your wounds, rolling %s on their heal roll." % (caller, heal_roll))
         script = targ.scripts.get("Recovery")

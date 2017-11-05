@@ -227,7 +227,7 @@ class CmdWatch(MuxPlayerCommand):
         player = caller.search(self.args)
         if not player:
             return
-        char = player.db.char_ob
+        char = player.char_ob
         if not char:
             caller.msg("No character found.")
             return
@@ -245,11 +245,11 @@ class CmdWatch(MuxPlayerCommand):
                 char.db.watched_by = watched
             caller.msg("Stopped watching %s." % char.key)
             return
-        if char in watchlist:
-            caller.msg("You are already watching %s." % char.key)
-            return
         if len(watchlist) >= self.max_watchlist_size:
             self.msg("You may only have %s characters on your watchlist." % self.max_watchlist_size)
+            return
+        if char in watchlist:
+            caller.msg("You are already watching %s." % char.key)
             return
         watched = char.db.watched_by or []
         if caller not in watched:
