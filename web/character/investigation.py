@@ -1247,7 +1247,7 @@ class CmdListClues(MuxPlayerCommand):
         if not self.rhs:
             self.msg("Must contain a note to add.")
             return
-        header = "[%s] %s wrote: " % (datetime.now().strftime("%x %X"), self.caller.key)
+        header = "\n[%s] %s wrote: " % (datetime.now().strftime("%x %X"), self.caller.key)
         clue.message += header + self.rhs
         clue.save()
         self.msg(clue.display())
