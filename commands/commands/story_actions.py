@@ -721,10 +721,13 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
             return self.invite_assistant(action)
         
     def publish_action(self, action):
-        if self.rhs and action.story:
-            self.msg("That story already has an action written. To prevent accidental overwrites, please change "
-                     "it manually and then /publish without additional arguments.")
-            return
+        if self.rhs:
+            if action.story:
+                self.msg("That story already has an action written. To prevent accidental overwrites, please change "
+                         "it manually and then /publish without additional arguments.")
+                return
+            action.story = self.rhs
+            action.save()
         action.send()
         self.msg("You have published the action and sent the players informs.")
         

@@ -135,15 +135,20 @@ class StoryActionTests(ArxCommandTest):
         self.assertEquals(action.status, CrisisAction.CANCELLED)
         self.call_cmd("/markpending 1", "status set to Pending Resolution.")
         self.assertEquals(action.status, CrisisAction.PENDING_PUBLISH)
-        self.call_cmd("/publish 1", "You have published the action and sent the players informs.")
+        self.call_cmd("/publish 1=story test", "That story already has an action written. " 
+                      "To prevent accidental overwrites, please change "
+                      "it manually and then /publish without additional arguments.")
+        action.story = ""
+        self.call_cmd("/publish 1=story test", "You have published the action and sent the players informs.")
         self.assertEquals(action.status, CrisisAction.PUBLISHED)
         self.player2.inform.assert_called_with('{wGM Response to story action of Testplayer2\n'
-                                               '{wRolls:{n 0\n\n{wStory Result:{n foo\n\n',
+                                               '{wRolls:{n 0\n\n{wStory Result:{n story test\n\n',
                                                append=False, category='Actions', week=1)
         mock_inform_staff.assert_called_with('Action 1 has been published by Testplayer:\n{wGM Response to story action'
-                                             ' of Testplayer2\n{wRolls:{n 0\n\n{wStory Result:{n foo\n\n',
+                                             ' of Testplayer2\n{wRolls:{n 0\n\n{wStory Result:{n story test\n\n',
                                              post='{wSummary of action 1{n\nAction by {cTestplayer2{n: {wSummary:{n '
-                                                  'test summary\n\n{wStory Result:{n foo\n{wSecret Story{n sekritfoo',
+                                                  'test summary\n\n{wStory Result:{n story test\n'
+                                                  '{wSecret Story{n sekritfoo',
                                              subject='Action 1 Published')
         with patch('server.utils.arx_utils.broadcast_msg_and_post') as mock_msg_and_post:
             from web.character.models import Story, Chapter, Episode
