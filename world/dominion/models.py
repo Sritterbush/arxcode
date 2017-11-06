@@ -287,6 +287,11 @@ class PlayerOrNpc(SharedMemoryModel):
         org_ids = self.memberships.filter(deguilded=False, secret=False).values_list('organization', flat=True)
         return Organization.objects.filter(id__in=org_ids, secret=False)
 
+    @property
+    def secret_orgs(self):
+        secret_ids = self.memberships.filter(deguilded=False, secret=True).values_list('organization', flat=True)
+        return Organization.objects.filter(Q(secret=True) | Q(id__in=secret_ids)).distinct()
+
     def pay_lifestyle(self, report=None):
         try:
             assets = self.assets

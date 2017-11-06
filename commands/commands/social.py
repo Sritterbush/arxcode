@@ -309,6 +309,7 @@ class CmdFinger(MuxPlayerCommand):
         if not char:
             caller.msg("No character found.")
             return
+        viewing_own_character = player == caller
         name = char.db.longname or char.key
         msg = "\n{wName:{n %s\n" % name
         titles = char.titles
@@ -356,18 +357,24 @@ class CmdFinger(MuxPlayerCommand):
             msg += "{wQuote:{n %s\n" % quote
         webpage = pageroot + char.get_absolute_url()
         msg += "{wCharacter page:{n %s\n" % webpage
-        if show_hidden:
+        if show_hidden or viewing_own_character:
             orgs = player.current_orgs
         else:
             orgs = player.public_orgs
-        if orgs:       
+        if orgs:
             org_str = ""
             apply_buffer = False
+            secret_orgs = player.secret_orgs
             for org in orgs:
                 s_buffer = ""
                 if apply_buffer:
                     s_buffer = " " * 15
-                org_str += "%s%s: %s\n" % (s_buffer, org.name, pageroot + org.get_absolute_url())
+
+                def format_org_name(organization):
+                    secret_str = "" if not organization in secret_orgs else " {m(Secret){n"
+                    return "%s%s" % (organization.name, secret_str)
+
+                org_str += "%s%s: %s\n" % (s_buffer, format_org_name(org), pageroot + org.get_absolute_url())
                 apply_buffer = True
             msg += "{wOrganizations:{n %s" % org_str
         hooks = player.tags.get(category="rp hooks")

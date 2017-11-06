@@ -251,6 +251,13 @@ class Player(InformMixin, MsgMixins, DefaultPlayer):
             return []
 
     @property
+    def secret_orgs(self):
+        try:
+            return self.Dominion.secret_orgs
+        except AttributeError:
+            return []
+
+    @property
     def assets(self):
         return self.Dominion.assets
 
