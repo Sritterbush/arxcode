@@ -4,8 +4,8 @@ stories, the timeline, etc.
 """
 
 from evennia.commands.default.muxcommand import MuxCommand, MuxPlayerCommand
-from .models import (Investigation, Clue, InvestigationAssistant, ClueDiscovery, Theory, RevelationDiscovery, SearchTag,
-                     get_random_clue)
+from web.character.models import (Investigation, Clue, InvestigationAssistant, ClueDiscovery, Theory,
+                                  RevelationDiscovery, SearchTag, get_random_clue)
 from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from server.utils.arx_utils import inform_staff, check_break
@@ -1143,10 +1143,12 @@ class CmdListClues(MuxPlayerCommand):
         @clues <clue #>
         @clues/share <clue #>[,<clue #>...]=<target>[,<target2><target3>,...]
         @clues/search <text>
+        @clues/addnote <clue #>=[text to append]
 
     Displays the clues that your character has discovered in game,
     or shares them with others. /search returns the clues that
-    contain the text specified.
+    contain the text specified. /addnote allows you to add more text to
+    your discovery of the clue.
     """
     key = "@clues"
     locks = "cmd:all()"
@@ -1166,9 +1168,67 @@ class CmdListClues(MuxPlayerCommand):
             return self.caller.roster.finished_clues
         except AttributeError:
             return ClueDiscovery.objects.none()
-    
+
+    def func(self):
+        if not self.args or "search" in self.switches:
+            return self.disp_clue_table()
+        if "share" in self.switches:
+            return self.share_clues()
+        # get clue for display or sharing
+        try:
+            clue = self.finished_clues.get(id=self.lhs)
+        except (ClueDiscovery.DoesNotExist, ValueError, TypeError):
+            self.msg("No clue found by that ID.")
+            self.disp_clue_table()
+            return
+        if not self.switches:
+            self.msg(clue.display())
+            return
+        if "addnote" in self.switches:
+            return self.add_note(clue)
+        self.msg("Invalid switch")
+
+    def share_clues(self):
+        clues_to_share = []
+        for arg in self.lhslist:
+            try:
+                clue = self.finished_clues.get(id=arg)
+            except (ClueDiscovery.DoesNotExist, ValueError, TypeError):
+                self.msg("No clue found by that ID.")
+                continue
+            if not clue.clue.allow_sharing:
+                self.msg("%s cannot be shared." % clue.clue)
+                return
+            clues_to_share.append(clue)
+        if not clues_to_share:
+            return
+        shared_names = []
+        cost = len(self.rhslist) * len(clues_to_share) * self.caller.clue_cost
+        if cost > self.caller.roster.action_points:
+            self.msg("Sharing that many clues would cost %s action points." % cost)
+            return
+        for arg in self.rhslist:
+            pc = self.caller.search(arg)
+            if not pc:
+                continue
+            tarchar = pc.char_ob
+            calchar = self.caller.char_ob
+            if not tarchar.location or tarchar.location != calchar.location:
+                self.msg("You can only share clues with someone in the same room. Please don't share clues without "
+                         "at least some RP talking about it.")
+                continue
+            for clue in clues_to_share:
+                clue.share(pc.roster)
+            shared_names.append(str(pc.roster))
+        if shared_names:
+            self.caller.pay_action_points(cost)
+            self.msg("You have shared the clues '%s' with %s." % (
+                ", ".join(str(ob.clue) for ob in clues_to_share),
+                ", ".join(shared_names)))
+        else:
+            self.msg("Shared nothing.")
+
     def disp_clue_table(self):
-        caller = self.caller
         table = PrettyTable(["{wClue #{n", "{wSubject{n"])
         clues = self.finished_clues.order_by('date')
         if "search" in self.switches:
@@ -1180,72 +1240,17 @@ class CmdListClues(MuxPlayerCommand):
         for clue in clues:
             table.add_row([clue.id, clue.name])
         msg += str(table)
-        caller.msg(msg, options={'box': True})
+        self.msg(msg, options={'box': True})
 
-    def func(self):
-        caller = self.caller
-        clues = self.finished_clues
-        if not self.args:
-            if not clues:
-                caller.msg("Nothing yet.")
-                return
-            self.disp_clue_table()
+    def add_note(self, clue):
+        from datetime import datetime
+        if not self.rhs:
+            self.msg("Must contain a note to add.")
             return
-        if "search" in self.switches:
-            self.disp_clue_table()
-            return
-        if "share" in self.switches:
-            clues_to_share = []
-            for arg in self.lhslist:
-                try:
-                    clue = clues.get(id=arg)
-                except (ClueDiscovery.DoesNotExist, ValueError, TypeError):
-                    caller.msg("No clue found by that ID.")
-                    continue
-                if not clue.clue.allow_sharing:
-                    self.msg("%s cannot be shared." % clue.clue)
-                    return
-                clues_to_share.append(clue)
-            if not clues_to_share:
-                return
-            shared_names = []
-            cost = len(self.rhslist) * len(clues_to_share) * self.caller.clue_cost
-            if cost > self.caller.roster.action_points:
-                self.msg("Sharing that many clues would cost %s action points." % cost)
-                return
-            for arg in self.rhslist:
-                pc = caller.search(arg)
-                if not pc:
-                    continue
-                tarchar = pc.db.char_ob
-                calchar = caller.db.char_ob
-                if not tarchar.location or tarchar.location != calchar.location:
-                    self.msg("You can only share clues with someone in the same room. Please don't share clues without "
-                             "at least some RP talking about it.")
-                    continue
-                for clue in clues_to_share:
-                    clue.share(pc.roster)
-                shared_names.append(str(pc.roster))
-            if shared_names:
-                self.caller.pay_action_points(cost)
-                caller.msg("You have shared the clues '%s' with %s." % (
-                    ", ".join(str(ob.clue) for ob in clues_to_share),
-                    ", ".join(shared_names)))
-            else:
-                self.msg("Shared nothing.")
-            return
-        # get clue for display or sharing
-        try:
-            clue = clues.get(id=self.lhs)  
-        except (ClueDiscovery.DoesNotExist, ValueError, TypeError):
-            caller.msg("No clue found by that ID.")
-            self.disp_clue_table()
-            return
-        if not self.switches:
-            caller.msg(clue.display())
-            return
-        caller.msg("Invalid switch")
-        return
+        header = "[%s] %s wrote: " % (datetime.now().strftime("%x %X"), self.caller.key)
+        clue.message += header + self.rhs
+        clue.save()
+        self.msg(clue.display())
 
 
 class CmdListRevelations(MuxPlayerCommand):

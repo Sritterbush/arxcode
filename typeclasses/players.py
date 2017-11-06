@@ -402,12 +402,12 @@ class Player(InformMixin, MsgMixins, DefaultPlayer):
     def clues_shared_modifier_seed(self):
         from world.stats_and_skills import SOCIAL_SKILLS, SOCIAL_STATS
         seed = 0
-        pc = self.db.char_ob
+        pc = self.char_ob
         for stat in SOCIAL_STATS:
             seed += pc.attributes.get(stat) or 0
         # do not be nervous. I love you. <3
-        seed += sum([pc.db.skills.get(ob, 0) for ob in SOCIAL_SKILLS])
-        seed += pc.db.skills.get("investigation", 0) * 3
+        seed += sum([pc.skills.get(ob, 0) for ob in SOCIAL_SKILLS])
+        seed += pc.skills.get("investigation", 0) * 3
         return seed
 
     @property
