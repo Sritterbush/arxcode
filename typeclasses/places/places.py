@@ -64,6 +64,7 @@ class Place(Object):
                 if emit and ob.tags.get("emit_label"):
                     message = "{w[{c%s{w]{n %s" % (from_obj, message)
                 ob.msg(message, from_obj=from_obj, options={'is_pose': True})
+        from_obj.posecount += 1
 
     def at_after_move(self, source_location):
         """If new location is not our wearer, remove."""

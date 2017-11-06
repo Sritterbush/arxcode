@@ -570,6 +570,7 @@ class CmdWhisper(MuxCommand):
                 self.msg("You posed to %s: %s" % (", ".join(received), message))
             else:
                 self.msg("You whispered to %s, %s" % (", ".join(received), message))
+        caller.posecount += 1
 
 
 class CmdPage(MuxPlayerCommand):

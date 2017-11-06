@@ -336,6 +336,7 @@ class CmdFinger(MuxPlayerCommand):
             msg += "{wOriginal Character%s{n\n" % roster_status
         if show_hidden:
             msg += "{wCharID:{n %s, {wPlayerID:{n %s\n" % (char.id, player.id)
+            msg += "{wTotal Posecount:{n %s\n" % char.total_posecount
         if char.db.obituary:
             msg += "{wObituary:{n %s\n" % char.db.obituary
         else:

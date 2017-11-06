@@ -367,11 +367,12 @@ class WeeklyEvents(Script):
         inform_staff("List of Inactive Characters posted.")
 
     def count_poses(self):
-        qs = ObjectDB.objects.filter(roster__roster__name="Active", db_tags__db_key="rostercg")
+        qs = ObjectDB.objects.filter(roster__roster__isnull=False)
         min_poses = 20
         low_activity = []
         for ob in qs:
-            if ob.posecount < min_poses:
+            if (ob.posecount < min_poses and roster.roster.name == "Active" and
+                    (ob.tags.get("rostercg")and ob.player_ob and not ob.player_ob.tags.get("staff_alt"))):
                 low_activity.append(ob)
             ob.db.previous_posecount = ob.posecount
             ob.posecount = 0

@@ -803,6 +803,18 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     def posecount(self, val):
         self.db.pose_count = val
 
+    @property
+    def previous_posecount(self):
+        return self.db.previous_posecount or 0
+
+    @previous_posecount.setter
+    def previous_posecount(self, val):
+        self.db.previous_posecount = val
+
+    @property
+    def total_posecount(self):
+        return self.posecount + self.previous_posecount
+
     def announce_move_from(self, destination, msg=None, mapping=None):
         """
         Called if the move is to be announced. This is
