@@ -86,10 +86,15 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
         @action/toggleattend <action #>
         @action/noscene <action #>
         
-    Creating /newaction costs Action Points (ap). Requires title, category,
-    stat/skill for dice check, and /ooc_intent about this single action's
-    intent. Use /submit after all options, when ready for GM review. GMs may 
-    require more info or ask you to edit with /setaction and /submit again. 
+    Creating /newaction costs Action Points (ap). Requires 'tldr' which is a
+    short summary in a few words of the action, a category, stat/skill for
+    the dice check (just pick whatever might be plausible, GMs can adjust it
+    if they disagree), and /ooc_intent which is the what sort of outcome you
+    are hoping for, whether that's reputation adjustments, some advancement
+    in a story, the favor of important npcs, magical power, whatever. It's just
+    to make sure that GMs know what you have in mind for what you're trying
+    to accomplish. Use /submit after all options, when ready for GM review. GMs
+    may require more info or ask you to edit with /setaction and /submit again.
     Categories: combat, scouting, support, diplomacy, sabotage, research.
     
     With /invite you ask others to assist your action. They use /setaction or
