@@ -2355,7 +2355,7 @@ class CrisisAction(AbstractAction):
     def get_questions_and_answers_display(self, answered=False, staff=False, caller=None):
         qs = self.questions.filter(is_intent=False)
         if not answered:
-            qs = qs.filter(answers__isnull=True, mark_unanswered=False)
+            qs = qs.filter(answers__isnull=True, mark_answered=False)
         if not staff:
             dompc = caller.Dominion
             # players can only see questions they wrote themselves and their answers
