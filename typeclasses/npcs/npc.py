@@ -41,6 +41,7 @@ class Npc(Character):
     # ------------------------------------------------
     # PC command methods
     # ------------------------------------------------
+
     def attack(self, targ, lethal=False):
         """
         Attack a given target. If lethal is False, we will not kill any

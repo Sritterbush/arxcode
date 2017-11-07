@@ -775,6 +775,13 @@ class InvestigationAssistant(SharedMemoryModel):
     def __str__(self):
         return "%s helping: %s" % (self.char, self.investigation)
 
+    @property
+    def helper_name(self):
+        name = self.char.key
+        if hasattr(self.char, "owner"):
+            name += " (%s)" % self.char.owner
+        return name
+
     def shared_discovery(self, clue):
         self.currently_helping = False
         self.save()
@@ -824,7 +831,7 @@ class Investigation(AbstractPlayerAllocations):
         msg += "{wSkill used{n: %s\n" % self.skill_used
         for assistant in self.active_assistants:
             msg += "{wAssistant:{n %s {wStat:{n %s {wSkill:{n %s {wActions:{n %s\n" % (
-                assistant.char, assistant.stat_used, assistant.skill_used, assistant.actions)
+                assistant.helper_name, assistant.stat_used, assistant.skill_used, assistant.actions)
         return msg
 
     def gm_display(self):
