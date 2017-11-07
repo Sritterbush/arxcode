@@ -11,8 +11,10 @@ database migration to add in their functionality.
 from django.conf import settings
 from server.utils import prettytable, helpdesk_api
 from web.helpdesk.models import Ticket, Queue
-from server.utils.arx_utils import inform_staff, check_break
+
+from server.utils.arx_utils import inform_staff
 from server.utils.arx_utils import ArxPlayerCommand
+
 from evennia.objects.models import ObjectDB
 import traceback
 from web.character.models import Roster, RosterEntry, PlayerAccount, AccountHistory
@@ -64,7 +66,6 @@ class CmdJob(ArxPlayerCommand):
         @job/followup <#>=<message> - add update to ticket #
         @job/priority <#>=<priority number>
         @job/low = List low priority messages
-        @job/check <ticket #>/<stat> + <skill> at <diff>=<character>
         @job/mine
         @job/all
         @job/assign <#>=<GM>
@@ -74,10 +75,10 @@ class CmdJob(ArxPlayerCommand):
     closing a ticket. Please remember to be polite and respectful
     of players when answering tickets.
 
-    To view other queues, use @bug, @code, @gm, @typo, or @prp.
+    To view other queues, use @bug, @code, @typo, or @prp.
     """
     key = "@job"
-    aliases = ["@jobs", "@bug", "@code", "@gm", "@typo", "@prp"]
+    aliases = ["@jobs", "@bug", "@code", "@typo", "@prp"]
     help_category = "Admin"
     locks = "cmd:perm(job) or perm(Builders)"
     query_open_switches = ("mine", "all", "low", "only")
@@ -88,8 +89,6 @@ class CmdJob(ArxPlayerCommand):
                 queues = Queue.objects.filter(slug="Code")
         elif self.cmdstring == "@bug":
             queues = Queue.objects.filter(slug="Bugs")
-        elif self.cmdstring == "@gm":
-            queues = Queue.objects.filter(slug="Story")
         elif self.cmdstring == "@typo":
             queues = Queue.objects.filter(slug="Typo")
         elif self.cmdstring == "@prp":
@@ -97,7 +96,7 @@ class CmdJob(ArxPlayerCommand):
         elif "only" in self.switches:
             queues = Queue.objects.filter(slug="Request")
         else:
-            queues = Queue.objects.all()
+            queues = Queue.objects.exclude(slug="Story")
         return queues
 
     def display_open_tickets(self):
@@ -197,36 +196,6 @@ class CmdJob(ArxPlayerCommand):
                                ticket.queue.slug])
             caller.msg("{wClosed Tickets:{n\n%s" % table)
             return
-        if 'check' in switches:
-            try:
-                largs = self.lhs.split("/")
-                ticket = Ticket.objects.get(id=largs[0])
-                largs = largs[1].split("+")
-                stat = largs[0].strip()
-                largs = largs[1].split(" at ")
-                skill = largs[0].strip()
-                difficulty = int(largs[1])
-            except (IndexError, TypeError, ValueError):
-                self.msg("Invalid syntax. It's Apostate's fault that it's a complicated syntax so yell at him.")
-                return
-            except Ticket.DoesNotExist:
-                self.msg("Ticket not found.")
-                return
-            try:
-                char = caller.search(self.rhs).db.char_ob
-            except AttributeError:
-                self.msg("No character found.")
-                return
-            if char.attributes.get(stat) is None:
-                self.msg("Error. The stat %s for the player is undefined. You probably switched stat and skill." % stat)
-                self.msg("Otherwise, set the stat for the character to be 0.")
-                return
-            result = helpdesk_api.do_check(caller, ticket, stat, skill, difficulty, char)
-            if result:
-                self.msg(result)
-            else:
-                self.msg("Error in trying to make check.")
-            return
         try:
             ticket = Ticket.objects.get(id=self.lhs)
         except (ValueError, Ticket.DoesNotExist):
@@ -246,7 +215,6 @@ class CmdJob(ArxPlayerCommand):
                 return
             if helpdesk_api.resolve_ticket(caller, numticket, rhs):
                 caller.msg("Ticket successfully closed.")
-                inform_staff("{w%s has closed a ticket.{n" % caller.key.capitalize())
                 return
             else:
                 caller.msg("Ticket closure failed for unknown reason.")
@@ -284,7 +252,7 @@ class CmdJob(ArxPlayerCommand):
             ticket.save()
             self.msg("Ticket %s is now in queue %s." % (ticket.id, queue))
             return
-        if 'delete' in switches:
+        if 'delete' in switches or 'del' in switches:
             if ticket.queue.slug == "Story":
                 self.msg("Cannot delete a storyaction. Please move it to a different queue first.")
                 return
@@ -319,10 +287,6 @@ class CmdRequest(ArxPlayerCommand):
        +featurerequest <report>
        +request/followup <#>=<message>
        +request <#>
-       +storyrequest <title>=<action you wish to take>
-       +storyrequest/invite <ticket #>=<player>
-       +storyrequest/accept <player>
-       +storyrequest/decline <player>
        +prprequest <title>=<question about a player run plot>
 
     Send a message to the GMs for help. This is usually because
@@ -344,68 +308,31 @@ class CmdRequest(ArxPlayerCommand):
     'typo' may be used to report errors in descriptions or formatting.
     'bug' is used for reporting game errors in code.
     '+featurerequest' is used for making requests for code changes.
-    '+storyrequest' is used for asking for GM resolution of IC actions.
     '+prprequest' is used for asking questions about a PRP.
 
-    Story requests cost 40 action points.
+    To make an IC action, use @action instead.
     """
     key = "+request"
     aliases = ["@request", "+requests", "@requests", "+911", "+ineedanadult",
-               "bug", "typo", "+featurerequest", "+storyrequest", "+prprequest"]
+               "bug", "typo", "+featurerequest", "+prprequest"]
     help_category = "Admin"
     locks = "cmd:perm(request) or perm(Players)"
-    num_days = 30
-    max_requests = 2
-        
-    def get_help(self, caller, cmdset):
-        if caller.player_ob:
-            caller = caller.player_ob
-        actions = self.get_num_actions(caller)
-        msg = self.__doc__ + self.get_actions_disp_str(actions)
-        return msg
-
-    def get_num_actions(self, caller):
-        from datetime import datetime, timedelta
-        date = datetime.now()
-        offset = timedelta(days=-self.num_days)
-        date = date + offset
-        actions = caller.tickets.filter(queue__slug="Story", db_date_created__gte=date)
-        return actions
-
-    def get_actions_disp_str(self, actions):
-        msg = ""
-        if actions:
-            msg += "\nYou have submitted requests for GMing for a storyaction on: %s." % ", ".join(
-                ob.db_date_created.strftime("%x") for ob in actions)
-        msg += "\nYou are permitted to make %s requests every %s days." % (self.max_requests, self.num_days)
-        return msg
 
     def display_ticket(self, ticket):
         self.msg(ticket.display())
 
+    @property
+    def tickets(self):
+        return self.caller.tickets.exclude(queue__slug="Story")
+
     def list_tickets(self):
-        self.msg("{wClosed tickets:{n %s" % ", ".join(str(ticket.id) for ticket in self.caller.tickets.filter(
+        self.msg("{wClosed tickets:{n %s" % ", ".join(str(ticket.id) for ticket in self.tickets.filter(
                 status__in=[Ticket.CLOSED_STATUS, Ticket.RESOLVED_STATUS])))
-        self.msg("{wOpen tickets:{n %s" % ", ".join(str(ticket.id) for ticket in self.caller.tickets.filter(
+        self.msg("{wOpen tickets:{n %s" % ", ".join(str(ticket.id) for ticket in self.tickets.filter(
             status=Ticket.OPEN_STATUS)
         ))
         self.msg("Use {w+request <#>{n to view an individual ticket.")
         self.msg("Use {w+request/followup <#>=<comment>{n to add a comment.")
-
-    def check_recent_story_action(self):
-        if check_break(self.caller):
-            self.msg("No storyrequests allowed during staff break.")
-            return True
-        ap_cost = 40  # the action point cost of starting story actions
-        actions = self.get_num_actions(self.caller)
-        if self.caller.roster.action_points < ap_cost:
-            self.msg("It costs %s Action Points to make a story action." % ap_cost)
-            return True
-        if actions.count() < self.max_requests:
-            self.caller.pay_action_points(ap_cost)
-            return False
-        self.msg(self.get_actions_disp_str(actions))
-        return True
 
     def get_ticket_from_args(self, args):
         try:
@@ -420,65 +347,17 @@ class CmdRequest(ArxPlayerCommand):
         caller = self.caller
         args = self.args
         priority = 5
-        if "accept" in self.switches or "decline" in self.switches:
-            targ = self.caller.search(self.args)
-            invite_dict = self.caller.db.storyaction_invites or {}
-            if not targ:
-                self.msg("You do have invitations from %s." % ", ".join(str(ob) for ob in invite_dict.keys()))
-                return
-            try:
-                ticket = invite_dict.pop(targ)
-                if not invite_dict:
-                    self.caller.attributes.remove("storyaction_invites")
-            except KeyError:
-                self.msg("No invite from {w%s{n." % targ)
-                # list invites
-                self.msg("But you do have invitations from %s." % ", ".join(str(ob) for ob in invite_dict.keys()))
-                return
-            # if we're declining send message then return, otherwise add us
-            if "decline" in self.switches:
-                self.msg("You have declined an invitation from %s to assist story action %s." % (targ, ticket))
-                return
-            else:
-                ap_cost = 10  # the action point cost of assisting story actions
-                if not caller.pay_action_points(ap_cost):
-                    self.msg("It costs %s Action Points to assist a story action." % ap_cost)
-                    # readd their invite back so they can accept it when they have enough ap
-                    if invite_dict:
-                        invite_dict[targ] = ticket
-                    else:  # invite_dict is now a SaverDict with dead Attribute, so recreate it
-                        self.caller.db.storyaction_invites = {targ: ticket}
-                    return
-                ticket.participants.add(caller)
-                self.msg("You have accepted an invitation from %s to assist story action %s." % (targ, ticket))
-                return
-        if "invite" in self.switches:
-            ticket = self.get_ticket_from_args(self.lhs)
-            if not ticket:
-                return
-            if ticket.queue.slug.lower() != "story":
-                self.msg("You can only invite people to story requests.")
-                return
-            targ = self.caller.search(self.rhs)
-            if not targ:
-                return
-            if not targ.db.storyaction_invites:
-                targ.db.storyaction_invites = {}
-            # append a new dict entry to the target's invitations
-            targ.db.storyaction_invites[caller] = ticket
-            self.msg("You have invited %s to assist your story action %s." % (targ, ticket))
-            msg = "{c%s{n has invited you to assist the following action: %s" % (caller, ticket.description)
-            msg += "\n\nTo assist them, use +storyrequest/accept <name>. Use +storyrequest/decline to decline."
-            targ.inform(msg, category="Storyrequest Assist")
-            return
         if "followup" in self.switches or "comment" in self.switches:
             if not self.lhs or not self.rhs:
                 caller.msg("Missing arguments required.")
-                ticketnumbers = ", ".join(str(ticket.id) for ticket in caller.tickets.all())
+                ticketnumbers = ", ".join(str(ticket.id) for ticket in self.tickets)
                 caller.msg("Your tickets: %s" % ticketnumbers)
                 return
             ticket = self.get_ticket_from_args(self.lhs)
             if not ticket:
+                return
+            if ticket.status == ticket.CLOSED_STATUS:
+                self.msg("That ticket is already closed. Make a new one.")
                 return
             helpdesk_api.add_followup(caller, ticket, self.rhs, mail_player=False)
             caller.msg("Followup added.")
@@ -512,11 +391,6 @@ class CmdRequest(ArxPlayerCommand):
         elif cmdstr == "+featurerequest":
             optional_title = "Features"
             queue = Queue.objects.get(slug="Code").id
-        elif cmdstr == "+storyrequest":
-            optional_title = "Action"
-            queue = Queue.objects.get(slug="Story").id
-            if self.check_recent_story_action():
-                return
         elif cmdstr == "+prprequest":
             optional_title = "PRP"
             queue = Queue.objects.get(slug="PRP").id
@@ -698,7 +572,7 @@ class CmdApp(ArxPlayerCommand):
             else:
                 caller.msg("Application closure failed.")
                 return
-        if 'delete' in switches:
+        if 'delete' in switches or 'del' in switches:
             try:
                 apps.delete_app(caller, int(self.args))
                 return

@@ -33,28 +33,40 @@ def validate_name(name, formatting=True, not_player=True):
     return re.findall('^[\w\']+$', name)
 
 
-def inform_staff(message):
+def inform_staff(message, post=False, subject=None):
     """
     Sends a message to the 'Mudinfo' channel for staff announcements.
+
+        Args:
+            message: text message to broadcast
+            post: If True, we post message. If a truthy value other than True, that's the body of the post.
+            subject: Post subject.
     """
     from evennia.comms.models import ChannelDB
     try:
         wizchan = ChannelDB.objects.get(db_key__iexact="staffinfo")
-        now = tnow().strftime("%H:%M")
+        now = time_now().strftime("%H:%M")
         wizchan.tempmsg("{r[%s]:{n %s" % (now, message))
+        if post:
+            from typeclasses.bulletin_board.bboard import BBoard
+            board = BBoard.objects.get(db_key__iexact="Jobs")
+            subject = subject or "Staff Activity"
+            if post is not True:
+                message = post
+            board.bb_post(poster_obj=None, msg=message, subject=subject, poster_name="Staff")
     except Exception as err:
         print("ERROR when attempting utils.inform_staff() : %s" % err)
 
 
 def setup_log(logfile):
     import logging
-    fileh = logging.FileHandler(logfile, 'a')
+    file_handle = logging.FileHandler(logfile, 'a')
     formatter = logging.Formatter(fmt=settings.LOG_FORMAT, datefmt=settings.DATE_FORMAT)
-    fileh.setFormatter(formatter)   
+    file_handle.setFormatter(formatter)
     log = logging.getLogger()
-    for hdlr in log.handlers:
-        log.removeHandler(hdlr)
-    log.addHandler(fileh)
+    for handler in log.handlers:
+        log.removeHandler(handler)
+    log.addHandler(file_handle)
     log.setLevel(logging.DEBUG)
     return log
 
@@ -79,7 +91,8 @@ def get_week():
     return weekly.db.week
 
 
-def tnow(aware=False):
+def time_now(aware=False):
+    """Gets naive or aware datetime."""
     if aware:
         from django.utils import timezone
         return timezone.localtime(timezone.now())
@@ -87,29 +100,35 @@ def tnow(aware=False):
     return datetime.now()
 
 
-def tdiff(date):
+def time_from_now(date):
+    """
+    Gets timedelta compared to now
+    Args:
+        date: Datetime object to compare to now
+
+    Returns:
+        Timedelta object of difference between date and the current time.
+    """
     try:
-        diff = date - tnow()
+        diff = date - time_now()
     except (TypeError, ValueError):
-        diff = date - tnow(aware=True)
+        diff = date - time_now(aware=True)
     return diff
 
 
-def datetime_format(dtobj):
+def datetime_format(date):
     """
     Takes a datetime object instance (e.g. from django's DateTimeField)
     and returns a string describing how long ago that date was.
-
     """
-
-    year, month, day = dtobj.year, dtobj.month, dtobj.day
-    hour, minute, second = dtobj.hour, dtobj.minute, dtobj.second
+    year, month, day = date.year, date.month, date.day
+    hour, minute, second = date.hour, date.minute, date.second
     now = datetime.now()
 
     if year < now.year:
         # another year
-        timestring = str(dtobj.date())
-    elif dtobj.date() < now.date():
+        timestring = str(date.date())
+    elif date.date() < now.date():
         # another date, same year
         # put month before day because of FREEDOM
         timestring = "%02i-%02i %02i:%02i" % (month, day, hour, minute)
@@ -227,6 +246,7 @@ def check_break(caller=None):
 
 
 def delete_empty_tags():
+    """Deletes any tag that isn't currently connected to any objects."""
     from evennia.typeclasses.tags import Tag
     empty = Tag.objects.filter(objectdb__isnull=True, playerdb__isnull=True, msg__isnull=True, helpentry__isnull=True,
                                scriptdb__isnull=True, channeldb__isnull=True)
@@ -278,7 +298,7 @@ def approval_cleanup(entry):
     entry.player.attributes.remove("hide_from_watch")
     entry.player.db.mails = []
     entry.player.db.readmails = set()
-    # remove and readd all channels
+    # remove and re-add all channels
     from typeclasses.channels import Channel
     channels = Channel.objects.get_subscriptions(entry.player)
     for channel in channels:
@@ -381,3 +401,82 @@ class ArxCommand(MuxCommand):
 
 class ArxPlayerCommand(MuxAccountCommand):
     pass
+
+
+def text_box(text):
+    boxchars = '\n{w' + '*' * 70 + '{n\n'
+    return boxchars + text + boxchars
+
+
+def create_gemit_and_post(msg, caller, episode_name=None):
+    # current story
+    from web.character.models import Story, Episode, StoryEmit
+    story = Story.objects.latest('start_date')
+    chapter = story.current_chapter
+    if episode_name:
+        date = datetime.now()
+        episode = Episode.objects.create(name=episode_name, date=date, chapter=chapter)
+    else:
+        episode = Episode.objects.latest('date')
+        if episode:
+            episode_name = episode.name
+    gemit = StoryEmit.objects.create(episode=episode, chapter=chapter, text=msg,
+                                     sender=caller)
+    broadcast_msg_and_post(msg, caller, episode_name=episode_name)
+    return gemit
+    
+    
+def broadcast_msg_and_post(msg, caller, episode_name=None):
+    caller.msg("Announcing to all connected players ...")
+    if not msg.startswith("{") and not msg.startswith("|"):
+        msg = "|g" + msg
+    # save this non-formatted version for posting to BB
+    post_msg = msg
+    # format msg for logs and announcement
+    box_chars = '\n{w' + '*' * 70 + '{n\n'
+    msg = box_chars + msg + box_chars
+    broadcast(msg, format_announcement=False)
+    # get board and post
+    from typeclasses.bulletin_board.bboard import BBoard
+    bboard = BBoard.objects.get(db_key__iexact="story updates")
+    subject = "Story Update"
+    if episode_name:
+        subject = "Episode: %s" % episode_name
+    bboard.bb_post(poster_obj=caller, msg=post_msg, subject=subject, poster_name="Story")
+
+
+def dict_from_choices_field(cls, field_name):
+    choices_tuple = getattr(cls, field_name)
+    lower_case_dict = {string.lower(): integer for integer, string in choices_tuple}
+    upper_case_dict = {string.capitalize(): integer for integer, string in choices_tuple}
+    lower_case_dict.update(upper_case_dict)
+    return lower_case_dict
+
+
+def passthrough_properties(field_name, *property_names):
+    """
+    This function is designed to be used as a class decorator that takes the name of an attribute that
+    different properties of the class pass through to. For example, if we have a self.foo object,
+    and our property 'bar' would return self.foo.bar, then we'd set 'foo' as the field_name,
+    and 'bar' would go in the property_names list.
+    Args:
+        field_name: The name of the attribute of the object we pass property calls through to.
+        *property_names: List of property names that we do the pass-through to.
+
+    Returns:
+        A function that acts as a decorator for the class which attaches the properties to it.
+    """
+    def wrapped(cls):
+        for name in property_names:
+            def generate_property(prop_name):
+                def get_func(self):
+                    parent = getattr(self, field_name)
+                    return getattr(parent, prop_name)
+
+                def set_func(self, value):
+                    parent = getattr(self, field_name)
+                    setattr(parent, prop_name, value)
+                setattr(cls, prop_name, property(get_func, set_func))
+            generate_property(name)
+        return cls
+    return wrapped

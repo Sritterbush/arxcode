@@ -43,7 +43,7 @@ def list_characters(caller, character_list, roster_type="Active Characters", ros
     Formats lists of characters. If we're given a list of 'hidden_chars', we compare
     the list of names in character_list to that, and if any match, we use the data
     in there for the character for things such as idle timer. Otherwise, we use
-    the data fromt he roster object for the name match to propogate our fields.
+    the data from the roster object for the name match to propagate our fields.
     If display_afk is true, we list the idle timer for each character.
     """
     # format
@@ -327,11 +327,11 @@ class CmdRosterList(ArxPlayerCommand):
         if len(keynames) != len(rhslist):
             caller.msg("Not enough arguments provided for the given filters.")
             return
-        filtdict = dict(zip(keynames, rhslist))
-        family = filtdict.get('family', "None")
-        fealty = filtdict.get('fealty', "None")
-        concept = filtdict.get('concept', "None")
-        social_rank = filtdict.get('social rank', "None")
+        filter_dict = dict(zip(keynames, rhslist))
+        family = filter_dict.get('family', "None")
+        fealty = filter_dict.get('fealty', "None")
+        concept = filter_dict.get('concept', "None")
+        social_rank = filter_dict.get('social rank', "None")
         if 'all' in switches:
             match_list = roster.search_by_filters(lhslist, "active", concept, fealty, social_rank, family)
             list_characters(caller, match_list, "Active Characters", roster, False)
@@ -909,21 +909,6 @@ def display_secrets(caller, character):
     return
 
 
-def display_visions(caller, character):
-    """
-    Displays visions
-    """
-    caller.msg("{wVisions for %s:{n" % character.key.capitalize())
-    caller.msg("{w-------------------------------{n")
-    visions = character.messages.visions
-    if not visions:
-        caller.msg("No visions to display.")
-        return
-    for vision in visions:
-        caller.msg(character.messages.disp_entry(vision), options={'box': True})
-        vision.receivers = caller
-
-
 # noinspection PyUnusedLocal
 def display_timeline(caller, character):
     """
@@ -945,7 +930,7 @@ class CmdSheet(ArxPlayerCommand):
         @sheet/privaterels <character name>=<other character>
         @sheet/secrets
         @sheet/visions
-        @sheet/storyrequests <character>=<#>
+        @sheet/actions <character>=<#>
         @sheet/background <character>
         @sheet/personality <character>
         @sheet/comments <character>=<commenting character>
@@ -969,78 +954,7 @@ class CmdSheet(ArxPlayerCommand):
     aliases = ["+sheet", "sheet"]
     help_category = "General"
     locks = "cmd:all()"
-    private_switches = ("secrets", "secret", "visions", "vision",
-                        "storyrequest", "storyrequests")
-
-    def get_character(self, check_storyrequests=False):
-        """
-        Gets character and whether we have permission to view.
-
-        Returns:
-            charob, show_hidden: tuple of Character and bool. Character is who we're viewing,
-                the bool is whether we're allowed to view.
-        """
-        caller = self.caller
-        args = self.lhs
-        show_hidden = False
-        if caller.check_permstring("builders"):
-            show_hidden = True
-        my_char = caller.db.char_ob if not caller.is_guest() else caller.db.char
-        if not args:
-            charob = my_char
-            show_hidden = True
-        else:
-            playob = caller.search(args)
-            if not playob:
-                caller.msg("No character found by that name.")
-                return None, False
-            charob = playob.db.char_ob
-        if not charob:
-            caller.msg("No character found to @sheet.")
-            return None, False
-        if my_char == charob:
-            return charob, True
-        if check_storyrequests:
-            return charob, show_hidden or charob.player_ob.tickets.filter(participants=my_char.player_ob).exists()
-        try:
-            r_name = charob.roster.roster.name
-        except AttributeError:
-            self.msg("That character cannot be viewed.")
-            return None, False
-        if r_name not in ("Active", "Available", "Gone") and not show_hidden:
-            caller.msg("That character is an npc and cannot be viewed.")
-            return None, False
-
-        return charob, show_hidden
-        
-    def display_storyrequests(self, charob):
-        """
-        Displays a list of storyrequests or body of specified request
-        
-            Args:
-                charob (ObjectDB): Character object to retrieve requests from
-        """
-        player = charob.player_ob
-        # Get storyrequests from this player object
-        tickets = player.participated_storyrequests
-        # check self.rhs - if not self.rhs, list # of all of them
-        if not self.rhs:
-            table = prettytable.PrettyTable(["{wID",
-                                             "{wSubmitting Player",
-                                             "{wTopic{n"])
-            for ob in tickets:
-                table.add_row([str(ob.id), str(ob.submitting_player), str(ob.title)])
-            # send table to player and return
-            self.caller.msg("%s" % table)
-            return
-        # have self.rhs: get storyrequest, print its display().
-        from web.helpdesk.models import Ticket
-        try:
-            ticket = tickets.get(id=self.rhs)
-            self.caller.msg(ticket.display())
-        except (Ticket.DoesNotExist, ValueError):
-            self.caller.msg("No Story Request matches that ID #.")
-            return
+    private_switches = ("secrets", "secret", "visions", "vision", "actions")
 
     def func(self):
         caller = self.caller
@@ -1056,7 +970,7 @@ class CmdSheet(ArxPlayerCommand):
                 display_skills(caller, charob)
                 display_abilities(caller, charob)            
                 display_secrets(caller, charob)
-                display_visions(caller, charob)
+                self.display_visions(charob)
             display_relationships(caller, charob, show_hidden)          
             bground = charob.db.background
             if not bground:
@@ -1080,8 +994,8 @@ class CmdSheet(ArxPlayerCommand):
                 display_abilities(caller, charob)                                
             return
         if set(switches) & set(self.private_switches):
-            check_storyrequests = ('storyrequest' in switches or 'storyrequests' in switches) and self.rhs
-            charob, show_hidden = self.get_character(check_storyrequests)
+            check_storyactions = ('actions' in switches or 'storyrequests' in switches) and self.rhs
+            charob, show_hidden = self.get_character(check_storyactions)
             if not charob:
                 return
             if not show_hidden:
@@ -1091,10 +1005,10 @@ class CmdSheet(ArxPlayerCommand):
                 display_secrets(caller, charob)
                 return
             if 'visions' in switches or 'vision' in switches:
-                display_visions(caller, charob)
+                self.display_visions(charob)
                 return
-            if 'storyrequest' in switches or 'storyrequests' in switches:
-                self.display_storyrequests(charob)
+            if 'actions' in switches or 'storyrequests' in switches:
+                self.display_storyactions(charob)
                 return
         if 'social' in switches or 'background' in switches or 'info' in switches or 'personality' in switches:
             charob, show_hidden = self.get_character()
@@ -1218,6 +1132,111 @@ class CmdSheet(ArxPlayerCommand):
         caller.msg("Usage: @sheet/switches <character>")
         return
 
+    def get_character(self, check_storyactions=False):
+        """
+        Gets character and whether we have permission to view.
+
+        Returns:
+            charob, show_hidden: tuple of Character and bool. Character is who we're viewing,
+                the bool is whether we're allowed to view.
+        """
+        caller = self.caller
+        args = self.lhs
+        show_hidden = False
+        if caller.check_permstring("builders"):
+            show_hidden = True
+        my_char = caller.db.char_ob if not caller.is_guest() else caller.db.char
+        if not args or args.isdigit():
+            charob = my_char
+            show_hidden = True
+        else:
+            playob = caller.search(args)
+            if not playob:
+                caller.msg("No character found by that name.")
+                return None, False
+            charob = playob.db.char_ob
+        if not charob:
+            caller.msg("No character found to @sheet.")
+            return None, False
+        if my_char == charob:
+            return charob, True
+        if check_storyactions:
+            return charob, show_hidden
+        try:
+            r_name = charob.roster.roster.name
+        except AttributeError:
+            self.msg("That character cannot be viewed.")
+            return None, False
+        if r_name not in ("Active", "Available", "Gone") and not show_hidden:
+            caller.msg("That character is an npc and cannot be viewed.")
+            return None, False
+        return charob, show_hidden
+
+    def display_storyactions(self, charob):
+        """
+        Displays a list of story actions or body of specified request
+
+            Args:
+                charob (ObjectDB): Character object to retrieve requests from
+        """
+        player = charob.player_ob
+        # Get storyrequests from this player object
+        actions = player.past_participated_actions
+        # check self.rhs - if not self.rhs, list # of all of them
+        action_num = self.get_num_from_args()
+        if not action_num:
+            table = prettytable.PrettyTable(["{wID", "{wSubmitting Player", "{wTopic{n", "{wCrisis{n"])
+            for ob in actions:
+                table.add_row([str(ob.id), str(ob.author), str(ob.topic), str(ob.crisis)])
+            # send table to player and return
+            self.msg("%s" % table)
+            return
+        # have self.rhs: get storyrequest, print its display().
+        from world.dominion.models import CrisisAction
+        try:
+            action = actions.get(id=action_num)
+        except (CrisisAction.DoesNotExist, ValueError):
+            self.msg("No Story Action matches that ID #.")
+        else:
+            self.msg(action.view_action(caller=self.caller, disp_pending=False, disp_old=False, disp_ooc=False))
+
+    def display_visions(self, character):
+        """
+        Displays a list of visions or body of specified request.
+
+        Args:
+            character (ObjectDB): Character object to look at visions for
+        """
+        visions = character.messages.visions
+        self.msg("{wVisions experienced by %s" % character.key)
+        if not visions:
+            self.msg("No visions to display.")
+            return
+        vision_num = self.get_num_from_args()
+        if not vision_num:
+            table = prettytable.PrettyTable(["{w#", "{wDate", "{wBegins with:"])
+            for num, ob in enumerate(visions, start=1):
+                table.add_row([num, ob.ic_date, ob.db_message[:50]])
+            self.msg(str(table))
+        else:
+            try:
+                vision = visions[int(vision_num) - 1]
+            except (TypeError, ValueError, IndexError):
+                self.msg("You must enter a number between 1 and %s." % len(visions))
+            else:
+                self.msg(character.messages.disp_entry(vision))
+
+    def get_num_from_args(self):
+        """
+        Gets the string that should have our number. If we only have one thing and it's a number,
+        return that. Otherwise, return self.rhs.
+        Returns:
+            The string that should hold the number, or None if no matches.
+        """
+        if self.lhs and self.lhs.isdigit():
+            return self.lhs
+        return self.rhs
+
 
 class CmdRelationship(ArxPlayerCommand):
     """
@@ -1311,11 +1330,11 @@ class CmdRelationship(ArxPlayerCommand):
             if not rels:
                 caller.msg("No relationships found.")
             else:
-                caller.msg("{w%s has relationships with the following characters:{n" % charob)
+                caller.msg("{w%s has relationships with the following characters:{n" % charob.key)
                 caller.msg("{w--------------------------------------------{n")
                 disp = ", ".join(key for key in sorted(rels.keys()))
                 caller.msg(disp)
-                caller.msg("To see the individual relationships, use {w@relationship %s=<name>{n" % charob)
+                caller.msg("To see the individual relationships, use {w@relationship %s=<name>{n" % charob.key)
             caller.msg("\nSocial information for %s:" % charob.key)
             caller.execute_cmd("@sheet/social %s" % charob.key)
             return

@@ -69,7 +69,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     def languages(self):
         return LanguageHandler(self)
 
-    def at_after_move(self, source_location):
+    def at_after_move(self, source_location, **kwargs):
         """
         Hook for after movement. Look around, with brief determining how much detail we get.
         :param source_location: Room
@@ -100,6 +100,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             self.stop_follow()
         if self.db.room_title:
             self.attributes.remove("room_title")
+        if self.combat.combat and self in self.combat.combat.ndb.observers:
+            self.combat.combat.remove_observer(self)
 
     def return_appearance(self, pobject, detailed=False, format_desc=False, show_contents=False):
         """
@@ -467,6 +469,14 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     
     dmg = property(_get_current_damage, _set_current_damage)
 
+    @property
+    def xp(self):
+        return self.db.xp or 0
+
+    @xp.setter
+    def xp(self, value):
+        self.db.xp = value
+
     def adjust_xp(self, value):
         """
         Spend or earn xp. Total xp keeps track of all xp we've earned on this
@@ -476,8 +486,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         """
         if not self.db.total_xp:
             self.db.total_xp = 0
-        if not self.db.xp:
-            self.db.xp = 0
+        if not self.xp:
+            self.xp = 0
         if value > 0:
             self.db.total_xp += value
             try:
@@ -485,10 +495,10 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             except (AttributeError, ValueError, TypeError):
                 pass
         else:
-            if self.db.xp < abs(value):
+            if self.xp < abs(value):
                 raise ValueError("Bad value passed to adjust_xp -" +
                                  " character did not have enough xp to pay for the value.")
-        self.db.xp += value
+        self.xp += value
 
     def follow(self, targ):
         if not targ.ndb.followers:
@@ -737,7 +747,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             if docked_location and docked_location == self.location:
                 guard.summon()
 
-    def at_post_unpuppet(self, player, session=None):
+    def at_post_unpuppet(self, player, session=None, **kwargs):
         """
         We stove away the character when the player goes ooc/logs off,
         otherwise the character object will remain in the room also after the
@@ -793,7 +803,19 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     def posecount(self, val):
         self.db.pose_count = val
 
-    def announce_move_from(self, destination, msg=None, mapping=None):
+    @property
+    def previous_posecount(self):
+        return self.db.previous_posecount or 0
+
+    @previous_posecount.setter
+    def previous_posecount(self, val):
+        self.db.previous_posecount = val
+
+    @property
+    def total_posecount(self):
+        return self.posecount + self.previous_posecount
+
+    def announce_move_from(self, destination, msg=None, mapping=None, **kwargs):
         """
         Called if the move is to be announced. This is
         called while we are still standing in the old
@@ -821,7 +843,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
                 string = format_string(obj)
                 obj.msg(string)
 
-    def announce_move_to(self, source_location, msg=None, mapping=None):
+    def announce_move_to(self, source_location, msg=None, mapping=None, **kwargs):
         """
         Called after the move if the move was not quiet. At this point
         we are standing in the new location.
@@ -972,7 +994,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             return False
         return True
 
-    def post_training(self, trainer, trainer_msg="", targ_msg=""):
+    def post_training(self, trainer, trainer_msg="", targ_msg="", **kwargs):
         """
         Handles bookkeeping after this character is trained.
 
@@ -1038,3 +1060,21 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     @player.setter
     def player(self, value):
         self.account = value
+        
+    @property
+    def past_actions(self):
+        return self.player_ob.past_actions
+
+    @property
+    def past_participated_actions(self):
+        return self.player_ob.past_participated_actions
+
+    @property
+    def recent_storyactions(self):
+        return self.player_ob.recent_storyactions
+
+    @property
+    def skills(self):
+        if self.db.skills is None:
+            self.db.skills = {}
+        return self.db.skills

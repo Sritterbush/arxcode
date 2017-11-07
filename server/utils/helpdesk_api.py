@@ -72,15 +72,6 @@ def add_followup(caller, ticket, message, mail_player=True):
     return True
 
 
-def do_check(caller, ticket, stat, skill, difficulty, char):
-    from world.stats_and_skills import do_dice_check
-    result = do_dice_check(char, stat=stat, skill=skill, difficulty=difficulty)
-    msg = "%s has called for %s to check %s + %s at difficulty %s.\n" % (caller, char, stat, skill, difficulty)
-    msg += "The result is %s. A positive number is a success, a negative number is a failure." % result
-    if add_followup(caller, ticket, msg):
-        return msg
-
-
 def resolve_ticket(caller, ticket_id, message):
     """
     Closes ticket.
@@ -98,7 +89,14 @@ def resolve_ticket(caller, ticket_id, message):
     except Exception as err:
         inform_staff("ERROR: Error when attempting to close ticket: %s" % err)
         return False
-    inform_staff("{w[Requests]{n: %s has closed ticket %s: %s" % (caller.key, ticket_id, message))
+    if ticket.queue.slug in ('Code', 'Bugs', 'Typo'):
+        post = False
+        subject = None
+    else:
+        subject = "%s %s closed" % (ticket.queue.slug, ticket.id)
+        post = "{wPlayer:{n %s\n%s" % (ticket.submitting_player, ticket.request_and_response_body())
+    inform_staff("{w[Requests]{n: %s has closed ticket %s: %s" % (caller.key, ticket_id, message),
+                 post=post, subject=subject)
     header = "Your ticket has been closed by %s.\n\n" % caller.key
     mail_update(ticket, message, header)
     return True

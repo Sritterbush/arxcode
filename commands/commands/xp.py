@@ -267,7 +267,7 @@ class CmdTrain(ArxCommand):
         train/stat  <trainee>=<stat>
         train/skill <trainee>=<skill>
         train/ability <trainee>=<ability>
-        train/retainer <owner>=<npc name or ID number>
+        train/retainer <owner>=<npc name or ID number>[, additional AP]
 
     Allows you to flag a character as being trained with you, imparting a
     temporary xp cost reduction to the appropriate stat or skill. This bonus
@@ -280,6 +280,9 @@ class CmdTrain(ArxCommand):
 
     Action points used for training is 100 - 15 * skill, where skill is the
     higher of animal ken or teaching.
+
+    Additional AP can be spent when training a retainer to lower the chance
+    of failure.
     """
     key = "train"
     aliases = ["+train", "teach", "+teach"]
@@ -289,11 +292,14 @@ class CmdTrain(ArxCommand):
     def get_help(self, caller, cmdset):
         if caller.db.char_ob:
             caller = caller.db.char_ob
-        msg = self.__doc__ + "\n\nYou can train {w%s{n people per week." % self.max_trainees(caller)
         trained = ", ".join(ob.key for ob in self.currently_training(caller))
         if trained:
-            msg += "\nYou have trained %s this week." % trained
-        msg += "\nYour current cost to train another character is {w%s{n AP." % self.action_point_cost(caller)
+            trained = "You have trained %s this week. " % trained
+        msg = self.__doc__ + """
+
+    You can train {w%s{n people per week.
+    %sYour current cost to train another character is {w%s{n AP.
+    """ % (self.max_trainees(caller), trained, self.action_point_cost(caller))
         return msg
 
     def max_trainees(self, character):
@@ -331,8 +337,8 @@ class CmdTrain(ArxCommand):
             character.db.currently_training = []
         return character.db.currently_training
 
-    def pay_ap_cost(self, character):
-        cost = self.action_point_cost(character)
+    def pay_ap_cost(self, character, additional_cost=0):
+        cost = self.action_point_cost(character) + additional_cost
         if not cost:
             return True
         if not character.ndb.training_cost_confirmation:
@@ -372,18 +378,28 @@ class CmdTrain(ArxCommand):
         if not self.lhs or not self.rhs or not self.switches:
             caller.msg("Usage: train/[stat or skill] <character to train>=<name of stat or skill to train>")
             return
+        additional_cost = 0
         if "retainer" in self.switches:
             player = caller.player.search(self.lhs)
             from world.dominion.models import Agent
+            if len(self.rhslist) < 2:
+                rhs = self.rhs
+            else:
+                rhs = self.rhslist[0]
+                try:
+                    additional_cost = int(self.rhslist[1])
+                except ValueError:
+                    self.msg("Additional AP must be a number.")
+                    return
             try:
-                if self.rhs.isdigit():
-                    targ = player.retainers.get(id=self.rhs).dbobj
+                if rhs.isdigit():
+                    targ = player.retainers.get(id=rhs).dbobj
                 else:
-                    targ = player.retainers.get(name__iexact=self.rhs).dbobj
+                    targ = player.retainers.get(name__iexact=rhs).dbobj
                 if not targ or not targ.pk:
                     raise Agent.DoesNotExist
             except (Agent.DoesNotExist, AttributeError):
-                self.msg("Could not find %s's retainer named %s." % (player, self.rhs))
+                self.msg("Could not find %s's retainer named %s." % (player, rhs))
                 return
             caller_msg = "You have trained %s." % targ
             targ_msg = ""
@@ -425,9 +441,9 @@ class CmdTrain(ArxCommand):
             targ_msg = "%s has provided you training, helping you increase your %s." % (caller.name, self.rhs)
         if not targ.can_be_trained_by(caller):
             return
-        if not self.pay_ap_cost(caller):
+        if not self.pay_ap_cost(caller, additional_cost):
             return
-        targ.post_training(caller, trainer_msg=caller_msg, targ_msg=targ_msg)
+        targ.post_training(caller, trainer_msg=caller_msg, targ_msg=targ_msg, ap_spent=additional_cost)
         return
          
         

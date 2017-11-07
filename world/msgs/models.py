@@ -144,6 +144,11 @@ class MarkReadMixin(object):
             fake_name = "%s {w(%s){n" % (fake_name, real_name)
         return fake_name
 
+    @property
+    def ic_date(self):
+        header = self.parse_header()
+        return header.get('date', None) or ""
+
 
 # different proxy classes for Msg objects
 class Journal(MarkReadMixin, Msg):
@@ -174,7 +179,7 @@ class Journal(MarkReadMixin, Msg):
 
     def __str__(self):
         relationship = self.relationship
-        rel_txt = " on %s" % relationship if relationship else ""
+        rel_txt = " on %s" % relationship.key if relationship else ""
         return "<Journal written by %s%s>" % (self.writer, rel_txt)
 
     def tag_favorite(self, player):

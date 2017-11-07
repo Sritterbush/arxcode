@@ -108,7 +108,7 @@ def display_org(request, object_id):
                 raise Exception()
             if not user.is_staff:
                 try:
-                    rank_display = user.Dominion.memberships.get(organization=org).rank
+                    rank_display = user.Dominion.memberships.get(organization=org, deguilded=False).rank
                 except (Member.DoesNotExist, AttributeError):
                     rank_display = 11
                 show_secret = rank_display
@@ -116,7 +116,7 @@ def display_org(request, object_id):
             raise Http404("You cannot view this page.")
     elif not user.is_staff:
         try:
-            show_secret = user.Dominion.memberships.get(organization=org).rank
+            show_secret = user.Dominion.memberships.get(organization=org, deguilded=False).rank
         except (Member.DoesNotExist, AttributeError):
             show_secret = 11
     try:

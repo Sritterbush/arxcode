@@ -254,6 +254,17 @@ class CombatHandler(object):
         except AttributeError:
             armor_penalty = 0
         fdiff += armor_penalty
+        diff_mod = "{g%s{n" % self.difficulty_mod if self.difficulty_mod < 0 else "{r%s{n" % self.difficulty_mod
+        atk_penalty = self.atk_penalties
+        if atk_penalty < 0:
+            atk_modifier_string = "Attack Roll Bonus: {g%s{n" % abs(atk_penalty)
+        else:
+            atk_modifier_string = "Attack Roll Penalty: {r%s{n" % abs(atk_penalty)
+        def_penalty = self.def_penalties
+        if def_penalty < 0:
+            def_modifier_string = "Defense Roll Bonus: {g%s{n" % abs(def_penalty)
+        else:
+            def_modifier_string = "Defense Roll Penalty: {r%s{n" % abs(def_penalty)
         smsg = \
             """
                     {wStatus{n
@@ -274,14 +285,14 @@ class CombatHandler(object):
 {wWeapon Damage:{n %(weapon_damage)-17s {wFlat Damage Bonus:{n %(flat)s
 {wAttack Stat:{n %(astat)-19s {wDamage Stat:{n %(dstat)-20s
 {wAttack Skill:{n %(askill)-18s {wAttack Type:{n %(atype)-20s
-{wDifficulty Mod:{n %(dmod)-16s {wCan Be Parried:{n %(bparried)-20s
+{wDifficulty Mod:{n %(dmod)-20s {wCan Be Parried:{n %(bparried)-20s
 {wCan Be Blocked:{n %(bblocked)-16s {wCan Be Dodged:{n %(bdodged)-20s
-{wAttack Roll Penalties:{n %(atkpen)-20s
+{w%(atkmodstring)-20s
            """ % {'weapon': weapon, 'weapon_damage': self.weapon_damage, 'astat': self.attack_stat,
                   'dstat': self.damage_stat, 'askill': self.attack_skill, 'atype': self.attack_type,
-                  'dmod': self.difficulty_mod, 'bparried': self.can_be_parried,
+                  'dmod': diff_mod, 'bparried': self.can_be_parried,
                   'bblocked': self.can_be_blocked, 'bdodged': self.can_be_dodged,
-                  'flat': self.flat_damage_bonus, 'atkpen': self.atk_penalties
+                  'flat': self.flat_damage_bonus, 'atkmodstring': atk_modifier_string,
                   }
         try:
             armor = self.char.armor
@@ -294,8 +305,8 @@ class CombatHandler(object):
 {wMitigation:{n %(mit)-20s {wPenalty to Fatigue Rolls:{n %(apen)s
 {wCan Parry:{n %(cparry)-21s {wCan Riposte:{n %(criposte)s
 {wCan Block:{n %(cblock)-21s {wCan Dodge:{n %(cdodge)s
-{wDefense Roll Penalties:{n %(defpen)-8s {wSoak Rating:{n %(soak)s""" % {
-                'mit': armor, 'defpen': self.def_penalties,
+{w%(defmodstring)-36s {wSoak Rating:{n %(soak)s""" % {
+                'mit': armor, 'defmodstring': def_modifier_string,
                 'apen': armor_penalty, 'cparry': self.can_parry,
                 'criposte': self.can_riposte, 'cblock': self.can_block,
                 'cdodge': self.can_dodge, 'soak': self.soak}

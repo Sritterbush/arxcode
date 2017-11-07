@@ -31,7 +31,7 @@ def setup_dom_for_player(player):
 def setup_assets(dompc, amt):
     if hasattr(dompc, 'assets'):
         return
-    AssetOwner.objects.create(player=dompc, vault=amt)
+    return AssetOwner.objects.create(player=dompc, vault=amt)
 
 
 def starting_money(srank):

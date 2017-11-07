@@ -247,6 +247,17 @@ class Chapter(SharedMemoryModel):
     def __str__(self):
         return self.name or "Chapter object"
 
+    @property
+    def public_crises(self):
+        return self.crises.filter(public=True)
+
+    def crises_viewable_by_user(self, user):
+        if not user or not user.is_authenticated():
+            return self.public_crises
+        if user.is_staff or user.check_permstring("builders"):
+            return self.crises.all()
+        return self.crises.filter(Q(public=True) | Q(required_clue__discoveries__in=user.roster.discovered_clues))
+
 
 class Episode(SharedMemoryModel):
     name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
@@ -258,6 +269,18 @@ class Episode(SharedMemoryModel):
 
     def __str__(self):
         return self.name or "Episode object"
+
+    @property
+    def public_crisis_updates(self):
+        return self.crisis_updates.filter(crisis__public=True)
+
+    def get_viewable_crisis_updates_for_player(self, player):
+        if not player or not player.is_authenticated():
+            return self.public_crisis_updates
+        if player.is_staff or player.check_permstring("builders"):
+            return self.crisis_updates.all()
+        return self.crisis_updates.filter(Q(crisis__public=True) | Q(
+            crisis__required_clue__discoveries__in=player.roster.discovered_clues)).distinct()
 
 
 class StoryEmit(SharedMemoryModel):
@@ -407,8 +430,35 @@ class RPScene(SharedMemoryModel):
         default - what to return if no lock of access_type was found
         """
         return self.locks.check(accessing_obj, access_type=access_type, default=default)
+        
 
-
+class AbstractPlayerAllocations(SharedMemoryModel):
+    UNSET_ROLL = -9999
+    topic = models.CharField(blank=True, max_length=255, help_text="Keywords or tldr or title")
+    actions = models.TextField(blank=True, help_text="The writeup the player submits of their actions, used for GMing.")
+    stat_used = models.CharField(blank=True, max_length=80, default="perception",
+                                 help_text="The stat the player chose to use")
+    skill_used = models.CharField(blank=True, max_length=80, default="investigation",
+                                  help_text="The skill the player chose to use")
+    silver = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Additional silver added by the player")
+    economic = models.PositiveSmallIntegerField(default=0, blank=0,
+                                                help_text="Additional economic resources added by the player")
+    military = models.PositiveSmallIntegerField(default=0, blank=0,
+                                                help_text="Additional military resources added by the player")
+    social = models.PositiveSmallIntegerField(default=0, blank=0,
+                                              help_text="Additional social resources added by the player")
+    action_points = models.PositiveSmallIntegerField(default=0, blank=0,
+                                                     help_text="How many action points spent by player/assistants.")
+    roll = models.SmallIntegerField(default=UNSET_ROLL, blank=True, help_text="Current dice roll")
+    
+    class Meta:
+        abstract = True
+        
+    @property
+    def roll_is_set(self):
+        return self.roll != self.UNSET_ROLL
+        
+    
 class Mystery(SharedMemoryModel):
     name = models.CharField(max_length=255, db_index=True)
     desc = models.TextField("Description", help_text="Description of the mystery given to the player " +
@@ -687,7 +737,7 @@ class ClueDiscovery(SharedMemoryModel):
             for mystery in mysteries:
                 msg += "\nYou have also discovered a mystery: %s\n%s" % (str(mystery), mystery.desc)
                 message = "Your uncovered a mystery after learning a clue from %s!" % self.character,
-                MysteryDiscovery.objects.create(character=self.character,
+                MysteryDiscovery.objects.create(character=entry,
                                                 message=message,
                                                 mystery=mystery, date=datetime.now())
         pc.inform(msg, category="Investigations", append=False)
@@ -725,6 +775,13 @@ class InvestigationAssistant(SharedMemoryModel):
     def __str__(self):
         return "%s helping: %s" % (self.char, self.investigation)
 
+    @property
+    def helper_name(self):
+        name = self.char.key
+        if hasattr(self.char, "owner"):
+            name += " (%s)" % self.char.owner
+        return name
+
     def shared_discovery(self, clue):
         self.currently_helping = False
         self.save()
@@ -743,10 +800,9 @@ class InvestigationAssistant(SharedMemoryModel):
                 return self.char.owner.player.player.roster
             except AttributeError:
                 pass
-        
 
-class Investigation(SharedMemoryModel):
-    UNSET_ROLL = -9999
+
+class Investigation(AbstractPlayerAllocations):
     character = models.ForeignKey('RosterEntry', related_name="investigations", db_index=True)
     ongoing = models.BooleanField(default=True, help_text="Whether this investigation is finished or not",
                                   db_index=True)
@@ -758,22 +814,6 @@ class Investigation(SharedMemoryModel):
                                help_text="The text to send the player, either set by GM or generated automatically " +
                                "by script if automate_result is set.")
     clue_target = models.ForeignKey('Clue', blank=True, null=True)
-    actions = models.TextField(blank=True, help_text="The writeup the player submits of their actions, used for GMing.")
-    topic = models.CharField(blank=True, max_length=255, help_text="Keyword to try to search for clues against")
-    stat_used = models.CharField(blank=True, max_length=80, default="perception",
-                                 help_text="The stat the player chose to use")
-    skill_used = models.CharField(blank=True, max_length=80, default="investigation",
-                                  help_text="The skill the player chose to use")
-    silver = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Additional silver added by the player")
-    economic = models.PositiveSmallIntegerField(default=0, blank=0,
-                                                help_text="Additional economic resources added by the player")
-    military = models.PositiveSmallIntegerField(default=0, blank=0,
-                                                help_text="Additional military resources added by the player")
-    social = models.PositiveSmallIntegerField(default=0, blank=0,
-                                              help_text="Additional social resources added by the player")
-    action_points = models.PositiveSmallIntegerField(default=0, blank=0,
-                                                     help_text="How many action points spent by player/assistants.")
-    roll = models.SmallIntegerField(default=UNSET_ROLL, blank=True, help_text="Current roll for investigation.")
 
     def __str__(self):
         return "%s's investigation on %s" % (self.character, self.topic)
@@ -791,7 +831,7 @@ class Investigation(SharedMemoryModel):
         msg += "{wSkill used{n: %s\n" % self.skill_used
         for assistant in self.active_assistants:
             msg += "{wAssistant:{n %s {wStat:{n %s {wSkill:{n %s {wActions:{n %s\n" % (
-                assistant.char, assistant.stat_used, assistant.skill_used, assistant.actions)
+                assistant.helper_name, assistant.stat_used, assistant.skill_used, assistant.actions)
         return msg
 
     def gm_display(self):
@@ -1099,8 +1139,8 @@ class Theory(SharedMemoryModel):
     """
     creator = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="created_theories", blank=True, null=True,
                                 db_index=True)
-    known_by = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="known_theories", blank=True, null=True)
-    can_edit = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="editable_theories", blank=True, null=True)
+    known_by = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="known_theories", blank=True, null=True,
+                                      through="TheoryPermissions")
     topic = models.CharField(max_length=255, blank=True, null=True)
     desc = models.TextField(blank=True, null=True)
     related_clues = models.ManyToManyField("Clue", related_name="theories", blank=True, null=True, db_index=True)
@@ -1120,6 +1160,42 @@ class Theory(SharedMemoryModel):
         msg += "{wDesc{n: %s\n" % self.desc
         msg += "{wRelated Theories{n: %s\n" % ", ".join(str(ob.id) for ob in self.related_theories.all())
         return msg
+
+    def share_with(self, player):
+        permission, _ = self.theory_permissions.get_or_create(player=player)
+
+    def forget_by(self, player):
+        permission = self.theory_permissions.filter(player=player)
+        permission.delete()
+
+    def add_editor(self, player):
+        permission, _ = self.theory_permissions.get_or_create(player=player)
+        permission.can_edit = True
+        permission.save()
+
+    def remove_editor(self, player):
+        """
+        Removes a player as an editor if they already were one.
+        Args:
+            player: Player to stop being an editor
+        """
+        # if they're not an editor, we don't create a theory_permission for them, since that would share theory
+        try:
+            permission = self.theory_permissions.get(player=player)
+            permission.can_edit = False
+            permission.save()
+        except TheoryPermissions.DoesNotExist:
+            pass
+
+    @property
+    def can_edit(self):
+        return self.known_by.filter(theory_permissions__can_edit=True)
+
+
+class TheoryPermissions(SharedMemoryModel):
+    player = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="theory_permissions")
+    theory = models.ForeignKey("Theory", related_name="theory_permissions")
+    can_edit = models.BooleanField(default=False)
 
 
 def get_keywords_from_topic(topic):

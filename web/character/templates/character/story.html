@@ -36,6 +36,19 @@
         </ul>
         {% endif %}
         {% endwith %}
+        {% with crises=chapter.crises.all %}
+            {% if crises %}
+                <h2 class="text-center">Crises</h2>
+                <ul class="list-inline text-center">
+                {% for crisis in crises %}
+                    {% if crisis in viewable_crises %}
+                    <li><a href="{% url 'dominion:display_crisis' crisis.id %}">{{ crisis.name }}</a></li>
+                    {% endif %}
+                {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
     </div>
     {% endfor %}
 </div>

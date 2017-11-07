@@ -96,11 +96,11 @@ def cls_from_str(name_str):
         if cls.name.lower() == name_str:
             return cls
             
+
 def print_unit_names():
     return ", ".join(cls.name for cls in _UNIT_TYPES.values())
 
 
-@register_unit
 class UnitStats(PositionActor):
     """
     Contains all the stats for a military unit.
@@ -479,6 +479,22 @@ class Galley(UnitStats):
     structure_damage_multiplier = 20
     hiring_cost = 500
     xp_cost_multiplier = 50
+
+
+@register_unit
+class Cog(UnitStats):
+    id = unit_constants.COG
+    name = "Cogs"
+    silver_upkeep = 500
+    food_upkeep = 120
+    movement = 6
+    melee_damage = 700
+    range_damage = 2000
+    hp = 5000
+    environment = "naval"
+    strategic_speed = 12
+    hiring_cost = 1000
+    xp_cost_multiplier = 75
 
 
 @register_unit

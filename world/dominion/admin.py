@@ -5,7 +5,7 @@ from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister
                      CraftingRecipe, CraftingMaterialType, CraftingMaterials, CrisisActionAssistant,
                      RPEvent, AccountTransaction, AssignedTask, Crisis, CrisisAction, CrisisUpdate,
                      OrgRelationship, Reputation, TaskSupporter, InfluenceCategory,
-                     Renown, SphereOfInfluence, TaskRequirement, ClueForOrg)
+                     Renown, SphereOfInfluence, TaskRequirement, ClueForOrg, ActionOOCQuestion)
 
 
 class DomAdmin(admin.ModelAdmin):
@@ -263,39 +263,84 @@ class TaskAdmin(DomAdmin):
 class CrisisUpdateInline(admin.TabularInline):
     model = CrisisUpdate
     extra = 0
+    raw_id_fields = ('episode',)
 
 
 class CrisisAdmin(DomAdmin):
     list_display = ('id', 'name', 'desc', 'end_date')
     filter_horizontal = ['orgs']
+    raw_id_fields = ('required_clue', 'parent_crisis')
     inlines = (CrisisUpdateInline,)
 
 
-class CrisisActionAssistantInline(admin.TabularInline):
+class CrisisActionAssistantInline(admin.StackedInline):
     model = CrisisActionAssistant
     extra = 0
     raw_id_fields = ('crisis_action', 'dompc',)
+    readonly_fields = ('ooc_intent',)
+    fieldsets = [(None, {'fields': [('dompc', 'topic')]}),
+                 ('Status', {'fields': [('editable', 'attending', 'traitor')], 'classes': ['collapse']}),
+                 ('Story', {'fields': ['actions', 'secret_actions', 'ooc_intent'], 'classes': ['collapse']}),
+                 ('Roll', {'fields': [('stat_used', 'skill_used', 'roll')], 'description': 'Stuff for roll and result',
+                           'classes': ['collapse']}),
+                 ('Resources', {'fields': ['silver', ('action_points', 'social'), ('military', 'economic')],
+                                'classes': ['collapse']})
+                 ]
 
 
 class CrisisArmyOrdersInline(admin.TabularInline):
     model = Orders
     show_change_link = True
     extra = 0
-    raw_id_fields = ('army',)
+    raw_id_fields = ('army', 'target_land', 'assisting', 'action_assist')
     exclude = ('target_domain', 'target_character', 'type', 'week',)
+    readonly_fields = ('troops_sent',)
+    fieldsets = [
+        ('Troops', {'fields': ['army', 'troops_sent']}),
+        ('Costs', {'fields': ['coin_cost', 'food_cost']})
+    ]
+    
+    
+class ActionOOCQuestionInline(admin.StackedInline):
+    model = ActionOOCQuestion
+    extra = 0
+    readonly_fields = ('text_of_answers',)
+    raw_id_fields = ('action_assist',)
+    
+    def get_queryset(self, request):
+        qs = super(ActionOOCQuestionInline, self).get_queryset(request)
+        return qs.filter(is_intent=False)
+        
+    fieldsets = [
+        (None, {'fields': ['action', ('action_assist', 'is_intent')]}),
+        ('Q&A', {'fields': ['text', 'text_of_answers'], 'classes': ['collapse']})]
 
 
 class CrisisActionAdmin(DomAdmin):
-    list_display = ('id', 'crisis', 'dompc', 'player_action', 'week', 'sent')
+    list_display = ('id', 'dompc', 'crisis', 'player_action', 'week', 'status')
     search_fields = ('crisis__name', 'dompc__player__username')
-    list_filter = ('sent', 'crisis')
-    raw_id_fields = ('dompc',)
-    inlines = (CrisisActionAssistantInline, CrisisArmyOrdersInline)
+    list_filter = ('crisis', 'status')
+    raw_id_fields = ('dompc', 'gemit', 'gm', 'crisis', 'update',)
+    readonly_fields = ('ooc_intent',)
+    fieldsets = [(None, {'fields': [('dompc', 'topic')]}),
+                 ('Status', {'fields': [('attending', 'traitor', 'prefer_offscreen'), ('status', 'public', 'editable'),
+                                        ('crisis', 'update', 'gemit'), ('week', 'public', 'date_submitted')],
+                             'classes': ['collapse'], 'description': 'Current ooc status of the action'}),
+                 ('Story', {'fields': [('topic', 'category'), 'actions', 'secret_actions', 'story', 'secret_story',
+                                        'ooc_intent'],
+                            'description': "The player's story, and GM response to it.",
+                            'classes': ['collapse']}),
+                 ('Roll', {'fields': [('stat_used', 'skill_used', 'roll', 'difficulty'), 'outcome_value'],
+                           'description': 'Stuff for roll and result', 'classes': ['collapse']}),
+                 ('Resources', {'fields': ['silver', ('action_points', 'social'), ('military', 'economic')],
+                                'classes': ['collapse']})
+                 ]
+    inlines = (CrisisActionAssistantInline, CrisisArmyOrdersInline, ActionOOCQuestionInline)
 
     @staticmethod
     def player_action(obj):
         from web.help_topics.templatetags.app_filters import mush_to_html
-        return mush_to_html(obj.action)
+        return mush_to_html(obj.actions)
 
 
 class OrgRelationshipAdmin(DomAdmin):
@@ -370,7 +415,7 @@ class ArmyAdmin(DomAdmin):
 
 class OrdersAdmin(DomAdmin):
     list_display = ('id', 'army', 'type', 'action', 'complete')
-    raw_id_fields = ('assisting', 'target_land', 'target_domain', 'target_character')
+    raw_id_fields = ('army', 'action', 'action_assist', 'assisting', 'target_land', 'target_domain', 'target_character')
     list_filter = ('complete',)
 
 

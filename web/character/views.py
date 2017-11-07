@@ -2,12 +2,12 @@
 # __init__.py for character configures cloudinary
 from django.db.models import Q
 from django.http import Http404
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponseRedirect, HttpResponse
 from django.core.urlresolvers import reverse
 from typeclasses.characters import Character
 from evennia.objects.models import ObjectDB
-from world.dominion.models import Organization
+from world.dominion.models import Organization, CrisisAction
 from commands.commands import roster
 import cloudinary
 import cloudinary.uploader
@@ -25,13 +25,7 @@ from django.views.generic import ListView
 
 def get_character_from_ob(object_id):
     """Helper function to get a character, run checks, return character + error messages"""
-    character = None
-    err_message = None
-    try:
-        character = Character.objects.get(id=object_id)
-    except Character.DoesNotExist:
-        err_message = "I couldn't find a character with that ID."
-    return character, err_message
+    return get_object_or_404(Character, id=object_id)
 
 
 def comment(request, object_id):
@@ -39,9 +33,7 @@ def comment(request, object_id):
     Makes an in-game comment on a character sheet.
     """
     send_charob = request.user.db.char_ob
-    rec_charob, err = get_character_from_ob(object_id)
-    if not rec_charob:
-        raise Http404(err)
+    rec_charob = get_character_from_ob(object_id)
     comment_txt = request.POST['comment']
     roster.create_comment(send_charob, rec_charob, comment_txt)
     return HttpResponseRedirect(reverse('character:sheet', args=(object_id,)))
@@ -52,9 +44,7 @@ def sheet(request, object_id):
     Displays a character sheet, and is used as the primary
     'wiki' page for a character.
     """
-    character, err = get_character_from_ob(object_id)
-    if not character:
-        raise Http404(err)
+    character = get_character_from_ob(object_id)
     user = request.user
     show_hidden = False
     can_comment = False
@@ -97,16 +87,12 @@ def journals(request, object_id):
     """
     Displays a character's journals
     """
-    character, err = get_character_from_ob(object_id)
-    if not character:
-        raise Http404(err)
+    character = get_character_from_ob(object_id)
     user = request.user
     show_hidden = False
-
     if user.is_authenticated():
         if user.db.char_ob.id == character.id or user.check_permstring("builders"):
             show_hidden = True
-
     if not show_hidden and (hasattr(character, 'roster') and
                             character.roster.roster.name == "Unavailable"):
         from django.core.exceptions import PermissionDenied
@@ -251,9 +237,7 @@ class InactiveRosterListView(IncompleteRosterListView):
 
 def gallery(request, object_id):
     """"List photos that belong to object_id"""
-    character, err = get_character_from_ob(object_id)
-    if not character:
-        raise Http404(err)
+    character = get_character_from_ob(object_id)
     user = request.user
     can_upload = False
     if user.is_authenticated() and (user.db.char_ob == character or user.is_staff):
@@ -273,10 +257,8 @@ def gallery(request, object_id):
 
 
 def edit_photo(request, object_id):
-    character, err = get_character_from_ob(object_id)
+    character = get_character_from_ob(object_id)
     user = request.user
-    if not character:
-        raise Http404(err)
     if not (user == character.player_ob or user.is_staff):
         raise Http404("Only owners or staff may edit photos.")
     try:
@@ -294,10 +276,8 @@ def edit_photo(request, object_id):
 
 
 def delete_photo(request, object_id):
-    character, err = get_character_from_ob(object_id)
+    character = get_character_from_ob(object_id)
     user = request.user
-    if not character:
-        raise Http404(err)
     if not (user == character.player_ob or user.is_staff):
         raise Http404("Only owners or staff may delete photos.")
     try:
@@ -315,9 +295,7 @@ def select_portrait(request, object_id):
     """
     Chooses a photo as character portrait
     """
-    character, err = get_character_from_ob(object_id)
-    if not character:
-        raise Http404(err)
+    character = get_character_from_ob(object_id)
     try:
         portrait = Photo.objects.get(pk=request.POST['select_portrait'])
         height = request.POST['portrait_height']
@@ -338,9 +316,7 @@ def select_portrait(request, object_id):
 
 def upload(request, object_id):
     user = request.user
-    character, err = get_character_from_ob(object_id)
-    if not character:
-        raise Http404(err)
+    character = get_character_from_ob(object_id)
     if not user.is_authenticated() or (user.db.char_ob != character and not user.is_staff):
         raise Http404("You are not permitted to upload to this gallery.")
     unsigned = request.GET.get("unsigned") == "true"
@@ -385,9 +361,7 @@ def upload(request, object_id):
 
 @csrf_exempt
 def direct_upload_complete(request, object_id):
-    character, err = get_character_from_ob(object_id)
-    if not character:
-        raise Http404(err)
+    character = get_character_from_ob(object_id)
     owner_char = Photo(owner=character)
     form = PhotoDirectForm(request.POST, instance=owner_char)
     if form.is_valid():
@@ -415,20 +389,48 @@ class ChapterListView(ListView):
     def get_queryset(self):
         return Chapter.objects.filter(story=self.story).order_by('-start_date')
 
+    @property
+    def viewable_crises(self):
+        from world.dominion.models import Crisis
+        return Crisis.objects.viewable_by_player(self.request.user).filter(chapter__in=self.get_queryset())
+
     # noinspection PyBroadException
     def get_context_data(self, **kwargs):
         context = super(ChapterListView, self).get_context_data(**kwargs)
         story = self.story
         context['story'] = story
         context['page_title'] = str(story)
+        context['viewable_crises'] = self.viewable_crises
         context['all_stories'] = Story.objects.all().order_by('-start_date')
         return context
 
 
 def episode(request, ep_id):
-    try:
-        new_episode = Episode.objects.get(id=ep_id)
-    except Episode.DoesNotExist:
-        raise Http404
+    new_episode = get_object_or_404(Episode, id=ep_id)
+    crisis_updates = new_episode.get_viewable_crisis_updates_for_player(request.user)
     return render(request, 'character/episode.html', {'episode': new_episode,
+                                                      'updates': crisis_updates,
                                                       'page_title': str(new_episode)})
+
+
+class ActionListView(ListView):
+    model = CrisisAction
+    template_name = "character/actions.html"
+
+    @property
+    def character(self):
+        return get_object_or_404(Character, id=self.kwargs['object_id'])
+
+    def get_queryset(self):
+        qs = self.character.past_participated_actions.order_by('-date_submitted')
+        user = self.request.user
+        if not user or not user.is_authenticated():
+            return qs.filter(public=True)
+        if user.is_staff or user.check_permstring("builders") or user.char_ob == self.character:
+            return qs
+        return qs.filter(public=True)
+
+    def get_context_data(self, **kwargs):
+        context = super(ActionListView, self).get_context_data(**kwargs)
+        context['character'] = self.character
+        return context

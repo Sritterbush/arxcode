@@ -372,7 +372,7 @@ class CmdGive(ArxCommand):
             player = caller.player.search(self.rhs)
             if not player:
                 return
-            target = player.db.char_ob
+            target = player.char_ob
         else:
             target = caller.search(self.rhs)
         if not target:
@@ -433,7 +433,8 @@ class CmdGive(ArxCommand):
             target.player_ob.Dominion.assets.save()
             caller.player_ob.Dominion.assets.save()
             caller.msg("You give %s %s resources to %s." % (amount, rtype, target))
-            target.msg("%s gives %s %s resources to you." % (caller, amount, rtype))
+            target.player_ob.inform("%s has given %s %s resources to you." % (caller, amount, rtype),
+                                    category="Resources")
             return
         if args_are_currency(self.lhs):
             arglist = self.lhs.split()

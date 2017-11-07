@@ -528,20 +528,7 @@ class Ticket(SharedMemoryModel):
             A string with ansi/Evennia markup that displays appropriate ticket
             information. Not meant to be used outside of telnet.
         """
-        from server.utils.arx_utils import raw
-        def format_text(text):
-            """
-            Little helper function to return raw text if we're not a storyrequest
-            
-                Args:
-                    text (str): text to format
-                    
-                Returns:
-                    text (str): formatted text
-            """
-            if self.queue and self.queue.slug.lower() == "story":
-                return text
-            return raw(text)
+
         msg = "\n{wQueue:{n %s" % self.queue
         msg += "\n{wTicket Number:{n %s" % self.id
         if self.submitting_player:
@@ -556,14 +543,19 @@ class Ticket(SharedMemoryModel):
         if room:
             msg += "\n{wLocation:{n %s (#%s)" % (room, room.id)
         msg += "\n{wPriority:{n %s" % self.priority
-        msg += "\n{wRequest:{n %s" % format_text(self.description)
+        msg += self.request_and_response_body()
+        return msg
+
+    def request_and_response_body(self):
+        msg = "\n{wRequest:{n %s" % self.description
         if self.assigned_to:
             msg += "\n{wGM:{n %s" % self.assigned_to.key
         for followup in self.followup_set.all():
             msg += "\n{wFollowup by:{n %s" % followup.user
-            msg += "\n{wComment:{n %s" % format_text(followup.comment)
-        msg += "\n\n{wGM Resolution:{n %s" % format_text(self.resolution)
+            msg += "\n{wComment:{n %s" % followup.comment
+        msg += "\n\n{wGM Resolution:{n %s" % self.resolution
         return msg
+
 
 
 class FollowUpManager(models.Manager):

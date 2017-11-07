@@ -568,6 +568,7 @@ class CmdWhisper(ArxCommand):
                 self.msg("You posed to %s: %s" % (", ".join(received), message))
             else:
                 self.msg("You whispered to %s, %s" % (", ".join(received), message))
+        caller.posecount += 1
 
 
 class CmdPage(ArxPlayerCommand):
@@ -1059,7 +1060,7 @@ class CmdMail(ArxPlayerCommand):
         if not self.args or not self.lhs:
             caller.msg("Usage: mail[/switches] # or mail/quick [<name>/<subject>=<message>]")
             return
-        if 'delete' in switches:
+        if 'delete' in switches or 'del' in self.switches:
             try:
                 mail_number = int(self.args)
             except ValueError:
@@ -1486,7 +1487,7 @@ class CmdInform(ArxPlayerCommand):
                 return
             self.toggle_important(inform_target, inform)
             return
-        if "del" in self.switches:
+        if "del" in self.switches or "delete" in self.switches:
             if not self.check_permission(inform_target):
                 return
             for inform in informs:

@@ -9,7 +9,7 @@ from twisted.internet import reactor
 from evennia.server.sessionhandler import SESSIONS
 from evennia.utils.ansi import parse_ansi
 import traceback
-from server.utils.arx_utils import tdiff, tnow
+from server.utils.arx_utils import time_from_now, time_now
 
 LOGPATH = settings.LOG_DIR + "/rpevents/"
 GMPATH = LOGPATH + "gm_logs/"
@@ -77,7 +77,7 @@ class EventManager(Script):
         for event in upcoming:
             if event.id in self.db.active_events:
                 continue
-            diff = tdiff(event.date).total_seconds()
+            diff = time_from_now(event.date).total_seconds()
             if diff < 0:
                 self.start_event(event)
                 continue
@@ -161,7 +161,7 @@ class EventManager(Script):
                 pass
         self.db.active_events.append(event.id)
         self.db.idle_events[event.id] = 0
-        now = tnow()
+        now = time_now()
         if now < event.date:
             # if we were forced to start early, update our date
             event.date = now
@@ -283,7 +283,7 @@ class EventManager(Script):
         event.delete()
 
     def reschedule_event(self, event):
-        diff = tdiff(event.date).total_seconds()
+        diff = time_from_now(event.date).total_seconds()
         if diff < 0:
             self.start_event(event)
             return

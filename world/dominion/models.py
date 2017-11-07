@@ -66,9 +66,12 @@ from . import unit_types, unit_constants
 from .reports import WeeklyReport
 from .battle import Battle
 from .agenthandler import AgentHandler
-from server.utils.arx_utils import get_week
+from .managers import CrisisManager
+from server.utils.arx_utils import get_week, inform_staff, passthrough_properties
+from server.utils.exceptions import ActionSubmissionError, PayError
 from typeclasses.npcs import npc_types
 from typeclasses.mixins import InformMixin
+from web.character.models import AbstractPlayerAllocations
 
 # Dominion constants
 BASE_WORKER_COST = 0.10
@@ -284,6 +287,11 @@ class PlayerOrNpc(SharedMemoryModel):
         org_ids = self.memberships.filter(deguilded=False, secret=False).values_list('organization', flat=True)
         return Organization.objects.filter(id__in=org_ids, secret=False)
 
+    @property
+    def secret_orgs(self):
+        secret_ids = self.memberships.filter(deguilded=False, secret=True).values_list('organization', flat=True)
+        return Organization.objects.filter(Q(secret=True) | Q(id__in=secret_ids)).distinct()
+
     def pay_lifestyle(self, report=None):
         try:
             assets = self.assets
@@ -379,7 +387,7 @@ class PlayerOrNpc(SharedMemoryModel):
 
     def get_absolute_url(self):
         try:
-            return self.player.db.char_ob.get_absolute_url()
+            return self.player.char_ob.get_absolute_url()
         except AttributeError:
             pass
 
@@ -388,6 +396,19 @@ class PlayerOrNpc(SharedMemoryModel):
         week = get_week()
         if player:
             player.inform(text, category=category, week=week, append=append)
+
+    @property
+    def recent_storyactions(self):
+        from datetime import timedelta
+        offset = timedelta(days=-CrisisAction.num_days)
+        old = datetime.now() + offset
+        return self.actions.filter(Q(date_submitted__gte=old) & 
+                                   ~Q(status__in=(CrisisAction.CANCELLED, CrisisAction.DRAFT)) &
+                                   Q(crisis__isnull=True))
+        
+    @property
+    def past_actions(self):
+        return self.actions.filter(status=CrisisAction.PUBLISHED)
 
 
 class AssetOwner(SharedMemoryModel):
@@ -1610,6 +1631,7 @@ class Crisis(SharedMemoryModel):
     end_date = models.DateTimeField(blank=True, null=True)
     chapter = models.ForeignKey('character.Chapter', related_name="crises", blank=True, null=True,
                                 on_delete=models.SET_NULL)
+    objects = CrisisManager()
 
     class Meta:
         """Define Django meta options"""
@@ -1621,12 +1643,13 @@ class Crisis(SharedMemoryModel):
     @property
     def time_remaining(self):
         now = datetime.now()
-        if self.end_date > now:
+        if self.end_date and self.end_date > now:
             return self.end_date - now
 
     @property
     def rating(self):
-        return self.escalation_points - sum(ob.outcome_value for ob in self.actions.filter(sent=True))
+        return self.escalation_points - sum(ob.outcome_value for ob in self.actions.filter(
+            status=CrisisAction.PUBLISHED))
 
     def display(self):
         msg = "\n{wName:{n %s" % self.name
@@ -1644,6 +1667,69 @@ class Crisis(SharedMemoryModel):
         except AttributeError:
             pass
         return msg
+        
+    def check_taken_action(self, dompc):
+        """Whether player has submitted action for the current crisis update."""
+        return self.actions.filter(Q(dompc=dompc) & Q(update__isnull=True)
+                                   & ~Q(status__in=(CrisisAction.DRAFT, CrisisAction.CANCELLED))).exists()
+        
+    def raise_submission_errors(self):
+        if self.resolved:
+            raise ActionSubmissionError("%s has been marked as resolved." % self)
+        if self.end_date and datetime.now() > self.end_date:
+            raise ActionSubmissionError("It is past the deadline for %s." % self)
+            
+    def raise_creation_errors(self, dompc):
+        self.raise_submission_errors()
+        if self.check_taken_action(dompc=dompc):
+            raise ActionSubmissionError("You have already submitted an action for this stage of the crisis.")
+            
+    def create_update(self, gemit_text, caller=None, gm_notes=None, do_gemit=True):
+        from server.utils.arx_utils import broadcast_msg_and_post
+        gm_notes = gm_notes or ""
+        from web.character.models import Episode
+        latest_episode = Episode.objects.last()
+        update = self.updates.create(date=datetime.now(), desc=gemit_text, gm_notes=gm_notes, episode=latest_episode)
+        qs = self.actions.filter(status__in=(CrisisAction.PUBLISHED, CrisisAction.PENDING_PUBLISH, 
+                                             CrisisAction.CANCELLED), update__isnull=True)
+        pending = []
+        already_published = []
+        for action in qs:
+            if action.status == CrisisAction.PENDING_PUBLISH:
+                action.send(update=update)
+                pending.append(str(action.id))
+            else:
+                action.update = update
+                action.save()
+                already_published.append(str(action.id))
+        if do_gemit:
+            broadcast_msg_and_post(gemit_text, caller, episode_name=latest_episode.name)
+        pending = "Pending actions published: %s" % ", ".join(pending)
+        already_published = "Already published actions for this update: %s" % ", ".join(already_published)
+        post = "Gemit:\n%s\nGM Notes: %s\n%s\n%s" % (gemit_text, gm_notes, pending, already_published)
+        subject = "Update for %s" % self
+        inform_staff("Crisis update posted by %s for %s:\n%s" % (caller, self, post), post=True, subject=subject)
+
+    def check_can_view(self, user):
+        if self.public:
+            return True
+        if not user or not user.is_authenticated():
+            return False
+        if user.is_staff or user.check_permstring("builders"):
+            return True
+        return self.required_clue in user.roster.discovered_clues
+
+    @property
+    def finished_actions(self):
+        return self.actions.filter(status=CrisisAction.PUBLISHED)
+
+    def get_viewable_actions(self, user):
+        if not user or not user.is_authenticated():
+            return self.finished_actions.filter(public=True)
+        if user.is_staff or user.check_permstring("builders"):
+            return self.finished_actions
+        dompc = user.Dominion
+        return self.finished_actions.filter(Q(dompc=dompc) | Q(assistants=dompc)).order_by('-date_submitted')
 
 
 class CrisisUpdate(SharedMemoryModel):
@@ -1655,142 +1741,735 @@ class CrisisUpdate(SharedMemoryModel):
     desc = models.TextField("Story of what happened this update", blank=True)
     gm_notes = models.TextField("Any ooc notes of consequences", blank=True)
     date = models.DateTimeField(blank=True, null=True)
+    episode = models.ForeignKey("character.Episode", related_name="crisis_updates", blank=True, null=True, 
+                                on_delete=models.SET_NULL)
 
     def __str__(self):
         return "Update %s for %s" % (self.id, self.crisis)
-
-
-class CrisisAction(SharedMemoryModel):
-    """
-    An action that a player is taking for the crisis.
-    """
-    week = models.PositiveSmallIntegerField(default=0, blank=0, db_index=True)
-    dompc = models.ForeignKey("PlayerOrNpc", db_index=True, blank=True, null=True, related_name="actions")
-    action = models.TextField("What actions the player is taking", blank=True)
-    secret_action = models.TextField("Secret actions the player is taking", blank=True)
-    crisis = models.ForeignKey("Crisis", db_index=True, blank=True, null=True, related_name="actions")
-    update = models.ForeignKey("CrisisUpdate", db_index=True, blank=True, null=True, related_name="actions")
-    public = models.BooleanField(default=True, blank=True)
-    rolls = models.TextField(blank=True)
-    gm_notes = models.TextField(blank=True)
-    story = models.TextField("Story written by the GM for the player", blank=True)
-    outcome_value = models.SmallIntegerField(default=0, blank=0)
-    sent = models.BooleanField(default=False, blank=True)
-    assistants = models.ManyToManyField("PlayerOrNpc", blank=True, null=True, through="CrisisActionAssistant",
-                                        related_name="assisted_actions")
-    silver = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Additional silver added by the player")
-    economic = models.PositiveSmallIntegerField(default=0, blank=0,
-                                                help_text="Additional economic resources added by the player")
-    military = models.PositiveSmallIntegerField(default=0, blank=0,
-                                                help_text="Additional military resources added by the player")
-    social = models.PositiveSmallIntegerField(default=0, blank=0,
-                                              help_text="Additional social resources added by the player")
-
-    def send(self, update):
-        msg = "{wGM Response to action for crisis:{n %s" % self.crisis
-        msg += "\n{wRolls:{n %s" % self.rolls
-        msg += "\n\n{wStory:{n %s\n\n" % self.story
-        self.update = update
-        self.dompc.player.inform(msg, category="Action", week=self.week,
-                                 append=True)
-        for assistant in self.assistants.all():
-            assistant.player.inform(msg, category="Action", week=self.week, append=True)
-        self.sent = True
-        self.save()
-
+        
+        
+class AbstractAction(AbstractPlayerAllocations):
+    NOUN = "Action"
+    BASE_AP_COST = 50
+    secret_actions = models.TextField("Secret actions the player is taking", blank=True)
+    attending = models.BooleanField(default=True)
+    traitor = models.BooleanField(default=False)
+    date_submitted = models.DateTimeField(blank=True, null=True)
+    editable = models.BooleanField(default=True)
+    resource_types = ('silver', 'military', 'economic', 'social', 'ap', 'action points', 'army')
+    
+    class Meta:
+        abstract = True
+        
     @property
-    def action_text(self):
-        msg = "\n{wAction:{n %s" % self.action
-        for ob in self.assisting_actions.all():
-            msg += "\n{c%s{n's assisting action: %s" % (ob.dompc, ob.action)
-        return msg
-
+    def submitted(self):
+        return bool(self.date_submitted)
+        
+    @property
+    def ap_refund_amount(self):
+        return self.action_points + self.BASE_AP_COST
+        
+    def pay_action_points(self, amount):
+        return self.dompc.player.pay_action_points(amount)
+        
+    def refund(self):
+        self.pay_action_points(-self.ap_refund_amount)
+        for resource in ('military', 'economic', 'social'):
+            value = getattr(self, resource)
+            if value:
+                self.dompc.player.gain_resources(resource, value)
+        if self.silver:
+            self.dompc.assets.vault += self.silver
+            self.dompc.assets.save()
+        
     def check_view_secret(self, caller):
         if not caller:
             return
-        if caller.check_permstring("builders"):
+        if caller.check_permstring("builders") or caller == self.dompc.player:
             return True
-        if caller == self.dompc.player:
-            return True
-        try:
-            ass = self.assisting_actions.get(dompc=caller.Dominion)
-            return ass.can_see_secret
-        except CrisisActionAssistant.DoesNotExist:
-            return
-
-    def view_action(self, caller=None, disp_pending=True, disp_old=False):
-        if not self.public and (not caller or (not caller.check_permstring("builders")
-                                and caller != self.dompc.player and caller.Dominion not in self.assistants.all())):
-            return ""
-        msg = "\n{c%s's {wactions in week %s for {m%s{n" % (self.dompc, self.week, self.crisis)
-        # print out non-secret actions of everyone
-        msg += self.action_text
-        # print out secret action of owner, if the caller can view it
-        if self.secret_action:
-            if self.check_view_secret(caller):
-                msg += "\n{c%s's {wsecret actions:{n %s" % (self.dompc, self.secret_action)
-        # print out secret action of each assistant, if the caller can view it
-        for ob in self.assisting_actions.all():
-            if ob.secret_action and ob.check_view_secret(caller):
-                msg += "\n{c%s's {wsecret actions:{n %s" % (ob.dompc, ob.secret_action)
-        if self.sent:
-            msg += "\n{wGM Notes:{n %s" % self.gm_notes
-            msg += "\n{wRolls:{n %s" % self.rolls
-            msg += "\n{wOutcome Value:{n %s" % self.outcome_value
-            msg += "\n{wStory:{n %s" % self.story
+    
+    def get_action_text(self, secret=False, disp_summary=False):
+        noun = self.NOUN
+        author = " by {c%s{w" % self.author
+        if secret:
+            prefix_txt = "Secret "
+            action = self.secret_actions
+            if self.traitor:
+                prefix_txt += "{rTraitorous{w "
+            suffix_txt = ":{n %s" % action
         else:
-            msg += "\n{wAdditional Action Points Spent:{n {c%s{n" % self.outcome_value
-            msg += "\n{wResources Being Used:{n {c%s{n silver, {c%s{n economic, {c%s{n military, {c%s{n social" % (
-                self.silver, self.economic, self.military, self.social)
-            orders = self.orders.all()
-            if orders:
+            prefix_txt = ""
+            action = self.actions
+            if noun == "Action":
+                noun = "%s" % self.pretty_str
+                author = ""
+            summary = ""
+            if disp_summary:
+                summary = "\n%s" % self.get_summary_text()
+            suffix_txt = "%s\n{wAction:{n %s" % (summary, action)
+        return "\n{w%s%s%s%s{n" % (prefix_txt, noun, author, suffix_txt)
+
+    def get_summary_text(self):
+        return "{wSummary:{n %s" % self.topic
+        
+    @property
+    def ooc_intent(self):
+        try:
+            return self.questions.get(is_intent=True)
+        except ActionOOCQuestion.DoesNotExist:
+            return None
+        
+    def set_ooc_intent(self, text):
+        ooc_intent = self.ooc_intent
+        if not ooc_intent:
+            self.questions.create(text=text, is_intent=True)
+        else:
+            ooc_intent.text = text
+            ooc_intent.save()
+            
+    def ask_question(self, text):
+        msg = "{c%s{n added a comment/question about Action #%s:\n%s" % (self.author, self.main_id, text)
+        inform_staff(msg)
+        if self.gm:
+            self.gm.inform(msg, category="Action questions")
+        return self.questions.create(text=text)
+        
+    @property
+    def is_main_action(self):
+        return self.NOUN == "Action"
+        
+    @property
+    def author(self):
+        return self.dompc
+    
+    def inform(self, text, category="Actions", append=False):
+        self.dompc.inform(text, category=category, append=append)
+        
+    def submit(self):
+        self.raise_submission_errors()
+        self.on_submit_success()
+        
+    def on_submit_success(self):
+        if not self.date_submitted:
+            self.date_submitted = datetime.now()
+        self.editable = False
+        self.save()
+        self.post_edit()
+        
+    def raise_submission_errors(self):
+        fields = self.check_incomplete_required_fields()
+        if fields:
+            raise ActionSubmissionError("Incomplete fields: %s" % ", ".join(fields))
+        from server.utils.arx_utils import check_break
+        if check_break():
+            raise ActionSubmissionError("Cannot submit an action while staff are on break.")
+            
+    def check_incomplete_required_fields(self):
+        fields = []
+        if not self.actions:
+            fields.append("action text")
+        if not self.ooc_intent:
+            fields.append("ooc intent")
+        if not self.topic:
+            fields.append("tldr")
+        if not self.skill_used or not self.stat_used:
+            fields.append("roll")
+        return fields
+        
+    def post_edit(self):
+        """In both child classes this check occurs after a resubmit."""
+        pass
+    
+    @property
+    def crisis_attendance(self):
+        attended_actions = list(self.dompc.actions.filter(Q(update__isnull=True) 
+                                                          & Q(attending=True)
+                                                          & Q(crisis__isnull=False)
+                                                          & Q(date_submitted__isnull=False)))
+        attended_actions += list(self.dompc.assisting_actions.filter(Q(crisis_action__update__isnull=True) 
+                                                                     & Q(attending=True)
+                                                                     & Q(crisis_action__crisis__isnull=False)
+                                                                     & Q(date_submitted__isnull=False)))
+        return attended_actions
+        
+    def check_crisis_omnipresence(self):
+        if self.attending:
+            already_attending = self.crisis_attendance
+            if already_attending:
+                already_attending = already_attending[-1]
+                raise ActionSubmissionError("You are marked as physically present at %s. Use @action/toggleattend"
+                                            " and also ensure this story reads as a passive role." % already_attending)
+                                            
+    def check_crisis_overcrowd(self):
+        attendees = self.attendees
+        if len(attendees) > self.attending_limit and not self.prefer_offscreen:
+            excess = len(attendees) - self.attending_limit
+            raise ActionSubmissionError("A crisis action can have %s people attending in person. %s of you should "
+                                        "check your story, then change to a passive role with @action/toggleattend. "
+                                        "Current attendees: %s" % (self.attending_limit, excess,
+                                                                   ",".join(str(ob) for ob in attendees)))
+                                        
+    def check_crisis_errors(self):
+        if self.crisis:
+            self.crisis.raise_submission_errors()
+            self.check_crisis_omnipresence()
+            self.check_crisis_overcrowd()
+            
+    def mark_attending(self):
+        self.check_crisis_errors()
+        self.attending = True
+        self.save()
+    
+    def add_resource(self, r_type, value):
+        if not self.actions:
+            raise ActionSubmissionError("Join first with the /setaction switch.")
+        if self.crisis:
+            try:
+                self.crisis.raise_creation_errors(self.dompc)
+            except ActionSubmissionError as err:
+                raise ActionSubmissionError(err)
+        r_type = r_type.lower()
+        if r_type not in self.resource_types:
+            raise ActionSubmissionError("Invalid type of resource.")
+        if r_type == "army":
+            try:
+                return self.add_army(value)
+            except ActionSubmissionError as err:
+                raise ActionSubmissionError(err)
+        try:
+            value = int(value)
+            if value <= 0:
+                raise ValueError
+        except ValueError:
+            raise ActionSubmissionError("Amount must be a positive number.")
+        if r_type == "silver":
+            try:
+                self.dompc.player.char_ob.pay_money(value)
+            except PayError:
+                raise ActionSubmissionError("You cannot afford that.")
+        elif r_type == 'ap' or r_type == 'action points':
+            if not self.dompc.player.pay_action_points(value):
+                raise ActionSubmissionError("You do not have enough action points to exert that kind of effort.")
+            r_type = "action_points"
+        else:
+            if not self.dompc.player.pay_resources(r_type, value):
+                raise ActionSubmissionError("You cannot afford that.")
+        value += getattr(self, r_type)
+        setattr(self, r_type, value)
+        self.save()
+    
+    def add_army(self, name_or_id):
+        try:
+            if name_or_id.isdigit():
+                army = Army.objects.get(id=int(name_or_id))
+            else:
+                army = Army.objects.get(name__iexact=name_or_id)
+        except (AttributeError, Army.DoesNotExist):
+            raise ActionSubmissionError("No army by that ID# was found.")
+        if self.is_main_action:
+            action = self
+            action_assist = None
+        else:
+            action = self.crisis_action
+            action_assist = self
+        orders = army.send_orders(player=self.dompc.player, order_type=Orders.CRISIS, action=action,
+                                  action_assist=action_assist)
+        if not orders:
+            raise ActionSubmissionError("Failed to send orders to the army.")
+        
+    def do_roll(self, stat=None, skill=None, difficulty=None, reset_total=True):
+        from world.stats_and_skills import do_dice_check
+        self.stat_used = stat or self.stat_used
+        self.skill_used = skill or self.skill_used
+        if difficulty is not None:
+            self.difficulty = difficulty
+        self.roll = do_dice_check(self.dompc.player.char_ob, stat=self.stat_used, skill=self.skill_used,
+                                  difficulty=self.difficulty)
+        self.save()
+        if reset_total:
+            self.calculate_outcome_value()
+        return self.roll
+        
+    def display_followups(self):
+        return "\n".join(question.display() for question in self.questions.all())
+        
+    def add_answer(self, gm, text):
+        unanswered = self.unanswered_questions
+        if unanswered:
+            unanswered.last().add_answer(gm, text)
+        else:
+            self.questions.last().add_answer(gm, text)
+
+    def mark_answered(self, gm):
+        for question in self.unanswered_questions:
+            question.mark_answered = True
+            question.save()
+        inform_staff("%s has marked action %s's questions as answered." % (gm, self.main_id))
+
+    @property
+    def main_id(self):
+        return self.main_action.id
+
+    @property
+    def unanswered_questions(self):
+        return self.questions.filter(answers__isnull=True).exclude(Q(is_intent=True) | Q(mark_answered=True))
+        
+
+class CrisisAction(AbstractAction):
+    """
+    An action that a player is taking. May be in response to a Crisis.
+    """
+    NOUN = "Action"
+    EASY_DIFFICULTY = 15
+    NORMAL_DIFFICULTY = 30
+    HARD_DIFFICULTY = 60
+    week = models.PositiveSmallIntegerField(default=0, blank=0, db_index=True)
+    dompc = models.ForeignKey("PlayerOrNpc", db_index=True, blank=True, null=True, related_name="actions")
+    crisis = models.ForeignKey("Crisis", db_index=True, blank=True, null=True, related_name="actions")
+    update = models.ForeignKey("CrisisUpdate", db_index=True, blank=True, null=True, related_name="actions")
+    public = models.BooleanField(default=False, blank=True)
+    gm_notes = models.TextField("Any ooc notes for other GMs", blank=True)
+    story = models.TextField("Story written by the GM for the player", blank=True)
+    secret_story = models.TextField("Any secret story written for the player", blank=True)
+    difficulty = models.SmallIntegerField(default=0, blank=0)
+    outcome_value = models.SmallIntegerField(default=0, blank=0)
+    assistants = models.ManyToManyField("PlayerOrNpc", blank=True, null=True, through="CrisisActionAssistant",
+                                        related_name="assisted_actions")
+    prefer_offscreen = models.BooleanField(default=False, blank=True)
+    gemit = models.ForeignKey("character.StoryEmit", blank=True, null=True, related_name="actions")
+    gm = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, related_name="gmd_actions",
+                           on_delete=models.SET_NULL)
+    
+    UNKNOWN = 0
+    COMBAT = 1
+    SUPPORT = 2
+    SABOTAGE = 3
+    DIPLOMACY = 4
+    SCOUTING = 5
+    RESEARCH = 6
+    
+    CATEGORY_CHOICES = (
+        (UNKNOWN, 'Unknown'),
+        (COMBAT, 'Combat'),
+        (SUPPORT, 'Support'),
+        (SABOTAGE, 'Sabotage'),
+        (DIPLOMACY, 'Diplomacy'),
+        (SCOUTING, 'Scouting'),
+        (RESEARCH, 'Research')
+        )
+    category = models.PositiveSmallIntegerField(choices=CATEGORY_CHOICES, default=UNKNOWN)
+    
+    DRAFT = 0
+    NEEDS_PLAYER = 1
+    NEEDS_GM = 2
+    CANCELLED = 3
+    PENDING_PUBLISH = 4
+    PUBLISHED = 5
+    
+    STATUS_CHOICES = (
+        (DRAFT, 'Draft'),
+        (NEEDS_PLAYER, 'Needs Player Input'),
+        (NEEDS_GM, 'Needs GM Input'),
+        (CANCELLED, 'Cancelled'),
+        (PENDING_PUBLISH, 'Pending Resolution'),
+        (PUBLISHED, 'Resolved')
+        )
+    status = models.PositiveSmallIntegerField(choices=STATUS_CHOICES, default=DRAFT)
+    max_requests = 2
+    num_days = 30
+    attending_limit = 5
+    
+    def __str__(self):
+        if self.crisis:
+            crisis = " for %s" % self.crisis
+        else:
+            crisis = ""
+        return "%s by %s%s" % (self.NOUN, self.author, crisis)
+
+    @property
+    def pretty_str(self):
+        if self.crisis:
+            crisis = " for {m%s{n" % self.crisis
+        else:
+            crisis = ""
+        return "%s by {c%s{n%s" % (self.NOUN, self.author, crisis)
+    
+    @property
+    def sent(self):
+        return bool(self.status == self.PUBLISHED)
+        
+    @property
+    def total_social(self):
+        return self.social + sum(ob.social for ob in self.assisting_actions.all())
+        
+    @property
+    def total_economic(self):
+        return self.economic + sum(ob.economic for ob in self.assisting_actions.all())
+        
+    @property
+    def total_military(self):
+        return self.military + sum(ob.military for ob in self.assisting_actions.all())
+        
+    @property
+    def total_silver(self):
+        return self.silver + sum(ob.silver for ob in self.assisting_actions.all())
+        
+    @property
+    def total_action_points(self):
+        return self.action_points + sum(ob.action_points for ob in self.assisting_actions.all())
+    
+    @property
+    def action_and_assists_and_invites(self):
+        return [self] + list(self.assisting_actions.all())
+    
+    @property
+    def action_and_assists(self):
+        return [ob for ob in self.action_and_assists_and_invites if ob.actions]
+        
+    @property
+    def all_editable(self):
+        return [ob for ob in self.action_and_assists_and_invites if ob.editable]
+    
+    def send(self, update=None):
+        if self.crisis:
+            msg = "{wGM Response to action for crisis:{n %s" % self.crisis
+        else:
+            msg = "{wGM Response to story action of %s" % self.author
+        msg += "\n{wRolls:{n %s" % self.outcome_value
+        msg += "\n\n{wStory Result:{n %s\n\n" % self.story
+        self.week = get_week()
+        if update:
+            self.update = update
+        if self.status != CrisisAction.PUBLISHED:
+            self.inform(msg, category="Actions")
+            for assistant in self.assistants.all():
+                assistant.inform(msg, category="Actions")
+            for orders in self.orders.all():
+                orders.complete = True
+                orders.save()
+            self.status = CrisisAction.PUBLISHED
+        self.save()
+        if not update:
+            subject = "Action %s Published" % self.id
+            post = self.view_tldr()
+            post += "\n{wStory Result:{n %s" % self.story
+            if self.secret_story:
+                post += "\n{wSecret Story{n %s" % self.secret_story
+            inform_staff("Action %s has been published by %s:\n%s" % (self.id, self.gm, msg),
+                         post=post, subject=subject)
+
+    def view_action(self, caller=None, disp_pending=True, disp_old=False, disp_ooc=True):
+        """
+        Returns a text string of the display of an action.
+        
+            Args:
+                caller: Player who is viewing this
+                disp_pending (bool): Whether to display pending questions
+                disp_old (bool): Whether to display answered questions
+                disp_ooc (bool): Whether to only display IC information
+                
+            Returns:
+                Text string to display.
+        """
+        msg = ""
+        if caller:
+            staff_viewer = caller.check_permstring("builders")
+            participant_viewer = caller == self.dompc.player or caller.Dominion in self.assistants.all()
+        else:
+            staff_viewer = False
+            participant_viewer = False
+        if not self.public and not (staff_viewer or participant_viewer):
+            return msg
+        # print out actions of everyone
+        all_actions = self.action_and_assists
+        view_main_secrets = staff_viewer or self.check_view_secret(caller)
+        for ob in all_actions:
+            msg += "\n"
+            view_secrets = staff_viewer or ob.check_view_secret(caller)
+            msg += ob.get_action_text(disp_summary=view_secrets)
+            if ob.secret_actions and view_secrets:
+                msg += ob.get_action_text(secret=True)
+            if view_secrets and disp_ooc:
+                attending = "[%s] " % ("physically present" if ob.attending else "offscreen")
+                msg += "\n{w%sDice check: Stat:{n %s, {wSkill:{n %s  " % (attending, ob.stat_used or "No stat set",
+                                                                          ob.skill_used or "No skill set")
+                if staff_viewer:
+                    msg += "{wDiff:{n %s" % self.difficulty
+                if self.sent or (ob.roll_is_set and staff_viewer):
+                    color = "{r" if bool(ob.roll >= 0) else "{c"
+                    msg += "{w[Roll: %s%s{w ]{n " % (color, ob.roll)
+                if ob.ooc_intent:
+                    msg += "\n%s" % ob.ooc_intent.display()
+        if (disp_pending or disp_old) and disp_ooc:
+            q_and_a_str = self.get_questions_and_answers_display(answered=disp_old, staff=staff_viewer, caller=caller)
+            if q_and_a_str:
+                msg += "\n\n{wOOC Notes and GM responses\n%s" % q_and_a_str
+        if staff_viewer and self.gm_notes or self.prefer_offscreen:
+            offscreen = "[Offscreen resolution preferred.] " if self.prefer_offscreen else ""
+            msg += "\n{wGM Notes:{n %s%s" % (offscreen, self.gm_notes)
+        if self.sent or staff_viewer:
+            if disp_ooc:
+                msg += "\n{wOutcome Value:{n %s" % self.outcome_value
+            msg += "\n{wStory Result:{n %s" % self.story
+            if self.secret_story and view_main_secrets:
+                msg += "\n{wSecret Story{n %s" % self.secret_story
+        if disp_ooc:
+            msg += "\n" + self.view_total_resources_msg()
+            orders = []
+            for ob in all_actions:
+                orders += list(ob.orders.all())
+            orders = set(orders)
+            if len(orders) > 0:
                 msg += "\n{wArmed Forces Appointed:{n %s" % ", ".join(str(ob.army) for ob in orders)
-        if disp_pending:
-            pend = self.questions.filter(answers__isnull=True)
-            for ob in pend:
-                msg += "\n{wQuestion:{n %s" % ob.text
-        if disp_old:
-            answered = self.questions.filter(answers__isnull=False)
-            for ob in answered:
-                msg += "\n{wQuestion:{n %s" % ob.text
-                for ans in ob.answers.all():
-                    msg += "\n{wGM:{n %s" % ans.gm
-                    msg += "\n{wAnswer:{n %s" % ans.text
+            needs_edits = ""
+            if self.status == CrisisAction.NEEDS_PLAYER:
+                needs_edits = " Awaiting edits to be submitted by: %s" % \
+                              ", ".join(ob.author for ob in self.all_editable)
+            msg += "\n{w[STATUS: %s]{n%s" % (self.get_status_display(), needs_edits)
         return msg
 
-    def __str__(self):
-        return "%s's action for %s" % (self.dompc, self.crisis)
+    def view_tldr(self):
+        msg = "{wSummary of action %s{n" % self.id
+        for action in self.action_and_assists:
+            msg += "\n%s: %s\n" % (action.pretty_str, action.get_summary_text())
+        return msg
+    
+    def view_total_resources_msg(self):
+        msg = ""
+        fields = {'extra action points': self.total_action_points,
+                  'silver': self.total_silver,
+                  'economic': self.total_economic,
+                  'military': self.total_military,
+                  'social': self.total_social}
+        totals = ", ".join("{c%s{n %s" % (key, value) for key, value in fields.items() if value > 0)
+        if totals:
+            msg = "{wResources:{n %s" % totals
+        return msg
+    
+    def cancel(self):
+        for action in self.assisting_actions.all():
+            action.cancel()
+        self.refund()
+        if not self.date_submitted:
+            self.delete()
+        else:
+            self.status = CrisisAction.CANCELLED
+            self.save()
+    
+    def check_incomplete_required_fields(self):
+        fields = super(CrisisAction, self).check_incomplete_required_fields()
+        if not self.category:
+            fields.append("category")
+        return fields
+    
+    def raise_submission_errors(self):
+        super(CrisisAction, self).raise_submission_errors()
+        self.check_crisis_errors()
+        self.check_draft_errors()
+
+    def check_draft_errors(self):
+        if self.status != CrisisAction.DRAFT:
+            return
+        self.check_action_against_maximum_allowed()
+        self.check_warning_prompt_sent()
+            
+    def check_action_against_maximum_allowed(self):
+        if self.crisis:
+            return
+        recent_actions = self.dompc.recent_storyactions
+        if recent_actions.count() >= self.max_requests:
+            raise ActionSubmissionError("You are permitted %s action requests every %s days. Recent actions: %s"
+                                        % (self.max_requests, self.num_days,
+                                           ", ".join(str(ob.id) for ob in recent_actions)))
+
+    def check_warning_prompt_sent(self):
+        if self.dompc.player.ndb.action_submission_prompt != self:
+            self.dompc.player.ndb.action_submission_prompt = self
+            warning = ("{yBefore submitting this action, make certain that you have invited all players you wish to "
+                       "help with the action, and add any resources necessary. Any invited players who have incomplete "
+                       "actions will have their assists deleted.")
+            unready = ", ".join(str(ob.author) for ob in self.get_unready_assisting_actions())
+            if unready:
+                warning += "\n{rThe following assistants are not ready and will be deleted: %s" % unready
+            warning += "\n{yWhen ready, /submit the action again.{n"
+            raise ActionSubmissionError(warning)
+
+    def get_unready_assisting_actions(self):
+        unready = []
+        for ob in self.assisting_actions.all():
+            try:
+                ob.raise_submission_errors()
+            except ActionSubmissionError:
+                unready.append(ob)
+        return unready
+
+    @property
+    def attendees(self):
+        return [ob.author for ob in self.action_and_assists if ob.attending]
+    
+    def on_submit_success(self):
+        if self.status == CrisisAction.DRAFT:
+            self.status = CrisisAction.NEEDS_GM
+            for assist in self.assisting_actions.filter(date_submitted__isnull=True):
+                assist.submit_or_refund()
+            inform_staff("%s has submitted action #%s." % (self.author, self.id))
+        super(CrisisAction, self).on_submit_success()
+        
+    def post_edit(self):
+        if self.status == CrisisAction.NEEDS_PLAYER and not self.all_editable:
+            self.status = CrisisAction.NEEDS_GM
+            self.save()
+            inform_staff("%s has been resubmitted for GM review." % self)
+            if self.gm:
+                self.gm.inform("Action %s has been updated." % self.id, category="Actions")
+            
+    def invite(self, dompc):
+        if dompc in self.assistants.all():
+            raise ActionSubmissionError("They have already been invited.")
+        if dompc == self.dompc:
+            raise ActionSubmissionError("The owner of an action cannot be an assistant.")
+        self.assisting_actions.create(dompc=dompc, stat_used="", skill_used="")
+        msg = "You have been invited by %s to participate in action %s." % (self.author, self.id)
+        msg += " It will now display under the {w@action{n command. To assist, simply fill out"
+        msg += " the required fields, starting with {w@action/setaction{n, and then {w@action/submit %s{n." % self.id
+        msg += " If the owner submits the action to the GMs before your assist is valid, it will be"
+        msg += " deleted and you will be refunded any AP and resources."
+        msg += " When writing your assist action, please only write a story that is relevant to attempting"
+        msg += " to modify the main action you're assisting. Actions which are not related to the action"
+        msg += " should be their own independent @action. Secret actions that are attempting to undermine"
+        msg += " the action or crisis should use the 'traitor' option."
+        msg += " To decline this invitation, use {w@action/cancel %s{n." % self.id
+        dompc.inform(msg, category="Action Invitation")
+    
+    def roll_all(self):
+        for ob in self.action_and_assists:
+            ob.do_roll(reset_total=False)
+        return self.calculate_outcome_value()
+        
+    def calculate_outcome_value(self):
+        value = sum(ob.roll for ob in self.action_and_assists)
+        self.outcome_value = value
+        self.save()
+        return self.outcome_value
+        
+    def get_questions_and_answers_display(self, answered=False, staff=False, caller=None):
+        qs = self.questions.filter(is_intent=False)
+        if not answered:
+            qs = qs.filter(answers__isnull=True, mark_answered=False)
+        if not staff:
+            dompc = caller.Dominion
+            # players can only see questions they wrote themselves and their answers
+            qs = qs.filter(Q(action_assist__dompc=dompc) | Q(Q(action__dompc=dompc) & Q(action_assist__isnull=True)))
+        qs = list(qs)
+        if staff:
+            for ob in self.assisting_actions.all():
+                if answered:
+                    qs.extend(list(ob.questions.filter(is_intent=False)))
+                else:
+                    qs.extend(list(ob.questions.filter(answers__isnull=True, is_intent=False, mark_answered=False)))
+        return "\n".join(question.display() for question in set(qs))
+
+    @property
+    def main_action(self):
+        return self
+
+    def make_public(self):
+        if self.public:
+            raise ActionSubmissionError("That action has already been made public.")
+        if self.status != CrisisAction.PUBLISHED:
+            raise ActionSubmissionError("The action must be finished before you can make details of it public.")
+        self.public = True
+        self.save()
+        xp_value = 2
+        if self.crisis and not self.crisis.public:
+            xp_value = 1
+        self.dompc.player.char_ob.adjust_xp(xp_value)
+        self.dompc.msg("You have gained %s xp for making your action public." % xp_value)
+        inform_staff("Action %s has been made public." % self.id)
 
 
-class CrisisActionAssistant(SharedMemoryModel):
+NAMES_OF_PROPERTIES_TO_PASS_THROUGH = ['crisis', 'action_and_assists', 'status', 'prefer_offscreen', 'attendees',
+                                       'all_editable', 'outcome_value', 'difficulty', 'gm', 'attending_limit']
+
+
+@passthrough_properties('crisis_action', *NAMES_OF_PROPERTIES_TO_PASS_THROUGH)
+class CrisisActionAssistant(AbstractAction):
+    NOUN = "Assist"
+    BASE_AP_COST = 10
     crisis_action = models.ForeignKey("CrisisAction", db_index=True, related_name="assisting_actions")
     dompc = models.ForeignKey("PlayerOrNpc", db_index=True, related_name="assisting_actions")
-    action = models.TextField("What action the assistant is taking", blank=True)
-    secret_action = models.TextField("Secret action the assistant is taking", blank=True)
-    # whether the assistant can see any secret action of the owner
-    can_see_secret = models.BooleanField(default=False)
-    # whether the owner is allowed to see our own secret action
-    share_secret = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ('crisis_action', 'dompc')
 
-    def check_view_secret(self, caller):
-        if not caller:
-            return
-        if caller.check_permstring("builders"):
-            return True
-        if caller == self.dompc.player:
-            return True
-        if caller == self.crisis_action.dompc:
-            return self.share_secret
+    def __str__(self):
+        return "%s assisting %s" % (self.author, self.crisis_action)
 
     @property
-    def crisis(self):
-        return self.crisis_action.crisis
+    def pretty_str(self):
+        return "{c%s{n assisting %s" % (self.author, self.crisis_action)
+    
+    def cancel(self):
+        if self.actions:
+            self.refund()
+        self.delete()
+    
+    def view_total_resources_msg(self):
+        return self.crisis_action.view_total_resources_msg()
+        
+    def calculate_outcome_value(self):
+        return self.crisis_action.calculate_outcome_value()
+        
+    def submit_or_refund(self):
+        try:
+            self.submit()
+        except ActionSubmissionError:
+            main_action_msg = "Cancelling incomplete assist: %s\n" % self.author
+            assist_action_msg = "Your assist for %s was incomplete and has been refunded." % self.crisis_action
+            self.crisis_action.inform(main_action_msg, category="Actions")
+            self.inform(assist_action_msg, category="Actions")
+            self.cancel()
+            
+    def post_edit(self):
+        self.crisis_action.post_edit()
+        
+    @property
+    def has_paid_initial_ap_cost(self):
+        return bool(self.actions)
 
-    def __str__(self):
-        return "%s assisting %s" % (self.dompc, self.crisis_action)
+    @property
+    def main_action(self):
+        return self.crisis_action
+        
+    def set_action(self, story):
+        """
+        Sets our assist's actions. If the action has not been set yet, we'll attempt to pay the initial ap cost,
+        raising an error if that fails.
+        
+            Args:
+                story (str or unicode): The story of the character's actions, written by the player.
+                
+            Raises:
+                ActionSubmissionError if we have not yet paid our AP cost and the player fails to do so here.
+        """
+        if not self.has_paid_initial_ap_cost:
+            self.pay_initial_ap_cost()
+        self.actions = story
+        self.save()
+
+    def ask_question(self, text):
+        question = super(CrisisActionAssistant, self).ask_question(text)
+        question.action = self.crisis_action
+        question.save()
+                    
+    def pay_initial_ap_cost(self):
+        """Pays our initial AP cost or raises an ActionSubmissionError"""
+        if not self.pay_action_points(self.BASE_AP_COST):
+            raise ActionSubmissionError("You do not have enough action points.")
+
+    def view_action(self, caller=None, disp_pending=True, disp_old=False, disp_ooc=True):
+        return self.crisis_action.view_action(caller=caller, disp_pending=disp_pending, disp_old=disp_old,
+                                              disp_ooc=disp_ooc)
 
 
 class ActionOOCQuestion(SharedMemoryModel):
@@ -1798,8 +2477,51 @@ class ActionOOCQuestion(SharedMemoryModel):
     OOC Question about a crisis. Can be associated with a given action
     or asked about independently.
     """
-    action = models.ForeignKey("CrisisAction", db_index=True, related_name="questions")
+    action = models.ForeignKey("CrisisAction", db_index=True, related_name="questions", null=True, blank=True)
+    action_assist = models.ForeignKey("CrisisActionAssistant", db_index=True, related_name="questions", null=True,
+                                      blank=True)
     text = models.TextField(blank=True)
+    is_intent = models.BooleanField(default=False)
+    mark_answered = models.BooleanField(default=False)
+
+    def __str__(self):
+        return "%s %s: %s" % (self.author, self.noun, self.text)
+    
+    @property
+    def target(self):
+        if self.action_assist:
+            return self.action_assist
+        return self.action
+        
+    @property
+    def author(self):
+        return self.target.author
+
+    @property
+    def noun(self):
+        return "OOC %s" % ("intentions" if self.is_intent else "Question")
+    
+    def display(self):
+        msg = "{c%s{w %s:{n %s" % (self.author, self.noun, self.text)
+        answers = self.answers.all()
+        if answers:
+            msg += "\n%s" % "\n".join(ob.display() for ob in answers)
+        return msg
+        
+    @property
+    def text_of_answers(self):
+        return "\n".join("%s wrote: %s" % (ob.gm, ob.text) for ob in self.answers.all())
+
+    @property
+    def main_id(self):
+        return self.target.main_id
+        
+    def add_answer(self, gm, text):
+        self.answers.create(gm=gm, text=text)
+        self.target.inform("GM %s has posted a followup to action %s: %s" % (gm, self.main_id, text))
+        answer = "{c%s{n wrote: %s\n{c%s{n answered: %s" % (self.author, self.text, gm, text)
+        inform_staff("%s has posted a followup to action %s: %s" % (gm, self.main_id, text), post=answer,
+                     subject="Action %s followup" % self.action.id)
 
 
 class ActionOOCAnswer(SharedMemoryModel):
@@ -1809,6 +2531,9 @@ class ActionOOCAnswer(SharedMemoryModel):
     gm = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, related_name="answers_given")
     question = models.ForeignKey("ActionOOCQuestion", db_index=True, related_name="answers")
     text = models.TextField(blank=True)
+    
+    def display(self):
+        return "{wReply by {c%s{w:{n %s" % (self.gm, self.text)
 
 
 class OrgRelationship(SharedMemoryModel):
@@ -1913,8 +2638,10 @@ class Organization(InformMixin, SharedMemoryModel):
         active = self.active_members
         if viewing_member:
             # exclude any secret members that are higher in rank than viewing member
-            pcs = pcs.exclude(Q(Q(secret=True) & Q(rank__lte=viewing_member.rank)) &
-                              ~Q(id=viewing_member.id))
+            members_to_exclude = pcs.filter(Q(rank__lte=viewing_member.rank) & ~Q(id=viewing_member.id))
+            if not self.secret:
+                members_to_exclude = members_to_exclude.filter(secret=True)
+            pcs = pcs.exclude(id__in=members_to_exclude)
             
         msg = ""
         for rank in range(start, end+1):
@@ -1999,7 +2726,6 @@ class Organization(InformMixin, SharedMemoryModel):
         if viewing_member:
             msg += "\n{wMember stats for {c%s{n\n" % viewing_member
             msg += viewing_member.display()
-
         return msg
     
     def __init__(self, *args, **kwargs):
@@ -2102,6 +2828,7 @@ class UnitTypeInfo(models.Model):
     SIEGE_WEAPON = unit_constants.SIEGE_WEAPON
     GALLEY = unit_constants.GALLEY
     DROMOND = unit_constants.DROMOND
+    COG = unit_constants.COG
     
     UNIT_CHOICES = (
         (INFANTRY, 'Infantry'),
@@ -2111,6 +2838,7 @@ class UnitTypeInfo(models.Model):
         (LONGSHIP, 'Longship'),
         (SIEGE_WEAPON, 'Siege Weapon'),
         (GALLEY, 'Galley'),
+        (COG, 'Cog'),
         (DROMOND, 'Dromond'),
         )
     # type will be used to derive units and their stats elsewhere 
@@ -2291,6 +3019,18 @@ class Agent(SharedMemoryModel):
             raise ValueError("Undefined category")
         return attr_max
 
+    def adjust_xp(self, value):
+        self.xp += value
+        self.save()
+
+    @property
+    def xp_transfer_cap(self):
+        return self.dbobj.xp_transfer_cap
+
+    @xp_transfer_cap.setter
+    def xp_transfer_cap(self, value):
+        self.dbobj.xp_transfer_cap = value
+
 
 class AgentMission(SharedMemoryModel):
     """
@@ -2441,6 +3181,8 @@ class Army(SharedMemoryModel):
         # checks player's access because our owner can be an Org
         if self.owner.access(player, "army"):
             return True
+        if player.Dominion.appointments.filter(category=Minister.WARFARE, ruler__house=self.owner):
+            return True
         return False
         
     def can_order(self, player):
@@ -2450,11 +3192,14 @@ class Army(SharedMemoryModel):
         # if we can change the army, we can also order it
         if self.can_change(player):
             return True
+        dompc = player.Dominion
         # check if we're appointed as general of this army
-        if player.Dominion == self.general:
+        if dompc == self.general:
             return True
         # check player's access because temp owner can also be an org
         if self.temp_owner and self.temp_owner.access(player, "army"):
+            return True
+        if self.temp_owner and dompc.appointments.filter(category=Minister.WARFARE, ruler__house=self.temp_owner):
             return True
         return False
     
@@ -2478,14 +3223,10 @@ class Army(SharedMemoryModel):
         """
         Returns pending orders if they exist.
         """
-        week = get_week()
-        try:
-            return self.orders.get(week=week)
-        except Orders.DoesNotExist:
-            return None
+        return self.orders.filter(complete=False)
     
     def send_orders(self, player, order_type, target_domain=None, target_land=None, target_character=None,
-                    action=None, assisting=None):
+                    action=None, action_assist=None, assisting=None):
         """
         Checks permission to send orders to an army, then records the category 
         of orders and their target.
@@ -2499,7 +3240,8 @@ class Army(SharedMemoryModel):
             player.msg("That army has pending orders that must be canceled first.")
             return
         return self.orders.create(type=order_type, target_domain=target_domain, target_land=target_land,
-                                  target_character=target_character, action=action, assisting=assisting)
+                                  target_character=target_character, action=action, action_assist=action_assist,
+                                  assisting=assisting)
         
     def find_unit(self, unit_type):
         """
@@ -2626,9 +3368,8 @@ class Army(SharedMemoryModel):
         along with do_weekly_adjustment. Error checking on the validity
         of orders should be done at the player-command level, not here.
         """
-        # orders = self.pending_orders
         # stoof here later
-        self.orders.filter(week__lt=week - 1).update(complete=True)
+        self.orders.filter(week__lt=week - 1, action__isnull=True).update(complete=True)
         # if not orders:
         #     self.morale += 1
         #     self.save()
@@ -2858,8 +3599,10 @@ class Orders(SharedMemoryModel):
     # an individual's support for training, morale, equipment
     target_character = models.ForeignKey("PlayerOrNpc", on_delete=models.SET_NULL, related_name="orders", blank=True,
                                          null=True, db_index=True)
-    # if we're targeting a crisis action
+    # if we're targeting an action or asist. omg skorpins.
     action = models.ForeignKey("CrisisAction", related_name="orders", null=True, blank=True, db_index=True)
+    action_assist = models.ForeignKey("CrisisActionAssistant", related_name="orders", null=True, blank=True,
+                                      db_index=True)
     # if we're assisting another army's orders
     assisting = models.ForeignKey("self", related_name="assisting_orders", null=True, blank=True, db_index=True)
     type = models.PositiveSmallIntegerField(choices=ORDER_CHOICES, default=TRAIN)
@@ -2881,6 +3624,10 @@ class Orders(SharedMemoryModel):
         costs = sum((ob.costs/DIV) + 1 for ob in self.units.all())
         self.coin_cost = costs
         self.save()
+
+    @property
+    def troops_sent(self):
+        return ", ".join("%s %s" % (ob.quantity, ob.type) for ob in self.army.units.all())
     
 
 class MilitaryUnit(UnitTypeInfo):
@@ -3454,6 +4201,7 @@ class AssignedTask(SharedMemoryModel):
         msg += "{wTotal support{n: %s\n" % self.total
         msg += "{wSupporters:{n %s\n" % ", ".join(str(ob) for ob in self.supporters.all())
         msg += "{wNotes:{n\n%s\n" % self.notes
+        msg += "{wCurrent Alt Echo:{n %s\n" % self.current_alt_echo
         msg += "{wStory:{n\n%s\n" % self.story
         return msg
 

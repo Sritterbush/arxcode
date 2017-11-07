@@ -156,13 +156,13 @@ class CmdWhere(ArxPlayerCommand):
 
         self.msg("Players who are currently LRP have a |R+|n by their name.")
         scene_chars = []
-        if "randomscene" in self.switches:
+        if "randomscene" in self.switches or "rs" in self.switches:
             cmd = CmdRandomScene()
             cmd.caller = self.caller.db.char_ob
             scene_chars = list(cmd.scenelist) + [ob for ob in cmd.newbies if ob not in cmd.claimlist]
         for room in rooms:
             charlist = sorted(room.get_visible_characters(caller), key=lambda x: x.name)
-            if "randomscene" in self.switches:
+            if "randomscene" in self.switches or "rs" in self.switches:
                 charlist = [ob for ob in charlist if ob in scene_chars]
             if "watch" in self.switches:
                 watching = caller.db.watching or []
@@ -193,6 +193,7 @@ class CmdWatch(ArxPlayerCommand):
     locks = "cmd:all()"
     aliases = ["@watch", "watch"]
     help_category = "Social"
+    max_watchlist_size = 30
 
     @staticmethod
     def disp_watchlist(caller):
@@ -226,7 +227,7 @@ class CmdWatch(ArxPlayerCommand):
         player = caller.search(self.args)
         if not player:
             return
-        char = player.db.char_ob
+        char = player.char_ob
         if not char:
             caller.msg("No character found.")
             return
@@ -243,6 +244,9 @@ class CmdWatch(ArxPlayerCommand):
                 watched.remove(caller)
                 char.db.watched_by = watched
             caller.msg("Stopped watching %s." % char.key)
+            return
+        if len(watchlist) >= self.max_watchlist_size:
+            self.msg("You may only have %s characters on your watchlist." % self.max_watchlist_size)
             return
         if char in watchlist:
             caller.msg("You are already watching %s." % char.key)
@@ -305,6 +309,7 @@ class CmdFinger(ArxPlayerCommand):
         if not char:
             caller.msg("No character found.")
             return
+        viewing_own_character = player == caller
         name = char.db.longname or char.key
         msg = "\n{wName:{n %s\n" % name
         titles = char.titles
@@ -332,6 +337,7 @@ class CmdFinger(ArxPlayerCommand):
             msg += "{wOriginal Character%s{n\n" % roster_status
         if show_hidden:
             msg += "{wCharID:{n %s, {wPlayerID:{n %s\n" % (char.id, player.id)
+            msg += "{wTotal Posecount:{n %s\n" % char.total_posecount
         if char.db.obituary:
             msg += "{wObituary:{n %s\n" % char.db.obituary
         else:
@@ -351,18 +357,24 @@ class CmdFinger(ArxPlayerCommand):
             msg += "{wQuote:{n %s\n" % quote
         webpage = pageroot + char.get_absolute_url()
         msg += "{wCharacter page:{n %s\n" % webpage
-        if show_hidden:
+        if show_hidden or viewing_own_character:
             orgs = player.current_orgs
         else:
             orgs = player.public_orgs
-        if orgs:       
+        if orgs:
             org_str = ""
             apply_buffer = False
+            secret_orgs = player.secret_orgs
             for org in orgs:
                 s_buffer = ""
                 if apply_buffer:
                     s_buffer = " " * 15
-                org_str += "%s%s: %s\n" % (s_buffer, org.name, pageroot + org.get_absolute_url())
+
+                def format_org_name(organization):
+                    secret_str = "" if not organization in secret_orgs else " {m(Secret){n"
+                    return "%s%s" % (organization.name, secret_str)
+
+                org_str += "%s%s: %s\n" % (s_buffer, format_org_name(org), pageroot + org.get_absolute_url())
                 apply_buffer = True
             msg += "{wOrganizations:{n %s" % org_str
         hooks = player.tags.get(category="rp hooks")
@@ -2184,7 +2196,7 @@ class CmdRandomScene(ArxCommand):
         if newbies:
             choices = choices.exclude(id__in=newbies)
         choices = list(choices)
-        num_scenes = self.NUM_SCENES - len(claimlist)
+        num_scenes = self.NUM_SCENES - (len(claimlist) + len(scenelist))
         if num_scenes > 0:
             scenelist.extend(random.sample(choices, num_scenes))
         scenelist = sorted(scenelist, key=lambda x: x.key.capitalize())

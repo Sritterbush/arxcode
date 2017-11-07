@@ -35,10 +35,13 @@ class Npc(Character):
     """
     NPC objects
 
-    """    
+    """
+    ATK_MOD = 30
+    DEF_MOD = -30
     # ------------------------------------------------
     # PC command methods
     # ------------------------------------------------
+
     def attack(self, targ, lethal=False):
         """
         Attack a given target. If lethal is False, we will not kill any
@@ -223,11 +226,11 @@ class Npc(Character):
     # npcs are easier to hit than players, and have an easier time hitting
     @property
     def defense_modifier(self):
-        return super(Npc, self).defense_modifier - 30
+        return super(Npc, self).defense_modifier + self.DEF_MOD
 
     @property
     def attack_modifier(self):
-        return super(Npc, self).attack_modifier + 30
+        return super(Npc, self).attack_modifier + self.ATK_MOD
 
     # ------------------------------------------------
     # New npc methods
@@ -646,7 +649,7 @@ class AgentMixin(object):
         """
         return self.agentob.agent_class
 
-    def train_agent(self, trainer):
+    def train_agent(self, trainer, conditioning):
         trainer.msg("This type of agent cannot be trained.")
         return False
     
@@ -686,8 +689,42 @@ class AgentMixin(object):
         except (AttributeError, KeyError):
             return False
 
+    @property
+    def xp(self):
+        return self.agent.xp
+
+    @xp.setter
+    def xp(self, value):
+        self.agent.xp = value
+        self.agent.save()
+
+    def adjust_xp(self, value):
+        self.xp += value
+
+    @property
+    def xp_transfer_cap(self  # type: Retainer or Agent
+                        ):
+        return self.db.xp_transfer_cap or 0
+
+    @xp_transfer_cap.setter
+    def xp_transfer_cap(self,  # type: Retainer or Agent
+                        value):
+        self.db.xp_transfer_cap = value
+
+    @property
+    def conditioning(self  # type: Retainer or Agent
+                     ):
+        return self.db.conditioning_for_training or 0
+
+    @conditioning.setter
+    def conditioning(self,  # type: Retainer or Agent
+                     value):
+        self.db.conditioning_for_training = value
+
 
 class Retainer(AgentMixin, Npc):
+    ATK_MOD = 0
+    DEF_MOD = 0
 
     def display(self):
         if self.db.guarding:
@@ -735,7 +772,7 @@ class Retainer(AgentMixin, Npc):
             return False
         return super(Retainer, self).can_be_trained_by(trainer)
 
-    def post_training(self, trainer, trainer_msg="", targ_msg=""):
+    def post_training(self, trainer, trainer_msg="", targ_msg="", ap_spent=0, **kwargs):
         # if post_training works, then we proceed with training the agent
         if super(Retainer, self).post_training(trainer, trainer_msg=trainer_msg, targ_msg=targ_msg):
             currently_training = trainer.db.currently_training or []
@@ -743,11 +780,24 @@ class Retainer(AgentMixin, Npc):
                 # this should not be possible. Nonetheless, it has happened.
                 from server.utils.arx_utils import trainer_diagnostics
                 raise RuntimeError("Error: Training list not properly updated: %s" % trainer_diagnostics(trainer))
-            self.train_agent(trainer)
+            self.train_agent(trainer, ap_spent)
         else:
             raise RuntimeError("Somehow, post_training was not called or did not return a value.")
 
-    def train_agent(self, trainer):
+    @property
+    def training_difficulty(self):
+        difficulty_multiplier = 0.75 if self.training_skill == "animal ken" else 1
+        unspent_xp_penalty = self.agent.xp/2 - (self.agent.quality * 15)
+        if unspent_xp_penalty < 0:
+            unspent_xp_penalty = 0
+        agent_level_penalty = self.agent.quality * 5
+        difficulty = unspent_xp_penalty + agent_level_penalty
+        difficulty = int(difficulty * difficulty_multiplier) - self.conditioning
+        if difficulty < -10:
+            return -10
+        return difficulty
+
+    def train_agent(self, trainer, conditioning):
         """
         Gives xp to this agent if they haven't been trained yet this week.
         The skill used to train them is based on our type - animal ken for
@@ -755,14 +805,26 @@ class Retainer(AgentMixin, Npc):
         """
         # use real name if we're not present. If we're here, use masked name
         use_real_name = self.location != trainer.location
-        roll = do_dice_check(trainer, stat="command", skill=self.training_skill, difficulty=0, quiet=False,
-                             use_real_name=use_real_name)
-        self.agent.xp += roll
-        self.agent.save()
-        trainer.msg("You have trained %s, giving them %s xp." % (self, roll))
-        msg = "%s has trained %s, giving them %s xp." % (trainer, self, roll)
+        name = trainer.key if use_real_name else str(trainer)
+        self.conditioning += conditioning
+        roll = do_dice_check(trainer, stat="command", skill=self.training_skill, difficulty=self.training_difficulty,
+                             quiet=False, use_real_name=use_real_name)
+        if roll < 0:
+            trainer.msg("You have failed to teach them anything.")
+            msg = "%s has attempted to train %s, but utterly failed to teach them anything." % (name, self)
+        else:
+            self.agent.xp += roll
+            self.agent.save()
+            trainer.msg("You have trained %s, giving them %s xp." % (self, roll))
+            msg = "%s has trained %s, giving them %s xp." % (name, self, roll)
+            self.conditioning = 0
         self.inform_owner(msg)
         print "Training log: %s" % msg
+
+    def view_stats(self, viewer, combat=False):
+        super(Retainer, self).view_stats(viewer, combat)
+        msg = "\n{wCurrent Training Difficulty:{n %s" % self.training_difficulty
+        viewer.msg(msg)
     
 
 # noinspection PyAttributeOutsideInit

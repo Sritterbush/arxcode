@@ -131,7 +131,6 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
             self.msg("{y*** You have new mail. ***{n")
         if self.db.new_comments:
             self.msg("{wYou have new comments.{n")
-        self.db.afk = ""
         self.announce_informs()
         pending = self.db.pending_messages or []
         for msg in pending:
@@ -161,10 +160,12 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
                     self.roster.save()
                 except Roster.DoesNotExist:
                     pass
-            watched_by = self.db.char_ob.db.watched_by or []
-            if self.sessions.count() == 1 and not self.db.hide_from_watch:
-                for watcher in watched_by:
-                    watcher.msg("{wA player you are watching, {c%s{w, has connected.{n" % self)
+            watched_by = self.char_ob.db.watched_by or []
+            if self.sessions.count() == 1:
+                if not self.db.hide_from_watch:
+                    for watcher in watched_by:
+                        watcher.msg("{wA player you are watching, {c%s{w, has connected.{n" % self)
+                self.db.afk = ""
         except AttributeError:
             pass
 
@@ -251,6 +252,13 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
             return []
 
     @property
+    def secret_orgs(self):
+        try:
+            return self.Dominion.secret_orgs
+        except AttributeError:
+            return []
+
+    @property
     def assets(self):
         return self.Dominion.assets
 
@@ -292,9 +300,13 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
                 return False
             self.roster.action_points -= amt
             self.roster.save()
-            self.msg("{wYou use %s action points and have %s remaining this week.{n" % (amt, self.roster.action_points))
-            # force refresh in inventory command next time it's used to be sure values sync up
-            self.db.char_ob.ndb.stale_ap = True
+            if amt > 0:
+                verb = "use"
+            else:
+                verb = "gain"
+                amt = abs(amt)
+            self.msg("{wYou %s %s action points and have %s remaining this week.{n" % (verb, amt,
+                                                                                       self.roster.action_points))
             return True
         except AttributeError:
             return False
@@ -398,12 +410,12 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
     def clues_shared_modifier_seed(self):
         from world.stats_and_skills import SOCIAL_SKILLS, SOCIAL_STATS
         seed = 0
-        pc = self.db.char_ob
+        pc = self.char_ob
         for stat in SOCIAL_STATS:
             seed += pc.attributes.get(stat) or 0
         # do not be nervous. I love you. <3
-        seed += sum([pc.db.skills.get(ob, 0) for ob in SOCIAL_SKILLS])
-        seed += pc.db.skills.get("investigation", 0) * 3
+        seed += sum([pc.skills.get(ob, 0) for ob in SOCIAL_SKILLS])
+        seed += pc.skills.get("investigation", 0) * 3
         return seed
 
     @property
@@ -411,12 +423,17 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
         return int(100.0/float(self.clues_shared_modifier_seed + 1)) + 1
         
     @property
-    def participated_storyrequests(self):
+    def participated_actions(self):
         """Storyrequests we participated in"""
-        from web.helpdesk.models import Ticket
+        from world.dominion.models import CrisisAction
         from django.db.models import Q
-        return Ticket.objects.filter(Q(queue__slug__iexact="story") & Q(
-            Q(submitting_player=self) | Q(participants=self))).distinct()
+        dompc = self.Dominion
+        return CrisisAction.objects.filter(Q(assistants=dompc) | Q(dompc=dompc)).distinct()
+
+    @property
+    def past_participated_actions(self):
+        from world.dominion.models import CrisisAction
+        return self.participated_actions.filter(status=CrisisAction.PUBLISHED).distinct()
 
     def show_online(self, caller, check_puppet=False):
         """
@@ -442,3 +459,16 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
             return self.roster.character
         except AttributeError:
             pass
+
+    @property
+    def editable_theories(self):
+        ids = [ob.theory.id for ob in self.theory_permissions.filter(can_edit=True)]
+        return self.known_theories.filter(id__in=ids)
+        
+    @property
+    def past_actions(self):
+        return self.Dominion.past_actions
+
+    @property
+    def recent_storyactions(self):
+        return self.Dominion.recent_storyactions

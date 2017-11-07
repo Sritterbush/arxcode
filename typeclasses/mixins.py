@@ -1,4 +1,4 @@
-from server.utils.arx_utils import sub_old_ansi
+from server.utils.arx_utils import sub_old_ansi, text_box
 import re
 from evennia.utils.utils import lazy_property
 from evennia.utils.ansi import parse_ansi
@@ -428,7 +428,8 @@ class AppearanceMixins(BaseObjectMixins):
         currency = self.currency
         amount = round(amount, 2)
         if amount > currency:
-            raise Exception("pay_money called without checking sufficient funds in character. Not enough.")
+            from server.utils.exceptions import PayError
+            raise PayError("pay_money called without checking sufficient funds in character. Not enough.")
         self.currency -= amount
         if receiver:
             receiver.currency += amount
@@ -690,8 +691,7 @@ class MsgMixins(object):
                 except AttributeError:
                     pass
         if options.get('box', False):
-            boxchars = '\n{w' + '*' * 70 + '{n\n'
-            text = boxchars + text + boxchars
+            text = text_box(text)
         if options.get('roll', False):
             if self.attributes.has("dice_string"):
                 text = "{w<" + self.db.dice_string + "> {n" + text

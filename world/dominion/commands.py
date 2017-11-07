@@ -772,7 +772,7 @@ class CmdAdmOrganization(ArxPlayerCommand):
             caller.msg("{wOrganizations:{n %s" % orgs)
             return
         try:
-            org = self.get_org_from_args()
+            org = self.get_org_from_args(self.lhs)
         except Organization.DoesNotExist:
             # if we had create switch and found no Org, create it
             if 'create' in self.switches:
@@ -876,7 +876,7 @@ class CmdAdmOrganization(ArxPlayerCommand):
             return
         if 'cptasks' in self.switches:
             try:
-                org2 = self.get_org_from_args()
+                org2 = self.get_org_from_args(self.rhs)
             except Organization.DoesNotExist:
                 self.msg("Org not found.")
                 return
@@ -889,11 +889,11 @@ class CmdAdmOrganization(ArxPlayerCommand):
             OrgTaskModel.objects.bulk_create(bulk_list)
             self.msg("Tasks copied from %s to %s." % (org2, org))
 
-    def get_org_from_args(self):
-        if self.lhs.isdigit():
-            org = Organization.objects.get(id=int(self.lhs))
+    def get_org_from_args(self, args):
+        if args.isdigit():
+            org = Organization.objects.get(id=int(args))
         else:
-            org = Organization.objects.get(name__iexact=self.lhs)
+            org = Organization.objects.get(name__iexact=args)
         return org
 
 
@@ -1415,7 +1415,7 @@ class CmdArmy(ArxPlayerCommand):
         @army/resign
         @army/grant <army>=<character or org>
         @army/recall <army>
-        @army/propaganda <character>=<action points>
+        @army/propaganda <character>=<action points in addition to 30 base>
         @army/morale <army>=<action points>
         @army/viewclass <unit type>
 
@@ -1505,7 +1505,7 @@ class CmdArmy(ArxPlayerCommand):
         from .unit_types import cls_from_str, print_unit_names
         cls = cls_from_str(self.args)
         if not cls:
-            self.msg("Invalid type. Valid types: %s" % print_unit_names())
+            self.msg("{wValid types:{n %s" % print_unit_names())
             return
         self.msg(cls.display_class_stats())
 
@@ -1516,6 +1516,9 @@ class CmdArmy(ArxPlayerCommand):
             self.caller.Dominion.armies.clear()
             self.caller.Dominion.units.clear()
             self.msg("You have resigned any military command you held.")
+            return
+        if "viewclass" in self.switches:
+            self.view_class_stats()
             return
         if not self.args:
             self.display_armies()
@@ -1528,9 +1531,6 @@ class CmdArmy(ArxPlayerCommand):
                 self.msg("You do not have permission to see that army's details.")
                 return
             caller.msg(army.display())
-            return
-        if "viewclass" in self.switches:
-            self.view_class_stats()
             return
         if "propaganda" in self.switches:
             target = self.caller.search(self.lhs)
@@ -1559,8 +1559,9 @@ class CmdArmy(ArxPlayerCommand):
             return
         if "create" in self.switches:
             # get owner for army from self.lhs
+            dompc = caller.Dominion
             try:
-                org = caller.Dominion.current_orgs.get(name__iexact=self.lhs)
+                org = dompc.current_orgs.get(name__iexact=self.lhs)
             except Organization.DoesNotExist:
                 self.msg("You are not in an organization by that name.")
                 return
@@ -1568,7 +1569,8 @@ class CmdArmy(ArxPlayerCommand):
             if not name:
                 caller.msg("The army needs a name.")
                 return
-            if not org.access(caller, "army"):
+            if not org.access(caller, "army") and not dompc.appointments.filter(category=Minister.WARFARE,
+                                                                                ruler__house=org.assets):
                 caller.msg("You don't hold rank in %s for building armies." % org)
                 return
             # create army
@@ -1613,8 +1615,8 @@ class CmdArmy(ArxPlayerCommand):
                 if unit.quantity <= qty:
                     self.msg("You cannot split the entirety of a unit.")
                     return
-                self.msg("Splitting unit %s. %s will go to a new unit and %s remain." % (unit.id, qty, unit.quantity))
                 unit.split(qty)
+                self.msg("Splitting unit %s. %s will go to a new unit and %s remain." % (unit.id, qty, unit.quantity))
                 return
             if "transfer" in self.switches:
                 army = self.find_army(self.rhs)
@@ -1899,9 +1901,6 @@ class CmdOrganization(ArxPlayerCommand):
                 if not clue:
                     return
                 cost = (caller.clue_cost / (org.social_modifier + 4)) + 1
-                # if tarmember.player.player == self.caller:
-                #     self.msg("You cannot brief yourself.")
-                #     return
                 if not org.access(caller, 'briefing'):
                     self.msg("You do not have permissions to do a briefing.")
                     return
@@ -1933,7 +1932,7 @@ class CmdOrganization(ArxPlayerCommand):
                 if theory in player.known_theories.all():
                     self.msg("They already know that theory.")
                     return
-                player.known_theories.add(theory)
+                theory.share_with(player)
                 share_type = "theory"
                 cmd_string = "@theories"
                 share_str = theory
@@ -2150,7 +2149,7 @@ class CmdOrganization(ArxPlayerCommand):
             tarmember.rank = rank
             tarmember.save()
             caller.msg("You have set %s's rank to %s." % (player, rank))
-            player.msg("Your rank has been set to %s by %s." % (rank, caller.db.char_ob))
+            player.msg("Your rank has been set to %s." % rank)
             return
         # other switches can omit the org name if we're only a member of one org   
         if not self.rhs:
@@ -2187,8 +2186,8 @@ class CmdOrganization(ArxPlayerCommand):
                 caller.msg("Player already has an outstanding invite they must accept or decline.")
                 return
             player.ndb.orginvite = org
-            caller.msg("You have invited %s to %s." % (char, org.name))
-            msg = "You have been invited to join %s by %s.\n" % (org.name, caller.db.char_ob)
+            caller.msg("You have invited %s to %s." % (player, org.name))
+            msg = "You have been invited to join %s.\n" % org.name
             msg += "To accept, type {w@org/accept %s{n. To decline, type {worg/decline %s{n." % (org.name, org.name)
             player.inform(msg, category="Invitation")
             return
@@ -2208,7 +2207,7 @@ class CmdOrganization(ArxPlayerCommand):
                     return
             tarmember.fake_delete()
             caller.msg("Booted %s from %s." % (player, org))
-            player.msg("You have been removed from %s by %s." % (org, caller.db.char_ob))
+            player.msg("You have been removed from %s." % org)
             return
         if 'memberview' in self.switches:
             if org.secret and not org.access(caller, 'view'):

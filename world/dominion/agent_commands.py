@@ -311,7 +311,7 @@ class CmdRetainers(ArxPlayerCommand):
         @retainers
         @retainers/create <name>,<type>
         @retainers/train <owner>=<retainer name>
-        @retainers/transferxp <id #>=<xp>
+        @retainers/transferxp <id #>=<xp>[,retainer ID]
         @retainers/buyability <id #>=<ability>
         @retainers/buyskill <id #>=<skill>
         @retainers/buylevel <id #>=<field>
@@ -361,11 +361,11 @@ class CmdRetainers(ArxPlayerCommand):
                     "skintone", "height")
     valid_categories = ("skill", "stat", "ability", "level", "armor", "weapon")
 
-    def get_agent_from_args(self):
+    def get_agent_from_args(self, args):
         """Get our retainer's Agent model from an ID number in args"""
-        if self.lhs.isdigit():
-            return self.caller.retainers.get(id=self.lhs)
-        return self.caller.retainers.get(agent_objects__dbobj__db_key__iexact=self.lhs)
+        if args.isdigit():
+            return self.caller.retainers.get(id=args)
+        return self.caller.retainers.get(agent_objects__dbobj__db_key__iexact=args)
 
     def display_retainers(self):
         """
@@ -392,6 +392,7 @@ class CmdRetainers(ArxPlayerCommand):
         except IndexError:
             caller.msg("You must provide both a name and a type for your new retainer.")
             return
+        atype = atype.lower()
         if atype not in self.retainer_types:
             caller.msg("The type of retainer must be one of the following: %s" % ", ".join(self.retainer_types))
             return
@@ -437,23 +438,42 @@ class CmdRetainers(ArxPlayerCommand):
         resources. XP transferred to a retainer is multiplied to make
         it appealing to dump xp on them rather than spend it personally.
         """
-        char = self.caller.db.char_ob
+        if len(self.rhslist) < 2:
+            char = self.caller.db.char_ob
+            xp_multiplier = 3
+        else:
+            try:
+                char = self.get_agent_from_args(self.rhslist[1])
+                xp_multiplier = 1
+            except (Agent.DoesNotExist, ValueError):
+                self.msg("Could not find an agent by those args.")
+                return
         try:
-            amt = int(self.rhs)
+            amt = int(self.rhslist[0])
             if amt < 1:
                 raise ValueError
         except (TypeError, ValueError):
             self.msg("You must specify a positive xp value to transfer to your retainer.")
             return
-        if char.db.xp < amt:
-            self.msg("You want to transfer %s xp, but only have %s." % (amt, char.db.xp))
+        if char.xp < amt:
+            self.msg("You want to transfer %s xp, but only have %s." % (amt, char.xp))
             return
-        char.db.xp -= amt
-        amt *= 3
-        agent.xp += amt
-        agent.save()
+        if hasattr(char, 'xp_transfer_cap'):
+            if amt > char.xp_transfer_cap:
+                self.msg("You are trying to transfer %s xp and their transfer cap is %s." % (amt, char.xp_transfer_cap))
+                return
+            self.adjust_transfer_cap(char, -amt)
+        char.adjust_xp(-amt)
+        self.msg("%s has %s xp remaining." % (char, char.xp))
+        amt *= xp_multiplier
+        agent.adjust_xp(amt)
+        self.adjust_transfer_cap(agent, amt)
         self.msg("%s now has %s xp to spend." % (agent, agent.xp))
         return
+
+    def adjust_transfer_cap(self, agent, amt):
+        agent.xp_transfer_cap += amt
+        self.msg("%s's xp transfer cap is now %s." % (agent, agent.xp_transfer_cap))
 
     # ------ Helper methods for performing pre-purchase checks -------------
     def check_categories(self, category):
@@ -517,7 +537,7 @@ class CmdRetainers(ArxPlayerCommand):
 
     def pay_resources(self, res_cost, res_type):
         if not self.caller.pay_resources(res_type, res_cost):
-            self.msg("You do not have enough %s resources." % res_type)
+            self.msg("You do not have enough %s resources. You need %s." % (res_type, res_cost))
             return False
         return True
 
@@ -705,6 +725,7 @@ class CmdRetainers(ArxPlayerCommand):
             newval *= -1
         fake[self.rhs] = newval
         agent.dbobj.fakeweapon = fake
+        agent.dbobj.combat.setup_weapon(fake)
         self.msg("You have raised %s's %s to %s." % (agent, self.rhs, newval))
         return
 
@@ -797,7 +818,7 @@ class CmdRetainers(ArxPlayerCommand):
             return
         # methods that require an agent below
         try:
-            agent = self.get_agent_from_args()
+            agent = self.get_agent_from_args(self.lhs)
         except (Agent.DoesNotExist, ValueError, TypeError):
             caller.msg("No agent found that matches %s." % self.lhs)
             self.msg("Your current retainers:")
