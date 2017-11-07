@@ -1,10 +1,9 @@
 from django.db.models import Q
 
-from evennia.commands.default.muxcommand import MuxPlayerCommand
 from evennia.utils.evtable import EvTable
 
 from server.utils.exceptions import ActionSubmissionError
-from server.utils.arx_utils import dict_from_choices_field
+from server.utils.arx_utils import dict_from_choices_field, MuxAccountCommand
 
 from world.dominion.models import Crisis, CrisisAction, CrisisActionAssistant, ActionOOCQuestion
 
@@ -61,7 +60,7 @@ class ActionCommandMixin(object):
             self.msg("You have invited %s to join your action." % dompc)
 
 
-class CmdAction(ActionCommandMixin, MuxPlayerCommand):
+class CmdAction(ActionCommandMixin, MuxAccountCommand):
     """
     A character's story actions that a GM responds to.
     
@@ -483,7 +482,7 @@ class CmdAction(ActionCommandMixin, MuxPlayerCommand):
         self.msg("You have marked yourself as physically being present for that action.")
 
 
-class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
+class CmdGMAction(ActionCommandMixin, MuxAccountCommand):
     """
     Allows you to resolve character actions for GMing
     
