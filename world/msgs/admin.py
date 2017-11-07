@@ -70,17 +70,17 @@ class MsgAdmin(admin.ModelAdmin):
                     'message')
     list_display_links = ("id",)
     ordering = ["-db_date_created"]
-    search_fields = ['db_sender_players__db_key',
+    search_fields = ['db_sender_accounts__db_key',
                      "db_sender_objects__db_key", "db_receivers_objects__db_key",
                      'id', '^db_date_created']
     save_as = True
     save_on_top = True
     list_select_related = True
-    raw_id_fields = ("db_sender_players", "db_receivers_players", "db_sender_objects", "db_receivers_objects",
+    raw_id_fields = ("db_sender_accounts", "db_receivers_accounts", "db_sender_objects", "db_receivers_objects",
                      )
 
     # Tags require a special inline, and others aren't used for our proxy models
-    exclude = ('db_tags', 'db_receivers_channels', 'db_hide_from_channels', "db_hide_from_players",
+    exclude = ('db_tags', 'db_receivers_channels', 'db_hide_from_channels', "db_hide_from_accounts",
                "db_hide_from_objects")
 
     @staticmethod

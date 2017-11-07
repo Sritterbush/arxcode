@@ -6,7 +6,7 @@ from evennia.commands.default.tests import CommandTest
 from evennia.server.sessionhandler import SESSIONS
 from evennia.utils import ansi, utils
 from typeclasses.characters import Character
-from typeclasses.players import Player
+from typeclasses.accounts import Account
 from typeclasses.objects import Object
 from typeclasses.rooms import ArxRoom
 from typeclasses.exits import Exit
@@ -23,7 +23,7 @@ class ArxCommandTest(CommandTest):
     objects that our characters/players would be expected to have for any 
     particular test.
     """
-    player_typeclass = Player
+    account_typeclass = Account
     object_typeclass = Object
     character_typeclass = Character
     exit_typeclass = Exit
@@ -35,13 +35,13 @@ class ArxCommandTest(CommandTest):
         super(ArxCommandTest, self).setUp()
         from world.dominion.setup_utils import setup_dom_for_player, setup_assets
         from web.character.models import Roster
-        self.dompc = setup_dom_for_player(self.player)
-        self.dompc2 = setup_dom_for_player(self.player2)
+        self.dompc = setup_dom_for_player(self.account)
+        self.dompc2 = setup_dom_for_player(self.account2)
         self.assetowner = setup_assets(self.dompc, 0)
         self.assetowner2 = setup_assets(self.dompc2, 0)
         self.active_roster = Roster.objects.create(name="Active")
-        self.roster_entry = self.active_roster.entries.create(player=self.player, character=self.char1)
-        self.roster_entry2 = self.active_roster.entries.create(player=self.player2, character=self.char2)
+        self.roster_entry = self.active_roster.entries.create(player=self.account, character=self.char1)
+        self.roster_entry2 = self.active_roster.entries.create(player=self.account2, character=self.char2)
 
     def call_cmd(self, args, msg):
         self.call(self.cmd_class(), args, msg, caller=self.caller)
@@ -70,7 +70,7 @@ class ArxCommandTest(CommandTest):
         cmdobj.args = args
         cmdobj.cmdset = cmdset
         cmdobj.session = SESSIONS.session_from_sessid(1)
-        cmdobj.player = self.player
+        cmdobj.account = self.account
         cmdobj.raw_string = cmdobj.key + " " + args
         cmdobj.obj = obj or (caller if caller else self.char1)
         # test

@@ -12,10 +12,10 @@ class InvestigationTests(ArxCommandTest):
     def test_cmd_clues(self):
         from datetime import datetime
         self.cmd_class = investigation.CmdListClues
-        self.caller = self.player
+        self.caller = self.account
         self.call_cmd("1", "test clue\nRating: 10\ntest clue desc")
         self.call_cmd("/addnote 1=test note", "test clue\nRating: 10\ntest clue desc\n\nadditional text test"
-                                              "\n[%s] TestPlayer wrote: test note" % datetime.now().strftime("%x %X"))
-        self.call_cmd("/share 1=TestPlayer2", "Sharing that many clues would cost 101 action points.")
+                                              "\n[%s] TestAccount wrote: test note" % datetime.now().strftime("%x %X"))
+        self.call_cmd("/share 1=Testaccount2", "Sharing that many clues would cost 101 action points.")
         self.roster_entry.action_points = 101
-        self.call_cmd("/share 1=TestPlayer2", "You have shared the clues 'test clue' with Char2.")
+        self.call_cmd("/share 1=Testaccount2", "You have shared the clues 'test clue' with Char2.")

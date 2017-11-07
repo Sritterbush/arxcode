@@ -230,19 +230,19 @@ class BBoard(Object):
 
     @staticmethod
     def mark_read(caller, post):
-        post.db_receivers_players.add(caller)
+        post.db_receivers_accounts.add(caller)
         if caller.db.bbaltread:
             try:
                 for alt in (ob.player for ob in caller.roster.alts):
-                    post.db_receivers_players.add(alt)
+                    post.db_receivers_accounts.add(alt)
             except AttributeError:
                 pass
 
     @staticmethod
     def get_poster(post):
         sender = ""
-        if post.db_sender_players.all():
-            sender += ", ".join(str(ob).capitalize() for ob in post.db_sender_players.all())
+        if post.db_sender_accounts.all():
+            sender += ", ".join(str(ob).capitalize() for ob in post.db_sender_accounts.all())
         if post.db_sender_objects.all():
             if sender:
                 sender += ", "

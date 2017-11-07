@@ -16,7 +16,7 @@ class TestCrisisCommands(ArxCommandTest):
     @patch("world.dominion.models.get_week")
     def test_cmd_gm_crisis(self, mock_get_week, mock_inform_staff):
         self.cmd_class = crisis_commands.CmdGMCrisis
-        self.caller = self.player
+        self.caller = self.account
         mock_get_week.return_value = 1
         self.call_cmd("/create test crisis2/ermagerd headline=test desc", 
                       "Crisis created. Make gemits or whatever for it.")
@@ -27,7 +27,7 @@ class TestCrisisCommands(ArxCommandTest):
             Story.objects.create(name="test story", current_chapter=chapter)
             self.call_cmd("/update 1=test gemit/test note", "You have updated the crisis.")
             mock_msg_and_post.assert_called_with("test gemit", self.caller, episode_name="test episode")
-            mock_inform_staff.assert_called_with('Crisis update posted by Testplayer for test crisis:\nGemit:\ntest '
+            mock_inform_staff.assert_called_with('Crisis update posted by Testaccount for test crisis:\nGemit:\ntest '
                                                  'gemit\nGM Notes: test note\nPending actions published: 1\nAlready '
                                                  'published actions for this update: ', post=True,
                                                  subject='Update for test crisis')
@@ -35,5 +35,5 @@ class TestCrisisCommands(ArxCommandTest):
         
     def test_cmd_view_crisis(self):
         self.cmd_class = crisis_commands.CmdViewCrisis
-        self.caller = self.player
+        self.caller = self.account
         self.call_cmd("1", "Name: test crisis\nDescription: None\nCurrent Rating: 100")

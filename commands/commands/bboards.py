@@ -359,7 +359,7 @@ class CmdBBReadOrPost(ArxPlayerCommand):
             post = board.get_post(caller, post_num, old)
             if not post:
                 return
-            if caller not in post.db_sender_players.all() and not board.access(caller, "edit"):
+            if caller not in post.db_sender_accounts.all() and not board.access(caller, "edit"):
                 caller.msg("You cannot %s someone else's post, only your own." % verb)
                 return
             if getattr(board, method)(post):
@@ -385,7 +385,7 @@ class CmdBBReadOrPost(ArxPlayerCommand):
             post = board.get_post(caller, post_num)
             if not post:
                 return
-            if caller not in post.db_sender_players.all() and not board.access(caller, "edit"):
+            if caller not in post.db_sender_accounts.all() and not board.access(caller, "edit"):
                 caller.msg("You cannot edit someone else's post, only your own.")
                 return
             if board.edit_post(self.caller, post, self.rhs):

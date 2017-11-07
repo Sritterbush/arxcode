@@ -324,10 +324,10 @@ class CrisisActionAdmin(DomAdmin):
     readonly_fields = ('ooc_intent',)
     fieldsets = [(None, {'fields': [('dompc', 'topic')]}),
                  ('Status', {'fields': [('attending', 'traitor', 'prefer_offscreen'), ('status', 'public', 'editable'),
-                                        ('crisis', 'update', 'gemit'), ('week', 'public', 'date_submitted')],
+                                        ('crisis', 'update', 'gemit'), ('week', 'date_submitted')],
                              'classes': ['collapse'], 'description': 'Current ooc status of the action'}),
                  ('Story', {'fields': [('topic', 'category'), 'actions', 'secret_actions', 'story', 'secret_story',
-                                        'ooc_intent'],
+                                       'ooc_intent'],
                             'description': "The player's story, and GM response to it.",
                             'classes': ['collapse']}),
                  ('Roll', {'fields': [('stat_used', 'skill_used', 'roll', 'difficulty'), 'outcome_value'],

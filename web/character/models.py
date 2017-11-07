@@ -354,7 +354,7 @@ class AccountHistory(SharedMemoryModel):
     start_date = models.DateTimeField(blank=True, null=True, db_index=True)
     end_date = models.DateTimeField(blank=True, null=True, db_index=True)
     contacts = models.ManyToManyField('self', blank=True, null=True, through='FirstContact',
-                                      related_name='contacted_by')
+                                      related_name='contacted_by', symmetrical=False)
 
     def __str__(self):
         start = ""

@@ -13,7 +13,7 @@ class StoryActionTests(ArxCommandTest):
     def test_cmd_action(self, mock_get_week, mock_inform_staff):
         mock_get_week.return_value = 1
         self.cmd_class = story_actions.CmdAction
-        self.caller = self.player
+        self.caller = self.account
         self.crisis = Crisis.objects.create(name="Test Crisis")
         self.call_cmd("/newaction", "You need to include a story.")
         self.caller.pay_action_points = Mock(return_value=False)
@@ -34,19 +34,17 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/roll 1=strength,athletics", "stat set to strength.|skill set to athletics.")
         self.call_cmd("/setsecret 1=sekrit", "Secret actions set to sekrit.")
         self.call_cmd("/invite 1=foo", "Could not find 'foo'.")
-        self.call_cmd("/invite 1=TestPlayer2", "You have invited Testplayer2 to join your action.")
-        self.caller = self.player2
+        self.call_cmd("/invite 1=TestAccount2", "You have invited Testaccount2 to join your action.")
+        self.caller = self.account2
         self.call_cmd("/setaction 1=test assist", "You do not have enough action points.")
         self.caller.pay_action_points = Mock(return_value=True)
         self.call_cmd("/setaction 1=test assist",
-                      "Action by Testplayer for Test Crisis now has your assistance: test assist")
-        self.caller = self.player
+                      "Action by Testaccount for Test Crisis now has your assistance: test assist")
+        Army.objects.create(name="test army", owner=self.assetowner)
+        self.call_cmd("/add 1=army,1", "You don't have access to that Army.|Failed to send orders to the army.")
+        self.caller = self.account
         self.call_cmd("/add 1=foo,bar", "Invalid type of resource.")
         self.call_cmd("/add 1=ap,50", "50 ap added. Action Resources: extra action points 50")
-        army = Army.objects.create(name="test army", owner=self.assetowner2)
-        self.call_cmd("/add 1=army,1", "You don't have access to that Army.|Failed to send orders to the army.")
-        army.owner = self.assetowner
-        army.save()
         self.call_cmd("/add 1=army,1", "You have successfully relayed new orders to that army.")
         self.call_cmd("/toggletraitor 1", "Traitor is now set to: True")
         self.call_cmd("/toggletraitor 1", "Traitor is now set to: False")
@@ -57,10 +55,10 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/submit 1", "Before submitting this action, make certain that you have invited all players you "
                                    "wish to help with the action, and add any resources necessary. Any invited players "
                                    "who have incomplete actions will have their assists deleted.\nThe following "
-                                   "assistants are not ready and will be deleted: Testplayer2\nWhen ready, /submit "
+                                   "assistants are not ready and will be deleted: Testaccount2\nWhen ready, /submit "
                                    "the action again.")
         self.call_cmd("/submit 1", "You have new informs. Use @inform 1 to read them.|You have submitted your action.")
-        mock_inform_staff.assert_called_with('Testplayer has submitted action #1.')
+        mock_inform_staff.assert_called_with('Testaccount has submitted action #1.')
         self.call_cmd("/makepublic 1", "The action must be finished before you can make details of it public.")
         action.status = CrisisAction.PUBLISHED
         self.call_cmd("/makepublic 1", "You have gained 2 xp for making your action public.")
@@ -103,34 +101,34 @@ class StoryActionTests(ArxCommandTest):
                                             date_submitted=datetime.now(), topic="test summary")
         action.set_ooc_intent("ooc intent test")
         self.cmd_class = story_actions.CmdGMAction
-        self.caller = self.player
+        self.caller = self.account
         self.call_cmd("/story 2=foo", "No action by that ID #.")
         self.call_cmd("/story 1=foo", "story set to foo.")
-        self.call_cmd("/tldr 1", "Summary of action 1\nAction by Testplayer2: Summary: test summary")
+        self.call_cmd("/tldr 1", "Summary of action 1\nAction by Testaccount2: Summary: test summary")
         self.call_cmd("/secretstory 1=sekritfoo", "secret_story set to sekritfoo.")
         self.call_cmd("/stat 1=charm", "stat set to charm.")
         self.call_cmd("/skill 1=seduction", "skill set to seduction.")
         self.call_cmd("/diff 1=25", "difficulty set to 25.")
         self.call_cmd("/diff 1=hard", "difficulty set to %s." % CrisisAction.HARD_DIFFICULTY)
-        self.call_cmd("/assign 1=Testplayer", "gm set to Testplayer.|GM for the action set to Testplayer")
-        self.call_cmd("/invite 1=TestPlayer2", "The owner of an action cannot be an assistant.")
-        self.call_cmd("/invite 1=TestPlayer", "You have new informs. Use @inform 1 to read them."
-                                              "|You have invited Testplayer to join your action.")
-        self.player2.pay_resources = Mock()
+        self.call_cmd("/assign 1=Testaccount", "gm set to Testaccount.|GM for the action set to Testaccount")
+        self.call_cmd("/invite 1=TestAccount2", "The owner of an action cannot be an assistant.")
+        self.call_cmd("/invite 1=TestAccount", "You have new informs. Use @inform 1 to read them."
+                                               "|You have invited Testaccount to join your action.")
+        self.account2.pay_resources = Mock()
         self.call_cmd("/charge 1=economic,2000", "2000 economic added. Action Resources: economic 2000")
-        self.player2.pay_resources.assert_called_with("economic", 2000)
+        self.account2.pay_resources.assert_called_with("economic", 2000)
         self.caller.inform = Mock()
-        self.player2.inform = Mock()
+        self.account2.inform = Mock()
         action.ask_question("foo inform")
-        self.caller.inform.assert_called_with('{cTestplayer2{n added a comment/question about Action #1:\nfoo inform',
+        self.caller.inform.assert_called_with('{cTestaccount2{n added a comment/question about Action #1:\nfoo inform',
                                               category='Action questions')
         self.call_cmd("/ooc/allowedit 1=Sure go nuts", "editable set to True.|Answer added.")
-        self.player2.inform.assert_called_with('GM Testplayer has posted a followup to action 1: Sure go nuts',
+        self.account2.inform.assert_called_with('GM Testaccount has posted a followup to action 1: Sure go nuts',
                                                append=False, category='Actions', week=1)
         self.assertEquals(action.editable, True)
-        self.player2.gain_resources = Mock()
+        self.account2.gain_resources = Mock()
         self.call_cmd("/cancel 1", "Action cancelled.")
-        self.player2.gain_resources.assert_called_with("economic", 2000)
+        self.account2.gain_resources.assert_called_with("economic", 2000)
         self.assertEquals(self.assetowner2.vault, 50)
         self.assertEquals(action.status, CrisisAction.CANCELLED)
         self.call_cmd("/markpending 1", "status set to Pending Resolution.")
@@ -142,20 +140,20 @@ class StoryActionTests(ArxCommandTest):
         action.ask_question("another test question")
         self.call_cmd("/markanswered 1", "You have marked the questions as answered.")
         self.assertEqual(action.questions.last().mark_answered, True)
-        self.call_cmd("1", "Action by Testplayer2\nSummary: test summary\nAction: test\n"
+        self.call_cmd("1", "Action by Testaccount2\nSummary: test summary\nAction: test\n"
                            "[physically present] Dice check: Stat: perception, Skill: investigation  Diff: 60\n"
-                           "Testplayer2 OOC intentions: ooc intent test\n\nOOC Notes and GM responses\n"
-                           "Testplayer2 OOC Question: foo inform\nReply by Testplayer: Sure go nuts\n"
-                           "Testplayer2 OOC Question: another test question\nOutcome Value: 0\nStory Result: \n"
+                           "Testaccount2 OOC intentions: ooc intent test\n\nOOC Notes and GM responses\n"
+                           "Testaccount2 OOC Question: foo inform\nReply by Testaccount: Sure go nuts\n"
+                           "Testaccount2 OOC Question: another test question\nOutcome Value: 0\nStory Result: \n"
                            "Secret Story sekritfoo\nResources: economic 2000, silver 50\n[STATUS: Pending Resolution]")
         self.call_cmd("/publish 1=story test", "You have published the action and sent the players informs.")
         self.assertEquals(action.status, CrisisAction.PUBLISHED)
-        self.player2.inform.assert_called_with('{wGM Response to story action of Testplayer2\n'
+        self.account2.inform.assert_called_with('{wGM Response to story action of Testaccount2\n'
                                                '{wRolls:{n 0\n\n{wStory Result:{n story test\n\n',
                                                append=False, category='Actions', week=1)
-        mock_inform_staff.assert_called_with('Action 1 has been published by Testplayer:\n{wGM Response to story action'
-                                             ' of Testplayer2\n{wRolls:{n 0\n\n{wStory Result:{n story test\n\n',
-                                             post='{wSummary of action 1{n\nAction by {cTestplayer2{n: {wSummary:{n '
+        mock_inform_staff.assert_called_with('Action 1 has been published by Testaccount:\n{wGM Response to story action'
+                                             ' of Testaccount2\n{wRolls:{n 0\n\n{wStory Result:{n story test\n\n',
+                                             post='{wSummary of action 1{n\nAction by {cTestaccount2{n: {wSummary:{n '
                                                   'test summary\n\n{wStory Result:{n story test\n'
                                                   '{wSecret Story{n sekritfoo',
                                              subject='Action 1 Published')
@@ -166,10 +164,10 @@ class StoryActionTests(ArxCommandTest):
             Story.objects.create(name="test story", current_chapter=chapter)
             self.call_cmd("/gemit 1=test gemit", "StoryEmit created.")
             mock_msg_and_post.assert_called_with("test gemit", self.caller, episode_name="test episode")
-            mock_inform_staff.assert_called_with('Action 1 has been published by Testplayer:\n{wGM Response to story '
-                                                 'action of Testplayer2\n{wRolls:{n 0\n\n'
+            mock_inform_staff.assert_called_with('Action 1 has been published by Testaccount:\n{wGM Response to story '
+                                                 'action of Testaccount2\n{wRolls:{n 0\n\n'
                                                  '{wStory Result:{n story test\n\n',
-                                                 post='{wSummary of action 1{n\nAction by {cTestplayer2{n: '
+                                                 post='{wSummary of action 1{n\nAction by {cTestaccount2{n: '
                                                       '{wSummary:{n test summary\n\n'
                                                       '{wStory Result:{n story test\n{wSecret '
                                                       'Story{n sekritfoo', subject='Action 1 Published')
@@ -187,25 +185,25 @@ class OverridesTests(ArxCommandTest):
         self.call_cmd("75 silver to char2", "You do not have that much money to give.")
         self.call_cmd("25 silver to char2", "You give coins worth 25.0 silver pieces to Char2.")
         self.assetowner.economic = 50
-        self.call_cmd("/resource economic,60 to TestPlayer2", "You do not have enough economic resources.")
-        self.player2.inform = Mock()
-        self.call_cmd("/resource economic,50 to TestPlayer2", "You give 50 economic resources to Char2.")
+        self.call_cmd("/resource economic,60 to TestAccount2", "You do not have enough economic resources.")
+        self.account2.inform = Mock()
+        self.call_cmd("/resource economic,50 to TestAccount2", "You give 50 economic resources to Char2.")
         self.assertEqual(self.assetowner2.economic, 50)
-        self.player2.inform.assert_called_with("Char has given 50 economic resources to you.", category="Resources")
+        self.account2.inform.assert_called_with("Char has given 50 economic resources to you.", category="Resources")
 
 
 class SocialTests(ArxCommandTest):
     def test_cmd_watch(self):
         self.cmd_class = social.CmdWatch
-        self.caller = self.player
+        self.caller = self.account
         max_size = social.CmdWatch.max_watchlist_size
-        self.call_cmd("testplayer2", "You start watching Char2.")
+        self.call_cmd("testaccount2", "You start watching Char2.")
         self.assertTrue(self.char2 in self.caller.db.watching)
-        self.call_cmd("testplayer2", "You are already watching Char2.")
+        self.call_cmd("testaccount2", "You are already watching Char2.")
         self.call_cmd("/hide", "Hiding set to True.")
         self.call_cmd("/hide", "Hiding set to False.")
-        self.call_cmd("/stop testplayer2", "Stopped watching Char2.")
+        self.call_cmd("/stop testAccount2", "Stopped watching Char2.")
         self.assertTrue(self.char2 not in self.caller.db.watching)
         for _ in range(max_size):
             self.caller.db.watching.append(self.char2)
-        self.call_cmd("testplayer2", "You may only have %s characters on your watchlist." % max_size)
+        self.call_cmd("testAccount2", "You may only have %s characters on your watchlist." % max_size)

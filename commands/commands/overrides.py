@@ -681,7 +681,7 @@ class CmdArxSay(CmdSay):
         options = {'is_pose': True}
         speech = self.raw.lstrip(" ")
         # calling the speech hook on the location
-        speech = self.caller.location.at_say(self.caller, speech)
+        speech = self.caller.location.at_say(speech)
         # Feedback for the object doing the talking.
         langstring = ""
         current = self.caller.languages.current_language

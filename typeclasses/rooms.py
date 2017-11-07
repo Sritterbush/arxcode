@@ -417,6 +417,9 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
             self.db.decorators = []
         return self.db.decorators
 
+    def at_say(self, message, msg_self=None, msg_location=None, receivers=None, msg_receivers=None, **kwargs):
+        return message
+
 
 class CmdExtendedLook(default_cmds.CmdLook):
     """
