@@ -604,7 +604,8 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         elif "cancelled" in self.switches:
             qs = qs.filter(status=cancelled_status)
         else:
-            unanswered_questions = ActionOOCQuestion.objects.filter(answers__isnull=True).exclude(is_intent=True)
+            unanswered_questions = ActionOOCQuestion.objects.filter(answers__isnull=True).exclude(is_intent=True,
+                                                                                                  mark_answered=True)
             qs = qs.filter(Q(questions__in=unanswered_questions) |
                            ~Q(status__in=(old_status, draft_status, cancelled_status, pending_status)))
         if "mine" in self.switches:

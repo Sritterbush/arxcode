@@ -131,7 +131,6 @@ class Player(InformMixin, MsgMixins, DefaultPlayer):
             self.msg("{y*** You have new mail. ***{n")
         if self.db.new_comments:
             self.msg("{wYou have new comments.{n")
-        self.db.afk = ""
         self.announce_informs()
         pending = self.db.pending_messages or []
         for msg in pending:
@@ -161,10 +160,12 @@ class Player(InformMixin, MsgMixins, DefaultPlayer):
                     self.roster.save()
                 except Roster.DoesNotExist:
                     pass
-            watched_by = self.db.char_ob.db.watched_by or []
-            if self.sessions.count() == 1 and not self.db.hide_from_watch:
-                for watcher in watched_by:
-                    watcher.msg("{wA player you are watching, {c%s{w, has connected.{n" % self)
+            watched_by = self.char_ob.db.watched_by or []
+            if self.sessions.count() == 1:
+                if not self.db.hide_from_watch:
+                    for watcher in watched_by:
+                        watcher.msg("{wA player you are watching, {c%s{w, has connected.{n" % self)
+                self.db.afk = ""
         except AttributeError:
             pass
 
