@@ -142,6 +142,12 @@ class StoryActionTests(ArxCommandTest):
         action.ask_question("another test question")
         self.call_cmd("/markanswered 1", "You have marked the questions as answered.")
         self.assertEqual(action.questions.last().mark_answered, True)
+        self.call_cmd("1", "Action by Testplayer2\nSummary: test summary\nAction: test\n"
+                           "[physically present] Dice check: Stat: perception, Skill: investigation  Diff: 60\n"
+                           "Testplayer2 OOC intentions: ooc intent test\n\nOOC Notes and GM responses\n"
+                           "Testplayer2 OOC Question: foo inform\nReply by Testplayer: Sure go nuts\n"
+                           "Testplayer2 OOC Question: another test question\nOutcome Value: 0\nStory Result: \n"
+                           "Secret Story sekritfoo\nResources: economic 2000, silver 50\n[STATUS: Pending Resolution]")
         self.call_cmd("/publish 1=story test", "You have published the action and sent the players informs.")
         self.assertEquals(action.status, CrisisAction.PUBLISHED)
         self.player2.inform.assert_called_with('{wGM Response to story action of Testplayer2\n'
