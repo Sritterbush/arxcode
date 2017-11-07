@@ -1994,7 +1994,17 @@ class AbstractAction(AbstractPlayerAllocations):
         return "\n".join(question.display() for question in self.questions.all())
         
     def add_answer(self, gm, text):
-        self.questions.last().add_answer(gm, text)
+        unanswered = self.unanswered_questions
+        if unanswered:
+            unanswered.last().add_answer(gm, text)
+        else:
+            self.questions.last().add_answer(gm, text)
+
+    def mark_answered(self, gm):
+        for question in self.unanswered_questions:
+            question.mark_answered = True
+            question.save()
+        inform_staff("%s has marked action %s's questions as answered." % (gm, self.main_id))
 
     @property
     def main_id(self):
@@ -2002,7 +2012,7 @@ class AbstractAction(AbstractPlayerAllocations):
 
     @property
     def unanswered_questions(self):
-        return self.questions.filter(answers__isnull=True).exclude(is_intent=True)
+        return self.questions.filter(answers__isnull=True).exclude(Q(is_intent=True) | Q(mark_answered=True))
         
 
 class CrisisAction(AbstractAction):
@@ -2345,7 +2355,7 @@ class CrisisAction(AbstractAction):
     def get_questions_and_answers_display(self, answered=False, staff=False, caller=None):
         qs = self.questions.filter(is_intent=False)
         if not answered:
-            qs = qs.filter(answers__isnull=True)
+            qs = qs.filter(answers__isnull=True, mark_unanswered=False)
         if not staff:
             dompc = caller.Dominion
             # players can only see questions they wrote themselves and their answers
@@ -2356,7 +2366,7 @@ class CrisisAction(AbstractAction):
                 if answered:
                     qs.extend(list(ob.questions.filter(is_intent=False)))
                 else:
-                    qs.extend(list(ob.questions.filter(answers__isnull=True, is_intent=False)))
+                    qs.extend(list(ob.questions.filter(answers__isnull=True, is_intent=False, mark_answered=False)))
         return "\n".join(question.display() for question in set(qs))
 
     @property
@@ -2472,6 +2482,7 @@ class ActionOOCQuestion(SharedMemoryModel):
                                       blank=True)
     text = models.TextField(blank=True)
     is_intent = models.BooleanField(default=False)
+    mark_answered = models.BooleanField(default=False)
 
     def __str__(self):
         return "%s %s: %s" % (self.author, self.noun, self.text)

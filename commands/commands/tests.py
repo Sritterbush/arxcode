@@ -139,6 +139,9 @@ class StoryActionTests(ArxCommandTest):
                       "To prevent accidental overwrites, please change "
                       "it manually and then /publish without additional arguments.")
         action.story = ""
+        action.ask_question("another test question")
+        self.call_cmd("/markanswered 1", "You have marked the questions as answered.")
+        self.assertEqual(action.questions.last().mark_answered, True)
         self.call_cmd("/publish 1=story test", "You have published the action and sent the players informs.")
         self.assertEquals(action.status, CrisisAction.PUBLISHED)
         self.player2.inform.assert_called_with('{wGM Response to story action of Testplayer2\n'
@@ -158,9 +161,11 @@ class StoryActionTests(ArxCommandTest):
             self.call_cmd("/gemit 1=test gemit", "StoryEmit created.")
             mock_msg_and_post.assert_called_with("test gemit", self.caller, episode_name="test episode")
             mock_inform_staff.assert_called_with('Action 1 has been published by Testplayer:\n{wGM Response to story '
-                                                 'action of Testplayer2\n{wRolls:{n 0\n\n{wStory Result:{n foo\n\n',
+                                                 'action of Testplayer2\n{wRolls:{n 0\n\n'
+                                                 '{wStory Result:{n story test\n\n',
                                                  post='{wSummary of action 1{n\nAction by {cTestplayer2{n: '
-                                                      '{wSummary:{n test summary\n\n{wStory Result:{n foo\n{wSecret '
+                                                      '{wSummary:{n test summary\n\n'
+                                                      '{wStory Result:{n story test\n{wSecret '
                                                       'Story{n sekritfoo', subject='Action 1 Published')
 
 

@@ -506,6 +506,7 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         
         Commands for answering questions or requiring player response:
         @gm/ooc[/allowedit] <action #>[,assistant name]=<answer to OOC question>
+        @gm/markanswered <action #>
         
         Commands for action administration:
         @gm/publish <action #>[=<story>]
@@ -547,7 +548,7 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
     help_category = "GMing"
     list_switches = ("old", "pending", "draft", "cancelled", "needgm", "needplayer")
     gming_switches = ("story", "secretstory", "charge", "check", "checkall", "stat", "skill", "diff")
-    followup_switches = ("ooc",)
+    followup_switches = ("ooc", "markanswered")
     admin_switches = ("publish", "markpending", "cancel", "assign", "gemit", "allowedit", "invite")
     difficulties = {"easy": CrisisAction.EASY_DIFFICULTY, "normal": CrisisAction.NORMAL_DIFFICULTY,
                     "hard": CrisisAction.HARD_DIFFICULTY}
@@ -696,6 +697,8 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         action = self.replace_action_with_assistant_if_provided(action)
         if not action:
             return
+        if "markanswered" in self.switches:
+            return self.mark_answered(action)
         if "allowedit" in self.switches:
             self.set_action_field(action, "editable", True)
         if not self.rhs:
@@ -703,6 +706,10 @@ class CmdGMAction(ActionCommandMixin, MuxPlayerCommand):
         else:
             action.add_answer(gm=self.caller, text=self.rhs)
             self.msg("Answer added.")
+
+    def mark_answered(self, action):
+        action.mark_answered(gm=self.caller)
+        self.msg("You have marked the questions as answered.")
     
     def do_admin(self, action):
         if "publish" in self.switches:
