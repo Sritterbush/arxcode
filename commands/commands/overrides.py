@@ -1310,7 +1310,7 @@ class CmdTeleport(ArxCommand):
                 obj_to_teleport = caller
                 destination = caller.search(lhs, global_search=True)
             else:
-                player = caller.search_player(lhs)
+                player = caller.search_account(lhs)
                 destination = None
                 if 'goto' in switches or self.cmdstring == "@go":
                     obj_to_teleport = caller
@@ -1585,16 +1585,16 @@ class CmdArxExamine(CmdExamine):
             obj_name = objdef['name']
             obj_attrs = objdef['attrs']
 
-            self.player_mode = (inherits_from(caller, "evennia.players.players.DefaultPlayer") or
+            self.player_mode = (inherits_from(caller, "evennia.accounts.accounts.DefaultAccount") or
                                 "player" in self.switches or obj_name.startswith('*'))
             if self.player_mode or "char" in self.switches:
                 try:
-                    obj = caller.search_player(obj_name.lstrip('*'))
+                    obj = caller.search_account(obj_name.lstrip('*'))
                     if "char" in self.switches and obj:
                         obj = obj.db.char_ob
                 except AttributeError:
                     # this means we are calling examine from a player object
-                    obj = caller.search(obj_name.lstrip('*'), search_object='object' in self.switches)
+                    obj = caller.search(obj_name.lstrip('*'))
             else:
                 obj = caller.search(obj_name)
             if not obj:
@@ -1618,7 +1618,7 @@ class CmdArxExamine(CmdExamine):
                 else:
                     mergemode = "object"
                 # using callback to print results whenever function returns.
-                get_and_merge_cmdsets(obj, self.session, self.player, obj, mergemode, self.raw_string
+                get_and_merge_cmdsets(obj, self.session, self.account, obj, mergemode, self.raw_string
                                       ).addCallback(get_cmdset_callback)
 
 
@@ -1735,10 +1735,10 @@ class CmdArxScripts(CmdScripts):
         from django.db.models import Q
         from evennia.utils.evtable import EvTable
         if self.args and self.args.isdigit():
-            scripts = ScriptDB.objects.filter(Q(id=self.args) | Q(db_obj__id=self.args) | Q(db_player__id=self.args))
+            scripts = ScriptDB.objects.filter(Q(id=self.args) | Q(db_obj__id=self.args) | Q(db_account__id=self.args))
         else:
             scripts = ScriptDB.objects.filter(Q(db_key__icontains=self.args) | Q(db_obj__db_key__iexact=self.args) |
-                                              Q(db_player__username__iexact=self.args))
+                                              Q(db_account__username__iexact=self.args))
         if not scripts:
             self.msg("<No scripts>")
             return
