@@ -552,7 +552,6 @@ class CmdGuestCharCreate(ArxPlayerCommand):
                     playername += str(num_tries)
                 password = email+'_default_password'
                 new_player = create.create_account(playername, email, password, permissions=permissions)
-                utils.init_new_player(new_player)
                 new_character = create.create_object(typeclass, key=email,
                                                      location=default_home,
                                                      home=default_home,
