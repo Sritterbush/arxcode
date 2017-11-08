@@ -17,7 +17,7 @@ from web.website.views import to_be_implemented
 
 urlpatterns = [
     # User Authentication
-    url(r'^accounts/login',  django.contrib.auth.views.login),
+    url(r'^accounts/login',  django.contrib.auth.views.LoginView.as_view(template_name="login.html"), name='login'),
     url(r'^accounts/logout', django.contrib.auth.views.logout),
 
     # Front page

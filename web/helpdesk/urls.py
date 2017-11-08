@@ -188,10 +188,10 @@ urlpatterns += [
         api.api,
         name='helpdesk_api'),
 
-    url(r'^login/$',
-        django.contrib.auth.views.login,
-        {'template_name': 'helpdesk/registration/login.html'},
-        name='login'),
+    # url(r'^login/$',
+    #     django.contrib.auth.views.login,
+    #     {'template_name': 'helpdesk/registration/login.html'},
+    #     name='login'),
 
     url(r'^logout/$',
         django.contrib.auth.views.logout,

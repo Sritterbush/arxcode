@@ -6,7 +6,7 @@ commandset, with unique commands for the tutorial.
 
 from evennia.commands.cmdset import CmdSet
 from evennia.commands.default import comms
-from evennia.commands.default import player
+from evennia.commands.default import account
 import sys
 import traceback
 from commands.commands import help
@@ -25,12 +25,12 @@ class GuestCmdSet(CmdSet):
 
         # Player-specific commands
         try:
-            self.add(player.CmdOOCLook())
+            self.add(account.CmdOOCLook())
             from commands.commands import overrides
             self.add(overrides.CmdWho())
-            self.add(player.CmdQuit())
-            self.add(player.CmdColorTest())
-            self.add(player.CmdOption())
+            self.add(account.CmdQuit())
+            self.add(account.CmdColorTest())
+            self.add(account.CmdOption())
             # Help command
             self.add(help.CmdHelp())
             # Comm commands
