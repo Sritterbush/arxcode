@@ -104,11 +104,8 @@ def resolve_ticket(caller, ticket_id, message):
 
 def mail_update(ticket, comments, header="New ticket activity\n"):
     player = ticket.submitting_player
-    assistants = ticket.participants.all()
     msg = header
     msg += "{wTicket ID:{n %s\n" % ticket.id
     msg += "{wIssue:{n %s\n\n" % ticket.description
     msg += "{wGM comments:{n %s" % comments
     player.inform(msg, category="requests", append=False)
-    for ob in assistants:
-        ob.inform(msg, category="requests", append=False)
