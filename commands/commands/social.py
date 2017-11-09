@@ -1922,10 +1922,10 @@ class CmdSocialScore(ArxCommand):
         """Execute command."""
         caller = self.caller
         if not self.switches:
-            from typeclasses.players import Player
+            from typeclasses.accounts import Account
             # NB: We're going through the Player manager in order to cache the assetowner total_prestige calc
             # If we just queried AssetOwner.objects, it would not cache, and would be incredibly expensive. 100x or so
-            pcs = [ob.Dominion.assets for ob in Player.objects.filter(roster__roster__name="Active")]
+            pcs = [ob.Dominion.assets for ob in Account.objects.filter(roster__roster__name="Active")]
             pcs = sorted(pcs, key=lambda x: x.total_prestige, reverse=True)[:20]
             table = PrettyTable(["{wName{n", "{wPrestige{n"])
             for pc in pcs:

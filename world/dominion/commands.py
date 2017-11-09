@@ -2278,10 +2278,10 @@ class CmdFamily(ArxPlayerCommand):
             player = caller
             show_private = True
         else:
-            from typeclasses.players import Player
+            from typeclasses.accounts import Account
             try:
-                player = Player.objects.get(username__iexact=self.args)
-            except (Player.DoesNotExist, Player.MultipleObjectsReturned):
+                player = Account.objects.get(username__iexact=self.args)
+            except (Account.DoesNotExist, Account.MultipleObjectsReturned):
                 player = None
             show_private = False
         try:

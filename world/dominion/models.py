@@ -4599,10 +4599,10 @@ class RPEvent(SharedMemoryModel):
 
     @property
     def main_host(self):
-        from typeclasses.players import Player
+        from typeclasses.accounts import Account
         try:
-            return Player.objects.get(db_tags__db_key=self.tagkey)
-        except (Player.DoesNotExist, Player.MultipleObjectsReturned):
+            return Account.objects.get(db_tags__db_key=self.tagkey)
+        except (Account.DoesNotExist, Account.MultipleObjectsReturned):
             try:
                 return self.hosts.first().player
             except (PlayerOrNpc.DoesNotExist, AttributeError):

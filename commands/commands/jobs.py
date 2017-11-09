@@ -316,7 +316,7 @@ class CmdRequest(ArxPlayerCommand):
     aliases = ["@request", "+requests", "@requests", "+911", "+ineedanadult",
                "bug", "typo", "+featurerequest", "+prprequest"]
     help_category = "Admin"
-    locks = "cmd:perm(request) or perm(Players)"
+    locks = "cmd:all()"
 
     def display_ticket(self, ticket):
         self.msg(ticket.display())
