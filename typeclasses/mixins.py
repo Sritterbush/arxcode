@@ -223,6 +223,7 @@ class NameMixins(object):
         return self.name
 
 
+# noinspection PyAttributeOutsideInit
 class BaseObjectMixins(object):
     @property
     def is_room(self):
@@ -236,7 +237,14 @@ class BaseObjectMixins(object):
     def is_character(self):
         return False
 
-    # noinspection PyAttributeOutsideInit
+    @property
+    def player(self):
+        return self.account
+
+    @player.setter
+    def player(self, value):
+        self.account = value
+
     def softdelete(self):
         """
         Only fake-delete the object, storing the date it was fake deleted for removing it permanently later.
@@ -248,7 +256,6 @@ class BaseObjectMixins(object):
         self.tags.add("deleted")
         self.db.deleted_time = time.time()
 
-    # noinspection PyAttributeOutsideInit
     def undelete(self, move=True):
         """
         :type self: ObjectDB
