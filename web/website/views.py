@@ -5,8 +5,7 @@ the other applications. Views are django's way of processing e.g. html
 templates on the fly.
 
 """
-from django.shortcuts import render_to_response
-from django.template import RequestContext
+from django.shortcuts import render
 from django.conf import settings
 
 from evennia.objects.models import ObjectDB
@@ -69,8 +68,7 @@ def page_index(request):
         "webclient_enabled": settings.WEBCLIENT_ENABLED
     }
 
-    context_instance = RequestContext(request)
-    return render_to_response('index.html', pagevars, context_instance)
+    return render(request, 'index.html', pagevars, content_type="text/html")
 
 
 def to_be_implemented(request):
