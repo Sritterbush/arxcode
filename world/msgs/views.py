@@ -99,29 +99,29 @@ class JournalListView(LimitPageMixin, ListView):
             form = JournalMarkAllReadForm(request.POST)
             if form.is_valid():
                 for msg in form.cleaned_data['choices']:
-                    msg.db_receivers_players.add(self.request.user)
+                    msg.db_receivers_accounts.add(self.request.user)
             else:
                 raise Http404(form.errors)
         if "mark_one_read" in request.POST:
             form = JournalMarkOneReadForm(request.POST)
             if form.is_valid():
                 msg = form.cleaned_data['choice']
-                msg.db_receivers_players.add(self.request.user)
+                msg.db_receivers_accounts.add(self.request.user)
             else:
                 raise Http404(form.errors)
         if "mark_favorite" in request.POST:
             form = JournalMarkFavorite(request.POST)
             if form.is_valid():
-                form.tag_msg(self.request.user.db.char_ob)
+                form.tag_msg(self.request.user.char_ob)
         if "remove_favorite" in request.POST:
             form = JournalRemoveFavorite(request.POST)
             if form.is_valid():
-                form.untag_msg(self.request.user.db.char_ob)
+                form.untag_msg(self.request.user.char_ob)
         if "write_journal" in request.POST:
             form = JournalWriteForm(request.POST)
             if form.is_valid():
                 # write journal
-                form.create_journal(self.request.user.db.char_ob)
+                form.create_journal(self.request.user.char_ob)
             else:
                 raise Http404(form.errors)
         return HttpResponseRedirect(reverse('msgs:list_journals'))

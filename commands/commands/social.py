@@ -496,10 +496,10 @@ class CmdJournal(ArxCommand):
         player = caller.player_ob
         all_msgs = Journal.white_journals.all_unread_by(player)
         # we'll do a bulk create of the through-model that represents how journals are marked as read
-        ReadJournalModel = Journal.db_receivers_players.through
+        ReadJournalModel = Journal.db_receivers_accounts.through
         bulk_list = []
         for msg in all_msgs:
-            bulk_list.append(ReadJournalModel(playerdb=player, msg=msg))
+            bulk_list.append(ReadJournalModel(accountdb=player, msg=msg))
         ReadJournalModel.objects.bulk_create(bulk_list)
 
     def func(self):
