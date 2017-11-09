@@ -83,7 +83,7 @@ class Channel(DefaultChannel):
 
     @property
     def non_muted_subs(self):
-        subs = self.db_subscriptions.all()
+        subs = self.subscriptions.all()
         listening = [ob for ob in subs if ob.is_connected and ob not in self.mutelist]
         return listening
 

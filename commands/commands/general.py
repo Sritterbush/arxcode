@@ -872,7 +872,7 @@ class CmdOOCSay(ArxCommand):
             speech = speech[1:]
 
         # calling the speech hook on the location
-        speech = caller.location.at_say(caller, speech)
+        speech = caller.location.at_say(speech)
         options = {"ooc_note": True, "log_msg": True}
 
         # Feedback for the object doing the talking.

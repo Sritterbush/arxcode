@@ -371,7 +371,7 @@ class CmdFinger(ArxPlayerCommand):
                     s_buffer = " " * 15
 
                 def format_org_name(organization):
-                    secret_str = "" if not organization in secret_orgs else " {m(Secret){n"
+                    secret_str = "" if organization not in secret_orgs else " {m(Secret){n"
                     return "%s%s" % (organization.name, secret_str)
 
                 org_str += "%s%s: %s\n" % (s_buffer, format_org_name(org), pageroot + org.get_absolute_url())

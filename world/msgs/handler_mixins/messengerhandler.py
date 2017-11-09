@@ -269,7 +269,7 @@ class MessengerHandler(MsgHandlerBase):
         self.obj.receiver_object_set.add(msg)
         # remove the pending message from the associated player
         player_ob = self.obj.player_ob
-        player_ob.receiver_player_set.remove(msg)
+        player_ob.receiver_account_set.remove(msg)
         # add msg to our messenger history
         if msg not in self.messenger_history:
             self.messenger_history.insert(0, msg)
