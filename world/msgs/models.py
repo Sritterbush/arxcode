@@ -84,7 +84,7 @@ class MarkReadMixin(object):
         Args:
             player: Player who has read this Journal/Messenger/Board post/etc
         """
-        self.db_receivers_players.add(player)
+        self.db_receivers_accounts.add(player)
 
     def mark_unread(self, player):
         """
@@ -92,10 +92,10 @@ class MarkReadMixin(object):
         Args:
             player: Player who has read this Journal/Messenger/Board post/etc
         """
-        self.db_receivers_players.remove(player)
+        self.db_receivers_accounts.remove(player)
 
     def check_read(self, player):
-        return self.db_receivers_players.filter(id=player.id)
+        return self.db_receivers_accounts.filter(id=player.id)
         
     def parse_header(self):
         """
