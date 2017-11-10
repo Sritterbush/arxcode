@@ -2033,7 +2033,7 @@ class CrisisAction(AbstractAction):
     secret_story = models.TextField("Any secret story written for the player", blank=True)
     difficulty = models.SmallIntegerField(default=0, blank=0)
     outcome_value = models.SmallIntegerField(default=0, blank=0)
-    assistants = models.ManyToManyField("PlayerOrNpc", blank=True, null=True, through="CrisisActionAssistant",
+    assistants = models.ManyToManyField("PlayerOrNpc", blank=True, through="CrisisActionAssistant",
                                         related_name="assisted_actions")
     prefer_offscreen = models.BooleanField(default=False, blank=True)
     gemit = models.ForeignKey("character.StoryEmit", blank=True, null=True, related_name="actions")
@@ -2613,9 +2613,9 @@ class Organization(InformMixin, SharedMemoryModel):
     social_modifier = models.SmallIntegerField(default=0, blank=0)
     base_support_value = models.SmallIntegerField(default=5, blank=5)
     member_support_multiplier = models.SmallIntegerField(default=5, blank=5)
-    clues = models.ManyToManyField('character.Clue', blank=True, null=True, related_name="orgs",
+    clues = models.ManyToManyField('character.Clue', blank=True, related_name="orgs",
                                    through="ClueForOrg")
-    theories = models.ManyToManyField('character.Theory', blank=True, null=True, related_name="orgs")
+    theories = models.ManyToManyField('character.Theory', blank=True, related_name="orgs")
     
     def _get_npc_money(self):
         npc_income = self.npc_members * self.income_per_npc

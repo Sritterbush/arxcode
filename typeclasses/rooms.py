@@ -66,15 +66,16 @@ Installation/testing:
 3) Use @desc and @detail to customize the room, then play around!
 
 """
-
-
 from django.conf import settings
+
 from evennia.contrib.extended_room import ExtendedRoom
-from typeclasses.scripts import gametime
 from evennia import default_cmds
 from evennia import utils
 from evennia.utils.utils import lazy_property
 from evennia.objects.models import ObjectDB
+
+from server.utils.arx_utils import ArxCommand
+from typeclasses.scripts import gametime
 from typeclasses.mixins import DescMixins, AppearanceMixins, NameMixins
 from world.msgs.messagehandler import MessageHandler
 
@@ -417,6 +418,8 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
             self.db.decorators = []
         return self.db.decorators
 
+    # noinspection PyMethodMayBeStatic
+    # noinspection PyUnusedLocal
     def at_say(self, message, msg_self=None, msg_location=None, receivers=None, msg_receivers=None, **kwargs):
         return message
 
@@ -505,7 +508,7 @@ class CmdExtendedLook(default_cmds.CmdLook):
         looking_at_obj.at_desc(looker=caller)
         self.check_detail()
 
-from server.utils.arx_utils import ArxCommand
+
 class CmdStudyRawAnsi(ArxCommand):
     """
     prints raw ansi codes for a name

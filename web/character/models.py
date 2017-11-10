@@ -353,7 +353,7 @@ class AccountHistory(SharedMemoryModel):
     gm_notes = models.TextField(blank=True, null=True)
     start_date = models.DateTimeField(blank=True, null=True, db_index=True)
     end_date = models.DateTimeField(blank=True, null=True, db_index=True)
-    contacts = models.ManyToManyField('self', blank=True, null=True, through='FirstContact',
+    contacts = models.ManyToManyField('self', blank=True, through='FirstContact',
                                       related_name='contacted_by', symmetrical=False)
 
     def __str__(self):
@@ -514,7 +514,7 @@ class Clue(SharedMemoryModel):
     allow_exploration = models.BooleanField(default=False, help_text="Can be gained through exploration rolls")
     allow_trauma = models.BooleanField(default=False, help_text="Can be gained through combat rolls")
     allow_sharing = models.BooleanField(default=True, help_text="Can be shared")
-    search_tags = models.ManyToManyField('SearchTag', blank=True, null=True, db_index=True)
+    search_tags = models.ManyToManyField('SearchTag', blank=True, db_index=True)
     # if we were created for an RP event, such as a PRP
     event = models.ForeignKey("dominion.RPEvent", blank=True, null=True, related_name="clues")
 
@@ -1139,11 +1139,11 @@ class Theory(SharedMemoryModel):
     """
     creator = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="created_theories", blank=True, null=True,
                                 db_index=True)
-    known_by = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="known_theories", blank=True, null=True,
+    known_by = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="known_theories", blank=True,
                                       through="TheoryPermissions")
     topic = models.CharField(max_length=255, blank=True, null=True)
     desc = models.TextField(blank=True, null=True)
-    related_clues = models.ManyToManyField("Clue", related_name="theories", blank=True, null=True, db_index=True)
+    related_clues = models.ManyToManyField("Clue", related_name="theories", blank=True, db_index=True)
     related_theories = models.ManyToManyField("self", blank=True)
 
     class Meta:

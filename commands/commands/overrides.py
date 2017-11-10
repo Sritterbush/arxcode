@@ -1527,6 +1527,7 @@ class CmdArxTag(CmdTag):
         super(CmdArxTag, self).func()
 
 
+# noinspection PyAttributeOutsideInit
 class CmdArxExamine(CmdExamine):
     """
     get detailed information about an object

@@ -642,8 +642,8 @@ class CmdVoteXP(ArxPlayerCommand):
     @property
     def caller_alts(self):
         return AccountDB.objects.filter(roster__current_account__isnull=False,
-                                       roster__roster__name="Active",
-                                       roster__current_account=self.caller.roster.current_account)
+                                        roster__roster__name="Active",
+                                        roster__current_account=self.caller.roster.current_account)
 
     def count_votes(self):
         num_votes = 0
