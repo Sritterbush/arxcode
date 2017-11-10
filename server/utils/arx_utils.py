@@ -248,7 +248,7 @@ def check_break(caller=None):
 def delete_empty_tags():
     """Deletes any tag that isn't currently connected to any objects."""
     from evennia.typeclasses.tags import Tag
-    empty = Tag.objects.filter(objectdb__isnull=True, playerdb__isnull=True, msg__isnull=True, helpentry__isnull=True,
+    empty = Tag.objects.filter(objectdb__isnull=True, accountdb__isnull=True, msg__isnull=True, helpentry__isnull=True,
                                scriptdb__isnull=True, channeldb__isnull=True)
     empty.delete()
 
