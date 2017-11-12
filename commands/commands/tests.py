@@ -52,6 +52,7 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/toggleattend 1", "You have marked yourself as physically being present for that action.")
         self.call_cmd("/noscene 1", "Preference for offscreen resolution set to: True")
         self.call_cmd("/noscene 1", "Preference for offscreen resolution set to: False")
+        self.call_cmd("/readycheck 1", "The following assistants aren't ready: Testaccount2")
         self.call_cmd("/submit 1", "Before submitting this action, make certain that you have invited all players you "
                                    "wish to help with the action, and add any resources necessary. Any invited players "
                                    "who have incomplete actions will have their assists deleted.\nThe following "

@@ -72,6 +72,7 @@ class CmdAction(ActionCommandMixin, MuxAccountCommand):
         @action/ooc_intent <action #>=<ooc intent, then post-submission questions>
         @action/question <action #>=<ask a question>
         @action/cancel <action #>
+        @action/readycheck <action #>
         @action/submit <action #>
     Options:
         @action [<action #>]
@@ -120,7 +121,7 @@ class CmdAction(ActionCommandMixin, MuxAccountCommand):
     help_category = "Dominion"
     aliases = ["@actions"]
     action_categories = dict_from_choices_field(CrisisAction, "CATEGORY_CHOICES")
-    requires_draft_switches = ("invite", "setcrisis")
+    requires_draft_switches = ("invite", "setcrisis", "readycheck")
     requires_editable_switches = ("roll", "tldr", "title", "category", "submit", "invite",
                                   "setaction", "setcrisis", "add", "toggletraitor", "toggleattend",
                                   "ooc_intent", "setsecret")
@@ -202,6 +203,8 @@ class CmdAction(ActionCommandMixin, MuxAccountCommand):
             return self.invite_assistant(action)
         elif "setcrisis" in self.switches:
             return self.set_crisis(action)
+        elif "readycheck" in self.switches:
+            return self.ready_check(action)
     
     def do_requires_editable_switches(self, action):
         if not action.editable:
@@ -467,6 +470,13 @@ class CmdAction(ActionCommandMixin, MuxAccountCommand):
         action.save()
         self.msg("You have set the action to be for crisis: %s" % crisis)
         self.do_passive_warnings(action)
+
+    def ready_check(self, action):
+        unready = action.get_unready_assisting_actions()
+        if not unready:
+            self.msg("All invited assistants are currently ready.")
+        else:
+            self.msg("The following assistants aren't ready: %s" % ", ".join(str(ob.author) for ob in unready))
                 
     def toggle_attend(self, action):
         if action.attending:
