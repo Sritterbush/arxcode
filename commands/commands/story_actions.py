@@ -126,7 +126,7 @@ class CmdAction(ActionCommandMixin, MuxAccountCommand):
                                   "setaction", "setcrisis", "add", "toggletraitor", "toggleattend",
                                   "ooc_intent", "setsecret")
     requires_unpublished_switches = ("question", "cancel", "noscene")
-    requires_owner_switches = ("invite", "makepublic", "category", "setcrisis", "noscene")
+    requires_owner_switches = ("invite", "makepublic", "category", "setcrisis", "noscene", "readycheck")
 
     @property
     def dompc(self):
