@@ -193,7 +193,7 @@ class CmdWatch(ArxPlayerCommand):
     locks = "cmd:all()"
     aliases = ["@watch", "watch"]
     help_category = "Social"
-    max_watchlist_size = 30
+    max_watchlist_size = 50
 
     @staticmethod
     def disp_watchlist(caller):
@@ -2564,7 +2564,7 @@ class CmdRPHooks(ArxPlayerCommand):
                 return
             tags = Tag.objects.filter(db_key__icontains=self.args, db_category="rp hooks")
             for tag in tags:
-                for pc in tag.playerdb_set.all():
+                for pc in tag.accountdb_set.all():
                     hook_desc = pc.db.hook_descs or {}
                     desc = hook_desc.get(tag.db_key, "")
                     table.add_row(pc, tag.db_key, desc)
