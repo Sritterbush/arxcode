@@ -542,7 +542,7 @@ class CmdGuestCharCreate(ArxPlayerCommand):
     
                 default_home = ObjectDB.objects.get_id(settings.DEFAULT_HOME)
                 typeclass = settings.BASE_CHARACTER_TYPECLASS
-                permissions = settings.PERMISSION_PLAYER_DEFAULT
+                permissions = settings.PERMISSION_ACCOUNT_DEFAULT
                 # Some placeholder values for utils.create, will be overwritten later
                 playername = email+'_player'
                 # Make sure the playername is unique
