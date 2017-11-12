@@ -125,7 +125,7 @@ class StoryActionTests(ArxCommandTest):
                                               category='Action questions')
         self.call_cmd("/ooc/allowedit 1=Sure go nuts", "editable set to True.|Answer added.")
         self.account2.inform.assert_called_with('GM Testaccount has posted a followup to action 1: Sure go nuts',
-                                               append=False, category='Actions', week=1)
+                                                append=False, category='Actions', week=1)
         self.assertEquals(action.editable, True)
         self.account2.gain_resources = Mock()
         self.call_cmd("/cancel 1", "Action cancelled.")
@@ -141,7 +141,8 @@ class StoryActionTests(ArxCommandTest):
         action.ask_question("another test question")
         self.call_cmd("/markanswered 1", "You have marked the questions as answered.")
         self.assertEqual(action.questions.last().mark_answered, True)
-        self.call_cmd("1", "Action by Testaccount2\nSummary: test summary\nAction: test\n"
+        self.call_cmd("1", "Action ID: #1  Date Submitted: %s\n" % (datetime.now().strftime("%x %X")) +
+                           "Action by Testaccount2\nSummary: test summary\nAction: test\n"
                            "[physically present] Dice check: Stat: perception, Skill: investigation  Diff: 60\n"
                            "Testaccount2 OOC intentions: ooc intent test\n\nOOC Notes and GM responses\n"
                            "Testaccount2 OOC Question: foo inform\nReply by Testaccount: Sure go nuts\n"
@@ -150,9 +151,10 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/publish 1=story test", "You have published the action and sent the players informs.")
         self.assertEquals(action.status, CrisisAction.PUBLISHED)
         self.account2.inform.assert_called_with('{wGM Response to story action of Testaccount2\n'
-                                               '{wRolls:{n 0\n\n{wStory Result:{n story test\n\n',
-                                               append=False, category='Actions', week=1)
-        mock_inform_staff.assert_called_with('Action 1 has been published by Testaccount:\n{wGM Response to story action'
+                                                '{wRolls:{n 0\n\n{wStory Result:{n story test\n\n',
+                                                append=False, category='Actions', week=1)
+        mock_inform_staff.assert_called_with('Action 1 has been published by Testaccount:\n'
+                                             '{wGM Response to story action'
                                              ' of Testaccount2\n{wRolls:{n 0\n\n{wStory Result:{n story test\n\n',
                                              post='{wSummary of action 1{n\nAction by {cTestaccount2{n: {wSummary:{n '
                                                   'test summary\n\n{wStory Result:{n story test\n'

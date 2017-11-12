@@ -2171,7 +2171,7 @@ class CrisisAction(AbstractAction):
             Returns:
                 Text string to display.
         """
-        msg = ""
+        msg = "\n"
         if caller:
             staff_viewer = caller.check_permstring("builders")
             participant_viewer = caller == self.dompc.player or caller.Dominion in self.assistants.all()
@@ -2183,8 +2183,11 @@ class CrisisAction(AbstractAction):
         # print out actions of everyone
         all_actions = self.action_and_assists
         view_main_secrets = staff_viewer or self.check_view_secret(caller)
+        if disp_ooc:
+            msg += "{wAction ID:{n #%s" % self.id
+            if self.date_submitted:
+                msg += "  {wDate Submitted:{n %s" % self.date_submitted.strftime("%x %X")
         for ob in all_actions:
-            msg += "\n"
             view_secrets = staff_viewer or ob.check_view_secret(caller)
             msg += ob.get_action_text(disp_summary=view_secrets)
             if ob.secret_actions and view_secrets:
@@ -2200,10 +2203,11 @@ class CrisisAction(AbstractAction):
                     msg += "{w[Roll: %s%s{w ]{n " % (color, ob.roll)
                 if ob.ooc_intent:
                     msg += "\n%s" % ob.ooc_intent.display()
+            msg += "\n"
         if (disp_pending or disp_old) and disp_ooc:
             q_and_a_str = self.get_questions_and_answers_display(answered=disp_old, staff=staff_viewer, caller=caller)
             if q_and_a_str:
-                msg += "\n\n{wOOC Notes and GM responses\n%s" % q_and_a_str
+                msg += "\n{wOOC Notes and GM responses\n%s" % q_and_a_str
         if staff_viewer and self.gm_notes or self.prefer_offscreen:
             offscreen = "[Offscreen resolution preferred.] " if self.prefer_offscreen else ""
             msg += "\n{wGM Notes:{n %s%s" % (offscreen, self.gm_notes)
