@@ -42,6 +42,7 @@ class StoryActionTests(ArxCommandTest):
                       "Action by Testaccount for Test Crisis now has your assistance: test assist")
         Army.objects.create(name="test army", owner=self.assetowner)
         self.call_cmd("/add 1=army,1", "You don't have access to that Army.|Failed to send orders to the army.")
+        self.call_cmd("/readycheck 1", "Only the action leader can use that switch.")
         self.caller = self.account
         self.call_cmd("/add 1=foo,bar", "Invalid type of resource.")
         self.call_cmd("/add 1=ap,50", "50 ap added. Action Resources: extra action points 50")

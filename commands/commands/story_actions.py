@@ -187,7 +187,7 @@ class CmdAction(ActionCommandMixin, MuxAccountCommand):
             return True
         if action.is_main_action:
             return True
-        self.msg("Those switches can only be performed on the main action.")
+        self.msg("Only the action leader can use that switch.")
         return False
         
     def make_public(self, action):
