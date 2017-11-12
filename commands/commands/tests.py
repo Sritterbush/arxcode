@@ -19,7 +19,7 @@ class StoryActionTests(ArxCommandTest):
         self.caller.pay_action_points = Mock(return_value=False)
         self.call_cmd("/newaction testing", "You do not have enough action points.")
         self.caller.pay_action_points = Mock(return_value=True)
-        self.call_cmd("/newaction test crisis=testing", "You have drafted a new action to respond to Test Crisis: "
+        self.call_cmd("/newaction test crisis=testing", "You have drafted a new action (#1) to respond to Test Crisis: "
                                                         "testing|Please note that you cannot invite players to an "
                                                         "action once it is submitted.")
         action = self.dompc.actions.last()
@@ -88,7 +88,7 @@ class StoryActionTests(ArxCommandTest):
         action_4 = self.dompc.actions.last()
         action_4.status = CrisisAction.CANCELLED
         action_4.save()
-        self.call_cmd("/newaction test crisis=testing", "You have drafted a new action to respond to Test Crisis: "
+        self.call_cmd("/newaction test crisis=testing", "You have drafted a new action (#5) to respond to Test Crisis: "
                                                         "testing|Please note that you cannot invite players to an "
                                                         "action once it is submitted.")
 

@@ -272,7 +272,7 @@ class CmdAction(ActionCommandMixin, MuxAccountCommand):
             return
         diff = CrisisAction.NORMAL_DIFFICULTY
         action = self.dompc.actions.create(actions=actions, crisis=crisis, stat_used="", skill_used="", difficulty=diff)
-        self.msg("You have drafted a new action%s: %s" % (crisis_msg, actions))
+        self.msg("You have drafted a new action {w(#%s){n%s: %s" % (action.id, crisis_msg, actions))
         self.msg("Please note that you cannot invite players to an action once it is submitted.")
         if crisis:
             self.warn_crisis_omnipresence(action)
