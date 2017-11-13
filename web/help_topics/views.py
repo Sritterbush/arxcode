@@ -121,8 +121,10 @@ def display_org(request, object_id):
             show_secret = 11
     try:
         holdings = org.assets.estate.holdings.all()
+        show_money = org.access(user, 'withdraw')
     except AttributeError:
         holdings = []
+        show_money = False
     active_tab = request.GET.get("active_tab")
     if not active_tab or active_tab == "all":
         members = org.all_members.exclude(player__player__roster__roster__name="Gone")
@@ -140,7 +142,8 @@ def display_org(request, object_id):
                                                     'holdings': holdings,
                                                     'rank_display': rank_display,
                                                     'show_secret': show_secret,
-                                                    'page_title': org
+                                                    'page_title': org,
+                                                    'show_money': show_money,
                                                     })
 
 

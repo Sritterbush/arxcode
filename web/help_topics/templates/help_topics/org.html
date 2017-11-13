@@ -29,8 +29,8 @@
   {% if not org.secret or rank_display < member.rank %}
       {% if not member.secret or show_secret < member.rank %}
   <tr>
-  {% if member.player.player.db.char_ob %}
-  <td width="25%"><a href="{% url 'character:sheet' member.player.player.db.char_ob.id %}">{{ member }}</a>{% if member.secret %}(Secret){% endif %}</td>
+  {% if member.player.player.char_ob %}
+  <td width="25%"><a href="{% url 'character:sheet' member.player.player.char_ob.id %}">{{ member }}</a>{% if member.secret %}(Secret){% endif %}</td>
   {% else %}
   <td width="25%">{{ member }}{% if member.secret %}(Secret){% endif %}</td>
   {% endif %}
@@ -42,7 +42,7 @@
   {% endif %}
   {% endfor %}
   </table>
-  {% if show_secret < 11 %}
+  {% if show_secret < 11 and show_money %}
   <h1>Assets</h1>
   <ul class="list-inline">
   <li>Prestige: {{ org.assets.prestige }}</li>
