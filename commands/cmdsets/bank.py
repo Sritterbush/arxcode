@@ -178,6 +178,8 @@ class CmdBank(ArxCommand):
                                       "{wEcon{n", "{wSoc{n", "{wMil{n", width=78, border="cells")
             
             for account in all_accounts:
+                if account.organization_owner and not account.organization_owner.access(caller, 'withdraw'):
+                    continue
                 mats = ", ".join(str(mat) for mat in account.materials.filter(amount__gte=1))
                 actable.add_row(str(account.owner), str(account.vault), str(account.net_income),
                                 mats, account.economic, account.social, account.military)
@@ -188,8 +190,6 @@ class CmdBank(ArxCommand):
                 actable.reformat_column(4, width=8)
                 actable.reformat_column(5, width=7)
                 actable.reformat_column(6, width=7)
-                if account.organization_owner and not account.organization_owner.access(caller, 'withdraw'):
-                    continue
                 incomes = account.incomes.all()
                 debts = account.debts.all()               
                 if incomes:
