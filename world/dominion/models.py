@@ -409,6 +409,14 @@ class PlayerOrNpc(SharedMemoryModel):
     @property
     def past_actions(self):
         return self.actions.filter(status=CrisisAction.PUBLISHED)
+        
+    def clear_cached_values_in_appointments(self):
+        for minister in self.appointments.all():
+            minister.clear_cache()
+        try:
+            self.ruler.clear_cache()
+        except AttributeError:
+            pass
 
 
 class AssetOwner(SharedMemoryModel):
@@ -1522,6 +1530,9 @@ class Minister(SharedMemoryModel):
 
     def __str__(self):
         return "%s acting as %s minister for %s" % (self.player, self.get_category_display(), self.ruler)
+        
+    def clear_cache(self):
+        return self.ruler.clear_cache()
 
 
 class Ruler(SharedMemoryModel):
@@ -1608,6 +1619,10 @@ class Ruler(SharedMemoryModel):
         if not self.house:
             return 0
         return sum(ob.weekly_amount for ob in self.house.debts.filter(category="vassal taxes"))
+        
+    def clear_cache(self):
+        for domain in self.domains.all():
+            domain.wipe_cached_data()
 
 
 class Crisis(SharedMemoryModel):

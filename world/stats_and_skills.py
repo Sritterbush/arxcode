@@ -289,6 +289,7 @@ def adjust_dom(caller, field, value=1):
     dompc = caller.player_ob.Dominion
     current = getattr(dompc, field)
     setattr(dompc, field, current + value)
+    dompc.clear_cached_values_in_appointments()
 
 
 def get_dom_resource(field):
