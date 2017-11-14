@@ -1070,3 +1070,20 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         if self.db.skills is None:
             self.db.skills = {}
         return self.db.skills
+
+    @property
+    def truesight(self):
+        return self.check_permstring("builders") or self.tags.get("story_npc")
+        
+    def get_display_name(self, looker, **kwargs):
+        if not self.is_disguised:
+            return super(Character, self).get_display_name(looker, **kwargs)
+        try:
+            name = self.name
+            if looker.truesight:
+                name = "%s (%s)" % (self.name, self.key)
+                if looker.check_permstring("builders"):
+                    name += "(%s)" % self.id
+        except AttributeError:
+            pass
+        return name
