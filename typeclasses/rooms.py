@@ -151,11 +151,14 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
     @lazy_property
     def messages(self):
         return MessageHandler(self)
+
+    @property
+    def player_characters(self):
+        return [ob for ob in self.contents if hasattr(ob, "is_character") and ob.is_character and ob.player]
         
     def get_visible_characters(self, pobject):
         """Returns a list of visible characters in a room."""
-        char_list = [ob for ob in self.contents if hasattr(ob, "is_character") and ob.is_character and ob.player]
-        return [char for char in char_list if char.access(pobject, "view")]
+        return [char for char in self.player_characters if char.access(pobject, "view")]
 
     def return_appearance(self, looker, detailed=False, format_desc=True, show_contents=True):
         """This is called when e.g. the look command wants to retrieve the description of this object."""
@@ -422,6 +425,17 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
     # noinspection PyUnusedLocal
     def at_say(self, message, msg_self=None, msg_location=None, receivers=None, msg_receivers=None, **kwargs):
         return message
+
+    def msg_action(self, from_obj, no_name_emit_string, exclude=None, options=None):
+        if from_obj.is_disguised:
+            exclude = exclude or []
+            can_see = [ob for ob in self.player_characters if ob.truesight and ob != from_obj]
+            emit_string = '%s%s' % ("%s {c(%s){n" % (from_obj.name, from_obj.key), no_name_emit_string)
+            for character in can_see:
+                character.msg(emit_string, options=options, from_obj=from_obj)
+            exclude.extend(can_see)
+        emit_string = "%s%s" % (from_obj, no_name_emit_string)
+        self.msg_contents(emit_string, exclude=exclude, from_obj=from_obj, options=options, mapping=None)
 
 
 class CmdExtendedLook(default_cmds.CmdLook):

@@ -1284,6 +1284,7 @@ class CmdRelationship(ArxPlayerCommand):
                 'acquaintance', 'secret', 'rival', 'ally', 'spouse', 'The Crown', 'Crownlands', 'Oathlands',
                 'Lyceum', 'Mourning Isles', 'Northlands', 'deceased']
 
+    # noinspection PyUnusedLocal
     def get_help(self, caller, cmdset):
         msg = self.__doc__ + "\n\nShort relationship types: %s" % ", ".join(self.typelist)
         return msg
@@ -1599,8 +1600,8 @@ class CmdHere(ArxCommand):
         rname = caller.location.name
         list_characters(caller, vis_list, rname, roster, disp_titles, hidden_chars=vis_list, display_afk=True,
                         use_keys=False)
-        if caller.check_permstring("Builders"):
-            masks = [char for char in vis_list if hasattr(char, "is_disguised") and char.is_disguised]
+        if caller.truesight:
+            masks = [char for char in vis_list if char.is_disguised]
             char_list = []
             rname = "{mMasked/Illusioned Characters{n"
             for char in masks:

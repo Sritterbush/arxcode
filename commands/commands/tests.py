@@ -98,9 +98,10 @@ class StoryActionTests(ArxCommandTest):
     @patch("world.dominion.models.get_week")
     def test_cmd_gm_action(self, mock_get_week, mock_inform_staff):
         from datetime import datetime
+        now = datetime.now()
         mock_get_week.return_value = 1
         action = self.dompc2.actions.create(actions="test", status=CrisisAction.NEEDS_GM, editable=False, silver=50,
-                                            date_submitted=datetime.now(), topic="test summary")
+                                            date_submitted=now, topic="test summary")
         action.set_ooc_intent("ooc intent test")
         self.cmd_class = story_actions.CmdGMAction
         self.caller = self.account
@@ -142,7 +143,7 @@ class StoryActionTests(ArxCommandTest):
         action.ask_question("another test question")
         self.call_cmd("/markanswered 1", "You have marked the questions as answered.")
         self.assertEqual(action.questions.last().mark_answered, True)
-        self.call_cmd("1", "Action ID: #1  Date Submitted: %s\n" % (datetime.now().strftime("%x %X")) +
+        self.call_cmd("1", "Action ID: #1  Date Submitted: %s\n" % (now.strftime("%x %X")) +
                            "Action by Testaccount2\nSummary: test summary\nAction: test\n"
                            "[physically present] Dice check: Stat: perception, Skill: investigation  Diff: 60\n"
                            "Testaccount2 OOC intentions: ooc intent test\n\nOOC Notes and GM responses\n"
@@ -194,6 +195,28 @@ class OverridesTests(ArxCommandTest):
         self.call_cmd("/resource economic,50 to TestAccount2", "You give 50 economic resources to Char2.")
         self.assertEqual(self.assetowner2.economic, 50)
         self.account2.inform.assert_called_with("Char has given 50 economic resources to you.", category="Resources")
+
+    def test_cmd_say(self):
+        self.cmd_class = overrides.CmdArxSay
+        self.caller = self.char1
+        self.char2.msg = Mock()
+        self.call_cmd("testing", 'You say, "testing"')
+        self.char2.msg.assert_called_with(from_obj=self.char1, text=('Char says, "testing{n"', {}),
+                                          options={'is_pose': True})
+        self.caller.db.currently_speaking = "foobar"
+        self.call_cmd("testing lang", 'You say in Foobar, "testing lang"')
+        self.char2.msg.assert_called_with(from_obj=self.char1, text=('Char says in Foobar, "testing lang{n"', {}),
+                                          options={'language': 'foobar', 'msg_content': "testing lang",
+                                                   'is_pose': True})
+        self.char1.fakename = "Bob the Faker"
+        self.caller.db.currently_speaking = None
+        self.call_cmd("test", 'You say, "test"')
+        self.char2.msg.assert_called_with(from_obj=self.char1, text=('Bob the Faker says, "test{n"', {}),
+                                          options={'is_pose': True})
+        self.char2.tags.add("story_npc")
+        self.call_cmd("test", 'You say, "test"')
+        self.char2.msg.assert_called_with('Bob the Faker {c(Char){n says, "test{n"', options={'is_pose': True},
+                                          from_obj=self.char1)
 
 
 class SocialTests(ArxCommandTest):

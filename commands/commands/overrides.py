@@ -666,8 +666,7 @@ class CmdPose(ArxCommand):
             msg = "What do you want to do?"
             self.caller.msg(msg)
         else:
-            msg = "%s%s" % (self.caller.name, self.args)
-            self.caller.location.msg_contents(msg, from_obj=self.caller, options={'is_pose': True})
+            self.caller.location.msg_action(self.caller, self.args, options={'is_pose': True})
             self.caller.posecount += 1
 
 
@@ -690,9 +689,8 @@ class CmdArxSay(CmdSay):
             options.update({'language': current, 'msg_content': speech})
         self.caller.msg('You say%s, "%s{n"' % (langstring, speech))
         # Build the string to emit to neighbors.
-        emit_string = '%s says%s, "%s{n"' % (self.caller.name, langstring, speech)
-        self.caller.location.msg_contents(emit_string, from_obj=self.caller,
-                                          exclude=self.caller, options=options)
+        pre_name_emit_string = ' says%s, "%s{n"' % (langstring, speech)
+        self.caller.location.msg_action(self.caller, pre_name_emit_string, exclude=[self.caller], options=options)
         self.caller.posecount += 1
 
 
