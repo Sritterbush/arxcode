@@ -2531,7 +2531,7 @@ class CmdRPHooks(ArxPlayerCommand):
                 if not targ:
                     self.list_valid_tags()
                     return
-            hooks = targ.tags.get(category="rp hooks")
+            hooks = targ.tags.get(category="rp hooks") or []
             hooks = make_iter(hooks)
             hook_descs = targ.db.hook_descs or {}
             table = EvTable("Hook", "Desc", width=78, border="cells")
@@ -2545,8 +2545,11 @@ class CmdRPHooks(ArxPlayerCommand):
             return
         if "add" in self.switches:
             title = self.lhs.lower()
-            if len(title) > 255:
-                self.msg("Title must be under 255 characters.")
+            if len(title) > 25:
+                self.msg("Title must be under 25 characters.")
+                return
+            # test characters in title
+            if not self.validate_name(title):
                 return
             data = self.rhs
             hook_descs = self.caller.db.hook_descs or {}
@@ -2582,10 +2585,21 @@ class CmdRPHooks(ArxPlayerCommand):
                     self.caller.attributes.remove("hook_descs")
                 else:
                     self.caller.db.hook_descs = hook_descs
+            tagnames = self.caller.tags.get(category="rp hooks") or []
+            if args not in tagnames:
+                self.msg("No rphook by that category name.")
+                return
             self.caller.tags.remove(args, category="rp hooks")
             self.msg("Removed.")
             return
         self.msg("Invalid switch.")
+        
+    def validate_name(self, name):
+        import re
+        if not re.findall('^[\w\',]+$', name):
+            self.msg("That category name contains invalid characters.")
+            return False
+        return True
 
 
 class CmdFirstImpression(ArxCommand):

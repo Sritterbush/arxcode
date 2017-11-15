@@ -12,8 +12,7 @@ class StoryActionTests(ArxCommandTest):
     @patch("world.dominion.models.get_week")
     def test_cmd_action(self, mock_get_week, mock_inform_staff):
         mock_get_week.return_value = 1
-        self.cmd_class = story_actions.CmdAction
-        self.caller = self.account
+        self.setup_cmd(story_actions.CmdAction, self.account)
         self.crisis = Crisis.objects.create(name="Test Crisis")
         self.call_cmd("/newaction", "You need to include a story.")
         self.caller.pay_action_points = Mock(return_value=False)
@@ -103,8 +102,7 @@ class StoryActionTests(ArxCommandTest):
         action = self.dompc2.actions.create(actions="test", status=CrisisAction.NEEDS_GM, editable=False, silver=50,
                                             date_submitted=now, topic="test summary")
         action.set_ooc_intent("ooc intent test")
-        self.cmd_class = story_actions.CmdGMAction
-        self.caller = self.account
+        self.setup_cmd(story_actions.CmdGMAction, self.account)
         self.call_cmd("/story 2=foo", "No action by that ID #.")
         self.call_cmd("/story 1=foo", "story set to foo.")
         self.call_cmd("/tldr 1", "Summary of action 1\nAction by Testaccount2: Summary: test summary")
@@ -180,8 +178,7 @@ class StoryActionTests(ArxCommandTest):
 
 class OverridesTests(ArxCommandTest):
     def test_cmd_give(self):
-        self.cmd_class = overrides.CmdGive
-        self.caller = self.char1
+        self.setup_cmd(overrides.CmdGive, self.char1)
         self.call_cmd("obj to char2", "You are not holding Obj.")
         self.obj1.move_to(self.char1)
         self.call_cmd("obj to char2", "You give Obj to Char2")
@@ -197,8 +194,7 @@ class OverridesTests(ArxCommandTest):
         self.account2.inform.assert_called_with("Char has given 50 economic resources to you.", category="Resources")
 
     def test_cmd_say(self):
-        self.cmd_class = overrides.CmdArxSay
-        self.caller = self.char1
+        self.setup_cmd(overrides.CmdArxSay, self.char1)
         self.char2.msg = Mock()
         self.call_cmd("testing", 'You say, "testing"')
         self.char2.msg.assert_called_with(from_obj=self.char1, text=('Char says, "testing{n"', {}),
@@ -221,8 +217,7 @@ class OverridesTests(ArxCommandTest):
 
 class SocialTests(ArxCommandTest):
     def test_cmd_watch(self):
-        self.cmd_class = social.CmdWatch
-        self.caller = self.account
+        self.setup_cmd(social.CmdWatch, self.account)
         max_size = social.CmdWatch.max_watchlist_size
         self.call_cmd("testaccount2", "You start watching Char2.")
         self.assertTrue(self.char2 in self.caller.db.watching)
@@ -234,3 +229,10 @@ class SocialTests(ArxCommandTest):
         for _ in range(max_size):
             self.caller.db.watching.append(self.char2)
         self.call_cmd("testAccount2", "You may only have %s characters on your watchlist." % max_size)
+        
+    def test_cmd_rphooks(self):
+        self.setup_cmd(social.CmdRPHooks, self.account)
+        self.call_cmd("/add bad: name", "That category name contains invalid characters.")
+        self.call_cmd("/add catname=desc", "Added rphook tag: catname: desc.")
+        self.call_cmd("/remove foo", "No rphook by that category name.")
+        self.call_cmd("/remove catname", "Removed.")

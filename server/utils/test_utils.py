@@ -42,6 +42,10 @@ class ArxCommandTest(CommandTest):
         self.active_roster = Roster.objects.create(name="Active")
         self.roster_entry = self.active_roster.entries.create(player=self.account, character=self.char1)
         self.roster_entry2 = self.active_roster.entries.create(player=self.account2, character=self.char2)
+        
+    def setup_cmd(self, cmd_cls, caller):
+        self.cmd_class = cmd_cls
+        self.caller = caller
 
     def call_cmd(self, args, msg):
         self.call(self.cmd_class(), args, msg, caller=self.caller)
