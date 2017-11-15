@@ -2576,7 +2576,7 @@ class CmdRPHooks(ArxPlayerCommand):
             table.reformat_column(2, width=48)
             self.msg(table)
             return
-        if "rm" in self.switches:
+        if "rm" in self.switches or "remove" in self.switches:
             args = self.args.lower()
             hook_descs = self.caller.db.hook_descs or {}
             if args in hook_descs:
