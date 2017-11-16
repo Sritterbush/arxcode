@@ -1,29 +1,25 @@
 # Views for our help topics app
 
+from django.core.exceptions import PermissionDenied
 from django.http import Http404
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from evennia.help.models import HelpEntry
 from world.dominion.models import (CraftingRecipe, CraftingMaterialType,
                                    Organization, Member)
 
 
-
 def topic(request, object_key):
     object_key = object_key.lower()
-    try:
-        topic_ob = list(HelpEntry.objects.find_topicmatch(object_key, exact=True))[0]
-    except IndexError:
-        raise Http404("I couldn't find a character with that ID.")
-    
+    topic_ob = get_object_or_404(HelpEntry, db_key__iexact=object_key)
     return render(request, 'help_topics/topic.html', {'topic': topic_ob, 'page_title': object_key})
 
 
 def command_help(request, cmd_key):
-    from commands.default_cmdsets import PlayerCmdSet, CharacterCmdSet
+    from commands.default_cmdsets import AccountCmdSet, CharacterCmdSet
     from commands.cmdsets.situational import SituationalCmdSet
     user = request.user
     cmd_key = cmd_key.lower()
-    matches = [ob for ob in PlayerCmdSet() if ob.key.lower() == cmd_key and ob.access(user, 'cmd')]
+    matches = [ob for ob in AccountCmdSet() if ob.key.lower() == cmd_key and ob.access(user, 'cmd')]
     matches += [ob for ob in CharacterCmdSet() if ob.key.lower() == cmd_key and ob.access(user, 'cmd')]
     matches += [ob for ob in SituationalCmdSet() if ob.key.lower() == cmd_key and ob.access(user, 'cmd')]
     return render(request, 'help_topics/command_help.html', {'matches': matches, 'page_title': cmd_key})
@@ -97,34 +93,33 @@ def display_org(request, object_id):
     user = request.user
     rank_display = 0
     show_secret = 0
-    try:
-        org = Organization.objects.get(id=object_id)
-    except IndexError:
-        raise Http404("I couldn't find an Org by that name.")
+    org = get_object_or_404(Organization, id=object_id)
     if org.secret:
         try:
             if not (org.members.filter(deguilded=False, player__player__id=user.id)
                     or user.is_staff):
-                raise Exception()
+                raise PermissionDenied
             if not user.is_staff:
                 try:
                     rank_display = user.Dominion.memberships.get(organization=org, deguilded=False).rank
                 except (Member.DoesNotExist, AttributeError):
                     rank_display = 11
                 show_secret = rank_display
-        except Exception:
-            raise Http404("You cannot view this page.")
+        except (AttributeError, PermissionDenied):
+            raise PermissionDenied
     elif not user.is_staff:
         try:
             show_secret = user.Dominion.memberships.get(organization=org, deguilded=False).rank
         except (Member.DoesNotExist, AttributeError):
             show_secret = 11
     try:
-        holdings = org.assets.estate.holdings.all()
         show_money = org.access(user, 'withdraw')
     except AttributeError:
-        holdings = []
         show_money = False
+    try:
+        holdings = org.assets.estate.holdings.all()
+    except AttributeError:
+        holdings = []
     active_tab = request.GET.get("active_tab")
     if not active_tab or active_tab == "all":
         members = org.all_members.exclude(player__player__roster__roster__name="Gone")
@@ -148,7 +143,7 @@ def display_org(request, object_id):
 
 
 def list_commands(request):
-    from commands.default_cmdsets import PlayerCmdSet, CharacterCmdSet
+    from commands.default_cmdsets import AccountCmdSet, CharacterCmdSet
     from commands.cmdsets.situational import SituationalCmdSet
     user = request.user
 
@@ -156,7 +151,7 @@ def list_commands(request):
         cmdname = cmd.key.lower()
         cmdname = cmdname.lstrip("+").lstrip("@")
         return cmdname
-    player_cmds = sorted([ob for ob in PlayerCmdSet() if ob.access(user, 'cmd')], key=sort_name)
+    player_cmds = sorted([ob for ob in AccountCmdSet() if ob.access(user, 'cmd')], key=sort_name)
     char_cmds = sorted([ob for ob in CharacterCmdSet() if ob.access(user, 'cmd')], key=sort_name)
     situational_cmds = sorted([ob for ob in SituationalCmdSet() if ob.access(user, 'cmd')], key=sort_name)
     return render(request, 'help_topics/list_commands.html', {'player_cmds': player_cmds,
