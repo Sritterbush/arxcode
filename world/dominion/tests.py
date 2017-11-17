@@ -31,7 +31,10 @@ class TestCrisisCommands(ArxCommandTest):
                                                  'gemit\nGM Notes: test note\nPending actions published: 1\nAlready '
                                                  'published actions for this update: ', post=True,
                                                  subject='Update for test crisis')
-        self.call_cmd("1", "Name: test crisis\nDescription: None\nCurrent Rating: 50\nLatest Update:\ntest gemit")
+            self.call_cmd("1", "Name: test crisis\nDescription: None\nCurrent Rating: 50\nLatest Update:\ntest gemit")
+            self.call_cmd("/update 1/another test episode/test synopsis=test gemit 2",
+                          "You have updated the crisis, creating a new episode called 'another test episode'.")
+            mock_msg_and_post.assert_called_with("test gemit 2", self.caller, episode_name="another test episode")
         
     def test_cmd_view_crisis(self):
         self.cmd_class = crisis_commands.CmdViewCrisis

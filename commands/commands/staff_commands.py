@@ -75,7 +75,7 @@ class CmdGemit(ArxPlayerCommand):
 
     Usage:
       @gemit/norecord <message>
-      @gemit/startepisode <name>=<message>
+      @gemit/startepisode <name>[/episode synopsis]=<message>
       @gemit <message>
 
     Announces a message to all connected players.
@@ -103,14 +103,18 @@ class CmdGemit(ArxPlayerCommand):
             return
         if "startepisode" in self.switches:
             msg = self.rhs
-            episode_name = self.lhs
+            lhslist = self.lhs.split("/")
+            episode_name = lhslist[0]
+            synopsis = ""
+            if len(lhslist) > 1:
+                synopsis = lhslist[1]
             if not episode_name:
                 caller.msg("You must give a name for the new episode.")
                 return
             if not msg:
                 caller.msg("You must give a message for the emit.")
                 return
-            create_gemit_and_post(msg, caller, episode_name)
+            create_gemit_and_post(msg, caller, episode_name, synopsis)
         else:
             msg = self.lhs
             create_gemit_and_post(msg, caller)

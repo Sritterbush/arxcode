@@ -644,6 +644,7 @@ class AssetOwner(SharedMemoryModel):
             return True
         return self.access(player, "withdraw") or self.access(player, "viewassets")
 
+
 class AccountTransaction(SharedMemoryModel):
     """
     Represents both income and costs that happen on a weekly
@@ -1703,11 +1704,15 @@ class Crisis(SharedMemoryModel):
         if self.check_taken_action(dompc=dompc):
             raise ActionSubmissionError("You have already submitted an action for this stage of the crisis.")
             
-    def create_update(self, gemit_text, caller=None, gm_notes=None, do_gemit=True):
+    def create_update(self, gemit_text, caller=None, gm_notes=None, do_gemit=True,
+                      episode_name=None, episode_synopsis=None):
         from server.utils.arx_utils import broadcast_msg_and_post
         gm_notes = gm_notes or ""
-        from web.character.models import Episode
-        latest_episode = Episode.objects.last()
+        from web.character.models import Episode, Chapter
+        if not episode_name:
+            latest_episode = Episode.objects.last()
+        else:
+            latest_episode = Chapter.objects.last().episodes.create(name=episode_name, synopsis=episode_synopsis)
         update = self.updates.create(date=datetime.now(), desc=gemit_text, gm_notes=gm_notes, episode=latest_episode)
         qs = self.actions.filter(status__in=(CrisisAction.PUBLISHED, CrisisAction.PENDING_PUBLISH, 
                                              CrisisAction.CANCELLED), update__isnull=True)

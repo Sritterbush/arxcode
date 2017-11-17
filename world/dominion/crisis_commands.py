@@ -29,18 +29,18 @@ class CrisisCmdMixin(object):
         table.reformat_column(3, width=11)
         self.msg(table)
         
-    def get_crisis(self):
+    def get_crisis(self, args):
         try:
-            if self.lhs.isdigit():
-                return self.viewable_crises.get(id=self.lhs)
+            if args.isdigit():
+                return self.viewable_crises.get(id=args)
             else:
-                return self.viewable_crises.get(name__iexact=self.lhs)
+                return self.viewable_crises.get(name__iexact=args)
         except (Crisis.DoesNotExist, ValueError):
             self.msg("Crisis not found by that # or name.")
             return
         
     def view_crisis(self):
-        crisis = self.get_crisis()
+        crisis = self.get_crisis(self.lhs)
         if not crisis:
             return self.list_crises()
         self.msg(crisis.display())
@@ -57,7 +57,8 @@ class CmdGMCrisis(CrisisCmdMixin, ArxPlayerCommand):
         @gmcrisis <crisis #>
         @gmcrisis/create <name>/<headline>=<desc>
         
-        @gmcrisis/update <crisis name or #>=<gemit text>[/<ooc notes>]
+        @gmcrisis/update <crisis name or #>[/episode name/episode synopsis]
+                            =<gemit text>[/<ooc notes>]
         @gmcrisis/update/nogemit <as above>
 
     Use the @actions command to answer individual actions, or mark then as
@@ -65,7 +66,8 @@ class CmdGMCrisis(CrisisCmdMixin, ArxPlayerCommand):
     for a crisis that aren't attached to a past update will then be attached to
     the current update, marking them as finished. That then allows players to
     submit new actions for the next round of the crisis, if the crisis is not
-    resolved.
+    resolved. If a new episode name is specified, a new episode for the current
+    chapter will be created with the given name, and any synopsis specified.
     
     Remember that if a crisis is not public (has a clue to see it), gemits
     probably shouldn't be sent or should be the vague details that people have
@@ -97,16 +99,28 @@ class CmdGMCrisis(CrisisCmdMixin, ArxPlayerCommand):
         self.msg("Crisis created. Make gemits or whatever for it.")
             
     def create_update(self):
-        crisis = self.get_crisis()
+        lhslist = self.lhs.split("/")
+        crisis = self.get_crisis(lhslist[0])
         if not crisis:
             return
+        episode_name = ""
+        episode_synopsis = ""
+        try:
+            episode_name = lhslist[1]
+            episode_synopsis = lhslist[2]
+        except IndexError:
+            pass
         rhs = self.rhs.split("/")
         gemit = rhs[0]
         gm_notes = None
         if len(rhs) > 1:
             gm_notes = rhs[1]
-        crisis.create_update(gemit, self.caller, gm_notes, do_gemit="nogemit" not in self.switches)
-        self.msg("You have updated the crisis.")
+        crisis.create_update(gemit, self.caller, gm_notes, do_gemit="nogemit" not in self.switches,
+                             episode_name=episode_name, episode_synopsis=episode_synopsis)
+        episode_text = ""
+        if episode_name:
+            episode_text = ", creating a new episode called '%s'" % episode_name
+        self.msg("You have updated the crisis%s." % episode_text)
 
 
 class CmdViewCrisis(CrisisCmdMixin, ArxPlayerCommand):

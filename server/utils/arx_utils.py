@@ -408,14 +408,14 @@ def text_box(text):
     return boxchars + text + boxchars
 
 
-def create_gemit_and_post(msg, caller, episode_name=None):
+def create_gemit_and_post(msg, caller, episode_name=None, synopsis=None):
     # current story
     from web.character.models import Story, Episode, StoryEmit
     story = Story.objects.latest('start_date')
     chapter = story.current_chapter
     if episode_name:
         date = datetime.now()
-        episode = Episode.objects.create(name=episode_name, date=date, chapter=chapter)
+        episode = Episode.objects.create(name=episode_name, date=date, chapter=chapter, synopsis=synopsis)
     else:
         episode = Episode.objects.latest('date')
         if episode:
