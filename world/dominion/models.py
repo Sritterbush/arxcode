@@ -631,8 +631,8 @@ class AssetOwner(SharedMemoryModel):
         if self.organization_owner:
             return self.organization_owner.access(accessing_obj, access_type, default)
         # it's a player, check if it's our player
-        if hasattr(accessing_obj, 'char_ob'):
-            return self.player.player == accessing_obj
+        if self.player.player == accessing_obj:
+            return True
         # it's a character, check if it's the character of our player
         try:
             return accessing_obj.player_ob == self.player.player
