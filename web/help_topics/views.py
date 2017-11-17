@@ -113,7 +113,7 @@ def display_org(request, object_id):
         except (Member.DoesNotExist, AttributeError):
             show_secret = 11
     try:
-        show_money = org.access(user, 'withdraw')
+        show_money = org.assets.can_be_viewed_by(user)
     except AttributeError:
         show_money = False
     try:

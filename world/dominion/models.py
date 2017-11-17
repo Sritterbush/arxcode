@@ -631,7 +631,7 @@ class AssetOwner(SharedMemoryModel):
         if self.organization_owner:
             return self.organization_owner.access(accessing_obj, access_type, default)
         # it's a player, check if it's our player
-        if hasattr(accessing_obj, 'character'):
+        if hasattr(accessing_obj, 'char_ob'):
             return self.player.player == accessing_obj
         # it's a character, check if it's the character of our player
         try:
@@ -639,6 +639,10 @@ class AssetOwner(SharedMemoryModel):
         except AttributeError:
             return default
 
+    def can_be_viewed_by(self, player):
+        if player.check_permstring("builders"):
+            return True
+        return self.access(player, "withdraw") or self.access(player, "viewassets")
 
 class AccountTransaction(SharedMemoryModel):
     """

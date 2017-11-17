@@ -106,7 +106,7 @@ class CmdBank(ArxCommand):
                 or "payment" in self.switches):
             debts = list(dompc.assets.debts.all())
             for acc in org_accounts:
-                if acc.organization_owner.access(caller, 'withdraw') and acc.debts.all():
+                if acc.can_be_viewed_by(caller) and acc.debts.all():
                     debts += list(acc.debts.all())
             if not self.args:                
                 caller.msg(str(self.get_debt_table(debts)), options={'box': True})
@@ -145,7 +145,7 @@ class CmdBank(ArxCommand):
                 sender = self.match_account(all_accounts, self.lhslist[0])
                 if not sender:
                     return
-                if sender.organization_owner and not sender.organization_owner.access(caller, 'withdraw'):
+                if not sender.access(caller, 'withdraw'):
                     caller.msg("You lack permission to set up a payment.")
                     return
                 amt = int(self.lhslist[1])
@@ -178,7 +178,7 @@ class CmdBank(ArxCommand):
                                       "{wEcon{n", "{wSoc{n", "{wMil{n", width=78, border="cells")
             
             for account in all_accounts:
-                if account.organization_owner and not account.organization_owner.access(caller, 'withdraw'):
+                if not account.can_be_viewed_by(self.caller):
                     continue
                 mats = ", ".join(str(mat) for mat in account.materials.filter(amount__gte=1))
                 actable.add_row(str(account.owner), str(account.vault), str(account.net_income),
@@ -229,8 +229,7 @@ class CmdBank(ArxCommand):
                 receiver = account
                 verb = "deposit"
             else:
-                org = account.organization_owner
-                if org and not org.access(caller, 'withdraw'):
+                if not account.access(caller, 'withdraw'):
                     caller.msg("You do not have permission to withdraw from that account.")
                     return
                 receiver = dompc.assets
@@ -318,7 +317,7 @@ class CmdBank(ArxCommand):
             self.inform_owner(account, "deposited", amount)
             return
         if "withdraw" in self.switches:
-            if account.organization_owner and not account.organization_owner.access(caller, "withdraw"):
+            if not account.access(caller, "withdraw"):
                 caller.msg("You do not have permission to withdraw from that account.")
                 return
             cash = caller.db.currency or 0.0

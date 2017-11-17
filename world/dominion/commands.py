@@ -1775,7 +1775,8 @@ class CmdOrganization(ArxPlayerCommand):
     help_category = "Dominion"
     org_locks = ("edit", "boot", "withdraw", "setrank", "invite",
                  "setruler", "view", "guards", "build", "briefing", 
-                 "declarations", "army", "informs", "transactions")
+                 "declarations", "army", "informs", "transactions",
+                 "viewassets")
 
     @staticmethod
     def get_org_and_member(caller, myorgs, args):
