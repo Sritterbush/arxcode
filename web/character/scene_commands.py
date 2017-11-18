@@ -54,6 +54,8 @@ class CmdFlashback(ArxPlayerCommand):
             return self.view_flashback(flashback)
         if self.check_switches(self.player_switches):
             return self.manage_invites(flashback)
+        if "post" in self.switches:
+            return self.post_message(flashback)
         if self.check_switches(self.change_switches):
             return self.update_flashback(flashback)
         self.msg("Invalid switch.")
@@ -64,10 +66,20 @@ class CmdFlashback(ArxPlayerCommand):
     def create_flashback(self):
         pass
     
+    def get_flashback(self):
+        try:
+            return self.accessible_flashbacks.get(id=int(self.lhs))
+        except (Flashback.DoesNotExist, ValueError):
+            self.msg("No flashback by that ID number.")
+            self.list_flashbacks()
+    
     def view_flashback(self, flashback):
         pass
     
     def manage_invites(self, flashback):
+        pass
+    
+    def post_message(self, flashback):
         pass
     
     def update_flashback(self, flashback):
