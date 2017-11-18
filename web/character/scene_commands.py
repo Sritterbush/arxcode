@@ -16,8 +16,8 @@ class CmdFlashback(ArxPlayerCommand):
     
     Usage:
         flashback
-        flashback <ID #>[=<post #>]
-        flashback/new <ID #>
+        flashback <ID #>
+        flashback/catchup <ID #>
         flashback/create <title>[=<summary>]
         flashback/title <ID #>=<new title>
         flashback/summary <ID #>=<new summary>
@@ -40,8 +40,7 @@ class CmdFlashback(ArxPlayerCommand):
     def accessible_flashbacks(self):
         return Flashback.objects.filter(Q(owner=self.roster_entry) | 
                                         Q(allowed=self.roster_entry)).distinct()
-        
-    
+
     def func(self):
         if not self.switches and not self.args:
             return self.list_flashbacks()
@@ -50,8 +49,10 @@ class CmdFlashback(ArxPlayerCommand):
         flashback = self.get_flashback()
         if not flashback:
             return
-        if not self.switches or "new" in self.switches:
+        if not self.switches:
             return self.view_flashback(flashback)
+        if "catchup" in self.switches:
+            return self.read_new_posts(flashback)
         if self.check_switches(self.player_switches):
             return self.manage_invites(flashback)
         if "post" in self.switches:
@@ -61,10 +62,21 @@ class CmdFlashback(ArxPlayerCommand):
         self.msg("Invalid switch.")
             
     def list_flashbacks(self):
-        pass
+        from evennia.utils.evtable import EvTable
+        table = EvTable("ID", "Title", "Owner", "New Posts", width=80, border="cells")
+        for flashback in self.accessible_flashbacks:
+            table.add_row(flashback.id, flashback.title, flashback.owner,
+                          len(flashback.get_new_posts(self.roster_entry)))
+        self.msg(str(table))
     
     def create_flashback(self):
-        pass
+        title = self.lhs
+        summary = self.rhs or ""
+        if Flashback.objects.filter(title__iexact=title).exists():
+            self.msg("There is already a flashback with that title. Please choose another.")
+            return
+        flashback = self.roster_entry.created_flashbacks.create(title=title, summary=summary)
+        self.msg("You have created a new flashback with the ID of #%s." % flashback.id)
     
     def get_flashback(self):
         try:
@@ -74,7 +86,12 @@ class CmdFlashback(ArxPlayerCommand):
             self.list_flashbacks()
     
     def view_flashback(self, flashback):
-        pass
+        self.msg(flashback.display())
+
+    def read_new_posts(self, flashback):
+        msg = "New posts for %s\n" % flashback.id
+        msg += "\n".join(post.display() for post in flashback.get_new_posts(self.roster_entry))
+        self.msg(msg)
     
     def manage_invites(self, flashback):
         pass

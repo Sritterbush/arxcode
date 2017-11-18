@@ -1253,14 +1253,31 @@ class Flashback(SharedMemoryModel):
     Represents a record of a scene in the past, played out via play-by-post for 
     involved characters.
     """
-    name = models.CharField(max_length=250, unique=True)
+    title = models.CharField(max_length=250, unique=True)
+    summary = models.TextField(blank=True)
     owner = models.ForeignKey('RosterEntry', related_name="created_flashbacks")
     allowed = models.ManyToManyField('RosterEntry', related_name="allowed_flashbacks", blank=True)
     db_date_created = models.DateTimeField(blank=True, null=True)
 
+    def get_new_posts(self, entry):
+        return self.posts.exclude(Q(read_by=entry) | Q(poster=entry))
+
+    def display(self, display_summary_only=False):
+        msg = "(#%s) %s\n" % (self.id, self.title)
+        msg += "Owner: %s\n" % self.owner
+        msg += "Summary: %s\n" % self.summary
+        if display_summary_only:
+            return msg
+        msg += "Posts:\n%s" % "\n".join(post.display() for post in self.posts.all())
+        return msg
+
 
 class FlashbackPost(SharedMemoryModel):
+    flashback = models.ForeignKey('Flashback', related_name="posts")
     poster = models.ForeignKey('RosterEntry', blank=True, null=True, related_name="flashback_posts")
     read_by = models.ManyToManyField('RosterEntry', blank=True, related_name="read_flashback_posts")
     actions = models.TextField(blank=True)
     db_date_created = models.DateTimeField(blank=True, null=True)
+
+    def display(self):
+        return "%s wrote: %s" % (self.poster, self.actions)

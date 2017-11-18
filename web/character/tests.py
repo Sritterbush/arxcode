@@ -1,5 +1,5 @@
 from server.utils.test_utils import ArxCommandTest
-from web.character import investigation
+from web.character import investigation, scene_commands
 from web.character.models import Clue
 
 
@@ -19,3 +19,11 @@ class InvestigationTests(ArxCommandTest):
         self.call_cmd("/share 1=Testaccount2", "Sharing that many clues would cost 101 action points.")
         self.roster_entry.action_points = 101
         self.call_cmd("/share 1=Testaccount2", "You have shared the clues 'test clue' with Char2.")
+
+
+class SceneCommandTests(ArxCommandTest):
+    def test_cmd_flashback(self):
+        self.cmd_class = scene_commands.CmdFlashback
+        self.caller = self.account
+        self.call_cmd("/create testing", "You have created a new flashback with the ID of #1.")
+        self.call_cmd("/create testing", "There is already a flashback with that title. Please choose another.")
