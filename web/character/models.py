@@ -1246,3 +1246,21 @@ def get_random_clue(topic, character):
         return random.choice(candidates)
     except (IndexError, TypeError):
         return None
+
+
+class Flashback(SharedMemoryModel):
+    """
+    Represents a record of a scene in the past, played out via play-by-post for 
+    involved characters.
+    """
+    name = models.CharField(max_length=250, unique=True)
+    owner = models.ForeignKey('RosterEntry', related_name="created_flashbacks")
+    allowed = models.ManyToManyField('RosterEntry', related_name="allowed_flashbacks", blank=True)
+    db_date_created = models.DateTimeField(blank=True, null=True)
+
+
+class FlashbackPost(SharedMemoryModel):
+    poster = models.ForeignKey('RosterEntry', blank=True, null=True, related_name="flashback_posts")
+    read_by = models.ManyToManyField('RosterEntry', blank=True, related_name="read_flashback_posts")
+    actions = models.TextField(blank=True)
+    db_date_created = models.DateTimeField(blank=True, null=True)

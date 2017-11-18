@@ -18,9 +18,6 @@ class ActionCommandMixin(object):
             value = getattr(action, "get_%s_display" % field_name)()
         self.msg("%s set to %s." % (verbose_name, value))
         
-    def check_switches(self, switch_set):
-        return set(self.switches) & set(switch_set)
-        
     def add_resource(self, action):
         if len(self.rhslist) < 2:
             self.send_no_args_msg("a resource type such as 'economic' or 'ap' and the amount."

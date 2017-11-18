@@ -395,11 +395,16 @@ def cache_safe_update(queryset, **kwargs):
             setattr(obj, keyword, value)
 
 
-class ArxCommand(MuxCommand):
+class ArxCommmandMixins(object):
+    def check_switches(self, switch_set):
+        return set(self.switches) & set(switch_set)
+        
+        
+class ArxCommand(ArxCommmandMixins, MuxCommand):
     pass
 
 
-class ArxPlayerCommand(MuxAccountCommand):
+class ArxPlayerCommand(ArxCommmandMixins, MuxAccountCommand):
     pass
 
 
