@@ -1271,6 +1271,9 @@ class Flashback(SharedMemoryModel):
         msg += "Posts:\n%s" % "\n".join(post.display() for post in self.posts.all())
         return msg
 
+    def __str__(self):
+        return self.title
+
 
 class FlashbackPost(SharedMemoryModel):
     flashback = models.ForeignKey('Flashback', related_name="posts")

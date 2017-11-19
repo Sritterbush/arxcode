@@ -89,12 +89,29 @@ class CmdFlashback(ArxPlayerCommand):
         self.msg(flashback.display())
 
     def read_new_posts(self, flashback):
-        msg = "New posts for %s\n" % flashback.id
-        msg += "\n".join(post.display() for post in flashback.get_new_posts(self.roster_entry))
+        new_posts = flashback.get_new_posts(self.roster_entry)
+        if not new_posts:
+            msg = "No new posts for #%s." % flashback.id
+        else:
+            msg = "New posts for #%s\n" % flashback.id
+            for post in new_posts:
+                msg += "%s\n" % post.display()
+                post.read_by.add(self.roster_entry)
         self.msg(msg)
     
     def manage_invites(self, flashback):
-        pass
+        targ = self.caller.search(self.rhs)
+        if not targ:
+            return
+        if "invite" in self.switches:
+            if flashback.allowed.filter(id=targ.roster.id).exists():
+                self.msg("They are already invited to this flashback.")
+                return
+            self.msg("You have invited %s to participate in this flashback." % targ)
+            flashback.allowed.add(targ.roster)
+            targ.inform("You have been invited by %s to participate in flashback #%s: '%s'." %
+                        (self.caller, flashback.id, flashback), category="Flashbacks")
+            return
     
     def post_message(self, flashback):
         pass
