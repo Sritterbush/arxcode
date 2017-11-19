@@ -5,6 +5,7 @@ from mock import Mock
 from evennia.commands.default.tests import CommandTest
 from evennia.server.sessionhandler import SESSIONS
 from evennia.utils import ansi, utils
+from evennia.utils.test_resources import EvenniaTest
 from typeclasses.characters import Character
 from typeclasses.accounts import Account
 from typeclasses.objects import Object
@@ -17,22 +18,15 @@ from typeclasses.exits import Exit
 _RE = re.compile(r"^\+|-+\+|\+-+|--*|\|(?:\s|$)", re.MULTILINE)
 
 
-class ArxCommandTest(CommandTest):
-    """
-    child of Evennia's CommandTest class specifically for Arx. We'll add some
-    objects that our characters/players would be expected to have for any 
-    particular test.
-    """
+class ArxTestConfigMixin(object):
     account_typeclass = Account
     object_typeclass = Object
     character_typeclass = Character
     exit_typeclass = Exit
     room_typeclass = ArxRoom
-    cmd_class = None
-    caller = None
 
     def setUp(self):
-        super(ArxCommandTest, self).setUp()
+        super(ArxTestConfigMixin, self).setUp()
         from world.dominion.setup_utils import setup_dom_for_player, setup_assets
         from web.character.models import Roster
         self.dompc = setup_dom_for_player(self.account)
@@ -42,7 +36,21 @@ class ArxCommandTest(CommandTest):
         self.active_roster = Roster.objects.create(name="Active")
         self.roster_entry = self.active_roster.entries.create(player=self.account, character=self.char1)
         self.roster_entry2 = self.active_roster.entries.create(player=self.account2, character=self.char2)
-        
+
+
+class ArxTest(ArxTestConfigMixin, EvenniaTest):
+    pass
+
+
+class ArxCommandTest(ArxTestConfigMixin, CommandTest):
+    """
+    child of Evennia's CommandTest class specifically for Arx. We'll add some
+    objects that our characters/players would be expected to have for any 
+    particular test.
+    """
+    cmd_class = None
+    caller = None
+
     def setup_cmd(self, cmd_cls, caller):
         self.cmd_class = cmd_cls
         self.caller = caller

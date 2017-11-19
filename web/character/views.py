@@ -5,6 +5,7 @@ from django.http import Http404
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponseRedirect, HttpResponse
 from django.core.urlresolvers import reverse
+from django.core.exceptions import PermissionDenied
 from typeclasses.characters import Character
 from evennia.objects.models import ObjectDB
 from world.dominion.models import Organization, CrisisAction
@@ -14,13 +15,13 @@ import cloudinary.uploader
 import cloudinary.forms
 from cloudinary import api
 from .forms import (PhotoForm, PhotoDirectForm, PhotoUnsignedDirectForm, PortraitSelectForm,
-                    PhotoDeleteForm, PhotoEditForm)
-from .models import Photo, Story, Episode, Chapter
+                    PhotoDeleteForm, PhotoEditForm, FlashbackPostForm)
+from .models import Photo, Story, Episode, Chapter, Flashback, FlashbackPost
 from cloudinary.forms import cl_init_js_callbacks
 import json
 from django.views.decorators.csrf import csrf_exempt
 from server.utils.name_paginator import NamePaginator
-from django.views.generic import ListView
+from django.views.generic import ListView, DetailView
 
 
 def get_character_from_ob(object_id):
@@ -52,9 +53,9 @@ def sheet(request, object_id):
     # but only other characters can leave IC comments.
     if user.is_authenticated():
         try:
-            if user.db.char_ob.id == character.id or user.check_permstring("builders"):
+            if user.char_ob.id == character.id or user.check_permstring("builders"):
                 show_hidden = True
-            if user.db.char_ob.id != character.id:
+            if user.char_ob.id != character.id:
                 can_comment = True
         # if we're logged in as a player without a character assigned somehow
         except AttributeError:
@@ -91,7 +92,7 @@ def journals(request, object_id):
     user = request.user
     show_hidden = False
     if user.is_authenticated():
-        if user.db.char_ob.id == character.id or user.check_permstring("builders"):
+        if user.char_ob.id == character.id or user.check_permstring("builders"):
             show_hidden = True
     if not show_hidden and (hasattr(character, 'roster') and
                             character.roster.roster.name == "Unavailable"):
@@ -114,7 +115,7 @@ def character_list(request):
     def get_relations(char):
         def parse_name(relation):
             if relation.player:
-                char_ob = relation.player.db.char_ob
+                char_ob = relation.player.char_ob
                 return "%s %s" % (char_ob.key, char_ob.db.family)
             else:
                 return str(relation)
@@ -434,3 +435,69 @@ class ActionListView(ListView):
         context = super(ActionListView, self).get_context_data(**kwargs)
         context['character'] = self.character
         return context
+
+
+class FlashbackListView(ListView):
+    model = Flashback
+    template_name = "character/flashback_list.html"
+
+    @property
+    def character(self):
+        return get_object_or_404(Character, id=self.kwargs['object_id'])
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user or not user.is_authenticated():
+            raise PermissionDenied
+        if user.char_ob != self.character and not (user.is_staff or user.check_permstring("builders")):
+            raise PermissionDenied
+        entry = self.character.roster
+        return Flashback.objects.filter(Q(owner=entry) | Q(allowed=entry))
+
+    def get_context_data(self, **kwargs):
+        context = super(FlashbackListView, self).get_context_data(**kwargs)
+        context['character'] = self.character
+        return context
+
+
+class FlashbackAddPostView(DetailView):
+    model = Flashback
+    form_class = FlashbackPostForm
+    template_name = "character/flashbackpost_form.html"
+    pk_url_kwarg = 'flashback_id'
+
+    @property
+    def character(self):
+        return get_object_or_404(Character, id=self.kwargs['object_id'])
+
+    @property
+    def poster(self):
+        try:
+            return self.request.user.roster
+        except AttributeError:
+            return None
+
+    def get_context_data(self, **kwargs):
+        context = super(FlashbackAddPostView, self).get_context_data(**kwargs)
+        user = self.request.user
+        if user not in self.get_object().all_players and not (user.is_staff or user.check_permstring("builders")):
+            raise PermissionDenied
+        context['character'] = self.character
+        context['form'] = FlashbackPostForm()
+        return context
+
+    # noinspection PyUnusedLocal
+    def post(self, request, *args, **kwargs):
+        if "add_post" in request.POST:
+            form = FlashbackPostForm(request.POST)
+            if form.is_valid():
+                # write journal
+                print("Before add_post")
+                form.add_post(self.get_object(), self.poster)
+            else:
+                print("Error")
+                print("Errors are %s" % form.errors)
+                raise Http404(form.errors)
+        print("Before redirect")
+        return HttpResponseRedirect(reverse('character:flashback_post', kwargs={'object_id': self.character.id,
+                                                                                'flashback_id': self.get_object().id}))

@@ -66,7 +66,7 @@ class CmdFlashback(ArxPlayerCommand):
             
     def list_flashbacks(self):
         from evennia.utils.evtable import EvTable
-        table = EvTable("ID", "Title", "Owner", "New Posts", width=80, border="cells")
+        table = EvTable("ID", "Title", "Owner", "New Posts", width=78, border="cells")
         for flashback in self.accessible_flashbacks:
             table.add_row(flashback.id, flashback.title, flashback.owner,
                           len(flashback.get_new_posts(self.roster_entry)))

@@ -56,7 +56,6 @@
     <b>Titles:</b> {{ character.titles }} {% endif %}
 	</div>
 	</div>
-	</div>
     {% if character.db.obituary %}
     <p><b>Obituary:</b> {{ character.db.obituary|mush_to_html }}</p>{% endif %}
     <p><b>Description:</b> {{ character.perm_desc|mush_to_html }}</p>
@@ -174,12 +173,19 @@
       </form>
     {% endif %}
 	-->
-    <div class="row"><div class="col-md-6 text-center">
+    <div class="row">
+        <div class="col-md-4 text-center">
             <h1 class="text-center"><a href="{% url 'character:gallery' character.id %}"><span class="label label-primary">Gallery</span></a></h1>
             </div>
-        <div class="col-md-6 text-center">
+        <div class="col-md-4 text-center">
             <h1 class="text-center"><a href="{% url 'character:character_story' character.id %}"><span class="label label-primary">Past Actions</span></a></h1>
-            </div></div>
+            </div>
+        {% if show_hidden %}
+            <div class="col-md-4 text-center">
+                <h1 class="text-center"><a href="{% url 'character:list_flashbacks' character.id %}">
+                    <span class="label label-primary">Flashbacks</span></a></h1></div>
+        {% endif %}
+    </div>
     <div class="row">
         <div class="col-md-12 text-center">
             <button data-toggle="collapse" data-target="#Impressions">

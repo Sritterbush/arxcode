@@ -1285,16 +1285,15 @@ class Flashback(SharedMemoryModel):
         for player in self.all_players:
             if poster and poster.player == player:
                 continue
-            player.inform("There is a new post on flashback #%s by %s" % (self.id, poster),
+            player.inform("There is a new post on flashback #%s by %s." % (self.id, poster),
                           category="Flashbacks")
-        
 
 
 class FlashbackPost(SharedMemoryModel):
     flashback = models.ForeignKey('Flashback', related_name="posts")
     poster = models.ForeignKey('RosterEntry', blank=True, null=True, related_name="flashback_posts")
     read_by = models.ManyToManyField('RosterEntry', blank=True, related_name="read_flashback_posts")
-    actions = models.TextField(blank=True)
+    actions = models.TextField("The body of the post for your character's actions", blank=True)
     db_date_created = models.DateTimeField(blank=True, null=True)
 
     def display(self):

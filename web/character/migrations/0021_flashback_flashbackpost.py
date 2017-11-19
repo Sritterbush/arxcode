@@ -31,7 +31,7 @@ class Migration(migrations.Migration):
             name='FlashbackPost',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('actions', models.TextField(blank=True)),
+                ('actions', models.TextField(blank=True, help_text=b"The body of the post for your character's actions")),
                 ('db_date_created', models.DateTimeField(blank=True, null=True)),
                 ('flashback', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='posts', to='character.Flashback')),
                 ('poster', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='flashback_posts', to='character.RosterEntry')),
