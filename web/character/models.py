@@ -1273,6 +1273,21 @@ class Flashback(SharedMemoryModel):
 
     def __str__(self):
         return self.title
+        
+    @property
+    def all_players(self):
+        all_entries = [self.owner] + list(self.allowed.all())
+        return [ob.player for ob in all_entries]
+        
+    def add_post(self, actions, poster=None):
+        now = datetime.now()
+        self.posts.create(poster=poster, actions=actions, db_date_created=now)
+        for player in self.all_players:
+            if poster and poster.player == player:
+                continue
+            player.inform("There is a new post on flashback #%s by %s" % (self.id, poster),
+                          category="Flashbacks")
+        
 
 
 class FlashbackPost(SharedMemoryModel):

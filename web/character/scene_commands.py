@@ -30,7 +30,8 @@ class CmdFlashback(ArxPlayerCommand):
     locks = "cmd:all()"
     help_category = "scenes"
     player_switches = ("invite", "uninvite")
-    change_switches = ("title", "summary", "post")
+    change_switches = ("title", "summary")
+    requires_owner = ("invite",) + change_switches
     
     @property
     def roster_entry(self):
@@ -53,10 +54,12 @@ class CmdFlashback(ArxPlayerCommand):
             return self.view_flashback(flashback)
         if "catchup" in self.switches:
             return self.read_new_posts(flashback)
-        if self.check_switches(self.player_switches):
-            return self.manage_invites(flashback)
         if "post" in self.switches:
             return self.post_message(flashback)
+        if not self.check_can_use_switch(flashback):
+            return
+        if self.check_switches(self.player_switches):
+            return self.manage_invites(flashback)
         if self.check_switches(self.change_switches):
             return self.update_flashback(flashback)
         self.msg("Invalid switch.")
@@ -104,17 +107,48 @@ class CmdFlashback(ArxPlayerCommand):
         if not targ:
             return
         if "invite" in self.switches:
-            if flashback.allowed.filter(id=targ.roster.id).exists():
-                self.msg("They are already invited to this flashback.")
-                return
-            self.msg("You have invited %s to participate in this flashback." % targ)
-            flashback.allowed.add(targ.roster)
-            targ.inform("You have been invited by %s to participate in flashback #%s: '%s'." %
-                        (self.caller, flashback.id, flashback), category="Flashbacks")
-            return
+            self.invite_target(flashback, targ)
+        else:  # uninvite
+            self.uninvite_target(flashback, targ)
     
+    def invite_target(self, flashback, target):
+        if flashback.allowed.filter(id=target.roster.id).exists():
+            self.msg("They are already invited to this flashback.")
+            return
+        self.msg("You have invited %s to participate in this flashback." % target)
+        flashback.allowed.add(target.roster)
+        target.inform("You have been invited by %s to participate in flashback #%s: '%s'." %
+                      (self.caller, flashback.id, flashback), category="Flashbacks")
+                    
+    def uninvite_target(self, flashback, target):
+        if not flashback.allowed.filter(id=target.roster.id).exists():
+            self.msg("They are already not invited to this flashback.")
+            return
+        self.msg("You have uninvited %s from this flashback." % target)
+        flashback.allowed.remove(target.roster)
+        target.inform("You have been removed from flashback #%s." % flashback.id,
+                      category="Flashbacks")
+                    
     def post_message(self, flashback):
-        pass
+        if not self.rhs:
+            self.msg("You must include a message.")
+            return
+        flashback.add_post(self.rhs, self.roster_entry)
+        self.msg("You have posted a new message to %s: %s" % (flashback, self.rhs))
+        
+    def check_can_use_switch(self, flashback):
+        if not self.check_switches(self.requires_owner):
+            return True
+        if self.roster_entry != flashback.owner:
+            self.msg("Only the flashback's owner may use that switch.")
+            return False
+        return True
     
     def update_flashback(self, flashback):
-        pass
+        if "title" in self.switches:
+            field = "title"
+        else:
+            field = "summary"
+        setattr(flashback, field, self.rhs)
+        flashback.save()
+        self.msg("%s set to: %s." % (field, self.rhs))

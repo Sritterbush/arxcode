@@ -90,6 +90,7 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
         self.add_social_commands()
         self.add_staff_commands()
         self.add_investigation_commands()
+        self.add_scene_commands()
         self.add_gming_actions_commands()
 
     @check_errors
@@ -233,6 +234,11 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
         self.add(investigation.CmdTheories())
         self.add(investigation.CmdListRevelations())
         self.add(investigation.CmdPRPClue())
+        
+    @check_errors
+    def add_scene_commands(self):
+        from web.character import scene_commands
+        self.add(scene_commands.CmdFlashback())
 
     @check_errors
     def add_gming_actions_commands(self):
