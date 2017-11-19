@@ -492,12 +492,8 @@ class FlashbackAddPostView(DetailView):
             form = FlashbackPostForm(request.POST)
             if form.is_valid():
                 # write journal
-                print("Before add_post")
                 form.add_post(self.get_object(), self.poster)
             else:
-                print("Error")
-                print("Errors are %s" % form.errors)
                 raise Http404(form.errors)
-        print("Before redirect")
         return HttpResponseRedirect(reverse('character:flashback_post', kwargs={'object_id': self.character.id,
                                                                                 'flashback_id': self.get_object().id}))

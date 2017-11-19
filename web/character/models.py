@@ -1298,3 +1298,6 @@ class FlashbackPost(SharedMemoryModel):
 
     def display(self):
         return "%s wrote: %s" % (self.poster, self.actions)
+
+    def __str__(self):
+        return "Post by %s" % self.poster

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.forms import ModelForm
-from .models import (Roster, RosterEntry, Photo, DISCO_MULT, SearchTag,
+from .models import (Roster, RosterEntry, Photo, DISCO_MULT, SearchTag, FlashbackPost, Flashback,
                      Story, Chapter, Episode, StoryEmit, LoreTopic,
                      Milestone, Participant, Comment, FirstContact,
                      PlayerAccount, AccountHistory, InvestigationAssistant,
@@ -257,6 +257,24 @@ class FirstContactAdmin(BaseCharAdmin):
     def to_name(obj):
         return str(obj.to_account.entry)
 
+
+class PostInline(admin.StackedInline):
+    model = FlashbackPost
+    extra = 0
+    exclude = ('read_by', 'db_date_created')
+    raw_id_fields = ('poster',)
+    fieldsets = [(None, {'fields': ['poster']}),
+                 ('Story', {'fields': ['actions'], 'classes': ['collapse']}),
+                 ]
+
+
+class FlashbackAdmin(BaseCharAdmin):
+    list_display = ('id', 'title', 'owner',)
+    search_fields = ('id', 'title', 'owner__player__username')
+    raw_id_fields = ('owner',)
+    inlines = [PostInline]
+    fieldsets = [(None, {'fields': [('owner', 'title'), 'summary']})]
+
 # Register your models here.
 admin.site.register(Roster, BaseCharAdmin)
 admin.site.register(RosterEntry, EntryAdmin)
@@ -278,3 +296,4 @@ admin.site.register(Investigation, InvestigationAdmin)
 admin.site.register(Theory, TheoryAdmin)
 admin.site.register(SearchTag, SearchTagAdmin)
 admin.site.register(LoreTopic, LoreTopicAdmin)
+admin.site.register(Flashback, FlashbackAdmin)
