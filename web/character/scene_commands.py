@@ -24,6 +24,15 @@ class CmdFlashback(ArxPlayerCommand):
         flashback/invite <ID #>=<player>
         flashback/uninvite <ID #>=<player>
         flashback/post <ID #>=<message>
+
+    Flashbacks are a way in which you can flesh out scenes that happened in
+    the past in story form, inviting other players to participate. All
+    flashbacks are private to the players involved and staff, and are assumed
+    to be IC scenes that occurred some time in the past. New posts will
+    inform the characters involved in the flashback. If you wish to no longer
+    be informed or participate, you can uninvite yourself from a flashback.
+    Catchup will summarize all display unread posts a given flashback. Posts
+    can also be made from the webpage, linked from your character page.
     """
     key = "flashback"
     aliases = ["flashbacks"]
