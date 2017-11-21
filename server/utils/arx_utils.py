@@ -485,3 +485,14 @@ def passthrough_properties(field_name, *property_names):
             generate_property(name)
         return cls
     return wrapped
+
+
+def fix_attributes_error(broken_object):
+    """
+    Patch to fix objects broken by broken formset for Attributes in django admin, where validation errors convert
+    the Attributes to unicode.
+    """
+    from ast import literal_eval
+    from evennia.utils.dbserialize import from_pickle
+    for attr in broken_object.attributes.all():
+        attr.value = from_pickle(literal_eval(attr.value))
