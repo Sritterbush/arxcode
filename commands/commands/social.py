@@ -2495,8 +2495,7 @@ class CmdIAmHelping(ArxPlayerCommand):
         if not self.caller.pay_action_points(val):
             self.msg("You do not have enough AP.")
             return
-        targ.roster.action_points += receive_amt
-        targ.roster.save()
+        targ.pay_action_points(-receive_amt)
         targ.db.donated_ap = donated
         self.msg("You have given %s %s AP." % (targ, receive_amt))
         msg = "%s has given you %s AP." % (self.caller, receive_amt)

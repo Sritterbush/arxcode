@@ -1078,8 +1078,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     def get_display_name(self, looker, **kwargs):
         if not self.is_disguised:
             return super(Character, self).get_display_name(looker, **kwargs)
+        name = self.name
         try:
-            name = self.name
             if looker.truesight:
                 name = "%s (%s)" % (self.name, self.key)
                 if looker.check_permstring("builders"):

@@ -470,8 +470,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                 refund += self.ap_cost
             self.msg("%s stopped assisting investigations." % char)
             if refund:
-                self.caller.roster.action_points += refund
-                self.caller.roster.save()
+                self.caller.player_ob.pay_action_points(-refund)
             return
         if "resume" in self.switches:
             if "retainer" in self.switches:
@@ -807,8 +806,7 @@ class CmdInvestigate(InvestigationFormCommand):
                 if not ob.active:
                     self.msg("It was already inactive.")
                     return
-                self.caller.roster.action_points += self.ap_cost
-                self.caller.roster.save()
+                self.caller.player_ob.pay_action_points(-self.ap_cost)
                 ob.active = False
                 ob.save()
                 caller.msg("Investigation is no longer active.")
@@ -816,8 +814,7 @@ class CmdInvestigate(InvestigationFormCommand):
             if "abandon" in self.switches or "stop" in self.switches:
                 ob.ongoing = False
                 if ob.active:
-                    self.caller.roster.action_points += self.ap_cost
-                    self.caller.roster.save()
+                    self.caller.player_ob.pay_action_points(-self.ap_cost)
                 ob.active = False
                 ob.save()
                 asslist = []
