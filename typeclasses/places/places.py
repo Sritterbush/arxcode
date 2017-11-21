@@ -62,11 +62,13 @@ class Place(Object):
         for ob in self.db.occupants:
             if ob not in exclude:
                 if emit and ob.tags.get("emit_label"):
-                    message = "{w[{c%s{w]{n %s" % (from_obj, message)
-                ob.msg(message, from_obj=from_obj, options={'is_pose': True})
+                    formatted_message = "{w[{c%s{w]{n %s" % (from_obj, message)
+                else:
+                    formatted_message = message
+                ob.msg(formatted_message, from_obj=from_obj, options={'is_pose': True})
         from_obj.posecount += 1
 
-    def at_after_move(self, source_location):
+    def at_after_move(self, source_location, **kwargs):
         """If new location is not our wearer, remove."""
         location = self.location
         # first, remove ourself from the source location's places, if it exists
