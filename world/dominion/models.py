@@ -2715,6 +2715,10 @@ class Organization(InformMixin, SharedMemoryModel):
     def display(self, viewing_member=None, display_clues=False):
         if hasattr(self, 'assets'):
             money = self.assets.vault
+            try:
+                display_money = not viewing_member or self.assets.can_be_viewed_by(viewing_member.player.player)
+            except AttributeError:
+                display_money = False
             prestige = self.assets.prestige
             if hasattr(self.assets, 'estate'):
                 holdings = self.assets.estate.holdings.all()
@@ -2722,6 +2726,7 @@ class Organization(InformMixin, SharedMemoryModel):
                 holdings = []
         else:
             money = 0
+            display_money = False
             prestige = 0
             holdings = []
         msg = self.display_public()
@@ -2735,8 +2740,9 @@ class Organization(InformMixin, SharedMemoryModel):
         if members:
             members = "{wMembers of %s:\n%s" % (self.name, members)
         msg += members
-        msg += "\n{wMoney{n: %s\n" % money
-        msg += "\n{wPrestige{n: %s\n" % prestige
+        if display_money:
+            msg += "\n{wMoney{n: %s" % money
+            msg += " {wPrestige{n: %s" % prestige
         msg += "\n{wEconomic Mod:{n %s, {wMilitary Mod:{n %s, {wSocial Mod:{n %s\n" % (self.economic_modifier,
                                                                                        self.military_modifier,
                                                                                        self.social_modifier)
