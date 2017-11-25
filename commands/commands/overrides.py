@@ -14,6 +14,7 @@ from evennia.commands.default.comms import (CmdCdestroy, CmdChannelCreate, CmdCh
                                             CmdClock, CmdCBoot, CmdCdesc, CmdAllCom, CmdCWho)
 # noinspection PyProtectedMember
 from evennia.commands.default.building import CmdExamine, CmdLock, CmdDestroy, _LITERAL_EVAL, ObjManipCommand, CmdTag
+from evennia.commands.default.syscommands import CMD_NOMATCH
 from evennia.utils import evtable, create
 from world.dominion.models import CraftingMaterials
 from evennia.commands.default.general import CmdSay
@@ -1770,3 +1771,31 @@ class CmdArxScripts(CmdScripts):
             super(CmdScripts, self).func()
             return
         self.list_scripts()
+
+
+class SystemNoMatch(ArxCommand):
+    """
+    No command was found matching the given input.
+    """
+    key = CMD_NOMATCH
+    locks = "cmd:all()"
+
+    def func(self):
+        """
+        This is given the failed raw string as input.
+        """
+        from evennia.utils.utils import string_suggestions, list_to_string
+        msg = "Command '%s' is not available." % self.raw
+        cmdset = self.cmdset
+        cmdset.make_unique(self.caller)
+        all_cmds = [cmd for cmd in cmdset if cmd.auto_help and cmd.access(self.caller)]
+        names = []
+        for cmd in all_cmds:
+            # noinspection PyProtectedMember
+            names.extend(cmd._keyaliases)
+        suggestions = string_suggestions(self.raw, set(names), cutoff=0.7, maxnum=3)
+        if suggestions:
+            msg += " Maybe you meant %s?" % list_to_string(suggestions, 'or', addquote=True)
+        else:
+            msg += " Type \"help\" for help."
+        self.msg(msg)
