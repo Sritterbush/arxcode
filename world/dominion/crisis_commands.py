@@ -162,12 +162,13 @@ class CmdViewCrisis(CrisisCmdMixin, ArxPlayerCommand):
         super(CmdViewCrisis, self).list_crises()
         self.msg("{wYour pending actions:{n")
         table = EvTable("{w#{n", "{wCrisis{n")
-        current_actions = list(self.current_actions) + [ass.crisis_action for ass in self.assisted_actions.exclude(
-            crisis_action__status=CrisisAction.PUBLISHED)]
+        current_actions = [ob for ob in self.current_actions if ob.crisis] + [
+            ass.crisis_action for ass in self.assisted_actions.exclude(
+                crisis_action__status=CrisisAction.PUBLISHED) if ass.crisis_action.crisis]
         for ob in current_actions:
             table.add_row(ob.id, ob.crisis)
         self.msg(table)
-        past_actions = self.caller.past_participated_actions
+        past_actions = [ob for ob in self.caller.past_participated_actions if ob.crisis]
         if past_actions:
             table = EvTable("{w#{n", "{wCrisis{n")
             self.msg("{wYour past actions:{n")
