@@ -1706,6 +1706,7 @@ class CmdArmy(ArxPlayerCommand):
             self.msg("Successfully hired %s unit of %s for army: %s." % (self.rhslist[0], qty, army))
             unit.gain_xp(bonus)
             self.msg("Unit %s has gained %s xp divided among its members." % (unit.id, bonus))
+            self.caller.attributes.remove("propaganda_mods")
             return
         if "general" in self.switches:
             if not self.rhs:
