@@ -9,12 +9,12 @@ from datetime import datetime, timedelta
 from django.db.models import Q, F
 
 
-from evennia.accounts.models import AccountDB
 from evennia.objects.models import ObjectDB
 from evennia.utils.evtable import EvTable
 
 from world.dominion.models import AssetOwner, Army, AssignedTask, Member, AccountTransaction, Orders
 from typeclasses.bulletin_board.bboard import BBoard
+from typeclasses.accounts import Account
 from .scripts import Script
 from server.utils.arx_utils import inform_staff, cache_safe_update
 from web.character.models import Investigation, RosterEntry
@@ -149,14 +149,16 @@ class WeeklyEvents(Script):
         of sync, so action_points didn't properly update. Look into solving that in the future
         for more efficient bulk update implementation.
         """
-        # access via our One-to-One field to be certain we won't run into caching issues
-        qs = [ob.roster for ob in AccountDB.objects.filter(roster__roster__name="Active")]
+        qs = Account.objects.filter(roster__roster__name="Active").distinct()
         for ob in qs:
-            if 99 < ob.action_points < 200:
-                ob.action_points = 200
-            elif ob.action_points < 100:
-                ob.action_points += 100
-            ob.save()
+            current = ob.roster.action_points
+            increment = 0
+            if 99 < current < 200:
+                increment = 200 - current
+            elif current < 100:
+                increment = 100
+            if increment:
+                ob.pay_action_points(-increment)
 
     def do_tasks(self):
         for task in AssignedTask.objects.filter(finished=False):
@@ -291,9 +293,9 @@ class WeeklyEvents(Script):
             self.db.requested_support = {}
             self.db.scenes = {}
         self.check_freeze()
-        players = [ob for ob in AccountDB.objects.filter(Q(Q(roster__roster__name="Active") &
-                                                        Q(roster__frozen=False)) |
-                                                        Q(is_staff=True)) if ob.db.char_ob]
+        players = [ob for ob in Account.objects.filter(Q(Q(roster__roster__name="Active") &
+                                                         Q(roster__frozen=False)) |
+                                                       Q(is_staff=True)).distinct() if ob.char_ob]
         for player in players:
             self.count_votes(player)
             self.count_praises_and_condemns(player)
@@ -345,7 +347,7 @@ class WeeklyEvents(Script):
     def check_freeze():
         try:
             date = datetime.now()
-            AccountDB.objects.filter(last_login__isnull=True).update(last_login=date)
+            Account.objects.filter(last_login__isnull=True).update(last_login=date)
             offset = timedelta(days=-14)
             date = date + offset
             RosterEntry.objects.filter(player__last_login__lt=date).update(frozen=True)
@@ -357,7 +359,7 @@ class WeeklyEvents(Script):
     def post_inactives(self):
         date = datetime.now()
         cutoffdate = date - timedelta(days=30)
-        qs = AccountDB.objects.filter(roster__roster__name="Active", last_login__isnull=False).filter(
+        qs = Account.objects.filter(roster__roster__name="Active", last_login__isnull=False).filter(
             last_login__lte=cutoffdate)
         board = BBoard.objects.get(db_key__iexact="staff")
         table = EvTable("{wName{n", "{wLast Login Date{n", border="cells", width=78)
@@ -371,7 +373,7 @@ class WeeklyEvents(Script):
         min_poses = 20
         low_activity = []
         for ob in qs:
-            if (ob.posecount < min_poses and roster.roster.name == "Active" and
+            if (ob.posecount < min_poses and ob.roster.roster.name == "Active" and
                     (ob.tags.get("rostercg")and ob.player_ob and not ob.player_ob.tags.get("staff_alt"))):
                 low_activity.append(ob)
             ob.db.previous_posecount = ob.posecount
@@ -389,7 +391,7 @@ class WeeklyEvents(Script):
         In the journals here, we're processing all the XP gained for
         making journals, comments, or updating relationships.
         """
-        char = player.db.char_ob
+        char = player.char_ob
         try:
             account = player.roster.current_account
             if account.id in self.db.xptypes:
@@ -615,7 +617,7 @@ class WeeklyEvents(Script):
     def award_prestige(self):
         for name in self.db.recorded_praises:
             try:
-                player = AccountDB.objects.select_related('Dominion__assets').get(username__iexact=name)
+                player = Account.objects.select_related('Dominion__assets').get(username__iexact=name)
                 assets = player.Dominion.assets
             except AttributeError:
                 continue
@@ -623,7 +625,7 @@ class WeeklyEvents(Script):
             assets.adjust_prestige(val)
         for name in self.db.recorded_condemns:
             try:
-                player = AccountDB.objects.select_related('Dominion__assets').get(username__iexact=name)
+                player = Account.objects.select_related('Dominion__assets').get(username__iexact=name)
                 assets = player.Dominion.assets
             except AttributeError:
                 continue
