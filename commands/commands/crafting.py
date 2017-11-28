@@ -250,6 +250,7 @@ class CmdCraft(ArxCommand):
         craft/altdesc <description>
         craft/adorn <material type>=<amount>
         craft/translated_text <language>=<text>
+        craft/preview [<player>]
         craft/finish [<additional silver to invest>, <action points>
         craft/abandon
         craft/refine <object>[=<additional silver to spend>, <action points>]
@@ -283,7 +284,7 @@ class CmdCraft(ArxCommand):
     help_category = "Crafting"
     crafter = None
     crafting_switches = ("name", "desc", "altdesc", "adorn", "translated_text", "forgery", "finish", "abandon",
-                         "refine", "changename", "addadorn")
+                         "refine", "changename", "addadorn", "preview")
 
     def get_refine_price(self, base):
         return 0
@@ -593,37 +594,18 @@ class CmdCraft(ArxCommand):
         if "forgery" in self.switches:
             self.msg("Temporarily disabled until I have time to revamp this.")
             return
-            # if not (self.lhs and self.rhs):
-            #     caller.msg("Usage: craft/forgery <real>=<fake>")
-            #     return
-            # # check that the materials are legit
-            # try:
-            #     real = CraftingMaterialType.objects.get(name__iexact=self.lhs)
-            #     fake = CraftingMaterialType.objects.get(name__iexact=self.rhs)
-            # except CraftingMaterialType.DoesNotExist:
-            #     caller.msg("Could not find materials for both those types.")
-            #     return
-            # except CraftingMaterialType.MultipleObjectsReturned:
-            #     caller.msg("Matches were not unique for types. Must be more specific.")
-            #     return
-            # # we have matches, make sure real ones are in recipe, or the object
-            # recipe = CraftingRecipe.objects.get(id=proj[0])
-            # types = [_mat.type for _mat in recipe.materials.all()]
-            # if fake not in types:
-            #     # not in base recipe, check if it's in adornments
-            #     if fake.id not in proj[3].keys():
-            #         caller.msg("Material that you want to fake does not "
-            # "appear in the project's recipe nor adornments.")
-            #         return
-            # if real.category != fake.category:
-            #     caller.msg("The categories of the materials must match. %s is %s, %s is %s." % (real, real.category,
-            #                                                                                     fake, fake.category))
-            #     return
-            # proj[4][fake.id] = real.id
-            # caller.db.crafting_project = proj
-            # caller.msg("Now using %s in place of %s in the recipe, and hoping no one notices." % (real.name,
-            # fake.name))
-            # return
+        if "preview" in self.switches:
+            if self.args:
+                viewer = self.caller.player.search(self.args)
+                if not viewer:
+                    return
+                viewer.msg("{c%s{n is sharing a preview of their crafting project with you." % self.caller)
+                self.msg("You share a preview of your crafting project with %s." % viewer)
+            else:
+                viewer = self.caller.player
+            name = proj[1] or "[No Name Yet]"
+            viewer.msg("{wPreview of {n%s {wdesc:{n\n%s" % (name, proj[2]))
+            return
         # do rolls for our crafting. determine quality level, handle forgery stuff
         if "finish" in self.switches:
             if not proj[1]:
