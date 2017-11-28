@@ -590,6 +590,11 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
             else:
                 action_id = action.id
             table.add_row(action_id, action.dompc, action.topic, action.get_category_display(), action.crisis)
+        table.reformat_column(0, width=9)
+        table.reformat_column(1, width=10)
+        table.reformat_column(2, width=33)
+        table.reformat_column(3, width=12)
+        table.reformat_column(4, width=14)
         self.msg(table)
     
     def get_queryset_from_switches(self):
