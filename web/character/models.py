@@ -1,3 +1,15 @@
+"""
+App that handles the relation of the Account and Character typeclasses, web display/extensions for them, and
+various in-game activities. It was meant to be the On-screen companion for Dominion acting as the off-screen
+version, but the scope of that quickly became far too broad. So it's mostly limited to things like investigations,
+clue discoveries, etc.
+
+Originally, the evennia Account typeclass was called Player, which was deemed confusing for what it did, and the
+name was changed. There's some confusing overlap between that and our own PlayerAccount model, but just try to hum
+loudly and remember that we'll usually refer to evennia's account typeclass as 'player' or 'user' or whatever for
+the django USER_AUTH_MODEL.
+"""
+
 from django.db import models
 from django.conf import settings
 from cloudinary.models import CloudinaryField
@@ -17,7 +29,7 @@ DISCO_MULT = 10
 
 class Photo(SharedMemoryModel):
     """
-    This is the main model in the project. It holds a reference to cloudinary-stored
+    Used for uploading photos to cloudinary. It holds a reference to cloudinary-stored
     image and contains some metadata about the image.
     """
     #  Misc Django Fields
@@ -68,6 +80,13 @@ class Roster(SharedMemoryModel):
 
 
 class RosterEntry(SharedMemoryModel):
+    """
+    Main model for the character app. This is used both as an extension of an evennia AccountDB model (which serves as
+    USER_AUTH_MODEL and a Character typeclass, and links the two together. It also is where some data used for the
+    character lives, such as action points, the profile picture for their webpage, the PlayerAccount which currently
+    is playing the character, and who played it previously. RosterEntry is used for most other models in the app,
+    such as investigations, discoveries of clues/revelations/mysteries, etc.
+    """
     roster = models.ForeignKey('Roster', related_name='entries',
                                on_delete=models.SET_NULL, blank=True, null=True, db_index=True)
     player = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='roster', blank=True, null=True, unique=True)
@@ -112,6 +131,7 @@ class RosterEntry(SharedMemoryModel):
         return self.locks.check(accessing_obj, access_type=access_type, default=default)
 
     def fake_delete(self):
+        """We don't really want to delete RosterEntries for reals. So we fake it."""
         try:
             del_roster = Roster.objects.get(name__iexact="Deleted")
         except Roster.DoesNotExist:
@@ -123,6 +143,7 @@ class RosterEntry(SharedMemoryModel):
         self.save()
 
     def undelete(self, r_name="Active"):
+        """Restores a fake-deleted entry."""
         try:
             roster = Roster.objects.get(name__iexact=r_name)
         except Roster.DoesNotExist:
@@ -134,6 +155,7 @@ class RosterEntry(SharedMemoryModel):
         self.save()
 
     def adjust_xp(self, val):
+        """Stores xp the player's earned in their history of playing the character."""
         try:
             if val < 0:
                 return
@@ -145,23 +167,28 @@ class RosterEntry(SharedMemoryModel):
 
     @property
     def finished_clues(self):
+        """Clue discoveries that are all done and ready. Otherwise, they're just progress and shouldn't be shown"""
         return self.clues.filter(roll__gte=F('clue__rating') * DISCO_MULT)
 
     @property
     def discovered_clues(self):
+        """The actual clues themselves that are all done, not just their discoveries"""
         return Clue.objects.filter(id__in=[ob.clue.id for ob in self.finished_clues])
 
     @property
     def undiscovered_clues(self):
+        """Clues that we -haven't- discovered. We might have partial progress or not"""
         return Clue.objects.exclude(id__in=[ob.clue.id for ob in self.finished_clues])
 
     @property
     def alts(self):
+        """Other roster entries played by our current PlayerAccount"""
         if self.current_account:
             return self.current_account.characters.exclude(id=self.id)
         return []
 
     def discover_clue(self, clue, method="Prior Knowledge"):
+        """Discovers and returns the clue, if not already."""
         try:
             disco = self.clues.get(clue=clue)
         except ClueDiscovery.DoesNotExist:
@@ -174,6 +201,7 @@ class RosterEntry(SharedMemoryModel):
 
     @property
     def current_history(self):
+        """Displays the current tenure of the PlayerAccount running this entry."""
         return self.accounthistory_set.last()
 
     @property
@@ -188,6 +216,7 @@ class RosterEntry(SharedMemoryModel):
 
     @property
     def public_impressions(self):
+        """Gets queryset of non-private current_impressions"""
         try:
             return self.current_impressions.filter(private=False).order_by('from_account__entry__character__db_key')
         except AttributeError:
@@ -195,17 +224,20 @@ class RosterEntry(SharedMemoryModel):
 
     @property
     def impressions_for_all(self):
+        """Public impressions that both the writer and receiver have signed off on sharing"""
         try:
             return self.public_impressions.filter(writer_share=True, receiver_share=True)
         except AttributeError:
             return []
 
     def get_impressions_str(self, player=None):
+        """Returns string display of first impressions"""
         qs = self.current_impressions.filter(private=False)
         if player:
             qs = qs.filter(from_account__entry__player=player)
 
         def public_str(obj):
+            """Returns markup of the first impression based on its visibility"""
             if obj.viewable_by_all:
                 return "{w(Shared by Both){n"
             if obj.writer_share:
@@ -218,6 +250,7 @@ class RosterEntry(SharedMemoryModel):
 
 
 class Story(SharedMemoryModel):
+    """An overall storyline for the game. It can be divided into chapters, which have their own episodes."""
     current_chapter = models.OneToOneField('Chapter', related_name='current_chapter_story',
                                            on_delete=models.SET_NULL, blank=True, null=True, db_index=True)
     name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
@@ -235,6 +268,10 @@ class Story(SharedMemoryModel):
 
 
 class Chapter(SharedMemoryModel):
+    """
+    A chapter in a given story. This will typically be the most used demarcation for a narrative, as episodes
+    tend to be brief, while stories are very long.
+    """
     name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
     synopsis = models.TextField(blank=True, null=True)
     story = models.ForeignKey('Story', blank=True, null=True, db_index=True,
@@ -247,9 +284,11 @@ class Chapter(SharedMemoryModel):
 
     @property
     def public_crises(self):
+        """Crises that everyone knows about, so will show up on the webpage"""
         return self.crises.filter(public=True)
 
     def crises_viewable_by_user(self, user):
+        """Returns crises that aren't public that user can see."""
         if not user or not user.is_authenticated():
             return self.public_crises
         if user.is_staff or user.check_permstring("builders"):
@@ -258,6 +297,10 @@ class Chapter(SharedMemoryModel):
 
 
 class Episode(SharedMemoryModel):
+    """
+    A brief episode. The teeniest bit of story. Originally I intended these to be holders for one-off events,
+    but they more or less became used as dividers for chapters, which is fine.
+    """
     name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
     chapter = models.ForeignKey('Chapter', blank=True, null=True,
                                 on_delete=models.SET_NULL, related_name='episodes', db_index=True)
@@ -270,9 +313,14 @@ class Episode(SharedMemoryModel):
 
     @property
     def public_crisis_updates(self):
+        """
+        Updates for a crisis that happened during this episode. Display them along with emits to create a
+        history of what happened during the episode.
+        """
         return self.crisis_updates.filter(crisis__public=True)
 
     def get_viewable_crisis_updates_for_player(self, player):
+        """Returns non-public crisis updates that the player can see."""
         if not player or not player.is_authenticated():
             return self.public_crisis_updates
         if player.is_staff or player.check_permstring("builders"):
@@ -282,6 +330,10 @@ class Episode(SharedMemoryModel):
 
 
 class StoryEmit(SharedMemoryModel):
+    """
+    A story emit is a short blurb written by GMs to show something that happened. Along with crisis updates, this
+    more or less creates the history for the game world.
+    """
     # chapter only used if we're not specifically attached to some episode
     chapter = models.ForeignKey('Chapter', blank=True, null=True,
                                 on_delete=models.SET_NULL, related_name='emits')
@@ -294,6 +346,10 @@ class StoryEmit(SharedMemoryModel):
 
 
 class Milestone(SharedMemoryModel):
+    """
+    Major events in a character's life. Not used that much yet, GMs have set a few by hand. We'll expand this
+    later in order to create a more robust/detailed timeline for a character's story arc.
+    """
     protagonist = models.ForeignKey('RosterEntry', related_name='milestones')
     name = models.CharField(blank=True, null=True, max_length=255)
     synopsis = models.TextField(blank=True, null=True)
@@ -313,6 +369,7 @@ class Milestone(SharedMemoryModel):
 
 
 class Participant(SharedMemoryModel):
+    """Participant in a milestone."""
     milestone = models.ForeignKey('Milestone', on_delete=models.CASCADE)
     character = models.ForeignKey('RosterEntry', on_delete=models.CASCADE)
     xp_earned = models.PositiveSmallIntegerField(default=0, blank=0)
@@ -321,6 +378,7 @@ class Participant(SharedMemoryModel):
 
 
 class Comment(SharedMemoryModel):
+    """Comment upon a milestone, written by someone involved."""
     poster = models.ForeignKey('RosterEntry', related_name='comments')
     target = models.ForeignKey('RosterEntry', related_name='comments_upon', blank=True, null=True)
     text = models.TextField(blank=True, null=True)
@@ -331,6 +389,10 @@ class Comment(SharedMemoryModel):
 
 
 class PlayerAccount(SharedMemoryModel):
+    """
+    This is used to represent a player, who might be playing one or more RosterEntries. They're uniquely identified
+    by their email address. Karma is for any OOC goodwill they've built up over time. Not currently used. YET.
+    """
     email = models.EmailField(unique=True)
     karma = models.PositiveSmallIntegerField(default=0, blank=0)
     gm_notes = models.TextField(blank=True, null=True)
@@ -340,11 +402,13 @@ class PlayerAccount(SharedMemoryModel):
     
     @property
     def total_xp(self):
+        """Total xp they've earned over all time"""
         qs = self.accounthistory_set.all()
         return sum(ob.xp_earned for ob in qs)
 
 
 class AccountHistory(SharedMemoryModel):
+    """Record of a PlayerAccount playing an individual character."""
     account = models.ForeignKey('PlayerAccount', db_index=True)
     entry = models.ForeignKey('RosterEntry', db_index=True)
     xp_earned = models.SmallIntegerField(default=0, blank=0)
@@ -365,6 +429,11 @@ class AccountHistory(SharedMemoryModel):
 
 
 class FirstContact(SharedMemoryModel):
+    """
+    Shows someone's first impression of an iteration of a RosterEntry played by someone. So we point to
+    AccountHistory objects rather than RosterEntries, to let people set their impression of a player's take on
+    the character.
+    """
     from_account = models.ForeignKey('AccountHistory', related_name='initiated_contacts', db_index=True)
     to_account = models.ForeignKey('AccountHistory', related_name='received_contacts', db_index=True)
     summary = models.TextField(blank=True)
@@ -383,14 +452,17 @@ class FirstContact(SharedMemoryModel):
 
     @property
     def writer(self):
+        """The RosterEntry of the writer"""
         return self.from_account.entry
 
     @property
     def receiver(self):
+        """RosterEntry of the receiver"""
         return self.to_account.entry
 
     @property
     def viewable_by_all(self):
+        """Whether everyone can see this"""
         return self.writer_share and self.receiver_share
 
 
@@ -431,6 +503,7 @@ class RPScene(SharedMemoryModel):
         
 
 class AbstractPlayerAllocations(SharedMemoryModel):
+    """Mixin for resources/stats used for an in-game activity."""
     UNSET_ROLL = -9999
     topic = models.CharField(blank=True, max_length=255, help_text="Keywords or tldr or title")
     actions = models.TextField(blank=True, help_text="The writeup the player submits of their actions, used for GMing.")
@@ -454,10 +527,16 @@ class AbstractPlayerAllocations(SharedMemoryModel):
         
     @property
     def roll_is_set(self):
+        """
+        Whether our roll is currently a valid value. Could have used null/None, but I prefer being more explicit
+        rather than risking errors of 'if not roll' when it's 0 rather than None. And if you're going to check
+        'if roll is None' then why not just check a constant anyway?
+        """
         return self.roll != self.UNSET_ROLL
         
     
 class Mystery(SharedMemoryModel):
+    """One of the big mysteries of the game. Kind of used as a category for revelations."""
     name = models.CharField(max_length=255, db_index=True)
     desc = models.TextField("Description", help_text="Description of the mystery given to the player " +
                                                      "when fully revealed",
@@ -475,6 +554,7 @@ class Mystery(SharedMemoryModel):
 
 
 class Revelation(SharedMemoryModel):
+    """A major piece of lore that can be discovered by players. Clues make up pieces of it."""
     name = models.CharField(max_length=255, blank=True, db_index=True)
     desc = models.TextField("Description", help_text="Description of the revelation given to the player",
                             blank=True)
@@ -499,6 +579,7 @@ class Revelation(SharedMemoryModel):
 
 
 class Clue(SharedMemoryModel):
+    """A significant discovery by a player that points their character toward a Revelation, if it's not fake."""
     name = models.CharField(max_length=255, blank=True, db_index=True)
     rating = models.PositiveSmallIntegerField(default=0, blank=0, help_text="Value required to get this clue",
                                               db_index=True)
@@ -521,6 +602,7 @@ class Clue(SharedMemoryModel):
 
     @property
     def keywords(self):
+        """List of keywords from our search tags. We use them for auto-matching clues with investigations."""
         return [ob.name for ob in self.search_tags.all()]
 
     @property
@@ -535,8 +617,14 @@ class Clue(SharedMemoryModel):
         except (AttributeError, IndexError):
             return []
 
+    @property
+    def value_for_discovery(self):
+        """Value required for this clue to be discovered"""
+        return self.rating * DISCO_MULT
+
 
 class SearchTag(SharedMemoryModel):
+    """Tags for Clues that are used for automatching investigations to them."""
     name = models.CharField(max_length=255, unique=True)
     topic = models.ForeignKey('LoreTopic', blank=True, null=True, db_index=True)
 
@@ -545,6 +633,7 @@ class SearchTag(SharedMemoryModel):
 
 
 class LoreTopic(SharedMemoryModel):
+    """GM notes about different in-game topics. Basically a knowledge-base for lore."""
     name = models.CharField(max_length=255, unique=True)
     desc = models.TextField("GM Notes about this Lore Topic", blank=True)
 
@@ -553,6 +642,7 @@ class LoreTopic(SharedMemoryModel):
 
 
 class MysteryDiscovery(SharedMemoryModel):
+    """Through model used to record when a character discovers a mystery."""
     character = models.ForeignKey('RosterEntry', related_name="mysteries", db_index=True)
     mystery = models.ForeignKey('Mystery', related_name="discoveries", db_index=True)
     investigation = models.ForeignKey('Investigation', blank=True, null=True, related_name="mysteries")
@@ -569,6 +659,7 @@ class MysteryDiscovery(SharedMemoryModel):
 
 
 class RevelationDiscovery(SharedMemoryModel):
+    """Through model used to record when a character discovers a revelation."""
     character = models.ForeignKey('RosterEntry', related_name="revelations", db_index=True)
     revelation = models.ForeignKey('Revelation', related_name="discoveries", db_index=True)
     investigation = models.ForeignKey('Investigation', blank=True, null=True, related_name="revelations")
@@ -605,6 +696,7 @@ class RevelationDiscovery(SharedMemoryModel):
         return "%s's discovery of %s" % (self.character, self.revelation)
 
     def display(self):
+        """Returns string display for the revelation."""
         msg = self.revelation.name + "\n"
         msg += self.revelation.desc + "\n"
         if self.message:
@@ -613,6 +705,7 @@ class RevelationDiscovery(SharedMemoryModel):
 
 
 class RevelationForMystery(SharedMemoryModel):
+    """Through model for showing which revelations are required for mystery discovery."""
     mystery = models.ForeignKey('Mystery', related_name="revelations_used", db_index=True)
     revelation = models.ForeignKey('Revelation', related_name="usage", db_index=True)
     required_for_mystery = models.BooleanField(default=True, help_text="Whether this must be discovered for the" +
@@ -626,6 +719,7 @@ class RevelationForMystery(SharedMemoryModel):
 
 
 class ClueDiscovery(SharedMemoryModel):
+    """Through model that represents knowing/progress towards discovering a clue."""
     clue = models.ForeignKey('Clue', related_name="discoveries", db_index=True)
     character = models.ForeignKey('RosterEntry', related_name="clues", db_index=True)
     investigation = models.ForeignKey('Investigation', blank=True, null=True, related_name="clues", db_index=True)
@@ -642,17 +736,21 @@ class ClueDiscovery(SharedMemoryModel):
 
     @property
     def name(self):
+        """Returns the name of the clue we're discovering"""
         return self.clue.name
 
     @property
-    def required_rating_for_discovery(self):
-        return self.clue.rating * DISCO_MULT
+    def required_roll_for_discovery(self):
+        """Value we need self.roll to be for this clue to be discovered."""
+        return self.clue.value_for_discovery
 
     @property
     def finished(self):
-        return self.roll >= self.required_rating_for_discovery
+        """Whether our clue has been discovered."""
+        return self.roll >= self.required_roll_for_discovery
 
     def display(self, show_sharing=False):
+        """Returns a string showing that we're not yet done, or the completed clue discovery."""
         if not self.finished:
             return self.message or "An investigation that hasn't yet yielded anything definite."
         msg = "\n{c%s{n\n" % self.clue.name
@@ -692,16 +790,27 @@ class ClueDiscovery(SharedMemoryModel):
 
     @property
     def progress_percentage(self):
+        """Returns our percent towards completion as an integer."""
         try:
-            return int((float(self.roll) / float(self.clue.rating * DISCO_MULT)) * 100)
+            return int((float(self.roll) / float(self.required_roll_for_discovery)) * 100)
         except (AttributeError, TypeError, ValueError, ZeroDivisionError):
             return 0
 
     def mark_discovered(self, method="Prior Knowledge", message="", roll=None, revealed_by=None, investigation=None):
-        if roll and roll > self.required_rating_for_discovery:
+        """
+        Discovers the clue for our character.
+
+        Args:
+            method: String describing how the clue was discovered.
+            message: Additional message saying how it was discovered, stored in self.message
+            roll: Stored in self.roll if we want to note high success. Otherwise self.roll becomes minimum required
+            revealed_by: If the clue was shared by someone else, we store their RosterEntry
+            investigation: If it was from an investigation, we mark that also.
+        """
+        if roll and roll > self.required_roll_for_discovery:
             self.roll = roll
         else:
-            self.roll = self.clue.rating * DISCO_MULT
+            self.roll = self.required_roll_for_discovery
         date = datetime.now()
         self.date = date
         self.discovery_method = method
@@ -731,7 +840,7 @@ class ClueDiscovery(SharedMemoryModel):
             investigation.clue_target = None
             investigation.save()
 
-    def share(self, entry):
+    def share(self, entry, investigation=None):
         """
         Copy this clue to target entry. If they already have the
         discovery, we'll add our roll to theirs (which presumably should
@@ -754,7 +863,7 @@ class ClueDiscovery(SharedMemoryModel):
                 self.character, self.name))
             return False
         targ_clue.mark_discovered(method="Sharing", message="This clue was shared to you by %s." % self.character,
-                                  revealed_by=self.character)
+                                  revealed_by=self.character, investigation=investigation)
         pc = targ_clue.character.player
         msg = "A new clue has been shared with you by %s!\n\n%s\n" % (self.character,
                                                                       targ_clue.display())
@@ -763,11 +872,13 @@ class ClueDiscovery(SharedMemoryModel):
 
     @property
     def shared_with(self):
+        """Shortcut to show everyone our character shared this clue with."""
         spoiled = self.character.clues_spoiled.filter(clue=self.clue)
         return RosterEntry.objects.filter(clues__in=spoiled)
 
 
 class ClueForRevelation(SharedMemoryModel):
+    """Through model that shows which clues are required for a revelation"""
     clue = models.ForeignKey('Clue', related_name="usage", db_index=True)
     revelation = models.ForeignKey('Revelation', related_name="clues_used", db_index=True)
     required_for_revelation = models.BooleanField(default=True, help_text="Whether this must be discovered for " +
@@ -781,6 +892,7 @@ class ClueForRevelation(SharedMemoryModel):
 
 
 class InvestigationAssistant(SharedMemoryModel):
+    """Someone who is helping an investigation out. Note that char is an ObjectDB, not RosterEntry."""
     currently_helping = models.BooleanField(default=True, help_text="Whether they're currently helping out")
     investigation = models.ForeignKey('Investigation', related_name="assistants", db_index=True)
     char = models.ForeignKey('objects.ObjectDB', related_name="assisted_investigations", db_index=True)
@@ -795,17 +907,23 @@ class InvestigationAssistant(SharedMemoryModel):
 
     @property
     def helper_name(self):
+        """Name of the character, with their owner if they're a retainer"""
         name = self.char.key
         if hasattr(self.char, "owner"):
             name += " (%s)" % self.char.owner
         return name
 
     def shared_discovery(self, clue):
+        """
+        Shares a clue discovery with this assistant.
+        Args:
+            clue: The ClueDiscovery we're sharing
+        """
         self.currently_helping = False
         self.save()
         entry = self.roster_entry
         if entry:
-            clue.share(entry)
+            clue.share(entry, investigation=self.investigation)
         
     @property
     def roster_entry(self):
@@ -821,6 +939,10 @@ class InvestigationAssistant(SharedMemoryModel):
 
 
 class Investigation(AbstractPlayerAllocations):
+    """
+    An investigation by a character or group of characters into a given topic. Typically used for discovering clues,
+    but can be set to return just a message by turning automate_result to False and writing self.results manually.
+    """
     character = models.ForeignKey('RosterEntry', related_name="investigations", db_index=True)
     ongoing = models.BooleanField(default=True, help_text="Whether this investigation is finished or not",
                                   db_index=True)
@@ -837,6 +959,7 @@ class Investigation(AbstractPlayerAllocations):
         return "%s's investigation on %s" % (self.character, self.topic)
 
     def display(self):
+        """Returns string display of investigation for players"""
         msg = "{wID{n: %s" % self.id
         if not self.active:
             msg += " {r(Investigation Not Currently Active){n"
@@ -853,6 +976,7 @@ class Investigation(AbstractPlayerAllocations):
         return msg
 
     def gm_display(self):
+        """Returns string of investigation stats for GM"""
         msg = self.display()
         msg += "{wCurrent Roll{n: %s\n" % self.roll
         msg += "{wTargeted Clue{n: %s\n" % self.targeted_clue
@@ -867,10 +991,12 @@ class Investigation(AbstractPlayerAllocations):
 
     @property
     def char(self):
+        """Character object of the RosterEntry running the investigation"""
         return self.character.character
 
     @property
     def active_assistants(self):
+        """Assistants that are flagged as actively participating"""
         return self.assistants.filter(currently_helping=True)
 
     @staticmethod
@@ -916,6 +1042,7 @@ class Investigation(AbstractPlayerAllocations):
 
     @property
     def resource_mod(self):
+        """Difficulty modifier as an integer from silver/resources"""
         mod = 0
         silver_mod = self.silver/2500
         if silver_mod > 20:
@@ -931,14 +1058,10 @@ class Investigation(AbstractPlayerAllocations):
         return mod
 
     def get_roll(self):
+        """Does a roll if we're currently not set, then returns our current roll."""
         if self.roll == self.UNSET_ROLL:
             return self.do_roll()
         return self.roll
-    #
-    # def _set_roll(self, value):
-    #     char = self.char
-    #     char.db.investigation_roll = int(value)
-    # roll = property(_get_roll, _set_roll)
     
     @property
     def difficulty(self):
@@ -958,9 +1081,10 @@ class Investigation(AbstractPlayerAllocations):
 
     @property
     def completion_value(self):
+        """The value required for us to be done, progress-wise."""
         if not self.targeted_clue:
             return 30
-        return self.targeted_clue.rating * DISCO_MULT
+        return self.targeted_clue.value_for_discovery
     
     def check_success(self, modifier=0, diff=None):
         """
@@ -975,6 +1099,10 @@ class Investigation(AbstractPlayerAllocations):
         return (roll + self.progress) >= self.completion_value
 
     def process_events(self):
+        """
+        Called by the weekly event script to make the investigation run and reset our values,
+        then notify the player.
+        """
         self.generate_result()
         # reset values
         self.reset_values()
@@ -1049,6 +1177,7 @@ class Investigation(AbstractPlayerAllocations):
 
     @property
     def targeted_clue(self):
+        """Tries to fetch a clue automatically if we don't have one. Then returns what we have, or None."""
         if self.clue_target:
             return self.clue_target
         self.clue_target = self.find_target_clue()
@@ -1057,6 +1186,7 @@ class Investigation(AbstractPlayerAllocations):
 
     @property
     def keywords(self):
+        """Get list of keywords from parsing the player-set topic"""
         return get_keywords_from_topic(self.topic)
 
     def find_target_clue(self):
@@ -1081,20 +1211,15 @@ class Investigation(AbstractPlayerAllocations):
 
     @property
     def progress(self):
+        """Get our progress from our current clue."""
         try:
             clue = self.clues.get(clue=self.targeted_clue)
             return clue.roll
         except ClueDiscovery.DoesNotExist:
             return 0
 
-    @property
-    def goal(self):
-        try:
-            return self.targeted_clue.rating * DISCO_MULT
-        except (Clue.DoesNotExist, AttributeError):
-            return 0
-
     def add_progress(self):
+        """Adds progress to the investigation, saved in clue.roll"""
         if not self.targeted_clue:
             return
         roll = self.roll
@@ -1116,6 +1241,7 @@ class Investigation(AbstractPlayerAllocations):
         
     @property
     def progress_str(self):
+        """Returns a string saying how close they are to discovery."""
         try:
             clue = self.clues.get(clue=self.targeted_clue)
             progress = clue.progress_percentage
@@ -1154,6 +1280,7 @@ class Theory(SharedMemoryModel):
         return "%s's theory on %s" % (self.creator, self.topic)
 
     def display(self):
+        """Returns string display of the theory with ansi markup"""
         msg = "\n{wCreator{n: %s\n" % self.creator
         msg += "{wCan edit:{n %s\n" % ", ".join(str(ob) for ob in self.can_edit.all())
         msg += "{wTopic{n: %s\n" % self.topic
@@ -1162,13 +1289,16 @@ class Theory(SharedMemoryModel):
         return msg
 
     def share_with(self, player):
+        """Share the theory with a player."""
         permission, _ = self.theory_permissions.get_or_create(player=player)
 
     def forget_by(self, player):
+        """Causes the player to forget the theory."""
         permission = self.theory_permissions.filter(player=player)
         permission.delete()
 
     def add_editor(self, player):
+        """Adds the player as an editor for the theory."""
         permission, _ = self.theory_permissions.get_or_create(player=player)
         permission.can_edit = True
         permission.save()
@@ -1189,16 +1319,26 @@ class Theory(SharedMemoryModel):
 
     @property
     def can_edit(self):
+        """Returns queryset of who has edit permissions for the theory."""
         return self.known_by.filter(theory_permissions__can_edit=True)
 
 
 class TheoryPermissions(SharedMemoryModel):
+    """Through model that shows who knows the theory and whether they can edit it."""
     player = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="theory_permissions")
     theory = models.ForeignKey("Theory", related_name="theory_permissions")
     can_edit = models.BooleanField(default=False)
 
 
 def get_keywords_from_topic(topic):
+    """
+    Helper function for breaking up a phrase into keywords
+    Args:
+        topic: The phrase we'll break up
+
+    Returns:
+        List of words/phrases that are substrings of the topic.
+    """
     old_topic = topic
     topic = topic.strip("?").strip(".").strip("!").strip(":").strip(",").strip(";")
     # convert to str from unicode
@@ -1260,9 +1400,11 @@ class Flashback(SharedMemoryModel):
     db_date_created = models.DateTimeField(blank=True, null=True)
 
     def get_new_posts(self, entry):
+        """Returns posts that entry hasn't read yet."""
         return self.posts.exclude(Q(read_by=entry) | Q(poster=entry))
 
     def display(self, display_summary_only=False):
+        """Returns string display of a flashback."""
         msg = "(#%s) %s\n" % (self.id, self.title)
         msg += "Owner: %s\n" % self.owner
         msg += "Summary: %s\n" % self.summary
@@ -1276,10 +1418,17 @@ class Flashback(SharedMemoryModel):
         
     @property
     def all_players(self):
+        """List of players who are involved in the flashback."""
         all_entries = [self.owner] + list(self.allowed.all())
         return [ob.player for ob in all_entries]
         
     def add_post(self, actions, poster=None):
+        """
+        Adds a new post to the flashback.
+        Args:
+            actions: The story post that the poster is writing.
+            poster: The player who added the story post.
+        """
         now = datetime.now()
         self.posts.create(poster=poster, actions=actions, db_date_created=now)
         for player in self.all_players:
@@ -1290,6 +1439,7 @@ class Flashback(SharedMemoryModel):
 
 
 class FlashbackPost(SharedMemoryModel):
+    """A post for a flashback."""
     flashback = models.ForeignKey('Flashback', related_name="posts")
     poster = models.ForeignKey('RosterEntry', blank=True, null=True, related_name="flashback_posts")
     read_by = models.ManyToManyField('RosterEntry', blank=True, related_name="read_flashback_posts")
@@ -1297,6 +1447,7 @@ class FlashbackPost(SharedMemoryModel):
     db_date_created = models.DateTimeField(blank=True, null=True)
 
     def display(self):
+        """Returns string display of our story post."""
         return "%s wrote: %s" % (self.poster, self.actions)
 
     def __str__(self):
