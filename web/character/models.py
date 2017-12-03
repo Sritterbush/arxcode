@@ -168,10 +168,8 @@ class RosterEntry(SharedMemoryModel):
             disco = self.clues.create(clue=clue)
         except ClueDiscovery.MultipleObjectsReturned:
             disco = self.clues.filter(clue=clue)[0]
-        disco.roll = disco.clue.rating * DISCO_MULT
-        disco.date = datetime.now()
-        disco.discovery_method = method
-        disco.save()
+        if not disco.finished:
+            disco.mark_discovered(method=method)
         return disco
 
     @property
@@ -647,8 +645,12 @@ class ClueDiscovery(SharedMemoryModel):
         return self.clue.name
 
     @property
+    def required_rating_for_discovery(self):
+        return self.clue.rating * DISCO_MULT
+
+    @property
     def finished(self):
-        return self.roll >= (self.clue.rating * DISCO_MULT)
+        return self.roll >= self.required_rating_for_discovery
 
     def display(self, show_sharing=False):
         if not self.finished:
@@ -695,6 +697,40 @@ class ClueDiscovery(SharedMemoryModel):
         except (AttributeError, TypeError, ValueError, ZeroDivisionError):
             return 0
 
+    def mark_discovered(self, method="Prior Knowledge", message="", roll=None, revealed_by=None, investigation=None):
+        if roll and roll > self.required_rating_for_discovery:
+            self.roll = roll
+        else:
+            self.roll = self.clue.rating * DISCO_MULT
+        date = datetime.now()
+        self.date = date
+        self.discovery_method = method
+        self.message = message
+        self.revealed_by = revealed_by
+        self.investigation = investigation
+        self.save()
+        revelations = self.check_revelation_discovery()
+        msg = ""
+        for revelation in revelations:
+            msg = "\nYou have discovered a revelation: %s\n%s" % (str(revelation), revelation.desc)
+            message = "You had a revelation after learning a clue!"
+            rev = RevelationDiscovery.objects.create(character=self.character, discovery_method=method,
+                                                     message=message, investigation=investigation,
+                                                     revelation=revelation, date=date)
+            mysteries = rev.check_mystery_discovery()
+            for mystery in mysteries:
+                msg += "\nYou have also discovered a mystery: %s\n%s" % (str(mystery), mystery.desc)
+                message = "Your uncovered a mystery after learning a clue!"
+                MysteryDiscovery.objects.create(character=self.character, message=message, investigation=investigation,
+                                                mystery=mystery, date=date)
+        if revelations:
+            self.character.player.inform(msg, category="Discovery", append=False)
+        # make sure any investigations targeting the now discovered clue get reset. queryset.update doesn't work with
+        # SharedMemoryModel (cached objects will overwrite it), so we iterate through them instead
+        for investigation in self.character.investigations.filter(clue_target=self.clue):
+            investigation.clue_target = None
+            investigation.save()
+
     def share(self, entry):
         """
         Copy this clue to target entry. If they already have the
@@ -707,39 +743,21 @@ class ClueDiscovery(SharedMemoryModel):
         except ClueDiscovery.DoesNotExist:
             targ_clue = entry.clues.create(clue=self.clue)
         except ClueDiscovery.MultipleObjectsReturned:
+            # error in that we shouldn't have more than one. Clear out duplicates
             clues = entry.clues.filter(clue=self.clue).order_by('-roll')
             targ_clue = clues[0]
             for clue in clues:
                 if clue != targ_clue:
                     clue.delete()
-        if targ_clue in entry.finished_clues:
+        if targ_clue.finished:
             entry.player.send_or_queue_msg("%s tried to share the clue %s with you, but you already know that." % (
                 self.character, self.name))
             return False
-        entry.investigations.filter(clue_target=self.clue).update(clue_target=None)
-        targ_clue.roll += self.roll
-        targ_clue.discovery_method = "Sharing"
-        targ_clue.message = "This clue was shared to you by %s." % self.character
-        targ_clue.revealed_by = self.character
-        targ_clue.date = datetime.now()
-        targ_clue.save()
+        targ_clue.mark_discovered(method="Sharing", message="This clue was shared to you by %s." % self.character,
+                                  revealed_by=self.character)
         pc = targ_clue.character.player
         msg = "A new clue has been shared with you by %s!\n\n%s\n" % (self.character,
                                                                       targ_clue.display())
-        for revelation in targ_clue.check_revelation_discovery():
-            msg += "\nYou have also discovered a revelation: %s\n%s" % (str(revelation), revelation.desc)
-            message = "You had a revelation after learning a clue from %s!" % self.character
-            rev = RevelationDiscovery.objects.create(character=entry,
-                                                     discovery_method="Sharing",
-                                                     message=message,
-                                                     revelation=revelation, date=datetime.now())
-            mysteries = rev.check_mystery_discovery()
-            for mystery in mysteries:
-                msg += "\nYou have also discovered a mystery: %s\n%s" % (str(mystery), mystery.desc)
-                message = "Your uncovered a mystery after learning a clue from %s!" % self.character,
-                MysteryDiscovery.objects.create(character=entry,
-                                                message=message,
-                                                mystery=mystery, date=datetime.now())
         pc.inform(msg, category="Investigations", append=False)
         return True
 
@@ -992,31 +1010,13 @@ class Investigation(AbstractPlayerAllocations):
                 except ClueDiscovery.DoesNotExist:                    
                     clue = ClueDiscovery.objects.create(clue=self.targeted_clue, investigation=self,
                                                         character=self.character)
+                final_roll = clue.roll + roll
                 clue.roll += roll
                 if self.automate_result:
                     self.results = "Your investigation has discovered a clue!\n"
                 self.results += clue.display()
-                if not clue.message:
-                    clue.message = "Your investigation has discovered this!"
-                clue.date = datetime.now()
-                clue.discovery_method = "investigation"
-                clue.save()
-                
-                # check if we also discover a revelation
-                revelations = clue.check_revelation_discovery()
-                for revelation in revelations:
-                    self.results += "\nYou have also discovered a revelation: %s\n%s" % (str(revelation),
-                                                                                         revelation.desc)
-                    rev = RevelationDiscovery.objects.create(character=self.character, investigation=self,
-                                                             discovery_method="investigation",
-                                                             message="Your investigation uncovered this revelation!",
-                                                             revelation=revelation, date=datetime.now())
-                    mysteries = rev.check_mystery_discovery()
-                    for mystery in mysteries:
-                        self.results += "\nYou have also discovered a mystery: %s\n%s" % (str(mystery), mystery.desc)
-                        MysteryDiscovery.objects.create(character=self.character, investigation=self,
-                                                        message="Your investigation uncovered this mystery!",
-                                                        mystery=mystery, date=datetime.now())
+                message = clue.message or "Your investigation has discovered this!"
+                clue.mark_discovered(method="investigation", message=message, roll=final_roll, investigation=self)
                 # we found a clue, so this investigation is done.
                 self.clue_target = None
                 self.ongoing = False

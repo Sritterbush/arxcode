@@ -5,14 +5,20 @@ from django.urls import reverse
 
 from server.utils.test_utils import ArxCommandTest, ArxTest
 from web.character import investigation, scene_commands
-from web.character.models import Clue
+from web.character.models import Clue, Revelation
 
 
 class InvestigationTests(ArxCommandTest):
     def setUp(self):
         super(InvestigationTests, self).setUp()
         self.clue = Clue.objects.create(name="test clue", rating=10, desc="test clue desc")
-        self.roster_entry.clues.create(clue=self.clue, roll=200, message="additional text test")
+        self.clue2 = Clue.objects.create(name="test clue2", rating=50, desc="test clue2 desc")
+        self.revelation = Revelation.objects.create(name="test revelation", desc="test rev desc",
+                                                    required_clue_value=60)
+        self.clue_disco = self.roster_entry.clues.create(clue=self.clue, roll=200, message="additional text test")
+        self.clue_disco2 = self.roster_entry.clues.create(clue=self.clue2, roll=50, message="additional text test2")
+        self.revelation.clues_used.create(clue=self.clue)
+        self.revelation.clues_used.create(clue=self.clue2)
 
     def test_cmd_clues(self):
         from datetime import datetime
@@ -23,6 +29,12 @@ class InvestigationTests(ArxCommandTest):
         self.call_cmd("/share 1=Testaccount2", "Sharing that many clues would cost 101 action points.")
         self.roster_entry.action_points = 101
         self.call_cmd("/share 1=Testaccount2", "You have shared the clues 'test clue' with Char2.")
+        self.call_cmd("/share 2=Testaccount2", "No clue found by that ID.")
+        self.clue_disco2.roll += 450
+        self.clue_disco2.save()
+        self.assertFalse(bool(self.roster_entry2.revelations.all()))
+        self.call_cmd("/share 2=Testaccount2", "You have shared the clues 'test clue2' with Char2.")
+        self.assertTrue(bool(self.roster_entry2.revelations.all()))
 
 
 class SceneCommandTests(ArxCommandTest):

@@ -24,7 +24,21 @@ INSTALLED_APPS += ('world.dominion',
                    'markdown_deux',
                    'bootstrapform')
 
-
+COLOR_ANSI_EXTRA_MAP = color_markups.CURLY_COLOR_ANSI_EXTRA_MAP + color_markups.MUX_COLOR_ANSI_EXTRA_MAP
+COLOR_XTERM256_EXTRA_FG = color_markups.CURLY_COLOR_XTERM256_EXTRA_FG + color_markups.MUX_COLOR_XTERM256_EXTRA_FG
+COLOR_XTERM256_EXTRA_BG = color_markups.CURLY_COLOR_XTERM256_EXTRA_BG + color_markups.MUX_COLOR_XTERM256_EXTRA_BG
+COLOR_XTERM256_EXTRA_GFG = color_markups.CURLY_COLOR_XTERM256_EXTRA_GFG + color_markups.MUX_COLOR_XTERM256_EXTRA_GFG
+COLOR_XTERM256_EXTRA_GBG = color_markups.CURLY_COLOR_XTERM256_EXTRA_GBG + color_markups.MUX_COLOR_XTERM256_EXTRA_GBG
+COLOR_ANSI_BRIGHT_BG_EXTRA_MAP = color_markups.CURLY_COLOR_ANSI_XTERM256_BRIGHT_BG_EXTRA_MAP + color_markups.MUX_COLOR_ANSI_XTERM256_BRIGHT_BG_EXTRA_MAP
+PERMISSION_HIERARCHY = ["Guest",
+                        "Player",
+                        "Helper",
+                        "Builder",
+                        "Wizard",
+                        "Admin",
+                        "Immortal",
+                        "Developer",
+                        ]
 
 
 HELPDESK_CREATE_TICKET_HIDE_ASSIGNED_TO = True
