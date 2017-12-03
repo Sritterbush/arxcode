@@ -1920,7 +1920,6 @@ class CmdOrganization(ArxPlayerCommand):
                     self.msg("You cannot afford to pay %s action points." % cost)
                     return
                 entry.discover_clue(clue=clue, method="Briefing")
-                entry.investigations.filter(clue_target=clue).update(clue_target=None)
                 share_type = "clue"
                 cmd_string = "@clue"
                 share_str = clue

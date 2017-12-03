@@ -12,6 +12,8 @@ from web.helpdesk.models import SavedSearch
 
 
 def saved_queries(user):
+    if not user:
+        return
     try:
         user_saved_queries = SavedSearch.objects.filter(Q(user=user) | Q(shared__exact=True))
         return user_saved_queries

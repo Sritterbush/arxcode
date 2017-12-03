@@ -213,7 +213,7 @@ class InvestigationAdmin(BaseCharAdmin):
 
     @staticmethod
     def clue_progress(obj):
-        return "%s/%s" % (obj.progress, obj.goal)
+        return "%s/%s" % (obj.progress, obj.completion_value)
 
 
 class TheoryAdmin(BaseCharAdmin):
