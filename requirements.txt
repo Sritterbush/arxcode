@@ -1,10 +1,7 @@
-backports-abc==0.5
-backports.ssl-match-hostname==3.5.0.1
-certifi==2017.1.23
 cloudinary==1.5.0
 django-bootstrap-form==3.2.1
-django-debug-toolbar==1.6
 django-markdown-deux==1.0.5
+django-sekizai==0.10.0
 dnspython==1.15.0
 funcsigs==1.0.2
 future==0.15.2
@@ -15,14 +12,10 @@ pbr==1.10.0
 Pillow==2.9.0
 pypiwin32==219
 pytz==2016.6.1
-RunSnakeRun==2.0.4
 singledispatch==3.4.0.3
 six==1.10.0
-snakeviz==0.4.1
 sqlparse==0.2.2
-SquareMap==1.0.4
-tornado==4.4.2
-Twisted==16.4.0
+Twisted==16.0.0
 Unidecode==0.4.19
 urllib3==1.19.1
 zope.interface==4.3.1
