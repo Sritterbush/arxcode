@@ -5,7 +5,7 @@ for helpdesk, pip install the following: 'django-markdown-deux,
 humanize, django-bootstrap-form'
 
 It requires the following added to settings.py:
-#-----------------------------------------------------------------
+```
 CHANNEL_COMMAND_CLASS = "commands.commands.channels.ArxChannelCommand"
 
 BASE_ROOM_TYPECLASS = "typeclasses.rooms.ArxRoom"
@@ -47,7 +47,7 @@ HELPDESK_CREATE_TICKET_HIDE_ASSIGNED_TO = True
 REQUEST_QUEUE_ID = 1
 
 BUG_QUEUE_ID = 2
-#----------------------------------------------------------------
+```
 
 Evennia resources:
 
