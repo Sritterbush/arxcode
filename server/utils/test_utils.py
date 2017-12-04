@@ -109,7 +109,7 @@ class ArxCommandTest(ArxTestConfigMixin, CommandTest):
                     sep1 = "\n" + "="*30 + "Wanted message" + "="*34 + "\n"
                     sep2 = "\n" + "="*30 + "Returned message" + "="*32 + "\n"
                     sep3 = "\n" + "="*78
-                    retval = sep1 + msg.strip() + sep2 + returned_msg + sep3
+                    retval = "%s%r%s%r%s" % (sep1, msg.strip(), sep2, returned_msg, sep3)
                     raise AssertionError(retval)
             else:
                 returned_msg = "\n".join(str(msg) for msg in stored_msg)

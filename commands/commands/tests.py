@@ -220,7 +220,7 @@ class OverridesTests(ArxCommandTest):
 
     def test_cmd_who(self):
         self.setup_cmd(overrides.CmdWho, self.account2)
-        self.call_cmd("asdf", "Players:\n\nPlayer name Fealty Idle\n\nShowing 0 out of 1 unique account logged in.")
+        self.call_cmd("asdf", "Players:\n\nPlayer name Fealty Idle \n\nShowing 0 out of 1 unique account logged in.")
 
 
 class SocialTests(ArxCommandTest):
