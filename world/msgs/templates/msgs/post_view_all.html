@@ -5,8 +5,7 @@
 <div class="container">
 	<h2>{{ post.subject }}</h2>
 	<div class="newsData">Posted by <b>{{ post.poster }}</b> on {{ post.date }}</div>
-	<pre>
-{{ post.text }}</pre>
+	<div class="well"><span style="font-family: monospace;">{{ post.text|mush_to_html }}</span></div>
 </div>
 {% endfor %}
 {% endblock %}
