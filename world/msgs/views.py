@@ -263,6 +263,14 @@ def post_view_all(request, board_id):
     board = board_for_request(request, board_id)
     raw_posts = posts_for_request(request, board)
     read_posts = Post.objects.all_read_by(request.user)
+
+    ReadPostModel = Post.db_receivers_accounts.through
+    bulk_list = []
+    for post in raw_posts:
+        if post not in read_posts:
+            bulk_list.append(ReadPostModel(accountdb=request.user, msg=post))
+    ReadPostModel.objects.bulk_create(bulk_list)
+
     posts = map(lambda post: post_map(post, board, read_posts), raw_posts)
     return render(request, 'msgs/post_view_all.html', {'board': board, 'page_title': board.key + " - Posts", 'posts': posts})
 
