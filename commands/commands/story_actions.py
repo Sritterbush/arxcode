@@ -699,7 +699,7 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
                 name = self.lhslist[1]
             except IndexError:
                 return action
-        if action.dompc.player.username.lower() == name:
+        if action.dompc.player.username.lower() == name.lower():
             return action
         try:
             return action.assisting_actions.get(dompc__player__username__iexact=name)
