@@ -1,3 +1,6 @@
+"""
+Tests for different command sets.
+"""
 from mock import Mock, patch, PropertyMock
 
 from server.utils.test_utils import ArxCommandTest
@@ -5,7 +8,7 @@ from . import combat
 
 
 class CombatCommandsTests(ArxCommandTest):
-
+    # noinspection PyUnresolvedReferences
     @patch.object(combat, 'do_dice_check')
     def test_cmd_heal(self, mock_dice_check):
         mock_dice_check.return_value = 10
