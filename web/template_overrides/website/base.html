@@ -81,6 +81,9 @@
         <a href="/character/story/">Story</a> |
 		<a href="/dom/cal/list/">Events</a> |
 		<a href="/comms/journals/list/">Journals</a>
+		{% if user.is_authenticated %}
+		 | <a href="/comms/boards/">Boards</a>
+		{% endif %}
         {% if user.is_authenticated and user.is_staff %}
          | <a href="/admin/">Admin Interface</a>
          | <a href="/support/">Requests</a>

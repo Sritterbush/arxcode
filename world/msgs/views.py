@@ -14,6 +14,11 @@ from .forms import (JournalMarkAllReadForm, JournalWriteForm, JournalMarkOneRead
                     JournalRemoveFavorite)
 from server.utils.view_mixins import LimitPageMixin
 
+from django.shortcuts import render, get_object_or_404
+from commands.commands.bboards import get_boards
+from typeclasses.bulletin_board.bboard import BBoard, Post
+from evennia.utils import ansi
+
 # Create your views here.
 
 
@@ -188,3 +193,100 @@ def journal_list_json(request):
         ret = map(get_response, Journal.white_journals.order_by('-db_date_created'))
         API_CACHE = json.dumps(ret)
     return HttpResponse(API_CACHE, content_type='application/json')
+
+
+def board_list(request):
+    def map_board(board, request):
+        return {
+            'id': board.id,
+            'name': board.key,
+            'unread': board.num_of_unread_posts(request.user, old=False)
+        }
+
+    raw_boards = get_boards(request.user)
+    print ("Raw boards: " + str(raw_boards))
+    boards = map(lambda board: map_board(board, request), raw_boards)
+    print ("Boards: " + str(boards))
+    context = {
+        'boards': boards,
+        'page_title': 'Boards'
+    }
+    return render(request, 'msgs/board_list.html', context)
+
+
+def board_for_request(request, board_id):
+    try:
+        board = BBoard.objects.get(id=board_id)
+    except BBoard.DoesNotExist, BBoard.MultipleObjectsReturned:
+        raise Http404
+
+    character = request.user.db.char_ob
+
+    if not board.access(character, 'read'):
+        raise Http404
+
+    return board
+
+
+def posts_for_request(request, board):
+    return list(board.get_all_posts(old=False))[::-1]
+
+
+def post_list(request, board_id):
+    def post_map(post, board, read_posts):
+        return {
+            'id': post.id,
+            'poster': board.get_poster(post),
+            'subject': post.db_header,
+            'date': post.db_date_created.strftime("%x"),
+            'unread': post not in read_posts
+        }
+
+    board = board_for_request(request, board_id)
+    raw_posts = posts_for_request(request, board)
+    read_posts = Post.objects.all_read_by(request.user)
+    posts = map(lambda post: post_map(post, board, read_posts), raw_posts)
+    return render(request, 'msgs/post_list.html', {'board': board, 'page_title': board.key, 'posts': posts})
+
+
+def post_view_all(request, board_id):
+    def post_map(post, board, read_posts):
+        return {
+            'id': post.id,
+            'poster': board.get_poster(post),
+            'subject': post.db_header,
+            'date': post.db_date_created.strftime("%x"),
+            'unread': post not in read_posts,
+            'text': ansi.strip_ansi(post.db_message)
+        }
+
+    board = board_for_request(request, board_id)
+    raw_posts = posts_for_request(request, board)
+    read_posts = Post.objects.all_read_by(request.user)
+    posts = map(lambda post: post_map(post, board, read_posts), raw_posts)
+    return render(request, 'msgs/post_view_all.html', {'board': board, 'page_title': board.key + " - Posts", 'posts': posts})
+
+
+def post_view(request, board_id, post_id):
+    board = board_for_request(request, board_id)
+    raw_posts = posts_for_request(request, board)
+    try:
+        post = Post.objects.get(id=post_id)
+    except Post.DoesNotExit, Post.MultipleObjectsReturned:
+        raise Http404
+
+    # No cheating and viewing posts outside this board
+    if post not in raw_posts:
+        raise Http404
+
+    board.mark_read(request.user, post)
+
+    context = {
+        'id': post.id,
+        'poster': board.get_poster(post),
+        'subject': post.db_header,
+        'date': post.db_date_created.strftime("%x"),
+        'text': ansi.strip_ansi(post.db_message),
+        'page_title': board.key + " - " + post.db_header
+    }
+    return render(request, 'msgs/post_view.html', context)
