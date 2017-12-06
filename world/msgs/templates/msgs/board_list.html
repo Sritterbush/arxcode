@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% load app_filters %}
+{% block content %}
+<div class="container">
+	<ul>
+		{% for board in boards %}
+		<li><h2><a href="{% url 'msgs:post_list' board_id=board.id %}">{{ board.name }}</a></h2>
+			<span class="newsDate">{{ board.unread }} unread posts</span></li>
+		{% endfor %}
+	</ul>
+</div>
+{% endblock %}

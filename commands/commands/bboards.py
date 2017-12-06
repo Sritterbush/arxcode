@@ -15,7 +15,7 @@ from typeclasses.bulletin_board.bboard import BBoard
 
 # limit symbol import for API
 __all__ = ("CmdBBReadOrPost", "CmdBBSub", "CmdBBUnsub",
-           "CmdBBCreate")
+           "CmdBBCreate", "get_boards")
 BOARD_TYPECLASS = "typeclasses.bulletin_board.bboard.BBoard"
 
 
