@@ -279,7 +279,6 @@ def post_view(request, board_id, post_id):
     if post not in raw_posts:
         raise Http404
 
-    print ("Got our post: " + str(post))
     board.mark_read(request.user, post)
 
     context = {
