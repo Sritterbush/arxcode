@@ -1,3 +1,7 @@
+"""
+Tests for different general commands. Tests for other command sets or for different apps can be found elsewhere.
+"""
+
 from mock import Mock, patch
 from datetime import datetime
 
@@ -213,6 +217,10 @@ class OverridesTests(ArxCommandTest):
         self.call_cmd("test", 'You say, "test"')
         self.char2.msg.assert_called_with('Bob the Faker {c(Char){n says, "test{n"', options={'is_pose': True},
                                           from_obj=self.char1)
+
+    def test_cmd_who(self):
+        self.setup_cmd(overrides.CmdWho, self.account2)
+        self.call_cmd("asdf", "Players:\n\nPlayer name Fealty Idle \n\nShowing 0 out of 1 unique account logged in.")
 
 
 class SocialTests(ArxCommandTest):

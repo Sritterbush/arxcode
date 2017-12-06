@@ -1,3 +1,6 @@
+"""
+Tests for the Character app. Mostly this will be investigations/clue stuff.
+"""
 from mock import Mock
 
 from django.test import Client

@@ -1,25 +1,29 @@
 """
-General Character commands usually availabe to all characters
+General Character commands usually available to all characters
 """
-from django.conf import settings
-from server.utils import arx_utils, prettytable
-from evennia.utils import utils
-from evennia.utils.utils import (make_iter, crop, time_format, variable_from_module,
-                                 inherits_from, to_str, list_to_string)
-from evennia.commands.cmdhandler import get_and_merge_cmdsets
-from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
-from evennia.server.sessionhandler import SESSIONS
+from six import string_types
 import time
+
+from django.conf import settings
+
+from evennia.server.sessionhandler import SESSIONS
 from evennia.commands.default.comms import (CmdCdestroy, CmdChannelCreate, CmdChannels, find_channel,
                                             CmdClock, CmdCBoot, CmdCdesc, CmdAllCom, CmdCWho)
-# noinspection PyProtectedMember
-from evennia.commands.default.building import CmdExamine, CmdLock, CmdDestroy, _LITERAL_EVAL, ObjManipCommand, CmdTag
-from evennia.commands.default.syscommands import CMD_NOMATCH
-from evennia.utils import evtable, create
-from world.dominion.models import CraftingMaterials
 from evennia.commands.default.general import CmdSay
 from evennia.comms.models import ChannelDB
 from evennia.commands.default.system import CmdReload, CmdScripts
+from evennia.commands.cmdhandler import get_and_merge_cmdsets
+# noinspection PyProtectedMember
+from evennia.commands.default.building import CmdExamine, CmdLock, CmdDestroy, _LITERAL_EVAL, ObjManipCommand, CmdTag
+from evennia.commands.default.syscommands import CMD_NOMATCH
+from evennia.utils import utils, evtable, create
+from evennia.utils.utils import (make_iter, crop, time_format, variable_from_module,
+                                 inherits_from, to_str, list_to_string)
+
+from server.utils import arx_utils, prettytable
+from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
+from world.dominion.models import CraftingMaterials
+
 
 AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
 _DEFAULT_WIDTH = settings.CLIENT_DEFAULT_WIDTH
@@ -77,6 +81,7 @@ def money_from_args(args, fromobj):
 
 
 def check_volume(obj, char, quiet=False):
+    """Helper function to check if a character has enough volune to carry an item"""
     vol = obj.db.volume or 1
     v_max = char.db.max_volume or 100
     if char.volume + vol > v_max:
@@ -103,6 +108,7 @@ class CmdInventory(ArxCommand):
     perm_for_switches = "Builders"
 
     def get_help(self, caller, cmdset):
+        """Returns custom helpfile"""
         if not caller.check_permstring(self.perm_for_switches):
             return self.__doc__
         help_string = """
@@ -188,6 +194,7 @@ class CmdGet(ArxCommand):
 
     @staticmethod
     def get_money(args, caller, fromobj):
+        """Gets silver, which isn't an actual object per se"""
         val, currency = money_from_args(args, fromobj)
         if val > currency:
             caller.msg("There isn't enough money here. You tried to get %s, and there is only %s here." % (val,
@@ -500,6 +507,7 @@ class CmdEmit(ArxCommand):
     perm_for_switches = "Builders"
 
     def get_help(self, caller, cmdset):
+        """Returns custom help file based on caller"""
         if caller.check_permstring(self.perm_for_switches):
             return self.__doc__
         help_string = """
@@ -672,9 +680,11 @@ class CmdPose(ArxCommand):
 
 
 class CmdArxSay(CmdSay):
+    """Override of CmdSay"""
     __doc__ = CmdSay.__doc__
 
     def func(self):
+        """Replacement for CmdSay's func"""
         if not self.raw:
             self.msg("Say what?")
             return
@@ -760,6 +770,7 @@ class CmdWho(ArxPlayerCommand):
 
     @staticmethod
     def get_idlestr(idle_time):
+        """Returns a string that vaguely says how idle someone is"""
         if idle_time < 1200:
             return "No"
         if idle_time < 3600:
@@ -781,8 +792,8 @@ class CmdWho(ArxPlayerCommand):
             show_session_data = False
         else:
             show_session_data = player.check_permstring("Immortals") or player.check_permstring("Wizards")
-        nplayers = len(set(ob.account for ob in session_list))
-        total_players = nplayers
+        total_players = len(set(ob.account for ob in session_list))
+        number_displayed = 0
         already_counted = []
         public_members = []
         if "org" in self.switches:
@@ -808,15 +819,12 @@ class CmdWho(ArxPlayerCommand):
                     continue
                 if not session.logged_in:
                     already_counted.append(pc)
-                    nplayers -= 1
                     continue
                 delta_cmd = pc.idle_time
                 if "active" in self.switches and delta_cmd > 1200:
                     already_counted.append(pc)
-                    nplayers -= 1
                     continue
                 if "org" in self.switches and pc not in public_members:
-                    nplayers -= 1
                     continue
                 delta_conn = time.time() - session.conn_time
                 plr_pobject = session.get_puppet()
@@ -826,7 +834,6 @@ class CmdWho(ArxPlayerCommand):
                 char = pc.db.char_ob
                 if "watch" in self.switches and char not in watch_list:
                     already_counted.append(pc)
-                    nplayers -= 1
                     continue
                 if not char or not char.db.fealty:
                     fealty = "---"
@@ -834,18 +841,18 @@ class CmdWho(ArxPlayerCommand):
                     fealty = char.db.fealty
                 if not self.check_filters(pname, base, fealty):
                     already_counted.append(pc)
-                    nplayers -= 1
                     continue
                 pname = crop(pname, width=18)
                 protocol = "ajax" if "ajax" in session.protocol_key else session.protocol_key
                 table.add_row([pname,
-                               time_format(delta_conn, 0),
+                               time_format(delta_conn),
                                time_format(delta_cmd, 1),
                                hasattr(plr_pobject, "location") and plr_pobject.location and plr_pobject.location.dbref
                                or "None",
                                protocol,
                                isinstance(session.address, tuple) and session.address[0] or session.address])
                 already_counted.append(pc)
+                number_displayed += 1
         else:
             if not sparse:
                 table = prettytable.PrettyTable(["{wPlayer name", "{wFealty", "{wIdle"])
@@ -858,15 +865,12 @@ class CmdWho(ArxPlayerCommand):
                     continue
                 if not session.logged_in:
                     already_counted.append(pc)
-                    nplayers -= 1
                     continue
                 if "org" in self.switches and pc not in public_members:
-                    nplayers -= 1
                     continue
                 delta_cmd = pc.idle_time
                 if "active" in self.switches and delta_cmd > 1200:
                     already_counted.append(pc)
-                    nplayers -= 1
                     continue
                 if not pc.db.hide_from_watch:
                     base = str(pc)
@@ -874,7 +878,6 @@ class CmdWho(ArxPlayerCommand):
                     char = pc.db.char_ob
                     if "watch" in self.switches and char not in watch_list:
                         already_counted.append(pc)
-                        nplayers -= 1
                         continue
                     if not char or not char.db.fealty:
                         fealty = "---"
@@ -882,7 +885,6 @@ class CmdWho(ArxPlayerCommand):
                         fealty = char.db.fealty
                     if not self.check_filters(pname, base, fealty):
                         already_counted.append(pc)
-                        nplayers -= 1
                         continue
                     idlestr = self.get_idlestr(delta_cmd)
                     if sparse:
@@ -897,17 +899,16 @@ class CmdWho(ArxPlayerCommand):
                     else:
                         table.add_row([pname, idlestr])
                     already_counted.append(pc)
+                    number_displayed += 1
                 else:
                     already_counted.append(pc)
-                    nplayers -= 1
-
-        isone = nplayers == 1
-        if nplayers == total_players:
-            string = "{wPlayers:{n\n%s\n%s unique account%s logged in." % (table, "One" if isone else nplayers,
-                                                                           "" if isone else "s")
+        is_one = number_displayed == 1
+        if number_displayed == total_players:
+            string = "{wPlayers:{n\n%s\n%s unique account%s logged in." % (table, "One" if is_one else number_displayed,
+                                                                           "" if is_one else "s")
         else:
             string = "{wPlayers:{n\n%s\nShowing %s out of %s unique account%s logged in." % (
-                table, "1" if isone else nplayers, total_players, "" if total_players == 1 else "s")
+                table, "1" if is_one else number_displayed, total_players, "" if total_players == 1 else "s")
         self.msg(string)
 
 
@@ -932,7 +933,7 @@ class CmdSetAttribute(ObjManipCommand):
     changing any attribute that is not a string or number.
 
     The most common data to save with this command are strings and
-    numbers. You can however also set Python primities such as lists,
+    numbers. You can however also set Python primitives such as lists,
     dictionaries and tuples on objects (this might be important for
     the functionality of certain custom objects).  This is indicated
     by you starting your value with one of {c'{n, {c"{n, {c({n, {c[{n
@@ -963,7 +964,7 @@ class CmdSetAttribute(ObjManipCommand):
          Python 2.6 and later:
         Supports all Python structures through literal_eval as long as they
         are valid Python syntax. If they are not (such as [test, test2], ie
-        withtout the quotes around the strings), the entire structure will
+        without the quotes around the strings), the entire structure will
         be converted to a string and a warning will be given.
 
         We need to convert like this since all data being sent over the
@@ -1068,7 +1069,7 @@ class CmdSetAttribute(ObjManipCommand):
             # setting attribute(s). Make sure to convert to real Python type before saving.
             for attr in attrs:
                 current = obj.attributes.get(attr)
-                if current and not primitive and not (isinstance(current, basestring) or isinstance(current, float) or
+                if current and not primitive and not (isinstance(current, string_types) or isinstance(current, float) or
                                                       isinstance(current, int)):
                     caller.msg("That attribute is a python object. To change it, use the primitive switch.")
                     return
@@ -1353,34 +1354,45 @@ newlock = "cmd: perm(Builders)"
 
 
 class CmdArxCdestroy(CmdCdestroy):
+    """Override of Evennia's Channel Destroy command. Different default lock"""
     __doc__ = CmdCdestroy.__doc__
     locks = newlock
 
 
 class CmdArxChannelCreate(CmdChannelCreate):
+    """Override of Evennia's channel create command. Different default lock."""
     __doc__ = CmdChannelCreate.__doc__
     locks = newlock
 
 
 class CmdArxClock(CmdClock):
+    """Override of Evennia's channel create command. Different default lock."""
     __doc__ = CmdClock.__doc__
     locks = newlock
 
 
 class CmdArxCBoot(CmdCBoot):
+    """Override of Evennia's channel boot command. Different default lock."""
     __doc__ = CmdCBoot.__doc__
     locks = newlock
 
 
 class CmdArxCdesc(CmdCdesc):
+    """Override of Evennia's channel desc command. Different default lock."""
     __doc__ = CmdCdesc.__doc__
     locks = newlock
 
 
 class CmdArxAllCom(CmdAllCom):
+    """Override of Evennia's allcom command"""
     __doc__ = CmdAllCom.__doc__
 
     def func(self):
+        """
+        Different from CmdAllCom in that we'll do muting rather than deleting subscriptions. Arx added muting in order
+        to allow people to suppress a channel while still keeping the channel command, so they could simply do
+        <channel command> on to reconnect.
+        """
         from evennia.comms.models import ChannelDB
         caller = self.caller
         if self.args not in ("on", "off"):
@@ -1478,6 +1490,7 @@ class CmdArxChannels(CmdChannels):
 
 
 class CmdArxCWho(CmdCWho):
+    """Override of Evennia's channel who command to reflect hiding some names based on permissions."""
     __doc__ = CmdCWho.__doc__
 
     def func(self):
@@ -1505,14 +1518,17 @@ class CmdArxCWho(CmdCWho):
 
 
 class CmdArxLock(CmdLock):
+    """Override of Evennia's lock command. Different default lock."""
     __doc__ = CmdLock.__doc__
     aliases = ["@locks", "locks"]
 
 
 class CmdArxTag(CmdTag):
+    """Arx's version of the @tag command"""
     __doc__ = CmdTag.__doc__
 
     def display_tags(self):
+        """Display of tags with some excluded. Staff wants to see only notable ones."""
         from evennia.typeclasses.tags import Tag
         qs = Tag.objects.filter(db_tagtype=None, db_category=None, db_data=None).exclude(
             db_key__icontains="barracks").exclude(db_key__icontains="owned_room").exclude(db_key__icontains="_favorite")
@@ -1520,9 +1536,9 @@ class CmdArxTag(CmdTag):
         self.msg("Types of tags (excluding custom ones for individuals, or those with categories): %s" % string)
 
     def func(self):
+        """Override of CmdTags to have different display"""
         if not self.args:
-            self.display_tags()
-            return
+            return self.display_tags()
         super(CmdArxTag, self).func()
 
 
@@ -1656,7 +1672,7 @@ class CmdArxDestroy(CmdDestroy):
 
         # noinspection PyUnusedLocal
         def delobj(obj_name, byref=False):
-            # helper function for deleting a single object
+            """helper function for deleting a single object"""
             ret_string = ""
             obj = caller.search(obj_name)
             if not obj:
@@ -1707,10 +1723,12 @@ class CmdArxDestroy(CmdDestroy):
 
 
 class CmdArxReload(CmdReload):
+    """Override of @reload to stop us if combat is active"""
     __doc__ = CmdReload.__doc__ + "\n\nUse /override to force a reload when a combat is active."
 
     # noinspection PyBroadException
     def func(self):
+        """Check if we're overriding/forcing it, otherwise reload is stopped if there's a combat."""
         if "override" in self.switches or "force" in self.switches:
             super(CmdArxReload, self).func()
             return
@@ -1726,6 +1744,7 @@ class CmdArxReload(CmdReload):
 
 
 class CmdArxScripts(CmdScripts):
+    """Override of Scripts"""
     __doc__ = CmdScripts.__doc__
 
     # noinspection PyProtectedMember
@@ -1754,6 +1773,7 @@ class CmdArxScripts(CmdScripts):
                 nextrep = "%ss" % nextrep
 
             def script_obj_str():
+                """Prettyprint script key/id"""
                 if script.obj:
                     return "%s(#%s)" % (crop(script.obj.key, width=10), script.obj.id)
                 return "<Global>"
@@ -1767,6 +1787,7 @@ class CmdArxScripts(CmdScripts):
         self.msg("%s" % table)
 
     def func(self):
+        """Override of CmdScripts"""
         if self.switches:
             super(CmdScripts, self).func()
             return
@@ -1793,7 +1814,7 @@ class SystemNoMatch(ArxCommand):
         for cmd in all_cmds:
             # noinspection PyProtectedMember
             names.extend(cmd._keyaliases)
-        suggestions = string_suggestions(self.raw, set(names), cutoff=0.7, maxnum=3)
+        suggestions = string_suggestions(self.raw, set(names), cutoff=0.7)
         if suggestions:
             msg += " Maybe you meant %s?" % list_to_string(suggestions, 'or', addquote=True)
         else:

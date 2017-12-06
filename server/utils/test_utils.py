@@ -1,3 +1,8 @@
+"""
+Different classes for running Arx-specific tests, mostly configuring evennia's built-in test framework to work for
+us. Some minor changes, like having their command tests print out raw strings so we don't need to guess what
+whitespace characters don't match.
+"""
 import re
 
 from mock import Mock
@@ -19,13 +24,18 @@ _RE = re.compile(r"^\+|-+\+|\+-+|--*|\|(?:\s|$)", re.MULTILINE)
 
 
 class ArxTestConfigMixin(object):
+    """
+    Mixin for configuration of Evennia's test class. It adds a number of attributes we'll use during setUp.
+    """
     account_typeclass = Account
     object_typeclass = Object
     character_typeclass = Character
     exit_typeclass = Exit
     room_typeclass = ArxRoom
 
+    # noinspection PyAttributeOutsideInit
     def setUp(self):
+        """Run for each testcase"""
         super(ArxTestConfigMixin, self).setUp()
         from world.dominion.setup_utils import setup_dom_for_player, setup_assets
         from web.character.models import Roster
@@ -109,7 +119,8 @@ class ArxCommandTest(ArxTestConfigMixin, CommandTest):
                     sep1 = "\n" + "="*30 + "Wanted message" + "="*34 + "\n"
                     sep2 = "\n" + "="*30 + "Returned message" + "="*32 + "\n"
                     sep3 = "\n" + "="*78
-                    retval = sep1 + msg.strip() + sep2 + returned_msg + sep3
+                    # important - use raw strings for wanted/returned messages so we can see whitespace
+                    retval = "%s%r%s%r%s" % (sep1, msg.strip(), sep2, returned_msg, sep3)
                     raise AssertionError(retval)
             else:
                 returned_msg = "\n".join(str(msg) for msg in stored_msg)

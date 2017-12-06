@@ -15,17 +15,26 @@ own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
 """
 from functools import wraps
 
-from world.dominion import agent_commands
 from evennia.commands.default import cmdset_character, cmdset_account, cmdset_session, cmdset_unloggedin
 
 from .cmdsets import standard
 from typeclasses.wearable import cmdset_wearable
+from world.dominion import agent_commands
 
 
 def check_errors(func):
+    """
+    Decorator for catching/printing out any errors in method calls. Designed for safer imports.
+    Args:
+        func: Function to decorate
+
+    Returns:
+        Wrapped function
+    """
     # noinspection PyBroadException
     @wraps(func)
     def new_func(*args, **kwargs):
+        """Wrapper around function with exception handling"""
         try:
             return func(*args, **kwargs)
         except Exception:
@@ -56,6 +65,7 @@ class CharacterCmdSet(cmdset_character.CharacterCmdSet):
 
     @check_errors
     def add_standard_cmdsets(self):
+        """Add different command sets that all characters should have"""
         self.add(standard.StateIndependentCmdSet)
         self.add(standard.MobileCmdSet)
         self.add(standard.OOCCmdSet)
@@ -63,6 +73,7 @@ class CharacterCmdSet(cmdset_character.CharacterCmdSet):
 
     @check_errors
     def add_other_cmdsets(self):
+        """Miscellaneous command sets"""
         self.add(cmdset_wearable.WearCmdSet)
 
 
@@ -95,6 +106,7 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
 
     @check_errors
     def add_default_commands(self):
+        """Add selected Evennia built-in commands"""
         from evennia.commands.default import (account, building, system, admin, comms)
         # Player-specific commands
         self.add(account.CmdOOCLook())
@@ -122,9 +134,7 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
 
     @check_errors
     def add_overridden_commands(self):
-        #
-        # any commands you add below will overload the default ones.
-        #
+        """Add arx overrides of Evennia commands"""
         from .commands import help, overrides
         self.add(help.CmdHelp())
         self.add(overrides.CmdWho())
@@ -141,6 +151,7 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
 
     @check_errors
     def add_general_commands(self):
+        """Add general/misc commands"""
         from .commands import general
         self.add(general.CmdPage())
         self.add(general.CmdMail())
@@ -150,6 +161,7 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
 
     @check_errors
     def add_bboard_commands(self):
+        """Add commands for bulletin boards"""
         from .commands import bboards
         self.add(bboards.CmdBBReadOrPost())
         self.add(bboards.CmdBBSub())
@@ -160,6 +172,7 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
 
     @check_errors
     def add_roster_commands(self):
+        """Add commands around roster viewing or management"""
         from .commands import roster
         self.add(roster.CmdRosterList())
         self.add(roster.CmdAdminRoster())
@@ -172,6 +185,7 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
 
     @check_errors
     def add_jobs_commands(self):
+        """Add commands for interacting with helpdesk"""
         from .commands import jobs
         self.add(jobs.CmdJob())
         self.add(jobs.CmdRequest())
@@ -179,6 +193,7 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
 
     @check_errors
     def add_dominion_commands(self):
+        """Add commands related to Dominion, the offscreen estate-management game"""
         from world.dominion import commands as domcommands
         self.add(domcommands.CmdAdmDomain())
         self.add(domcommands.CmdAdmArmy())
@@ -196,6 +211,7 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
 
     @check_errors
     def add_social_commands(self):
+        """Add commands for social RP"""
         from .commands import social
         self.add(social.CmdFinger())
         self.add(social.CmdWatch())
@@ -208,6 +224,7 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
 
     @check_errors
     def add_staff_commands(self):
+        """Add commands for staff players"""
         from .commands import staff_commands
         # more recently implemented staff commands
         self.add(staff_commands.CmdRestore())
@@ -228,6 +245,7 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
 
     @check_errors
     def add_investigation_commands(self):
+        """Add commands based on investigations/clus"""
         from web.character import investigation
         self.add(investigation.CmdAdminInvestigations())
         self.add(investigation.CmdListClues())
@@ -237,11 +255,13 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
         
     @check_errors
     def add_scene_commands(self):
+        """Commands for flashbacks"""
         from web.character import scene_commands
         self.add(scene_commands.CmdFlashback())
 
     @check_errors
     def add_gming_actions_commands(self):
+        """Add commands for interacting with crises and GMing"""
         from world.dominion import crisis_commands
         self.add(crisis_commands.CmdViewCrisis())
         self.add(crisis_commands.CmdGMCrisis())

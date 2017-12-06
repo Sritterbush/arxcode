@@ -1,3 +1,6 @@
+"""
+Tests for dominion stuff. Crisis commands, etc.
+"""
 from mock import patch
 
 from server.utils.test_utils import ArxCommandTest
