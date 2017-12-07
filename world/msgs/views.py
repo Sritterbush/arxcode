@@ -217,17 +217,51 @@ def board_list(request):
     """View for getting list of boards"""
     def map_board(board):
         """Helper function for getting dict of information for each board to add to context"""
+        posts = posts_for_request(board)[::-1]
+        last_date = ""
+        if len(posts) > 0:
+            post = posts[0]
+            last_date = post.db_date_created.strftime("%x")
+
         return {
             'id': board.id,
             'name': board.key,
-            'unread': board.num_of_unread_posts(request.user, old=False)
+            'unread': board.num_of_unread_posts(request.user, old=False),
+            'last_date': last_date
         }
+
+    unread_only = None
+
+    save_unread = request.GET.get("save_unread")
+    if save_unread is None:
+        unread_only = request.user.tags.get('web_boards_only_unread', category='boards')
+
+    if unread_only is None:
+        unread_only = False
+
+    request_unread = request.GET.get("unread_only")
+
+    if request_unread:
+        if request_unread == "1" or request_unread == "on":
+            unread_only = True
+        else:
+            unread_only = False
+
+    if save_unread:
+        if unread_only:
+            request.user.tags.add('web_boards_only_unread', category='boards')
+        else:
+            request.user.tags.remove('web_boards_only_unread', category='boards')
 
     raw_boards = get_boards(request.user)
     boards = map(lambda board: map_board(board), raw_boards)
+    if unread_only:
+        boards = filter(lambda board: board['unread'] > 0, boards)
+
     context = {
         'boards': boards,
-        'page_title': 'Boards'
+        'page_title': 'Boards',
+        'unread_only': "checked" if unread_only else ""
     }
     return render(request, 'msgs/board_list.html', context)
 
@@ -241,7 +275,7 @@ def board_for_request(request, board_id):
     return board
 
 
-def posts_for_request(request, board):
+def posts_for_request(board):
     """Get all posts from the board in reverse order"""
     return list(board.get_all_posts(old=False))[::-1]
 
@@ -259,7 +293,7 @@ def post_list(request, board_id):
         }
 
     board = board_for_request(request, board_id)
-    raw_posts = posts_for_request(request, board)
+    raw_posts = posts_for_request(board)
     # force list so it's not generating a query in each map run
     read_posts = list(Post.objects.all_read_by(request.user))
     posts = map(lambda post: post_map(post, board, read_posts), raw_posts)
@@ -280,7 +314,7 @@ def post_view_all(request, board_id):
         }
 
     board = board_for_request(request, board_id)
-    raw_posts = posts_for_request(request, board)
+    raw_posts = posts_for_request(board)
     read_posts = list(Post.objects.all_read_by(request.user))
 
     alts = []
@@ -307,7 +341,7 @@ def post_view_all(request, board_id):
 def post_view(request, board_id, post_id):
     """View for seeing an individual post"""
     board = board_for_request(request, board_id)
-    raw_posts = posts_for_request(request, board)
+    raw_posts = posts_for_request(board)
     post = get_object_or_404(Post, id=post_id)
 
     # No cheating and viewing posts outside this board
