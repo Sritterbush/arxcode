@@ -283,11 +283,20 @@ def post_view_all(request, board_id):
     raw_posts = posts_for_request(request, board)
     read_posts = list(Post.objects.all_read_by(request.user))
 
+    alts = []
+    if request.user.db.bbaltread:
+        try:
+            alts = caller.roster.alts
+        except AttributeError:
+            pass
+
     ReadPostModel = Post.db_receivers_accounts.through
     bulk_list = []
-    for raw_post in raw_posts:
-        if raw_post not in read_posts:
-            bulk_list.append(ReadPostModel(accountdb=request.user, msg=raw_post))
+    for post in raw_posts:
+        if post not in read_posts:
+            bulk_list.append(ReadPostModel(accountdb=request.user, msg=post))
+            for alt in alts:
+                bulk_list.append(ReadPostModel(accountdb=alt, msg=post))
     ReadPostModel.objects.bulk_create(bulk_list)
 
     posts = map(lambda post: post_map(post, board, read_posts), raw_posts)
