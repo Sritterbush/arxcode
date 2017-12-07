@@ -1,33 +1,36 @@
+"""
+Views for msg app - Msg proxy models, boards, etc
+"""
 import json
 
-from django.http import HttpResponse
-from django.views.generic import ListView
-from django.db.models import Q
-from django.http import HttpResponseRedirect
-from django.http import Http404
 from django.core.urlresolvers import reverse
 from django.core.exceptions import PermissionDenied
+from django.db.models import Q
+from django.http import HttpResponseRedirect, HttpResponse, Http404
+from django.shortcuts import render, get_object_or_404
+from django.views.generic import ListView
 
-from world.msgs.models import Journal
+from evennia.utils import ansi
 
+from commands.commands.bboards import get_boards
 from .forms import (JournalMarkAllReadForm, JournalWriteForm, JournalMarkOneReadForm, JournalMarkFavorite,
                     JournalRemoveFavorite)
 from server.utils.view_mixins import LimitPageMixin
-
-from django.shortcuts import render, get_object_or_404
-from commands.commands.bboards import get_boards
 from typeclasses.bulletin_board.bboard import BBoard, Post
-from evennia.utils import ansi
+from world.msgs.models import Journal
+
 
 # Create your views here.
 
 
 class JournalListView(LimitPageMixin, ListView):
+    """View for listing journals."""
     model = Journal
     template_name = 'msgs/journal_list.html'
     paginate_by = 20
 
     def search_filters(self, queryset):
+        """Filters the queryset based on what's passed along in GET as search options"""
         get = self.request.GET
         if not get:
             return queryset
@@ -66,14 +69,16 @@ class JournalListView(LimitPageMixin, ListView):
         return queryset
 
     def get_queryset(self):
+        """Gets our queryset based on user privileges"""
         user = self.request.user
-        if not user or not user.is_authenticated() or not user.db.char_ob:
+        if not user or not user.is_authenticated() or not user.char_ob:
             qs = Journal.white_journals.order_by('-db_date_created')
         else:
             qs = Journal.objects.all_permitted_journals(user).all_unread_by(user).order_by('-db_date_created')
         return self.search_filters(qs)
 
     def get_context_data(self, **kwargs):
+        """Gets our context - do special stuff to preserve search tags through pagination"""
         context = super(JournalListView, self).get_context_data(**kwargs)
         # paginating our read journals as well as unread
         search_tags = ""
@@ -100,6 +105,7 @@ class JournalListView(LimitPageMixin, ListView):
 
     # noinspection PyUnusedLocal
     def post(self, request, *args, **kwargs):
+        """Handle POST requests: marking journals read or as favorites"""
         if "mark_all_read" in request.POST:
             form = JournalMarkAllReadForm(request.POST)
             if form.is_valid():
@@ -133,11 +139,13 @@ class JournalListView(LimitPageMixin, ListView):
 
 
 class JournalListReadView(JournalListView):
+    """Version of journal list for journals the user has already read"""
     template_name = 'msgs/journal_list_read.html'
 
     def get_queryset(self):
+        """Get queryset based on permissions. Reject outright if they're not logged in."""
         user = self.request.user
-        if not user or not user.is_authenticated() or not user.db.char_ob:
+        if not user or not user.is_authenticated() or not user.char_ob:
             raise PermissionDenied("You must be logged in.")
         qs = Journal.objects.all_permitted_journals(user).all_read_by(user).order_by('-db_date_created')
         return self.search_filters(qs)
@@ -147,7 +155,9 @@ API_CACHE = None
 
 
 def journal_list_json(request):
+    """Return json list of journals for API request"""
     def get_fullname(char):
+        """Auto-generate last names for people who don't have em. Poor bastards. Literally!"""
         commoner_names = {
             'Velenosa': 'Masque',
             'Valardin': 'Honor',
@@ -160,6 +170,14 @@ def journal_list_json(request):
         return "{0} {1}".format(char.key, last)
 
     def get_response(entry):
+        """
+        Helper function for getting json for each object
+        Args:
+            entry (Msg): Message object
+
+        Returns:
+            dict to convert to json
+        """
         try:
             sender = entry.senders[0]
         except IndexError:
@@ -196,7 +214,9 @@ def journal_list_json(request):
 
 
 def board_list(request):
-    def map_board(board, request):
+    """View for getting list of boards"""
+    def map_board(board):
+        """Helper function for getting dict of information for each board to add to context"""
         return {
             'id': board.id,
             'name': board.key,
@@ -204,9 +224,7 @@ def board_list(request):
         }
 
     raw_boards = get_boards(request.user)
-    print ("Raw boards: " + str(raw_boards))
-    boards = map(lambda board: map_board(board, request), raw_boards)
-    print ("Boards: " + str(boards))
+    boards = map(lambda board: map_board(board), raw_boards)
     context = {
         'boards': boards,
         'page_title': 'Boards'
@@ -215,73 +233,73 @@ def board_list(request):
 
 
 def board_for_request(request, board_id):
-    try:
-        board = BBoard.objects.get(id=board_id)
-    except BBoard.DoesNotExist, BBoard.MultipleObjectsReturned:
+    """Check if we can get a board by the given ID. 404 if we don't have privileges"""
+    board = get_object_or_404(BBoard, id=board_id)
+    character = request.user.char_ob
+    if not board.access(character):
         raise Http404
-
-    character = request.user.db.char_ob
-
-    if not board.access(character, 'read'):
-        raise Http404
-
     return board
 
 
 def posts_for_request(request, board):
+    """Get all posts from the board in reverse order"""
     return list(board.get_all_posts(old=False))[::-1]
 
 
 def post_list(request, board_id):
-    def post_map(post, board, read_posts):
+    """View for getting list of posts for a given board"""
+    def post_map(post, bulletin_board, read_posts_list):
+        """Helper function to get dict of post information to add to context per post"""
         return {
             'id': post.id,
-            'poster': board.get_poster(post),
+            'poster': bulletin_board.get_poster(post),
             'subject': post.db_header,
             'date': post.db_date_created.strftime("%x"),
-            'unread': post not in read_posts
+            'unread': post not in read_posts_list
         }
 
     board = board_for_request(request, board_id)
     raw_posts = posts_for_request(request, board)
-    read_posts = Post.objects.all_read_by(request.user)
+    # force list so it's not generating a query in each map run
+    read_posts = list(Post.objects.all_read_by(request.user))
     posts = map(lambda post: post_map(post, board, read_posts), raw_posts)
     return render(request, 'msgs/post_list.html', {'board': board, 'page_title': board.key, 'posts': posts})
 
 
 def post_view_all(request, board_id):
-    def post_map(post, board, read_posts):
+    """View for seeing all posts at once. It'll mark them all read."""
+    def post_map(post, bulletin_board, read_posts_list):
+        """Returns dict of information about each individual post to add to context"""
         return {
             'id': post.id,
-            'poster': board.get_poster(post),
+            'poster': bulletin_board.get_poster(post),
             'subject': post.db_header,
             'date': post.db_date_created.strftime("%x"),
-            'unread': post not in read_posts,
+            'unread': post not in read_posts_list,
             'text': ansi.strip_ansi(post.db_message)
         }
 
     board = board_for_request(request, board_id)
     raw_posts = posts_for_request(request, board)
-    read_posts = Post.objects.all_read_by(request.user)
+    read_posts = list(Post.objects.all_read_by(request.user))
 
     ReadPostModel = Post.db_receivers_accounts.through
     bulk_list = []
-    for post in raw_posts:
-        if post not in read_posts:
-            bulk_list.append(ReadPostModel(accountdb=request.user, msg=post))
+    for raw_post in raw_posts:
+        if raw_post not in read_posts:
+            bulk_list.append(ReadPostModel(accountdb=request.user, msg=raw_post))
     ReadPostModel.objects.bulk_create(bulk_list)
 
     posts = map(lambda post: post_map(post, board, read_posts), raw_posts)
-    return render(request, 'msgs/post_view_all.html', {'board': board, 'page_title': board.key + " - Posts", 'posts': posts})
+    return render(request, 'msgs/post_view_all.html', {'board': board, 'page_title': board.key + " - Posts",
+                                                       'posts': posts})
 
 
 def post_view(request, board_id, post_id):
+    """View for seeing an individual post"""
     board = board_for_request(request, board_id)
     raw_posts = posts_for_request(request, board)
-    try:
-        post = Post.objects.get(id=post_id)
-    except Post.DoesNotExit, Post.MultipleObjectsReturned:
-        raise Http404
+    post = get_object_or_404(Post, id=post_id)
 
     # No cheating and viewing posts outside this board
     if post not in raw_posts:
@@ -294,7 +312,7 @@ def post_view(request, board_id, post_id):
         'poster': board.get_poster(post),
         'subject': post.db_header,
         'date': post.db_date_created.strftime("%x"),
-        'text': ansi.strip_ansi(post.db_message),
+        'text': post.db_message,
         'page_title': board.key + " - " + post.db_header
     }
     return render(request, 'msgs/post_view.html', context)
