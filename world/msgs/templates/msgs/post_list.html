@@ -4,15 +4,24 @@
 <div class="container">
 	<h2>{{ board.key }}</h2>
     <div class="newsDate"><a href="{% url 'msgs:post_view_all' board_id=board.id %}">Read all posts</a></div>
-    <ul>
-    {% for post in posts %}
-        <li><h2>{% if post.unread %}<b>{% endif %}
-        <a href="{% url 'msgs:post_view' board_id=board.id post_id=post.id %}">{{ post.subject }}</a>
-        {% if post.unread %}</b>{% endif %}
-        </h2>
-        <span class="newsDate">Posted by <b>{{ post.poster }}</b> on {{ post.date }}</span>
-        </li>
+    <br/>
+	<table class="table table-hover">
+		<tr class="danger">
+			<td>Subject</td>
+			<td>Poster</td>
+			<td>Date</td>
+		</tr>
+        {% for post in posts %}
+        <tr>
+            <td>
+                {% if post.unread %}<b>{% endif %}
+                <a href="{% url 'msgs:post_view' board_id=board.id post_id=post.id %}">{{ post.subject }}</a>
+                {% if post.unread %}</b>{% endif %}
+            </td>
+            <td>{{ post.poster }}</td>
+            <td>{{ post.date }}</td>
+        </tr>
     {% endfor %}
-    </ul>
+    </table>
 </div>
 {% endblock %}
