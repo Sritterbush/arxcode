@@ -217,11 +217,10 @@ def board_list(request):
     """View for getting list of boards"""
     def map_board(board):
         """Helper function for getting dict of information for each board to add to context"""
-        posts = posts_for_request(board)[::-1]
+        last_post = board.posts.last()
         last_date = ""
-        if len(posts) > 0:
-            post = posts[0]
-            last_date = post.db_date_created.strftime("%x")
+        if last_post:
+            last_date = last_post.db_date_created.strftime("%x")
 
         return {
             'id': board.id,
@@ -320,7 +319,7 @@ def post_view_all(request, board_id):
     alts = []
     if request.user.db.bbaltread:
         try:
-            alts = caller.roster.alts
+            alts = [ob.player for ob in request.user.roster.alts]
         except AttributeError:
             pass
 
