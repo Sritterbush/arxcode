@@ -89,7 +89,10 @@ class BBoard(Object):
         if len(msg) > 140:
             poster_obj.msg("That message is too long for a brief declaration.")
             return
-        post.db_message += "\n\n--- {w%s{n Stance ---\n%s" % (org, msg)
+        if org.secret:
+            post.db_message += "\n\n--- {w%s{n Stance ---\n%s" % (org, msg)
+        else:
+            post.db_message += "\n\n--- {w%s{n Stance (from %s) ---\n%s" % (org, poster_obj, msg)
         post.tags.add("%s_comment" % org, category="org_comment")
         post.save()
         poster_obj.msg("{w%s{n successfully declared a stance on '%s'." % (org, post.db_header))
