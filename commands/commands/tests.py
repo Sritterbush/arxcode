@@ -6,7 +6,7 @@ from mock import Mock, patch
 from datetime import datetime
 
 from server.utils.test_utils import ArxCommandTest
-from world.dominion.models import CrisisAction, Crisis, Army
+from world.dominion.models import CrisisAction, Crisis, Army, RPEvent
 from . import story_actions, overrides, social
 
 
@@ -178,6 +178,9 @@ class StoryActionTests(ArxCommandTest):
                                                       '{wSummary:{n test summary\n\n'
                                                       '{wStory Result:{n story test\n{wSecret '
                                                       'Story{n sekritfoo', subject='Action 1 Published')
+        RPEvent.objects.create(name="test event")
+        self.call_cmd("/addevent 1=1", "Added event: test event")
+        self.call_cmd("/rmevent 1=1", "Removed event: test event")
 
 
 class OverridesTests(ArxCommandTest):

@@ -523,6 +523,8 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
         @gm/gemit <action #>[,<action #>,...]=<text to post>[/<new episode name>]
         @gm/allowedit <action #>[,assistant name]
         @gm/invite <action #>=<player to add as assistant>
+        @gm/addevent <action #>=<event #>
+        @gm/rmevent <action #>=<event #>
 
     Commands for GMing. @actions can be claimed/assigned to GMs with the /assign
     switch, and then viewed with @gm/mine. Actions are initially in a draft state
@@ -556,7 +558,9 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
     list_switches = ("old", "pending", "draft", "cancelled", "needgm", "needplayer")
     gming_switches = ("story", "secretstory", "charge", "check", "checkall", "stat", "skill", "diff")
     followup_switches = ("ooc", "markanswered")
-    admin_switches = ("publish", "markpending", "cancel", "assign", "gemit", "allowedit", "invite")
+    admin_switches = ("publish", "markpending", "cancel", "assign", "gemit", "allowedit", "invite",
+                      "addevent", "rmevent")
+    event_switches = ("addevent", "rmevent")
     difficulties = {"easy": CrisisAction.EASY_DIFFICULTY, "normal": CrisisAction.NORMAL_DIFFICULTY,
                     "hard": CrisisAction.HARD_DIFFICULTY}
     
@@ -739,6 +743,8 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
             return self.toggle_editable(action)
         if "invite" in self.switches:
             return self.invite_assistant(action)
+        if self.check_switches(self.event_switches):
+            return self.do_event_admin(action)
         
     def publish_action(self, action):
         if self.rhs:
@@ -797,3 +803,17 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
             self.msg("You have made their action editable and the player has been informed.")
         else:
             self.msg("Their action is no longer editable.")
+
+    def do_event_admin(self, action):
+        from world.dominion.models import RPEvent
+        try:
+            event = RPEvent.objects.get(id=self.rhs)
+        except (RPEvent.DoesNotExist, ValueError, TypeError):
+            self.msg("No event by that ID.")
+        else:
+            if "addevent" in self.switches:
+                action.events.add(event)
+                self.msg("Added event: %s" % event)
+            else:
+                action.events.remove(event)
+                self.msg("Removed event: %s" % event)

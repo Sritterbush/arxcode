@@ -197,7 +197,7 @@ class EventAdmin(DomAdmin):
     list_display = ('id', 'name', 'date')
     search_fields = ['name', 'hosts__player__username', 'participants__player__username', 'gms__player__username']
     ordering = ['date']
-    raw_id_fields = ('location',)
+    raw_id_fields = ('location', 'actions')
     filter_horizontal = ['hosts', 'participants', 'gms']
 
 
@@ -320,7 +320,7 @@ class CrisisActionAdmin(DomAdmin):
     list_display = ('id', 'dompc', 'crisis', 'player_action', 'week', 'status')
     search_fields = ('crisis__name', 'dompc__player__username')
     list_filter = ('crisis', 'status')
-    raw_id_fields = ('dompc', 'gemit', 'gm', 'crisis', 'update',)
+    raw_id_fields = ('dompc', 'gemit', 'gm', 'crisis', 'update')
     readonly_fields = ('ooc_intent',)
     fieldsets = [(None, {'fields': [('dompc', 'topic')]}),
                  ('Status', {'fields': [('attending', 'traitor', 'prefer_offscreen'), ('status', 'public', 'editable'),
