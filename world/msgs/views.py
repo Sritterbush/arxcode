@@ -322,17 +322,20 @@ def post_view_all(request, board_id):
             alts = [ob.player for ob in request.user.roster.alts]
         except AttributeError:
             pass
-
+    accounts = [request.user]
+    accounts.extend(alts)
     ReadPostModel = Post.db_receivers_accounts.through
     bulk_list = []
     for post in raw_posts:
         if post not in read_posts:
-            bulk_list.append(ReadPostModel(accountdb=request.user, msg=post))
-            for alt in alts:
-                bulk_list.append(ReadPostModel(accountdb=alt, msg=post))
+            for account in accounts:
+                bulk_list.append(ReadPostModel(accountdb=account, msg=post))
     ReadPostModel.objects.bulk_create(bulk_list)
 
     posts = map(lambda post: post_map(post, board, read_posts), raw_posts)
+    # invalidate num_unread cache for the user
+    for account in accounts:
+        board.remove_from_cache(account)
     return render(request, 'msgs/post_view_all.html', {'board': board, 'page_title': board.key + " - Posts",
                                                        'posts': posts})
 
@@ -340,11 +343,9 @@ def post_view_all(request, board_id):
 def post_view(request, board_id, post_id):
     """View for seeing an individual post"""
     board = board_for_request(request, board_id)
-    raw_posts = posts_for_request(board)
-    post = get_object_or_404(Post, id=post_id)
-
-    # No cheating and viewing posts outside this board
-    if post not in raw_posts:
+    try:
+        post = board.posts.get(id=post_id)
+    except (Post.DoesNotExist, ValueError):
         raise Http404
 
     board.mark_read(request.user, post)
