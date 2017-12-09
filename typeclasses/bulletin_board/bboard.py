@@ -247,15 +247,32 @@ class BBoard(Object):
     def mark_unarchived(post):
         post.tags.remove("archived")
 
+    def mark_read_if_cache(self, caller):
+        num_unread = self.num_unread_cache.get(caller, -1)
+        if num_unread > 0:
+            num_unread = num_unread - 1
+        else:
+            # We didn't have a cache and we'll already be marked read,
+            # just take the value directly
+            num_unread = self.get_unread_posts(caller, old=False).count()
+
+        self.num_unread_cache[caller] = num_unread
+
     def mark_read(self, caller, post):
         if not post.db_receivers_accounts.filter(id=caller.id).exists():
+            # Mark our post read
             post.db_receivers_accounts.add(caller)
-            num_read = self.num_unread_cache.get(caller, 0)
-            self.num_unread_cache[caller] = num_read - 1
+            self.mark_read_if_cache(caller)
+
         if caller.db.bbaltread:
             try:
                 for alt in (ob.player for ob in caller.roster.alts):
-                    post.db_receivers_accounts.add(alt)
+                    # Let's check this first, so we don't erroneously subtract
+                    # from the cache a second time.
+                    if not post.db_receivers_accounts.filter(id=alt.id).exists():
+                        post.db_receivers_accounts.add(alt)
+                        self.mark_read_if_cache(alt)
+
             except AttributeError:
                 pass
             
@@ -269,6 +286,9 @@ class BBoard(Object):
         for account in self.num_unread_cache:
             if account != poster:
                 self.num_unread_cache[account] += 1
+
+    def zero_unread_cache(self, poster):
+        self.num_unread_cache[poster] = 0
 
     def remove_from_cache(self, poster):
         try:

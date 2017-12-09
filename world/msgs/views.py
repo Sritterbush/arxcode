@@ -330,6 +330,9 @@ def post_view_all(request, board_id):
         if post not in read_posts:
             for account in accounts:
                 bulk_list.append(ReadPostModel(accountdb=account, msg=post))
+
+                # They've read everything, clear out their unread cache count
+                board.zero_unread_cache(account)
     ReadPostModel.objects.bulk_create(bulk_list)
 
     posts = map(lambda post: post_map(post, board, read_posts), raw_posts)
