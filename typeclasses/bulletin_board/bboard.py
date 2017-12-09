@@ -52,6 +52,7 @@ class BBoard(Object):
             notify = "\n{{wNew post on {0} by {1}:{{n {2}".format(self.key, posted_by, subject)
             notify += "\nUse {w@bbread %s/%s {nto read this message." % (self.key, post_num)
             self.notify_subs(notify)
+        self.update_cache_on_post(poster_obj)
         return post
 
     @property
@@ -107,12 +108,27 @@ class BBoard(Object):
             return False
 
     def get_unread_posts(self, pobj, old=False):
+        """
+        Get queryset of unread posts
+        Args:
+            pobj: AccountDB object
+            old (bool or None): Whether we're using archive
+
+        Returns:
+            queryset of posts unread by pobj
+        """
         if not old:
             return self.posts.all_unread_by(pobj)
         return self.archived_posts.all_unread_by(pobj)
 
     def num_of_unread_posts(self, pobj, old=False):
-        return self.get_unread_posts(pobj, old).count()
+        if old:
+            return self.get_unread_posts(pobj, old).count()
+        if pobj in self.num_unread_cache:
+            return self.num_unread_cache[pobj]
+        num_unread = self.get_unread_posts(pobj, old).count()
+        self.num_unread_cache[pobj] = num_unread
+        return num_unread
 
     def get_post(self, pobj, postnum, old=False):
         # pobj is a player.
@@ -231,15 +247,34 @@ class BBoard(Object):
     def mark_unarchived(post):
         post.tags.remove("archived")
 
-    @staticmethod
-    def mark_read(caller, post):
-        post.db_receivers_accounts.add(caller)
+    def mark_read(self, caller, post):
+        if not post.db_receivers_accounts.filter(id=caller.id).exists():
+            post.db_receivers_accounts.add(caller)
+            num_read = self.num_unread_cache.get(caller, 0)
+            self.num_unread_cache[caller] = num_read - 1
         if caller.db.bbaltread:
             try:
                 for alt in (ob.player for ob in caller.roster.alts):
                     post.db_receivers_accounts.add(alt)
             except AttributeError:
                 pass
+            
+    @property
+    def num_unread_cache(self):
+        if self.ndb.num_unread_cache is None:
+            self.ndb.num_unread_cache = {}
+        return self.ndb.num_unread_cache
+
+    def update_cache_on_post(self, poster):
+        for account in self.num_unread_cache:
+            if account != poster:
+                self.num_unread_cache[account] += 1
+
+    def remove_from_cache(self, poster):
+        try:
+            del self.num_unread_cache[poster]
+        except KeyError:
+            pass
 
     @staticmethod
     def get_poster(post):
