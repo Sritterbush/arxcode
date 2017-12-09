@@ -348,13 +348,20 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
         self.attributes.remove("blacklist")
         self.attributes.remove("shopowner")
 
-    def msg_contents(self, message, exclude=None, from_obj=None, mapping=None, **kwargs):
+    def msg_contents(self, text=None, exclude=None, from_obj=None, mapping=None, **kwargs):
         """
         Emits something to all objects inside an object.
 
         exclude is a list of objects not to send to. See self.msg() for
                 more info.
         """
+        if hasattr(text, '__iter__'):
+            try:
+                message = text[0]
+            except IndexError:
+                message = ""
+        else:
+            message = text
         eventid = self.db.current_event
         gm_only = kwargs.pop('gm_msg', False)
         options = kwargs.get('options', {})

@@ -2238,6 +2238,9 @@ class CrisisAction(AbstractAction):
         if self.sent or staff_viewer:
             if disp_ooc:
                 msg += "\n{wOutcome Value:{n %s" % self.outcome_value
+                events = self.events.all()
+                if events:
+                    msg += "\n{wEvents involved: %s" % ", ".join(str(ob) for ob in events)
             msg += "\n{wStory Result:{n %s" % self.story
             if self.secret_story and view_main_secrets:
                 msg += "\n{wSecret Story{n %s" % self.secret_story
@@ -4538,7 +4541,7 @@ class RPEvent(SharedMemoryModel):
     finished = models.BooleanField(default=False, blank=False)
     results = models.TextField(blank=True, null=True)
     room_desc = models.TextField(blank=True, null=True)
-    crisis = models.ForeignKey("Crisis", blank=True, null=True, on_delete=models.SET_NULL, related_name="events")
+    actions = models.ManyToManyField("CrisisAction", blank=True, related_name="events")
 
     @property
     def prestige(self):
