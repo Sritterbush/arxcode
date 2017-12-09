@@ -286,7 +286,7 @@ def post_list(request, board_id):
         return {
             'id': post.id,
             'poster': bulletin_board.get_poster(post),
-            'subject': post.db_header,
+            'subject': ansi.strip_ansi(post.db_header),
             'date': post.db_date_created.strftime("%x"),
             'unread': post not in read_posts_list
         }
@@ -306,7 +306,7 @@ def post_view_all(request, board_id):
         return {
             'id': post.id,
             'poster': bulletin_board.get_poster(post),
-            'subject': post.db_header,
+            'subject': ansi.strip_ansi(post.db_header),
             'date': post.db_date_created.strftime("%x"),
             'unread': post not in read_posts_list,
             'text': ansi.strip_ansi(post.db_message)
@@ -352,7 +352,7 @@ def post_view(request, board_id, post_id):
     context = {
         'id': post.id,
         'poster': board.get_poster(post),
-        'subject': post.db_header,
+        'subject': ansi.strip_ansi(post.db_header),
         'date': post.db_date_created.strftime("%x"),
         'text': post.db_message,
         'page_title': board.key + " - " + post.db_header
