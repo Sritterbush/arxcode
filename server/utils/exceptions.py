@@ -2,10 +2,13 @@
 Exceptions for Arx!
 """
 
-
-class PayError(ValueError):
+class CommandError(Exception):
     pass
 
 
-class ActionSubmissionError(ValueError):
+class PayError(CommandError):
+    pass
+
+
+class ActionSubmissionError(CommandError):
     pass
