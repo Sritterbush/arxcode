@@ -330,15 +330,11 @@ def post_view_all(request, board_id):
         if post not in read_posts:
             for account in accounts:
                 bulk_list.append(ReadPostModel(accountdb=account, msg=post))
-
                 # They've read everything, clear out their unread cache count
                 board.zero_unread_cache(account)
     ReadPostModel.objects.bulk_create(bulk_list)
 
     posts = map(lambda post: post_map(post, board, read_posts), raw_posts)
-    # invalidate num_unread cache for the user
-    for account in accounts:
-        board.remove_from_cache(account)
     return render(request, 'msgs/post_view_all.html', {'board': board, 'page_title': board.key + " - Posts",
                                                        'posts': posts})
 

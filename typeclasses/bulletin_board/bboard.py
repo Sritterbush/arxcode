@@ -290,12 +290,6 @@ class BBoard(Object):
     def zero_unread_cache(self, poster):
         self.num_unread_cache[poster] = 0
 
-    def remove_from_cache(self, poster):
-        try:
-            del self.num_unread_cache[poster]
-        except KeyError:
-            pass
-
     @staticmethod
     def get_poster(post):
         sender = ""
