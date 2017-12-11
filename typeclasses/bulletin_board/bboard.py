@@ -47,6 +47,7 @@ class BBoard(Object):
                 self.archive_post(posts.first())
             else:
                 posts.first().delete()
+            self.flush_unread_cache()
         if announce:
             post_num = self.posts.count()
             notify = "\n{{wNew post on {0} by {1}:{{n {2}".format(self.key, posted_by, subject)
@@ -187,10 +188,12 @@ class BBoard(Object):
         """
         if post in self.posts:
             post.delete()
-            return True
+            retval = True
         if post in self.archived_posts:
             post.delete()
-            return True
+            retval = True
+        self.flush_unread_cache()
+        return retval
 
     @staticmethod
     def sticky_post(post):
@@ -289,6 +292,9 @@ class BBoard(Object):
 
     def zero_unread_cache(self, poster):
         self.num_unread_cache[poster] = 0
+
+    def flush_unread_cache(self):
+        self.ndb.num_unread_cache = {}
 
     @staticmethod
     def get_poster(post):
