@@ -28,7 +28,7 @@ from unidecode import unidecode
 __all__ = ("CmdGuestLook", "CmdGuestCharCreate", "CmdGuestPrompt", "CmdGuestAddInput")
 CMD_NOINPUT = syscmdkeys.CMD_NOINPUT
 CMD_NOMATCH = syscmdkeys.CMD_NOMATCH
-_vocations_ = ("noble", "courtesan", "charlatan", "soldier", "knight", "priest", "merchant",
+_vocations_ = ("noble", "courtier", "charlatan", "soldier", "knight", "priest", "merchant",
                "criminal", "artisan", "scholar", "lawyer", "steward", "commoner",
                "jeweler", "tailor", "weaponsmith", "armorsmith", "leatherworker",
                "apothecary", "carpenter")
@@ -42,7 +42,7 @@ _max_age_ = 65
 # We have 12 stats. no more than two at 5. tuple is in the following order:
 # (strength,dexterity,stamina,charm,command,composure,intellect,perception,wits,mana,luck,willpower)
 _voc_start_stats_ = {"noble":          (3, 3, 3,  4, 5, 4,  3, 3, 2,  2, 2, 2),
-                     "courtesan":      (2, 2, 2,  5, 4, 5,  3, 3, 4,  2, 2, 2),
+                     "courtier":      (2, 2, 2,  5, 4, 5,  3, 3, 4,  2, 2, 2),
                      "charlatan":      (2, 2, 2,  4, 3, 5,  3, 4, 4,  3, 3, 1),
                      "soldier":        (5, 4, 5,  2, 3, 4,  2, 2, 3,  2, 2, 2),
                      "knight":         (4, 4, 4,  3, 4, 4,  2, 2, 3,  2, 2, 2),
@@ -65,7 +65,7 @@ _voc_start_stats_ = {"noble":          (3, 3, 3,  4, 5, 4,  3, 3, 2,  2, 2, 2),
 _voc_start_skills_ = {"noble": {"diplomacy": 3, "leadership": 3, "etiquette": 2,
                                 "law": 1, "ride": 1,
                                 "manipulation": 1, "empathy": 1, "war": 1},
-                      "courtesan": {"diplomacy": 1, "etiquette": 3, "manipulation": 2,
+                      "courtier": {"diplomacy": 1, "etiquette": 3, "manipulation": 2,
                                     "empathy": 2, "seduction": 3, "propaganda": 1},
                       "charlatan": {"legerdemain": 3, "manipulation": 3, "empathy": 1,
                                     "streetwise": 3, "occult": 1},
