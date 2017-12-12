@@ -131,3 +131,35 @@ class ArxRosterManager(models.Manager):
                     if not char.db.family or family.lower() not in char.db.family.lower():
                         match_set.discard(char)
         return match_set
+        
+        
+class AccountHistoryManager(models.Manager):
+    """
+    Manager for AccountHistory. We'll use it to grab stuff related to first impressions.
+    """
+    def claimed_impressions(self, entry):
+        """
+        Gets AccountHistories that entry has written first impressions on
+        
+            Args:
+                entry: RosterEntry object we're checking
+                
+            Returns:
+                QuerySet of AccountHistory objects that entry has already claimed first impressions on
+        """
+        return self.filter(entry=entry).last().contacts.all()
+    
+    def unclaimed_impressions(self, entry):
+        """
+        Gets AccountHistory objects that are valid for entry to write first impressions on
+        
+            Args:
+                entry: RosterEntry object we're checking
+                
+            Returns:
+                QuerySet of AccountHistory objects that can be targeted for firstimpressions
+        """
+        qs = self.filter(entry__roster__name="Active", end_date__isnull=True).exclude(
+            account=entry.current_account)
+        qs = qs.exclude(id__in=self.claimed_impressions(entry)).order_by('entry__player__username')
+        return qs.distinct()

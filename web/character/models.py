@@ -16,7 +16,7 @@ from cloudinary.models import CloudinaryField
 from evennia.objects.models import ObjectDB
 from evennia.locks.lockhandler import LockHandler
 from django.db.models import Q, F
-from .managers import ArxRosterManager
+from .managers import ArxRosterManager, AccountHistoryManager
 from datetime import datetime
 import random
 import traceback
@@ -417,6 +417,7 @@ class AccountHistory(SharedMemoryModel):
     end_date = models.DateTimeField(blank=True, null=True, db_index=True)
     contacts = models.ManyToManyField('self', blank=True, through='FirstContact',
                                       related_name='contacted_by', symmetrical=False)
+    objects = AccountHistoryManager()
 
     def __str__(self):
         start = ""

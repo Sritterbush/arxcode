@@ -2730,19 +2730,16 @@ class CmdFirstImpression(ArxCommand):
 
     def list_valid(self):
         """Sends msg to caller of list of characters they can make firstimpression of"""
-        contacts = self.caller.roster.accounthistory_set.last().contacts.all()
+        contacts = AccountHistory.objects.claimed_impressions(self.caller.roster)
         if "list" in self.switches:
             self.msg("{wCharacters you have written first impressions of:{n %s" % ", ".join(
                 str(ob.entry) for ob in contacts))
             return
-        qs = AccountHistory.objects.filter(entry__roster__name="Active", end_date__isnull=True).exclude(
-            account=self.caller.roster.current_account)
-        qs = qs.exclude(id__in=contacts).order_by('entry__player__username')
+        qs = AccountHistory.objects.unclaimed_impressions(self.caller.roster)
         location = ""
         if "here" in self.switches:
             location = "at your location "
             qs = qs.filter(entry__character__db_location=self.caller.location)
-        qs = qs.distinct()
         self.msg("{wPlayers %syou haven't had a scene with yet:{n %s" % (location,
                                                                          ", ".join(str(ob.entry) for ob in qs)))
 
