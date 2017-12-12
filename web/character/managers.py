@@ -1,44 +1,61 @@
+"""
+Managers for the Character app. The ArxRosterManager was written as a replacement for a roster manager that
+originally was an ObjectDB typeclass that stored roster entries as lists/dicts in Attributes.
+"""
 from django.db import models
 
 
 class ArxRosterManager(models.Manager):
+    """
+    Manager for the game's Roster. A lot of our methods will actually retrieve Character/ObjectDB instances
+    for convenience.
+    """
     @property
     def active(self):
+        """Gets our Active roster"""
         return self.get(name="Active")
     
     @property
     def available(self):
+        """Gets our Available roster"""
         return self.get(name="Available")
     
     @property
     def unavailable(self):
+        """Gets our Unavailable roster"""
         return self.get(name="Unavailable")
     
     @property
     def incomplete(self):
+        """Gets our Incomplete roster"""
         return self.get(name="Incomplete")
 
     def get_all_active_characters(self):
+        """Gets a queryset of all character objects in our Active roster"""
         from evennia.objects.models import ObjectDB
         return ObjectDB.objects.select_related('roster__roster').filter(roster__roster=self.active).order_by('db_key')
     
     def get_all_available_characters(self):
+        """Gets a queryset of all character objects in our Available roster"""
         from evennia.objects.models import ObjectDB
         return ObjectDB.objects.select_related('roster__roster').filter(
             roster__roster=self.available).order_by('db_key')
     
     def get_all_unavailable_characters(self):
+        """Gets a queryset of all character objects in our Unavailable roster"""
         from evennia.objects.models import ObjectDB
         return ObjectDB.objects.select_related('roster__roster').filter(
             roster__roster=self.unavailable).order_by('db_key')
     
     def get_all_incomplete_characters(self):
+        """Gets a queryset of all character objects in our Incomplete roster"""
         from evennia.objects.models import ObjectDB
         return ObjectDB.objects.select_related('roster__roster').filter(
             roster__roster=self.incomplete).order_by('db_key')
 
     @staticmethod
     def get_character(name):
+        """Gets a character by name"""
         from evennia.objects.models import ObjectDB
         try:
             return ObjectDB.objects.get(db_key__iexact=name, roster__roster__isnull=False)
@@ -54,7 +71,7 @@ class ArxRosterManager(models.Manager):
         the filters specified. Filters include: male, female, young, adult,
         mature, elder, married, single, concept, social_class, fealty, and family.
         If concept, fealty, social_class, or family are passed, it expects for the
-        corresponding varaibles to be defined.
+        corresponding variables to be defined.
         """
         from evennia.objects.models import ObjectDB
         char_list = ObjectDB.objects.filter(roster__roster__name__iexact=roster_type)
