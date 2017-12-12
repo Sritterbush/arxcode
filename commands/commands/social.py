@@ -5,6 +5,7 @@ will be character commands, since they'll deal with the grid.
 import time
 import random
 from datetime import datetime, timedelta
+from functools import reduce
 
 from django.conf import settings
 from django.db.models import Q
@@ -30,6 +31,15 @@ from world.msgs.managers import reload_model_as_proxy
 
 
 def char_name(character_object, verbose_where=False):
+    """
+    Formats the name of character_object
+    Args:
+        character_object: Character object to format the name of
+        verbose_where: Whether to add room title
+
+    Returns:
+        String of formatted character name
+    """
     cname = character_object.name
     if character_object.player_ob and character_object.player_ob.db.lookingforrp:
         cname += "|R+|n"
@@ -41,6 +51,15 @@ def char_name(character_object, verbose_where=False):
 
 
 def get_char_names(charlist, caller):
+    """
+    Formats a string of names from list of characters
+    Args:
+        charlist: Character list to format
+        caller: Character object to check settings/permissions
+
+    Returns:
+        String that's a list of names
+    """
     verbose_where = False
     if caller.tags.get("verbose_where"):
         verbose_where = True
@@ -112,6 +131,7 @@ class CmdWhere(ArxPlayerCommand):
 
     @staticmethod
     def get_room_str(room):
+        """Returns formatted room name"""
         name = room.name
         if room.db.x_coord is not None and room.db.y_coord is not None:
             pos = (room.db.x_coord, room.db.y_coord)
@@ -119,6 +139,7 @@ class CmdWhere(ArxPlayerCommand):
         return name
 
     def list_shops(self):
+        """Sends msg of list of shops to caller"""
         rooms = ArxRoom.objects.filter(db_tags__db_key__iexact="shop").order_by('db_key')
         self.msg("{wList of shops:\n")
         for room in rooms:
@@ -197,6 +218,7 @@ class CmdWatch(ArxPlayerCommand):
 
     @staticmethod
     def disp_watchlist(caller):
+        """Display watchlist to caller"""
         watchlist = caller.db.watching or []
         if not watchlist:
             caller.msg("Not watching anyone.")
@@ -371,6 +393,7 @@ class CmdFinger(ArxPlayerCommand):
                     s_buffer = " " * 15
 
                 def format_org_name(organization):
+                    """Returns the formatted string of an organization name"""
                     secret_str = "" if organization not in secret_orgs else " {m(Secret){n"
                     return "%s%s" % (organization.name, secret_str)
 
@@ -437,6 +460,15 @@ class CmdJournal(ArxCommand):
     help_category = "Social"
 
     def journal_index(self, character, j_list):
+        """
+        Gets a formatted table of a character's journals
+        Args:
+            character: Character who we're getting the journals for
+            j_list: list of journals
+
+        Returns:
+            String that's a formatted PrettyTable
+        """
         num = 1
         table = PrettyTable(["{w#{n", "{wWritten About{n", "{wDate{n", "{wUnread?{n"])
         fav_tag = "pid_%s_favorite" % self.caller.player_ob.id
@@ -459,6 +491,7 @@ class CmdJournal(ArxCommand):
         return str(table)
 
     def disp_unread_journals(self):
+        """Sends a list of all journals the caller hasn't read to them"""
         caller = self.caller
         msgs = Journal.white_journals.all_unread_by(self.caller.player_ob).order_by('-db_date_created')
         msgs = [msg.id for msg in msgs]
@@ -475,6 +508,7 @@ class CmdJournal(ArxCommand):
         caller.msg("Writers with journals you have not read: %s" % ", ".join(msg_list))
 
     def disp_favorite_journals(self):
+        """Sends a list of all the journals the caller has favorited"""
         caller = self.caller
         msgs = Journal.white_journals.favorites_of(caller).order_by('-db_date_created')
         msgs = [msg.id for msg in msgs]
@@ -492,6 +526,7 @@ class CmdJournal(ArxCommand):
         caller.msg("Writers with journals you have favorited: %s" % ", ".join(msglist))
 
     def mark_all_read(self):
+        """Marks the caller as having read all journals"""
         caller = self.caller
         player = caller.player_ob
         all_msgs = Journal.white_journals.all_unread_by(player)
@@ -793,6 +828,7 @@ class CmdMessenger(ArxCommand):
     help_category = "Social"
 
     def disp_messenger(self, msg):
+        """Displays msg to caller, reloads it as correct proxy class if necessary"""
         try:
             self.caller.messages.display_messenger(msg)
         except AttributeError:
@@ -860,6 +896,7 @@ class CmdMessenger(ArxCommand):
                 self.msg("%s does not have the ability to %s." % (obj, attr_desc))
 
     def display_messenger_status(self):
+        """Displays short msg to caller of number of read and unread messengers they have."""
         caller = self.caller
         unread = caller.messages.pending_messengers
         read = caller.messages.messenger_history
@@ -1049,6 +1086,17 @@ class CmdMessenger(ArxCommand):
             return arglist[0].split(","),  arglist[1].split(",")
 
     def check_delivery_amounts(self, receivers, delivery, money, mats):
+        """
+        Checks if we can deliver everything we're trying to send
+        Args:
+            receivers: Receivers we're sending stuff to
+            delivery: Object we might be delivering, if any
+            money: Silver we're sending, if any
+            mats: Materials we're sending, if any
+
+        Returns:
+            True if we can send, false otherwise
+        """
         num = len(receivers)
         if delivery:
             if delivery.location != self.caller:
@@ -1106,6 +1154,7 @@ class CmdMessenger(ArxCommand):
         return targs
 
     def display_received_table(self, num_disp, old):
+        """Sends prettytable of old received messengers to caller"""
         caller = self.caller
         msgtable = PrettyTable(["{wMsg #", "{wSender", "{wIC Date", "{wOOC Date", "{wSave"])
         mess_num = 1
@@ -1115,7 +1164,7 @@ class CmdMessenger(ArxCommand):
                 name = caller.messages.get_sender_name(mess)
             except AttributeError:
                 mess = reload_model_as_proxy(mess)
-                print "Error: Had to reload Msg ID %s as Messenger when displaying received table." % mess.id
+                print("Error: Had to reload Msg ID %s as Messenger when displaying received table." % mess.id)
                 name = caller.messages.get_sender_name(mess)
             date = caller.messages.get_date_from_header(mess) or "Unknown"
             ooc_date = mess.db_date_created.strftime("%x")
@@ -1125,6 +1174,7 @@ class CmdMessenger(ArxCommand):
         caller.msg(msgtable)
 
     def display_sent_table(self, num_disp, old):
+        """Displays table of messengers we've sent to caller"""
         msgtable = PrettyTable(["{wMsg #",
                                 "{wReceiver",
                                 "{wDate"])
@@ -1141,7 +1191,7 @@ class CmdMessenger(ArxCommand):
                 date = self.caller.messages.get_date_from_header(mess) or "Unknown"
             except AttributeError:
                 mess = reload_model_as_proxy(mess)
-                print "Error: Had to reload Msg ID %s as Messenger when displaying sent table." % mess.id
+                print("Error: Had to reload Msg ID %s as Messenger when displaying sent table." % mess.id)
                 date = self.caller.messages.get_date_from_header(mess) or "Unknown"
             msgtable.add_row([mess_num, name, date])
             mess_num += 1
@@ -1217,6 +1267,7 @@ class CmdCalendar(ArxPlayerCommand):
 
     @staticmethod
     def display_events(events):
+        """Displays table of events"""
         table = PrettyTable(["{wID{n", "{wName{n", "{wDate{n", "{wHost{n", "{wPublic{n"])
         for event in events:
             host = event.main_host or "No host"
@@ -1680,6 +1731,7 @@ class CmdCalendar(ArxPlayerCommand):
 
 
 def get_max_praises(char):
+    """Calculates how many praises character has"""
     val = char.db.charm or 0
     val += char.db.command or 0
     val += char.db.skills.get('propaganda', 0)
@@ -1695,6 +1747,7 @@ def get_max_praises(char):
     
 
 def display_praises(player):
+    """Returns table of praises by player"""
     praises = player.db.praises or {}
     condemns = player.db.condemns or {}
     msg = "Praises:\n"
@@ -2103,18 +2156,22 @@ class CmdRandomScene(ArxCommand):
 
     @property
     def scenelist(self):
+        """Randomly generated list of players we can claim"""
         return self.caller.player_ob.db.random_scenelist or []
 
     @property
     def claimlist(self):
+        """List of people we have claimed and who have asked to claim us"""
         return set(list(self.caller.player_ob.db.claimed_scenelist or []) + list(self.requested_validation))
 
     @property
     def validatedlist(self):
+        """List of players we have validated the scenes for"""
         return self.caller.player_ob.db.validated_list or []
 
     @property
     def requested_validation(self):
+        """List of players who have requested to claim us"""
         return self.caller.player_ob.db.requested_validation or []
 
     @property
@@ -2160,6 +2217,7 @@ class CmdRandomScene(ArxCommand):
                                         ~Q(roster__player__db_tags__db_key="staff_npc")).distinct()
 
     def display_lists(self):
+        """Displays (and generates, if needed) the list of players we can claim and have validated."""
         for ob in self.scenelist[:]:
             try:
                 ob.roster.roster.refresh_from_db()
@@ -2189,6 +2247,7 @@ class CmdRandomScene(ArxCommand):
             self.msg("{wThose you have validated scenes for this week{n %s" % ", ".join(ob.key for ob in validated))
 
     def generate_lists(self):
+        """Generates our random choices of people we can claim this week."""
         scenelist = self.scenelist
         claimlist = [ob for ob in self.claimlist if ob not in self.newbies]
         newbies = [ob.id for ob in self.newbies]
@@ -2203,6 +2262,7 @@ class CmdRandomScene(ArxCommand):
         self.caller.player_ob.db.random_scenelist = scenelist
 
     def claim_scene(self):
+        """Sends a request from caller to another player to validate their scene."""
         targ = self.caller.search(self.lhs)
         if not targ:
             return
@@ -2242,6 +2302,7 @@ class CmdRandomScene(ArxCommand):
         self.caller.player_ob.db.requested_validation = our_requests
 
     def validate_scene(self):
+        """Grants a request to validate a randomscene."""
         scene_requests = self.caller.db.scene_requests or {}
         targ = scene_requests.pop(self.args.lower(), (None, ""))[0]
         self.caller.db.scene_requests = scene_requests
@@ -2262,6 +2323,7 @@ class CmdRandomScene(ArxCommand):
         self.caller.player_ob.db.validated_list = validated
 
     def view_requests(self):
+        """Views current requests for validation."""
         requests = self.caller.db.scene_requests or {}
         table = EvTable("{wName{n", "{wSummary{n", width=78, border="cells")
         for tup in requests.values():
@@ -2269,6 +2331,7 @@ class CmdRandomScene(ArxCommand):
         self.msg(str(table))
 
     def func(self):
+        """Main function for RandomScene"""
         if (not self.switches or "online" in self.switches) and not self.args:
             self.display_lists()
             return
@@ -2299,6 +2362,7 @@ class CmdCensus(ArxPlayerCommand):
     help_category = "Information"
 
     def func(self):
+        """Displays the census information"""
         from .guest import census_of_fealty
         fealties = census_of_fealty()
         table = PrettyTable(["{wFealty{n", "{w#{n"])
@@ -2323,6 +2387,7 @@ class CmdRoomTitle(ArxCommand):
     help_category = "Social"
 
     def func(self):
+        """Sets or clears a roomtitle for the caller"""
         if not self.args:
             self.msg("Roomtitle cleared.")
             self.caller.attributes.remove("room_title")
@@ -2347,6 +2412,7 @@ class CmdTempDesc(ArxCommand):
     help_category = "Social"
 
     def func(self):
+        """Sets or removes a temporary desc from the character"""
         if not self.args:
             self.msg("Temporary description cleared.")
             del self.caller.additional_desc
@@ -2376,12 +2442,14 @@ class CmdLanguages(ArxCommand):
     help_category = "Social"
 
     def list_languages(self):
+        """Lists the languages the caller can speak"""
         known = [ob.capitalize() for ob in self.caller.languages.known_languages]
         known += ["Arvani"]
         self.msg("{wYou can currently speak:{n %s" % ", ".join(known))
         self.msg("You can learn %s additional languages." % self.caller.languages.additional_languages)
 
     def func(self):
+        """Executes the language command"""
         if not self.args:
             self.msg("{wYou are currently speaking:{n %s" % self.caller.languages.current_language.capitalize())
             self.list_languages()
@@ -2469,6 +2537,7 @@ class CmdIAmHelping(ArxPlayerCommand):
     help_category = "Social"
 
     def func(self):
+        """Executes the +iamhelping command"""
         if not self.args:
             self.msg("You have %s AP remaining." % self.caller.roster.action_points)
             return
@@ -2517,11 +2586,13 @@ class CmdRPHooks(ArxPlayerCommand):
     aliases = ["rphooks"]
 
     def list_valid_tags(self):
+        """Lists the existing tags for rp hooks"""
         tags = Tag.objects.filter(db_category="rp hooks").order_by('db_key')
         self.msg("Categories: %s" % "; ".join(tag.db_key for tag in tags))
         return
 
     def func(self):
+        """Executes the RPHooks command"""
         if not self.switches:
             if not self.args:
                 targ = self.caller
@@ -2594,6 +2665,7 @@ class CmdRPHooks(ArxPlayerCommand):
         self.msg("Invalid switch.")
         
     def validate_name(self, name):
+        """Ensures that RPHooks doesn't have a name with special characters that would break it"""
         import re
         if not re.findall('^[\w\',]+$', name):
             self.msg("That category name contains invalid characters.")
@@ -2657,6 +2729,7 @@ class CmdFirstImpression(ArxCommand):
     aliases = ["firstimpression", "firstimpressions", "+firstimpressions"]
 
     def list_valid(self):
+        """Sends msg to caller of list of characters they can make firstimpression of"""
         contacts = self.caller.roster.accounthistory_set.last().contacts.all()
         if "list" in self.switches:
             self.msg("{wCharacters you have written first impressions of:{n %s" % ", ".join(
@@ -2674,6 +2747,7 @@ class CmdFirstImpression(ArxCommand):
                                                                          ", ".join(str(ob.entry) for ob in qs)))
 
     def func(self):
+        """Executes firstimpression command"""
         if "mine" in self.switches:
             by_str = ""
             player = None
@@ -2697,6 +2771,7 @@ class CmdFirstImpression(ArxCommand):
             self.msg("{wFirst impressions of {c%s{n:" % self.args.capitalize())
 
             def get_privacy_str(roster_object):
+                """Formats string of roster_object with whether it't shared and/or private"""
                 if roster_object.private:
                     return "{w(Private){n"
                 return "{w(Shared){n" if roster_object.writer_share else "{w(Not Shared){n"
@@ -2827,6 +2902,7 @@ class CmdGetInLine(ArxCommand):
 
     @property
     def line(self):
+        """The Line object, stored as a list in the caller's location"""
         loc = self.caller.location
         if loc.ndb.event_line is None:
             loc.ndb.event_line = []
@@ -2839,6 +2915,7 @@ class CmdGetInLine(ArxCommand):
 
     @property
     def hosts(self):
+        """List of hosts for the line"""
         loc = self.caller.location
         if loc.ndb.event_line_hosts is None:
             loc.ndb.event_line_hosts = []
@@ -2850,12 +2927,14 @@ class CmdGetInLine(ArxCommand):
         self.caller.location.ndb.event_line_hosts = val
 
     def check_line(self):
+        """Checks if we can create a line, or if one already exists."""
         if not self.hosts and not self.line:
             self.msg("There is no line here. You can create one with +line/createline.")
             return
         return True
 
     def display_line(self):
+        """Displays current line order."""
         line = self.line
         hosts = self.hosts
         if not self.check_line():
@@ -2864,6 +2943,7 @@ class CmdGetInLine(ArxCommand):
         self.msg("|wCurrent line order:|n %s" % ", ".join(str(ob) for ob in line))
 
     def join_line(self):
+        """Has caller join the line."""
         if not self.check_line():
             return
         if self.caller in self.line:
@@ -2873,6 +2953,7 @@ class CmdGetInLine(ArxCommand):
         self.caller.location.msg_contents("%s has joined the line." % self.caller)
 
     def next_in_line(self):
+        """Gets the next person in line."""
         if not self.check_line():
             return
         line = self.line
@@ -2883,6 +2964,7 @@ class CmdGetInLine(ArxCommand):
         self.caller.location.msg_contents("|553It is now %s's turn to speak." % next_guy)
 
     def drop_out(self):
+        """Removes caller from the line."""
         line = self.line
         if self.caller in line:
             line.remove(self.caller)
@@ -2892,6 +2974,7 @@ class CmdGetInLine(ArxCommand):
         self.display_line()
 
     def dismiss(self):
+        """Gets rid of the line."""
         line = self.line
         hosts = self.hosts
         caller = self.caller
@@ -2904,6 +2987,7 @@ class CmdGetInLine(ArxCommand):
         return
 
     def create_line(self):
+        """Creates a new line here."""
         if self.line:
             self.msg("There is a line here already.")
             self.display_line()
@@ -2917,6 +3001,7 @@ class CmdGetInLine(ArxCommand):
 
     # noinspection PyUnresolvedReferences
     def func(self):
+        """Executes the +line command"""
         # check what aliases we have used
         if self.cmdstring == "getinline":
             self.switches.append("getinline")
