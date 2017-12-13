@@ -119,6 +119,7 @@ class CmdWhere(ArxPlayerCommand):
         +where/shops/all [<ability>]
         +where/randomscene
         +where/watch
+        +where/firstimpression
 
     Displays a list of characters in public rooms. The /shops switch
     lets you see a list of shops. /watch filters results by characters in
@@ -174,18 +175,20 @@ class CmdWhere(ArxPlayerCommand):
             caller.msg("No visible characters found.")
             return
         caller.msg("{wLocations of players:\n")
-
+        # this blank line is now a love note to my perfect partner. <3
         self.msg("Players who are currently LRP have a |R+|n by their name.")
-        scene_chars = []
+        applicable_chars = []
         if "randomscene" in self.switches or "rs" in self.switches:
             cmd = CmdRandomScene()
-            cmd.caller = self.caller.db.char_ob
-            scene_chars = list(cmd.scenelist) + [ob for ob in cmd.newbies if ob not in cmd.claimlist]
+            cmd.caller = caller.db.char_ob
+            applicable_chars = list(cmd.scenelist) + [ob for ob in cmd.newbies if ob not in cmd.claimlist]
+        elif "firstimp" in self.switches:
+            applicable_chars = [ob.entry.character for ob in AccountHistory.objects.unclaimed_impressions(caller.roster)]
         for room in rooms:
             charlist = sorted(room.get_visible_characters(caller), key=lambda x: x.name)
-            if "randomscene" in self.switches or "rs" in self.switches:
-                charlist = [ob for ob in charlist if ob in scene_chars]
-            if "watch" in self.switches:
+            if "randomscene" in self.switches or "rs" in self.switches or "firstimp" in self.switches:
+                charlist = [ob for ob in charlist if ob in applicable_chars]
+            elif "watch" in self.switches:
                 watching = caller.db.watching or []
                 charlist = [ob for ob in charlist if ob in watching]
             char_names = get_char_names(charlist, caller)
