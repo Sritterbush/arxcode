@@ -227,6 +227,23 @@ class OverridesTests(ArxCommandTest):
 
 
 class SocialTests(ArxCommandTest):
+    def test_cmd_where(self):
+        self.setup_cmd(social.CmdWhere, self.account)
+        self.call_cmd("/shops", "List of shops:")
+        self.room1.tags.add("shop")
+        self.room1.db.shopowner = self.char2
+        self.call_cmd("/shops", "List of shops:\n|Room: Char2")
+        from web.character.models import Roster, AccountHistory
+        self.roster_entry2.roster = Roster.objects.create(name="Bishis")
+        self.call_cmd("/shops/all", "List of shops:\n|Room: Char2 (Inactive)")
+        # TODO: create AccountHistory thingies, set a firstimpression for one of the Chars
+        # TODO: test /firstimp, /rs, /watch
+        self.call_cmd("", "Locations of players:\n|Players who are currently LRP have a + by their name.|Room: Char, Char2")
+        self.char2.tags.add("disguised")
+        self.call_cmd("", "Locations of players:\n|Players who are currently LRP have a + by their name.|Room: Char")
+        self.room1.tags.add("private")
+        self.call_cmd("", "No visible characters found.")
+    
     def test_cmd_watch(self):
         self.setup_cmd(social.CmdWatch, self.account)
         max_size = social.CmdWatch.max_watchlist_size
@@ -234,7 +251,9 @@ class SocialTests(ArxCommandTest):
         self.assertTrue(self.char2 in self.caller.db.watching)
         self.call_cmd("testaccount2", "You are already watching Char2.")
         self.call_cmd("/hide", "Hiding set to True.")
+        self.assertTrue(bool(self.caller.db.hide_from_watch))
         self.call_cmd("/hide", "Hiding set to False.")
+        self.assertFalse(bool(self.caller.db.hide_from_watch))
         self.call_cmd("/stop testAccount2", "Stopped watching Char2.")
         self.assertTrue(self.char2 not in self.caller.db.watching)
         for _ in range(max_size):

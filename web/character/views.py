@@ -1,27 +1,30 @@
-# Views for our character app
-# __init__.py for character configures cloudinary
-from django.db.models import Q
-from django.http import Http404
-from django.shortcuts import render, get_object_or_404
-from django.http import HttpResponseRedirect, HttpResponse
-from django.core.urlresolvers import reverse
-from django.core.exceptions import PermissionDenied
-from typeclasses.characters import Character
-from evennia.objects.models import ObjectDB
-from world.dominion.models import Organization, CrisisAction
-from commands.commands import roster
+"""
+Views for our character app
+__init__.py for character configures cloudinary
+"""
+import json
+
 import cloudinary
-import cloudinary.uploader
 import cloudinary.forms
+import cloudinary.uploader
 from cloudinary import api
+from cloudinary.forms import cl_init_js_callbacks
+from django.core.exceptions import PermissionDenied
+from django.core.urlresolvers import reverse
+from django.db.models import Q
+from django.http import Http404, HttpResponseRedirect, HttpResponse
+from django.shortcuts import render, get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
+from django.views.generic import ListView, DetailView
+from evennia.objects.models import ObjectDB
+
+from commands.commands import roster
+from server.utils.name_paginator import NamePaginator
+from typeclasses.characters import Character
+from world.dominion.models import Organization, CrisisAction
 from .forms import (PhotoForm, PhotoDirectForm, PhotoUnsignedDirectForm, PortraitSelectForm,
                     PhotoDeleteForm, PhotoEditForm, FlashbackPostForm)
-from .models import Photo, Story, Episode, Chapter, Flashback, FlashbackPost
-from cloudinary.forms import cl_init_js_callbacks
-import json
-from django.views.decorators.csrf import csrf_exempt
-from server.utils.name_paginator import NamePaginator
-from django.views.generic import ListView, DetailView
+from .models import Photo, Story, Episode, Chapter, Flashback
 
 
 def get_character_from_ob(object_id):
@@ -112,8 +115,11 @@ API_CACHE = None
 
 
 def character_list(request):
+    """View for API call from wikia"""
     def get_relations(char):
+        """helper function for getting dict of character's relationships"""
         def parse_name(relation):
+            """Helper function for outputting string display of character name"""
             if relation.player:
                 char_ob = relation.player.char_ob
                 return "%s %s" % (char_ob.key, char_ob.db.family)
@@ -142,6 +148,7 @@ def character_list(request):
             return {}
 
     def get_dict(char):
+        """Helper function for getting dict of all relevant character information"""
         character = {}
         if char.player_ob.is_staff or char.db.npc:
             return character
@@ -180,6 +187,7 @@ def character_list(request):
 
 
 class RosterListView(ListView):
+    """Base View for listing all the characters in the roster. Will be overridden for different rosters"""
     model = ObjectDB
     template_name = 'character/list.html'
     paginator_class = NamePaginator
@@ -187,10 +195,12 @@ class RosterListView(ListView):
     roster_name = "Active"
 
     def get_queryset(self):
+        """Gets queryset of Character objects"""
         return ObjectDB.objects.filter(roster__roster__name=self.roster_name).order_by('db_key')
 
     # noinspection PyBroadException
     def get_context_data(self, **kwargs):
+        """Gets context for template. Permission to see secret stuff is in show_secret"""
         context = super(RosterListView, self).get_context_data(**kwargs)
         user = self.request.user
         show_hidden = False
@@ -207,21 +217,26 @@ class RosterListView(ListView):
 
 
 class ActiveRosterListView(RosterListView):
+    """View for list of active characters"""
     pass
 
 
 class AvailableRosterListView(RosterListView):
+    """View for list of Available characters"""
     roster_name = "Available"
 
 
 class GoneRosterListView(RosterListView):
+    """View for list of dead characters. RIP"""
     roster_name = "Gone"
 
 
 class IncompleteRosterListView(RosterListView):
+    """View for list of characters that are in the process of being created"""
     roster_name = "Incomplete"
 
     def get_queryset(self):
+        """Only grant permission to see for staff"""
         user = self.request.user
         if not (user.is_authenticated() and user.check_permstring("builders")):
             raise Http404("Not staff")
@@ -229,10 +244,12 @@ class IncompleteRosterListView(RosterListView):
 
 
 class UnavailableRosterListView(IncompleteRosterListView):
+    """List of characters that cannot be seen/removed from play. NPCs and others that aren't visible"""
     roster_name = "Unavailable"
 
 
 class InactiveRosterListView(IncompleteRosterListView):
+    """List of characters that are not presently active but could return"""
     roster_name = "Inactive"
 
 
@@ -258,6 +275,7 @@ def gallery(request, object_id):
 
 
 def edit_photo(request, object_id):
+    """View for changing a photo"""
     character = get_character_from_ob(object_id)
     user = request.user
     if not (user == character.player_ob or user.is_staff):
@@ -277,6 +295,7 @@ def edit_photo(request, object_id):
 
 
 def delete_photo(request, object_id):
+    """View for deleting a photo. Calls cloudinary.api to delete it from storage, model deleted after"""
     character = get_character_from_ob(object_id)
     user = request.user
     if not (user == character.player_ob or user.is_staff):
@@ -316,6 +335,7 @@ def select_portrait(request, object_id):
 
 
 def upload(request, object_id):
+    """View for uploading new photo resource to cloudinary and creating model"""
     user = request.user
     character = get_character_from_ob(object_id)
     if not user.is_authenticated() or (user.db.char_ob != character and not user.is_staff):
@@ -362,6 +382,7 @@ def upload(request, object_id):
 
 @csrf_exempt
 def direct_upload_complete(request, object_id):
+    """View for uploading to cloudinary with javascript widget"""
     character = get_character_from_ob(object_id)
     owner_char = Photo(owner=character)
     form = PhotoDirectForm(request.POST, instance=owner_char)
@@ -376,11 +397,13 @@ def direct_upload_complete(request, object_id):
 
 
 class ChapterListView(ListView):
+    """View for listing chapters in a current story"""
     model = Chapter
     template_name = 'character/story.html'
 
     @property
     def story(self):
+        """Gets the story for the chapters"""
         get = self.request.GET
         if not get:
             return Story.objects.latest('start_date')
@@ -388,15 +411,17 @@ class ChapterListView(ListView):
         return Story.objects.get(name=story_name)
 
     def get_queryset(self):
+        """QuerySet is all chapters for the current story"""
         return Chapter.objects.filter(story=self.story).order_by('-start_date')
 
     @property
     def viewable_crises(self):
+        """Gets queryset of crises visible to user"""
         from world.dominion.models import Crisis
         return Crisis.objects.viewable_by_player(self.request.user).filter(chapter__in=self.get_queryset())
 
-    # noinspection PyBroadException
     def get_context_data(self, **kwargs):
+        """Gets context for our template. Stories, current story, and viewable_crises"""
         context = super(ChapterListView, self).get_context_data(**kwargs)
         story = self.story
         context['story'] = story
@@ -407,6 +432,7 @@ class ChapterListView(ListView):
 
 
 def episode(request, ep_id):
+    """View for displaying a specific episode in a chapter"""
     new_episode = get_object_or_404(Episode, id=ep_id)
     crisis_updates = new_episode.get_viewable_crisis_updates_for_player(request.user)
     return render(request, 'character/episode.html', {'episode': new_episode,
@@ -415,14 +441,17 @@ def episode(request, ep_id):
 
 
 class ActionListView(ListView):
+    """View for listing the CrisisActions of a given character"""
     model = CrisisAction
     template_name = "character/actions.html"
 
     @property
     def character(self):
+        """The main character of the actions"""
         return get_object_or_404(Character, id=self.kwargs['object_id'])
 
     def get_queryset(self):
+        """Display only public actions if we're not staff or a participant"""
         qs = self.character.past_participated_actions.order_by('-date_submitted')
         user = self.request.user
         if not user or not user.is_authenticated():
@@ -432,20 +461,24 @@ class ActionListView(ListView):
         return qs.filter(public=True)
 
     def get_context_data(self, **kwargs):
+        """Gets context for the template"""
         context = super(ActionListView, self).get_context_data(**kwargs)
         context['character'] = self.character
         return context
 
 
 class FlashbackListView(ListView):
+    """View for listing flashbacks"""
     model = Flashback
     template_name = "character/flashback_list.html"
 
     @property
     def character(self):
+        """Main character for the flashback"""
         return get_object_or_404(Character, id=self.kwargs['object_id'])
 
     def get_queryset(self):
+        """Ensure flashbacks are private to participants/staff"""
         user = self.request.user
         if not user or not user.is_authenticated():
             raise PermissionDenied
@@ -455,12 +488,14 @@ class FlashbackListView(ListView):
         return Flashback.objects.filter(Q(owner=entry) | Q(allowed=entry))
 
     def get_context_data(self, **kwargs):
+        """Gets context for template"""
         context = super(FlashbackListView, self).get_context_data(**kwargs)
         context['character'] = self.character
         return context
 
 
 class FlashbackAddPostView(DetailView):
+    """View for an individual flashback or adding a post to it"""
     model = Flashback
     form_class = FlashbackPostForm
     template_name = "character/flashbackpost_form.html"
@@ -468,16 +503,19 @@ class FlashbackAddPostView(DetailView):
 
     @property
     def character(self):
+        """Main character for the flashback"""
         return get_object_or_404(Character, id=self.kwargs['object_id'])
 
     @property
     def poster(self):
+        """RosterEntry of user who will be making post"""
         try:
             return self.request.user.roster
         except AttributeError:
             return None
 
     def get_context_data(self, **kwargs):
+        """Gets context for template, ensures we have permissions"""
         context = super(FlashbackAddPostView, self).get_context_data(**kwargs)
         user = self.request.user
         if user not in self.get_object().all_players and not (user.is_staff or user.check_permstring("builders")):
@@ -488,6 +526,7 @@ class FlashbackAddPostView(DetailView):
 
     # noinspection PyUnusedLocal
     def post(self, request, *args, **kwargs):
+        """Handles POST request. Processes doing a post to the flashback"""
         if "add_post" in request.POST:
             form = FlashbackPostForm(request.POST)
             if form.is_valid():
