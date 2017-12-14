@@ -130,7 +130,7 @@ class CmdWhere(ArxPlayerCommand):
     aliases = ["@where", "where"]
     help_category = "Travel"
     randomscene_switches = ("rs", "randomscene", "randomscenes")
-    firstimp_switches = ("firstimp", "firstimpression", "firstimpressions")
+    firstimp_switches = ("firstimp", "firstimpression", "firstimpressions", "fi", "fp")
     filter_switches = randomscene_switches + firstimp_switches
 
     @staticmethod
@@ -2885,18 +2885,19 @@ class CmdGetInLine(ArxCommand):
 
     Usage:
         +line
-        +line/getinline
-        +line/createline <other people who can use +line/nextinline>
+        +line/createline[/loop] <line host 1>,<line host 2>,<etc>
+        +line/loop
         +line/nextinline
+        +line/getinline
         +line/dropout
         +line/dismiss
 
     Allows you to recognize people who are standing in a line for their turn
-    to speak. To create a line, use +line/createline with the names of anyone
-    else who you also want to be able to call upon people to speak. To join
-    a line that's been created, use +line/getinline. If you want to give up
-    your turn, use +line/dropout. If you are done recognizing people, use
-    +line/dismiss.
+    to speak. To create a line, use +line/createline with the names of fellow 
+    hosts who may also control it. +line/loop toggles the line to repeat.
+    Call the next person with +line/nextinline. To join a line that's been 
+    created, use +line/getinline. If you want to give up your turn, use 
+    +line/dropout. If you are done recognizing people, use +line/dismiss.
     """
     key = "+line"
     aliases = ["getinline", "nextinline"]
@@ -2929,6 +2930,15 @@ class CmdGetInLine(ArxCommand):
     def hosts(self, val):
         self.caller.location.ndb.event_line_hosts = val
 
+    @property
+    def loop(self):
+        """Returns a thingy if line looping was set"""
+        return self.caller.location.ndb.event_line_loop
+        
+    @loop.setter
+    def loop(self, val):
+        self.caller.location.ndb.event_line_loop = val
+
     def check_line(self):
         """Checks if we can create a line, or if one already exists."""
         if not self.hosts and not self.line:
@@ -2947,24 +2957,29 @@ class CmdGetInLine(ArxCommand):
 
     def join_line(self):
         """Has caller join the line."""
-        if not self.check_line():
-            return
         if self.caller in self.line:
             self.msg("You are already in the line.")
             return
+        if not self.line and self.loop:
+            self.line.append("|r*Loop Marker*|n")
         self.line.append(self.caller)
         self.caller.location.msg_contents("%s has joined the line." % self.caller)
 
     def next_in_line(self):
         """Gets the next person in line."""
-        if not self.check_line():
+        if not self.check_line() or not self.can_alter_line():
             return
         line = self.line
-        if not line:
-            self.msg("There is no one left in line.")
-            return
         next_guy = line.pop(0)
-        self.caller.location.msg_contents("|553It is now %s's turn to speak." % next_guy)
+        is_string = bool(isinstance(next_guy, type(self.caller)))
+        if self.loop:
+            self.line.append(next_guy)
+            if is_string:
+                next_guy = line.pop(0)
+                self.line.append(next_guy)
+        elif is_string:
+            next_guy = line.pop(0)
+        self.caller.location.msg_contents("|553Turn in line:|n %s" % next_guy)
 
     def drop_out(self):
         """Removes caller from the line."""
@@ -2975,15 +2990,21 @@ class CmdGetInLine(ArxCommand):
             return
         self.msg("You are not in the line.")
         self.display_line()
-
-    def dismiss(self):
-        """Gets rid of the line."""
-        line = self.line
+    
+    def can_alter_line(self):
         hosts = self.hosts
         caller = self.caller
-        if line and caller not in hosts and not caller.check_permstring("builders"):
-            self.msg("You do not have permission to dismiss the line.")
+        if caller not in hosts and not caller.check_permstring("builders"):
+            self.msg("You do not have permission to alter the line.")
             return
+        return True
+    
+    def dismiss(self):
+        """Gets rid of the line."""
+        if not self.can_alter_line:
+            return
+        if self.loop:
+            self.loop = None
         self.line = []
         self.hosts = []
         self.caller.location.msg_contents("The line has been dismissed by %s." % self.caller)
@@ -2991,7 +3012,7 @@ class CmdGetInLine(ArxCommand):
 
     def create_line(self):
         """Creates a new line here."""
-        if self.line:
+        if self.hosts and self.line:
             self.msg("There is a line here already.")
             self.display_line()
             return
@@ -3000,7 +3021,18 @@ class CmdGetInLine(ArxCommand):
         other_hosts = [ob for ob in other_hosts if ob and ob.player]
         other_hosts.append(self.caller)
         self.hosts = other_hosts
+        if "loop" in self.switches:
+            self.toggle_loop()
         self.display_line()
+        
+    def toggle_loop(self):
+        if not self.can_alter_line():
+            return
+        if self.loop:
+            self.loop = None
+        else:
+            self.caller.location.ndb.event_line_loop = True
+        self.msg("Line looping set to: %s" % str(bool(self.loop)))
 
     # noinspection PyUnresolvedReferences
     def func(self):
@@ -3010,8 +3042,13 @@ class CmdGetInLine(ArxCommand):
             self.switches.append("getinline")
         if self.cmdstring == "nextinline":
             self.switches.append("nextinline")
+        if "createline" in self.switches:
+            self.create_line()
+            return
         if not self.args and not self.switches:
             self.display_line()
+            return
+        if not self.check_line:
             return
         if "getinline" in self.switches:
             self.join_line()
@@ -3025,6 +3062,6 @@ class CmdGetInLine(ArxCommand):
         if "dismiss" in self.switches:
             self.dismiss()
             return
-        if "createline" in self.switches:
-            self.create_line()
+        if "loop" in self.switches:
+            self.toggle_loop()
             return
