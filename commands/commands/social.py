@@ -129,6 +129,9 @@ class CmdWhere(ArxPlayerCommand):
     locks = "cmd:all()"
     aliases = ["@where", "where"]
     help_category = "Travel"
+    randomscene_switches = ("rs", "randomscene", "randomscenes")
+    firstimp_switches = ("firstimp", "firstimpression", "firstimpressions")
+    filter_switches = randomscene_switches + firstimp_switches
 
     @staticmethod
     def get_room_str(room):
@@ -178,15 +181,15 @@ class CmdWhere(ArxPlayerCommand):
         # this blank line is now a love note to my perfect partner. <3
         self.msg("Players who are currently LRP have a |R+|n by their name.")
         applicable_chars = []
-        if "randomscene" in self.switches or "rs" in self.switches:
+        if self.check_switches(self.randomscene_switches):
             cmd = CmdRandomScene()
             cmd.caller = caller.db.char_ob
             applicable_chars = list(cmd.scenelist) + [ob for ob in cmd.newbies if ob not in cmd.claimlist]
-        elif "firstimp" in self.switches:
+        elif self.check_switches(self.firstimp_switches):
             applicable_chars = [ob.entry.character for ob in AccountHistory.objects.unclaimed_impressions(caller.roster)]
         for room in rooms:
             charlist = sorted(room.get_visible_characters(caller), key=lambda x: x.name)
-            if "randomscene" in self.switches or "rs" in self.switches or "firstimp" in self.switches:
+            if self.check_switches(self.filter_switches):
                 charlist = [ob for ob in charlist if ob in applicable_chars]
             elif "watch" in self.switches:
                 watching = caller.db.watching or []
