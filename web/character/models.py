@@ -326,7 +326,7 @@ class Episode(SharedMemoryModel):
         if player.is_staff or player.check_permstring("builders"):
             return self.crisis_updates.all()
         return self.crisis_updates.filter(Q(crisis__public=True) | Q(
-            crisis__required_clue__discoveries__in=player.roster.discovered_clues)).distinct()
+            crisis__required_clue__discoveries__in=player.roster.finished_clues)).distinct()
 
 
 class StoryEmit(SharedMemoryModel):
