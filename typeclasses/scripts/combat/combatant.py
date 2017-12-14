@@ -1390,9 +1390,9 @@ class CombatHandler(object):
         """
         Removes us from list of anyone covering us.
         """
-        character = self.char
+        our_character = self.char
         if self.covered_by:
-            for covered_by_charob in self.covered_by:
-                cov_data = covered_by_charob.combat
-                if cov_data and cov_data.covering_targs:
-                    self.stop_covering(character)
+            for character_covering_us in self.covered_by:
+                their_handler = character_covering_us.combat
+                if our_character in their_handler.covering_targs:
+                    their_handler.stop_covering(targ=our_character)
