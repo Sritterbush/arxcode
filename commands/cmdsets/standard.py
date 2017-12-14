@@ -210,6 +210,7 @@ class MobileCmdSet(CmdSet):
         self.add(combat.CmdHarm())
         self.add(combat.CmdFightStatus())
         self.add(agent_commands.CmdGuards())
+        self.add(domcommands.CmdPlotRoom())
         self.add(domcommands.CmdTask())
         self.add(domcommands.CmdSupport())
         self.add(crafting.CmdCraft())

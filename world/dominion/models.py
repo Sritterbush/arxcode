@@ -57,6 +57,7 @@ import traceback
 from evennia.typeclasses.models import SharedMemoryModel
 from evennia.locks.lockhandler import LockHandler
 from evennia.utils.utils import lazy_property
+from evennia.utils import create
 from django.db import models
 from django.db.models import Q
 from django.conf import settings
@@ -4749,3 +4750,105 @@ class SupportUsed(SharedMemoryModel):
 
     def __str__(self):
         return "%s using %s of %s" % (self.supporter, self.rating, self.sphere)
+
+
+class PlotRoom(SharedMemoryModel):
+    name = models.CharField(blank=False, null=False, max_length=78, db_index=True)
+    description = models.TextField(blank=False, null=False, max_length=4096)
+    creator = models.ForeignKey('PlayerOrNpc', related_name='created_plot_rooms', blank=True, null=True, db_index=True)
+    public = models.BooleanField(default=False)
+
+    REGION_UNKNOWN = 0
+    REGION_ARX = 1
+    REGION_CROWNLANDS = 2
+    REGION_OATHLANDS = 3
+    REGION_LYCEUM = 4
+    REGION_NORTHLANDS = 5
+    REGION_ISLES = 6
+
+    REGION_CHOICES = (
+        (REGION_UNKNOWN, 'Unknown'),
+        (REGION_ARX, 'Arx'),
+        (REGION_CROWNLANDS, 'Crownlands'),
+        (REGION_OATHLANDS, 'Oathlands'),
+        (REGION_LYCEUM, 'Lyceum'),
+        (REGION_NORTHLANDS, 'Northlands'),
+        (REGION_ISLES, 'Isles')
+    )
+
+    region = models.PositiveSmallIntegerField(choices=REGION_CHOICES, default=REGION_UNKNOWN)
+
+    BIOME_UNKNOWN = 0
+    BIOME_FOREST = 1
+    BIOME_MOUNTAIN = 2
+    BIOME_EVERWINTER = 3
+    BIOME_TROPICAL = 4
+    BIOME_RUINS = 5
+    BIOME_CAVERNS = 6
+    BIOME_CATACOMBS = 7
+    BIOME_CITY = 8
+
+    BIOME_CHOICES = (
+        (BIOME_UNKNOWN, 'Unknown'),
+        (BIOME_FOREST, 'Forest'),
+        (BIOME_MOUNTAIN, 'Mountain'),
+        (BIOME_EVERWINTER, 'Everwinter'),
+        (BIOME_TROPICAL, 'Tropical'),
+        (BIOME_RUINS, 'Ruins'),
+        (BIOME_CAVERNS, 'Caverns'),
+        (BIOME_CATACOMBS, 'Catacombs'),
+        (BIOME_CITY, 'City / Settlement')
+    )
+
+    biome = models.PositiveSmallIntegerField(choices=BIOME_CHOICES, default=BIOME_UNKNOWN)
+
+    region_names = {
+        REGION_UNKNOWN: "Unknown",
+        REGION_ARX: "Arx",
+        REGION_CROWNLANDS: "Crownlands",
+        REGION_OATHLANDS: "Oathlands",
+        REGION_LYCEUM: "Lyceum",
+        REGION_NORTHLANDS: "Northlands",
+        REGION_ISLES: "Mourning Isles"
+    }
+
+    region_prefix = {
+        REGION_ARX: "|yArx - ",
+        REGION_CROWNLANDS: "|yOutside Arx |g- Crownlands - ",
+        REGION_OATHLANDS: "|yOutside Arx |b- Oathlands - ",
+        REGION_LYCEUM: "|yOutside Arx |115- Lyceum - ",
+        REGION_NORTHLANDS: "|yOutside Arx |r- Northlands - ",
+        REGION_ISLES: "|yOutside Arx |025- Mourning Isles - ",
+        REGION_UNKNOWN: "|yOutside Arx |505- "
+    }
+
+    biome_names = {
+        BIOME_UNKNOWN: "Unknown",
+        BIOME_FOREST: "Forest",
+        BIOME_MOUNTAIN: "Mountain",
+        BIOME_EVERWINTER: "Everwinter",
+        BIOME_TROPICAL: "Tropical",
+        BIOME_RUINS: "Ruins",
+        BIOME_CAVERNS: "Caverns",
+        BIOME_CATACOMBS: "Catacombs",
+        BIOME_CITY: "City"
+    }
+
+    def ansi_name(self):
+        return self.region_prefix[self.region] + str(self.name) + "|n"
+
+    def region_name(self):
+        return self.region_names[self.region]
+
+    def biome_name(self):
+        return self.biome_names[self.biome]
+
+    def spawn_room(self):
+        room = create.create_object(typeclass='typeclasses.rooms.TempRoom',
+                                    key=self.ansi_name())
+        room.db.raw_desc = self.description
+        room.db.desc = self.description
+        return room
+
+    def __str__(self):
+        return "PlotRoom #%d: %s" % (self.id, self.name)
