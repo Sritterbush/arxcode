@@ -1720,7 +1720,7 @@ class Crisis(SharedMemoryModel):
         already_published = []
         for action in qs:
             if action.status == CrisisAction.PENDING_PUBLISH:
-                action.send(update=update)
+                action.send(update=update, caller=caller)
                 pending.append(str(action.id))
             else:
                 action.update = update
@@ -1928,8 +1928,9 @@ class AbstractAction(AbstractPlayerAllocations):
         attendees = self.attendees
         if len(attendees) > self.attending_limit and not self.prefer_offscreen:
             excess = len(attendees) - self.attending_limit
-            raise ActionSubmissionError("A crisis action can have %s people attending in person. %s of you should "
+            raise ActionSubmissionError("An onscreen action can have %s people attending in person. %s of you should "
                                         "check your story, then change to a passive role with @action/toggleattend. "
+                                        "Alternately, the action can be marked as preferring offscreen resolution. "
                                         "Current attendees: %s" % (self.attending_limit, excess,
                                                                    ",".join(str(ob) for ob in attendees)))
                                         
@@ -1937,7 +1938,7 @@ class AbstractAction(AbstractPlayerAllocations):
         if self.crisis:
             self.crisis.raise_submission_errors()
             self.check_crisis_omnipresence()
-            self.check_crisis_overcrowd()
+        self.check_crisis_overcrowd()
             
     def mark_attending(self):
         self.check_crisis_errors()
@@ -2154,7 +2155,7 @@ class CrisisAction(AbstractAction):
     def all_editable(self):
         return [ob for ob in self.action_and_assists_and_invites if ob.editable]
     
-    def send(self, update=None):
+    def send(self, update=None, caller=None):
         if self.crisis:
             msg = "{wGM Response to action for crisis:{n %s" % self.crisis
         else:
@@ -2172,6 +2173,8 @@ class CrisisAction(AbstractAction):
                 orders.complete = True
                 orders.save()
             self.status = CrisisAction.PUBLISHED
+        if not self.gm:
+            self.gm = caller
         self.save()
         if not update:
             subject = "Action %s Published" % self.id
@@ -2179,7 +2182,7 @@ class CrisisAction(AbstractAction):
             post += "\n{wStory Result:{n %s" % self.story
             if self.secret_story:
                 post += "\n{wSecret Story{n %s" % self.secret_story
-            inform_staff("Action %s has been published by %s:\n%s" % (self.id, self.gm, msg),
+            inform_staff("Action %s has been published by %s:\n%s" % (self.id, caller, msg),
                          post=post, subject=subject)
 
     def view_action(self, caller=None, disp_pending=True, disp_old=False, disp_ooc=True):
