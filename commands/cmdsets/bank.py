@@ -161,7 +161,7 @@ class CmdBank(ArxCommand):
             except (ValueError, IndexError):
                 caller.msg("Must give a positive number as an amount.")
                 return
-            except AssetOwner.DoesNotExist:
+            except (AssetOwner.DoesNotExist, AssetOwner.MultipleObjectsReturned):
                 caller.msg("Could find neither a player nor organization by that name.")
                 return
             check = self.check_money(sender, amt)
