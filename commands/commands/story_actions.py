@@ -754,7 +754,7 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
                 return
             action.story = self.rhs
             action.save()
-        action.send()
+        action.send(caller=self.caller)
         self.msg("You have published the action and sent the players informs.")
         
     def cancel_action(self, action):
@@ -789,7 +789,7 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
         gemit = create_gemit_and_post(msg, self.caller, episode_name)
         for action_object in actions:
             action_object.gemit = gemit
-            action_object.send()
+            action_object.send(caller=self.caller)
         self.msg("StoryEmit created.")
     
     def toggle_editable(self, action):
