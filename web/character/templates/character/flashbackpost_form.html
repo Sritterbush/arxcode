@@ -4,10 +4,10 @@
     <div class="container">
     <a class="btn btn-primary" href="{% url "character:sheet" character.id %}">Back to {{ character.key }}</a>
         <h2 class="text-center">{{ flashback }}</h2>
-            <div class="well text-center">{{ flashback.summary }}</div>
+            <div class="well text-center">{{ flashback.summary|mush_to_html }}</div>
             {% for post in flashback.posts.all %}
                 <hr/>
-            <div>By {{ post.poster }}<p>{{ post.actions }}</p></div>
+            <div>By {{ post.poster }}<p>{{ post.actions|mush_to_html }}</p></div>
             {% endfor %}
         <div id="add_post">
             <form action="." method="post">
@@ -18,6 +18,5 @@
                 <br><button class="btn btn-success" type="submit" name="add_post">Submit Post</button>
             </form>
         </div> <!-- write post-->
-</form>
     </div>
 {% endblock %}

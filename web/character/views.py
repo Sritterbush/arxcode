@@ -485,7 +485,7 @@ class FlashbackListView(ListView):
         if user.char_ob != self.character and not (user.is_staff or user.check_permstring("builders")):
             raise PermissionDenied
         entry = self.character.roster
-        return Flashback.objects.filter(Q(owner=entry) | Q(allowed=entry))
+        return Flashback.objects.filter(Q(owner=entry) | Q(allowed=entry)).distinct()
 
     def get_context_data(self, **kwargs):
         """Gets context for template"""
