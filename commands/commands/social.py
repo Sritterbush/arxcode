@@ -2973,7 +2973,8 @@ class CmdGetInLine(ArxCommand):
             return
         line = self.line
         next_guy = line.pop(0)
-        is_string = bool(isinstance(next_guy, type(self.caller)))
+        from six import string_types
+        is_string = isinstance(next_guy, string_types)
         if self.loop:
             self.line.append(next_guy)
             if is_string:
