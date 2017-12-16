@@ -186,14 +186,15 @@ class CmdWhere(ArxPlayerCommand):
             cmd.caller = caller.db.char_ob
             applicable_chars = list(cmd.scenelist) + [ob for ob in cmd.newbies if ob not in cmd.claimlist]
         elif self.check_switches(self.firstimp_switches):
-            applicable_chars = [ob.entry.character for ob in AccountHistory.objects.unclaimed_impressions(caller.roster)]
+            applicable_chars = [ob.entry.character
+                                for ob in AccountHistory.objects.unclaimed_impressions(caller.roster)]
         for room in rooms:
             charlist = sorted(room.get_visible_characters(caller), key=lambda x: x.name)
             if self.check_switches(self.filter_switches):
-                charlist = [ob for ob in charlist if ob in applicable_chars]
+                charlist = [ob for ob in charlist if ob in applicable_chars and not ob.is_disguised]
             elif "watch" in self.switches:
                 watching = caller.db.watching or []
-                charlist = [ob for ob in charlist if ob in watching]
+                charlist = [ob for ob in charlist if ob in watching and not ob.is_disguised]
             char_names = get_char_names(charlist, caller)
             if not char_names:
                 continue
@@ -2746,8 +2747,9 @@ class CmdFirstImpression(ArxCommand):
         if "here" in self.switches:
             location = "at your location "
             qs = qs.filter(entry__character__db_location=self.caller.location)
+        players = sorted(set(ob.entry.player for ob in qs), key=lambda x: x.username.capitalize())
         self.msg("{wPlayers %syou haven't had a scene with yet:{n %s" % (location,
-                                                                         ", ".join(str(ob.entry) for ob in qs)))
+                                                                         ", ".join(str(ob) for ob in players)))
 
     def func(self):
         """Executes firstimpression command"""
@@ -2971,7 +2973,8 @@ class CmdGetInLine(ArxCommand):
             return
         line = self.line
         next_guy = line.pop(0)
-        is_string = bool(isinstance(next_guy, type(self.caller)))
+        from six import string_types
+        is_string = isinstance(next_guy, string_types)
         if self.loop:
             self.line.append(next_guy)
             if is_string:

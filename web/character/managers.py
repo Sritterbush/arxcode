@@ -161,5 +161,5 @@ class AccountHistoryManager(models.Manager):
         """
         qs = self.filter(entry__roster__name="Active", end_date__isnull=True).exclude(
             account=entry.current_account)
-        qs = qs.exclude(id__in=self.claimed_impressions(entry)).order_by('entry__player__username')
+        qs = qs.exclude(id__in=self.claimed_impressions(entry))
         return qs.distinct()
