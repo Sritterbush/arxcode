@@ -25,7 +25,8 @@ from typeclasses.rooms import ArxRoom
 from web.character.models import AccountHistory, FirstContact
 from world.dominion import setup_utils
 from world.dominion.models import (RPEvent, Agent, CraftingMaterialType, CraftingMaterials,
-                                   AssetOwner, Renown, Reputation, Member)
+                                   AssetOwner, Renown, Reputation, Member, PlotRoom,
+                                   PlayerOrNpc)
 from world.msgs.models import Journal, Messenger
 from world.msgs.managers import reload_model_as_proxy
 
@@ -1288,13 +1289,14 @@ class CmdCalendar(ArxPlayerCommand):
         """proj is [name, date, location, desc, public, hosts, largesse]"""
         name = proj[0] or "None"
         date = proj[1].strftime("%x %X") if proj[1] else "No date yet"
-        loc = proj[2].name if proj[2] else "No location set"
+        loc = proj[2].name if proj[2] else ("%s (plot room)" % proj[9].ansi_name() if proj[9] else "No location set.")
         desc = proj[3] or "No description set yet"
         pub = "Public" if proj[4] else "Not Public"
         hosts = proj[5] or []
         largesse = proj[6] or 0
         roomdesc = proj[7] or ""
         gms = proj[8] or []
+        plotroom = proj[9] and "%d (%s)" % (proj[9].id, proj[9].ansi_name()) or ""
         hosts = ", ".join(str(ob) for ob in hosts)
         gms = ", ".join(str(ob) for ob in gms)
         mssg = "{wEvent name:{n %s\n" % name
@@ -1392,7 +1394,7 @@ class CmdCalendar(ArxPlayerCommand):
             arx_more.msg(caller, "{wOld events:\n%s" % table, justify_kwargs=False)
             return
         # at this point, we may be trying to update our project. Set defaults.
-        proj = caller.ndb.event_creation or [None, None, None, None, True, [], None, None, []]
+        proj = caller.ndb.event_creation or [None, None, None, None, True, [], None, None, [], None]
         if 'largesse' in self.switches:
             if not self.args:
                 table = PrettyTable(['level', 'cost', 'prestige'])
@@ -1453,6 +1455,7 @@ class CmdCalendar(ArxPlayerCommand):
                 caller.msg("No room found.")
                 return
             proj[2] = room
+            proj[9] = None
             caller.ndb.event_creation = proj
             caller.msg("Room set to %s." % room.name)
             return
@@ -1465,6 +1468,21 @@ class CmdCalendar(ArxPlayerCommand):
             proj[7] = self.lhs
             caller.ndb.event_creation = proj
             caller.msg("Room desc of event set to:\n%s" % self.lhs)
+            return
+        if "plotroom" in self.switches:
+            if self.lhs:
+                try:
+                    callernpc = PlayerOrNpc.objects.get(player=self.caller)
+                    plotroom = PlotRoom.objects.get(Q(id=self.lhs) & (Q(creator=callernpc) | Q(public=True)))
+                except PlotRoom.DoesNotExist, PlayerOrNpc.DoesNotExist:
+                    caller.msg("Invalid plotroom: %s" % self.lhs)
+                proj[9] = plotroom
+                proj[2] = None
+                caller.msg("Plot room for event set to %d (%s)" % (plotroom.id, plotroom.ansi_name()))
+            else:
+                proj[9] = None
+                caller.msg("Plot room for event cleared.")
+            caller.ndb.event_creation = proj
             return
         if "private" in self.switches:
             proj[4] = not proj[4]
@@ -1534,14 +1552,14 @@ class CmdCalendar(ArxPlayerCommand):
                            " or add a number if it's a sequel event.")
                 return
             proj = [self.lhs, proj[1], proj[2], proj[3], proj[4], [dompc] if dompc not in proj[5] else proj[5], proj[6],
-                    proj[7], proj[8]]
+                    proj[7], proj[8], proj[9]]
             caller.msg("{wStarting project. It will not be saved until you submit it. " +
                        "Does not persist through logout/server reload.{n")
             caller.msg(self.display_project(proj), options={'box': True})
             caller.ndb.event_creation = proj
             return
         if "submit" in self.switches:
-            name, date, loc, desc, public, hosts, largesse, room_desc, gms = proj
+            name, date, loc, desc, public, hosts, largesse, room_desc, gms, plotroom = proj
             if not (name and date and desc and hosts):
                 caller.msg("Name, date, desc, and hosts must be defined before you submit.")
                 caller.msg(self.display_project(proj), options={'box': True})
@@ -1571,7 +1589,7 @@ class CmdCalendar(ArxPlayerCommand):
                 caller.msg("You pay %s coins for the event." % cost)
             event = RPEvent.objects.create(name=name, date=date, desc=desc, location=loc,
                                            public_event=public, celebration_tier=cel_lvl,
-                                           room_desc=room_desc)
+                                           room_desc=room_desc, plotroom=plotroom)
             for host in hosts:
                 event.hosts.add(host)
                 player = host.player

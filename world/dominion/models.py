@@ -4546,6 +4546,7 @@ class RPEvent(SharedMemoryModel):
     results = models.TextField(blank=True, null=True)
     room_desc = models.TextField(blank=True, null=True)
     actions = models.ManyToManyField("CrisisAction", blank=True, related_name="events")
+    plotroom = models.ForeignKey('PlotRoom', blank=True, null=True, related_name='events_held_here')
 
     @property
     def prestige(self):
@@ -4572,6 +4573,16 @@ class RPEvent(SharedMemoryModel):
         if dom in self.gms.all() or dom in self.hosts.all() or dom in self.participants.all():
             return True
 
+    def create_room(self):
+        if self.location:
+            return
+
+        if not self.plotroom:
+            return
+
+        self.location = self.plotroom.spawn_room()
+        return
+
     def display(self):
         msg = "{wName:{n %s\n" % self.name
         msg += "{wHosts:{n %s\n" % ", ".join(str(ob) for ob in self.hosts.all())
@@ -4581,7 +4592,10 @@ class RPEvent(SharedMemoryModel):
             # prevent seeing names of invites once a private event has started
             if self.date > datetime.now():
                 msg += "{wInvited:{n %s\n" % ", ".join(str(ob) for ob in self.participants.all())
-        msg += "{wLocation:{n %s\n" % self.location
+
+        location_name = self.location if self.location else \
+            (self.plotroom.ansi_name() if self.plotroom else "None")
+        msg += "{wLocation:{n %s\n" % location_name
         if not self.public_event:
             msg += "{wPrivate:{n Yes\n"
         msg += "{wEvent Scale:{n %s\n" % self.get_celebration_tier_display()
@@ -4848,7 +4862,19 @@ class PlotRoom(SharedMemoryModel):
                                     key=self.ansi_name())
         room.db.raw_desc = self.description
         room.db.desc = self.description
-        return room
+
+        from typeclasses.rooms import ArxRoom
+        try:
+            city_center = ArxRoom.objects.get(id=13)
+            out_exit = create.create_object(settings.BASE_EXIT_TYPECLASS,
+                                            key="Back to Arx <Arx>",
+                                            location=room,
+                                            aliases=["arx", "back to arx", "out"],
+                                            destination=city_center)
+            return room
+        except ArxRoom.DoesNotExist:
+            print "Could not get city center..."
+            return room
 
     def __str__(self):
         return "PlotRoom #%d: %s" % (self.id, self.name)
