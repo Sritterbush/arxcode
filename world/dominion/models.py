@@ -4810,6 +4810,8 @@ class PlotRoom(SharedMemoryModel):
         else:
             result = "|yOutside Arx - " + self.name
 
+        result += "|n"
+
         return result
 
     def get_region(self):
