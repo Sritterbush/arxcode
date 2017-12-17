@@ -1301,7 +1301,6 @@ class CmdCalendar(ArxPlayerCommand):
         largesse = proj[6] or 0
         roomdesc = proj[7] or ""
         gms = proj[8] or []
-        plotroom = proj[9] and "%d (%s)" % (proj[9].id, proj[9].ansi_name()) or ""
         hosts = ", ".join(str(ob) for ob in hosts)
         gms = ", ".join(str(ob) for ob in gms)
         mssg = "{wEvent name:{n %s\n" % name
@@ -1492,12 +1491,31 @@ class CmdCalendar(ArxPlayerCommand):
             if self.lhs:
                 try:
                     callernpc = PlayerOrNpc.objects.get(player=self.caller)
-                    plotroom = PlotRoom.objects.get(Q(id=self.lhs) & (Q(creator=callernpc) | Q(public=True)))
-                except PlotRoom.DoesNotExist, PlayerOrNpc.DoesNotExist:
-                    caller.msg("Invalid plotroom: %s" % self.lhs)
-                proj[9] = plotroom
+                except PlayerOrNpc.DoesNotExist:
+                    caller.msg("You seem to be missing a valid Dominion object!")
+                    return
+
+                try:
+                    room_id = int(self.lhs)
+                    plotrooms = PlotRoom.objects.filter(Q(id=room_id)
+                                                       & (Q(creator=callernpc) | Q(public=True)))
+                except ValueError:
+                    plotrooms = PlotRoom.objects.filter(Q(name__icontains=self.lhs)
+                                                       & (Q(creator=callernpc) | Q(public=True)))
+
+                if not plotrooms:
+                    caller.msg("No plotrooms found matching %s" % self.lhs)
+                    return
+
+                if len(plotrooms) > 1:
+                    caller.msg("Found multiple rooms matching %s:" % self.lhs)
+                    for room in plotrooms:
+                        caller.msg("  %d: %s (%s)" % (room.id, room.name, room.get_detailed_region_name()))
+                    return
+
+                proj[9] = plotrooms[0]
                 proj[2] = None
-                caller.msg("Plot room for event set to %d (%s)" % (plotroom.id, plotroom.ansi_name()))
+                caller.msg("Plot room for event set to %d: %s" % (proj[9].id, proj[9].ansi_name()))
             else:
                 proj[9] = None
                 caller.msg("Plot room for event cleared.")
