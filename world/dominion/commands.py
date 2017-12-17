@@ -3415,16 +3415,15 @@ class CmdPlotRoom(ArxCommand):
     def func(self):
         form = self.caller.db.plotroom_form
         try:
-            owner = PlayerOrNpc.objects.get(player=self.caller.player)
-        except PlayerOrNpc.MultipleObjectsReturned:
+            owner = self.caller.player.Dominion
+        except AttributeError:
             self.msg("Internal error: unable to resolve current player!")
             return
 
         if not self.args and not self.switches:
             # @plotroom
-            try:
-                rooms = PlotRoom.objects.filter(Q(creator=owner) | Q(public=True))
-            except PlotRoom.DoesNotExist:
+            rooms = PlotRoom.objects.filter(Q(creator=owner) | Q(public=True))
+            if not rooms:
                 self.msg("Unable to view plot rooms.")
                 return
 
@@ -3437,10 +3436,10 @@ class CmdPlotRoom(ArxCommand):
 
         elif not self.switches:
             # @plotroom <id>
-            room_id = int(self.args)
             try:
+                room_id = int(self.args)
                 room = PlotRoom.objects.get(id=room_id)
-            except PlotRoom.DoesNotExist:
+            except ValueError, PlotRoom.DoesNotExist:
                 room = None
 
             if room is not None:
