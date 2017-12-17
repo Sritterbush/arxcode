@@ -3372,16 +3372,19 @@ class CmdSupport(ArxCommand):
 class CmdPlotRoom(ArxCommand):
     """
     @plotroom
-    @plotroom <id>
-    @plotroom/new
-    @plotroom/name <name>
-    @plotroom/desc <desc>
-    @plotroom/near <domain>
-    @plotroom/wilderness
-    @plotroom/public
-    @plotroom/review
-    @plotroom/finish
-    @plotroom/cancel
+
+    Usage:
+        @plotroom
+        @plotroom <id>
+        @plotroom/new
+        @plotroom/name <name>
+        @plotroom/desc <desc>
+        @plotroom/near <domain>
+        @plotroom/wilderness
+        @plotroom/public
+        @plotroom/review
+        @plotroom/finish
+        @plotroom/cancel
 
     The first form of this command will list all available plotrooms, for use
     on a @calendar event.  It will show the rooms the current player has created,
@@ -3459,7 +3462,7 @@ class CmdPlotRoom(ArxCommand):
                     room = None
 
             if not room:
-                self.msg("Could not view room " + str(room_id))
+                self.msg("Could not view room " + self.args)
                 return
 
             self.display_room(room)
