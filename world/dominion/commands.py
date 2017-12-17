@@ -3376,7 +3376,8 @@ class CmdPlotRoom(ArxCommand):
     @plotroom/new
     @plotroom/name <name>
     @plotroom/desc <desc>
-    @plotroom/region <region>
+    @plotroom/near <domain>
+    @plotroom/wilderness
     @plotroom/public
     @plotroom/review
     @plotroom/finish
@@ -3388,10 +3389,12 @@ class CmdPlotRoom(ArxCommand):
     for a specific room.
 
     The remaining switches are used to define a new plotroom and add it to the list.
-    The name should only be the actual room name, like 'Ancient Workshop'.  The region
-    will used to build a properly-colored name with all proper prefixes.  Public toggles
-    whether or not others can use this plotroom.  Finish will submit the plotroom, and
-    cancel will abort your current effort.
+    The name should only be the actual room name, like 'Ancient Workshop'.  The 'near'
+    domain will used to build a properly-colored name with all proper prefixes, as
+    well as to allow staff to easily find where rooms are located.  Public toggles
+    whether or not others can use this plotroom.  Wilderness toggles whether or not
+    the room is in the 'near' domain you put, or just nearby.  Finish will submit the
+    plotroom, and cancel will abort your current effort.
 
     These plotrooms can be used with @cal/plotroom when creating a calendar event.
     """
