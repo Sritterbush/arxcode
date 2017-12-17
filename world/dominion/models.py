@@ -4806,7 +4806,7 @@ class PlotRoom(SharedMemoryModel):
             result += region_color + " - " + self.name
         elif region:
             result = "|yOutside Arx"
-            result += region_color + " - " + region.name + " - " + self.name
+            result += region_color + " - " + self.get_detailed_region_name() + " - " + self.name
         else:
             result = "|yOutside Arx - " + self.name
 
@@ -4838,7 +4838,7 @@ class PlotRoom(SharedMemoryModel):
         elif self.land:
             return self.land.region.name
         else:
-            return "Unknown"
+            return "Unknown Territory"
 
     def spawn_room(self, arx_exit=True):
         room = create.create_object(typeclass='typeclasses.rooms.TempRoom',
