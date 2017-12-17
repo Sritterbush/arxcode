@@ -782,6 +782,6 @@ class TempRoom(ArxRoom):
         return True
 
     def at_object_leave(self, obj, target_location):
-        if obj.has_player or (hasattr(con.is_character) and con.is_character):
+        if obj.has_player or (hasattr(obj.is_character) and obj.is_character):
             if self.is_empty_except(obj):
                 self.softdelete()
