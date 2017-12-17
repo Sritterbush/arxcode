@@ -3512,7 +3512,7 @@ class CmdPlotRoom(ArxCommand):
                 self.msg("No room setup to cancel.")
                 return
 
-            self.caller.db.plotroom_form = None
+            self.caller.attributes.remove('plotroom_form')
             self.msg("Room creation cancelled.")
 
         elif "finish" in self.switches:
@@ -3546,7 +3546,7 @@ class CmdPlotRoom(ArxCommand):
                             creator=owner)
             room.save()
             self.msg("Saved room %d." % room.id)
-            self.caller.db.plotroom_form = None
+            self.caller.attributes.remove('plotroom_form')
 
         else:
             self.msg("Invalid usage.")
