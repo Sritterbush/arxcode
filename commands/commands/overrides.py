@@ -1291,6 +1291,7 @@ class CmdTeleport(ArxCommand):
                     obj_to_teleport.location.msg_contents("%s teleported %s into nothingness."
                                                           % (caller, obj_to_teleport),
                                                           exclude=caller)
+            obj_to_teleport.location.at_object_leave(obj_to_teleport, None)
             obj_to_teleport.location = None
             if obj_to_teleport != caller and not caller.check_permstring("immortals"):
                 string = "%s teleported to None-location." % obj_to_teleport
@@ -1339,6 +1340,7 @@ class CmdTeleport(ArxCommand):
         #     caller.msg("Access denied for teleporting %s." % obj_to_teleport)
         #     return
         # try the teleport
+        obj_to_teleport.location.at_object_leave(obj_to_teleport, destination)
         if obj_to_teleport.move_to(destination, quiet=tel_quietly,
                                    emit_to_obj=caller,
                                    use_destination=use_destination):

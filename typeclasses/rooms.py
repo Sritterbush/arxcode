@@ -764,3 +764,24 @@ class CmdGameTime(ArxCommand):
             hour, minute = time[4], time[5]
             from server.utils.arx_utils import get_date
             self.caller.msg("Today's date: %s. Current time: %s:%02d" % (get_date(), hour, minute))
+
+
+class TempRoom(ArxRoom):
+    """
+    A temporary room, which will reap itself when everyone has left.
+    """
+
+    def is_empty_except(self, obj):
+        """
+        Returns whether or not this room is currently empty of characters save the given object.
+        :return: True if the room has no characters or NPCs in it, False if someone is present.
+        """
+        for con in self.contents:
+            if con is not obj and (con.has_player or (hasattr(con, 'is_character') and con.is_character)):
+                return False
+        return True
+
+    def at_object_leave(self, obj, target_location):
+        if obj.has_player or (hasattr(obj.is_character) and obj.is_character):
+            if self.is_empty_except(obj):
+                self.softdelete()

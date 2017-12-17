@@ -57,6 +57,7 @@ import traceback
 from evennia.typeclasses.models import SharedMemoryModel
 from evennia.locks.lockhandler import LockHandler
 from evennia.utils.utils import lazy_property
+from evennia.utils import create
 from django.db import models
 from django.db.models import Q
 from django.conf import settings
@@ -736,6 +737,8 @@ class Region(SharedMemoryModel):
     # the Southwest corner of the region
     origin_x_coord = models.SmallIntegerField(default=0, blank=0)
     origin_y_coord = models.SmallIntegerField(default=0, blank=0)
+
+    color_code = models.CharField(max_length=8, blank=True)
 
     def __unicode__(self):
         return self.name or "Unnamed Region (#%s)" % self.id
@@ -4545,6 +4548,7 @@ class RPEvent(SharedMemoryModel):
     results = models.TextField(blank=True, null=True)
     room_desc = models.TextField(blank=True, null=True)
     actions = models.ManyToManyField("CrisisAction", blank=True, related_name="events")
+    plotroom = models.ForeignKey('PlotRoom', blank=True, null=True, related_name='events_held_here')
 
     @property
     def prestige(self):
@@ -4571,6 +4575,28 @@ class RPEvent(SharedMemoryModel):
         if dom in self.gms.all() or dom in self.hosts.all() or dom in self.participants.all():
             return True
 
+    def create_room(self):
+        if self.location:
+            return
+
+        if self.plotroom is None:
+            return
+
+        self.location = self.plotroom.spawn_room()
+        self.save()
+        return
+
+    def clear_room(self):
+        if self.plotroom is None:
+            return
+
+        if self.location is None:
+            return
+
+        self.location = None
+        self.save()
+        return
+
     def display(self):
         msg = "{wName:{n %s\n" % self.name
         msg += "{wHosts:{n %s\n" % ", ".join(str(ob) for ob in self.hosts.all())
@@ -4580,7 +4606,10 @@ class RPEvent(SharedMemoryModel):
             # prevent seeing names of invites once a private event has started
             if self.date > datetime.now():
                 msg += "{wInvited:{n %s\n" % ", ".join(str(ob) for ob in self.participants.all())
-        msg += "{wLocation:{n %s\n" % self.location
+
+        location_name = self.location if self.location else \
+            (self.plotroom.ansi_name() if self.plotroom else "None")
+        msg += "{wLocation:{n %s\n" % location_name
         if not self.public_event:
             msg += "{wPrivate:{n Yes\n"
         msg += "{wEvent Scale:{n %s\n" % self.get_celebration_tier_display()
@@ -4749,3 +4778,90 @@ class SupportUsed(SharedMemoryModel):
 
     def __str__(self):
         return "%s using %s of %s" % (self.supporter, self.rating, self.sphere)
+
+
+class PlotRoom(SharedMemoryModel):
+    name = models.CharField(blank=False, null=False, max_length=78, db_index=True)
+    description = models.TextField(blank=False, null=False, max_length=4096)
+    creator = models.ForeignKey('PlayerOrNpc', related_name='created_plot_rooms', blank=True, null=True, db_index=True)
+    public = models.BooleanField(default=False)
+
+    land = models.ForeignKey('Land', related_name='plot_rooms', blank=True, null=True)
+    domain = models.ForeignKey('Domain', related_name='plot_rooms', blank=True, null=True)
+    wilderness = models.BooleanField(default=True)
+
+    def ansi_name(self):
+        region = self.get_region()
+        region_color = "|y"
+        if region and region.color_code:
+            region_color = region.color_code
+
+        if self.domain and not self.wilderness:
+            if self.domain.id == 1:
+                result = "|yArx"
+                region_color = "|y"
+            else:
+                result = "|yOutside Arx"
+                result += region_color + " - " + self.domain.name
+            result += region_color + " - " + self.name
+        elif region:
+            result = "|yOutside Arx"
+            result += region_color + " - " + self.get_detailed_region_name() + " - " + self.name
+        else:
+            result = "|yOutside Arx - " + self.name
+
+        result += "|n"
+
+        return result
+
+    def get_region(self):
+        region = None
+
+        if self.land:
+            region = self.land.region
+        elif self.domain:
+            region = self.domain.land.region
+
+        return region
+
+    def get_region_name(self):
+        region = self.get_region()
+        if not region:
+            return "Unknown"
+        else:
+            return region.name
+
+    def get_detailed_region_name(self):
+        if self.domain:
+            if self.wilderness:
+                return self.domain.land.region.name + " near " + self.domain.name
+            else:
+                return self.domain.name
+        elif self.land:
+            return self.land.region.name
+        else:
+            return "Unknown Territory"
+
+    def spawn_room(self, arx_exit=True):
+        room = create.create_object(typeclass='typeclasses.rooms.TempRoom',
+                                    key=self.ansi_name())
+        room.db.raw_desc = self.description
+        room.db.desc = self.description
+
+        if arx_exit:
+            from typeclasses.rooms import ArxRoom
+            try:
+                city_center = ArxRoom.objects.get(id=13)
+                out_exit = create.create_object(settings.BASE_EXIT_TYPECLASS,
+                                                key="Back to Arx <Arx>",
+                                                location=room,
+                                                aliases=["arx", "back to arx", "out"],
+                                                destination=city_center)
+            except ArxRoom.DoesNotExist:
+                # Just abort and return the room
+                return room
+
+        return room
+
+    def __str__(self):
+        return "PlotRoom #%d: %s" % (self.id, self.name)

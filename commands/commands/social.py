@@ -19,13 +19,14 @@ from evennia.scripts.models import ScriptDB
 
 from commands.commands.roster import format_header
 from server.utils.prettytable import PrettyTable
-from server.utils.arx_utils import inform_staff
+from server.utils.arx_utils import inform_staff, time_from_now
 from typeclasses.characters import Character
 from typeclasses.rooms import ArxRoom
 from web.character.models import AccountHistory, FirstContact
 from world.dominion import setup_utils
 from world.dominion.models import (RPEvent, Agent, CraftingMaterialType, CraftingMaterials,
-                                   AssetOwner, Renown, Reputation, Member)
+                                   AssetOwner, Renown, Reputation, Member, PlotRoom,
+                                   PlayerOrNpc)
 from world.msgs.models import Journal, Messenger
 from world.msgs.managers import reload_model_as_proxy
 
@@ -1230,6 +1231,7 @@ class CmdCalendar(ArxPlayerCommand):
         @cal/date <date>
         @cal/largesse <level>
         @cal/location [<room name, otherwise room you're in>]
+        @cal/plotroom [<plot room ID>]
         @cal/private
         @cal/addhost <playername>
         @cal/addgm <playername>
@@ -1242,6 +1244,7 @@ class CmdCalendar(ArxPlayerCommand):
         @cal/endevent <event number>
         @cal/reschedule <event number>=<new date>
         @cal/cancel <event number>
+        @cal/join <event number>
         @cal/movehere <event number>
         @cal/changeroomdesc <event number>=<new desc>
         @cal/toggleprivate <event number>
@@ -1263,6 +1266,9 @@ class CmdCalendar(ArxPlayerCommand):
     When starting an event early, you can specify '=here' to start it in
     your current room rather than its previous location. /movehere allows
     an event to be moved to the new room you occupy while in progress.
+
+    If an event takes place off the grid, you can @cal/join the event to
+    be teleported to the room, for easy gathering of the group.
 
     If you want to mark an event private or public so that it can be viewed
     by people who didn't attend it on the web, use /toggleprivate.
@@ -1288,7 +1294,7 @@ class CmdCalendar(ArxPlayerCommand):
         """proj is [name, date, location, desc, public, hosts, largesse]"""
         name = proj[0] or "None"
         date = proj[1].strftime("%x %X") if proj[1] else "No date yet"
-        loc = proj[2].name if proj[2] else "No location set"
+        loc = proj[2].name if proj[2] else ("%s (plot room)" % proj[9].ansi_name() if proj[9] else "No location set.")
         desc = proj[3] or "No description set yet"
         pub = "Public" if proj[4] else "Not Public"
         hosts = proj[5] or []
@@ -1331,7 +1337,7 @@ class CmdCalendar(ArxPlayerCommand):
             caller.ndb.event_creation = None
             self.msg("Event creation cancelled.")
             return
-        if not self.switches or "comments" in self.switches:
+        if not self.switches or "comments" in self.switches or "join" in self.switches:
             lhslist = self.lhs.split("/")
             if len(lhslist) > 1:
                 lhs = lhslist[0]
@@ -1352,7 +1358,21 @@ class CmdCalendar(ArxPlayerCommand):
                 return
             # display info on a given event
             if not rhs:
-                caller.msg(event.display(), options={'box': True})
+                if "join" in self.switches:
+                    diff = time_from_now(event.date).total_seconds()
+                    if diff > 3600:
+                        caller.msg("You cannot join the event until closer to the start time.")
+                        return
+                    if event.plotroom is None:
+                        caller.msg("That event takes place on the normal grid, so you can just walk there.")
+                        return
+                    if event.location is None:
+                        caller.msg("That event has no location to join.")
+                        return
+                    caller.msg("Moving you to the event location.")
+                    caller.db.char_ob.move_to(event.location)
+                else:
+                    caller.msg(event.display(), options={'box': True})
                 return
             try:
                 num = int(rhs)
@@ -1392,7 +1412,7 @@ class CmdCalendar(ArxPlayerCommand):
             arx_more.msg(caller, "{wOld events:\n%s" % table, justify_kwargs=False)
             return
         # at this point, we may be trying to update our project. Set defaults.
-        proj = caller.ndb.event_creation or [None, None, None, None, True, [], None, None, []]
+        proj = caller.ndb.event_creation or [None, None, None, None, True, [], None, None, [], None]
         if 'largesse' in self.switches:
             if not self.args:
                 table = PrettyTable(['level', 'cost', 'prestige'])
@@ -1453,6 +1473,7 @@ class CmdCalendar(ArxPlayerCommand):
                 caller.msg("No room found.")
                 return
             proj[2] = room
+            proj[9] = None
             caller.ndb.event_creation = proj
             caller.msg("Room set to %s." % room.name)
             return
@@ -1465,6 +1486,40 @@ class CmdCalendar(ArxPlayerCommand):
             proj[7] = self.lhs
             caller.ndb.event_creation = proj
             caller.msg("Room desc of event set to:\n%s" % self.lhs)
+            return
+        if "plotroom" in self.switches:
+            if self.lhs:
+                try:
+                    callernpc = PlayerOrNpc.objects.get(player=self.caller)
+                except PlayerOrNpc.DoesNotExist:
+                    caller.msg("You seem to be missing a valid Dominion object!")
+                    return
+
+                try:
+                    room_id = int(self.lhs)
+                    plotrooms = PlotRoom.objects.filter(Q(id=room_id)
+                                                       & (Q(creator=callernpc) | Q(public=True)))
+                except ValueError:
+                    plotrooms = PlotRoom.objects.filter(Q(name__icontains=self.lhs)
+                                                       & (Q(creator=callernpc) | Q(public=True)))
+
+                if not plotrooms:
+                    caller.msg("No plotrooms found matching %s" % self.lhs)
+                    return
+
+                if len(plotrooms) > 1:
+                    caller.msg("Found multiple rooms matching %s:" % self.lhs)
+                    for room in plotrooms:
+                        caller.msg("  %d: %s (%s)" % (room.id, room.name, room.get_detailed_region_name()))
+                    return
+
+                proj[9] = plotrooms[0]
+                proj[2] = None
+                caller.msg("Plot room for event set to %d: %s" % (proj[9].id, proj[9].ansi_name()))
+            else:
+                proj[9] = None
+                caller.msg("Plot room for event cleared.")
+            caller.ndb.event_creation = proj
             return
         if "private" in self.switches:
             proj[4] = not proj[4]
@@ -1534,14 +1589,14 @@ class CmdCalendar(ArxPlayerCommand):
                            " or add a number if it's a sequel event.")
                 return
             proj = [self.lhs, proj[1], proj[2], proj[3], proj[4], [dompc] if dompc not in proj[5] else proj[5], proj[6],
-                    proj[7], proj[8]]
+                    proj[7], proj[8], proj[9]]
             caller.msg("{wStarting project. It will not be saved until you submit it. " +
                        "Does not persist through logout/server reload.{n")
             caller.msg(self.display_project(proj), options={'box': True})
             caller.ndb.event_creation = proj
             return
         if "submit" in self.switches:
-            name, date, loc, desc, public, hosts, largesse, room_desc, gms = proj
+            name, date, loc, desc, public, hosts, largesse, room_desc, gms, plotroom = proj
             if not (name and date and desc and hosts):
                 caller.msg("Name, date, desc, and hosts must be defined before you submit.")
                 caller.msg(self.display_project(proj), options={'box': True})
@@ -1571,7 +1626,7 @@ class CmdCalendar(ArxPlayerCommand):
                 caller.msg("You pay %s coins for the event." % cost)
             event = RPEvent.objects.create(name=name, date=date, desc=desc, location=loc,
                                            public_event=public, celebration_tier=cel_lvl,
-                                           room_desc=room_desc)
+                                           room_desc=room_desc, plotroom=plotroom)
             for host in hosts:
                 event.hosts.add(host)
                 player = host.player

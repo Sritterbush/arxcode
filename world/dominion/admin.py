@@ -5,7 +5,8 @@ from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister
                      CraftingRecipe, CraftingMaterialType, CraftingMaterials, CrisisActionAssistant,
                      RPEvent, AccountTransaction, AssignedTask, Crisis, CrisisAction, CrisisUpdate,
                      OrgRelationship, Reputation, TaskSupporter, InfluenceCategory,
-                     Renown, SphereOfInfluence, TaskRequirement, ClueForOrg, ActionOOCQuestion)
+                     Renown, SphereOfInfluence, TaskRequirement, ClueForOrg, ActionOOCQuestion,
+                     PlotRoom)
 
 
 class DomAdmin(admin.ModelAdmin):
@@ -419,6 +420,13 @@ class OrdersAdmin(DomAdmin):
     list_filter = ('complete',)
 
 
+class PlotRoomAdmin(DomAdmin):
+    list_display = ('id', 'domain', 'land', 'name', 'public')
+    search_files = ('name', 'description')
+    raw_id_fields = ('creator', 'land', 'domain')
+    list_filter = ('public',)
+
+
 # Register your models here.
 admin.site.register(PlayerOrNpc, PCAdmin)
 admin.site.register(Organization, OrgAdmin)
@@ -446,3 +454,4 @@ admin.site.register(OrgRelationship, OrgRelationshipAdmin)
 admin.site.register(Reputation, ReputationAdmin)
 admin.site.register(AssignedTask, AssignedTaskAdmin)
 admin.site.register(InfluenceCategory, InfluenceCategoryAdmin)
+admin.site.register(PlotRoom, PlotRoomAdmin)

@@ -9,7 +9,7 @@ from django.conf import settings
 from django.db.models import Q
 
 from evennia import CmdSet
-from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
+from server.utils.arx_utils import ArxCommand, ArxPlayerCommand, dict_from_choices_field
 from evennia.objects.models import ObjectDB
 from evennia.accounts.models import AccountDB
 from server.utils.arx_utils import get_week, caller_change_field
@@ -19,7 +19,7 @@ from . import setup_utils
 from .models import (Region, Domain, Land, PlayerOrNpc, Army, ClueForOrg,
                      Castle, AssetOwner, Task, MilitaryUnit,
                      Ruler, Organization, Member, SphereOfInfluence, SupportUsed, AssignedTask,
-                     TaskSupporter, InfluenceCategory, Minister)
+                     TaskSupporter, InfluenceCategory, Minister, PlotRoom)
 from .unit_types import type_from_str
 from world.stats_and_skills import do_dice_check
 
@@ -3369,6 +3369,246 @@ class CmdSupport(ArxCommand):
         return
 
 
+class CmdPlotRoom(ArxCommand):
+    """
+    @plotroom
+
+    Usage:
+        @plotroom
+        @plotroom <id>
+        @plotroom/new
+        @plotroom/name <name>
+        @plotroom/desc <desc>
+        @plotroom/near <domain>
+        @plotroom/wilderness
+        @plotroom/public
+        @plotroom/review
+        @plotroom/finish
+        @plotroom/cancel
+
+    The first form of this command will list all available plotrooms, for use
+    on a @calendar event.  It will show the rooms the current player has created,
+    or those which are flagged public.  The second form will show the details
+    for a specific room.
+
+    The remaining switches are used to define a new plotroom and add it to the list.
+    The name should only be the actual room name, like 'Ancient Workshop'.  The 'near'
+    domain will used to build a properly-colored name with all proper prefixes, as
+    well as to allow staff to easily find where rooms are located.  Public toggles
+    whether or not others can use this plotroom.  Wilderness toggles whether or not
+    the room is in the 'near' domain you put, or just nearby.  Finish will submit the
+    plotroom, and cancel will abort your current effort.
+
+    These plotrooms can be used with @cal/plotroom when creating a calendar event.
+    """
+    key = "@plotroom"
+    locks = "cmd:all()"
+    help_category = "Dominion"
+
+    def display_room(self, room):
+        self.msg("|/Id     : " + str(room.id))
+        self.msg("Name   : " + room.name)
+        self.msg("Creator: " + str(room.creator))
+        self.msg("Public : " + (room.public and "Yes" or "No"))
+        self.msg("Region : " + room.get_detailed_region_name())
+        self.msg("Desc   :|/" + room.description + "|/")
+
+    def display_form(self, form):
+        self.msg("|/Name   : " + form[0])
+        self.msg("Public : " + (form[2] and "Yes" or "No"))
+
+        region = "Unknown"
+        if form[3]:
+            if form[4]:
+                # Wilderness
+                region = form[3].land.region.name + " near " + form[3].name
+            else:
+                region = form[3].name
+
+        self.msg("Region : " + region)
+        self.msg("Desc   :|/" + form[1] + "|/")
+
+    def func(self):
+        form = self.caller.db.plotroom_form
+        try:
+            owner = self.caller.player.Dominion
+        except AttributeError:
+            self.msg("Internal error: unable to resolve current player!")
+            return
+
+        if not self.args and not self.switches:
+            # @plotroom
+            rooms = PlotRoom.objects.filter(Q(creator=owner) | Q(public=True))
+            if not rooms:
+                self.msg("Unable to view plot rooms.")
+                return
+
+            table = EvTable("", "Region", "Name", "Creator", "Public")
+            for room in rooms:
+                table.add_row(room.id, room.get_region_name(), room.name, room.creator,
+                              room.public and "X" or "")
+
+            self.msg(table)
+
+        elif not self.switches:
+            # @plotroom <id>
+            room = None
+            try:
+                room_id = int(self.args)
+            except ValueError:
+                rooms = PlotRoom.objects.filter(Q(name__icontains=self.args) &
+                                               (Q(creator=owner) | Q(public=True)))
+                if not rooms:
+                    self.msg("Could not find a room matching " + self.args)
+                    return
+                if len(rooms) > 1:
+                    self.msg("Found multiple matching rooms:")
+                    for outroom in rooms:
+                        self.msg("  %s (%s)" % (outroom.name, outroom.get_detailed_region_name()))
+                    return
+                room = rooms[0]
+
+            if not room and room_id is not None:
+                try:
+                    room = PlotRoom.objects.get(id=room_id)
+                except PlotRoom.DoesNotExist:
+                    self.msg("You cannot view that room.")
+                    return
+
+            if room is not None:
+                if room.creator is not owner and not room.public:
+                    room = None
+
+            if not room:
+                self.msg("You cannot view that room.")
+                return
+
+            self.display_room(room)
+
+        elif "new" in self.switches:
+            form = ["", "", False, None, True]
+            self.caller.db.plotroom_form = form
+            self.display_form(form)
+
+        elif "name" in self.switches:
+            if form is None:
+                self.msg("You must do @plotroom/new before setting up a room!")
+                return
+
+            form[0] = self.args
+            self.caller.db.plotroom_form = form
+            self.display_form(form)
+
+        elif "desc" in self.switches:
+            if form is None:
+                self.msg("You must do @plotroom/new before setting up a room!")
+                return
+
+            form[1] = self.args
+            self.caller.db.plotroom_form = form
+            self.display_form(form)
+
+        elif "public" in self.switches:
+            if form is None:
+                self.msg("You must do @plotroom/new before setting up a room!")
+                return
+
+            form[2] = not form[2]
+            self.caller.db.plotroom_form = form
+            self.display_form(form)
+
+        elif "near" in self.switches:
+            if form is None:
+                self.msg("You must do @plotroom/new before setting up a room!")
+                return
+
+            domain = Domain.objects.filter(name__icontains=self.args)
+            if not domain:
+                self.msg("Did not find a matching domain.")
+                return
+
+            if len(domain) > 1:
+                self.msg("Found more than one domain matching that name: ")
+                for dom in domain:
+                    self.msg("  " + dom.name)
+                return
+
+            form[3] = domain[0]
+            self.caller.db.plotroom_form = form
+            self.display_form(form)
+
+        elif "wilderness" in self.switches:
+            if form is None:
+                self.msg("You must do @plotroom/new before setting up a room!")
+                return
+
+            form[4] = not form[4]
+            self.caller.db.plotroom_form = form
+            self.display_form(form)
+
+        elif "review" in self.switches:
+            if form is None:
+                self.msg("You must do @plotroom/new before setting up a room!")
+                return
+
+            self.display_form(form)
+
+        elif "cancel" in self.switches:
+            if form is None:
+                self.msg("No room setup to cancel.")
+                return
+
+            self.caller.attributes.remove('plotroom_form')
+            self.msg("Room creation cancelled.")
+
+        elif "finish" in self.switches:
+            if form is None:
+                self.msg("You must do @plotroom/new before setting up a room!")
+                return
+
+            name = form[0]
+            desc = form[1]
+            public = form[2]
+            domain = form[3]
+            wilderness = form[4]
+
+            if len(name) < 5:
+                self.msg("Name is too short!")
+                return
+
+            if len(desc) < 100:
+                self.msg("Desc is too short!")
+                return
+
+            if not domain:
+                self.msg("You need to provide a location!")
+                return
+
+            room = PlotRoom(name=name, description=desc, public=public, domain=domain,
+                            land=domain.land, wilderness=wilderness, creator=owner)
+            room.save()
+            self.msg("Saved room %d." % room.id)
+            self.caller.attributes.remove('plotroom_form')
+
+        elif "spawntest" in self.switches:
+            try:
+                room_id = int(self.args)
+                room = PlotRoom.objects.get(id=room_id)
+            except ValueError, PlotRoom.DoesNotExist:
+                room = None
+
+            if not room:
+                self.msg("No such room.")
+                return
+
+            real_room = room.spawn_room()
+            self.msg("Spawned room as #%d" % real_room.id)
+            return
+
+        else:
+            self.msg("Invalid usage.")
+
+
 # cmdset for all Dominion commands
 class DominionCmdSet(CmdSet):
     key = "DominionDefault"
@@ -3391,3 +3631,4 @@ class DominionCmdSet(CmdSet):
         self.add(CmdAgents())
         from dominion.agent_commands import CmdGuards
         self.add(CmdGuards())
+        self.add(CmdPlotRoom())
