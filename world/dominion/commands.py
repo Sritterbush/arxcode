@@ -3392,6 +3392,8 @@ class CmdPlotRoom(ArxCommand):
     will used to build a properly-colored name with all proper prefixes.  Public toggles
     whether or not others can use this plotroom.  Finish will submit the plotroom, and
     cancel will abort your current effort.
+
+    These plotrooms can be used with @cal/plotroom when creating a calendar event.
     """
     key = "@plotroom"
     locks = "cmd:all()"

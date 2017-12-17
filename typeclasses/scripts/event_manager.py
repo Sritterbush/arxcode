@@ -110,9 +110,16 @@ class EventManager(Script):
                 except AttributeError:
                     continue
 
+        if event.location is None:
+            if event.plotroom is not None:
+                event.create_room()
+
     @staticmethod
     def get_event_location(event):
         loc = event.location
+        if loc is None and event.plotroom is not None:
+            event.create_room()
+            loc = event.location
         if loc:
             return loc
         gms = event.gms.filter(player__db_is_connected=True)
@@ -198,6 +205,7 @@ class EventManager(Script):
             if loc:
                 loc.msg_contents(end_str)
         event.finished = True
+        event.clear_room()
         event.save()
         if event.id in self.db.active_events:
             self.db.active_events.remove(event.id)

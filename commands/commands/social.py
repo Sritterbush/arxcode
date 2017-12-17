@@ -19,7 +19,7 @@ from evennia.scripts.models import ScriptDB
 
 from commands.commands.roster import format_header
 from server.utils.prettytable import PrettyTable
-from server.utils.arx_utils import inform_staff
+from server.utils.arx_utils import inform_staff, time_from_now
 from typeclasses.characters import Character
 from typeclasses.rooms import ArxRoom
 from web.character.models import AccountHistory, FirstContact
@@ -1231,6 +1231,7 @@ class CmdCalendar(ArxPlayerCommand):
         @cal/date <date>
         @cal/largesse <level>
         @cal/location [<room name, otherwise room you're in>]
+        @cal/plotroom [<plot room ID>]
         @cal/private
         @cal/addhost <playername>
         @cal/addgm <playername>
@@ -1243,6 +1244,7 @@ class CmdCalendar(ArxPlayerCommand):
         @cal/endevent <event number>
         @cal/reschedule <event number>=<new date>
         @cal/cancel <event number>
+        @cal/join <event number>
         @cal/movehere <event number>
         @cal/changeroomdesc <event number>=<new desc>
         @cal/toggleprivate <event number>
@@ -1264,6 +1266,9 @@ class CmdCalendar(ArxPlayerCommand):
     When starting an event early, you can specify '=here' to start it in
     your current room rather than its previous location. /movehere allows
     an event to be moved to the new room you occupy while in progress.
+
+    If an event takes place off the grid, you can @cal/join the event to
+    be teleported to the room, for easy gathering of the group.
 
     If you want to mark an event private or public so that it can be viewed
     by people who didn't attend it on the web, use /toggleprivate.
@@ -1333,7 +1338,7 @@ class CmdCalendar(ArxPlayerCommand):
             caller.ndb.event_creation = None
             self.msg("Event creation cancelled.")
             return
-        if not self.switches or "comments" in self.switches:
+        if not self.switches or "comments" in self.switches or "join" in self.switches:
             lhslist = self.lhs.split("/")
             if len(lhslist) > 1:
                 lhs = lhslist[0]
@@ -1354,7 +1359,21 @@ class CmdCalendar(ArxPlayerCommand):
                 return
             # display info on a given event
             if not rhs:
-                caller.msg(event.display(), options={'box': True})
+                if "join" in self.switches:
+                    diff = time_from_now(event.date).total_seconds()
+                    if diff > 3600:
+                        caller.msg("You cannot join the event until closer to the start time.")
+                        return
+                    if event.plotroom is None:
+                        caller.msg("That event takes place on the normal grid, so you can just walk there.")
+                        return
+                    if event.location is None:
+                        caller.msg("That event has no location to join.")
+                        return
+                    caller.msg("Moving you to the event location.")
+                    caller.db.char_ob.move_to(event.location)
+                else:
+                    caller.msg(event.display(), options={'box': True})
                 return
             try:
                 num = int(rhs)

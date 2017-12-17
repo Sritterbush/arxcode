@@ -4577,10 +4577,22 @@ class RPEvent(SharedMemoryModel):
         if self.location:
             return
 
-        if not self.plotroom:
+        if self.plotroom is None:
             return
 
         self.location = self.plotroom.spawn_room()
+        self.save()
+        return
+
+    def clear_room(self):
+        if self.plotroom is None:
+            return
+
+        if self.location is None:
+            return
+
+        self.location = None
+        self.save()
         return
 
     def display(self):
