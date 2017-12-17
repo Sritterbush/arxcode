@@ -3406,7 +3406,8 @@ class CmdPlotRoom(ArxCommand):
     help_category = "Dominion"
 
     def display_room(self, room):
-        self.msg("|/Name   : " + room.name)
+        self.msg("|/Id     : " + str(room.id))
+        self.msg("Name   : " + room.name)
         self.msg("Creator: " + str(room.creator))
         self.msg("Public : " + (room.public and "Yes" or "No"))
         self.msg("Region : " + room.get_detailed_region_name())
