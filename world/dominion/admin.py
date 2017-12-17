@@ -421,10 +421,10 @@ class OrdersAdmin(DomAdmin):
 
 
 class PlotRoomAdmin(DomAdmin):
-    list_display = ('id', 'region', 'name', 'public')
+    list_display = ('id', 'domain', 'land', 'name', 'public')
     search_files = ('name', 'description')
-    raw_id_fields = ('creator',)
-    list_filter = ('region', 'biome', 'public')
+    raw_id_fields = ('creator', 'land', 'domain')
+    list_filter = ('public',)
 
 
 # Register your models here.

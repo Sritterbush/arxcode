@@ -3403,13 +3403,22 @@ class CmdPlotRoom(ArxCommand):
         self.msg("|/Name   : " + room.name)
         self.msg("Creator: " + str(room.creator))
         self.msg("Public : " + (room.public and "Yes" or "No"))
-        self.msg("Region : " + room.region_name())
+        self.msg("Region : " + room.get_detailed_region_name())
         self.msg("Desc   :|/" + room.description + "|/")
 
     def display_form(self, form):
         self.msg("|/Name   : " + form[0])
         self.msg("Public : " + (form[2] and "Yes" or "No"))
-        self.msg("Region : " + form[3])
+
+        region = "Unknown"
+        if form[3]:
+            if form[4]:
+                # Wilderness
+                region = form[3].land.region.name + " near " + form[3].name
+            else:
+                region = form[3].name
+
+        self.msg("Region : " + region)
         self.msg("Desc   :|/" + form[1] + "|/")
 
     def func(self):
@@ -3429,7 +3438,7 @@ class CmdPlotRoom(ArxCommand):
 
             table = EvTable("", "Region", "Name", "Creator", "Public")
             for room in rooms:
-                table.add_row(room.id, room.region_name(), room.name, room.creator,
+                table.add_row(room.id, room.get_region_name(), room.name, room.creator,
                               room.public and "X" or "")
 
             self.msg(table)
@@ -3453,7 +3462,7 @@ class CmdPlotRoom(ArxCommand):
             self.display_room(room)
 
         elif "new" in self.switches:
-            form = ["", "", False, "Unknown"]
+            form = ["", "", False, None, True]
             self.caller.db.plotroom_form = form
             self.display_form(form)
 
@@ -3484,18 +3493,32 @@ class CmdPlotRoom(ArxCommand):
             self.caller.db.plotroom_form = form
             self.display_form(form)
 
-        elif "region" in self.switches:
+        elif "near" in self.switches:
             if form is None:
                 self.msg("You must do @plotroom/new before setting up a room!")
                 return
 
-            regions = dict_from_choices_field(PlotRoom, "REGION_CHOICES")
-            region_names = regions.keys()
-            if self.args.lower() not in region_names:
-                self.msg("Region must be one of: %s" % ", ".join(region_names))
+            domain = Domain.objects.filter(name__icontains=self.args)
+            if not domain:
+                self.msg("Did not find a matching domain.")
                 return
 
-            form[3] = self.args.lower().capitalize()
+            if len(domain) > 1:
+                self.msg("Found more than one domain matching that name: ")
+                for dom in domain:
+                    self.msg("  " + dom.name)
+                return
+
+            form[3] = domain[0]
+            self.caller.db.plotroom_form = form
+            self.display_form(form)
+
+        elif "wilderness" in self.switches:
+            if form is None:
+                self.msg("You must do @plotroom/new before setting up a room!")
+                return
+
+            form[4] = not form[4]
             self.caller.db.plotroom_form = form
             self.display_form(form)
 
@@ -3522,10 +3545,8 @@ class CmdPlotRoom(ArxCommand):
             name = form[0]
             desc = form[1]
             public = form[2]
-            region = form[3].lower()
-
-            regions = dict_from_choices_field(PlotRoom, "REGION_CHOICES")
-            region_names = regions.keys()
+            domain = form[3]
+            wilderness = form[4]
 
             if len(name) < 5:
                 self.msg("Name is too short!")
@@ -3535,17 +3556,30 @@ class CmdPlotRoom(ArxCommand):
                 self.msg("Desc is too short!")
                 return
 
-            if region not in region_names:
-                self.msg("Region is invalid!")
+            if not domain:
+                self.msg("You need to provide a location!")
                 return
 
-            region_num = regions[region]
-
-            room = PlotRoom(name=name, description=desc, public=public, region=region_num,
-                            creator=owner)
+            room = PlotRoom(name=name, description=desc, public=public, domain=domain,
+                            land=domain.land, wilderness=wilderness, creator=owner)
             room.save()
             self.msg("Saved room %d." % room.id)
             self.caller.attributes.remove('plotroom_form')
+
+        elif "spawntest" in self.switches:
+            try:
+                room_id = int(self.args)
+                room = PlotRoom.objects.get(id=room_id)
+            except ValueError, PlotRoom.DoesNotExist:
+                room = None
+
+            if not room:
+                self.msg("No such room.")
+                return
+
+            real_room = room.spawn_room()
+            self.msg("Spawned room as #%d" % real_room.id)
+            return
 
         else:
             self.msg("Invalid usage.")

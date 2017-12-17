@@ -738,6 +738,8 @@ class Region(SharedMemoryModel):
     origin_x_coord = models.SmallIntegerField(default=0, blank=0)
     origin_y_coord = models.SmallIntegerField(default=0, blank=0)
 
+    color_code = models.CharField(max_length=8, blank=True)
+
     def __unicode__(self):
         return self.name or "Unnamed Region (#%s)" % self.id
 
@@ -4784,109 +4786,80 @@ class PlotRoom(SharedMemoryModel):
     creator = models.ForeignKey('PlayerOrNpc', related_name='created_plot_rooms', blank=True, null=True, db_index=True)
     public = models.BooleanField(default=False)
 
-    REGION_UNKNOWN = 0
-    REGION_ARX = 1
-    REGION_CROWNLANDS = 2
-    REGION_OATHLANDS = 3
-    REGION_LYCEUM = 4
-    REGION_NORTHLANDS = 5
-    REGION_ISLES = 6
-
-    REGION_CHOICES = (
-        (REGION_UNKNOWN, 'Unknown'),
-        (REGION_ARX, 'Arx'),
-        (REGION_CROWNLANDS, 'Crownlands'),
-        (REGION_OATHLANDS, 'Oathlands'),
-        (REGION_LYCEUM, 'Lyceum'),
-        (REGION_NORTHLANDS, 'Northlands'),
-        (REGION_ISLES, 'Isles')
-    )
-
-    region = models.PositiveSmallIntegerField(choices=REGION_CHOICES, default=REGION_UNKNOWN)
-
-    BIOME_UNKNOWN = 0
-    BIOME_FOREST = 1
-    BIOME_MOUNTAIN = 2
-    BIOME_EVERWINTER = 3
-    BIOME_TROPICAL = 4
-    BIOME_RUINS = 5
-    BIOME_CAVERNS = 6
-    BIOME_CATACOMBS = 7
-    BIOME_CITY = 8
-
-    BIOME_CHOICES = (
-        (BIOME_UNKNOWN, 'Unknown'),
-        (BIOME_FOREST, 'Forest'),
-        (BIOME_MOUNTAIN, 'Mountain'),
-        (BIOME_EVERWINTER, 'Everwinter'),
-        (BIOME_TROPICAL, 'Tropical'),
-        (BIOME_RUINS, 'Ruins'),
-        (BIOME_CAVERNS, 'Caverns'),
-        (BIOME_CATACOMBS, 'Catacombs'),
-        (BIOME_CITY, 'City / Settlement')
-    )
-
-    biome = models.PositiveSmallIntegerField(choices=BIOME_CHOICES, default=BIOME_UNKNOWN)
-
-    region_names = {
-        REGION_UNKNOWN: "Unknown",
-        REGION_ARX: "Arx",
-        REGION_CROWNLANDS: "Crownlands",
-        REGION_OATHLANDS: "Oathlands",
-        REGION_LYCEUM: "Lyceum",
-        REGION_NORTHLANDS: "Northlands",
-        REGION_ISLES: "Mourning Isles"
-    }
-
-    region_prefix = {
-        REGION_ARX: "|yArx - ",
-        REGION_CROWNLANDS: "|yOutside Arx |g- Crownlands - ",
-        REGION_OATHLANDS: "|yOutside Arx |b- Oathlands - ",
-        REGION_LYCEUM: "|yOutside Arx |115- Lyceum - ",
-        REGION_NORTHLANDS: "|yOutside Arx |r- Northlands - ",
-        REGION_ISLES: "|yOutside Arx |025- Mourning Isles - ",
-        REGION_UNKNOWN: "|yOutside Arx |505- "
-    }
-
-    biome_names = {
-        BIOME_UNKNOWN: "Unknown",
-        BIOME_FOREST: "Forest",
-        BIOME_MOUNTAIN: "Mountain",
-        BIOME_EVERWINTER: "Everwinter",
-        BIOME_TROPICAL: "Tropical",
-        BIOME_RUINS: "Ruins",
-        BIOME_CAVERNS: "Caverns",
-        BIOME_CATACOMBS: "Catacombs",
-        BIOME_CITY: "City"
-    }
+    land = models.ForeignKey('Land', related_name='plot_rooms', blank=True, null=True)
+    domain = models.ForeignKey('Domain', related_name='plot_rooms', blank=True, null=True)
+    wilderness = models.BooleanField(default=True)
 
     def ansi_name(self):
-        return self.region_prefix[self.region] + str(self.name) + "|n"
+        region = self.get_region()
+        region_color = "|y"
+        if region and region.color_code:
+            region_color = region.color_code
 
-    def region_name(self):
-        return self.region_names[self.region]
+        if self.domain and not self.wilderness:
+            if self.domain.id == 1:
+                result = "|yArx"
+                region_color = "|y"
+            else:
+                result = "|yOutside Arx"
+                result += region_color + " - " + self.domain.name
+            result += region_color + " - " + self.name
+        elif region:
+            result = "|yOutside Arx"
+            result += region_color + " - " + region.name + " - " + self.name
+        else:
+            result = "|yOutside Arx - " + self.name
 
-    def biome_name(self):
-        return self.biome_names[self.biome]
+        return result
 
-    def spawn_room(self):
+    def get_region(self):
+        region = None
+
+        if self.land:
+            region = self.land.region
+        elif self.domain:
+            region = self.domain.land.region
+
+        return region
+
+    def get_region_name(self):
+        region = self.get_region()
+        if not region:
+            return "Unknown"
+        else:
+            return region.name
+
+    def get_detailed_region_name(self):
+        if self.domain:
+            if self.wilderness:
+                return self.domain.land.region.name + " near " + self.domain.name
+            else:
+                return self.domain.name
+        elif self.land:
+            return self.land.region.name
+        else:
+            return "Unknown"
+
+    def spawn_room(self, arx_exit=True):
         room = create.create_object(typeclass='typeclasses.rooms.TempRoom',
                                     key=self.ansi_name())
         room.db.raw_desc = self.description
         room.db.desc = self.description
 
-        from typeclasses.rooms import ArxRoom
-        try:
-            city_center = ArxRoom.objects.get(id=13)
-            out_exit = create.create_object(settings.BASE_EXIT_TYPECLASS,
-                                            key="Back to Arx <Arx>",
-                                            location=room,
-                                            aliases=["arx", "back to arx", "out"],
-                                            destination=city_center)
-            return room
-        except ArxRoom.DoesNotExist:
-            print "Could not get city center..."
-            return room
+        if arx_exit:
+            from typeclasses.rooms import ArxRoom
+            try:
+                city_center = ArxRoom.objects.get(id=13)
+                out_exit = create.create_object(settings.BASE_EXIT_TYPECLASS,
+                                                key="Back to Arx <Arx>",
+                                                location=room,
+                                                aliases=["arx", "back to arx", "out"],
+                                                destination=city_center)
+            except ArxRoom.DoesNotExist:
+                # Just abort and return the room
+                return room
+
+        return room
 
     def __str__(self):
         return "PlotRoom #%d: %s" % (self.id, self.name)
