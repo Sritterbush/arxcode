@@ -3451,18 +3451,35 @@ class CmdPlotRoom(ArxCommand):
 
         elif not self.switches:
             # @plotroom <id>
+            room = None
             try:
                 room_id = int(self.args)
-                room = PlotRoom.objects.get(id=room_id)
-            except ValueError, PlotRoom.DoesNotExist:
-                room = None
+            except ValueError:
+                rooms = PlotRoom.objects.filter(Q(name__icontains=self.args) &
+                                               (Q(creator=owner) | Q(public=True)))
+                if not rooms:
+                    self.msg("Could not find a room matching " + self.args)
+                    return
+                if len(rooms) > 1:
+                    self.msg("Found multiple matching rooms:")
+                    for outroom in rooms:
+                        self.msg("  %s (%s)" % (outroom.name, outroom.get_detailed_region_name()))
+                    return
+                room = rooms[0]
+
+            if not room and room_id is not None:
+                try:
+                    room = PlotRoom.objects.get(id=room_id)
+                except PlotRoom.DoesNotExist:
+                    self.msg("You cannot view that room.")
+                    return
 
             if room is not None:
                 if room.creator is not owner and not room.public:
                     room = None
 
             if not room:
-                self.msg("Could not view room " + self.args)
+                self.msg("You cannot view that room.")
                 return
 
             self.display_room(room)
