@@ -3590,21 +3590,6 @@ class CmdPlotRoom(ArxCommand):
             self.msg("Saved room %d." % room.id)
             self.caller.attributes.remove('plotroom_form')
 
-        elif "spawntest" in self.switches:
-            try:
-                room_id = int(self.args)
-                room = PlotRoom.objects.get(id=room_id)
-            except ValueError, PlotRoom.DoesNotExist:
-                room = None
-
-            if not room:
-                self.msg("No such room.")
-                return
-
-            real_room = room.spawn_room()
-            self.msg("Spawned room as #%d" % real_room.id)
-            return
-
         else:
             self.msg("Invalid usage.")
 
