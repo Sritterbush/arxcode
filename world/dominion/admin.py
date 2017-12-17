@@ -423,7 +423,7 @@ class OrdersAdmin(DomAdmin):
 class PlotRoomAdmin(DomAdmin):
     list_display = ('id', 'region', 'name', 'public')
     search_files = ('name', 'description')
-    raw_id_fields = ('id', 'name', 'region', 'biome', 'description', 'creator', 'public')
+    raw_id_fields = ('creator',)
     list_filter = ('region', 'biome', 'public')
 
 
