@@ -580,10 +580,10 @@ class AssetOwner(SharedMemoryModel):
             # record organization's income
             amount += self.organization_owner.amount
             # organization prestige decay
-            self.prestige -= self.prestige/400
+            self.prestige -= int(self.prestige * .015)
         else:
             # player prestige decay
-            self.prestige -= self.prestige/100
+            self.prestige -= int(self.prestige * .05)
         # debts that won't be processed by someone else's income, since they have no receiver
         for debt in self.debts.filter(receiver__isnull=True, do_weekly=True):
             amount -= debt.amount
