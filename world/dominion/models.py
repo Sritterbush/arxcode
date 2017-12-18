@@ -4864,4 +4864,4 @@ class PlotRoom(SharedMemoryModel):
         return room
 
     def __str__(self):
-        return "PlotRoom #%d: %s" % (self.id, self.name)
+        return "%s (%s)" % (self.name, self.get_region_name())
