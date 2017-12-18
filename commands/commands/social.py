@@ -1246,6 +1246,7 @@ class CmdCalendar(ArxPlayerCommand):
         @cal/cancel <event number>
         @cal/join <event number>
         @cal/movehere <event number>
+        @cal/changeplotroom <event number>=<ID>
         @cal/changeroomdesc <event number>=<new desc>
         @cal/toggleprivate <event number>
         @cal/old
@@ -1765,6 +1766,38 @@ class CmdCalendar(ArxPlayerCommand):
             event_manager.move_event(event, loc)
             self.msg("Event moved to your room.")
             return
+        if "changeplotroom" in self.switches:
+            try:
+                callernpc = PlayerOrNpc.objects.get(player=self.caller)
+            except PlayerOrNpc.DoesNotExist:
+                caller.msg("You seem to be missing a valid Dominion object!")
+                return
+
+            try:
+                room_id = int(self.rhs)
+                plotrooms = PlotRoom.objects.filter(Q(id=room_id)
+                                                    & (Q(creator=callernpc) | Q(public=True)))
+            except ValueError:
+                plotrooms = PlotRoom.objects.filter(Q(name__icontains=self.rhs)
+                                                    & (Q(creator=callernpc) | Q(public=True)))
+
+            if not plotrooms:
+                self.msg("No plotrooms found matching %s" % self.rhs)
+                return
+
+            if len(plotrooms) > 1:
+                self.msg("Found multiple rooms matching %s:" % self.rhs)
+                for room in plotrooms:
+                    self.msg("  %d: %s (%s)" % (room.id, room.name, room.get_detailed_region_name()))
+                return
+
+            # TODO: This probably needs to check if the event is currently running.
+            event.location = None
+            event.plotroom = plotrooms[0]
+            event.save()
+            self.msg("Moved event to plot room |w%s|n (in %s)." % (plotrooms[0].name, plotrooms[0].get_detailed_region_name()))
+            return
+
         if "cancel" in self.switches:
             if event.id in event_manager.db.active_events:
                 caller.msg("You must /end an active event.")
