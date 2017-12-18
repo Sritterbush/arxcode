@@ -11,18 +11,20 @@ create the character on the roster, filling in incomplete fields by the player
 jumping around to them.
 
 """
+import copy
+
 from django.conf import settings
-from server.utils.arx_utils import ArxPlayerCommand
-from evennia.utils import utils, create, search
-from server.utils.arx_utils import inform_staff, check_break
-from evennia.accounts.models import AccountDB
 from evennia import syscmdkeys
+from evennia.accounts.models import AccountDB
+from evennia.utils import utils, create, search
+from six import string_types
+from unidecode import unidecode
+
+from server.utils.arx_utils import ArxPlayerCommand
+from server.utils.arx_utils import inform_staff, check_break
 from world.stats_and_skills import (get_partial_match, get_skill_cost,
                                     CRAFTING_ABILITIES, VALID_SKILLS,
                                     VALID_STATS, )
-import copy
-from unidecode import unidecode
-
 
 # limit symbol import for API
 __all__ = ("CmdGuestLook", "CmdGuestCharCreate", "CmdGuestPrompt", "CmdGuestAddInput")
@@ -66,7 +68,7 @@ _voc_start_skills_ = {"noble": {"diplomacy": 3, "leadership": 3, "etiquette": 2,
                                 "law": 1, "ride": 1,
                                 "manipulation": 1, "empathy": 1, "war": 1},
                       "courtier": {"diplomacy": 1, "etiquette": 3, "manipulation": 2,
-                                    "empathy": 2, "seduction": 3, "propaganda": 1},
+                                   "empathy": 2, "seduction": 3, "propaganda": 1},
                       "charlatan": {"legerdemain": 3, "manipulation": 3, "empathy": 1,
                                     "streetwise": 3, "occult": 1},
                       "soldier": {"medium wpn": 3, "brawl": 1, "dodge": 1,
@@ -100,6 +102,7 @@ _voc_start_skills_ = {"noble": {"diplomacy": 3, "leadership": 3, "etiquette": 2,
 
 
 def setup_voc(char, args):
+    """Sets skills/stats for vocation template"""
     char.attributes.add("skill_points", 0)
     char.attributes.add("stat_points", 0)
     skills = _voc_start_skills_[args]
@@ -147,6 +150,7 @@ def census_of_fealty():
 
 
 def award_bonus_by_fealty(fealty):
+    """Awards bonus xp based on fealty population - less populated gets a bonus"""
     census = census_of_fealty()
     max_pop = census[census.keys()[-1]]
     try:
@@ -158,6 +162,7 @@ def award_bonus_by_fealty(fealty):
 
 
 def award_bonus_by_age(age):
+    """Awards bonus xp for older characters"""
     try:
         bonus = (age - 15)/4
         if age > 20:
@@ -300,6 +305,7 @@ name you chose for the character and the password you will be provided.
 
 
 def stage_title(stage):
+    """Helper function for setting the title bar of a stage"""
     stage_txt = ("Name", "Vocation", "Character Design and Details",
                  "Stats and Skills", "All Done: Thank You!")
     stage_cmd = ("{w@add/name <character name>{n", "{w@add/vocation <character's vocation>{n",
@@ -622,6 +628,7 @@ class CmdGuestAddInput(ArxPlayerCommand):
 
     @staticmethod
     def do_stage_1(caller, args):
+        """Sets the name for the character in stage 1"""
         char = caller.db.char
         if not args:
             caller.msg("Enter a unique first name for your character with the '{w@add/name{n' command.\n" +
@@ -657,6 +664,7 @@ class CmdGuestAddInput(ArxPlayerCommand):
 
     @staticmethod
     def do_stage_2(caller, args, switches):
+        """Sets the vocation of the character in stage 2"""
         char = caller.db.char
         if not args:
             caller.msg("Enter your vocation with '{w@add/vocation <vocation name>{n'. You may either choose one " +
@@ -665,7 +673,7 @@ class CmdGuestAddInput(ArxPlayerCommand):
         args = args.lower().strip()
         
         def remove_all_skills():
-            # helper function to wipe skills in case we have a previous vocation set
+            """helper function to wipe skills in case we have a previous vocation set"""
             char.attributes.remove("skills")
             char.attributes.remove("abilities")
             char.attributes.add("skills", {})
@@ -698,6 +706,7 @@ class CmdGuestAddInput(ArxPlayerCommand):
 
     @staticmethod
     def do_stage_3(caller, args, switches):
+        """Sets background attributes for the character in stage 3 - fleshing them out"""
         char = caller.db.char
         if not args:
             caller.msg("{w@add/<field>{n must have a value after a space. Examples:\n" +
@@ -712,7 +721,7 @@ class CmdGuestAddInput(ArxPlayerCommand):
                        "{w@add/social_rank{n, ex: {w@add/social_rank 8")
             return
         # if switches is a list, convert it to a string
-        if not isinstance(switches, basestring):
+        if not isinstance(switches, string_types):
             switches = switches[0]
         if switches not in list(_stage3_fields_) + list(_stage3_optional_):
             caller.msg("{w@add/<switch>{n must be one of the following: %s" % (list(_stage3_fields_) +
@@ -727,7 +736,7 @@ class CmdGuestAddInput(ArxPlayerCommand):
                 caller.msg("Age must be between %s and %s." % (_min_age_, _max_age_))
                 return
             bonus = award_bonus_by_age(args)
-            msg = "For having the fealty of %s, you will receive %s " % (args, bonus)
+            msg = "For having the age of %s, you will receive %s " % (args, bonus)
             msg += "bonus xp after character creation."
             caller.msg(msg)
         if 'birthday' in switches:
@@ -806,9 +815,10 @@ class CmdGuestAddInput(ArxPlayerCommand):
 
     @staticmethod
     def do_stage_4(caller, args, switches, lhs, rhs):
+        """Set stats/skills in stage 4"""
         char = caller.db.char
         if not args:
-            caller.msg("Add or remove stats/skills by {w@add/[stat or skill] <statname?=<+ or -><value>{n")
+            caller.msg("Add or remove stats/skills by {w@add/[stat or skill] <statname>=<+ or -><value>{n")
             return
         if not rhs or not lhs:
             caller.msg(utils.fill("%rThe syntax for adding or removing skills requires an '='" +
@@ -826,7 +836,7 @@ class CmdGuestAddInput(ArxPlayerCommand):
             return
 
         def check_points(character, arguments, value, category):
-            # helper function to see if we can add or remove the points
+            """helper function to see if we can add or remove the points"""
             if char.db.skills is None:
                 char.db.skills = {}
             if not (category == "skill" or category == "stat"):
@@ -927,6 +937,7 @@ class CmdGuestAddInput(ArxPlayerCommand):
 
     @staticmethod
     def do_stage_5(caller, args):
+        """Handle submission/written application"""
         if not args or len(args) < 78:
             caller.msg("Please write a more detailed application for your character. " +
                        "Your application should state how you intend to RP your character, " +
