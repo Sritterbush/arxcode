@@ -28,7 +28,7 @@ TRAINING_CAP_PER_WEEK = 10
 PLAYER_ATTRS = ("votes", 'claimed_scenelist', 'random_scenelist', 'validated_list', 'praises', 'condemns',
                 'requested_validation', 'donated_ap')
 CHARACTER_ATTRS = ("currently_training", "trainer", 'scene_requests', "num_trained", "num_journals",
-                   "num_rel_updates", "num_comments")
+                   "num_rel_updates", "num_comments", "num_flashbacks")
 
 
 class WeeklyEvents(Script):
