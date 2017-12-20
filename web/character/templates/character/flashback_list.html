@@ -9,5 +9,6 @@
         <h2><a href="{% url 'character:flashback_post' object_id=character.id flashback_id=flashback.id %}">{{ flashback }}</a></h2>
         <div>{{ flashback.summary }}</div>
     {% endfor %}
+    <div><a class="btn btn-success" href="{% url "character:create_flashback" character.id %}">Create New Flashback</a></div>
     </div>
 {% endblock %}

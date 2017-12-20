@@ -15,7 +15,7 @@ from django.db.models import Q
 from django.http import Http404, HttpResponseRedirect, HttpResponse
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import ListView, DetailView
+from django.views.generic import ListView, DetailView, CreateView
 from evennia.objects.models import ObjectDB
 
 from commands.commands import roster
@@ -23,7 +23,7 @@ from server.utils.name_paginator import NamePaginator
 from typeclasses.characters import Character
 from world.dominion.models import Organization, CrisisAction
 from .forms import (PhotoForm, PhotoDirectForm, PhotoUnsignedDirectForm, PortraitSelectForm,
-                    PhotoDeleteForm, PhotoEditForm, FlashbackPostForm)
+                    PhotoDeleteForm, PhotoEditForm, FlashbackPostForm, FlashbackCreateForm)
 from .models import Photo, Story, Episode, Chapter, Flashback
 
 
@@ -467,15 +467,24 @@ class ActionListView(ListView):
         return context
 
 
-class FlashbackListView(ListView):
-    """View for listing flashbacks"""
-    model = Flashback
-    template_name = "character/flashback_list.html"
-
+class CharacterMixin(object):
+    """Mixin for adding self.character to flashback views"""
     @property
     def character(self):
         """Main character for the flashback"""
         return get_object_or_404(Character, id=self.kwargs['object_id'])
+
+    def get_context_data(self, **kwargs):
+        """Gets context for template"""
+        context = super(CharacterMixin, self).get_context_data(**kwargs)
+        context['character'] = self.character
+        return context
+
+
+class FlashbackListView(CharacterMixin, ListView):
+    """View for listing flashbacks"""
+    model = Flashback
+    template_name = "character/flashback_list.html"
 
     def get_queryset(self):
         """Ensure flashbacks are private to participants/staff"""
@@ -487,24 +496,47 @@ class FlashbackListView(ListView):
         entry = self.character.roster
         return Flashback.objects.filter(Q(owner=entry) | Q(allowed=entry)).distinct()
 
+
+class FlashbackCreateView(CharacterMixin, CreateView):
+    """View for creating a flashback"""
+    model = Flashback
+    template_name = "character/flashback_create_form.html"
+    form_class = FlashbackCreateForm
+
+    def get_form_kwargs(self):
+        """Gets special kwargs for our form. We pass along the owner to save"""
+        kwargs = super(FlashbackCreateView, self).get_form_kwargs()
+        kwargs['owner'] = self.character.roster
+        return kwargs
+
     def get_context_data(self, **kwargs):
-        """Gets context for template"""
-        context = super(FlashbackListView, self).get_context_data(**kwargs)
-        context['character'] = self.character
-        return context
+        """Checks permission to create a flashback then returns context"""
+        try:
+            user = self.request.user
+            if user != self.character.player_ob and not (user.is_staff or user.check_permstring("builders")):
+                raise PermissionDenied
+        except AttributeError:
+            raise PermissionDenied
+        return super(FlashbackCreateView, self).get_context_data(**kwargs)
+
+    def get_success_url(self):
+        """Gets the URL to redirect us to on a successful submission"""
+        return reverse('character:list_flashbacks', kwargs={'object_id': self.character.id})
+
+    def form_valid(self, form):
+        """Update newly created flashback with our owner and return appropriate response"""
+        response = super(FlashbackCreateView, self).form_valid(form)
+        self.object.owner = self.character.roster
+        self.object.save()
+        return response
 
 
-class FlashbackAddPostView(DetailView):
+class FlashbackAddPostView(CharacterMixin, DetailView):
     """View for an individual flashback or adding a post to it"""
     model = Flashback
     form_class = FlashbackPostForm
     template_name = "character/flashbackpost_form.html"
     pk_url_kwarg = 'flashback_id'
-
-    @property
-    def character(self):
-        """Main character for the flashback"""
-        return get_object_or_404(Character, id=self.kwargs['object_id'])
 
     @property
     def poster(self):
@@ -520,7 +552,6 @@ class FlashbackAddPostView(DetailView):
         user = self.request.user
         if user not in self.get_object().all_players and not (user.is_staff or user.check_permstring("builders")):
             raise PermissionDenied
-        context['character'] = self.character
         context['form'] = FlashbackPostForm()
         return context
 

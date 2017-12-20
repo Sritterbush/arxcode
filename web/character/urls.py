@@ -28,6 +28,7 @@ urlpatterns = [
     url(r'^sheet/(?P<object_id>\d+)/gallery/delete_photo$', views.delete_photo, name="delete_photo"),
     url(r'^sheet/(?P<object_id>\d+)/story$', views.ActionListView.as_view(), name="character_story"),
     url(r'^sheet/(?P<object_id>\d+)/scenes$', views.FlashbackListView.as_view(), name="list_flashbacks"),
+    url(r'^sheet/(?P<object_id>\d+)/scenes/create$', views.FlashbackCreateView.as_view(), name="create_flashback"),
     url(r'^sheet/(?P<object_id>\d+)/scenes/(?P<flashback_id>\d+)/$', views.FlashbackAddPostView.as_view(),
         name="flashback_post"),
     url(r'^api/$', views.character_list, name="character_list")
