@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load crispy_forms_tags %}
 {% block content %}
+    <div class="container">
     <div>
     <h1 class="text-center"><a href="{% url 'character:list_flashbacks' character.id %}">
                     <span class="label label-primary">Back To Flashbacks</span></a></h1></div>
@@ -8,4 +9,5 @@
     {{ form|crispy }}
     <input class="btn btn-success" type="submit" value="Submit" />
 </form>
+    </div>
 {% endblock %}
