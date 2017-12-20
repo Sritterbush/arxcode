@@ -52,7 +52,9 @@ class SceneCommandTests(ArxCommandTest):
         self.account2.inform.assert_called_with("You have been invited by Testaccount to participate in flashback #1:"
                                                 " 'testing'.", category="Flashbacks")
         self.call_cmd("/post 1", "You must include a message.")                                            
+        self.assertEqual(self.char1.messages.num_flashbacks, 0)
         self.call_cmd("/post 1=A new testpost", "You have posted a new message to testing: A new testpost")
+        self.assertEqual(self.char1.messages.num_flashbacks, 1)
         self.account2.inform.assert_called_with("There is a new post on flashback #1 by Char.",
                                                 category="Flashbacks")
         self.caller = self.account2

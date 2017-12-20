@@ -1428,10 +1428,12 @@ class Flashback(SharedMemoryModel):
         Adds a new post to the flashback.
         Args:
             actions: The story post that the poster is writing.
-            poster: The player who added the story post.
+            poster (RosterEntry): The player who added the story post.
         """
         now = datetime.now()
         self.posts.create(poster=poster, actions=actions, db_date_created=now)
+        if poster:
+            poster.character.messages.num_flashbacks += 1
         for player in self.all_players:
             if poster and poster.player == player:
                 continue

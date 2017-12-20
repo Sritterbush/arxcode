@@ -165,12 +165,21 @@ class MessageHandler(messengerhandler.MessengerHandler, journalhandler.JournalHa
     @num_comments.setter
     def num_comments(self, val):
         self.obj.db.num_comments = val
+        
+    @property
+    def num_flashbacks(self):
+        return self.obj.db.num_flashbacks or 0
+        
+    @num_flashbacks.setter
+    def num_flashbacks(self, val):
+        self.obj.db.num_flashbacks = val
 
     @property
     def num_weekly_journals(self):
-        return self.num_journals + self.num_rel_updates + self.num_comments
+        return self.num_journals + self.num_rel_updates + self.num_comments + self.num_flashbacks
 
     def reset_journal_count(self):
         self.num_journals = 0
         self.num_rel_updates = 0
         self.num_comments = 0
+        self.num_flashbacks = 0

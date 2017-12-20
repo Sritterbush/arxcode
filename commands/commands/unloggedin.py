@@ -56,35 +56,40 @@ class CmdGuestConnect(ArxCommand):
                      "\nIf you feel this ban is in error, please email an admin.{x"
             self.dc_session(string)
             return
-        # check if IP is in our whitelist
-        white_list = ServerConfig.objects.conf("white_list") or []
-        if addr not in white_list:
-            qname = addr[::-1] + "." + str(settings.TELNET_PORTS[0]) + "." + settings.TELNET_INTERFACES[0][::-1]
-            try:
-                query(qname)
-                msg = "Guest connections from TOR are not permitted, sorry."
-                self.dc_session(msg)
-                return
-            except NXDOMAIN:
-                # not inside TOR
-                pass
-            import json
-            from urllib2 import urlopen
-            api_key = getattr(settings, 'HOST_BLOCKER_API_KEY', "")
-            request = "http://tools.xioax.com/networking/v2/json/%s/%s" % (addr, api_key)
-            try:
-                data = json.load(urlopen(request))
-                print "Returned from xiaox: %s" % str(data)
-                if data['host-ip']:
-                    self.dc_session("Guest connections from VPNs are not permitted, sorry.")
+        try:
+            check_vpn = settings.CHECK_VPN
+        except AttributeError:
+            check_vpn = False
+        if check_vpn:
+            # check if IP is in our whitelist
+            white_list = ServerConfig.objects.conf("white_list") or []
+            if addr not in white_list:
+                qname = addr[::-1] + "." + str(settings.TELNET_PORTS[0]) + "." + settings.TELNET_INTERFACES[0][::-1]
+                try:
+                    query(qname)
+                    msg = "Guest connections from TOR are not permitted, sorry."
+                    self.dc_session(msg)
                     return
-                # the address was safe, add it to our white_list
-                white_list.append(addr)
-                ServerConfig.objects.conf('white_list', white_list)
-            except Exception as err:
-                import traceback
-                traceback.print_exc()
-                print 'Error code on trying to check VPN:', err
+                except NXDOMAIN:
+                    # not inside TOR
+                    pass
+                import json
+                from urllib2 import urlopen
+                api_key = getattr(settings, 'HOST_BLOCKER_API_KEY', "")
+                request = "http://tools.xioax.com/networking/v2/json/%s/%s" % (addr, api_key)
+                try:
+                    data = json.load(urlopen(request))
+                    print "Returned from xiaox: %s" % str(data)
+                    if data['host-ip']:
+                        self.dc_session("Guest connections from VPNs are not permitted, sorry.")
+                        return
+                    # the address was safe, add it to our white_list
+                    white_list.append(addr)
+                    ServerConfig.objects.conf('white_list', white_list)
+                except Exception as err:
+                    import traceback
+                    traceback.print_exc()
+                    print 'Error code on trying to check VPN:', err
         for pc in playerlist:
             if pc.is_guest():
                 # add session check just to be absolutely sure we don't connect to a guest in-use
