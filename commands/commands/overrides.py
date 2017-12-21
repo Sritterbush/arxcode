@@ -645,6 +645,7 @@ class CmdPose(ArxCommand):
     aliases = [":", "emote", ";"]
     locks = "cmd:all()"
     help_category = "Social"
+    arg_regex = None
 
     # noinspection PyAttributeOutsideInit
     def parse(self):
