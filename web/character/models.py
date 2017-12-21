@@ -1440,6 +1440,12 @@ class Flashback(SharedMemoryModel):
             player.inform("There is a new post on flashback #%s by %s." % (self.id, poster),
                           category="Flashbacks")
 
+    def get_absolute_url(self):
+        """Returns URL of the view of this flashback"""
+        from django.shortcuts import reverse
+        object_id = self.owner.character.id
+        return reverse('character:flashback_post', kwargs={'object_id': object_id, 'flashback_id': self.id})
+
 
 class FlashbackPost(SharedMemoryModel):
     """A post for a flashback."""

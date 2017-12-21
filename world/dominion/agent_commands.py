@@ -244,6 +244,8 @@ class CmdAgents(ArxPlayerCommand):
                 gname, gdesc = generate_default_name_and_desc(gtype_num, level, org)
                 agent = owner.agents.create(quality=level, type=gtype_num, name=gname,
                                             desc=gdesc)
+            except Agent.MultipleObjectsReturned:
+                agent = owner.agents.filter(quality=level, type=gtype_num)[0]
             agent.quantity += amt
             agent.save()
             caller.msg("You bought %s, and now have %s." % (amt, agent))
