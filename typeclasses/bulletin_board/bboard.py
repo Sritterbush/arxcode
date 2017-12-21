@@ -7,6 +7,7 @@ from typeclasses.objects import Object
 from world.msgs.models import Post
 from world.msgs.managers import POST_TAG, TAG_CATEGORY
 
+PAGEROOT = "http://play.arxgame.org"
 
 class BBoard(Object):
     """
@@ -50,8 +51,12 @@ class BBoard(Object):
             self.flush_unread_cache()
         if announce:
             post_num = self.posts.count()
+            from django.core.urlresolvers import reverse
+            post_url = PAGEROOT + reverse('msgs:post_view', kwargs={'board_id': self.id, 'post_id': post.id})
+
             notify = "\n{{wNew post on {0} by {1}:{{n {2}".format(self.key, posted_by, subject)
-            notify += "\nUse {w@bbread %s/%s {nto read this message." % (self.key, post_num)
+            notify += "\nUse {w@bbread %s/%s {nor {w%s{n to read this message." % (self.key, post_num, post_url)
+
             self.notify_subs(notify)
         self.update_cache_on_post(poster_obj)
         return post
