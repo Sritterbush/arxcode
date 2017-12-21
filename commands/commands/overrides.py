@@ -505,6 +505,7 @@ class CmdEmit(ArxCommand):
     locks = "cmd:all()"
     help_category = "Social"
     perm_for_switches = "Builders"
+    arg_regex = None
 
     def get_help(self, caller, cmdset):
         """Returns custom help file based on caller"""
@@ -644,6 +645,7 @@ class CmdPose(ArxCommand):
     aliases = [":", "emote", ";"]
     locks = "cmd:all()"
     help_category = "Social"
+    arg_regex = None
 
     # noinspection PyAttributeOutsideInit
     def parse(self):
