@@ -1634,7 +1634,7 @@ class CmdArxExamine(CmdExamine):
                 if obj.sessions.count():
                     mergemode = "session"
                 elif self.player_mode:
-                    mergemode = "player"
+                    mergemode = "account"
                 else:
                     mergemode = "object"
                 # using callback to print results whenever function returns.
