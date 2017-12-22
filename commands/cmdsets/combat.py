@@ -493,6 +493,7 @@ class CmdPassTurn(ArxCommand):
     help_category = "Combat"
 
     def func(self):
+        """Executes the command"""
         caller = self.caller
         combat = check_combat(caller)
         if not combat:
@@ -527,6 +528,7 @@ class CmdCancelAction(ArxCommand):
     help_category = "Combat"
 
     def func(self):
+        """Executes the CancelAction command"""
         self.caller.combat.cancel_queued_action()
         combat = self.caller.combat.combat
         self.msg("You clear any queued combat action.")
@@ -840,6 +842,7 @@ class CmdFightStatus(ArxCommand):
     help_category = "Combat"
 
     def func(self):
+        """Executes the flee command"""
         combat = check_combat(self.caller)
         if not combat:
             return
@@ -898,11 +901,11 @@ class CmdAdminCombat(ArxCommand):
             return
         if "pass" in switches:
             combat.msg("%s makes %s pass their turn." % (caller.key, targ.name))
-            combat.do_pass(targ)
+            targ.combat.do_pass()
             return
         if "ready" in switches:
             combat.msg("%s marks %s as ready to proceed." % (caller.key, targ.name))
-            combat.character_ready(targ)
+            targ.combat.character_ready()
             return
         if "afk" in switches:
             combat.msg("%s has changed %s to an observer." % (caller.key, targ.name))
@@ -1056,6 +1059,7 @@ class CmdHarm(ArxCommand):
     help_category = "GMing"
 
     def func(self):
+        """Executes the harm command"""
         if not self.lhslist:
             self.msg("Must provide one or more character names.")
             return
@@ -1217,8 +1221,10 @@ class CmdStandYoAssUp(ArxCommand):
     Heals up a player character
     Usage:
         +standyoassup <character>
+        +standyoassup/noheal <character>
 
-    Heals a puny mortal and wakes them up
+    Heals a puny mortal and wakes them up. Use /noheal if you just wanna wake
+    them but want them to remain injured.
     """
     key = "+standyoassup"
     locks = "cmd:perm(wizards)"
@@ -1230,8 +1236,9 @@ class CmdStandYoAssUp(ArxCommand):
         targ = caller.search(self.args)
         if not targ:
             return
-        targ.dmg = 0
+        if "noheal" not in self.switches:
+            targ.dmg = 0
+            targ.msg("You have been healed.")
+            caller.msg("You heal %s because they're a sissy mortal who needs everything done for them." % targ)
         targ.wake_up()
-        targ.msg("You have been healed.")
-        caller.msg("You heal %s because they're a sissy mortal who need everything done for them." % targ)
         return
