@@ -1371,7 +1371,8 @@ class CmdCalendar(ArxPlayerCommand):
                         caller.msg("That event has no location to join.")
                         return
                     caller.msg("Moving you to the event location.")
-                    caller.db.char_ob.move_to(event.location)
+                    mapping = {'secret': True}
+                    caller.db.char_ob.move_to(event.location, mapping=mapping)
                 else:
                     caller.msg(event.display(), options={'box': True})
                 return
