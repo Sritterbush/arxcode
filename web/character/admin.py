@@ -11,7 +11,7 @@ from .models import (Roster, RosterEntry, Photo, DISCO_MULT, SearchTag, Flashbac
                      MysteryDiscovery, RevelationDiscovery, ClueDiscovery,
                      RevelationForMystery, ClueForRevelation, Theory,
                      )
-from django.db.models import F, Subquery, OuterRef, IntegerField, ExpressionWrapper
+from django.db.models import F, Subquery, OuterRef, IntegerField, ExpressionWrapper, Q
 
 
 class BaseCharAdmin(admin.ModelAdmin):
@@ -262,17 +262,16 @@ class InvestigationListFilter(admin.SimpleListFilter):
         Returns:
             queryset that can be modified to either show those finishing or those who won't.
         """
-        qs = queryset.filter(clue_target__isnull=False)
-        clues = ClueDiscovery.objects.annotate(goal=F('clue__rating') * DISCO_MULT)
-        qs = qs.annotate(goal=Subquery(clues.filter(investigation=OuterRef('id')).values('goal')[:1],
-                                       output_field=IntegerField()))
+        qs = queryset.filter(clue_target__isnull=False).annotate(goal=F('clue_target__rating') * DISCO_MULT)
+        clues = ClueDiscovery.objects.filter(investigation__isnull=False)
         qs = qs.annotate(clue_roll=Subquery(clues.filter(investigation=OuterRef('id')).values('roll')[:1],
                                             output_field=IntegerField()))
         qs = qs.annotate(total_progress=ExpressionWrapper(F('roll') + F('clue_roll'), output_field=IntegerField()))
         if self.value() == "finishing":
-            return qs.filter(total_progress__gte=F('goal'))
+            # checking roll by itself in case there isn't a ClueDiscovery yet and would finish in one week
+            return qs.filter(Q(total_progress__gte=F('goal')) | Q(roll__gte=F('goal')))
         if self.value() == "not_finishing":
-            return qs.filter(total_progress__lt=F('goal'))
+            return qs.filter(Q(total_progress__lt=F('goal')) & ~Q(roll__gte=F('goal')))
 
 
 class InvestigationAdmin(BaseCharAdmin):

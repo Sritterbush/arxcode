@@ -152,7 +152,7 @@ class CmdViewCrisis(CrisisCmdMixin, ArxPlayerCommand):
 
     @property
     def current_actions(self):
-        return self.caller.Dominion.actions.exclude(status=CrisisAction.PUBLISHED)
+        return self.caller.Dominion.actions.exclude(status__in=(CrisisAction.PUBLISHED, CrisisAction.CANCELLED))
 
     @property
     def assisted_actions(self):
@@ -164,7 +164,7 @@ class CmdViewCrisis(CrisisCmdMixin, ArxPlayerCommand):
         table = EvTable("{w#{n", "{wCrisis{n")
         current_actions = [ob for ob in self.current_actions if ob.crisis] + [
             ass.crisis_action for ass in self.assisted_actions.exclude(
-                crisis_action__status=CrisisAction.PUBLISHED) if ass.crisis_action.crisis]
+                crisis_action__status__in=(CrisisAction.PUBLISHED, CrisisAction.CANCELLED)) if ass.crisis_action.crisis]
         for ob in current_actions:
             table.add_row(ob.id, ob.crisis)
         self.msg(table)
