@@ -1629,7 +1629,7 @@ class Ruler(SharedMemoryModel):
         return sum(ob.weekly_amount for ob in self.house.debts.filter(category="vassal taxes"))
         
     def clear_cache(self):
-        for domain in self.domains.all():
+        for domain in self.holdings.all():
             domain.wipe_cached_data()
 
 
