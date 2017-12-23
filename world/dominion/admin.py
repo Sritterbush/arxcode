@@ -420,11 +420,40 @@ class OrdersAdmin(DomAdmin):
     list_filter = ('complete',)
 
 
+class PlotRoomRegionFilter(admin.SimpleListFilter):
+    title = "Region"
+    parameter_name = "region"
+
+    def lookups(self, request, model_admin):
+        regions = Region.objects.all().order_by('name')
+        result = []
+        for region in regions:
+            result.append((region.id, region.name))
+        return result
+
+    def queryset(self, request, queryset):
+        if not self.value():
+            return queryset
+
+        try:
+            region_id = int(self.value())
+            region = Region.objects.get(id=region_id)
+        except ValueError, Region.DoesNotExist:
+            region = None
+
+        if not region:
+            return queryset
+
+        qs1 = queryset.filter(domain__isnull=False).filter(domain__land__region=region)
+        qs2 = queryset.filter(land__isnull=False).filter(land__region=region)
+        return qs1 | qs2
+
+
 class PlotRoomAdmin(DomAdmin):
     list_display = ('id', 'domain', 'land', 'name', 'public')
     search_files = ('name', 'description')
     raw_id_fields = ('creator', 'land', 'domain')
-    list_filter = ('public',)
+    list_filter = ('public', PlotRoomRegionFilter)
 
 
 # Register your models here.
