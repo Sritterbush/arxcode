@@ -1919,9 +1919,9 @@ class CmdOrganization(ArxPlayerCommand):
                 if not caller.pay_action_points(cost):
                     self.msg("You cannot afford to pay %s action points." % cost)
                     return
-                entry.discover_clue(clue=clue, method="Briefing")
+                discovery = entry.discover_clue(clue=clue, method="Briefing")
                 share_type = "clue"
-                cmd_string = "@clue"
+                cmd_string = "@clue %d" % discovery.id
                 share_str = clue
             else:
                 if not check_clues_or_theories("theories"):
@@ -1935,9 +1935,9 @@ class CmdOrganization(ArxPlayerCommand):
                     return
                 theory.share_with(player)
                 share_type = "theory"
-                cmd_string = "@theories"
+                cmd_string = "@theories %d" % theory.id
                 share_str = theory
-            text = "You've been briefed and learned a %s. Use %s to view them: %s" % (share_type, cmd_string, share_str)
+            text = "You've been briefed and learned a %s. Use {w%s{n to view them: %s" % (share_type, cmd_string, share_str)
             tarmember.player.player.msg("%s has briefed you on %s's secrets." % (caller.db.char_ob, org))
             tarmember.player.player.inform(text, category="%s briefing" % org)
             self.msg("You have briefed %s on your organization's secrets." % tarmember)
