@@ -866,7 +866,7 @@ class ClueDiscovery(SharedMemoryModel):
         targ_clue.mark_discovered(method="Sharing", message="This clue was shared to you by %s." % self.character,
                                   revealed_by=self.character, investigation=investigation)
         pc = targ_clue.character.player
-        msg = "A new clue has been shared with you by %s!\n\n%s\n" % (self.character,
+        msg = "A new clue (%d) has been shared with you by %s!\n\n%s\n" % (targ_clue.id, self.character,
                                                                       targ_clue.display())
         pc.inform(msg, category="Investigations", append=False)
         return True
