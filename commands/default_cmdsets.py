@@ -138,7 +138,7 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
         from .commands import help, overrides
         self.add(help.CmdHelp())
         self.add(overrides.CmdWho())
-        self.add(overrides.CmdSetAttribute())
+        self.add(overrides.CmdArxSetAttribute())
         self.add(overrides.CmdArxCdestroy())
         self.add(overrides.CmdArxChannelCreate())
         self.add(overrides.CmdArxClock())

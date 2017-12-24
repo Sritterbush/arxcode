@@ -22,7 +22,10 @@ INSTALLED_APPS += ('world.dominion',
                    'cloudinary',
                    'django.contrib.humanize',
                    'markdown_deux',
+                   'crispy_forms',
                    'bootstrapform')
+
+CRISPY_TEMPLATE_PACK = 'bootstrap3'
 
 COLOR_ANSI_EXTRA_MAP = color_markups.CURLY_COLOR_ANSI_EXTRA_MAP + color_markups.MUX_COLOR_ANSI_EXTRA_MAP
 COLOR_XTERM256_EXTRA_FG = color_markups.CURLY_COLOR_XTERM256_EXTRA_FG + color_markups.MUX_COLOR_XTERM256_EXTRA_FG
@@ -42,6 +45,7 @@ PERMISSION_HIERARCHY = ["Guest",  # note-only used if GUEST_ENABLED=True
                         "Immortal",
                         "Developer",
                         ]
+COMMAND_DEFAULT_ARG_REGEX = r'^[ /]+.*$|$'
 
 
 HELPDESK_CREATE_TICKET_HIDE_ASSIGNED_TO = True
