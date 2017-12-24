@@ -510,7 +510,7 @@ class CmdCraft(ArxCommand):
                 crafter.db.refine_attempts = refine_attempts
                 self.msg("The roll is %s, a quality level of %s." % (roll, QUALITY_LEVELS[quality]))
                 if quality <= old:
-                    caller.msg("You failed to improve %s." % targ)
+                    caller.msg("You failed to improve %s; the quality will remain %s." % (targ, QUALITY_LEVELS[old]))
                     return
                 caller.msg("New quality level is %s." % QUALITY_LEVELS[quality])
                 change_quality(targ, quality)
