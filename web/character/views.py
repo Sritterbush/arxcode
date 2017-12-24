@@ -596,7 +596,7 @@ class KnownCluesView(CharacterMixin, LimitPageMixin, ListView):
         if user.char_ob != self.character and not (user.is_staff or user.check_permstring("builders")):
             raise PermissionDenied
         entry = self.character.roster
-        qs = ClueDiscovery.objects.filter(Q(character=entry) & Q(roll__gte=F('clue__rating') * DISCO_MULT)).order_by('id')
+        qs = entry.finished_clues.order_by('id')
         return self.search_filters(qs)
 
     def get_context_data(self, **kwargs):
