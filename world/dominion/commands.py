@@ -3418,12 +3418,16 @@ class CmdPlotRoom(ArxCommand):
         self.msg("Public : " + (form[2] and "Yes" or "No"))
 
         region = "Unknown"
-        if form[3]:
-            if form[4]:
-                # Wilderness
-                region = form[3].land.region.name + " near " + form[3].name
-            else:
-                region = form[3].name
+        if form[3] != 0:
+            try:
+                domain = Domain.objects.get(id=form[3])
+                if form[4]:
+                    # Wilderness
+                    region = domain.land.region.name + " near " + domain.name
+                else:
+                    region = domain.name
+            except Domain.DoesNotExist:
+                region = "Unknown Region (Internal Error)"
 
         self.msg("Region : " + region)
         self.msg("Desc   :|/" + form[1] + "|/")
@@ -3486,7 +3490,7 @@ class CmdPlotRoom(ArxCommand):
             self.display_room(room)
 
         elif "new" in self.switches:
-            form = ["", "", False, None, True]
+            form = ["", "", False, 0, True]
             self.caller.db.plotroom_form = form
             self.display_form(form)
 
@@ -3533,7 +3537,7 @@ class CmdPlotRoom(ArxCommand):
                     self.msg("  " + dom.name)
                 return
 
-            form[3] = domain[0]
+            form[3] = domain[0].id
             self.caller.db.plotroom_form = form
             self.display_form(form)
 
@@ -3569,7 +3573,7 @@ class CmdPlotRoom(ArxCommand):
             name = form[0]
             desc = form[1]
             public = form[2]
-            domain = form[3]
+            domain_id = form[3]
             wilderness = form[4]
 
             if len(name) < 5:
@@ -3580,8 +3584,14 @@ class CmdPlotRoom(ArxCommand):
                 self.msg("Desc is too short!")
                 return
 
-            if not domain:
+            if domain_id == 0:
                 self.msg("You need to provide a location!")
+                return
+
+            try:
+                domain = Domain.objects.get(id=domain_id)
+            except Domain.DoesNotExist:
+                self.msg("Internal error: invalid domain.  Contact Tehom or Pax!")
                 return
 
             room = PlotRoom(name=name, description=desc, public=public, domain=domain,

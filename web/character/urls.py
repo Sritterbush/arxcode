@@ -31,5 +31,6 @@ urlpatterns = [
     url(r'^sheet/(?P<object_id>\d+)/scenes/create$', views.FlashbackCreateView.as_view(), name="create_flashback"),
     url(r'^sheet/(?P<object_id>\d+)/scenes/(?P<flashback_id>\d+)/$', views.FlashbackAddPostView.as_view(),
         name="flashback_post"),
+    url(r'^sheet/(?P<object_id>\d+)/clues/$', views.KnownCluesView.as_view(), name="list_clues"),
     url(r'^api/$', views.character_list, name="character_list")
 ]
