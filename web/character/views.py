@@ -20,11 +20,12 @@ from evennia.objects.models import ObjectDB
 
 from commands.commands import roster
 from server.utils.name_paginator import NamePaginator
+from server.utils.view_mixins import LimitPageMixin
 from typeclasses.characters import Character
 from world.dominion.models import Organization, CrisisAction
 from .forms import (PhotoForm, PhotoDirectForm, PhotoUnsignedDirectForm, PortraitSelectForm,
                     PhotoDeleteForm, PhotoEditForm, FlashbackPostForm, FlashbackCreateForm)
-from .models import Photo, Story, Episode, Chapter, Flashback
+from .models import Photo, Story, Episode, Chapter, Flashback, ClueDiscovery
 
 
 def get_character_from_ob(object_id):
@@ -567,3 +568,46 @@ class FlashbackAddPostView(CharacterMixin, DetailView):
                 raise Http404(form.errors)
         return HttpResponseRedirect(reverse('character:flashback_post', kwargs={'object_id': self.character.id,
                                                                                 'flashback_id': self.get_object().id}))
+
+
+class KnownCluesView(CharacterMixin, LimitPageMixin, ListView):
+    model = ClueDiscovery
+    template_name = "character/clue_list.html"
+    paginate_by = 10
+
+    def search_filters(self, queryset):
+        get = self.request.GET
+        if not get:
+            return queryset
+        text = get.get('search_text')
+        if text:
+            queryset = queryset.filter(
+                Q(clue__desc__icontains=text) |
+                Q(clue__name__icontains=text) |
+                Q(message__icontains=text)
+            )
+        return queryset
+
+    def get_queryset(self):
+        """Ensure flashbacks are private to participants/staff"""
+        user = self.request.user
+        if not user or not user.is_authenticated():
+            raise PermissionDenied
+        if user.char_ob != self.character and not (user.is_staff or user.check_permstring("builders")):
+            raise PermissionDenied
+        entry = self.character.roster
+        qs = ClueDiscovery.objects.filter(character=entry).order_by('id')
+        return self.search_filters(qs)
+
+    def get_context_data(self, **kwargs):
+        """Gets our context - do special stuff to preserve search tags through pagination"""
+        context = super(KnownCluesView, self).get_context_data(**kwargs)
+        # paginating our read journals as well as unread
+        search_tags = ""
+        search_text = self.request.GET.get('search_text', None)
+        if search_text:
+            search_tags += "&search_text=%s" % search_text
+        context['search_tags'] = search_tags
+        context['page_title'] = "%s - Known Clues" % self.character.name
+        return context
+
