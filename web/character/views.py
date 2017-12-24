@@ -11,7 +11,7 @@ from cloudinary import api
 from cloudinary.forms import cl_init_js_callbacks
 from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
-from django.db.models import Q
+from django.db.models import Q, F
 from django.http import Http404, HttpResponseRedirect, HttpResponse
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
@@ -25,7 +25,7 @@ from typeclasses.characters import Character
 from world.dominion.models import Organization, CrisisAction
 from .forms import (PhotoForm, PhotoDirectForm, PhotoUnsignedDirectForm, PortraitSelectForm,
                     PhotoDeleteForm, PhotoEditForm, FlashbackPostForm, FlashbackCreateForm)
-from .models import Photo, Story, Episode, Chapter, Flashback, ClueDiscovery
+from .models import Photo, Story, Episode, Chapter, Flashback, ClueDiscovery, DISCO_MULT
 
 
 def get_character_from_ob(object_id):
@@ -596,7 +596,7 @@ class KnownCluesView(CharacterMixin, LimitPageMixin, ListView):
         if user.char_ob != self.character and not (user.is_staff or user.check_permstring("builders")):
             raise PermissionDenied
         entry = self.character.roster
-        qs = ClueDiscovery.objects.filter(character=entry).order_by('id')
+        qs = entry.finished_clues.order_by('id')
         return self.search_filters(qs)
 
     def get_context_data(self, **kwargs):
