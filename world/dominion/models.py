@@ -4919,14 +4919,16 @@ class Shardhaven(SharedMemoryModel):
     """
     name = models.CharField(blank=False, null=False, max_length=78, db_index=True)
     description = models.TextField(blank=False, null=False, max_length=4096)
-    land = models.ForeignKey('Land', related_name='plot_rooms', blank=True, null=True)
+    land = models.ForeignKey('Land', related_name='shardhavens', blank=True, null=True)
     haven_type = models.ForeignKey('ShardhavenType', related_name='havens', blank=False, null=False)
     required_clue_value = models.IntegerField(default=0)
+    discovered_by = models.ManyToManyField('PlayerOrNpc', blank=True, related_name="discovered_shardhavens",
+                                           through="ShardhavenDiscovery")
 
 
 class ShardhavenDiscovery(SharedMemoryModel):
     """
-    This model maps a player's discover of a shardhaven
+    This model maps a player's discovery of a shardhaven
     """
     class Meta:
         verbose_name_plural = "Shardhaven Discoveries"
@@ -4941,13 +4943,17 @@ class ShardhavenDiscovery(SharedMemoryModel):
         (TYPE_CLUES, 'Clues')
     )
 
-    player = models.ForeignKey('PlayerOrNpc', related_name='discovered_shardhavens')
+    player = models.ForeignKey('PlayerOrNpc', related_name='shardhaven_discoveries')
     shardhaven = models.ForeignKey(Shardhaven, related_name='discoveries')
     discovered_on = models.DateTimeField(blank=True, null=True)
     discovery_method = models.PositiveSmallIntegerField(choices=CHOICES_TYPES, default=TYPE_UNKNOWN)
 
 
 class ShardhavenClue(SharedMemoryModel):
+    """
+    This model shows clues that might be used for a shardhaven,
+    knowledge about it or hints that it exists.
+    """
     shardhaven = models.ForeignKey(Shardhaven, related_name='related_clues')
     clue = models.ForeignKey(Clue, related_name='related_shardhavens')
     required = models.BooleanField(default=False)
