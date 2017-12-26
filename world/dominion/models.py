@@ -1921,7 +1921,7 @@ class AbstractAction(AbstractPlayerAllocations):
         
     def check_crisis_omnipresence(self):
         if self.attending:
-            already_attending = self.crisis_attendance
+            already_attending = [ob for ob in self.crisis_attendance if ob.crisis == self.crisis]
             if already_attending:
                 already_attending = already_attending[-1]
                 raise ActionSubmissionError("You are marked as physically present at %s. Use @action/toggleattend"
@@ -4948,11 +4948,13 @@ class ShardhavenDiscovery(SharedMemoryModel):
     TYPE_UNKNOWN = 0
     TYPE_EXPLORATION = 1
     TYPE_CLUES = 2
+    TYPE_STAFF = 3
 
     CHOICES_TYPES = (
         (TYPE_UNKNOWN, 'Unknown'),
         (TYPE_EXPLORATION, 'Exploration'),
-        (TYPE_CLUES, 'Clues')
+        (TYPE_CLUES, 'Clues'),
+        (TYPE_STAFF, 'Staff Ex Machina')
     )
 
     player = models.ForeignKey('PlayerOrNpc', related_name='shardhaven_discoveries')
