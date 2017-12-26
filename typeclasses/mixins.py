@@ -309,10 +309,18 @@ class BaseObjectMixins(object):
         """
         obj_list = self.contents
         if caller:
-            obj_list = [ob for ob in obj_list if ob.access(caller, 'get')]
+            obj_list = [ob for ob in obj_list if ob.at_before_move(destination, caller=caller)]
         for obj in obj_list:
             obj.move_to(destination, quiet=True)
         return obj_list
+        
+    def at_before_move(self, destination, **kwargs):
+        caller = kwargs.pop('caller', None)
+        if caller:
+            if not self.access(caller, 'get') and self.location != caller:
+                caller.msg("You cannot get %s." % self)
+                return False
+        return super(BaseObjectMixins, self).at_before_move(destination, **kwargs)
 
 
 class AppearanceMixins(BaseObjectMixins):

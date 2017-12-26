@@ -1181,6 +1181,7 @@ class CmdPut(ArxCommand):
             obj_list = caller.contents
         else:
             obj_list = [caller.search(args[0], location=caller)]
+        obj_list = [ob for ob in obj_list if ob.at_before_move(dest, caller=caller)]
         success = []
         for obj in obj_list:
             if not obj:

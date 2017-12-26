@@ -59,6 +59,13 @@ class Wearable(Object):
         self.calc_armor()
         self.at_post_wear(wearer)
         return True
+        
+    def at_before_move(self, destination, **kwargs):
+        caller = kwargs.get('caller', None)
+        if caller and self.db.currently_worn:
+            caller.msg("%s is currently worn and cannot be moved." % self)
+            return False
+        return super(Wearable, self).at_before_move(destination, **kwargs)
 
     def at_after_move(self, source_location):
         """If new location is not our wearer, remove."""
