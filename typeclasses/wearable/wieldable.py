@@ -112,6 +112,15 @@ class Wieldable(Object):
             self.location = wielder
         self.calc_weapon()
         return True
+        
+    def at_before_move(self, destination, **kwargs):
+        caller = kwargs.get('caller', None)
+        if caller:
+            wielded = self.db.wielded_by
+            if wielded:
+                caller.msg("%s is currently wielded by %s and cannot be moved." % (self, wielded))
+                return False
+        return super(Wieldable, self).at_before_move(destination, **kwargs)
 
     def at_after_move(self, source_location):
         """If new location is not our wielder, remove."""

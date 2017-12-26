@@ -1107,6 +1107,8 @@ class CmdMessenger(ArxCommand):
         """
         num = len(receivers)
         if delivery:
+            if not delivery.at_before_move(receivers[0], caller=self.caller):
+                return
             if delivery.location != self.caller:
                 self.msg("You do not have the delivery in your possession.")
                 return

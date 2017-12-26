@@ -256,11 +256,7 @@ class CmdGet(ArxCommand):
         if caller == obj.location:
             caller.msg("You already hold that.")
             return
-        if not obj.access(caller, 'get'):
-            if obj.db.get_err_msg:
-                caller.msg(obj.db.get_err_msg)
-            else:
-                caller.msg("You can't get that.")
+        if not obj.at_before_move(destination=caller, caller=caller):
             return
         if not check_volume(obj, caller):
             return
@@ -333,7 +329,9 @@ class CmdDrop(ArxCommand):
                 return
             else:
                 oblist = [obj]
-
+        oblist = [ob for ob in oblist if ob.at_before_move(caller.location, caller=caller)]
+        if not oblist:
+            return
         obnames = ", ".join(ob.name for ob in oblist)
         caller.msg("You drop %s." % obnames)
         caller.location.msg_contents("%s drops %s." % (caller.name, obnames), exclude=caller)
@@ -472,6 +470,8 @@ class CmdGive(ArxCommand):
             return
         if not check_volume(to_give, target, quiet=True):
             caller.msg("%s can't hold %s." % (target.name, to_give.name))
+            return
+        if not to_give.at_before_move(target, caller=caller):
             return
         # give object
         to_give.move_to(target, quiet=True)
