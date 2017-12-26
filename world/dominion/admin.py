@@ -492,13 +492,13 @@ class LandmarkAdmin(DomAdmin):
 
 class ShardhavenClueInline(admin.TabularInline):
     model = ShardhavenClue
-    raw_id_fields = ('clue')
+    raw_id_fields = ('clue',)
     extra = 0
 
 
 class ShardhavenDiscoveryInline(admin.TabularInline):
     model = ShardhavenDiscovery
-    raw_id_fields = ('player')
+    raw_id_fields = ('player',)
     extra = 0
 
 
