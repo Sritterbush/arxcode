@@ -210,12 +210,9 @@ def map_image(request):
     except AttributeError:
         return Http404
 
-    bw_grid = False
-    draw_subgrid = False
-
     try:
-       bw_grid = request.GET.get('bw_grid', default=False)
-       draw_subgrid = request.GET.get('subgrid', default=False)
+        bw_grid = request.GET.get('bw_grid', default=False)
+        draw_subgrid = request.GET.get('subgrid', default=False)
     except AttributeError:
         return Http404
 
