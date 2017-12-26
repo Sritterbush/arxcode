@@ -185,10 +185,17 @@ class StoryActionTests(ArxCommandTest):
 
 class OverridesTests(ArxCommandTest):
     def test_cmd_give(self):
+        from typeclasses.wearable.wearable import Wearable
+        from evennia.utils.create import create_object
         self.setup_cmd(overrides.CmdGive, self.char1)
         self.call_cmd("obj to char2", "You are not holding Obj.")
         self.obj1.move_to(self.char1)
         self.call_cmd("obj to char2", "You give Obj to Char2")
+        wearable = create_object(typeclass=Wearable, key="worn", location=self.char1)
+        wearable.wear(self.char1)
+        self.call_cmd("worn to char2", 'worn is currently worn and cannot be moved.')
+        wearable.remove(self.char1)
+        self.call_cmd("worn to char2", "You give worn to Char2")
         self.char1.currency = 50
         self.call_cmd("-10 silver to char2", "Amount must be positive.")
         self.call_cmd("75 silver to char2", "You do not have that much money to give.")
@@ -233,12 +240,13 @@ class SocialTests(ArxCommandTest):
         self.room1.tags.add("shop")
         self.room1.db.shopowner = self.char2
         self.call_cmd("/shops", "List of shops:\n|Room: Char2")
-        from web.character.models import Roster, AccountHistory
+        from web.character.models import Roster
         self.roster_entry2.roster = Roster.objects.create(name="Bishis")
         self.call_cmd("/shops/all", "List of shops:\n|Room: Char2 (Inactive)")
         # TODO: create AccountHistory thingies, set a firstimpression for one of the Chars
         # TODO: test /firstimp, /rs, /watch
-        self.call_cmd("", "Locations of players:\n|Players who are currently LRP have a + by their name.|Room: Char, Char2")
+        self.call_cmd("", "Locations of players:\n|Players who are currently LRP have a + by their name."
+                          "|Room: Char, Char2")
         self.char2.tags.add("disguised")
         self.call_cmd("", "Locations of players:\n|Players who are currently LRP have a + by their name.|Room: Char")
         self.room1.tags.add("private")
