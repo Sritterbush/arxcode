@@ -1921,7 +1921,7 @@ class AbstractAction(AbstractPlayerAllocations):
         
     def check_crisis_omnipresence(self):
         if self.attending:
-            already_attending = self.crisis_attendance
+            already_attending = [ob for ob in self.crisis_attendance if ob.crisis == self.crisis]
             if already_attending:
                 already_attending = already_attending[-1]
                 raise ActionSubmissionError("You are marked as physically present at %s. Use @action/toggleattend"
