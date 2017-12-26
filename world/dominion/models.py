@@ -3098,7 +3098,16 @@ class AgentOb(SharedMemoryModel):
     quantity = models.PositiveIntegerField(default=0, blank=0)
     # whether they're imprisoned, by whom, difficulty to free them, etc
     status_notes = models.TextField(blank=True, null=True)
-    
+
+    @property
+    def guarding(self):
+        if not self.dbobj:
+            return None
+        return self.dbobj.db.guarding
+
+    def __str__(self):
+        return "%s%s" % (self.agent_class, (" guarding %s" % self.guarding) if self.guarding else "")
+
     def recall(self, num):
         """
         We try to pull out X number of agents from our dbobj. If it doesn't
@@ -4924,6 +4933,9 @@ class Shardhaven(SharedMemoryModel):
     required_clue_value = models.IntegerField(default=0)
     discovered_by = models.ManyToManyField('PlayerOrNpc', blank=True, related_name="discovered_shardhavens",
                                            through="ShardhavenDiscovery")
+
+    def __str__(self):
+        return self.name or "Unnamed Shardhaven (#%d)" % self.id
 
 
 class ShardhavenDiscovery(SharedMemoryModel):
