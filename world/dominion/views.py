@@ -152,7 +152,17 @@ def event_comment(request, pk):
 
 
 def map_image(request):
+    """
+    Generates a graphical map from the Land and Domain entries, omitting all NPC domains for now.
+    You can pass a 'bw_grid=1' option to generate a black and white printable grid, and 'subgrid=1'
+    to generate a gray 10x10 grid within each of the grid squares. Presently only available to
+    logged-in staff.
+
+    :param request: The HTTP request
+    :return: The Django view response, in this case an image/png blob.
+    """
     GRID_SIZE = 100
+    SUBGRID = 10
 
     TERRAIN_COLORS = {
         Land.COAST: '#a0a002',
@@ -200,14 +210,16 @@ def map_image(request):
     except AttributeError:
         return Http404
 
-    response = HttpResponse(content_type="image/png")
-
     bw_grid = False
+    draw_subgrid = False
 
     try:
        bw_grid = request.GET.get('bw_grid', default=False)
+       draw_subgrid = request.GET.get('subgrid', default=False)
     except AttributeError:
         return Http404
+
+    response = HttpResponse(content_type="image/png")
 
     min_x = 0
     min_y = 0
@@ -215,6 +227,8 @@ def map_image(request):
     max_y = 0
 
     lands = Land.objects.all()
+
+    # This might be better done with annotations?
     for land in lands:
         min_x = min(min_x, land.x_coord)
         min_y = min(min_y, land.y_coord)
@@ -240,6 +254,13 @@ def map_image(request):
             y2 = y1 + GRID_SIZE
 
             if bw_grid:
+                if draw_subgrid:
+                    for x in range(0, GRID_SIZE / SUBGRID):
+                        for y in range(0, GRID_SIZE / SUBGRID):
+                            subx = x1 + (SUBGRID * x)
+                            suby = y1 + (SUBGRID * y)
+                            mapdraw.rectangle([(subx, suby), (subx + SUBGRID, suby + SUBGRID)], outline="#8a8a8a")
+
                 mapdraw.rectangle([(x1, y1), (x2, y2)], outline="#000000")
             else:
                 mapdraw.rectangle([(x1, y1), (x2, y2)], fill=TERRAIN_COLORS[land.terrain])
