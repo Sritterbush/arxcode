@@ -39,6 +39,7 @@ class Wearable(Object):
         return True
 
     def softdelete(self):
+        """Fake-deletes the object so that it can still be cancelled, is purged in weekly maintenance"""
         wearer = self.location
         super(Wearable, self).softdelete()
         self.db.currently_worn = False
@@ -61,13 +62,14 @@ class Wearable(Object):
         return True
         
     def at_before_move(self, destination, **kwargs):
+        """Checks if the object can be moved"""
         caller = kwargs.get('caller', None)
         if caller and self.db.currently_worn:
             caller.msg("%s is currently worn and cannot be moved." % self)
             return False
         return super(Wearable, self).at_before_move(destination, **kwargs)
 
-    def at_after_move(self, source_location):
+    def at_after_move(self, source_location, **kwargs):
         """If new location is not our wearer, remove."""
         location = self.location
         wearer = source_location
@@ -157,6 +159,7 @@ class Wearable(Object):
 
     @property
     def slot(self):
+        """slot the armor is worn on"""
         recipe = self.recipe
         if not recipe:
             return self.db.slot
@@ -164,6 +167,7 @@ class Wearable(Object):
 
     @property
     def slot_limit(self):
+        """how many can be worn on that slot"""
         recipe = self.recipe
         if not recipe:
             return self.db.slot_limit or 0
@@ -175,7 +179,9 @@ class Wearable(Object):
 
 # noinspection PyMethodMayBeStatic
 class WearableContainer(Wearable, Container):
+    """Combines Wearable and Container for backpacks, etc"""
     def at_object_creation(self):
+        """Creates the object, calls both superclasses"""
         Wearable.at_object_creation(self)
         Container.at_object_creation(self)
     
