@@ -202,6 +202,13 @@ def map_image(request):
 
     response = HttpResponse(content_type="image/png")
 
+    bw_grid = False
+
+    try:
+       bw_grid = request.GET.get('bw_grid', default=False)
+    except AttributeError:
+        return Http404
+
     min_x = 0
     min_y = 0
     max_x = 0
@@ -217,19 +224,28 @@ def map_image(request):
     total_width = max_x - min_x
     total_height = max_y - min_y
 
-    mapimage = Image.new("RGB", (total_width * GRID_SIZE, total_height * GRID_SIZE), "#000080")
+    if bw_grid:
+        background = "#ffffff"
+    else:
+        background = "#000080"
+
+    mapimage = Image.new("RGB", (total_width * GRID_SIZE, total_height * GRID_SIZE), background)
     mapdraw = ImageDraw.Draw(mapimage)
 
     try:
         for land in lands:
             x1 = (land.x_coord - min_x) * GRID_SIZE
             y1 = (total_height - (land.y_coord - min_y)) * GRID_SIZE
-            x2 = x1 + GRID_SIZE + 1
-            y2 = y1 + GRID_SIZE + 1
-            mapdraw.rectangle([(x1, y1), (x2, y2)], fill=TERRAIN_COLORS[land.terrain])
+            x2 = x1 + GRID_SIZE
+            y2 = y1 + GRID_SIZE
+
+            if bw_grid:
+                mapdraw.rectangle([(x1, y1), (x2, y2)], outline="#000000")
+            else:
+                mapdraw.rectangle([(x1, y1), (x2, y2)], fill=TERRAIN_COLORS[land.terrain])
 
             text_color = "black"
-            if (land.terrain == Land.LAKES) or (land.terrain == Land.OASIS):
+            if not bw_grid and ((land.terrain == Land.LAKES) or (land.terrain == Land.OASIS)):
                 text_color = "white"
 
             text_x = x1 + 5
