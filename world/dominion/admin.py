@@ -6,7 +6,7 @@ from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister
                      RPEvent, AccountTransaction, AssignedTask, Crisis, CrisisAction, CrisisUpdate,
                      OrgRelationship, Reputation, TaskSupporter, InfluenceCategory,
                      Renown, SphereOfInfluence, TaskRequirement, ClueForOrg, ActionOOCQuestion,
-                     PlotRoom)
+                     PlotRoom, Landmark, Shardhaven, ShardhavenType, ShardhavenClue, ShardhavenDiscovery)
 
 
 class DomAdmin(admin.ModelAdmin):
@@ -456,6 +456,70 @@ class PlotRoomAdmin(DomAdmin):
     list_filter = ('public', PlotRoomRegionFilter)
 
 
+class LandRegionFilter(admin.SimpleListFilter):
+    title = "Region"
+    parameter_name = "region"
+
+    def lookups(self, request, model_admin):
+        regions = Region.objects.all().order_by('name')
+        result = []
+        for region in regions:
+            result.append((region.id, region.name))
+        return result
+
+    def queryset(self, request, queryset):
+        if not self.value():
+            return queryset
+
+        try:
+            region_id = int(self.value())
+            region = Region.objects.get(id=region_id)
+        except ValueError, Region.DoesNotExist:
+            region = None
+
+        if not region:
+            return queryset
+
+        return queryset.filter(land__region=region)
+
+
+class LandmarkAdmin(DomAdmin):
+    list_display = ('id', 'name', 'landmark_type', 'land')
+    search_fields = ('name', 'description')
+    raw_id_fields = ('land',)
+    list_filter = ('landmark_type', LandRegionFilter,)
+
+
+class ShardhavenClueInline(admin.TabularInline):
+    model = ShardhavenClue
+    raw_id_fields = ('clue',)
+    extra = 0
+
+
+class ShardhavenDiscoveryInline(admin.TabularInline):
+    model = ShardhavenDiscovery
+    raw_id_fields = ('player',)
+    extra = 0
+
+
+class ShardhavenAdmin(DomAdmin):
+    list_display = ('id', 'name', 'land', 'haven_type')
+    search_fields = ('name', 'description')
+    raw_id_fields = ('land',)
+    inlines = (ShardhavenClueInline,)
+    list_filter = ('haven_type', LandRegionFilter,)
+
+
+class ShardhavenTypeAdmin(DomAdmin):
+    list_display = ('id', 'name')
+    search_fields = ('name',)
+
+
+class ShardhavenDiscoveryAdmin(DomAdmin):
+    list_display = ('id', 'player', 'shardhaven')
+    search_fields = ('player__name', 'shardhaven__name')
+
+
 # Register your models here.
 admin.site.register(PlayerOrNpc, PCAdmin)
 admin.site.register(Organization, OrgAdmin)
@@ -484,3 +548,7 @@ admin.site.register(Reputation, ReputationAdmin)
 admin.site.register(AssignedTask, AssignedTaskAdmin)
 admin.site.register(InfluenceCategory, InfluenceCategoryAdmin)
 admin.site.register(PlotRoom, PlotRoomAdmin)
+admin.site.register(Landmark, LandmarkAdmin)
+admin.site.register(Shardhaven, ShardhavenAdmin)
+admin.site.register(ShardhavenType, ShardhavenTypeAdmin)
+admin.site.register(ShardhavenDiscovery,ShardhavenDiscoveryAdmin)
