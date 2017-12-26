@@ -5,7 +5,7 @@ from django.http import HttpResponseRedirect, HttpResponse
 from django.http import Http404
 from django.core.urlresolvers import reverse
 from django.shortcuts import get_object_or_404
-from django.db.models import Q
+from django.db.models import Q, Min, Max
 from server.utils.view_mixins import LimitPageMixin
 from PIL import Image, ImageDraw
 
@@ -194,6 +194,12 @@ def map_image(request):
         Land.OASIS: 'Oasis',
     }
 
+    try:
+        if not request.user.is_authenticated() or not request.user.is_staff:
+            return Http404
+    except AttributeError:
+        return Http404
+
     response = HttpResponse(content_type="image/png")
 
     min_x = 0
@@ -217,7 +223,7 @@ def map_image(request):
     try:
         for land in lands:
             x1 = (land.x_coord - min_x) * GRID_SIZE
-            y1 = (max_y - ((land.y_coord - min_y) - 1)) * GRID_SIZE
+            y1 = (total_height - (land.y_coord - min_y)) * GRID_SIZE
             x2 = x1 + GRID_SIZE + 1
             y2 = y1 + GRID_SIZE + 1
             mapdraw.rectangle([(x1, y1), (x2, y2)], fill=TERRAIN_COLORS[land.terrain])
@@ -232,12 +238,14 @@ def map_image(request):
                                                                land.region.name), text_color)
 
             domains = Domain.objects.filter(land=land)\
-                .filter(ruler__house__organization_owner__members__player__player__isnull=False)
+                .filter(ruler__house__organization_owner__members__player__player__isnull=False).distinct()
             text_x = x1 + 10
             text_y = y1 + 60
             if domains:
-                domain = domains[0]
-                mapdraw.text((text_x, text_y), domain.name, text_color)
+                result = ""
+                for domain in domains:
+                    result = "%s%s\n" % (result, domain.name)
+                mapdraw.text((text_x, text_y), result, text_color)
 
     except Exception as exc:
         print str(exc)
