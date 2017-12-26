@@ -4936,11 +4936,13 @@ class ShardhavenDiscovery(SharedMemoryModel):
     TYPE_UNKNOWN = 0
     TYPE_EXPLORATION = 1
     TYPE_CLUES = 2
+    TYPE_STAFF = 3
 
     CHOICES_TYPES = (
         (TYPE_UNKNOWN, 'Unknown'),
         (TYPE_EXPLORATION, 'Exploration'),
-        (TYPE_CLUES, 'Clues')
+        (TYPE_CLUES, 'Clues'),
+        (TYPE_STAFF, 'Staff Ex Machina')
     )
 
     player = models.ForeignKey('PlayerOrNpc', related_name='shardhaven_discoveries')

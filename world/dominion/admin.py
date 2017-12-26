@@ -517,6 +517,7 @@ class ShardhavenTypeAdmin(DomAdmin):
 
 class ShardhavenDiscoveryAdmin(DomAdmin):
     list_display = ('id', 'player', 'shardhaven')
+    raw_id_fields = ('player', 'shardhaven')
     search_fields = ('player__name', 'shardhaven__name')
 
 
@@ -551,4 +552,4 @@ admin.site.register(PlotRoom, PlotRoomAdmin)
 admin.site.register(Landmark, LandmarkAdmin)
 admin.site.register(Shardhaven, ShardhavenAdmin)
 admin.site.register(ShardhavenType, ShardhavenTypeAdmin)
-admin.site.register(ShardhavenDiscovery,ShardhavenDiscoveryAdmin)
+admin.site.register(ShardhavenDiscovery, ShardhavenDiscoveryAdmin)
