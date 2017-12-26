@@ -72,7 +72,7 @@ from server.utils.arx_utils import get_week, inform_staff, passthrough_propertie
 from server.utils.exceptions import ActionSubmissionError, PayError
 from typeclasses.npcs import npc_types
 from typeclasses.mixins import InformMixin
-from web.character.models import AbstractPlayerAllocations
+from web.character.models import AbstractPlayerAllocations, Clue
 
 # Dominion constants
 BASE_WORKER_COST = 0.10
@@ -4790,6 +4790,8 @@ class PlotRoom(SharedMemoryModel):
     domain = models.ForeignKey('Domain', related_name='plot_rooms', blank=True, null=True)
     wilderness = models.BooleanField(default=True)
 
+    shardhaven_type = models.ForeignKey('ShardhavenType', related_name='tilesets', blank=True, null=True)
+
     def ansi_name(self):
         region = self.get_region()
         region_color = "|y"
@@ -4865,3 +4867,87 @@ class PlotRoom(SharedMemoryModel):
 
     def __str__(self):
         return "%s (%s)" % (self.name, self.get_region_name())
+
+
+class Landmark(SharedMemoryModel):
+    """
+    This model is used to store landmarks on the map, tying them to a plot of land.
+    Down the road, the domain pages can map to this via Domain -> Land -> Landmarks
+    to show landmarks near a given domain.
+    """
+
+    TYPE_UNKNOWN = 0
+    TYPE_FAITH = 1
+    TYPE_CULTURAL = 2
+    TYPE_HISTORICAL = 3
+
+    CHOICES_TYPE = (
+        (TYPE_UNKNOWN, 'Unknown'),
+        (TYPE_FAITH, 'Faith'),
+        (TYPE_CULTURAL, 'Cultural'),
+        (TYPE_HISTORICAL, 'Historical')
+    )
+
+    name = models.CharField(blank=False, null=False, max_length=32, db_index=True)
+    description = models.TextField(blank=False, null=False, max_length=2048)
+    land = models.ForeignKey('Land', related_name='landmarks', blank=False, null=False)
+    landmark_type = models.PositiveSmallIntegerField(choices=CHOICES_TYPE, default=TYPE_UNKNOWN)
+
+    def __str__(self):
+        return "<Landmark #%d: %s>" % (self.id, self.name)
+
+
+class ShardhavenType(SharedMemoryModel):
+    """
+    This model is to bind together Shardhavens and plotroom tilesets, as well as
+    eventually the types of monsters and treasures that one finds there.  This is
+    simply a model so we can easily add new types without having to update Choice
+    fields in Shardhaven, Plotroom, and others.
+    """
+    name = models.CharField(blank=False, null=False, max_length=32, db_index=True)
+    description = models.TextField(blank=False, null=False, max_length=2048)
+
+    def __str__(self):
+        return self.name
+
+
+class Shardhaven(SharedMemoryModel):
+    """
+    This model represents an actual Shardhaven.  Right now, it's just meant to
+    be used for storing the Shardhavens we create so we can easily refer back to them
+    later.  Down the road, it will be used for the exploration system.
+    """
+    name = models.CharField(blank=False, null=False, max_length=78, db_index=True)
+    description = models.TextField(blank=False, null=False, max_length=4096)
+    land = models.ForeignKey('Land', related_name='plot_rooms', blank=True, null=True)
+    haven_type = models.ForeignKey('ShardhavenType', related_name='havens', blank=False, null=False)
+    required_clue_value = models.IntegerField(default=0)
+
+
+class ShardhavenDiscovery(SharedMemoryModel):
+    """
+    This model maps a player's discover of a shardhaven
+    """
+    class Meta:
+        verbose_name_plural = "Shardhaven Discoveries"
+
+    TYPE_UNKNOWN = 0
+    TYPE_EXPLORATION = 1
+    TYPE_CLUES = 2
+
+    CHOICES_TYPES = (
+        (TYPE_UNKNOWN, 'Unknown'),
+        (TYPE_EXPLORATION, 'Exploration'),
+        (TYPE_CLUES, 'Clues')
+    )
+
+    player = models.ForeignKey('PlayerOrNpc', related_name='discovered_shardhavens')
+    shardhaven = models.ForeignKey(Shardhaven, related_name='discoveries')
+    discovered_on = models.DateTimeField(blank=True, null=True)
+    discovery_method = models.PositiveSmallIntegerField(choices=CHOICES_TYPES, default=TYPE_UNKNOWN)
+
+
+class ShardhavenClue(SharedMemoryModel):
+    shardhaven = models.ForeignKey(Shardhaven, related_name='related_clues')
+    clue = models.ForeignKey(Clue, related_name='related_shardhavens')
+    required = models.BooleanField(default=False)
