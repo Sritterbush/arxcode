@@ -573,6 +573,7 @@ class ShardhavenTypeAdmin(DomAdmin):
 class ShardhavenDiscoveryAdmin(DomAdmin):
     """Non-inline admin for Shardhaven discoveries"""
     list_display = ('id', 'player', 'shardhaven')
+    raw_id_fields = ('player', 'shardhaven')
     search_fields = ('player__name', 'shardhaven__name')
 
 
