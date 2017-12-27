@@ -1064,7 +1064,7 @@ class CmdBuyFromShop(CmdCraft):
             msg += str(table)
         msg += "\n{wItem Prices{n\n"
         table = EvTable("{wID{n", "{wName{n", "{wPrice{n", width=78, border="cells")
-        prices = self.filter_shop_dict(loc.db.item_prices or {})
+        prices = loc.db.item_prices or {}
         sale_items = ObjectDB.objects.filter(id__in=prices.keys())
         sale_items = self.filter_shop_qs(sale_items, "db_key")
         for item in sale_items:
@@ -1088,7 +1088,7 @@ class CmdBuyFromShop(CmdCraft):
     def filter_shop_dict(self, shop_dict):
         """Returns filtered dict if a filter word exists"""
         if "filter" in self.switches and self.args:
-            shop_dict = {name: value for name, value in shop_dict if self.args.lower() in name.lower()}
+            shop_dict = {name: value for name, value in shop_dict.items() if self.args.lower() in name.lower()}
         return shop_dict
 
     def pay_owner(self, price, msg):
