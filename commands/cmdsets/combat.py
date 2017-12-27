@@ -1094,6 +1094,7 @@ class CmdHarm(ArxCommand):
             for room in rooms:
                 room.msg_contents(message)
         damage_msgs = []
+        inform_staff("%s used @harm for %d damage on %s." % (self.caller, amt, ", ".join(str(obj) for obj in charlist)))
         for obj in charlist:
             damage = amt
             if "noarmor" not in self.switches:
