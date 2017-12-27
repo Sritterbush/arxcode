@@ -25,8 +25,10 @@ class FollowUpAdmin(admin.ModelAdmin):
     inlines = [TicketChangeInline, AttachmentInline]
 
 class KBItemAdmin(admin.ModelAdmin):
+    search_fields = ('title', 'question', 'answer')
     list_display = ('category', 'title', 'last_updated',)
     list_display_links = ('title',)
+    list_filter = ('category',)
    
 class CustomFieldAdmin(admin.ModelAdmin):
     list_display = ('name', 'label', 'data_type')
