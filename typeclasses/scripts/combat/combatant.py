@@ -798,6 +798,15 @@ class CombatHandler(object):
         # half of our armor is random
         return (armor/2) + randint(0, (armor/2))
 
+    def modify_damage_by_mitigation(self, damage, attacker=None, weapon=None, roll=0):
+        """Returns updated damage roll based on how much mitigation blocks. Can't be less than 0"""
+        mitigation = self.roll_mitigation(attacker=attacker, weapon=weapon, roll=roll)
+        self.msg("Your armor mitigated %d of the damage." % mitigation)
+        damage -= mitigation
+        if damage < 0:
+            damage = 0
+        return damage
+
     def roll_fatigue(self):
         """
         Chance of incrementing our fatigue penalty. The difficulty is the
@@ -1047,9 +1056,8 @@ class CombatHandler(object):
             dmg = self.roll_damage(target, dmg_penalty, dmgmult)
         else:
             dmg = self.roll_damage(target, dmg_penalty)
-        mit = d_fite.roll_mitigation(attacker, weapon, roll)
-        combat.msg("%s rolled %s damage against %s's %s mitigation." % (self, dmg, d_fite, mit))
-        dmg -= mit
+        # modify the damage based on how much is mitigated
+        dmg = d_fite.modify_damage_by_mitigation(dmg, attacker, weapon, roll)
         # if damage is reduced by multiplier, it's post mitigation
         if dmgmult < 1.0:
             dmg = int(dmg * dmgmult)

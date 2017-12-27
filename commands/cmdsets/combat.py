@@ -1093,22 +1093,21 @@ class CmdHarm(ArxCommand):
             rooms = set([ob.location for ob in charlist if ob.location])
             for room in rooms:
                 room.msg_contents(message)
+        damage_msgs = []
         for obj in charlist:
             damage = amt
             if "noarmor" not in self.switches:
-                mitigated = obj.combat.roll_mitigation()
-                damage -= mitigated
-                obj.msg("Your armor mitigated %d of the damage." % mitigated)
-            else:
-                obj.msg("This attack ignored armor.")
+                damage = obj.combat.modify_damage_by_mitigation(damage)
             if not obj.location:
                 if not message:
                     message = "You have taken %s damage." % damage
                 obj.player_ob.inform(message, category="Damage")
             elif "private" in self.switches and message:
                 obj.msg(message)
-            obj.combat.take_damage(damage, lethal=True, allow_one_shot=one_shot)
-        self.msg("You inflicted %s damage on %s" % (damage, ", ".join(str(obj) for obj in charlist)))
+            if damage:
+                obj.combat.take_damage(damage, lethal=True, allow_one_shot=one_shot)
+            damage_msgs.append("%s damage on %s" % (damage, obj))
+        self.msg("You inflicted %s." % ", ".join(damage_msgs))
         
     def can_harm_others(self):
         """Checks if the caller can harm other players"""
