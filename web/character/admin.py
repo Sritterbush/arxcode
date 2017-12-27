@@ -5,7 +5,7 @@ from django.contrib import admin
 from django.forms import ModelForm
 from .models import (Roster, RosterEntry, Photo, DISCO_MULT, SearchTag, FlashbackPost, Flashback,
                      Story, Chapter, Episode, StoryEmit, LoreTopic,
-                     Milestone, Participant, Comment, FirstContact,
+                     Milestone, FirstContact,
                      PlayerAccount, AccountHistory, InvestigationAssistant,
                      Mystery, Revelation, Clue, Investigation,
                      MysteryDiscovery, RevelationDiscovery, ClueDiscovery,
@@ -312,12 +312,6 @@ class StoryEmitAdmin(BaseCharAdmin):
     list_display = ('id', 'chapter', 'episode', 'text', 'sender')
 
 
-class SearchTagAdmin(BaseCharAdmin):
-    """Admin for Search Tags"""
-    list_display = ('id', 'name')
-    search_fields = ('id', 'name')
-
-
 class LoreTopicAdmin(BaseCharAdmin):
     """Admin for Lore topics - the OOC knowledge base for GMs of game lore"""
     list_display = ('id', 'name')
@@ -369,8 +363,6 @@ admin.site.register(Story, BaseCharAdmin)
 admin.site.register(Chapter, ChapterAdmin)
 admin.site.register(Episode, EpisodeAdmin)
 admin.site.register(Milestone, BaseCharAdmin)
-admin.site.register(Participant, BaseCharAdmin)
-admin.site.register(Comment, BaseCharAdmin)
 admin.site.register(PlayerAccount, AccountAdmin)
 admin.site.register(StoryEmit, StoryEmitAdmin)
 admin.site.register(Mystery, MysteryAdmin)
@@ -379,6 +371,5 @@ admin.site.register(Clue, ClueAdmin)
 admin.site.register(ClueDiscovery, ClueDiscoveryAdmin)
 admin.site.register(Investigation, InvestigationAdmin)
 admin.site.register(Theory, TheoryAdmin)
-admin.site.register(SearchTag, SearchTagAdmin)
 admin.site.register(LoreTopic, LoreTopicAdmin)
 admin.site.register(Flashback, FlashbackAdmin)

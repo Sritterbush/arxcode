@@ -25,8 +25,10 @@ class FollowUpAdmin(admin.ModelAdmin):
     inlines = [TicketChangeInline, AttachmentInline]
 
 class KBItemAdmin(admin.ModelAdmin):
+    search_fields = ('title', 'question', 'answer')
     list_display = ('category', 'title', 'last_updated',)
     list_display_links = ('title',)
+    list_filter = ('category',)
    
 class CustomFieldAdmin(admin.ModelAdmin):
     list_display = ('name', 'label', 'data_type')
@@ -37,11 +39,11 @@ class EmailTemplateAdmin(admin.ModelAdmin):
 
 admin.site.register(Ticket, TicketAdmin)
 admin.site.register(Queue, QueueAdmin)
-admin.site.register(FollowUp, FollowUpAdmin)
-#admin.site.register(PreSetReply)
-#admin.site.register(EscalationExclusion)
-#admin.site.register(EmailTemplate, EmailTemplateAdmin)
+# admin.site.register(FollowUp, FollowUpAdmin)
+# admin.site.register(PreSetReply)
+# admin.site.register(EscalationExclusion)
+# admin.site.register(EmailTemplate, EmailTemplateAdmin)
 admin.site.register(KBCategory)
 admin.site.register(KBItem, KBItemAdmin)
-#admin.site.register(IgnoreEmail)
-#admin.site.register(CustomField, CustomFieldAdmin)
+# admin.site.register(IgnoreEmail)
+# admin.site.register(CustomField, CustomFieldAdmin)
