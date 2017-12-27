@@ -68,6 +68,7 @@ class CmdManageHome(ArxCommand):
     help_category = "Home"
 
     def display_lifestyles(self):
+        """Displays table of Dominion lifestyles with the character's current selection"""
         caller = self.caller
         table = PrettyTable(["{wRating{n", "{wCost{n", "{wPrestige{n"])
         caller.msg("{wLifestyles:{n")
@@ -443,6 +444,7 @@ class CmdManageRoom(ArxCommand):
     personnel_switches = ("addbouncer", "rmbouncer", "adddecorator", "rmdecorator")
     
     def check_perms(self):
+        """Checks the permissions for the room"""
         caller = self.caller
         loc = caller.location
         if not self.switches or set(self.switches) & set(self.bouncer_switches):
@@ -702,6 +704,7 @@ class CmdManageShop(ArxCommand):
     help_category = "Home"
 
     def list_prices(self):
+        """Lists a table of prices for the shop owner"""
         loc = self.caller.location
         prices = loc.db.crafting_prices or {}
         msg = "{wCrafting Prices{n\n"
@@ -725,6 +728,7 @@ class CmdManageShop(ArxCommand):
         return msg
 
     def list_designs(self):
+        """Lists designs the shop owner has created for crafting templates"""
         designs = self.caller.location.db.template_designs or {}
         self.msg("{wTemplate designs:{n %s" % ", ".join(designs.keys()))
 
