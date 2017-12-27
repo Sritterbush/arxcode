@@ -963,6 +963,7 @@ class CmdBuyFromShop(CmdCraft):
 
     Usage:
         +shop
+        +shop/filter <word in item name>
         +shop/buy <item number>
         +shop/look <item number>
         +shop/viewdesigns [<key>]
@@ -1050,19 +1051,21 @@ class CmdBuyFromShop(CmdCraft):
         table = PrettyTable(["{wName{n", "{wCraft Price{n", "{wRefine Price{n"])
         recipes = loc.db.shopowner.player_ob.Dominion.assets.recipes.all().order_by('name')
         removed = prices.get("removed", [])
+        recipes = recipes.exclude(id__in=removed)
+        if "filter" in self.switches and self.args:
+            recipes = recipes.filter(name__icontains=self.args)
         for recipe in recipes:
-            if recipe.id in removed:
-                continue
             try:
                 refineprice = str(self.get_refine_price(recipe.value))
                 table.add_row([recipe.name, str(recipe.additional_cost + self.get_recipe_price(recipe)),
                                refineprice])
             except (ValueError, TypeError):
                 self.msg("{rError: Recipe %s does not have a price defined.{n" % recipe.name)
-        msg += str(table)
+        if recipes:
+            msg += str(table)
         msg += "\n{wItem Prices{n\n"
         table = EvTable("{wID{n", "{wName{n", "{wPrice{n", width=78, border="cells")
-        prices = loc.db.item_prices or {}
+        prices = self.filter_shop_dict(loc.db.item_prices or {})
         for price in prices.keys():
             try:
                 obj = ObjectDB.objects.get(id=price)
@@ -1070,10 +1073,20 @@ class CmdBuyFromShop(CmdCraft):
                 del prices[price]
                 continue
             table.add_row(price, obj.name, prices[price])
-        msg += str(table)
-        designs = loc.db.template_designs or {}
-        msg += "\n{wNames of designs:{n %s" % ", ".join(designs.keys())
+        if prices:
+            msg += str(table)
+        designs = self.filter_shop_dict(loc.db.template_designs or {})
+        if designs:
+            msg += "\n{wNames of designs:{n %s" % ", ".join(designs.keys())
+        if not recipes and not prices and not designs:
+            msg = "Nothing found."
         return msg
+        
+    def filter_shop_dict(self, shop_dict):
+        """Returns filtered dict if a filter word exists"""
+        if "filter" in self.switches and self.args:
+            shop_dict = {name: value for name, value in shop_dict if self.args.lower() in name.lower()}
+        return shop_dict
 
     def pay_owner(self, price, msg):
         """Pay money to the other and send an inform of the sale"""
@@ -1127,7 +1140,7 @@ class CmdBuyFromShop(CmdCraft):
         if self.crafter.roster.roster.name == "Gone":
             self.msg("The shop owner is dead.")
             return
-        if not self.switches and not self.args:
+        if "filter" in self.switches or (not self.switches and not self.args):
             caller.msg(self.list_prices())
             project = caller.db.crafting_project
             if project:
