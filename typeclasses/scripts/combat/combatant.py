@@ -777,7 +777,7 @@ class CombatHandler(object):
         return roll/4 + randint(0, ((roll * 3)/4)+1)
 
     # noinspection PyUnusedLocal
-    def roll_mitigation(self, att, weapon=None, roll=0):
+    def roll_mitigation(self, attacker=None, weapon=None, roll=0):
         """
         Returns our damage reduction against attacker. If the roll is
         higher than 15, that number is subtracted off our armor.
