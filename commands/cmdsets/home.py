@@ -1052,8 +1052,7 @@ class CmdBuyFromShop(CmdCraft):
         recipes = loc.db.shopowner.player_ob.Dominion.assets.recipes.all().order_by('name')
         removed = prices.get("removed", [])
         recipes = recipes.exclude(id__in=removed)
-        if "filter" in self.switches and self.args:
-            recipes = recipes.filter(name__icontains=self.args)
+        recipes = self.filter_shop_qs(recipes, "name")
         for recipe in recipes:
             try:
                 refineprice = str(self.get_refine_price(recipe.value))
@@ -1066,22 +1065,26 @@ class CmdBuyFromShop(CmdCraft):
         msg += "\n{wItem Prices{n\n"
         table = EvTable("{wID{n", "{wName{n", "{wPrice{n", width=78, border="cells")
         prices = self.filter_shop_dict(loc.db.item_prices or {})
-        for price in prices.keys():
-            try:
-                obj = ObjectDB.objects.get(id=price)
-            except ObjectDB.DoesNotExist:
-                del prices[price]
-                continue
-            table.add_row(price, obj.name, prices[price])
-        if prices:
+        sale_items = ObjectDB.objects.filter(id__in=prices.keys())
+        sale_items = self.filter_shop_qs(sale_items, "db_key")
+        for item in sale_items:
+            table.add_row(item.id, item.name, prices[item.id])
+        if sale_items:
             msg += str(table)
         designs = self.filter_shop_dict(loc.db.template_designs or {})
         if designs:
             msg += "\n{wNames of designs:{n %s" % ", ".join(designs.keys())
-        if not recipes and not prices and not designs:
+        if not recipes and not sale_items and not designs:
             msg = "Nothing found."
         return msg
         
+    def filter_shop_qs(self, shop_qs, field_name):
+        """Returns filtered queryset if a filter word exists"""
+        if "filter" in self.switches and self.args:
+            filter_query = {"%s__icontains" % field_name: self.args}
+            shop_qs = shop_qs.filter(**filter_query)
+        return shop_qs
+    
     def filter_shop_dict(self, shop_dict):
         """Returns filtered dict if a filter word exists"""
         if "filter" in self.switches and self.args:
