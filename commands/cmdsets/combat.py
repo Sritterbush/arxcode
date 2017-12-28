@@ -1047,6 +1047,7 @@ class CmdHarm(ArxCommand):
         @harm <character1, character2, etc>=amount/<message>
         @harm/mercy <character1, character2>=amount/<message>
         @harm/private <character1,...>=amount/<message>
+        @harm/noarmor <char1, char2, ...>=amount/message
 
     Causes damage to the characters listed. If the mercy switch is
     specified, a character cannot be killed instantly. Otherwise, they can
@@ -1082,7 +1083,7 @@ class CmdHarm(ArxCommand):
             if player:
                 players.append(player)
         charlist = [ob.db.char_ob for ob in players if ob.db.char_ob]
-        if not self.caller.check_permstring("builders"):
+        if not self.can_harm_others():
             if any(ob for ob in charlist if ob != self.caller):
                 self.msg("Non-GM usage. Pruning all other characters.")
             charlist = [ob for ob in charlist if ob == self.caller]
@@ -1092,15 +1093,31 @@ class CmdHarm(ArxCommand):
             rooms = set([ob.location for ob in charlist if ob.location])
             for room in rooms:
                 room.msg_contents(message)
+        damage_msgs = []
+        inform_staff("%s used @harm for %d damage on %s." % (self.caller, amt, ", ".join(str(obj) for obj in charlist)))
         for obj in charlist:
+            damage = amt
+            if "noarmor" not in self.switches:
+                damage = obj.combat.modify_damage_by_mitigation(damage)
             if not obj.location:
                 if not message:
-                    message = "You have taken %s damage." % amt
+                    message = "You have taken %s damage." % damage
                 obj.player_ob.inform(message, category="Damage")
             elif "private" in self.switches and message:
                 obj.msg(message)
-            obj.combat.take_damage(amt, lethal=True, allow_one_shot=one_shot)
-        self.msg("You inflicted %s damage on %s" % (amt, ", ".join(str(obj) for obj in charlist)))
+            if damage:
+                obj.combat.take_damage(damage, lethal=True, allow_one_shot=one_shot)
+            damage_msgs.append("%s damage on %s" % (damage, obj))
+        self.msg("You inflicted %s." % ", ".join(damage_msgs))
+        
+    def can_harm_others(self):
+        """Checks if the caller can harm other players"""
+        if self.caller.check_permstring("builders"):
+            return True
+        event = self.caller.location.event
+        if not event:
+            return False
+        return self.caller.Dominion in event.gms.all()
 
 
 class CmdHeal(ArxCommand):
