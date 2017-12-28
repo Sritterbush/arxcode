@@ -490,7 +490,7 @@ class AgentMixin(object):
 
     # noinspection PyAttributeOutsideInit
     def setup_name(self):
-        self.name = self.agent.name
+        self.name = self.agent.colored_name or self.agent.name
 
     def unassign(self  # type: Retainer or Agent
                  ):

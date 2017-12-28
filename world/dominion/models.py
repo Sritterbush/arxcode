@@ -3125,24 +3125,25 @@ class Agent(SharedMemoryModel):
         (CHAMPION, 'Champion'),
         (ANIMAL, 'Animal'),
         (SMALL_ANIMAL, 'Small Animal'))
-    name = models.CharField(blank=True, null=True, max_length=80)
-    desc = models.TextField(blank=True, null=True)
-    cost_per_guard = models.PositiveSmallIntegerField(default=0, blank=0)
+    name = models.CharField(blank=True, max_length=80)
+    colored_name = models.CharField(blank=True, max_length=80)
+    desc = models.TextField(blank=True)
+    cost_per_guard = models.PositiveSmallIntegerField(default=0)
     # unassigned agents
-    quantity = models.PositiveIntegerField(default=0, blank=0)
+    quantity = models.PositiveIntegerField(default=0)
     # level of our agents
-    quality = models.PositiveSmallIntegerField(default=0, blank=0)
+    quality = models.PositiveSmallIntegerField(default=0)
     # numerical type of our agents. 0==regular guards, 1==spies, etc
-    type = models.PositiveSmallIntegerField(choices=NPC_TYPE_CHOICES, default=GUARD, blank=GUARD)
+    type = models.PositiveSmallIntegerField(choices=NPC_TYPE_CHOICES, default=GUARD)
     # assetowner, so either a player or an organization
     owner = models.ForeignKey("AssetOwner", on_delete=models.SET_NULL, related_name="agents", blank=True, null=True,
                               db_index=True)
-    secret = models.BooleanField(default=False, blank=False)
+    secret = models.BooleanField(default=False)
     # if this class of Agent is a unique individual, and as such the quantity cannot be more than 1
-    unique = models.BooleanField(default=False, blank=False)
-    xp = models.PositiveSmallIntegerField(default=0, blank=0)
-    modifiers = models.TextField(blank=True, null=True)
-    loyalty = models.PositiveSmallIntegerField(default=100, blank=100)
+    unique = models.BooleanField(default=False)
+    xp = models.PositiveSmallIntegerField(default=0)
+    modifiers = models.TextField(blank=True)
+    loyalty = models.PositiveSmallIntegerField(default=100)
     
     def _get_cost(self):
         return self.cost_per_guard * self.quantity
@@ -3168,13 +3169,21 @@ class Agent(SharedMemoryModel):
             return name
         return "%s %s" % (self.quantity, self.name)
 
+    @property
+    def pretty_name(self):
+        """Returns name or colored name"""
+        name = self.colored_name or self.name or self.type_str
+        if self.unique or self.quantity == 1:
+            return name
+        return "%s %s" % (self.quantity, name)
+
     def __repr__(self):
         return "<Agent (#%s): %s>" % (self.id, self.name)
 
     def display(self, show_assignments=True):
         """Returns string display of an agent"""
         msg = "\n\n{wID{n: %s {wName{n: %s {wType:{n %s" % (
-            self.id, self.name, self.type_str)
+            self.id, self.pretty_name, self.type_str)
         if not self.unique:
             msg += " {wUnassigned:{n %s\n" % self.quantity
         else:
@@ -3274,6 +3283,16 @@ class Agent(SharedMemoryModel):
     @xp_transfer_cap.setter
     def xp_transfer_cap(self, value):
         self.dbobj.xp_transfer_cap = value
+
+    def set_name(self, name):
+        """Sets the name of the agent"""
+        from evennia.utils.ansi import strip_ansi
+        self.colored_name = name
+        self.name = strip_ansi(name)
+        self.save()
+        for agent in self.agent_objects.all():
+            if agent.dbobj:
+                agent.dbobj.setup_name()
 
 
 class AgentMission(SharedMemoryModel):
