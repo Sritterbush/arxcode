@@ -3172,26 +3172,22 @@ class Agent(SharedMemoryModel):
     @property
     def pretty_name(self):
         """Returns name or colored name"""
-        name = self.colored_name or self.name or self.type_str
-        if self.unique or self.quantity == 1:
-            return name
-        return "%s %s" % (self.quantity, name)
+        return self.colored_name or self.name or self.type_str
 
     def __repr__(self):
         return "<Agent (#%s): %s>" % (self.id, self.name)
 
-    def display(self, show_assignments=True):
+    def display(self, show_assignments=True, caller=None):
         """Returns string display of an agent"""
-        msg = "\n\n{wID{n: %s {wName{n: %s {wType:{n %s" % (
-            self.id, self.pretty_name, self.type_str)
+        msg = "\n\n{wID{n: %s {wName{n: %s {wType:{n %s  {wLevel{n: %s" % (
+            self.id, self.pretty_name, self.type_str, self.quality)
         if not self.unique:
             msg += " {wUnassigned:{n %s\n" % self.quantity
         else:
-            msg += "  {wXP:{n %s {wLoyalty{n: %s {wLevel{n: %s\n" % (self.xp, self.loyalty, self.quality)
+            msg += "\n{wXP:{n %s {wLoyalty{n: %s\n" % (self.xp, self.loyalty)
         if not show_assignments:
             return msg
-        for agent in self.agent_objects.all():
-            msg += agent.display()
+        msg += ", ".join(agent.display(caller=caller) for agent in self.agent_objects.filter(quantity__gt=0))
         return msg
 
     def assign(self, targ, num):
@@ -3362,11 +3358,11 @@ class AgentOb(SharedMemoryModel):
         self.save()
         return num
 
-    def display(self):
+    def display(self, caller=None):
         """Returns string display of the agent"""
         if not self.quantity:
             return ""
-        return self.dbobj.display()
+        return self.dbobj.display(caller=caller)
 
     def lose_agents(self, num):
         """Remove some of the numberof guards"""

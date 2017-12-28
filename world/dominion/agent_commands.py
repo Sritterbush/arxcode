@@ -1,12 +1,15 @@
+"""
+Commands for agents
+"""
 from django.db.models import Q
-
-from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
-from .models import Agent, Organization, AssetOwner
-from typeclasses.npcs.npc_types import get_npc_type, generate_default_name_and_desc
 from evennia.objects.models import ObjectDB
 # noinspection PyProtectedMember
 from evennia.objects.objects import _AT_SEARCH_RESULT
-from server.utils.arx_utils import validate_name, strip_ansi, caller_change_field
+
+from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
+from server.utils.arx_utils import validate_name, caller_change_field
+from typeclasses.npcs.npc_types import get_npc_type, generate_default_name_and_desc
+from .models import Agent, Organization, AssetOwner
 
 
 class CmdAgents(ArxPlayerCommand):
@@ -62,15 +65,18 @@ class CmdAgents(ArxPlayerCommand):
 
     @staticmethod
     def get_cost(lvl):
+        """Gets the cost of an agent"""
         cost = pow((lvl + 1), 5)
         return cost
 
     @staticmethod
     def get_guard_cap(char):
+        """Gets maximum number of guards for a character"""
         return char.max_guards
 
     @staticmethod
     def get_allowed_types_from_org(org):
+        """Gets types of agents allowed for an org"""
         if "noble" in org.category:
             return ["guards"]
         if "crime" in org.category:
@@ -78,6 +84,7 @@ class CmdAgents(ArxPlayerCommand):
         return []
 
     def func(self):
+        """Executes agents command"""
         caller = self.caller
         personal = Agent.objects.filter(owner__player__player=caller)
         orgs = [org.assets for org in Organization.objects.filter(members__player=caller.Dominion)
@@ -86,7 +93,8 @@ class CmdAgents(ArxPlayerCommand):
                                      owner__organization_owner__in=[org.organization_owner for org in orgs])
         agents = personal | house
         if not self.args:
-            caller.msg("{WYour agents:{n\n%s" % ", ".join(agent.display() for agent in agents), options={'box': True})
+            caller.msg("{WYour agents:{n\n%s" % "".join(agent.display(caller=self.caller) for agent in agents),
+                       options={'box': True})
             barracks = self.find_barracks(caller.Dominion.assets)
             for org in orgs:
                 barracks.extend(self.find_barracks(org))
@@ -375,10 +383,12 @@ class CmdRetainers(ArxPlayerCommand):
         Displays retainers the player owns
         """
         agents = self.caller.retainers
-        self.msg("{WYour retainers:{n\n%s" % "".join(agent.display() for agent in agents), options={'box': True})
+        self.msg("{WYour retainers:{n\n%s" % "".join(agent.display(caller=self.caller) for agent in agents),
+                 options={'box': True})
         return
 
     def view_stats(self, agent):
+        """Views the stats for a retainer"""
         char = agent.dbobj
         self.msg(agent.display())
         char.view_stats(self.caller, combat=True)
@@ -473,11 +483,13 @@ class CmdRetainers(ArxPlayerCommand):
         return
 
     def adjust_transfer_cap(self, agent, amt):
+        """Changes the xp transfer cap for an agent"""
         agent.xp_transfer_cap += amt
         self.msg("%s's xp transfer cap is now %s." % (agent, agent.xp_transfer_cap))
 
     # ------ Helper methods for performing pre-purchase checks -------------
     def check_categories(self, category):
+        """Helper method for displaying categories"""
         if category not in self.valid_categories:
             self.msg("%s is not a valid choice. It must be one of the following: %s" %
                      (category, ", ".join(self.valid_categories)))
@@ -537,12 +549,14 @@ class CmdRetainers(ArxPlayerCommand):
             return attr
 
     def pay_resources(self, res_cost, res_type):
+        """Attempts to pay resources"""
         if not self.caller.pay_resources(res_type, res_cost):
             self.msg("You do not have enough %s resources. You need %s." % (res_type, res_cost))
             return False
         return True
 
     def pay_xp_and_resources(self, agent, xp_cost, res_cost, res_type):
+        """Attempts to pay xp and resource costs"""
         if xp_cost > agent.xp:
             self.msg("Cost is %s and they only have %s xp." % (xp_cost, agent.xp))
             return False
@@ -554,6 +568,7 @@ class CmdRetainers(ArxPlayerCommand):
         return True
 
     def check_max_for_attr(self, agent, attr, category):
+        """Checks the maximum allowed for an agent's traits"""
         a_max = agent.get_attr_maximum(attr, category)
         current = self.get_attr_current_value(agent, attr, category)
         if current >= a_max:
@@ -562,6 +577,7 @@ class CmdRetainers(ArxPlayerCommand):
         return True
 
     def get_attr_current_value(self, agent, attr, category):
+        """Checks the current value for an agent's trait"""
         if not self.check_categories(category):
             return
         if category == "level":
@@ -666,7 +682,7 @@ class CmdRetainers(ArxPlayerCommand):
         Increase one of the retainer's stats. Maximum is determined by our
         quality level.
         """
-        attr = self.get_attr_from_args(agent, category="stat")
+        attr = self.get_attr_from_args(agent)
         if not attr:
             return
         if not self.check_max_for_attr(agent, attr, category="stat"):
@@ -766,10 +782,12 @@ class CmdRetainers(ArxPlayerCommand):
     # Cosmetic methods
 
     def change_desc(self, agent):
+        """Changes description field of agent"""
         caller_change_field(self.caller, agent, "desc", self.rhs)
         return
 
     def change_name(self, agent):
+        """Changes an agent's name"""
         old = agent.name
         name = self.rhs
         if not validate_name(name):
@@ -780,6 +798,7 @@ class CmdRetainers(ArxPlayerCommand):
         return
 
     def customize(self, agent):
+        """Changes other cosmetic attributes for agent"""
         try:
             attr, val = self.rhslist[0], self.rhslist[1]
         except (TypeError, ValueError, IndexError):
@@ -793,6 +812,7 @@ class CmdRetainers(ArxPlayerCommand):
         self.msg("%s's %s set to %s." % (agent, attr, val))
 
     def delete(self, agent):
+        """Deletes an agent"""
         if not self.caller.ndb.remove_agent_forever == agent:
             self.caller.ndb.remove_agent_forever = agent
             self.msg("You wish to remove %s forever. Use the command again to confirm." % agent)
@@ -805,6 +825,7 @@ class CmdRetainers(ArxPlayerCommand):
         self.msg("%s has gone to live with a nice farm family." % dbobj)
 
     def func(self):
+        """Executes retainer command"""
         caller = self.caller
         if not self.args:
             self.display_retainers()
@@ -918,6 +939,7 @@ class CmdGuards(ArxCommand):
     aliases = ["@guards", "guards", "+guard", "@guard", "guard"]
 
     def func(self):
+        """Executes guard command"""
         caller = self.caller
         guards = caller.db.assigned_guards or []
         if not guards:
