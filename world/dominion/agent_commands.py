@@ -267,8 +267,9 @@ class CmdAgents(ArxPlayerCommand):
                     if not validate_name(name):
                         self.msg("That is not a valid name.")
                         return
-                    attr = 'name'
-                    agent.name = name
+                    agent.set_name(name)
+                    self.msg("Name changed to %s" % name)
+                    return
                 elif 'transferowner' in self.switches:
                     attr = 'owner'
                     strval = self.lhslist[1]
@@ -422,10 +423,8 @@ class CmdRetainers(ArxPlayerCommand):
         agent.assign(caller.db.char_ob, 1)
         caller.msg("Assigning %s to you." % aname)
         self.msg("You now have a new agent. You can return to your home to summon them with the +guard command.")
-        # strip ansi from the key
-        agent.name = strip_ansi(aname)
-        agent.dbobj.name = aname
-        agent.save()
+        # sets its name and saves it
+        agent.set_name(aname)
         return
 
     def train_retainer(self):
@@ -773,12 +772,10 @@ class CmdRetainers(ArxPlayerCommand):
     def change_name(self, agent):
         old = agent.name
         name = self.rhs
-        if not validate_name(name, formatting=True):
+        if not validate_name(name):
             self.msg("That is not a valid name.")
             return
-        agent.name = strip_ansi(name)
-        agent.dbobj.name = name
-        agent.save()
+        agent.set_name(name)
         self.caller.msg("Name changed from %s to %s." % (old, self.rhs))
         return
 
