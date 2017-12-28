@@ -1346,12 +1346,15 @@ class CmdTheories(ArxPlayerCommand):
         self.msg(table)
 
     def view_theory(self):
+        theories = self.caller.known_theories.all()
         try:
-            theory = self.caller.known_theories.get(id=self.args)
+            theory = theories.get(id=self.args)
         except (Theory.DoesNotExist, ValueError, TypeError):
             self.msg("No theory by that ID.")
             return
         self.msg(theory.display())
+        self.msg("{wRelated Theories{n: %s\n" %
+                 ", ".join(str(ob.id) for ob in theory.related_theories.filter(id__in=theories)))
         known_clues = [ob.clue.id for ob in self.caller.roster.finished_clues]
         disp_clues = theory.related_clues.filter(id__in=known_clues)
         self.msg("{wRelated Clues:{n %s" % ", ".join(ob.name for ob in disp_clues))
