@@ -548,6 +548,7 @@ class CmdAdjustReputation(ArxPlayerCommand):
     locks = "cmd:perm(Wizards)"
 
     def display_form(self):
+        """Displays form for adjusting player reputations"""
         rep_form = self.caller.ndb.reputation_form or [{}, ""]
         post_list = (rep_form[1] or "").split("/")
         if len(post_list) < 2:
@@ -567,6 +568,7 @@ class CmdAdjustReputation(ArxPlayerCommand):
         self.msg("Warning - form saved in memory only. Use /finish to avoid losing it in reloads.")
 
     def do_finish(self):
+        """Applies the changes from the finished form"""
         rep_changes, post_msg = self.caller.ndb.reputation_form or [{}, ""]
         if not rep_changes or not post_msg:
             if not rep_changes:
@@ -602,11 +604,13 @@ class CmdAdjustReputation(ArxPlayerCommand):
         self.caller.ndb.reputation_form = None
 
     def add_post(self):
+        """Adds the planned bulletin board post to the form"""
         rep_form = self.caller.ndb.reputation_form or [{}, ""]
         rep_form[1] = self.args
         self.display_form()
 
     def add_player(self):
+        """Adds a player's rep adjustments to the form"""
         rep_form = self.caller.ndb.reputation_form or [{}, ""]
         try:
             player_list = [self.caller.search(arg) for arg in self.lhslist]
@@ -645,6 +649,7 @@ class CmdAdjustReputation(ArxPlayerCommand):
         self.display_form()
 
     def func(self):
+        """Executes the reputation adjustment command"""
         if not self.args and not self.switches:
             self.display_form()
             return
@@ -678,6 +683,7 @@ class CmdGMDisguise(ArxCommand):
     locks = "cmd:perm(Wizards)"
 
     def func(self):
+        """Executes the GM disguise command"""
         targ = self.caller.search(self.lhs)
         if not targ:
             return
@@ -730,9 +736,11 @@ class CmdViewLog(ArxPlayerCommand):
     locks = "cmd:all()"
 
     def view_log(self, log):
+        """Views a log for a player"""
         msg = ""
         for line in log:
             def get_name(ob):
+                """Formats their name"""
                 if self.caller.check_permstring("builder"):
                     return ob.key
                 return ob.name
@@ -741,18 +749,22 @@ class CmdViewLog(ArxPlayerCommand):
         arx_more.msg(self.caller, msg)
 
     def view_flagged_log(self, player):
+        """Views a logged flag for viewing by a player"""
         self.msg("Viewing %s's flagged log" % player)
         self.view_log(player.flagged_log)
 
     def view_previous_log(self, player):
+        """Views the previous log for a plyaer"""
         self.msg("Viewing %s's previous log" % player)
         self.view_log(player.previous_log)
 
     def view_current_log(self, player):
+        """Views the player's current log"""
         self.msg("Viewing %s's current log" % player)
         self.view_log(player.current_log)
 
     def func(self):
+        """Executes the log command"""
         if "report" in self.switches:
             targ = self.caller.search(self.args)
             if not targ:
@@ -806,12 +818,15 @@ class CmdSetLanguages(ArxPlayerCommand):
 
     @property
     def valid_languages(self):
+        """Gets queryset of all current valid languages, which are Tags"""
         return Tag.objects.filter(db_category="languages").order_by('db_key')
 
     def list_valid_languages(self):
+        """Lists all current valid languages"""
         self.msg("Valid languages: %s" % ", ".join(ob.db_key.title() for ob in self.valid_languages))
 
     def func(self):
+        """Executes admin languages command"""
         if not self.args:
             self.list_valid_languages()
             return
@@ -868,6 +883,7 @@ class CmdGMEvent(ArxCommand):
     help_category = "GMing"
 
     def func(self):
+        """Executes gmevent command"""
         form = self.caller.db.gm_event_form
         if not self.switches:
             if not form:
@@ -952,9 +968,11 @@ class CmdGMNotes(ArxPlayerCommand):
 
     @property
     def tags(self):
+        """Gets queryset of gmnotes, which are Tags"""
         return Tag.objects.filter(db_category="gmnotes")
 
     def list_all_tags(self):
+        """Displays table of all tags"""
         from evennia.utils.evtable import EvTable
         from evennia.utils.utils import crop
         from server.utils import arx_more
@@ -974,19 +992,19 @@ class CmdGMNotes(ArxPlayerCommand):
         arx_more.msg(self.caller, str(table), justify_kwargs=False)
 
     def list_no_gming(self):
+        """Displays list of Characters who haven't had a vision or been on a GM event"""
         from datetime import datetime, timedelta
         date = datetime.now() - timedelta(days=7)
         chars = Character.objects.filter(roster__player__last_login__gte=date, roster__roster__name="Active").exclude(
             receiver_object_set__db_tags__db_key__iexact="visions").exclude(
             roster__player__Dominion__events_attended__gm_event=True).exclude(
-            roster__current_account__characters__player__is_staff=True).exclude(
-            roster__player__tickets__queue__slug="Story"
-        ).order_by('db_key')
-        msg = "{wCharacters who have never received a vision, made a story request, nor attended a GM event," 
+            roster__current_account__characters__player__is_staff=True).order_by('db_key')
+        msg = "{wCharacters who have never received a vision, nor attended a GM event,"
         msg += " that have logged in the last seven days:{n %s" % ", ".join(ob.key for ob in chars)
         self.msg(msg)
 
     def view_char(self):
+        """Views a character's GM notes"""
         try:
             char = Character.objects.get(db_key__iexact=self.lhs)
         except Character.DoesNotExist:
@@ -996,6 +1014,7 @@ class CmdGMNotes(ArxPlayerCommand):
         self.msg(char.db.gm_notes)
 
     def func(self):
+        """Executes gmnotes command"""
         if "no_gming" in self.switches:
             self.list_no_gming()
             return
@@ -1057,6 +1076,7 @@ class CmdJournalAdminForDummies(ArxPlayerCommand):
     help_category = "Admin"
 
     def journal_index(self, character, j_list):
+        """Displays table of journals for character"""
         from server.utils.prettytable import PrettyTable
         num = 1
         table = PrettyTable(["{w#{n", "{wWritten About{n", "{wDate{n", "{wUnread?{n"])
@@ -1080,14 +1100,17 @@ class CmdJournalAdminForDummies(ArxPlayerCommand):
         return str(table)
 
     def display_white(self, character):
+        """Displays white journals for character"""
         self.msg("White journals for %s" % character)
         self.msg(self.journal_index(character, character.messages.white_journal))
 
     def display_black(self, character):
+        """Displays black journals for character"""
         self.msg("Black journals for %s" % character)
         self.msg(self.journal_index(character, character.messages.black_journal))
 
     def func(self):
+        """Executes admin journals command"""
         player = self.caller.search(self.lhs)
         if not player:
             return
@@ -1166,6 +1189,7 @@ class CmdTransferKeys(ArxPlayerCommand):
     help_category = "Building"
 
     def func(self):
+        """Executes key transfer command"""
         source = self.caller.search(self.lhs)
         targ = self.caller.search(self.rhs)
         if not source or not targ:
@@ -1204,12 +1228,14 @@ class CmdAdminKey(ArxCommand):
     help_category = "Admin"
 
     def display_keys(self, pc):
+        """Displays keys for pc"""
         chest_keys = pc.db.chestkeylist or []
         room_keys = pc.db.keylist or []
         self.msg("\n{c%s's {wchest keys:{n %s" % (pc, ", ".join(str(ob) for ob in chest_keys)))
         self.msg("\n{c%s's {wroom keys:{n %s" % (pc, ", ".join(str(ob) for ob in room_keys)))
 
     def func(self):
+        """Executes admin_key command"""
         from typeclasses.rooms import ArxRoom
         from typeclasses.characters import Character
         from typeclasses.wearable.wearable import WearableContainer
@@ -1231,13 +1257,11 @@ class CmdAdminKey(ArxCommand):
                     room_keys.append(room)
                     pc.db.keylist = room_keys
                 self.msg("{yAdded.")
-                self.display_keys(pc)
                 return
             if room in room_keys:
                 room_keys.remove(room)
                 pc.db.keylist = room_keys
             self.msg("{rRemoved.")
-            self.display_keys(pc)
             return
         if "chest" in self.switches:
             chest = self.caller.search(self.rhs, global_search=True, typeclass=[Container, WearableContainer])
@@ -1248,13 +1272,11 @@ class CmdAdminKey(ArxCommand):
                     chest_keys.append(chest)
                     pc.db.chestkeylist = chest_keys
                 self.msg("{yAdded.")
-                self.display_keys(pc)
                 return
             if chest in chest_keys:
                 chest_keys.remove(chest)
                 pc.db.chestkeylist = chest_keys
             self.msg("{rRemoved.")
-            self.display_keys(pc)
             return
 
 
@@ -1274,6 +1296,7 @@ class CmdRelocateExit(ArxCommand):
     help_category = "Building"
     
     def func(self):
+        """Executes relocate exit command"""
         from typeclasses.rooms import ArxRoom
         exit_obj = self.caller.search(self.lhs)
         if not exit_obj:
@@ -1300,11 +1323,13 @@ class CmdAdminTitles(ArxPlayerCommand):
     help_category = "GMing"
 
     def display_titles(self, targ):
+        """Displays list of titles for targ"""
         titles = targ.db.titles or []
         title_list = ["{w%s){n %s" % (ob[0], ob[1]) for ob in enumerate(titles, start=1)]
         self.msg("%s's titles: %s" % (targ, "; ".join(title_list)))
 
     def func(self):
+        """Executes admin_title command"""
         targ = self.caller.search(self.lhs)
         if not targ:
             return
@@ -1347,10 +1372,12 @@ class CmdAdminWrit(ArxPlayerCommand):
     locks = "cmd:perm(builders)"
 
     def display_writbound(self):
+        """Displays writs for all characters"""
         qs = Character.objects.filter(db_tags__db_key="has_writ")
         self.msg("{wCharacters with writs:{n %s" % ", ".join(ob.key for ob in qs))
 
     def func(self):
+        """Executes admin_writ command"""
         if not self.args:
             self.display_writbound()
             return
