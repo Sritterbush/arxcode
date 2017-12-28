@@ -2158,7 +2158,7 @@ class CmdOrganization(ArxPlayerCommand):
             tarmember.rank = rank
             tarmember.save()
             caller.msg("You have set %s's rank to %s." % (player, rank))
-            player.msg("Your rank has been set to %s." % rank)
+            player.msg("Your rank has been set to %s in %s." % (rank, org))
             return
         # other switches can omit the org name if we're only a member of one org   
         if not self.rhs:
