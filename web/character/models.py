@@ -867,7 +867,7 @@ class ClueDiscovery(SharedMemoryModel):
                                   revealed_by=self.character, investigation=investigation)
         pc = targ_clue.character.player
         msg = "A new clue (%d) has been shared with you by %s!\n\n%s\n" % (targ_clue.id, self.character,
-                                                                      targ_clue.display())
+                                                                           targ_clue.display())
         pc.inform(msg, category="Investigations", append=False)
         return True
 
@@ -1162,6 +1162,7 @@ class Investigation(AbstractPlayerAllocations):
                 self.results += " But you feel you've made some progress in following some leads."
             else:
                 self.results += " None of your leads seemed to go anywhere this week."
+            self.results += " To continue the investigation, set it active again."
         
     def reset_values(self):
         """
