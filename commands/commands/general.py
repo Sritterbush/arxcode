@@ -1,14 +1,16 @@
 """
 General Character commands usually available to all characters
 """
+from six import string_types
+
 from django.conf import settings
-from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
 from evennia.comms.models import TempMsg
-from evennia.utils import utils, evtable
-from server.utils import prettytable
-from evennia.utils.utils import make_iter, variable_from_module
 from evennia.objects.models import ObjectDB
-from server.utils.arx_utils import raw
+from evennia.utils import utils, evtable
+from evennia.utils.utils import make_iter, variable_from_module
+
+from server.utils import prettytable
+from server.utils.arx_utils import ArxCommand, ArxPlayerCommand, raw
 
 AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
 
@@ -87,6 +89,7 @@ class CmdGameSettings(ArxPlayerCommand):
                       'emit_label')
 
     def togglesetting(self, char, attr, tag=False):
+        """Toggles a setting for the caller"""
         caller = self.caller
         if tag:
             if not char.tags.get(attr):
@@ -104,6 +107,7 @@ class CmdGameSettings(ArxPlayerCommand):
             caller.msg("%s is now on." % attr)
 
     def set_quote_color(self, char):
+        """Sets quote color for the caller"""
         if not self.args:
             char.attributes.remove("pose_quote_color")
         else:
@@ -111,6 +115,7 @@ class CmdGameSettings(ArxPlayerCommand):
         char.msg('Text will appear inside quotes "%slike this.{n"' % self.args)
         
     def set_name_color(self, char):
+        """Sets name color for the caller"""
         if not self.args:
             char.attributes.remove("name_color")
         else:
@@ -118,6 +123,7 @@ class CmdGameSettings(ArxPlayerCommand):
         char.msg('Your name will appear like this: %s%s{n.' % (self.args, char.key))
 
     def func(self):
+        """Executes setting command"""
         caller = self.caller
         char = caller.db.char_ob
         if not char:
@@ -198,12 +204,14 @@ class CmdGlance(ArxCommand):
     help_category = "Social"
 
     def send_glance_str(self, char):
+        """Sends the string of glancing in the room to the caller"""
         string = "\n{c%s{n\n%s\n%s" % (char.get_fancy_name(),
                                        char.return_extras(self.caller),
                                        char.get_health_appearance())
         self.msg(string)
 
     def func(self):
+        """Executes glance command"""
         caller = self.caller
         if not self.args:
             charlist = [ob for ob in caller.location.contents if ob != caller and hasattr(ob, 'return_extras')]
@@ -437,6 +445,7 @@ class CmdWhisper(ArxCommand):
                 return
 
         if not self.args or 'list' in self.switches:
+            from past.builtins import cmp
             pages = list(pages_we_sent) + list(pages_we_got)
             pages.sort(lambda x, y: cmp(x.date_created, y.date_created))
 
@@ -493,7 +502,8 @@ class CmdWhisper(ArxCommand):
 
         recobjs = []
         for receiver in set(receivers):
-            if isinstance(receiver, basestring):
+
+            if isinstance(receiver, string_types):
                 pobj = caller.search(receiver, use_nicks=True)
             elif hasattr(receiver, 'character'):
                 pobj = receiver.character
@@ -607,6 +617,7 @@ class CmdPage(ArxPlayerCommand):
     arg_regex = r'\/|\s|$'
 
     def disp_allow(self):
+        """Displays those we're allowing"""
         self.msg("{wPeople on allow list:{n %s" % ", ".join(str(ob) for ob in self.caller.allow_list))
         self.msg("{wPeople on block list:{n %s" % ", ".join(str(ob) for ob in self.caller.block_list))
 
@@ -731,7 +742,7 @@ class CmdPage(ArxPlayerCommand):
         for receiver in set(receivers):
             # originally this section had this check, which always was true
             # Not entirely sure what he was trying to check for
-            if isinstance(receiver, basestring):
+            if isinstance(receiver, string_types):
                 findpobj = caller.search(receiver)
             else:
                 findpobj = receiver
@@ -922,6 +933,7 @@ class CmdMail(ArxPlayerCommand):
     help_category = "Comms"
 
     def check_valid_receiver(self, pobj):
+        """Checks if we can send mail to that player"""
         caller = self.caller
         if pobj in caller.block_list:
             self.msg("%s is in your block list and would not be able to reply to your mail." % pobj)
@@ -937,6 +949,7 @@ class CmdMail(ArxPlayerCommand):
         return True
 
     def send_mail(self):
+        """Sends mail to a player or org"""
         caller = self.caller
         if not self.rhs:
             caller.msg("You cannot mail a message with no body.")
@@ -980,6 +993,7 @@ class CmdMail(ArxPlayerCommand):
         self.send_mails(recobjs, message, subject)
 
     def send_mails(self, recobjs, message, subject):
+        """Sends mail to receivers"""
         caller = self.caller
         sender = str(caller)
         if not recobjs:
@@ -1164,6 +1178,7 @@ class CmdPut(ArxCommand):
         self.caller.msg("You put %s silver in %s." % (val, destination))
 
     def func(self):
+        """Executes Put command"""
         from .overrides import args_are_currency
         caller = self.caller
         args = self.args.split(" in ")
@@ -1180,7 +1195,10 @@ class CmdPut(ArxCommand):
         if args[0] == "all":
             obj_list = caller.contents
         else:
-            obj_list = [caller.search(args[0], location=caller)]
+            obj = caller.search(args[0], location=caller)
+            if not obj:
+                return
+            obj_list = [obj]
         obj_list = [ob for ob in obj_list if ob.at_before_move(dest, caller=caller)]
         success = []
         for obj in obj_list:
@@ -1233,12 +1251,13 @@ class CmdGradient(ArxPlayerCommand):
 
     @staticmethod
     def get_step(length, diff):
+        """Gets step of the gradient"""
         if diff == 0:
             return 0
         return length/diff
 
     def color_string(self, start, end, text):
-        
+        """Returns a colored string for the gradient"""
         current = start
         output = ""
         for x in range(len(text)):
@@ -1276,6 +1295,7 @@ class CmdGradient(ArxPlayerCommand):
         return output
     
     def func(self):
+        """Executes gradient command"""
         caller = self.caller
         try:
             start, end = self.lhslist[0], self.lhslist[1]
@@ -1320,6 +1340,7 @@ class CmdInform(ArxPlayerCommand):
     banktypes = ("resources", "materials", "silver")
 
     def read_inform(self, inform):
+        """Reads an inform for the caller"""
         msg = "\n{wCategory:{n %s\n" % inform.category
         msg += "{w" + "-"*70 + "{n\n\n%s\n" % inform.message
         self.msg(msg, options={'box': True})
@@ -1327,6 +1348,7 @@ class CmdInform(ArxPlayerCommand):
             inform.read_by.add(self.caller)
 
     def get_inform(self, inform_target, val):
+        """Returns an inform from inform_target with index based on val"""
         informs = inform_target.informs.all()
         try:
             val = int(val)
@@ -1338,6 +1360,7 @@ class CmdInform(ArxPlayerCommand):
             self.msg("You must specify a number between 1 and %s." % len(informs))
 
     def set_attr(self, asset_owner, attr, valuestr):
+        """Sets attribute for displaying minimums"""
         try:
             value = int(valuestr)
             if value <= 0:
@@ -1354,6 +1377,7 @@ class CmdInform(ArxPlayerCommand):
         self.display_minimums(asset_owner)
 
     def display_minimums(self, asset_owner):
+        """Displays minimums for informs to be sent"""
         table = evtable.EvTable("{wPurpose{n", "{wResource{n", "{wThreshold{n",  width=78, pad_width=0)
         attrs = (("min_silver_for_inform", "silver", "shop/banking"),
                  ("min_materials_for_inform", "materials", "banking"),
@@ -1364,6 +1388,7 @@ class CmdInform(ArxPlayerCommand):
         self.caller.msg(table)
 
     def func(self):
+        """Executes inform command"""
         inform_target = self.caller
         lhs = self.lhs
         lhslist = self.lhslist
@@ -1438,6 +1463,7 @@ class CmdInform(ArxPlayerCommand):
                 x += 1
 
                 def highlight(ob_str, add_star=False):
+                    """Helper function to highlight unread entries"""
                     if info in read_informs:
                         return ob_str
                     if add_star:
@@ -1499,6 +1525,7 @@ class CmdInform(ArxPlayerCommand):
         return
 
     def check_permission(self, inform_target):
+        """Checks permission for seeing transactions"""
         if inform_target == self.caller:
             return True
         if inform_target.access(self.caller, "transactions"):
@@ -1507,6 +1534,7 @@ class CmdInform(ArxPlayerCommand):
         self.msg("This is controlled by the 'transaction' permission under @org/perm.")
 
     def toggle_important(self, inform_target, inform):
+        """Toggles the importance of an inform"""
         if not inform.important and inform_target.informs.filter(important=True).count() > 20:
             self.msg("You may only have 20 informs marked as important.")
             return
@@ -1528,6 +1556,7 @@ class CmdKeyring(ArxCommand):
     locks = "cmd:all()"
 
     def func(self):
+        """Executes keyring command"""
         caller = self.caller
         room_keys = caller.db.keylist or []
         # remove any duplicates and ensure only rooms are in keylist
@@ -1565,6 +1594,7 @@ class CmdUndress(ArxCommand):
     locks = "cmd:all()"
 
     def func(self):
+        """Executes undress command"""
         caller = self.caller
 
         # Get the combat script if one is present
@@ -1617,6 +1647,7 @@ class CmdDump(ArxCommand):
     locks = "cmd:all()"
 
     def func(self):
+        """Executes dump command"""
         caller = self.caller
 
         if not self.args:
@@ -1661,6 +1692,7 @@ class CmdLockObject(ArxCommand):
     locks = "cmd:all()"
 
     def func(self):
+        """Executes lock/unlock command"""
         caller = self.caller
         verb = self.cmdstring.lstrip("+")
         obj = caller.search(self.args)
@@ -1695,6 +1727,7 @@ class CmdTidyUp(ArxCommand):
     locks = "cmd:all()"
 
     def func(self):
+        """Executes tidy command"""
         caller = self.caller
         loc = caller.location
         if "private" in loc.tags.all() and not caller.check_permstring("builders"):
