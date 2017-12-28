@@ -9,7 +9,7 @@ from django.conf import settings
 from django.db.models import Q
 
 from evennia import CmdSet
-from server.utils.arx_utils import ArxCommand, ArxPlayerCommand, dict_from_choices_field
+from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
 from evennia.objects.models import ObjectDB
 from evennia.accounts.models import AccountDB
 from server.utils.arx_utils import get_week, caller_change_field
@@ -593,8 +593,8 @@ class CmdAdmArmy(ArxPlayerCommand):
 class CmdAdmAssets(ArxPlayerCommand):
     """
     @admin_assets
-    @admin_assets/player
-    @admin_assets/org
+    @admin_assets/player <player name>
+    @admin_assets/org <org name>
     @admin_assets/setup player
     @admin_assets/money <owner id or name>=money
     @admin_assets/transfer <owner id or name>=<receiver id>, <value>
@@ -626,9 +626,21 @@ class CmdAdmAssets(ArxPlayerCommand):
                 raise AssetOwner.DoesNotExist
         return owner
 
-    def print_owners(self, **query):
-        assets = ", ".join(repr(owner) for owner in AssetOwner.objects.filter(**query))
-        self.msg(assets)
+    def print_owner(self):
+        """Prints out an asset owner based on args"""
+        try:
+            if "player" in self.switches:
+                owner = AssetOwner.objects.get(player__player__username__iexact=self.args)
+            else:
+                owner = AssetOwner.objects.get(organization_owner__name__iexact=self.args)
+        except (AssetOwner.DoesNotExist, AssetOwner.MultipleObjectsReturned):
+            self.msg("No unique match for %s." % self.args)
+            other_matches = AssetOwner.objects.filter(Q(player__player__username__icontains=self.args) |
+                                                      Q(organization_owner__name__icontains=self.args))
+            if other_matches:
+                self.msg("Other matches: %s" % ", ".join(repr(ob) for ob in other_matches))
+        else:
+            self.msg("Owner: %r" % owner)
         
     def func(self):
         caller = self.caller
@@ -636,12 +648,8 @@ class CmdAdmAssets(ArxPlayerCommand):
             assets = ", ".join(repr(owner) for owner in AssetOwner.objects.all())
             caller.msg(assets)
             return
-        if 'player' in self.switches:
-            self.print_owners(player__player__isnull=False)
-            return
-        if 'org' in self.switches:
-            self.print_owners(organization_owner__isnull=False)
-            return
+        if 'player' in self.switches or 'org' in self.switches:
+            return self.print_owner()
         if "setup" in self.switches:
             player = caller.search(self.lhs)
             if not player:
@@ -3457,6 +3465,7 @@ class CmdPlotRoom(ArxCommand):
         elif not self.switches:
             # @plotroom <id>
             room = None
+            room_id = None
             try:
                 room_id = int(self.args)
             except ValueError:
