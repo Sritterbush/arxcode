@@ -1286,7 +1286,6 @@ class Theory(SharedMemoryModel):
         msg += "{wCan edit:{n %s\n" % ", ".join(str(ob) for ob in self.can_edit.all())
         msg += "{wTopic{n: %s\n" % self.topic
         msg += "{wDesc{n: %s\n" % self.desc
-        msg += "{wRelated Theories{n: %s\n" % ", ".join(str(ob.id) for ob in self.related_theories.all())
         return msg
 
     def share_with(self, player):
