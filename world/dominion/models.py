@@ -2005,10 +2005,12 @@ class AbstractAction(AbstractPlayerAllocations):
         attended_actions = list(self.dompc.actions.filter(Q(update__isnull=True) 
                                                           & Q(attending=True)
                                                           & Q(crisis__isnull=False)
+                                                          & ~Q(status=CrisisAction.CANCELLED)
                                                           & Q(date_submitted__isnull=False)))
         attended_actions += list(self.dompc.assisting_actions.filter(Q(crisis_action__update__isnull=True) 
                                                                      & Q(attending=True)
                                                                      & Q(crisis_action__crisis__isnull=False)
+                                                                     & ~Q(crisis_action__status=CrisisAction.CANCELLED)
                                                                      & Q(date_submitted__isnull=False)))
         return attended_actions
         
