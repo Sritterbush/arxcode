@@ -2401,8 +2401,9 @@ class CrisisAction(AbstractAction):
                               ", ".join(ob.author for ob in self.all_editable)
             msg += "\n{w[STATUS: %s]{n%s" % (self.get_status_display(), needs_edits)
         return msg
-        
-    def roll_color(self, val):
+
+    @staticmethod
+    def roll_color(val):
         """Returns a color string based on positive or negative value."""
         return "{r" if (val < 0) else "{g"
 
