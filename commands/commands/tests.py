@@ -63,7 +63,7 @@ class StoryActionTests(ArxCommandTest):
                                    "assistants are not ready and will be deleted: Testaccount2\nWhen ready, /submit "
                                    "the action again.")
         self.call_cmd("/submit 1", "You have new informs. Use @inform 1 to read them.|You have submitted your action.")
-        mock_inform_staff.assert_called_with('Testaccount has submitted action #1.')
+        mock_inform_staff.assert_called_with('Testaccount submitted action #1. {wSummary:{n summary')
         self.call_cmd("/makepublic 1", "The action must be finished before you can make details of it public.")
         action.status = CrisisAction.PUBLISHED
         self.call_cmd("/makepublic 1", "You have gained 2 xp for making your action public.")
@@ -147,7 +147,7 @@ class StoryActionTests(ArxCommandTest):
         self.assertEqual(action.questions.last().mark_answered, True)
         self.call_cmd("1", "Action ID: #1  Date Submitted: %s\n" % (now.strftime("%x %X")) +
                            "Action by Testaccount2\nSummary: test summary\nAction: test\n"
-                           "[physically present] Dice check: Stat: perception, Skill: investigation  Diff: 60\n"
+                           "[physically present] Perception (stat) + Investigation (skill) at difficulty 60\n"
                            "Testaccount2 OOC intentions: ooc intent test\n\nOOC Notes and GM responses\n"
                            "Testaccount2 OOC Question: foo inform\nReply by Testaccount: Sure go nuts\n"
                            "Testaccount2 OOC Question: another test question\nOutcome Value: 0\nStory Result: \n"
