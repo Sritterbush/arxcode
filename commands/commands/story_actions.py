@@ -42,7 +42,9 @@ class ActionCommandMixin(object):
                 self.msg("{c%s{n %s added. Action %s" % (value, r_type, totals))
 
     def view_action(self, action, disp_old=False):
-        self.msg(action.view_action(caller=self.caller, disp_old=disp_old))
+        from server.utils import arx_more
+        text = action.view_action(caller=self.caller, disp_old=disp_old)
+        arx_more.msg(self.caller, text, justify_kwargs=False)
 
     def invite_assistant(self, action):
         player = self.caller.search(self.rhs)

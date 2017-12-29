@@ -2361,11 +2361,9 @@ class CrisisAction(AbstractAction):
                 attending = "[%s] " % ("physically present" if ob.attending else "offscreen")
                 msg += "\n{w%sDice check: Stat:{n %s, {wSkill:{n %s  " % (attending, ob.stat_used or "No stat set",
                                                                           ob.skill_used or "No skill set")
-                if staff_viewer:
-                    msg += "{wDiff:{n %s" % self.difficulty
                 if self.sent or (ob.roll_is_set and staff_viewer):
-                    color = "{r" if bool(ob.roll >= 0) else "{c"
-                    msg += "{w[Roll: %s%s{w ]{n " % (color, ob.roll)
+                    color = "{r" if (ob.roll < 0) else "{g"
+                    msg += "{w[ Roll: %s%s{w at difficulty %s ]{n " % (color, ob.roll, self.difficulty)
                 if ob.ooc_intent:
                     msg += "\n%s" % ob.ooc_intent.display()
             msg += "\n"
@@ -2495,7 +2493,7 @@ class CrisisAction(AbstractAction):
             self.status = CrisisAction.NEEDS_GM
             for assist in self.assisting_actions.filter(date_submitted__isnull=True):
                 assist.submit_or_refund()
-            inform_staff("%s has submitted action #%s." % (self.author, self.id))
+            inform_staff("%s submitted action #%s. %s" % (self.author, self.id, self.get_summary_text()))
         super(CrisisAction, self).on_submit_success()
         
     def post_edit(self):
@@ -2520,7 +2518,7 @@ class CrisisAction(AbstractAction):
         msg += " If the owner submits the action to the GMs before your assist is valid, it will be"
         msg += " deleted and you will be refunded any AP and resources."
         msg += " When writing your assist action, please only write a story that is relevant to attempting"
-        msg += " to modify the main action you're assisting. Actions which are not related to the action"
+        msg += " to modify the main action you're assisting. Assists which are not related to the action"
         msg += " should be their own independent @action. Secret actions that are attempting to undermine"
         msg += " the action or crisis should use the 'traitor' option."
         msg += " To decline this invitation, use {w@action/cancel %s{n." % self.id
