@@ -4,7 +4,6 @@ from evennia.utils.evtable import EvTable
 
 from server.utils.exceptions import ActionSubmissionError
 from server.utils.arx_utils import dict_from_choices_field, ArxPlayerCommand
-
 from world.dominion.models import Crisis, CrisisAction, CrisisActionAssistant, ActionOOCQuestion
 
 
@@ -44,7 +43,7 @@ class ActionCommandMixin(object):
     def view_action(self, action, disp_old=False):
         from server.utils import arx_more
         text = action.view_action(caller=self.caller, disp_old=disp_old)
-        arx_more.msg(self.caller, text, justify_kwargs=False)
+        arx_more.msg(self.caller, text, justify_kwargs=False, pages_by_char=True)
 
     def invite_assistant(self, action):
         player = self.caller.search(self.rhs)

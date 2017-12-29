@@ -2358,12 +2358,14 @@ class CrisisAction(AbstractAction):
             if ob.secret_actions and view_secrets:
                 msg += ob.get_action_text(secret=True)
             if view_secrets and disp_ooc:
-                attending = "[%s] " % ("physically present" if ob.attending else "offscreen")
-                msg += "\n{w%sDice check: Stat:{n %s, {wSkill:{n %s  " % (attending, ob.stat_used or "No stat set",
-                                                                          ob.skill_used or "No skill set")
+                attending = "[%s]" % ("physically present" if ob.attending else "offscreen")
+                msg += "\n{w%s{n {w%s{n (stat) + {w%s{n (skill) at difficulty {w%s{n" % (
+                    attending,
+                    ob.stat_used.capitalize() or "No stat set",
+                    ob.skill_used.capitalize() or "No skill set",
+                    self.difficulty)
                 if self.sent or (ob.roll_is_set and staff_viewer):
-                    color = "{r" if (ob.roll < 0) else "{g"
-                    msg += "{w[ Roll: %s%s{w at difficulty %s ]{n " % (color, ob.roll, self.difficulty)
+                    msg += "{w [Dice Roll: %s%s{w]{n " % (self.roll_color(ob.roll), ob.roll)
                 if ob.ooc_intent:
                     msg += "\n%s" % ob.ooc_intent.display()
             msg += "\n"
@@ -2376,7 +2378,7 @@ class CrisisAction(AbstractAction):
             msg += "\n{wGM Notes:{n %s%s" % (offscreen, self.gm_notes)
         if self.sent or staff_viewer:
             if disp_ooc:
-                msg += "\n{wOutcome Value:{n %s" % self.outcome_value
+                msg += "\n{wOutcome Value:{n %s%s{n" % (self.roll_color(self.outcome_value), self.outcome_value)
                 events = self.events.all()
                 if events:
                     msg += "\n{wEvents involved: %s" % ", ".join(str(ob) for ob in events)
@@ -2397,6 +2399,10 @@ class CrisisAction(AbstractAction):
                               ", ".join(ob.author for ob in self.all_editable)
             msg += "\n{w[STATUS: %s]{n%s" % (self.get_status_display(), needs_edits)
         return msg
+        
+    def roll_color(self, val):
+        """Returns a color string based on positive or negative value."""
+        return "{r" if (val < 0) else "{g"
 
     def view_tldr(self):
         """Returns summary message of the action and assists"""
@@ -2512,15 +2518,15 @@ class CrisisAction(AbstractAction):
         if dompc == self.dompc:
             raise ActionSubmissionError("The owner of an action cannot be an assistant.")
         self.assisting_actions.create(dompc=dompc, stat_used="", skill_used="")
-        msg = "You have been invited by %s to participate in action %s." % (self.author, self.id)
+        msg = "You have been invited by %s to assist with action #%s." % (self.author, self.id)
         msg += " It will now display under the {w@action{n command. To assist, simply fill out"
         msg += " the required fields, starting with {w@action/setaction{n, and then {w@action/submit %s{n." % self.id
         msg += " If the owner submits the action to the GMs before your assist is valid, it will be"
         msg += " deleted and you will be refunded any AP and resources."
-        msg += " When writing your assist action, please only write a story that is relevant to attempting"
-        msg += " to modify the main action you're assisting. Assists which are not related to the action"
-        msg += " should be their own independent @action. Secret actions that are attempting to undermine"
-        msg += " the action or crisis should use the 'traitor' option."
+        msg += " When creating your assist, please only write a story about attempting to modify"
+        msg += " the main action you're assisting. Assists which are unrelated to the action"
+        msg += " should be their own independent @action. Secret actions attempting to undermine"
+        msg += " the action/crisis should use the '/traitor' switch."
         msg += " To decline this invitation, use {w@action/cancel %s{n." % self.id
         dompc.inform(msg, category="Action Invitation")
     
