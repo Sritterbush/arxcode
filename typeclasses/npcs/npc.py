@@ -397,6 +397,22 @@ class AgentMixin(object):
         self.agent.desc = val
         self.agent.save()
 
+    def assignment_string(self, guarding_name):
+        if self.agent.unique:
+            return "{wAssigned to:{n %s " % guarding_name
+        return "{w%s Assigned to:{n %s" % (self.agentob.quantity, guarding_name)
+
+    def display(self, caller=None):
+        guarding = self.db.guarding
+        if guarding:
+            guarding_name = self.db.guarding.key
+        else:
+            guarding_name = "None"
+        msg = self.assignment_string(guarding_name)
+        if not guarding or (caller and guarding == caller.char_ob):
+            msg += " {wLocation:{n %s" % (self.location or self.db.docked or "Home Barracks")
+        return msg
+
     def setup_agent(self  # type: Retainer or Agent
                     ):
         """
@@ -726,15 +742,6 @@ class Retainer(AgentMixin, Npc):
     ATK_MOD = 0
     DEF_MOD = 0
 
-    def display(self):
-        if self.db.guarding:
-            guarding_name = self.db.guarding.key
-        else:
-            guarding_name = "None"
-        msg = "{wAssigned to:{n %s " % guarding_name
-        msg += "{wLocation:{n %s\n" % (self.location or self.db.docked or "Home Barracks")
-        return msg
-
     # noinspection PyUnusedLocal
     def setup_npc(self, ntype=0, threat=0, num=1, sing_name=None, plural_name=None, desc=None, keepold=False):
         self.db.damage = 0
@@ -874,13 +881,6 @@ class Agent(AgentMixin, MultiNpc):
     def gain_agents(self, num):
         self.db.num_living += num
         self.setup_name()
-        
-    def display(self):
-        msg = "\n{wGuards:{n %s\n" % self.name
-        if self.db.guarding:
-            msg += "{wAssigned to:{n %s {wOwner{n:%s\n" % (self.db.guarding.key, self.agent.owner)
-        msg += "{wLocation:{n %s\n" % (self.location or self.db.docked or "Home Barracks")
-        return msg
 
     def death_process(self, *args, **kwargs):
         """
