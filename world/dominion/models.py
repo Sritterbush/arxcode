@@ -2365,8 +2365,7 @@ class CrisisAction(AbstractAction):
                     ob.skill_used.capitalize() or "No skill set",
                     self.difficulty)
                 if self.sent or (ob.roll_is_set and staff_viewer):
-                    color = "{r" if (ob.roll < 0) else "{g"
-                    msg += "{w [Dice Roll: %s%s{w]{n " % (color, ob.roll)
+                    msg += "{w [Dice Roll: %s%s{w]{n " % (self.roll_color(ob.roll), ob.roll)
                 if ob.ooc_intent:
                     msg += "\n%s" % ob.ooc_intent.display()
             msg += "\n"
@@ -2379,7 +2378,7 @@ class CrisisAction(AbstractAction):
             msg += "\n{wGM Notes:{n %s%s" % (offscreen, self.gm_notes)
         if self.sent or staff_viewer:
             if disp_ooc:
-                msg += "\n{wOutcome Value:{n %s" % self.outcome_value
+                msg += "\n{wOutcome Value:{n %s%s{n" % (self.roll_color(self.outcome_value), self.outcome_value)
                 events = self.events.all()
                 if events:
                     msg += "\n{wEvents involved: %s" % ", ".join(str(ob) for ob in events)
@@ -2400,6 +2399,10 @@ class CrisisAction(AbstractAction):
                               ", ".join(ob.author for ob in self.all_editable)
             msg += "\n{w[STATUS: %s]{n%s" % (self.get_status_display(), needs_edits)
         return msg
+        
+    def roll_color(self, val):
+        """Returns a color string based on positive or negative value."""
+        return "{r" if (val < 0) else "{g"
 
     def view_tldr(self):
         """Returns summary message of the action and assists"""
