@@ -2359,9 +2359,11 @@ class CrisisAction(AbstractAction):
                 msg += ob.get_action_text(secret=True)
             if view_secrets and disp_ooc:
                 attending = "[%s]" % ("physically present" if ob.attending else "offscreen")
-                msg += "\n{w%s{n {w%s{n (stat) + {w%s{n (skill) at difficulty {w%s{n" % (attending, ob.stat_used.capitalize()
-                                                                          or "No stat set", ob.skill_used.capitalize()
-                                                                          or "No skill set", self.difficulty)
+                msg += "\n{w%s{n {w%s{n (stat) + {w%s{n (skill) at difficulty {w%s{n" % (
+                    attending,
+                    ob.stat_used.capitalize() or "No stat set",
+                    ob.skill_used.capitalize() or "No skill set",
+                    self.difficulty)
                 if self.sent or (ob.roll_is_set and staff_viewer):
                     color = "{r" if (ob.roll < 0) else "{g"
                     msg += "{w [Dice Roll: %s%s{w]{n " % (color, ob.roll)
