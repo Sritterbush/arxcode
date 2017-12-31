@@ -568,8 +568,9 @@ class ShardhavenAdmin(DomAdmin):
 
 class ShardhavenTypeAdmin(DomAdmin):
     """Admin for specifying types of Shardhavens"""
-    list_display = ('id', 'name')
+    list_display = ('id', 'name', 'description')
     search_fields = ('name',)
+    ordering = ('id',)
 
 
 class ShardhavenDiscoveryAdmin(DomAdmin):
