@@ -50,6 +50,7 @@ class Roll(object):
             # add individual stat to the list
             if stat and stat not in stat_list:
                 stat_list.append(stat)
+            stat_list = [ob.lower() for ob in stat_list]
             # look up each stat from supplied caller, adds to stats dict
             for somestat in stat_list:
                 self.stats[somestat] = self.character.attributes.get(somestat, 0)
@@ -58,6 +59,7 @@ class Roll(object):
             # add individual skill to the list
             if skill and skill not in skill_list:
                 skill_list.append(skill)
+            skill_list = [ob.lower() for ob in skill_list]
             # grabs the caller's skills or makes blank dict
             skills = caller.db.skills or {}
             # compares skills to dict we just made, adds to self.skills dict
@@ -83,17 +85,17 @@ class Roll(object):
             announce_room = self.character.location
         statval = sum(self.stats.values())
         if self.average_lists or self.average_stat_list:
-            statval /= len(self.stats)
+            statval //= len(self.stats)
         skillval = sum(self.skills.values())
         if self.average_lists or self.average_skill_list:
-            skillval /= len(self.skills)
+            skillval //= len(self.skills)
         # keep dice is either based on some combination of stats or skills, or supplied by caller
         keep_dice = DEFAULT_KEEP
         if self.stat_keep:
             keep_dice += statval
         if self.skill_keep:
             if len(self.stats) == 1 and statval:
-                keep_dice = 1 + (statval / 2)
+                keep_dice = 1 + (statval // 2)
             keep_dice += skillval
         if self.keep_override:
             keep_dice = self.keep_override

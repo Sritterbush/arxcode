@@ -849,8 +849,11 @@ class CmdManageShop(ArxCommand):
                 if arg in removedlist:
                     caller.msg("You had no price listed for that recipe.")
                 else:
-                    removedlist.append(arg)
-                    prices["removed"] = removedlist
+                    try:
+                        removedlist.append(int(arg))
+                        prices["removed"] = removedlist
+                    except ValueError:
+                        caller.msg("Must be an ID.")
             except CraftingRecipe.DoesNotExist:
                 caller.msg("No recipe found by that name.")
             finally:
@@ -1054,8 +1057,15 @@ class CmdBuyFromShop(CmdCraft):
         msg = "{wCrafting Prices{n\n"
         table = PrettyTable(["{wName{n", "{wCraft Price{n", "{wRefine Price{n"])
         recipes = loc.db.shopowner.player_ob.Dominion.assets.recipes.all().order_by('name')
-        removed = prices.get("removed", [])
-        recipes = recipes.exclude(id__in=removed)
+        # This try/except block corrects 'removed' lists that are corrupted by
+        # non-integers, because that was a thing once upon a time. 
+        try:
+            removed = prices.get("removed", [])
+            recipes = recipes.exclude(id__in=removed)
+        except ValueError:
+            removed = [ob for ob in removed if isinstance(ob, int)]
+            prices['removed'] = removed
+            recipes = recipes.exclude(id__in=removed)
         recipes = self.filter_shop_qs(recipes, "name")
         for recipe in recipes:
             try:
