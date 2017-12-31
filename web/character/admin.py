@@ -312,6 +312,12 @@ class StoryEmitAdmin(BaseCharAdmin):
     list_display = ('id', 'chapter', 'episode', 'text', 'sender')
 
 
+class SearchTagAdmin(BaseCharAdmin):
+    """Admin for Search Tags. Has to exist for Clue's filter_horizontal to have an add box"""
+    list_display = ('id', 'name', 'topic')
+    search_fields = ('id', 'name', 'topic__name')
+
+
 class LoreTopicAdmin(BaseCharAdmin):
     """Admin for Lore topics - the OOC knowledge base for GMs of game lore"""
     list_display = ('id', 'name')
@@ -354,6 +360,7 @@ class FlashbackAdmin(BaseCharAdmin):
     inlines = [PostInline]
     fieldsets = [(None, {'fields': [('owner', 'title'), 'summary']})]
 
+
 # Register your models here.
 admin.site.register(Roster, BaseCharAdmin)
 admin.site.register(RosterEntry, EntryAdmin)
@@ -373,3 +380,4 @@ admin.site.register(Investigation, InvestigationAdmin)
 admin.site.register(Theory, TheoryAdmin)
 admin.site.register(LoreTopic, LoreTopicAdmin)
 admin.site.register(Flashback, FlashbackAdmin)
+admin.site.register(SearchTag, SearchTagAdmin)

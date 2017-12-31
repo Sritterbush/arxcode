@@ -2005,10 +2005,12 @@ class AbstractAction(AbstractPlayerAllocations):
         attended_actions = list(self.dompc.actions.filter(Q(update__isnull=True) 
                                                           & Q(attending=True)
                                                           & Q(crisis__isnull=False)
+                                                          & ~Q(status=CrisisAction.CANCELLED)
                                                           & Q(date_submitted__isnull=False)))
         attended_actions += list(self.dompc.assisting_actions.filter(Q(crisis_action__update__isnull=True) 
                                                                      & Q(attending=True)
                                                                      & Q(crisis_action__crisis__isnull=False)
+                                                                     & ~Q(crisis_action__status=CrisisAction.CANCELLED)
                                                                      & Q(date_submitted__isnull=False)))
         return attended_actions
         
@@ -2399,8 +2401,9 @@ class CrisisAction(AbstractAction):
                               ", ".join(ob.author for ob in self.all_editable)
             msg += "\n{w[STATUS: %s]{n%s" % (self.get_status_display(), needs_edits)
         return msg
-        
-    def roll_color(self, val):
+
+    @staticmethod
+    def roll_color(val):
         """Returns a color string based on positive or negative value."""
         return "{r" if (val < 0) else "{g"
 
