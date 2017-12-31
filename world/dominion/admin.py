@@ -288,9 +288,11 @@ class CrisisUpdateInline(admin.TabularInline):
 
 class CrisisAdmin(DomAdmin):
     """Admin for Crises, macro-level events affecting the game/metaplot"""
-    list_display = ('id', 'name', 'desc', 'end_date')
+    list_display = ('id', 'name', 'desc', 'end_date', 'parent_crisis')
     filter_horizontal = ['orgs']
     raw_id_fields = ('required_clue', 'parent_crisis')
+    search_fields = ('id', 'name', 'desc')
+    list_filter = ('resolved',)
     inlines = (CrisisUpdateInline,)
 
 
