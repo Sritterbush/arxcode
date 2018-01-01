@@ -128,7 +128,9 @@ class Roll(object):
         if self.difficulty <= 0:
             result = int(result * crit_mult)
         if self.flub:
-            result = randint(-15, -1)
+            surrender = randint(-15, -1)
+            if result > surrender:
+                result = surrender
         self.result = result
         # if quiet is not set, then we send a message to the room.
         if not self.quiet and announce_room:
