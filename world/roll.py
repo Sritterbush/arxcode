@@ -21,7 +21,8 @@ class Roll(object):
     def __init__(self, caller=None, stat=None, skill=None, difficulty=15, stat_list=None,
                  skill_list=None, skill_keep=True, stat_keep=False, quiet=True, announce_room=None,
                  keep_override=None, bonus_dice=0, divisor=1, average_lists=False, can_crit=True,
-                 average_stat_list=False, average_skill_list=False, announce_values=False, use_real_name=False):
+                 average_stat_list=False, average_skill_list=False, announce_values=False, flub=False,
+                 use_real_name=False):
         self.character = caller
         self.difficulty = difficulty
         self.skill_keep = skill_keep
@@ -36,6 +37,7 @@ class Roll(object):
         self.average_stat_list = average_stat_list
         self.average_skill_list = average_skill_list
         self.announce_values = announce_values
+        self.flub = flub
         self.stats = {}
         self.skills = {}
         self.bonus_crit_chance = 0
@@ -124,6 +126,8 @@ class Roll(object):
         # makes those investments far more meaningful.
         if self.difficulty <= 0:
             result = int(result * crit_mult)
+        if self.flub:
+            result = randint(-15, -1)
         self.result = result
         # if quiet is not set, then we send a message to the room.
         if not self.quiet and announce_room:
