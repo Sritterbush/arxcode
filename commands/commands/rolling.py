@@ -41,16 +41,19 @@ class CmdDiceCheck(ArxCommand):
 
     Usage:
       @check <stat>[+<skill>][ at <difficulty number>][=receivers]
+      @check/flub <same as above>
 
     Performs a stat/skill check for your character, generally to
     determine success in an attempted action. For example, if you
     tell a GM you want to climb up the wall of a castle, they might
-    tell you to check your 'check dex + athletics, difficulty 30'.
+    ask you to 'check dex + athletics, difficulty 30'.
     You would then '@check dexterity+athletics at 30'. You can also
-    specify checks only to specific receivers. For example, if you
+    send results to specific people only. For example, if you
     are attempting to lie to someone in a whispered conversation,
     you might '@check charm+manipulation=Bob' for lying to Bob at
-    the default difficulty of 15.
+    the default difficulty of 15. The flub switch allows you to 
+    intentionally, silently fail and uses the same arguments as a 
+    regular check.
 
     The dice roll system has a stronger emphasis on skills than
     stats. A character attempting something that they have a skill
@@ -63,12 +66,13 @@ class CmdDiceCheck(ArxCommand):
     locks = "cmd:all()"
     
     def func(self):
-        """Run the OOCsay command"""
+        """Run the @check command"""
 
         caller = self.caller
         skill = None
         maximum_difference = 100
-
+        flub = "flub" in self.switches
+        
         if not self.args:
             caller.msg("Usage: @check <stat>[+<skill>][ at <difficulty number>][=receiver1,receiver2,etc]")
             return
@@ -107,40 +111,21 @@ class CmdDiceCheck(ArxCommand):
                 caller.msg("There must be one unique match for a character skill. Please check spelling and try again.")
                 return
             skill = matches[0]
-        if not self.rhs:
-            stats_and_skills.do_dice_check(caller, stat, skill, difficulty, quiet=False)
-        else:
-            result = stats_and_skills.do_dice_check(caller, stat, skill, difficulty)
-            if result+difficulty >= difficulty:
-                resultstr = "resulting in %s, %s {whigher{n than the difficulty" % (result+difficulty, result)
-            else:
-                resultstr = "resulting in %s, %s {rlower{n than the difficulty" % (result+difficulty, -result)
-
-            if not skill:
-                roll_msg = "checked %s against difficulty %s, %s{n." % (stat, difficulty, resultstr)
-            else:
-                roll_msg = "checked %s + %s against difficulty %s, %s{n." % (stat, skill, difficulty, resultstr)
-            caller.msg("You " + roll_msg)
-            roll_msg = caller.name + " " + roll_msg
-            # if they have a recipient list, only tell those people (and GMs)
-            if self.rhs:
-                namelist = [name.strip() for name in self.rhs.split(",")]
-                for name in namelist:
-                    rec_ob = caller.search(name, use_nicks=True)
-                    if rec_ob:
-                        orig_msg = roll_msg
-                        if rec_ob.attributes.has("dice_string"):
-                            roll_msg = "{w<" + rec_ob.db.dice_string + "> {n" + roll_msg
-                        rec_ob.msg(roll_msg)
-                        roll_msg = orig_msg
-                        rec_ob.msg("Private roll sent to: %s" % ", ".join(namelist))
-                # GMs always get to see rolls.
-                staff_list = [x for x in caller.location.contents if x.check_permstring("Builders")]
-                for GM in staff_list:
-                    GM.msg("{w(Private roll){n" + roll_msg)
-                return
-            # not a private roll, tell everyone who is here
-            caller.location.msg_contents(roll_msg, exclude=caller, options={'roll': True})
+        quiet = bool(self.rhs)
+        stats_and_skills.do_dice_check(caller, stat, skill, difficulty, quiet=quiet, flub=flub)
+        if quiet:
+            namelist = [name.strip() for name in self.rhs.split(",") if caller.search(name.strip(), use_nicks=True)]
+            roll_msg = Roll.build_msg(caller.ndb.last_roll) + " " + "(Private roll sent to: %s)" % ", ".join(namelist)
+            caller.msg(roll_msg)
+            # they have a recipient list; only tell those people (and GMs)
+            for name in namelist:
+                recipient = caller.search(name, use_nicks=True)
+                recipient.msg(roll_msg, options={'roll':True})
+            # GMs always get to see rolls.
+            staff_list = [x for x in caller.location.contents if x.check_permstring("Builders")]
+            for GM in staff_list:
+                GM.msg("{w(Private roll) {n" + roll_msg)
+            return
         
 
 class CmdSpoofCheck(ArxCommand):
@@ -149,12 +134,13 @@ class CmdSpoofCheck(ArxCommand):
     
     Usage:
         @gmcheck <stat>/<value>[+<skill>/<value>][ at <difficulty>]
-        @gmcheck/can_crit <stat>/<value>[+<skill>/<value>][ at <difficulty>]
+        @gmcheck/can_crit <same as above>
+        @gmcheck/flub <same as above>
         
     Performs a stat + skill at difficulty check with specified values. If no
     difficulty is set, default is used. Intended for GMs to make rolls for NPCs 
     that don't necessarily exist as characters in-game. The /can_crit switch
-    allows the roll to crit.
+    allows the roll to crit. The /flub switch intentionally, silently fails.
     """
     
     key = "@gmcheck"
@@ -176,7 +162,8 @@ class CmdSpoofCheck(ArxCommand):
     def func(self):
         maximum_difference = 100
         crit = "can_crit" in self.switches
-        roll = Roll(can_crit=crit, quiet=False, announce_room=self.caller.location, announce_values=True)
+        flub = "flub" in self.switches
+        roll = Roll(can_crit=crit, quiet=False, announce_room=self.caller.location, announce_values=True, flub=flub)
         try:
             # rest of the command here. PS, I love you. <3
             # checks to see if difficulty exists. PPS Love you too!
