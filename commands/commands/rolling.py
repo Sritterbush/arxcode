@@ -111,8 +111,8 @@ class CmdDiceCheck(ArxCommand):
                 caller.msg("There must be one unique match for a character skill. Please check spelling and try again.")
                 return
             skill = matches[0]
-        quiet = not self.rhs
-        stats_and_skills.do_dice_check(caller, stat, skill, difficulty, flub=flub, quiet=quiet)
+        quiet = bool(self.rhs)
+        stats_and_skills.do_dice_check(caller, stat, skill, difficulty, quiet=quiet, flub=flub)
         if quiet:
             namelist = [name.strip() for name in self.rhs.split(",") if caller.search(name.strip(), use_nicks=True)]
             roll_msg = Roll.build_msg(caller.ndb.last_roll) + " " + "(Private roll sent to: %s)" % ", ".join(namelist)

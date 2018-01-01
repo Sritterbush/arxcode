@@ -47,6 +47,7 @@ class Roll(object):
         self.msg = ""
         self.character_name = ""
         if self.character:
+            caller.ndb.last_roll = self
             # None isn't iterable so make an empty set of stats
             stat_list = stat_list or []
             # add individual stat to the list
