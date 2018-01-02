@@ -936,10 +936,21 @@ class MapLocation(SharedMemoryModel):
     y_coord = models.PositiveSmallIntegerField(validators=[MaxValueValidator(LAND_COORDS)], default=0)
 
     def __str__(self):
-        result = "%s - sub %d, %d" % (self.land, self.x_coord, self.y_coord)
+        label = ""
         if self.name:
-            result = result + " (%s)" % self.name
-        return result
+            label = self.name
+        else:
+            def label_maker(such_items):
+                return "[%s] " % ", ".join(str(wow) for wow in such_items)
+            if self.landmarks.all():
+                label += label_maker(self.landmarks.all())
+            if self.shardhavens.all():
+                label += label_maker(self.shardhavens.all())
+            if self.domains.all():
+                label += label_maker(self.domains.all())
+            else:
+                label = "%s - sub %d, %d" % (self.land, self.x_coord, self.y_coord)
+        return label
 
 
 class Domain(SharedMemoryModel):
