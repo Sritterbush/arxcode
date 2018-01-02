@@ -2,7 +2,7 @@
 Admin for Dominion
 """
 from django.contrib import admin
-from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister,
+from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister, MapLocation,
                      AssetOwner, Region, Land, Castle,
                      Ruler, Army, Orders, MilitaryUnit, Member, Task, OrgUnitModifiers,
                      CraftingRecipe, CraftingMaterialType, CraftingMaterials, CrisisActionAssistant,
@@ -168,12 +168,12 @@ class DomainListFilter(OrgListFilter):
 
 class DomainAdmin(DomAdmin):
     """Admin for Domains, player/org offscreen holdings"""
-    list_display = ('id', 'name', 'ruler', 'land')
+    list_display = ('id', 'name', 'ruler', 'location')
     ordering = ['name']
     search_fields = ['name']
     raw_id_fields = ('ruler',)
     list_filter = (DomainListFilter,)
-    inlines = (CastleInline,)
+    inlines = (CastleInline, )
 
 
 class MaterialTypeAdmin(DomAdmin):
@@ -493,32 +493,27 @@ class RegionFilter(admin.SimpleListFilter):
 
     def finish_queryset_by_region(self, queryset, region):
         """Finishes modifying the queryset. Overridden in subclasses"""
-        qs1 = queryset.filter(domain__isnull=False).filter(domain__land__region=region)
-        qs2 = queryset.filter(land__isnull=False).filter(land__region=region)
-        return qs1 | qs2
+        return queryset.filter(location__land__region=region)
 
 
 class PlotRoomAdmin(DomAdmin):
     """Admin for plotrooms, templates that can be used repeatedly for temprooms for events"""
-    list_display = ('id', 'domain', 'land', 'name', 'public')
+    list_display = ('id', 'domain', 'location', 'name', 'public')
     search_files = ('name', 'description')
-    raw_id_fields = ('creator', 'land', 'domain')
+    raw_id_fields = ('creator', 'domain')
     list_filter = ('public', RegionFilter)
 
 
-class LandRegionFilter(RegionFilter):
-    """List filter for Land by Regions"""
-    def finish_queryset_by_region(self, queryset, region):
-        """Finishes modifying the queryset. Overridden in subclasses"""
-        return queryset.filter(land__region=region)
+class MapLocationAdmin(DomAdmin):
+    """Admin for map locations"""
+    list_display = ('id', 'name', 'land', 'x_coord', 'y_coord')
 
 
 class LandmarkAdmin(DomAdmin):
     """Admin for Landmarks found ni the world"""
-    list_display = ('id', 'name', 'landmark_type', 'land')
+    list_display = ('id', 'name', 'landmark_type', 'location')
     search_fields = ('name', 'description')
-    raw_id_fields = ('land',)
-    list_filter = ('landmark_type', LandRegionFilter,)
+    list_filter = ('landmark_type', RegionFilter,)
 
 
 class LandAdmin(DomAdmin):
@@ -559,11 +554,10 @@ class ShardhavenDiscoveryInline(admin.TabularInline):
 
 class ShardhavenAdmin(DomAdmin):
     """Admin for shardhavens, Arx's very own abyssal-corrupted dungeons. Happy adventuring!"""
-    list_display = ('id', 'name', 'land', 'haven_type')
+    list_display = ('id', 'name', 'location', 'haven_type')
     search_fields = ('name', 'description')
-    raw_id_fields = ('land',)
-    inlines = (ShardhavenClueInline,)
-    list_filter = ('haven_type', LandRegionFilter,)
+    inlines = (ShardhavenClueInline, )
+    list_filter = ('haven_type', RegionFilter,)
 
 
 class ShardhavenTypeAdmin(DomAdmin):
