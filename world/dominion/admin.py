@@ -491,6 +491,7 @@ class RegionFilter(admin.SimpleListFilter):
 
         return self.finish_queryset_by_region(queryset, region)
 
+    # noinspection PyMethodMayBeStatic
     def finish_queryset_by_region(self, queryset, region):
         """Finishes modifying the queryset. Overridden in subclasses"""
         return queryset.filter(location__land__region=region)
@@ -504,38 +505,44 @@ class PlotRoomAdmin(DomAdmin):
     list_filter = ('public', RegionFilter)
 
 
+class DomainInline(admin.TabularInline):
+    """inline for domains"""
+    model = Domain
+    extra = 0
+
+
+@admin.register(MapLocation)
 class MapLocationAdmin(DomAdmin):
     """Admin for map locations"""
     list_display = ('id', 'name', 'land', 'x_coord', 'y_coord')
+    inlines = (DomainInline,)
 
 
 class LandmarkAdmin(DomAdmin):
-    """Admin for Landmarks found ni the world"""
+    """Admin for Landmarks found in the world"""
     list_display = ('id', 'name', 'landmark_type', 'location')
     search_fields = ('name', 'description')
     list_filter = ('landmark_type', RegionFilter,)
 
 
+class MapLocationInline(admin.TabularInline):
+    """Inline for Map Locations"""
+    model = MapLocation
+    extra = 0
+    show_change_link = True
+
+
 class LandAdmin(DomAdmin):
     """Admin for Land Squares that make up the global map"""
-    list_display = ('id', 'name', 'terrain', 'domain_names', 'dungeons', 'landmarks')
-    search_fields = ('name', 'region__name', 'domains__name')
+    list_display = ('id', 'name', 'terrain', 'location_names')
+    search_fields = ('name', 'region__name', 'locations__name')
     list_filter = ('region', 'landlocked')
+    inlines = (MapLocationInline,)
 
     @staticmethod
-    def domain_names(obj):
-        """Names of domains in this space"""
-        return ", ".join(str(ob) for ob in obj.domains.all())
-
-    @staticmethod
-    def dungeons(obj):
-        """Names of shardhavens in this space"""
-        return ", ".join(str(ob) for ob in obj.shardhavens.all())
-
-    @staticmethod
-    def landmarks(obj):
-        """Names of landmarks in this space"""
-        return ", ".join(str(ob) for ob in obj.landmarks.all())
+    def location_names(obj):
+        """Names of locations in this space"""
+        return ", ".join(str(ob) for ob in obj.locations.all())
 
 
 class ShardhavenClueInline(admin.TabularInline):

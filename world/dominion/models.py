@@ -930,7 +930,7 @@ class MapLocation(SharedMemoryModel):
     and Shardhavens.
     """
     name = models.CharField(blank=True, null=True, max_length=80)
-    land = models.ForeignKey('Land', on_delete=models.SET_NULL, related_name='Locations', blank=False, null=False)
+    land = models.ForeignKey('Land', on_delete=models.SET_NULL, related_name='locations', blank=False, null=False)
     from django.core.validators import MaxValueValidator
     x_coord = models.PositiveSmallIntegerField(validators=[MaxValueValidator(LAND_COORDS)], default=0)
     y_coord = models.PositiveSmallIntegerField(validators=[MaxValueValidator(LAND_COORDS)], default=0)
