@@ -271,13 +271,19 @@ def map_image(request):
             mapdraw.text((text_x, text_y), "%s (%d,%d)\n%s" % (TERRAIN_NAMES[land.terrain], land.x_coord, land.y_coord,
                                                                land.region.name), text_color)
 
-            domains = Domain.objects.filter(land=land)\
+            domains = Domain.objects.filter(location__land=land)\
                 .filter(ruler__house__organization_owner__members__player__player__isnull=False).distinct()
             text_x = x1 + 10
             text_y = y1 + 60
             if domains:
                 result = ""
                 for domain in domains:
+                    circle_x = x1 + (SUBGRID * domain.location.x_coord)
+                    circle_y = y1 + (SUBGRID * domain.location.y_coord)
+
+                    mapdraw.ellipse([(circle_x + 2, circle_y + 2),
+                                     (circle_x + (SUBGRID - 4), circle_y + (SUBGRID - 4))], text_color)
+
                     result = "%s%s\n" % (result, domain.name)
                 mapdraw.text((text_x, text_y), result, text_color)
 
