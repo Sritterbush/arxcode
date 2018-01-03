@@ -3604,7 +3604,7 @@ class CmdPlotRoom(ArxCommand):
                 return
 
             room = PlotRoom(name=name, description=desc, public=public, domain=domain,
-                            land=domain.land, wilderness=wilderness, creator=owner)
+                            location=domain.location, wilderness=wilderness, creator=owner)
             room.save()
             self.msg("Saved room %d." % room.id)
             self.caller.attributes.remove('plotroom_form')
