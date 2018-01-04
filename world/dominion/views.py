@@ -7,7 +7,7 @@ from django.core.urlresolvers import reverse
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Min, Max
 from server.utils.view_mixins import LimitPageMixin
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 # Create your views here.
 
@@ -161,6 +161,15 @@ def map_image(request):
     :param request: The HTTP request
     :return: The Django view response, in this case an image/png blob.
     """
+
+    def draw_font_outline(draw, x, y, font, text):
+        # This is awful
+        draw.text((x - 1, y), text, font=font, fill='white')
+        draw.text((x + 1, y), text, font=font, fill='white')
+        draw.text((x, y - 1), text, font=font, fill='white')
+        draw.text((x, y + 1), text, font=font, fill='white')
+        draw.text((x, y), text, font=font, fill='black')
+
     GRID_SIZE = 100
     SUBGRID = 10
 
@@ -213,8 +222,13 @@ def map_image(request):
     try:
         bw_grid = request.GET.get('bw_grid', default=False)
         draw_subgrid = request.GET.get('subgrid', default=False)
+        overlay = request.GET.get('overlay', default=False)
     except AttributeError:
         return Http404
+
+    if overlay:
+        bw_grid = True
+        draw_subgrid = True
 
     response = HttpResponse(content_type="image/png")
 
@@ -224,6 +238,9 @@ def map_image(request):
     max_y = 0
 
     lands = Land.objects.all()
+
+    start_x = 0
+    start_y = 0
 
     # This might be better done with annotations?
     for land in lands:
@@ -240,13 +257,20 @@ def map_image(request):
     else:
         background = "#000080"
 
-    mapimage = Image.new("RGB", (total_width * GRID_SIZE, total_height * GRID_SIZE), background)
+    if overlay:
+        mapimage = Image.open("world/dominion/map/arxmap_resized.jpg")
+        start_x = 100
+        start_y = 100
+    else:
+        mapimage = Image.new("RGB", (total_width * GRID_SIZE, total_height * GRID_SIZE), background)
+
     mapdraw = ImageDraw.Draw(mapimage)
+    font = ImageFont.truetype("world/dominion/map/Amaranth-Regular.otf", 14)
 
     try:
         for land in lands:
-            x1 = (land.x_coord - min_x) * GRID_SIZE
-            y1 = (total_height - (land.y_coord - min_y)) * GRID_SIZE
+            x1 = start_x + ((land.x_coord - min_x) * GRID_SIZE)
+            y1 = start_y + ((total_height - (land.y_coord - min_y)) * GRID_SIZE)
             x2 = x1 + GRID_SIZE
             y2 = y1 + GRID_SIZE
 
@@ -268,8 +292,12 @@ def map_image(request):
 
             text_x = x1 + 5
             text_y = y1 + 10
-            mapdraw.text((text_x, text_y), "%s (%d,%d)\n%s" % (TERRAIN_NAMES[land.terrain], land.x_coord, land.y_coord,
-                                                               land.region.name), text_color)
+
+            maptext = "%s (%d,%d)\n%s" % (TERRAIN_NAMES[land.terrain], land.x_coord, land.y_coord, land.region.name)
+            if overlay:
+                draw_font_outline(mapdraw, text_x, text_y, font, maptext)
+            else:
+                mapdraw.text((text_x, text_y), maptext, text_color)
 
             domains = Domain.objects.filter(location__land=land)\
                 .filter(ruler__house__organization_owner__members__player__player__isnull=False).distinct()
@@ -285,7 +313,11 @@ def map_image(request):
                                      (circle_x + (SUBGRID - 4), circle_y + (SUBGRID - 4))], text_color)
 
                     result = "%s%s\n" % (result, domain.name)
-                mapdraw.text((text_x, text_y), result, text_color)
+
+                if overlay:
+                    draw_font_outline(mapdraw, text_x, text_y, font, result)
+                else:
+                    mapdraw.text((text_x, text_y), result, text_color)
 
     except Exception as exc:
         print str(exc)
