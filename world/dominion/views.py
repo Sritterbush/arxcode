@@ -173,26 +173,6 @@ def map_image(request):
     GRID_SIZE = 100
     SUBGRID = 10
 
-    TERRAIN_COLORS = {
-        Land.COAST: '#a0a002',
-        Land.DESERT: '#ffff00',
-        Land.GRASSLAND: '#a0ff00',
-        Land.HILL: '#00ff00',
-        Land.MOUNTAIN: '#afafaf',
-        Land.OCEAN: '#000080',
-        Land.PLAINS: '#808000',
-        Land.SNOW: '#ffffff',
-        Land.TUNDRA: '#cccccc',
-        Land.FOREST: '#00aa00',
-        Land.JUNGLE: '#008800',
-        Land.MARSH: '#ff8000',
-        Land.ARCHIPELAGO: '#00ff00',
-        Land.FLOOD_PLAINS: '#00ff88',
-        Land.ICE: '#cfcfcf',
-        Land.LAKES: '#0000a0',
-        Land.OASIS: '#0000ff',
-    }
-
     TERRAIN_NAMES = {
         Land.COAST: 'Coastal',
         Land.DESERT: 'Deset',
@@ -216,19 +196,9 @@ def map_image(request):
     try:
         if not request.user.is_authenticated() or not request.user.is_staff:
             return Http404
+        overlay = request.GET.get("overlay")
     except AttributeError:
         return Http404
-
-    try:
-        bw_grid = request.GET.get('bw_grid', default=False)
-        draw_subgrid = request.GET.get('subgrid', default=False)
-        overlay = request.GET.get('overlay', default=False)
-    except AttributeError:
-        return Http404
-
-    if overlay:
-        bw_grid = True
-        draw_subgrid = True
 
     response = HttpResponse(content_type="image/png")
 
@@ -238,9 +208,6 @@ def map_image(request):
     max_y = 0
 
     lands = Land.objects.all()
-
-    start_x = 0
-    start_y = 0
 
     # This might be better done with annotations?
     for land in lands:
@@ -252,72 +219,53 @@ def map_image(request):
     total_width = max_x - min_x
     total_height = max_y - min_y
 
-    if bw_grid:
-        background = "#ffffff"
-    else:
-        background = "#000080"
+    mapimage = Image.open("world/dominion/map/arxmap_resized.jpg")
+    mapdraw = ImageDraw.Draw(mapimage)
+
+    font = ImageFont.truetype("world/dominion/map/Amaranth-Regular.otf", 14)
 
     if overlay:
-        mapimage = Image.open("world/dominion/map/arxmap_resized.jpg")
-        start_x = 100
-        start_y = 100
-    else:
-        mapimage = Image.new("RGB", (total_width * GRID_SIZE, total_height * GRID_SIZE), background)
+        for xloop in range(0, mapimage.size[0] / GRID_SIZE):
+            for yloop in range(0, mapimage.size[1] / GRID_SIZE):
+                x1 = (xloop * GRID_SIZE)
+                y1 = (yloop * GRID_SIZE)
+                x2 = x1 + GRID_SIZE
+                y2 = y1 + GRID_SIZE
 
-    mapdraw = ImageDraw.Draw(mapimage)
-    font = ImageFont.truetype("world/dominion/map/Amaranth-Regular.otf", 14)
+                for x in range(0, GRID_SIZE / SUBGRID):
+                    for y in range(0, GRID_SIZE / SUBGRID):
+                        subx = x1 + (SUBGRID * x)
+                        suby = y1 + (SUBGRID * y)
+                        mapdraw.rectangle([(subx, suby), (subx + SUBGRID, suby + SUBGRID)], outline="#8a8a8a")
+
+                mapdraw.rectangle([(x1, y1), (x2, y2)], outline="#ffffff")
 
     try:
         for land in lands:
-            x1 = start_x + ((land.x_coord - min_x) * GRID_SIZE)
-            y1 = start_y + ((total_height - (land.y_coord - min_y)) * GRID_SIZE)
-            x2 = x1 + GRID_SIZE
-            y2 = y1 + GRID_SIZE
+            x1 = ((land.x_coord - min_x) * GRID_SIZE)
+            y1 = ((total_height - (land.y_coord - min_y)) * GRID_SIZE)
 
-            if bw_grid:
-                if draw_subgrid:
-                    for x in range(0, GRID_SIZE / SUBGRID):
-                        for y in range(0, GRID_SIZE / SUBGRID):
-                            subx = x1 + (SUBGRID * x)
-                            suby = y1 + (SUBGRID * y)
-                            mapdraw.rectangle([(subx, suby), (subx + SUBGRID, suby + SUBGRID)], outline="#8a8a8a")
-
-                mapdraw.rectangle([(x1, y1), (x2, y2)], outline="#000000")
-            else:
-                mapdraw.rectangle([(x1, y1), (x2, y2)], fill=TERRAIN_COLORS[land.terrain])
-
-            text_color = "black"
-            if not bw_grid and ((land.terrain == Land.LAKES) or (land.terrain == Land.OASIS)):
-                text_color = "white"
-
-            text_x = x1 + 5
-            text_y = y1 + 10
-
-            maptext = "%s (%d,%d)\n%s" % (TERRAIN_NAMES[land.terrain], land.x_coord, land.y_coord, land.region.name)
             if overlay:
+                text_x = x1 + 10
+                text_y = y1 + 60
+
+                maptext = "%s (%d,%d)\n%s" % (TERRAIN_NAMES[land.terrain], land.x_coord, land.y_coord, land.region.name)
                 draw_font_outline(mapdraw, text_x, text_y, font, maptext)
-            else:
-                mapdraw.text((text_x, text_y), maptext, text_color)
 
             domains = Domain.objects.filter(location__land=land)\
                 .filter(ruler__house__organization_owner__members__player__player__isnull=False).distinct()
-            text_x = x1 + 10
-            text_y = y1 + 60
+
             if domains:
-                result = ""
                 for domain in domains:
                     circle_x = x1 + (SUBGRID * domain.location.x_coord)
                     circle_y = y1 + (SUBGRID * domain.location.y_coord)
 
                     mapdraw.ellipse([(circle_x + 2, circle_y + 2),
-                                     (circle_x + (SUBGRID - 4), circle_y + (SUBGRID - 4))], text_color)
+                                     (circle_x + (SUBGRID - 4), circle_y + (SUBGRID - 4))], '#000000')
 
-                    result = "%s%s\n" % (result, domain.name)
-
-                if overlay:
-                    draw_font_outline(mapdraw, text_x, text_y, font, result)
-                else:
-                    mapdraw.text((text_x, text_y), result, text_color)
+                    label_x = circle_x + (SUBGRID - 4) + 6
+                    label_y = circle_y
+                    draw_font_outline(mapdraw, label_x, label_y, font, domain.name)
 
     except Exception as exc:
         print str(exc)
