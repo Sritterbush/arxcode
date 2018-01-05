@@ -38,7 +38,8 @@ def rank(accessing_obj, accessed_obj, *args, **kwargs):
     """
     Use rank in an organization to see if we pass. If orgname
     is not specified, the org is assumed to be the accessed
-    object.
+    object. If rank is called incorrectly, we'll try to call the
+    organization permission instead as a fallback.
     Usage:
         rank(value)
         rank(value, orgname)
@@ -49,7 +50,20 @@ def rank(accessing_obj, accessed_obj, *args, **kwargs):
         accessing_obj = accessing_obj.player_ob
     if hasattr(accessing_obj, 'dbobj'):
         accessing_obj = accessing_obj.dbobj
-    rank_num = int(args[0])
+    try:
+        rank_num = int(args[0])
+    except ValueError:
+        # check if rank was called where they meant to use organization permission
+        if len(args) == 1:
+            return organization(accessing_obj, accessed_obj, *args, **kwargs)
+        # might have called it with the wrong order. We'll try to reverse it
+        args = args[::-1]
+        # we'll try the same thing again now that it's reversed.
+        try:
+            rank_num = int(args[0])
+        except (ValueError, TypeError):
+            print("Malformed lock 'rank' in %s." % accessed_obj)
+            return False
     if len(args) == 1:
         org_obj = accessed_obj
     else:
