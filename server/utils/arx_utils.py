@@ -279,7 +279,7 @@ def trainer_diagnostics(trainer):
 
 
 # noinspection PyProtectedMember
-def approval_cleanup(entry):
+def post_roster_cleanup(entry):
     """
     Gets rid of past data for a roster entry from previous players.
 
@@ -298,15 +298,28 @@ def approval_cleanup(entry):
     entry.player.attributes.remove("hide_from_watch")
     entry.player.db.mails = []
     entry.player.db.readmails = set()
-    # remove and re-add all channels
+    entry.player.permissions.remove("Helper")
+    disconnect_all_channels(entry.player)
+
+
+def disconnect_all_channels(player):
+    """Removes all channels from the player"""
+    for channel in player.account_subscription_set.all():
+        channel.disconnect(player)
+
+
+def reset_to_default_channels(player):
+    """
+    Sets the player to only be connected to the default Info and Public channels
+    Args:
+        player: AccountDB object to reset
+    """
     from typeclasses.channels import Channel
-    channels = Channel.objects.get_subscriptions(entry.player)
-    for channel in channels:
-        channel.subscriptions._recache()
+    disconnect_all_channels(player)
     required_channels = Channel.objects.filter(db_key__in=("Info", "Public"))
     for req_channel in required_channels:
-        if not req_channel.has_connection(entry.player):
-            req_channel.connect(entry.player)
+        if not req_channel.has_connection(player):
+            req_channel.connect(player)
 
 
 def caller_change_field(caller, obj, field, value, field_name=None):
