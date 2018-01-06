@@ -1,7 +1,7 @@
 """
 Tests for the Character app. Mostly this will be investigations/clue stuff.
 """
-from mock import Mock
+from mock import Mock, patch
 
 from django.test import Client
 from django.urls import reverse
@@ -23,15 +23,19 @@ class InvestigationTests(ArxCommandTest):
         self.revelation.clues_used.create(clue=self.clue)
         self.revelation.clues_used.create(clue=self.clue2)
 
-    def test_cmd_clues(self):
+    @patch("web.character.models.datetime")
+    def test_cmd_clues(self, mock_datetime):
         from datetime import datetime
+        now = datetime.now()
+        mock_datetime.now = Mock(return_value=now)
         self.setup_cmd(investigation.CmdListClues, self.account)
         self.call_cmd("1", "test clue\nRating: 10\ntest clue desc")
         self.call_cmd("/addnote 1=test note", "test clue\nRating: 10\ntest clue desc\nadditional text test"
-                                              "\n[%s] TestAccount wrote: test note" % datetime.now().strftime("%x %X"))
+                                              "\n[%s] TestAccount wrote: test note" % now.strftime("%x %X"))
         self.call_cmd("/share 1=Testaccount2", "Sharing the clue(s) with them would cost 101 action points.")
         self.roster_entry.action_points = 202
-        self.call_cmd("/share 1=Testaccount2", "You use 101 action points and have 101 remaining this week.|You have shared the clue(s)"
+        self.call_cmd("/share 1=Testaccount2", "You use 101 action points and have 101 remaining this week.|"
+                                               "You have shared the clue(s)"
                       " 'test clue' with Char2.")
         self.call_cmd("/share 2=Testaccount2", "No clue found by that ID.")
         self.clue_disco2.roll += 450
@@ -42,7 +46,7 @@ class InvestigationTests(ArxCommandTest):
         self.assertTrue(bool(self.roster_entry2.revelations.all()))
         self.caller = self.account2
         self.call_cmd("4", "test clue2\nRating: 50\ntest clue2 desc\n%s This clue was shared with you by Char,"
-                      " who noted: Love Tehom\n" % datetime.now().strftime("%x %X"))
+                      " who noted: Love Tehom\n" % now.strftime("%x %X"))
 
 
 class SceneCommandTests(ArxCommandTest):

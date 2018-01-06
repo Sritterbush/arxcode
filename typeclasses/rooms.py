@@ -93,7 +93,7 @@ SHOPCMD = "cmdsets.home.ShopCmdSet"
 # implements the Extended Room
 
 # noinspection PyUnresolvedReferences
-class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
+class ArxRoom(DescMixins, NameMixins, AppearanceMixins, ExtendedRoom):
     """
     This room implements a more advanced look functionality depending on
     time. It also allows for "details", together with a slightly modified
@@ -163,7 +163,7 @@ class ArxRoom(DescMixins, NameMixins, ExtendedRoom, AppearanceMixins):
     def return_appearance(self, looker, detailed=False, format_desc=True, show_contents=True):
         """This is called when e.g. the look command wants to retrieve the description of this object."""
         # update desc
-        super(ArxRoom, self).return_appearance(looker)
+        ExtendedRoom.return_appearance(self, looker)
         # return updated desc plus other stuff
         return (AppearanceMixins.return_appearance(self, looker, detailed, format_desc)
                 + self.command_string() + self.mood_string + self.event_string() + self.combat_string(looker))
