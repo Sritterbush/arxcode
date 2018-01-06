@@ -1138,7 +1138,7 @@ class CmdListClues(ArxPlayerCommand):
     Usage:
         @clues
         @clues <clue #>
-        @clues/share <clue #>[,<clue #>...]=<target>[,<target2><target3>,...]
+        @clues/share <clue #>[,<clue2 #>...]=<target>[,<target2>...][/<note>]
         @clues/search <text>
         @clues/addnote <clue #>=[text to append]
 
@@ -1199,12 +1199,20 @@ class CmdListClues(ArxPlayerCommand):
             clues_to_share.append(clue)
         if not clues_to_share:
             return
+        note = ""
+        rhslist = []
+        entrylist = self.rhslist
+        for entry in entrylist:
+            if "/" in entry:
+                split_result = entry.split("/")
+                entry, note = split_result[0], split_result[1]
+            rhslist.append(entry)
         shared_names = []
-        cost = len(self.rhslist) * len(clues_to_share) * self.caller.clue_cost
+        cost = len(rhslist) * len(clues_to_share) * self.caller.clue_cost
         if cost > self.caller.roster.action_points:
-            self.msg("Sharing that many clues would cost %s action points." % cost)
+            self.msg("Sharing the clue(s) with them would cost %s action points." % cost)
             return
-        for arg in self.rhslist:
+        for arg in rhslist:
             pc = self.caller.search(arg)
             if not pc:
                 continue
@@ -1212,14 +1220,14 @@ class CmdListClues(ArxPlayerCommand):
             calchar = self.caller.char_ob
             if not tarchar.location or tarchar.location != calchar.location:
                 self.msg("You can only share clues with someone in the same room. Please don't share clues without "
-                         "at least some RP talking about it.")
+                         "some RP talking about them.")
                 continue
             for clue in clues_to_share:
-                clue.share(pc.roster)
+                clue.share(pc.roster, note=note)
             shared_names.append(str(pc.roster))
         if shared_names:
             self.caller.pay_action_points(cost)
-            self.msg("You have shared the clues '%s' with %s." % (
+            self.msg("You have shared the clue(s) '%s' with %s." % (
                 ", ".join(str(ob.clue) for ob in clues_to_share),
                 ", ".join(shared_names)))
         else:
