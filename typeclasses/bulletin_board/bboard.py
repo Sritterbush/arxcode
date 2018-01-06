@@ -303,18 +303,7 @@ class BBoard(Object):
 
     @staticmethod
     def get_poster(post):
-        sender = ""
-        if post.db_sender_accounts.all():
-            sender += ", ".join(str(ob).capitalize() for ob in post.db_sender_accounts.all())
-        if post.db_sender_objects.all():
-            if sender:
-                sender += ", "
-            sender += ", ".join(str(ob).capitalize() for ob in post.db_sender_objects.all())
-        if post.db_sender_external:
-            sender = post.db_sender_external
-        if not sender:
-            sender = "No One"
-        return sender
+        return post.poster_name
 
 
 def convert_tag():

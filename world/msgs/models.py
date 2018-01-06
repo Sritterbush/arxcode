@@ -264,3 +264,24 @@ class Post(MarkReadMixin, Msg):
     class Meta:
         proxy = True
     objects = PostManager()
+
+    @property
+    def bulletin_board(self):
+        """Returns the bulletin board this post is attached to"""
+        return self.db_receivers_objects.first()
+
+    @property
+    def poster_name(self):
+        """Returns the name of the entity that posted this"""
+        if self.db_sender_external:
+            return self.db_sender_external
+        sender = ""
+        if self.db_sender_accounts.exists():
+            sender += ", ".join(str(ob).capitalize() for ob in self.db_sender_accounts.all())
+        if self.db_sender_objects.exists():
+            if sender:
+                sender += ", "
+            sender += ", ".join(str(ob).capitalize() for ob in self.db_sender_objects.all())
+        if not sender:
+            sender = "No One"
+        return sender
