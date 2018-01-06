@@ -758,7 +758,9 @@ class ClueDiscovery(SharedMemoryModel):
         msg += "{wRating:{n %s\n" % self.clue.rating
         msg += self.clue.desc + "\n"
         if self.message:
-            msg += self.date.strftime("%x") + " " + self.message + "\n"
+            if self.date:
+                msg += self.date.strftime("%x") + " "
+            msg +=  self.message + "\n"
         if show_sharing:
             shared = self.shared_with
             if shared:

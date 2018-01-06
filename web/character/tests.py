@@ -29,15 +29,17 @@ class InvestigationTests(ArxCommandTest):
         self.call_cmd("1", "test clue\nRating: 10\ntest clue desc")
         self.call_cmd("/addnote 1=test note", "test clue\nRating: 10\ntest clue desc\n\nadditional text test"
                                               "\n[%s] TestAccount wrote: test note" % datetime.now().strftime("%x %X"))
-        self.call_cmd("/share 1=Testaccount2", "Sharing that many clues would cost 101 action points.")
+        self.call_cmd("/share 1=Testaccount2", "Sharing the clue(s) with them would cost 101 action points.")
         self.roster_entry.action_points = 101
-        self.call_cmd("/share 1=Testaccount2", "You have shared the clues 'test clue' with Char2.")
+        self.call_cmd("/share 1=Testaccount2", "You have shared the clue(s) 'test clue' with Char2.")
         self.call_cmd("/share 2=Testaccount2", "No clue found by that ID.")
         self.clue_disco2.roll += 450
         self.clue_disco2.save()
         self.assertFalse(bool(self.roster_entry2.revelations.all()))
-        self.call_cmd("/share 2=Testaccount2", "You have shared the clues 'test clue2' with Char2.")
+        self.call_cmd("/share 2=Testaccount2/Love Tehom", "You have shared the clue(s) 'test clue2' with Char2.\nYour note: Love Tehom")
         self.assertTrue(bool(self.roster_entry2.revelations.all()))
+        self.caller = self.account2
+        self.call_cmd("2", "test clue2\nRating: 10\ntest clue2 desc\nThis clue was shared with you by Char1, who noted: Love Tehom\n")
 
 
 class SceneCommandTests(ArxCommandTest):
