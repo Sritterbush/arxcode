@@ -339,6 +339,54 @@ def post_view_all(request, board_id):
                                                        'posts': posts})
 
 
+def post_view_unread(request):
+    """View for seeing all posts at once. It'll mark them all read."""
+    def post_map(post, bulletin_board):
+        """Returns dict of information about each individual post to add to context"""
+        return {
+            'id': post.id,
+            'board': bulletin_board.key,
+            'poster': bulletin_board.get_poster(post),
+            'subject': ansi.strip_ansi(post.db_header),
+            'date': post.db_date_created.strftime("%x"),
+            'text': ansi.strip_ansi(post.db_message)
+        }
+
+    raw_boards = get_boards(request.user)
+    read_posts = list(Post.objects.all_read_by(request.user))
+    boards = filter(lambda board: board.num_of_unread_posts(request.user, old=False) > 0, raw_boards)
+
+    alts = []
+    if request.user.db.bbaltread:
+        try:
+            alts = [ob.player for ob in request.user.roster.alts]
+        except AttributeError:
+            pass
+
+    accounts = [request.user]
+    accounts.extend(alts)
+    ReadPostModel = Post.db_receivers_accounts.through
+    bulk_list = []
+
+    posts = []
+
+    for board in boards:
+        raw_posts = posts_for_request(board)
+        unread_posts = filter(lambda post: post not in read_posts, raw_posts)
+        mapped_posts = map(lambda post: post_map(post, board), unread_posts)
+        posts.extend(mapped_posts)
+        for post in unread_posts:
+            for account in accounts:
+                bulk_list.append(ReadPostModel(accountdb=account, msg=post))
+                # They've read everything, clear out their unread cache count
+                board.zero_unread_cache(account)
+
+    ReadPostModel.objects.bulk_create(bulk_list)
+
+    return render(request, 'msgs/post_view_unread.html', {'page_title': 'All Unread Posts',
+                                                          'posts': posts})
+
+
 def post_view(request, board_id, post_id):
     """View for seeing an individual post"""
     board = board_for_request(request, board_id)
