@@ -85,6 +85,7 @@ class CmdJob(ArxPlayerCommand):
 
     @property
     def queues_from_args(self):
+        """Get queue based on cmdstring"""
         if self.cmdstring == "@code":
                 queues = Queue.objects.filter(slug="Code")
         elif self.cmdstring == "@bug":
@@ -100,6 +101,7 @@ class CmdJob(ArxPlayerCommand):
         return queues
 
     def display_open_tickets(self):
+        """Display tickets based on commandline options"""
         open_tickets = Ticket.objects.select_related('queue').filter(
                                 queue__in=self.queues_from_args
                                 ).exclude(
@@ -319,13 +321,16 @@ class CmdRequest(ArxPlayerCommand):
     locks = "cmd:all()"
 
     def display_ticket(self, ticket):
+        """Display the ticket to the caller"""
         self.msg(ticket.display())
 
     @property
     def tickets(self):
+        """Property for displaying tickets. Omit defunct Story queue"""
         return self.caller.tickets.exclude(queue__slug="Story")
 
     def list_tickets(self):
+        """List tickets for the caller"""
         self.msg("{wClosed tickets:{n %s" % ", ".join(str(ticket.id) for ticket in self.tickets.filter(
                 status__in=[Ticket.CLOSED_STATUS, Ticket.RESOLVED_STATUS])))
         self.msg("{wOpen tickets:{n %s" % ", ".join(str(ticket.id) for ticket in self.tickets.filter(
@@ -335,6 +340,7 @@ class CmdRequest(ArxPlayerCommand):
         self.msg("Use {w+request/followup <#>=<comment>{n to add a comment.")
 
     def get_ticket_from_args(self, args):
+        """Retrieve ticket or display valid choices if not found"""
         try:
             ticket = self.caller.tickets.get(id=args)
             return ticket
@@ -536,12 +542,13 @@ class CmdApp(ArxPlayerCommand):
                     # clear cache so the character is moved correctly
                     entry.character.flush_from_cache(force=True)
                     entry.player.flush_from_cache(force=True)
-                    if not AccountHistory.objects.filter(account=account, entry=entry):
-                        from datetime import datetime
-                        date = datetime.now()
-                        AccountHistory.objects.create(entry=entry, account=account, start_date=date)
-                    from server.utils.arx_utils import approval_cleanup
-                    approval_cleanup(entry)
+                    from datetime import datetime
+                    date = datetime.now()
+                    AccountHistory.objects.create(entry=entry, account=account, start_date=date)
+                    # make sure all their Attributes are clean for new player
+                    from server.utils.arx_utils import post_roster_cleanup, reset_to_default_channels
+                    post_roster_cleanup(entry)
+                    reset_to_default_channels(entry.player)
                     try:
                         from commands.cmdsets.starting_gear import setup_gear_for_char
                         if not entry.character:

@@ -31,6 +31,7 @@ def get_roster_manager():
 
 
 def format_header(title):
+    """Formats header for a title"""
     message = "\n{w" + "-"*60 + "{n\n"
     message += "{:^60}".format("{w" + title + "{n")
     message += "\n{w" + "-"*60 + "{n"
@@ -133,6 +134,7 @@ def list_characters(caller, character_list, roster_type="Active Characters", ros
 
 
 def change_email(player, email, caller=None):
+    """Changes the email for a PlayerAccount"""
     from web.character.models import RosterEntry, PlayerAccount, AccountHistory
     try:
         entry = RosterEntry.objects.get(player__username__iexact=player)
@@ -153,6 +155,7 @@ def change_email(player, email, caller=None):
 
 
 def add_note(player, note, caller=None):
+    """Adds a gmnote to a rosterentry"""
     from web.character.models import RosterEntry
     try:
         entry = RosterEntry.objects.get(player__username__iexact=player)
@@ -522,6 +525,8 @@ class CmdAdminRoster(ArxPlayerCommand):
                     bb.bb_post(self.caller, msg, subject=subject, poster_name="Roster")
                 except BBoard.DoesNotExist:
                     self.msg("Board not found for posting announcement")
+            from server.utils.arx_utils import post_roster_cleanup
+            post_roster_cleanup(entry)
             return
         if 'view' in switches:
             try:
@@ -743,6 +748,7 @@ def display_stats(caller, character):
 
 
 def display_title(caller, title):
+    """Displays title and for a character"""
     title = title.center(60)
     disp = \
         """
@@ -757,6 +763,7 @@ def display_skills(caller, character):
     Display skills the character knows.
     """
     def format_skillstr(skill_name, skill_value):
+        """Helper function for formatting how skills are displayed"""
         skstr = "{w%s: {n%s" % (skill_name.capitalize(), str(skill_value))
         skstr = "%-22s" % skstr
         return skstr
@@ -957,6 +964,7 @@ class CmdSheet(ArxPlayerCommand):
     private_switches = ("secrets", "secret", "visions", "vision", "actions")
 
     def func(self):
+        """Executes sheet command"""
         caller = self.caller
         args = self.args
         switches = self.switches
@@ -1286,10 +1294,12 @@ class CmdRelationship(ArxPlayerCommand):
 
     # noinspection PyUnusedLocal
     def get_help(self, caller, cmdset):
+        """Returns docstr plus the types of shortrels"""
         msg = self.__doc__ + "\n\nShort relationship types: %s" % ", ".join(self.typelist)
         return msg
 
     def func(self):
+        """Executes relationship command"""
         caller = self.caller
         args = self.args
         switches = self.switches
@@ -1520,6 +1530,7 @@ class CmdComment(ArxPlayerCommand):
     locks = "cmd:all()"
 
     def func(self):
+        """Executes comment command"""
         caller = self.caller
         lhs = self.lhs
         comment_txt = self.rhs
@@ -1587,6 +1598,7 @@ class CmdHere(ArxCommand):
     aliases = ["+look"]
 
     def func(self):
+        """Executes here command"""
         caller = self.caller
         roster = get_roster_manager()
         disp_titles = False
@@ -1631,6 +1643,7 @@ class CmdAddSecret(ArxPlayerCommand):
     locks = "cmd:perm(addsecret) or perm(Wizards)"
 
     def func(self):
+        """Executes addsecret command"""
         caller = self.caller
         roster = get_roster_manager()
         lhs = self.lhs
@@ -1699,6 +1712,7 @@ class CmdDelComment(ArxPlayerCommand):
     locks = "cmd:perm(addsecret) or perm(Wizards)"
 
     def func(self):
+        """Executes delsecret command"""
         caller = self.caller
         lhs = self.lhs
         rhs = self.rhs
@@ -1741,6 +1755,7 @@ class CmdAdmRelationship(ArxPlayerCommand):
     locks = "cmd:perm(Builders)"
 
     def func(self):
+        """Executes admin_relationship command"""
         caller = self.caller
         try:
             player = caller.search(self.lhslist[0])
