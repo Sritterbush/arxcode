@@ -16,6 +16,7 @@ urlpatterns = [
     url(r'^journals/list/api/$', views.journal_list_json, name="journal_list_json"),
 
     url(r'^boards/$', views.board_list, name="board_list"),
+    url(r'^boards/unread$', views.post_view_unread, name='post_view_unread'),
     url(r'^boards/(?P<board_id>\d+)$', views.post_list, name="post_list"),
     url(r'^boards/(?P<board_id>\d+)/view$', views.post_view_all, name="post_view_all"),
     url(r'^boards/(?P<board_id>\d+)/view/(?P<post_id>\d+)$', views.post_view, name="post_view")
