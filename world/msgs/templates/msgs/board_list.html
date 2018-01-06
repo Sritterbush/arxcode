@@ -3,6 +3,7 @@
 {% block content %}
 <div class="container">
 	{% include "msgs/_board_list_settings.html" %}
+    <a href="{% url 'msgs:post_view_unread' %}">All Unread Posts</a>
 	<table class="table table-hover">
 		<tr class="danger">
 			<td>Board</td>

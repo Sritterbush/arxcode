@@ -1225,11 +1225,12 @@ class CmdListClues(ArxPlayerCommand):
             for clue in clues_to_share:
                 clue.share(pc.roster, note=note)
             shared_names.append(str(pc.roster))
-        if shared_names:
-            self.caller.pay_action_points(cost)
-            self.msg("You have shared the clue(s) '%s' with %s." % (
-                ", ".join(str(ob.clue) for ob in clues_to_share),
-                ", ".join(shared_names)))
+        if shared_names and self.caller.pay_action_points(cost):
+            msg = "You have shared the clue(s) '%s' with %s." % (", ".join(str(ob.clue) for ob in clues_to_share),
+                  ", ".join(shared_names))
+            if note:
+                msg += "\nYour note: %s" % note
+            self.msg(msg)
         else:
             self.msg("Shared nothing.")
 
