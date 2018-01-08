@@ -9,7 +9,6 @@ cmdset - this way you can often re-use the commands too.
 
 from django.conf import settings
 from evennia import CmdSet, utils
-from server.utils import prettytable
 from server.utils.arx_utils import ArxCommand
 
 # error return function, needed by wear/remove command
@@ -86,39 +85,6 @@ class CmdWield(ArxCommand):
             return
 
 
-class CmdWeaponList(ArxCommand):
-    """
-    Displays information about your weapons.
-    Usage:
-            +weapons
-            
-    Shows what weapon you currently have wielded, and any weapons that you
-    have available in your inventory.
-    """
-    key = "+weapons"
-    locks = "cmd:all()"
-    help_category = "Combat"
-
-    def func(self):
-        """Look for object in inventory that matches args to wear"""
-        caller = self.caller
-        weaps = [ob for ob in caller.contents if ob.db.is_wieldable]
-        weaps.sort()
-        table = prettytable.PrettyTable(["Weapon",
-                                         "Dmg",
-                                         "Atk Stat",
-                                         "Atk Skill",
-                                         "Dmg Stat"])
-        for weapon in weaps:
-            name = weapon.name
-            name = "{c" + name + "{n"
-            if weapon.db.currently_wielded:
-                name += "{w (wielded){n"
-            table.add_row([name, weapon.db.damage_bonus, weapon.db.attack_stat,
-                          weapon.db.attack_skill, weapon.db.damage_stat])
-        caller.msg(str(table))
-
-
 class CmdUnwield(ArxCommand):
     """
     Removes a weapon from its current state of readiness.
@@ -165,7 +131,7 @@ class CmdUnwield(ArxCommand):
             return
         
 
-class DefaultCmdSet(CmdSet):
+class WeaponCmdSet(CmdSet):
     """
     The default cmdset always sits
     on the wieldable object and whereas other
@@ -185,4 +151,7 @@ class DefaultCmdSet(CmdSet):
         """Init the cmdset"""
         self.add(CmdWield())
         self.add(CmdUnwield())
-        self.add(CmdWeaponList())
+
+
+# prevent errors with old saved typeclass paths
+DefaultCmdSet = WeaponCmdSet
