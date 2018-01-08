@@ -286,7 +286,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
             return amt
         return 0
 
-    def pay_action_points(self, amt):
+    def pay_action_points(self, amt, can_go_over_cap=False):
         """
         Attempt to pay action points. If we don't have enough,
         return False.
@@ -298,6 +298,8 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
             if self.roster.action_points < amt:
                 return False
             self.roster.action_points -= amt
+            if self.roster.action_points > 200 and not can_go_over_cap:
+                self.roster.action_points = 200
             self.roster.save()
             if amt > 0:
                 verb = "use"
