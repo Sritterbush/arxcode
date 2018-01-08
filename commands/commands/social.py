@@ -2845,7 +2845,7 @@ class CmdFirstImpression(ArxCommand):
             return
         qs = AccountHistory.objects.unclaimed_impressions(self.caller.roster)
         if "outstanding" in self.switches:
-            impressions = self.imps_of_me.filter(from_account__in=qs)
+            impressions = self.imps_of_me.filter(private=False, from_account__in=qs)
             authors_and_imps = ['{c%s{n: "%s"' % (ob.writer, ob.summary) for ob in impressions]
             self.msg("First Impressions you have not yet reciprocated: \n%s" % "\n".join(authors_and_imps))
             return
@@ -2970,7 +2970,7 @@ class CmdFirstImpression(ArxCommand):
                 msg = "%s has written their +firstimpression on you, giving you 4 xp." % self.caller.key
                 if not received:
                     msg += " If you want to return the favor with +firstimpression, you will gain 1 additional xp, and "
-                    msg += "give them 4 in return. You are under no obligation to do so if their RP was unsatisfactory."
+                    msg += "give them 4 in return. You are under no obligation to do so."
                 if "private" not in self.switches:
                     msg += "\nSummary of the scene they gave: %s" % self.rhs
                 targ.inform(msg, category="First Impression")
