@@ -697,16 +697,17 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             if x < 0:
                 dest += "west"
                 check_exits.append("west")
+            if abs(x) > abs(y):
+                check_exits.reverse()
+            # inserts the NE/SE/SW/NW direction at 0 to be highest priority
             check_exits.insert(0, dest)
             for dirname in check_exits:
                 if loc.locations_set.filter(db_key__iexact=dirname):
                     return "{c" + dirname + "{n"
             dest = "{c" + dest + "{n roughly. Please use '{w@map{n' to determine an exact route"
         except (AttributeError, TypeError, ValueError):
-            import traceback
             print("Error in using directions for rooms: %s, %s" % (loc.id, room.id))
             print("origin is (%s,%s), destination is (%s, %s)" % (x_ori, y_ori, x_dest, y_dest))
-            traceback.print_exc()
             self.msg("Rooms not properly set up for @directions. Logging error.")
             return
         # try to find it through traversal
