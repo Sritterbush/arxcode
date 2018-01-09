@@ -716,11 +716,24 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         iterations = 0
         # anything beyond 10 squares becomes extremely lengthy
         max_iter = 5
+        exit_ids = [ob.id for ob in loc.exits]
+        q_add = ""
+        from django.db.models import Q
+        exclude_ob = Q()
+        
+        def get_new_exclude_ob():
+            base_exclude_query = "db_tags__db_key"
+            exclude_query = q_add + base_exclude_query
+            exclude_dict = {exclude_query: "secret"}
+            return Q(exclude_dict)
+            
         while not exit_name and iterations < max_iter:
             q_add = "db_destination__locations_set__" * iterations
             query = q_add + base_query
             filter_dict = {query: room.id}
-            exit_name = loc.locations_set.filter(**filter_dict)[0:1]
+            exclude_ob |= get_new_exclude_ob()
+            q_ob = Q(**filter_dict) & ~exclude_ob
+            exit_name = loc.locations_set.filter(id__in=exit_ids).filter(q_ob)
             iterations += 1
         if not exit_name:
             return "{c" + dest + "{n"
