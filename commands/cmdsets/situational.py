@@ -22,7 +22,7 @@ class SituationalCmdSet(CmdSet):
         self.add(rumor.RumorCmdSet())
         self.add(starting_gear.StartingGearCmdSet())
         self.add(cmdset_wearable.DefaultCmdSet())
-        self.add(cmdset_wieldable.DefaultCmdSet())
+        self.add(cmdset_wieldable.WeaponCmdSet())
         self.add(cmdset_places.DefaultCmdSet())
         self.add(cmdset_places.SittingCmdSet())
         self.add(readable.WriteCmdSet())

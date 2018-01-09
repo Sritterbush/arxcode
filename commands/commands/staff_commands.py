@@ -879,7 +879,7 @@ class CmdGMEvent(ArxCommand):
     roomdesc and so on with the appropriate switches, if you choose.
     """
     key = "@gmevent"
-    locks = "cmd:perm(builders)"
+    locks = "cmd:perm(builders) or tag(story_npc)"
     help_category = "GMing"
 
     def func(self):
