@@ -86,9 +86,16 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         else:
             self.msg(self.at_look(self.location))
         if self.ndb.waypoint:
+            traversed = self.ndb.traversed or []
+            try:
+                traversed.append(source_location.id)
+            except AttributeError:
+                pass
+            self.ndb.traversed = list(set(traversed))
             if self.location == self.ndb.waypoint:
                 self.msg("You have reached your destination.")
                 self.ndb.waypoint = None
+                self.ndb.traversed = []
                 return
             dirs = self.get_directions(self.ndb.waypoint)
             if dirs:
@@ -96,6 +103,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             else:
                 self.msg("You've lost track of how to get to your destination.")
                 self.ndb.waypoint = None
+                self.ndb.traversed = []
         if self.ndb.following and self.ndb.following.location != self.location:
             self.stop_follow()
         if self.db.room_title:
@@ -702,7 +710,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             # inserts the NE/SE/SW/NW direction at 0 to be highest priority
             check_exits.insert(0, dest)
             for dirname in check_exits:
-                if loc.locations_set.filter(db_key__iexact=dirname):
+                if loc.locations_set.filter(db_key__iexact=dirname).exclude(db_destination__in=self.ndb.traversed or []):
                     return "{c" + dirname + "{n"
             dest = "{c" + dest + "{n roughly. Please use '{w@map{n' to determine an exact route"
         except (AttributeError, TypeError, ValueError):
@@ -722,18 +730,21 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         exclude_ob = Q()
         
         def get_new_exclude_ob():
+            """Helper function to build Q() objects to exclude"""
             base_exclude_query = "db_tags__db_key"
+            other_exclude_query = {q_add + "db_destination_id": loc.id}
+            traversed_query = {q_add + "db_destination_id__in": self.ndb.traversed or []}
             exclude_query = q_add + base_exclude_query
             exclude_dict = {exclude_query: "secret"}
-            return Q(**exclude_dict)
+            return Q(**exclude_dict) | Q(**other_exclude_query) | Q(**traversed_query)
             
         while not exit_name and iterations < max_iter:
             q_add = "db_destination__locations_set__" * iterations
             query = q_add + base_query
             filter_dict = {query: room.id}
             exclude_ob |= get_new_exclude_ob()
-            q_ob = Q(**filter_dict) & ~exclude_ob
-            exit_name = loc.locations_set.filter(id__in=exit_ids).filter(q_ob)
+            q_ob = Q(Q(**filter_dict) & ~exclude_ob)
+            exit_name = loc.locations_set.distinct().filter(id__in=exit_ids).exclude(exclude_ob).filter(q_ob)
             iterations += 1
         if not exit_name:
             return "{c" + dest + "{n"
