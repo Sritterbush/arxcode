@@ -725,7 +725,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             base_exclude_query = "db_tags__db_key"
             exclude_query = q_add + base_exclude_query
             exclude_dict = {exclude_query: "secret"}
-            return Q(exclude_dict)
+            return Q(**exclude_dict)
             
         while not exit_name and iterations < max_iter:
             q_add = "db_destination__locations_set__" * iterations
