@@ -2056,8 +2056,7 @@ class CmdSocialScore(ArxCommand):
         +score/orgs
         +score/personal
         +score/renown [<category>]
-        +score/reputation [<organization>]
-        +score/reputation/bad [<organization>]
+        +score/reputation[/bad] [<organization>][=<start #>,<stop #>]
         
     Checks the organizations and players who have the highest prestige.
     Renown measures the influence a character has built with different npc
@@ -2103,14 +2102,29 @@ class CmdSocialScore(ArxCommand):
                 rep = rep.filter(Q(respect__lt=0) | Q(affection__lt=0)).order_by('respect')
             else:
                 rep = rep.order_by('-respect')
-            if self.args:
+            if self.lhs:
                 rep = rep.filter(Q(organization__name__iexact=self.args) |
                                  Q(player__player__username__iexact=self.args))
-            rep = rep[:20]
+            slice_start = 0
+            slice_end = 20
+            if self.rhs:
+                try:
+                    if len(self.rhslist) > 1:
+                        slice_start, slice_end = self.rhslist
+                    else:
+                        slice_end = self.rhs
+                    slice_start = int(slice_start)
+                    slice_end = int(slice_end)
+                    if (slice_end < 0) or (slice_start < 0) or (slice_end - slice_start > 200):
+                        raise ValueError
+                except (ValueError, TypeError):
+                    caller.msg("Two positive numbers can be specified as start and endpoints, not to exceed 200 results. Example: =0,100")
+                    return
+            rep = rep[slice_start:slice_end]
             table = PrettyTable(["{wName{n", "{wOrganization{n", "{wAffection{n", "{wRespect{n"])
             for ob in rep:
                 if ob.organization.secret:
-                    # only show reputation to people in the or
+                    # only show reputation to people in the org
                     try:
                         caller_member = ob.organization.active_members.get(player=self.caller.player_ob.Dominion)
                     except (Member.DoesNotExist, ValueError):
