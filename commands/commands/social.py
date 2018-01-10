@@ -2103,8 +2103,8 @@ class CmdSocialScore(ArxCommand):
             else:
                 rep = rep.order_by('-respect')
             if self.lhs:
-                rep = rep.filter(Q(organization__name__iexact=self.args) |
-                                 Q(player__player__username__iexact=self.args))
+                rep = rep.filter(Q(organization__name__iexact=self.lhs) |
+                                 Q(player__player__username__iexact=self.lhs))
             slice_start = 0
             slice_end = 20
             if self.rhs:
@@ -2133,6 +2133,7 @@ class CmdSocialScore(ArxCommand):
                         targ_member = ob.organization.active_members.get(player=ob.player)
                         if targ_member.secret and caller_member.rank > targ_member.rank:
                             continue
+                    # inactive and non-members will show up for members
                     except (Member.DoesNotExist, ValueError):
                         pass
                 table.add_row([str(ob.player), str(ob.organization), ob.affection, ob.respect])
