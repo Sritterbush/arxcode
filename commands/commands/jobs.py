@@ -544,7 +544,8 @@ class CmdApp(ArxPlayerCommand):
                     entry.player.flush_from_cache(force=True)
                     from datetime import datetime
                     date = datetime.now()
-                    AccountHistory.objects.create(entry=entry, account=account, start_date=date)
+                    if not AccountHistory.objects.filter(entry=entry, account=account, end_date__isnull=True).exists():
+                        AccountHistory.objects.create(entry=entry, account=account, start_date=date)
                     # make sure all their Attributes are clean for new player
                     from server.utils.arx_utils import post_roster_cleanup, reset_to_default_channels
                     post_roster_cleanup(entry)

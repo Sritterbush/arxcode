@@ -159,10 +159,10 @@ class RosterEntry(SharedMemoryModel):
         try:
             if val < 0:
                 return
-            history = self.accounthistory_set.get(account=self.current_account)
+            history = self.accounthistory_set.filter(account=self.current_account).last()
             history.xp_earned += val
             history.save()
-        except (AccountHistory.DoesNotExist, AccountHistory.MultipleObjectsReturned):
+        except AttributeError:
             pass
 
     @property
