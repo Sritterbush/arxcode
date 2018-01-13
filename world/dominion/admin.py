@@ -171,7 +171,7 @@ class DomainAdmin(DomAdmin):
     list_display = ('id', 'name', 'ruler', 'location')
     ordering = ['name']
     search_fields = ['name']
-    raw_id_fields = ('ruler',)
+    raw_id_fields = ('ruler', 'location')
     list_filter = (DomainListFilter,)
     inlines = (CastleInline, )
 
@@ -509,13 +509,33 @@ class DomainInline(admin.TabularInline):
     """inline for domains"""
     model = Domain
     extra = 0
+    raw_id_fields = ('ruler',)
+
+
+class LandmarkInline(admin.TabularInline):
+    """inline for landmarks"""
+    model = Landmark
+    extra = 0
+
+
+class ShardhavenInline(admin.TabularInline):
+    """inline for Shardhavens"""
+    model = Shardhaven
+    extra = 0
 
 
 @admin.register(MapLocation)
 class MapLocationAdmin(DomAdmin):
     """Admin for map locations"""
-    list_display = ('id', 'name', 'land', 'x_coord', 'y_coord')
-    inlines = (DomainInline,)
+    list_display = ('id', 'name', 'land', 'x_coord', 'y_coord', 'domains_here')
+    search_fields = ('name', 'domains__name', 'shardhavens__name', 'landmarks__name')
+    inlines = (LandmarkInline, DomainInline, ShardhavenInline)
+    raw_id_fields = ('land',)
+
+    @staticmethod
+    def domains_here(obj):
+        """Gets domain names for this MapLocation"""
+        return ", ".join(ob.name for ob in obj.domains.all())
 
 
 class LandmarkAdmin(DomAdmin):
