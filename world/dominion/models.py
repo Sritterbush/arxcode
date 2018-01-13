@@ -940,8 +940,11 @@ class MapLocation(SharedMemoryModel):
         if self.name:
             label = self.name
         else:
+            label = "(#%d)" % self.id
+
             def label_maker(such_items):
-                return "[%s] " % ", ".join(str(wow) for wow in such_items)
+                """Format names of each object in Location"""
+                return "[%s] " % ", ".join(wow.name for wow in such_items)
             if self.landmarks.all():
                 label += label_maker(self.landmarks.all())
             if self.shardhavens.all():
