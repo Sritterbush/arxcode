@@ -65,7 +65,8 @@ class Migration(migrations.Migration):
                 ('name', models.CharField(blank=True, max_length=80, null=True)),
                 ('x_coord', models.PositiveSmallIntegerField(default=0, validators=[django.core.validators.MaxValueValidator(9)])),
                 ('y_coord', models.PositiveSmallIntegerField(default=0, validators=[django.core.validators.MaxValueValidator(9)])),
-                ('land', models.ForeignKey(on_delete=django.db.models.deletion.SET_NULL, related_name='locations', to='dominion.Land')),
+                ('land', models.ForeignKey(on_delete=django.db.models.deletion.SET_NULL, related_name='locations',
+                                           to='dominion.Land', blank=True, null=True)),
             ],
             options={
                 'abstract': False,

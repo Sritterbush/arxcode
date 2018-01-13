@@ -194,10 +194,10 @@ def map_image(request):
 
     try:
         if not request.user.is_authenticated() or not request.user.is_staff:
-            return Http404
+            raise Http404
         overlay = request.GET.get("overlay")
     except AttributeError:
-        return Http404
+        raise Http404
 
     response = HttpResponse(content_type="image/png")
 
@@ -327,7 +327,7 @@ def map_wrapper(request):
 
     except Exception as exc:
         print str(exc)
-        return Http404
+        raise Http404
 
     context = {
         'imagemap_links': map_links,
