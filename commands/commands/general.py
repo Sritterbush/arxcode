@@ -1153,7 +1153,7 @@ class CmdPut(ArxCommand):
     """
     Puts an object inside a container
     Usage:
-        put <object> in <object>
+        put <object or all> in <object>
 
     Places an object you hold inside an unlocked
     container.
@@ -1232,6 +1232,8 @@ class CmdPut(ArxCommand):
             success_str = "%s in %s" % (", ".join(ob.name for ob in success), dest.name)
             caller.msg("You put %s." % success_str)
             caller.location.msg_contents("%s puts %s." % (caller.name, success_str), exclude=caller)
+        else:
+            self.msg("Nothing moved.")
 
 
 class CmdGradient(ArxPlayerCommand):
