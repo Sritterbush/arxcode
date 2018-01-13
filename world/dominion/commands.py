@@ -3613,6 +3613,41 @@ class CmdPlotRoom(ArxCommand):
             self.msg("Invalid usage.")
 
 
+class CmdCleanupDomain(ArxPlayerCommand):
+    """
+    This is a temporary one-off command that will clean out the old NPC domains
+    and orgs.  It should be run only once!
+    """
+    key = "@onetimedomaincleanup"
+    locks = "cmd:perm(Wizards)"
+    help_category = "Dominion"
+
+    def func(self):
+        domains = Domain.objects \
+            .filter(ruler__house__organization_owner__members__player__player__isnull=True).distinct()
+        self.msg("Deleting NPC domains...")
+        domains.delete()
+
+        assetowners = AssetOwner.objects.filter(organization_owner__isnull=False)\
+            .filter(organization_owner__members__player__player__isnull=True).distinct()
+        self.msg("Deleting NPC asset owners...")
+        assetowners.delete()
+
+        armies = Army.objects.filter(owner__isnull=True).distinct()
+        self.msg("Deleting orphaned NPC armies...")
+        armies.delete()
+
+        rulers = Ruler.objects.filter(house__organization_owner__members__player__player__isnull=True).distinct()
+        self.msg("Deleting NPC rulers...")
+        rulers.delete()
+
+        orgs = Organization.objects.filter(members__player__player__isnull=True).distinct()
+        self.msg("Deleting NPC organizations...")
+        orgs.delete()
+
+        self.msg("Done!")
+
+
 # cmdset for all Dominion commands
 class DominionCmdSet(CmdSet):
     key = "DominionDefault"
@@ -3636,3 +3671,4 @@ class DominionCmdSet(CmdSet):
         from dominion.agent_commands import CmdGuards
         self.add(CmdGuards())
         self.add(CmdPlotRoom())
+        self.add(CmdCleanupDomain())

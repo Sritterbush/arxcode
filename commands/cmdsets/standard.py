@@ -213,6 +213,7 @@ class MobileCmdSet(CmdSet):
         self.add(domcommands.CmdPlotRoom())
         self.add(domcommands.CmdTask())
         self.add(domcommands.CmdSupport())
+        self.add(domcommands.CmdCleanupDomain())
         self.add(crafting.CmdCraft())
         self.add(crafting.CmdRecipes())
         self.add(crafting.CmdJunk())
