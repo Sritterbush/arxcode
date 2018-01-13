@@ -147,7 +147,8 @@ def setup_domain(dompc, region, srank, male=True, ruler=None):
     land = random.choice(squares)
     # get a dict of the domain's resources
     resources = get_domain_resources(dom_size)
-    domain = Domain.objects.create(land=land, ruler=ruler,
+    location = land.locations.create()
+    domain = Domain.objects.create(location=location, ruler=ruler,
                                    name=name, area=dom_size, title=title)
     set_domain_resources(domain, resources)
     armyname = "%s's army" % str(dompc)
