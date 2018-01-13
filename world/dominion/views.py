@@ -4,7 +4,7 @@ from .forms import RPEventCommentForm
 from django.http import HttpResponseRedirect, HttpResponse
 from django.http import Http404
 from django.core.urlresolvers import reverse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.db.models import Q, Min, Max
 from server.utils.view_mixins import LimitPageMixin
 from PIL import Image, ImageDraw, ImageFont
@@ -150,6 +150,8 @@ def event_comment(request, pk):
             return HttpResponseRedirect(reverse('dominion:display_event', args=(pk,)))
     return HttpResponseRedirect(reverse('dominion:display_event', args=(pk,)))
 
+GRID_SIZE = 100
+SUBGRID = 10
 
 def map_image(request):
     """
@@ -169,9 +171,6 @@ def map_image(request):
         draw.text((x, y - 1), text, font=font, fill='white')
         draw.text((x, y + 1), text, font=font, fill='white')
         draw.text((x, y), text, font=font, fill='black')
-
-    GRID_SIZE = 100
-    SUBGRID = 10
 
     TERRAIN_NAMES = {
         Land.COAST: 'Coastal',
@@ -223,6 +222,7 @@ def map_image(request):
     mapdraw = ImageDraw.Draw(mapimage)
 
     font = ImageFont.truetype("world/dominion/map/Amaranth-Regular.otf", 14)
+    domain_font = ImageFont.truetype("world/dominion/map/Amaranth-Regular.otf", 18)
 
     if overlay:
         for xloop in range(0, mapimage.size[0] / GRID_SIZE):
@@ -260,12 +260,12 @@ def map_image(request):
                     circle_x = x1 + (SUBGRID * domain.location.x_coord)
                     circle_y = y1 + (SUBGRID * domain.location.y_coord)
 
-                    mapdraw.ellipse([(circle_x + 2, circle_y + 2),
-                                     (circle_x + (SUBGRID - 4), circle_y + (SUBGRID - 4))], '#000000')
+                    mapdraw.ellipse([(circle_x, circle_y),
+                                     (circle_x + SUBGRID, circle_y + SUBGRID)], '#000000')
 
-                    label_x = circle_x + (SUBGRID - 4) + 6
-                    label_y = circle_y
-                    draw_font_outline(mapdraw, label_x, label_y, font, domain.name)
+                    label_x = circle_x + SUBGRID + 6
+                    label_y = circle_y - 4
+                    draw_font_outline(mapdraw, label_x, label_y, domain_font, domain.name)
 
     except Exception as exc:
         print str(exc)
@@ -275,3 +275,68 @@ def map_image(request):
 
     mapimage.save(response, "PNG")
     return response
+
+
+def map_wrapper(request):
+
+    map_links = []
+    mapimage = Image.open("world/dominion/map/arxmap_resized.jpg")
+
+    try:
+        lands = Land.objects.all()
+
+        min_x = 0
+        min_y = 0
+        max_x = 0
+        max_y = 0
+
+        # This might be better done with annotations?
+        for land in lands:
+            min_x = min(min_x, land.x_coord)
+            min_y = min(min_y, land.y_coord)
+            max_x = max(max_x, land.x_coord)
+            max_y = max(max_y, land.y_coord)
+
+        total_width = max_x - min_x
+        total_height = max_y - min_y
+
+        ratio = 1024.0 / mapimage.size[0]
+        img_width = round(mapimage.size[0] * ratio)
+        img_height = round(mapimage.size[1] * ratio)
+
+        for land in lands:
+            x1 = ((land.x_coord - min_x) * GRID_SIZE)
+            y1 = ((total_height - (land.y_coord - min_y)) * GRID_SIZE)
+
+            domains = Domain.objects.filter(location__land=land)\
+                .filter(ruler__house__organization_owner__members__player__player__isnull=False).distinct()
+
+            if domains:
+                for domain in domains:
+                    domain_x = x1 + (SUBGRID * domain.location.x_coord)
+                    domain_y = y1 + (SUBGRID * domain.location.y_coord)
+
+                    org = domain.ruler.house.organization_owner
+                    org_url = reverse("help_topics:display_org", kwargs={'object_id': org.id})
+
+                    map_data = {"x1": domain_x * ratio, "y1": domain_y * ratio,
+                                "x2": (domain_x + (SUBGRID * 6)) * ratio,
+                                "y2": (domain_y + SUBGRID) * ratio,
+                                "url": org_url}
+                    map_links.append(map_data)
+
+    except Exception as exc:
+        print str(exc)
+        return Http404
+
+    context = {
+        'imagemap_links': map_links,
+        'img_width': img_width,
+        'img_height': img_height,
+        'page_title': 'Map of Arvum',
+    }
+    return render(request, 'dominion/map_wrapper.html', context)
+
+
+
+

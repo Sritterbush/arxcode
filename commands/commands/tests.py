@@ -39,6 +39,7 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/invite 1=foo", "Could not find 'foo'.")
         self.call_cmd("/invite 1=TestAccount2", "You have invited Testaccount2 to join your action.")
         self.caller = self.account2
+        self.caller.pay_action_points = Mock(return_value=False)
         self.call_cmd("/setaction 1=test assist", "You do not have enough action points.")
         self.caller.pay_action_points = Mock(return_value=True)
         self.call_cmd("/setaction 1=test assist",

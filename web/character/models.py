@@ -159,10 +159,10 @@ class RosterEntry(SharedMemoryModel):
         try:
             if val < 0:
                 return
-            history = self.accounthistory_set.get(account=self.current_account)
+            history = self.accounthistory_set.filter(account=self.current_account).last()
             history.xp_earned += val
             history.save()
-        except (AccountHistory.DoesNotExist, AccountHistory.MultipleObjectsReturned):
+        except AttributeError:
             pass
 
     @property
@@ -758,11 +758,13 @@ class ClueDiscovery(SharedMemoryModel):
         msg += "{wRating:{n %s\n" % self.clue.rating
         msg += self.clue.desc + "\n"
         if self.message:
-            msg += "\n" + self.message
+            if self.date:
+                msg += self.date.strftime("%x %X") + " "
+            msg +=  self.message + "\n"
         if show_sharing:
             shared = self.shared_with
             if shared:
-                msg += "\n{wShared with{n: %s" % ", ".join(str(ob) for ob in shared)
+                msg += "{wShared with{n: %s" % ", ".join(str(ob) for ob in shared)
         return msg
 
     def check_revelation_discovery(self):
@@ -830,7 +832,7 @@ class ClueDiscovery(SharedMemoryModel):
             mysteries = rev.check_mystery_discovery()
             for mystery in mysteries:
                 msg += "\nYou have also discovered a mystery: %s\n%s" % (str(mystery), mystery.desc)
-                message = "Your uncovered a mystery after learning a clue!"
+                message = "You uncovered a mystery after learning a clue!"
                 MysteryDiscovery.objects.create(character=self.character, message=message, investigation=investigation,
                                                 mystery=mystery, date=date)
         if revelations:
@@ -841,7 +843,7 @@ class ClueDiscovery(SharedMemoryModel):
             investigation.clue_target = None
             investigation.save()
 
-    def share(self, entry, investigation=None):
+    def share(self, entry, investigation=None, note=None):
         """
         Copy this clue to target entry. If they already have the
         discovery, we'll add our roll to theirs (which presumably should
@@ -863,8 +865,12 @@ class ClueDiscovery(SharedMemoryModel):
             entry.player.send_or_queue_msg("%s tried to share the clue %s with you, but you already know that." % (
                 self.character, self.name))
             return False
-        targ_clue.mark_discovered(method="Sharing", message="This clue was shared to you by %s." % self.character,
-                                  revealed_by=self.character, investigation=investigation)
+        note_msg = "."
+        if note:
+            note_msg = ", who noted: %s" % note
+        message = "This clue was shared with you by %s%s" % (self.character, note_msg)
+        targ_clue.mark_discovered(method="Sharing", message=message, revealed_by=self.character,
+                                  investigation=investigation)
         pc = targ_clue.character.player
         msg = "A new clue (%d) has been shared with you by %s!\n\n%s\n" % (targ_clue.id, self.character,
                                                                            targ_clue.display())

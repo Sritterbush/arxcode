@@ -79,7 +79,7 @@ class CmdUseXP(ArxCommand):
         except ValueError:
             self.msg("Amount must be a positive number.")
             return
-        history = self.caller.roster.accounthistory_set.get(account=account)
+        history = self.caller.roster.accounthistory_set.filter(account=account).last()
         if amt > history.xp_earned:
             self.msg("You cannot transfer more xp than you've earned since playing the character.")
             return

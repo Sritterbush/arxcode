@@ -339,6 +339,53 @@ def post_view_all(request, board_id):
                                                        'posts': posts})
 
 
+def post_view_unread(request):
+    """View for seeing all posts at once. It'll mark them all read."""
+    def post_map(post):
+        """Returns dict of information about each individual post to add to context"""
+        return {
+            'id': post.id,
+            'board': post.bulletin_board.key,
+            'poster': post.poster_name,
+            'subject': ansi.strip_ansi(post.db_header),
+            'date': post.db_date_created.strftime("%x"),
+            'text': ansi.strip_ansi(post.db_message)
+        }
+
+    raw_boards = get_boards(request.user)
+    unread_posts = Post.objects.all_unread_by(request.user).filter(db_receivers_objects__in=raw_boards
+                                                                   ).order_by('db_receivers_objects')
+
+    alts = []
+    if request.user.db.bbaltread:
+        try:
+            alts = [ob.player for ob in request.user.roster.alts]
+        except AttributeError:
+            pass
+
+    accounts = [request.user]
+    accounts.extend(alts)
+    ReadPostModel = Post.db_receivers_accounts.through
+    bulk_list = []
+
+    mapped_posts = []
+
+    for unread_post in unread_posts:
+        mapped_posts.append(post_map(unread_post))
+        for account in accounts:
+            bulk_list.append(ReadPostModel(accountdb=account, msg=unread_post))
+
+    # They've read everything, clear out their unread cache count
+    for board in raw_boards:
+        for account in accounts:
+            board.zero_unread_cache(account)
+
+    ReadPostModel.objects.bulk_create(bulk_list)
+
+    return render(request, 'msgs/post_view_unread.html', {'page_title': 'All Unread Posts',
+                                                          'posts': mapped_posts})
+
+
 def post_view(request, board_id, post_id):
     """View for seeing an individual post"""
     board = board_for_request(request, board_id)

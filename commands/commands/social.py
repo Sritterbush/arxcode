@@ -2056,8 +2056,7 @@ class CmdSocialScore(ArxCommand):
         +score/orgs
         +score/personal
         +score/renown [<category>]
-        +score/reputation [<organization>]
-        +score/reputation/bad [<organization>]
+        +score/reputation[/bad] [<organization>][=<start #>,<stop #>]
         
     Checks the organizations and players who have the highest prestige.
     Renown measures the influence a character has built with different npc
@@ -2103,14 +2102,29 @@ class CmdSocialScore(ArxCommand):
                 rep = rep.filter(Q(respect__lt=0) | Q(affection__lt=0)).order_by('respect')
             else:
                 rep = rep.order_by('-respect')
-            if self.args:
-                rep = rep.filter(Q(organization__name__iexact=self.args) |
-                                 Q(player__player__username__iexact=self.args))
-            rep = rep[:20]
+            if self.lhs:
+                rep = rep.filter(Q(organization__name__iexact=self.lhs) |
+                                 Q(player__player__username__iexact=self.lhs))
+            slice_start = 0
+            slice_end = 20
+            if self.rhs:
+                try:
+                    if len(self.rhslist) > 1:
+                        slice_start, slice_end = self.rhslist
+                    else:
+                        slice_end = self.rhs
+                    slice_start = int(slice_start)
+                    slice_end = int(slice_end)
+                    if (slice_end < 0) or (slice_start < 0) or (slice_end - slice_start > 200):
+                        raise ValueError
+                except (ValueError, TypeError):
+                    caller.msg("Two positive numbers can be specified as start and endpoints, not to exceed 200 results. Example: =0,100")
+                    return
+            rep = rep[slice_start:slice_end]
             table = PrettyTable(["{wName{n", "{wOrganization{n", "{wAffection{n", "{wRespect{n"])
             for ob in rep:
                 if ob.organization.secret:
-                    # only show reputation to people in the or
+                    # only show reputation to people in the org
                     try:
                         caller_member = ob.organization.active_members.get(player=self.caller.player_ob.Dominion)
                     except (Member.DoesNotExist, ValueError):
@@ -2119,6 +2133,7 @@ class CmdSocialScore(ArxCommand):
                         targ_member = ob.organization.active_members.get(player=ob.player)
                         if targ_member.secret and caller_member.rank > targ_member.rank:
                             continue
+                    # inactive and non-members will show up for members
                     except (Member.DoesNotExist, ValueError):
                         pass
                 table.add_row([str(ob.player), str(ob.organization), ob.affection, ob.respect])
@@ -2780,6 +2795,7 @@ class CmdFirstImpression(ArxCommand):
         +firstimpression <character>=<summary of the RP Scene>
         +firstimpression/list
         +firstimpression/here
+        +firstimpression/outstanding
         +firstimpression/quiet <character>=<summary>
         +firstimpression/private <character>=<summary>
         +firstimpression/all <character>=<summary>
@@ -2787,7 +2803,6 @@ class CmdFirstImpression(ArxCommand):
         +firstimpression/share <character>[=-1, -2, etc]
         +firstimpressions/mine
         +firstimpression/publish <character>[=-1, -2, etc]
-
 
     This allows you to claim an xp reward for the first time you
     have a scene with another player. You receive 1 xp, while the
@@ -2826,6 +2841,16 @@ class CmdFirstImpression(ArxCommand):
     help_category = "Social"
     aliases = ["firstimpression", "firstimpressions", "+firstimpressions"]
 
+    @property
+    def imps_of_me(self):
+        """Retrieves impressions of us, in our current incarnation"""
+        return self.caller.roster.accounthistory_set.last().received_contacts.all()
+        
+    @property
+    def imps_by_me(self):
+        """Retrieves impressions we have written, as our current incarnation"""
+        return self.caller.roster.accounthistory_set.last().initiated_contacts.all()
+
     def list_valid(self):
         """Sends msg to caller of list of characters they can make firstimpression of"""
         contacts = AccountHistory.objects.claimed_impressions(self.caller.roster)
@@ -2834,12 +2859,17 @@ class CmdFirstImpression(ArxCommand):
                 str(ob.entry) for ob in contacts))
             return
         qs = AccountHistory.objects.unclaimed_impressions(self.caller.roster)
+        if "outstanding" in self.switches:
+            impressions = self.imps_of_me.filter(private=False, from_account__in=qs)
+            authors_and_imps = ['{c%s{n: "%s"' % (ob.writer, ob.summary) for ob in impressions]
+            self.msg("First Impressions you have not yet reciprocated: \n%s" % "\n".join(authors_and_imps))
+            return
         location = ""
         if "here" in self.switches:
             location = "at your location "
             qs = qs.filter(entry__character__db_location=self.caller.location)
         players = sorted(set(ob.entry.player for ob in qs), key=lambda x: x.username.capitalize())
-        self.msg("{wPlayers %syou haven't had a scene with yet:{n %s" % (location,
+        self.msg("{wPlayers %syou haven't written a first impression for yet:{n %s" % (location,
                                                                          ", ".join(str(ob) for ob in players)))
 
     def func(self):
@@ -2859,15 +2889,14 @@ class CmdFirstImpression(ArxCommand):
             self.list_valid()
             return
         if not self.switches and not self.rhs:
-            history = self.caller.roster.accounthistory_set.last().initiated_contacts.filter(
-                to_account__entry__player__username__iexact=self.args)
+            history = self.imps_by_me.filter(to_account__entry__player__username__iexact=self.args)
             if not history:
                 self.msg("{wNo history found for %s. Use with no arguments to see a list of valid chars.{n" % self.args)
                 return
-            self.msg("{wFirst impressions of {c%s{n:" % self.args.capitalize())
+            self.msg("{wYour first impressions of {c%s{n:" % self.args.capitalize())
 
             def get_privacy_str(roster_object):
-                """Formats string of roster_object with whether it't shared and/or private"""
+                """Formats string of roster_object with whether it's shared and/or private"""
                 if roster_object.private:
                     return "{w(Private){n"
                 return "{w(Shared){n" if roster_object.writer_share else "{w(Not Shared){n"
@@ -2880,10 +2909,9 @@ class CmdFirstImpression(ArxCommand):
         if targ == self.caller.player:
             self.msg("You cannot record a first impression of yourself.")
             return
+        hist = targ.roster.accounthistory_set.last()
         if "toggleprivate" in self.switches or "share" in self.switches or "publish" in self.switches:
-            if not self.rhs:
-                hist = targ.roster.accounthistory_set.last()
-            else:
+            if self.rhs:
                 try:
                     # We get previous first impressions by negative index on the queryset
                     hist = list(targ.roster.accounthistory_set.all())[int(self.rhs) - 1]
@@ -2892,7 +2920,7 @@ class CmdFirstImpression(ArxCommand):
                     return
             if "publish" in self.switches:
                 try:
-                    impression = self.caller.roster.accounthistory_set.last().received_contacts.get(from_account=hist)
+                    impression = self.imps_of_me.get(from_account=hist)
                 except FirstContact.DoesNotExist:
                     self.msg("No impression found by them.")
                     return
@@ -2908,7 +2936,7 @@ class CmdFirstImpression(ArxCommand):
                 self.msg("You have marked %s's impression of you public, and received 1 xp." % targ)
                 return
             try:
-                impression = self.caller.roster.accounthistory_set.last().initiated_contacts.get(to_account=hist)
+                impression = self.imps_by_me.get(to_account=hist)
             except FirstContact.DoesNotExist:
                 self.msg("No impression found of them.")
                 return
@@ -2935,19 +2963,15 @@ class CmdFirstImpression(ArxCommand):
                 return
             return
         # check if the target has written a first impression of us. If not, we'll need to be in the same room
-        received = False
-        if self.caller.roster.accounthistory_set.last().received_contacts.filter(from_account__entry__player=targ):
-            # they've already written a first impression on us
-            received = True
+        received = self.imps_of_me.filter(from_account__entry__player=targ)
         if not received and targ.db.char_ob.location != self.caller.location:
             self.msg("Must be in the same room.")
             return
         if not self.rhs or len(self.rhs) < 10:
-            self.msg("Must have a summary of the RP scene longer than that.")
+            self.msg("Must write a longer summary of the RP scene.")
             return
-        hist = targ.roster.accounthistory_set.last()
         try:
-            self.caller.roster.accounthistory_set.last().initiated_contacts.get(to_account=hist)
+            self.imps_by_me.get(to_account=hist)
             self.msg("You have already written your first impression of them.")
             return
         except FirstContact.DoesNotExist:
@@ -2961,7 +2985,7 @@ class CmdFirstImpression(ArxCommand):
                 msg = "%s has written their +firstimpression on you, giving you 4 xp." % self.caller.key
                 if not received:
                     msg += " If you want to return the favor with +firstimpression, you will gain 1 additional xp, and "
-                    msg += "give them 4 in return. You are under no obligation to do so if their RP was unsatisfactory."
+                    msg += "give them 4 in return. You are under no obligation to do so."
                 if "private" not in self.switches:
                     msg += "\nSummary of the scene they gave: %s" % self.rhs
                 targ.inform(msg, category="First Impression")

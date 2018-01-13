@@ -182,8 +182,9 @@ class CmdGet(ArxCommand):
     get
 
     Usage:
-      get <obj>
-      get <obj> from <obj>
+      get <obj or all>
+      get <x silver>
+      get <obj or all> from <obj>
 
     Picks up an object from your location and puts it in
     your inventory.
@@ -192,8 +193,7 @@ class CmdGet(ArxCommand):
     aliases = ["grab", "take"]
     locks = "cmd:all()"
 
-    @staticmethod
-    def get_money(args, caller, fromobj):
+    def get_money(self, args, caller, fromobj, echo=True):
         """Gets silver, which isn't an actual object per se"""
         val, currency = money_from_args(args, fromobj)
         if val > currency:
@@ -201,12 +201,20 @@ class CmdGet(ArxCommand):
                                                                                                            currency))
             return
         fromobj.pay_money(val, caller)
+        if echo:
+            self.echo_get_money(val, fromobj)
+        return val
+
+    def echo_get_money(self, amount, fromobj):
+        """Sends a message when we pick up silver"""
+        caller = self.caller
         if fromobj == caller.location:
-            caller.msg("You pick up %s." % args)
-            caller.location.msg_contents("%s picks up %s." % (caller.name, args), exclude=caller)
+            caller.msg("You pick up %s silver." % amount)
+            caller.location.msg_contents("%s picks up %s silver." % (caller.name, amount), exclude=caller)
         else:
-            caller.msg("You get %s from %s." % (args, fromobj.name))
-            caller.location.msg_contents("%s picks up %s from %s." % (caller.name, args, fromobj.name), exclude=caller)      
+            caller.msg("You get %s silver from %s." % (amount, fromobj.name))
+            caller.location.msg_contents("%s picks up %s silver from %s." % (caller.name, amount, fromobj.name),
+                                         exclude=caller)
 
     def func(self):
         """implements the command."""
@@ -216,7 +224,7 @@ class CmdGet(ArxCommand):
             caller.msg("Get what?")
             return
         # check if we're trying to get some coins
-        if args_are_currency(self.args) or self.args == "all":
+        if args_are_currency(self.args):
             self.get_money(self.args, caller, caller.location)
             return
         args = self.args.split(" from ")
@@ -238,39 +246,52 @@ class CmdGet(ArxCommand):
                 return     
         else:
             fromobj = None
-            loc = caller.location           
-        # print "general/get:", caller, caller.location, self.args, caller.location.contents
-        obj = caller.search(self.args, location=loc, use_nicks=True, quiet=True)
-        if not obj:
-            AT_SEARCH_RESULT(obj, caller, self.args, False)
-            return
+            loc = caller.location
+        moved = []
+        if self.args == "all":
+            oblist = [ob for ob in loc.contents if ob != caller]
+            val = self.get_money(self.args, caller, loc, echo=False)
+            if val:
+                moved.append("%d silver" % val)
         else:
-            if len(make_iter(obj)) > 1:
+            obj = caller.search(self.args, location=loc, use_nicks=True, quiet=True)
+            if not obj:
                 AT_SEARCH_RESULT(obj, caller, self.args, False)
                 return
-            obj = make_iter(obj)[0]
-        if caller == obj:
-            caller.msg("You can't get yourself.")
-            return
-        # print obj, obj.location, caller, caller==obj.location
-        if caller == obj.location:
-            caller.msg("You already hold that.")
-            return
-        if not obj.at_before_move(destination=caller, caller=caller):
-            return
-        if not check_volume(obj, caller):
+            else:
+                if len(make_iter(obj)) > 1:
+                    AT_SEARCH_RESULT(obj, caller, self.args, False)
+                    return
+                oblist = make_iter(obj)
+
+        for obj in oblist:
+            if caller == obj:
+                caller.msg("You can't get yourself.")
+                continue
+            # print obj, obj.location, caller, caller==obj.location
+            if caller == obj.location:
+                caller.msg("You already hold that.")
+                continue
+            if not obj.at_before_move(destination=caller, caller=caller):
+                return
+            if not check_volume(obj, caller):
+                return
+            moved.append(obj)
+            obj.move_to(caller, quiet=True)
+            # calling hook method
+            obj.at_get(caller)
+        moved_names = ", ".join(str(ob) for ob in moved)
+        if not moved_names:
+            self.msg("You didn't get anything.")
             return
         if fromobj:
-            getmsg = "You get %s from %s." % (obj.name, fromobj.name)
-            gotmsg = "%s gets %s from %s." % (caller.name, obj.name, fromobj.name)
+            getmsg = "You get %s from %s." % (moved_names, fromobj.name)
+            gotmsg = "%s gets %s from %s." % (caller.name, moved_names, fromobj.name)
         else:
-            getmsg = "You pick up %s." % obj.name
-            gotmsg = "%s picks up %s." % (caller.name, obj.name)
+            getmsg = "You pick up %s." % moved_names
+            gotmsg = "%s picks up %s." % (caller.name, moved_names)
         caller.msg(getmsg)
-        obj.move_to(caller, quiet=True)
         caller.location.msg_contents(gotmsg, exclude=caller)
-        # calling hook method
-        obj.at_get(caller)
 
 
 class CmdDrop(ArxCommand):

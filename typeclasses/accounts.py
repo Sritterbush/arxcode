@@ -114,7 +114,6 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
         self.attributes.add("_playable_characters", [], lockstring=lockstring)
         self.db.mails = []
         self.db.readmails = set()
-        self.db.char_ob = None
 
     # noinspection PyBroadException
     def at_post_login(self, session=None):
@@ -125,7 +124,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
         :type self: AccountDB
         :type session: Session
         """
-        self.db._last_puppet = self.db.char_ob or self.db._last_puppet
+        self.db._last_puppet = self.char_ob or self.db._last_puppet
         super(Account, self).at_post_login(session)
         if self.tags.get("new_mail"):
             self.msg("{y*** You have new mail. ***{n")
@@ -287,18 +286,20 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
             return amt
         return 0
 
-    def pay_action_points(self, amt):
+    def pay_action_points(self, amt, can_go_over_cap=False):
         """
         Attempt to pay action points. If we don't have enough,
         return False.
         """
         try:
-            if self.roster.action_points != self.db.char_ob.roster.action_points:
+            if self.roster.action_points != self.char_ob.roster.action_points:
                 self.roster.refresh_from_db(fields=("action_points",))
-                self.db.char_ob.roster.refresh_from_db(fields=("action_points",))
+                self.char_ob.roster.refresh_from_db(fields=("action_points",))
             if self.roster.action_points < amt:
                 return False
             self.roster.action_points -= amt
+            if self.roster.action_points > 200 and not can_go_over_cap:
+                self.roster.action_points = 200
             self.roster.save()
             if amt > 0:
                 verb = "use"
@@ -327,13 +328,13 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
 
     def get_absolute_url(self):
         try:
-            return self.db.char_ob.get_absolute_url()
+            return self.char_ob.get_absolute_url()
         except AttributeError:
             pass
 
     def at_post_disconnect(self):
         if not self.sessions.all():
-            watched_by = self.db.char_ob and self.db.char_ob.db.watched_by or []
+            watched_by = self.char_ob and self.char_ob.db.watched_by or []
             if not watched_by:
                 return
             if not self.db.hide_from_watch:
@@ -353,7 +354,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
             text = text.strip()
             from_obj = make_iter(from_obj)[0]
             tup = (from_obj, text)
-            if tup not in self.current_log and from_obj != self and from_obj != self.db.char_ob:
+            if tup not in self.current_log and from_obj != self and from_obj != self.char_ob:
                 self.current_log.append((from_obj, text))
 
     @property
@@ -387,7 +388,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
         self.db.flagged_log = val
 
     def report_player(self, player):
-        charob = player.db.char_ob
+        charob = player.char_ob
         log = []
         for line in (list(self.previous_log) + list(self.current_log)):
             if line[0] == charob or line[0] == player:
@@ -445,9 +446,9 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
         Returns:
             True if they see us as online, False otherwise.
         """
-        if not self.db.char_ob:
+        if not self.char_ob:
             return True
-        return self.db.char_ob.show_online(caller, check_puppet)
+        return self.char_ob.show_online(caller, check_puppet)
 
     @property
     def player_ob(self):

@@ -117,7 +117,7 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
     key = "@action"
     locks = "cmd:all()"
     help_category = "Dominion"
-    aliases = ["@actions"]
+    aliases = ["@actions", "+storyrequest"]
     action_categories = dict_from_choices_field(CrisisAction, "CATEGORY_CHOICES")
     requires_draft_switches = ("invite", "setcrisis", "readycheck")
     requires_editable_switches = ("roll", "tldr", "title", "category", "submit", "invite",
@@ -634,7 +634,7 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
             qs = qs.filter(Q(crisis__name__iexact=name) | Q(dompc__player__username__iexact=name) |
                            Q(category__iexact=name) | Q(assistants__player__username__iexact=name) |
                            Q(gm__username__iexact=name))
-        return qs.distinct()
+        return qs.distinct().order_by('date_submitted')
         
     def do_gming(self, action):
         if "story" in self.switches:

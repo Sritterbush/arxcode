@@ -8,7 +8,7 @@ False if not wielded.
 """
 
 from typeclasses.objects import Object
-from cmdset_wieldable import DefaultCmdSet
+from cmdset_wieldable import WeaponCmdSet
 
 
 # noinspection PyMethodMayBeStatic
@@ -49,7 +49,7 @@ class Wieldable(Object):
         self.db.can_riposte = True
         self.db.sheathed_by = None
         self.db.difficulty_mod = 0
-        self.cmdset.add_default(DefaultCmdSet, permanent=True)
+        self.cmdset.add_default(WeaponCmdSet, permanent=True)
         self.at_init()
 
     def ranged_mode(self):

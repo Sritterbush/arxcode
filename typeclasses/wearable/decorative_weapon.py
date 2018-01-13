@@ -1,13 +1,9 @@
 """
 wearable weapons
 """
-
-from django.conf import settings
-from typeclasses.objects import Object
-from cmdset_wieldable import DefaultCmdSet as wieldcmdset
-from cmdset_wearable import DefaultCmdSet as wearcmdset
 from wieldable import Wieldable
 from wearable import Wearable
+
 
 class DecorativeWieldable(Wieldable, Wearable):
     """
@@ -27,9 +23,6 @@ class DecorativeWieldable(Wieldable, Wearable):
         Wearable.at_object_creation(self)
         Wieldable.at_object_creation(self)
         self.db.is_wieldable = True
-        cmdset = wieldcmdset()
-        cmdset.add(wearcmdset())
-        self.cmdset.add_default(cmdset, permanent=True)
 
     def remove(self, wielder):
         """
@@ -37,7 +30,7 @@ class DecorativeWieldable(Wieldable, Wearable):
         """
         return Wearable.remove(self, wielder) and Wieldable.remove(self, wielder)
 
-    def at_after_move(self, source_location):
+    def at_after_move(self, source_location, **kwargs):
         "If new location is not our wielder, remove."
         Wearable.at_after_move(self, source_location)
         Wieldable.at_after_move(self, source_location)
@@ -53,6 +46,7 @@ class DecorativeWieldable(Wieldable, Wearable):
     def _get_armor(self):
         return 0
 
+    # noinspection PyMethodMayBeStatic
     def _calc_armor(self):
         return
     armor = property(_get_armor)
