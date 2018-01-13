@@ -154,6 +154,7 @@ def event_comment(request, pk):
 GRID_SIZE = 100
 SUBGRID = 10
 
+
 def map_image(request):
     """
     Generates a graphical map from the Land and Domain entries, omitting all NPC domains for now.
@@ -193,12 +194,9 @@ def map_image(request):
         Land.OASIS: 'Oasis',
     }
 
-    try:
-        if not request.user.is_authenticated() or not request.user.is_staff:
-            raise Http404
-        overlay = request.GET.get("overlay")
-    except AttributeError:
+    if not request.user.is_authenticated():
         raise Http404
+    overlay = request.GET.get("overlay")
 
     response = HttpResponse(content_type="image/png")
 
@@ -280,6 +278,9 @@ def map_image(request):
 
 def map_wrapper(request):
 
+    if not request.user.is_authenticated():
+        raise Http404
+
     map_links = []
     mapimage = Image.open("world/dominion/map/arxmap_resized.jpg")
 
@@ -308,8 +309,8 @@ def map_wrapper(request):
         domain_font = ImageFont.truetype("world/dominion/map/Amaranth-Regular.otf", 20)
 
         for land in lands:
-            x1 = trunc((land.x_coord - min_x) * GRID_SIZE)
-            y1 = trunc((total_height - (land.y_coord - min_y)) * GRID_SIZE)
+            x1 = (land.x_coord - min_x) * GRID_SIZE
+            y1 = (total_height - (land.y_coord - min_y)) * GRID_SIZE
 
             domains = Domain.objects.filter(location__land=land)\
                 .filter(ruler__house__organization_owner__members__player__player__isnull=False).distinct()
@@ -317,11 +318,11 @@ def map_wrapper(request):
             if domains:
                 for domain in domains:
                     domain_x = x1 + (SUBGRID * domain.location.x_coord)
-                    domain_y = (y1 + (SUBGRID * domain.location.y_coord) - 4)
+                    domain_y = y1 + ((SUBGRID * domain.location.y_coord) - 4)
 
                     font_size = domain_font.getsize(domain.name)
-                    domain_x2 = x1 + font_size[0] + 10
-                    domain_y2 = y1 + font_size[1]
+                    domain_x2 = domain_x + font_size[0] + 10
+                    domain_y2 = domain_y + font_size[1]
 
                     org = domain.ruler.house.organization_owner
                     org_url = reverse("help_topics:display_org", kwargs={'object_id': org.id})
