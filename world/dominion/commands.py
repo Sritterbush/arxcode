@@ -40,7 +40,7 @@ class CmdAdmDomain(ArxPlayerCommand):
       @admin_domain/replacevassal receiver=domain_id, numvassals
       @admin_domain/createvassal receiver=liege_domain_id, numvassals
       @admin_domain/transferowner receiver=domain_id
-      @admdin_domain/transferrule char=domain_id
+      @admin_domain/transferrule char=domain_id
       @admin_domain/liege domain_id=family
       @admin_domain/list <fealty, eg: 'Velenosa'>
       @admin_domain/list_char player
@@ -3613,6 +3613,47 @@ class CmdPlotRoom(ArxCommand):
             self.msg("Invalid usage.")
 
 
+class CmdCleanupDomain(ArxPlayerCommand):
+    """
+    This is a temporary one-off command that will clean out the old NPC domains
+    and orgs.  It should be run only once!
+    """
+    key = "@onetimedomaincleanup"
+    locks = "cmd:perm(Wizards)"
+    help_category = "Dominion"
+
+    def delete_and_report(self, name, qs):
+        self.msg("Deleting NPC %s..." % name)
+        output = qs.delete()
+        output = "Total: %s, %s" % (output[0], ", ".join("%s: %s" % (key, value) for key, value in output[1].items()))
+        self.msg("Deleted: %s" % output)
+
+    def func(self):
+        domains = Domain.objects \
+            .filter(ruler__house__organization_owner__members__player__player__isnull=True).distinct()
+        self.delete_and_report("domains", domains)
+
+        assetowners = AssetOwner.objects.filter(organization_owner__isnull=False)\
+            .filter(organization_owner__members__player__player__isnull=True).distinct()
+        self.delete_and_report("organization asset owners", assetowners)
+
+        npc_asset_owners = AssetOwner.objects.filter(organization_owner__isnull=True,
+                                                     player__player__isnull=True).distinct()
+        self.delete_and_report("PlayerOrNpc asset owners", npc_asset_owners)
+
+        armies = Army.objects.filter(owner__isnull=True).distinct()
+        self.delete_and_report("armies", armies)
+
+        rulers = Ruler.objects.filter(house__organization_owner__members__player__player__isnull=True).distinct()
+        self.delete_and_report("rulers", rulers)
+
+        orgs = Organization.objects.filter(members__player__player__isnull=True).distinct()
+        MilitaryUnit.objects.filter(origin__in=orgs).update(origin=None)
+        self.delete_and_report("organizations", orgs)
+
+        self.msg("Done!")
+
+
 # cmdset for all Dominion commands
 class DominionCmdSet(CmdSet):
     key = "DominionDefault"
@@ -3636,3 +3677,4 @@ class DominionCmdSet(CmdSet):
         from dominion.agent_commands import CmdGuards
         self.add(CmdGuards())
         self.add(CmdPlotRoom())
+        self.add(CmdCleanupDomain())

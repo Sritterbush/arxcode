@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404, render
 from django.db.models import Q, Min, Max
 from server.utils.view_mixins import LimitPageMixin
 from PIL import Image, ImageDraw, ImageFont
+from math import trunc
 
 # Create your views here.
 
@@ -222,7 +223,7 @@ def map_image(request):
     mapdraw = ImageDraw.Draw(mapimage)
 
     font = ImageFont.truetype("world/dominion/map/Amaranth-Regular.otf", 14)
-    domain_font = ImageFont.truetype("world/dominion/map/Amaranth-Regular.otf", 18)
+    domain_font = ImageFont.truetype("world/dominion/map/Amaranth-Regular.otf", 20)
 
     if overlay:
         for xloop in range(0, mapimage.size[0] / GRID_SIZE):
@@ -300,13 +301,15 @@ def map_wrapper(request):
         total_width = max_x - min_x
         total_height = max_y - min_y
 
-        ratio = 1024.0 / mapimage.size[0]
-        img_width = round(mapimage.size[0] * ratio)
-        img_height = round(mapimage.size[1] * ratio)
+        ratio = 1280.0 / mapimage.size[0]
+        img_width = trunc(mapimage.size[0] * ratio)
+        img_height = trunc(mapimage.size[1] * ratio)
+
+        domain_font = ImageFont.truetype("world/dominion/map/Amaranth-Regular.otf", 20)
 
         for land in lands:
-            x1 = ((land.x_coord - min_x) * GRID_SIZE)
-            y1 = ((total_height - (land.y_coord - min_y)) * GRID_SIZE)
+            x1 = trunc((land.x_coord - min_x) * GRID_SIZE)
+            y1 = trunc((total_height - (land.y_coord - min_y)) * GRID_SIZE)
 
             domains = Domain.objects.filter(location__land=land)\
                 .filter(ruler__house__organization_owner__members__player__player__isnull=False).distinct()
@@ -314,14 +317,17 @@ def map_wrapper(request):
             if domains:
                 for domain in domains:
                     domain_x = x1 + (SUBGRID * domain.location.x_coord)
-                    domain_y = y1 + (SUBGRID * domain.location.y_coord)
+                    domain_y = (y1 + (SUBGRID * domain.location.y_coord) - 4)
+
+                    font_size = domain_font.getsize(domain.name)
+                    domain_x2 = x1 + font_size[0] + 10
+                    domain_y2 = y1 + font_size[1]
 
                     org = domain.ruler.house.organization_owner
                     org_url = reverse("help_topics:display_org", kwargs={'object_id': org.id})
 
-                    map_data = {"x1": domain_x * ratio, "y1": domain_y * ratio,
-                                "x2": (domain_x + (SUBGRID * 6)) * ratio,
-                                "y2": (domain_y + SUBGRID) * ratio,
+                    map_data = {"x1": trunc(domain_x * ratio), "y1": trunc(domain_y * ratio),
+                                "x2": trunc(domain_x2 * ratio), "y2": trunc(domain_y2 * ratio),
                                 "url": org_url}
                     map_links.append(map_data)
 
