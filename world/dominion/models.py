@@ -87,6 +87,7 @@ POP_PER_HOUSING = 1000
 BASE_POP_GROWTH = 0.01
 DEATHS_PER_LAWLESS = 0.0025
 LAND_SIZE = 10000
+LAND_COORDS = 9
 LIFESTYLES = {
     0: (-100, -1000),
     1: (0, 0),
@@ -923,6 +924,35 @@ class HostileArea(SharedMemoryModel):
     hostiles = property(_get_units)
 
 
+class MapLocation(SharedMemoryModel):
+    """
+    A simple model that maps a given map location, for use with Domains, Landmarks,
+    and Shardhavens.
+    """
+    name = models.CharField(blank=True, null=True, max_length=80)
+    land = models.ForeignKey('Land', on_delete=models.SET_NULL, related_name='locations', blank=True, null=True)
+    from django.core.validators import MaxValueValidator
+    x_coord = models.PositiveSmallIntegerField(validators=[MaxValueValidator(LAND_COORDS)], default=0)
+    y_coord = models.PositiveSmallIntegerField(validators=[MaxValueValidator(LAND_COORDS)], default=0)
+
+    def __str__(self):
+        label = ""
+        if self.name:
+            label = self.name
+        else:
+            def label_maker(such_items):
+                return "[%s] " % ", ".join(str(wow) for wow in such_items)
+            if self.landmarks.all():
+                label += label_maker(self.landmarks.all())
+            if self.shardhavens.all():
+                label += label_maker(self.shardhavens.all())
+            if self.domains.all():
+                label += label_maker(self.domains.all())
+            else:
+                label = "%s - sub %d, %d" % (self.land, self.x_coord, self.y_coord)
+        return label
+
+
 class Domain(SharedMemoryModel):
     """
     A domain owned by a noble house that resides on a particular Land square on
@@ -937,7 +967,8 @@ class Domain(SharedMemoryModel):
     them into a single domain.
     """    
     # 'grid' square where our domain is. More than 1 domain can be on a square
-    land = models.ForeignKey('Land', on_delete=models.SET_NULL, related_name='domains', blank=True, null=True)
+    location = models.ForeignKey('MapLocation', on_delete=models.SET_NULL, related_name='domains',
+                                 blank=True, null=True)
     # The house that rules this domain
     ruler = models.ForeignKey('Ruler', on_delete=models.SET_NULL, related_name='holdings', blank=True, null=True,
                               db_index=True)
@@ -981,7 +1012,13 @@ class Domain(SharedMemoryModel):
     lawlessness = models.PositiveSmallIntegerField(default=0, blank=0)
     amount_plundered = models.PositiveSmallIntegerField(default=0, blank=0)
     income_modifier = models.PositiveSmallIntegerField(default=100, blank=100)
-        
+
+    @property
+    def land(self):
+        if not self.location:
+            return None
+        return self.location.land
+
     # All income sources are floats for modifier calculations. We'll convert to int at the end
     def _get_tax_income(self):
         if hasattr(self, 'cached_tax_income'):
@@ -5073,11 +5110,19 @@ class PlotRoom(SharedMemoryModel):
     creator = models.ForeignKey('PlayerOrNpc', related_name='created_plot_rooms', blank=True, null=True, db_index=True)
     public = models.BooleanField(default=False)
 
-    land = models.ForeignKey('Land', related_name='plot_rooms', blank=True, null=True)
+    location = models.ForeignKey('MapLocation', related_name='plot_rooms', blank=True, null=True)
     domain = models.ForeignKey('Domain', related_name='plot_rooms', blank=True, null=True)
     wilderness = models.BooleanField(default=True)
 
     shardhaven_type = models.ForeignKey('ShardhavenType', related_name='tilesets', blank=True, null=True)
+
+    @property
+    def land(self):
+        if self.location:
+            return self.location.land
+        if self.domain and self.domain.location:
+            return self.domain.location.land
+        return None
 
     def ansi_name(self):
         """Returns formatted string of the platroom with region name"""
@@ -5110,8 +5155,6 @@ class PlotRoom(SharedMemoryModel):
 
         if self.land:
             region = self.land.region
-        elif self.domain:
-            region = self.domain.land.region
 
         return region
 
@@ -5182,7 +5225,7 @@ class Landmark(SharedMemoryModel):
 
     name = models.CharField(blank=False, null=False, max_length=32, db_index=True)
     description = models.TextField(max_length=2048)
-    land = models.ForeignKey('Land', related_name='landmarks', blank=False, null=False)
+    location = models.ForeignKey('MapLocation', related_name='landmarks', blank=True, null=True)
     landmark_type = models.PositiveSmallIntegerField(choices=CHOICES_TYPE, default=TYPE_UNKNOWN)
 
     def __str__(self):
@@ -5211,7 +5254,7 @@ class Shardhaven(SharedMemoryModel):
     """
     name = models.CharField(blank=False, null=False, max_length=78, db_index=True)
     description = models.TextField(max_length=4096)
-    land = models.ForeignKey('Land', related_name='shardhavens', blank=True, null=True)
+    location = models.ForeignKey('MapLocation', related_name='shardhavens', blank=True, null=True)
     haven_type = models.ForeignKey('ShardhavenType', related_name='havens', blank=False, null=False)
     required_clue_value = models.IntegerField(default=0)
     discovered_by = models.ManyToManyField('PlayerOrNpc', blank=True, related_name="discovered_shardhavens",

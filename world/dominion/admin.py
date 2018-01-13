@@ -2,7 +2,7 @@
 Admin for Dominion
 """
 from django.contrib import admin
-from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister,
+from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister, MapLocation,
                      AssetOwner, Region, Land, Castle,
                      Ruler, Army, Orders, MilitaryUnit, Member, Task, OrgUnitModifiers,
                      CraftingRecipe, CraftingMaterialType, CraftingMaterials, CrisisActionAssistant,
@@ -168,12 +168,12 @@ class DomainListFilter(OrgListFilter):
 
 class DomainAdmin(DomAdmin):
     """Admin for Domains, player/org offscreen holdings"""
-    list_display = ('id', 'name', 'ruler', 'land')
+    list_display = ('id', 'name', 'ruler', 'location')
     ordering = ['name']
     search_fields = ['name']
     raw_id_fields = ('ruler',)
     list_filter = (DomainListFilter,)
-    inlines = (CastleInline,)
+    inlines = (CastleInline, )
 
 
 class MaterialTypeAdmin(DomAdmin):
@@ -491,56 +491,58 @@ class RegionFilter(admin.SimpleListFilter):
 
         return self.finish_queryset_by_region(queryset, region)
 
+    # noinspection PyMethodMayBeStatic
     def finish_queryset_by_region(self, queryset, region):
         """Finishes modifying the queryset. Overridden in subclasses"""
-        qs1 = queryset.filter(domain__isnull=False).filter(domain__land__region=region)
-        qs2 = queryset.filter(land__isnull=False).filter(land__region=region)
-        return qs1 | qs2
+        return queryset.filter(location__land__region=region)
 
 
 class PlotRoomAdmin(DomAdmin):
     """Admin for plotrooms, templates that can be used repeatedly for temprooms for events"""
-    list_display = ('id', 'domain', 'land', 'name', 'public')
+    list_display = ('id', 'domain', 'location', 'name', 'public')
     search_files = ('name', 'description')
-    raw_id_fields = ('creator', 'land', 'domain')
+    raw_id_fields = ('creator', 'domain')
     list_filter = ('public', RegionFilter)
 
 
-class LandRegionFilter(RegionFilter):
-    """List filter for Land by Regions"""
-    def finish_queryset_by_region(self, queryset, region):
-        """Finishes modifying the queryset. Overridden in subclasses"""
-        return queryset.filter(land__region=region)
+class DomainInline(admin.TabularInline):
+    """inline for domains"""
+    model = Domain
+    extra = 0
+
+
+@admin.register(MapLocation)
+class MapLocationAdmin(DomAdmin):
+    """Admin for map locations"""
+    list_display = ('id', 'name', 'land', 'x_coord', 'y_coord')
+    inlines = (DomainInline,)
 
 
 class LandmarkAdmin(DomAdmin):
-    """Admin for Landmarks found ni the world"""
-    list_display = ('id', 'name', 'landmark_type', 'land')
+    """Admin for Landmarks found in the world"""
+    list_display = ('id', 'name', 'landmark_type', 'location')
     search_fields = ('name', 'description')
-    raw_id_fields = ('land',)
-    list_filter = ('landmark_type', LandRegionFilter,)
+    list_filter = ('landmark_type', RegionFilter,)
+
+
+class MapLocationInline(admin.TabularInline):
+    """Inline for Map Locations"""
+    model = MapLocation
+    extra = 0
+    show_change_link = True
 
 
 class LandAdmin(DomAdmin):
     """Admin for Land Squares that make up the global map"""
-    list_display = ('id', 'name', 'terrain', 'domain_names', 'dungeons', 'landmarks')
-    search_fields = ('name', 'region__name', 'domains__name')
+    list_display = ('id', 'name', 'terrain', 'location_names')
+    search_fields = ('name', 'region__name', 'locations__name')
     list_filter = ('region', 'landlocked')
+    inlines = (MapLocationInline,)
 
     @staticmethod
-    def domain_names(obj):
-        """Names of domains in this space"""
-        return ", ".join(str(ob) for ob in obj.domains.all())
-
-    @staticmethod
-    def dungeons(obj):
-        """Names of shardhavens in this space"""
-        return ", ".join(str(ob) for ob in obj.shardhavens.all())
-
-    @staticmethod
-    def landmarks(obj):
-        """Names of landmarks in this space"""
-        return ", ".join(str(ob) for ob in obj.landmarks.all())
+    def location_names(obj):
+        """Names of locations in this space"""
+        return ", ".join(str(ob) for ob in obj.locations.all())
 
 
 class ShardhavenClueInline(admin.TabularInline):
@@ -559,17 +561,17 @@ class ShardhavenDiscoveryInline(admin.TabularInline):
 
 class ShardhavenAdmin(DomAdmin):
     """Admin for shardhavens, Arx's very own abyssal-corrupted dungeons. Happy adventuring!"""
-    list_display = ('id', 'name', 'land', 'haven_type')
+    list_display = ('id', 'name', 'location', 'haven_type')
     search_fields = ('name', 'description')
-    raw_id_fields = ('land',)
-    inlines = (ShardhavenClueInline,)
-    list_filter = ('haven_type', LandRegionFilter,)
+    inlines = (ShardhavenClueInline, )
+    list_filter = ('haven_type', RegionFilter,)
 
 
 class ShardhavenTypeAdmin(DomAdmin):
     """Admin for specifying types of Shardhavens"""
-    list_display = ('id', 'name')
+    list_display = ('id', 'name', 'description')
     search_fields = ('name',)
+    ordering = ('id',)
 
 
 class ShardhavenDiscoveryAdmin(DomAdmin):
