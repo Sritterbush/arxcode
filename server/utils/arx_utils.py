@@ -9,11 +9,7 @@ import re
 from datetime import datetime
 
 from django.conf import settings
-from evennia.commands.default.muxcommand import MuxCommand
-try:
-    from evennia.commands.default.muxcommand import MuxAccountCommand
-except ImportError:
-    from evennia.commands.default.muxcommand import MuxPlayerCommand as MuxAccountCommand
+from evennia.commands.default.muxcommand import MuxCommand, MuxAccountCommand
 
 
 def validate_name(name, formatting=True, not_player=True):
@@ -59,8 +55,9 @@ def inform_staff(message, post=False, subject=None):
 
 
 def setup_log(logfile):
+    """Sets up a log file"""
     import logging
-    file_handle = logging.FileHandler(logfile, 'a')
+    file_handle = logging.FileHandler(logfile)
     formatter = logging.Formatter(fmt=settings.LOG_FORMAT, datefmt=settings.DATE_FORMAT)
     file_handle.setFormatter(formatter)
     log = logging.getLogger()
@@ -142,6 +139,7 @@ def datetime_format(date):
 
 
 def sub_old_ansi(text):
+    """Replacing old ansi with newer evennia markup strings"""
     if not text:
         return ""
     text = text.replace('%r', '|/')
@@ -171,6 +169,7 @@ def sub_old_ansi(text):
 
 
 def strip_ansi(text):
+    """Stripping out old ansi from a string"""
     from evennia.utils.ansi import strip_ansi
     text = strip_ansi(text)
     text = text.replace('%r', '').replace('%R', '').replace('%t', '').replace('%T', '').replace('%b', '')
@@ -182,6 +181,7 @@ def strip_ansi(text):
 
 
 def broadcast(txt, format_announcement=True):
+    """Broadcasting a message to the server"""
     from evennia.server.sessionhandler import SESSION_HANDLER
     from evennia.scripts.models import ScriptDB
     if format_announcement:
@@ -266,6 +266,7 @@ def trainer_diagnostics(trainer):
     msg = "%s: id: %s" % (repr(trainer), id(trainer))
 
     def get_attr_value(attr_name):
+        """Formatting the name of an attribute"""
         ret = ", %s: " % attr_name
         try:
             attr = trainer.db_attributes.get(db_key=attr_name)
@@ -298,6 +299,7 @@ def post_roster_cleanup(entry):
     entry.player.attributes.remove("hide_from_watch")
     entry.player.db.mails = []
     entry.player.db.readmails = set()
+    entry.tags.remove("new_mail")
     entry.player.permissions.remove("Helper")
     disconnect_all_channels(entry.player)
 
@@ -409,24 +411,30 @@ def cache_safe_update(queryset, **kwargs):
 
 
 class ArxCommmandMixins(object):
+    """Mixin class for Arx commands"""
     def check_switches(self, switch_set):
+        """Checks if the commands switches are inside switch_set"""
         return set(self.switches) & set(switch_set)
         
         
 class ArxCommand(ArxCommmandMixins, MuxCommand):
+    """Base command for Characters for Arx"""
     pass
 
 
 class ArxPlayerCommand(ArxCommmandMixins, MuxAccountCommand):
+    """Base command for Players/Accounts for Arx"""
     pass
 
 
 def text_box(text):
+    """Encloses characters in a cute little text box"""
     boxchars = '\n{w' + '*' * 70 + '{n\n'
     return boxchars + text + boxchars
 
 
 def create_gemit_and_post(msg, caller, episode_name=None, synopsis=None):
+    """Creates a new StoryEmit and an accompanying episode if specified, then broadcasts it."""
     # current story
     from web.character.models import Story, Episode, StoryEmit
     story = Story.objects.latest('start_date')
@@ -445,6 +453,7 @@ def create_gemit_and_post(msg, caller, episode_name=None, synopsis=None):
     
     
 def broadcast_msg_and_post(msg, caller, episode_name=None):
+    """Sends a message to all online sessions, then makes a post about it."""
     caller.msg("Announcing to all connected players ...")
     if not msg.startswith("{") and not msg.startswith("|"):
         msg = "|g" + msg
@@ -464,6 +473,7 @@ def broadcast_msg_and_post(msg, caller, episode_name=None):
 
 
 def dict_from_choices_field(cls, field_name):
+    """Gets a dict from a Choices tuple in a model"""
     choices_tuple = getattr(cls, field_name)
     lower_case_dict = {string.lower(): integer for integer, string in choices_tuple}
     upper_case_dict = {string.capitalize(): integer for integer, string in choices_tuple}
@@ -485,13 +495,17 @@ def passthrough_properties(field_name, *property_names):
         A function that acts as a decorator for the class which attaches the properties to it.
     """
     def wrapped(cls):
+        """Wrapper around a class decorated with the properties"""
         for name in property_names:
             def generate_property(prop_name):
+                """Helper function to generate the getter/setter functions for each property"""
                 def get_func(self):
+                    """Getter function for the property"""
                     parent = getattr(self, field_name)
                     return getattr(parent, prop_name)
 
                 def set_func(self, value):
+                    """Setter function for the property"""
                     parent = getattr(self, field_name)
                     setattr(parent, prop_name, value)
                 setattr(cls, prop_name, property(get_func, set_func))
