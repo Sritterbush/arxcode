@@ -1847,7 +1847,7 @@ class CmdOrganization(ArxPlayerCommand):
             if not org:
                 return
             try:
-                targname, clue_name_or_theory_id = self.lhs.split("/")
+                targname, clue_name_or_theory_id = self.lhs.split("/", 1)
             except (TypeError, ValueError, IndexError):
                 self.msg("You must specify the name of a character and a clue. Ex: bob/secrets of haberdashery")
                 return
