@@ -299,7 +299,7 @@ def post_roster_cleanup(entry):
     entry.player.attributes.remove("hide_from_watch")
     entry.player.db.mails = []
     entry.player.db.readmails = set()
-    entry.tags.remove("new_mail")
+    entry.player.tags.remove("new_mail")
     entry.player.permissions.remove("Helper")
     disconnect_all_channels(entry.player)
 
