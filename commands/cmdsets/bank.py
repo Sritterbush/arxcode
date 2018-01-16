@@ -278,7 +278,10 @@ class CmdBank(ArxCommand):
                 targ.save()
                 caller.msg("You have transferred %s %s from %s to %s." % (
                     val, matname, sender, receiver))
-                caller.msg("Sender now has %s, receiver has %s." % (samt, tamt))
+                if account.can_be_viewed_by(caller):
+                    caller.msg("Sender now has %s, receiver has %s." % (samt, tamt))
+                else:
+                    caller.msg("Transaction successful.")
                 self.inform_owner(account, verb, val, attr_type, matname)
             except CraftingMaterials.DoesNotExist:
                 caller.msg("No match for that material. Valid materials: %s" % ", ".join(
@@ -313,7 +316,10 @@ class CmdBank(ArxCommand):
             account.vault += amount
             caller.db.currency = cash - amount
             account.save()
-            caller.msg("You have deposited %s. The new balance is %s." % (amount, account.vault))
+            if account.can_be_viewed_by(caller):
+                caller.msg("You have deposited %s. The new balance is %s." % (amount, account.vault))
+            else:
+                caller.msg("You have deposited %s." % amount)
             self.inform_owner(account, "deposited", amount)
             return
         if "withdraw" in self.switches:
