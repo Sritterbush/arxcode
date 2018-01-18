@@ -2714,9 +2714,9 @@ class CrisisActionAssistant(AbstractAction):
             Raises:
                 ActionSubmissionError if we have not yet paid our AP cost and the player fails to do so here.
         """
+        self.check_max_assists()
         if not self.has_paid_initial_ap_cost:
             self.pay_initial_ap_cost()
-        self.check_max_assists()
         self.actions = story
         self.save()
 
