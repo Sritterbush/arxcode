@@ -139,10 +139,10 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
     # noinspection PyUnusedLocal
     def get_help(self, caller, cmdset):
         msg = self.__doc__
-        recent_actions = caller.recent_storyactions
+        recent_actions = caller.recent_actions
         max_actions = CrisisAction.max_requests
         msg += """
-    You are permitted %s non-crisis actions every 30 days, and have currently
+    You are permitted %s actions every 30 days, and have currently
     taken %s.""" % (max_actions, recent_actions.count())
         return msg
     

@@ -414,14 +414,23 @@ class PlayerOrNpc(SharedMemoryModel):
             player.inform(text, category=category, week=week, append=append)
 
     @property
-    def recent_storyactions(self):
+    def recent_actions(self):
         """Returns queryset of recent storyactions that weren't cancelled and aren't still in draft"""
         from datetime import timedelta
         offset = timedelta(days=-CrisisAction.num_days)
         old = datetime.now() + offset
         return self.actions.filter(Q(date_submitted__gte=old) & 
-                                   ~Q(status__in=(CrisisAction.CANCELLED, CrisisAction.DRAFT)) &
-                                   Q(crisis__isnull=True))
+                                   ~Q(status__in=(CrisisAction.CANCELLED, CrisisAction.DRAFT)))
+
+    @property
+    def recent_assists(self):
+        """Returns queryset of all assists from the past 30 days"""
+        from datetime import timedelta
+        offset = timedelta(days=-CrisisAction.num_days)
+        old = datetime.now() + offset
+        actions = CrisisAction.objects.filter(Q(date_submitted__gte=old) &
+                                              ~Q(status__in=(CrisisAction.CANCELLED, CrisisAction.DRAFT)))
+        return self.assisting_actions.filter(crisis_action__in=actions).distinct()
         
     @property
     def past_actions(self):
@@ -936,7 +945,6 @@ class MapLocation(SharedMemoryModel):
     y_coord = models.PositiveSmallIntegerField(validators=[MaxValueValidator(LAND_COORDS)], default=0)
 
     def __str__(self):
-        label = ""
         if self.name:
             label = self.name
         else:
@@ -1018,6 +1026,7 @@ class Domain(SharedMemoryModel):
 
     @property
     def land(self):
+        """Returns land square from our location"""
         if not self.location:
             return None
         return self.location.land
@@ -2502,7 +2511,7 @@ class CrisisAction(AbstractAction):
         """Checks if we're over our limit on number of actions"""
         if self.crisis:
             return
-        recent_actions = self.dompc.recent_storyactions
+        recent_actions = self.dompc.recent_actions
         if recent_actions.count() >= self.max_requests:
             raise ActionSubmissionError("You are permitted %s action requests every %s days. Recent actions: %s"
                                         % (self.max_requests, self.num_days,
@@ -2634,6 +2643,7 @@ class CrisisActionAssistant(AbstractAction):
     """An assist for a crisis action - a player helping them out and writing how."""
     NOUN = "Assist"
     BASE_AP_COST = 10
+    MAX_ASSISTS = 2
     crisis_action = models.ForeignKey("CrisisAction", db_index=True, related_name="assisting_actions")
     dompc = models.ForeignKey("PlayerOrNpc", db_index=True, related_name="assisting_actions")
 
@@ -2700,6 +2710,7 @@ class CrisisActionAssistant(AbstractAction):
         """
         if not self.has_paid_initial_ap_cost:
             self.pay_initial_ap_cost()
+        self.check_max_assists()
         self.actions = story
         self.save()
 
@@ -2718,6 +2729,16 @@ class CrisisActionAssistant(AbstractAction):
         """Returns display of the action"""
         return self.crisis_action.view_action(caller=caller, disp_pending=disp_pending, disp_old=disp_old,
                                               disp_ooc=disp_ooc)
+
+    def check_max_assists(self):
+        """Raises an error if we've assisted too many actions"""
+        if self.dompc.recent_assists.count() >= self.MAX_ASSISTS:
+            raise ActionSubmissionError("You are assisting too many actions.")
+
+    def raise_submission_errors(self):
+        """Raises errors that prevent submission"""
+        super(CrisisActionAssistant, self).raise_submission_errors()
+        self.check_max_assists()
 
 
 class ActionOOCQuestion(SharedMemoryModel):
@@ -5121,6 +5142,7 @@ class PlotRoom(SharedMemoryModel):
 
     @property
     def land(self):
+        """Returns land square from our MapLocation or domain"""
         if self.location:
             return self.location.land
         if self.domain and self.domain.location:
