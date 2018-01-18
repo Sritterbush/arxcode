@@ -415,7 +415,7 @@ class PlayerOrNpc(SharedMemoryModel):
 
     @property
     def recent_actions(self):
-        """Returns queryset of recent storyactions that weren't cancelled and aren't still in draft"""
+        """Returns queryset of recent actions that weren't cancelled and aren't still in draft"""
         from datetime import timedelta
         offset = timedelta(days=-CrisisAction.num_days)
         old = datetime.now() + offset
@@ -2512,7 +2512,13 @@ class CrisisAction(AbstractAction):
         if self.crisis:
             return
         recent_actions = self.dompc.recent_actions
-        if recent_actions.count() >= self.max_requests:
+        num_actions = len(recent_actions)
+        # we allow them to use unspent actions for assists, but not vice-versa
+        num_assists = self.dompc.recent_assists.count()
+        num_assists -= CrisisActionAssistant.MAX_ASSISTS
+        if num_assists >= 0:
+            num_actions += num_assists
+        if num_actions >= self.max_requests:
             raise ActionSubmissionError("You are permitted %s action requests every %s days. Recent actions: %s"
                                         % (self.max_requests, self.num_days,
                                            ", ".join(str(ob.id) for ob in recent_actions)))
@@ -2732,7 +2738,12 @@ class CrisisActionAssistant(AbstractAction):
 
     def check_max_assists(self):
         """Raises an error if we've assisted too many actions"""
-        if self.dompc.recent_assists.count() >= self.MAX_ASSISTS:
+        # if we haven't spent all our actions, we'll let them use it on assists
+        num_actions = self.dompc.recent_actions.count() - 2
+        num_assists = self.dompc.recent_assists.count()
+        if num_actions < 0:
+            num_assists += num_actions
+        if num_assists >= self.MAX_ASSISTS:
             raise ActionSubmissionError("You are assisting too many actions.")
 
     def raise_submission_errors(self):
