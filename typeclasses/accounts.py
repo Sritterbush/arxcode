@@ -471,5 +471,9 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
         return self.Dominion.past_actions
 
     @property
-    def recent_storyactions(self):
-        return self.Dominion.recent_storyactions
+    def recent_actions(self):
+        return self.Dominion.recent_actions
+
+    @property
+    def recent_assists(self):
+        return self.Dominion.recent_assists

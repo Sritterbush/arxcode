@@ -74,27 +74,45 @@ class StoryActionTests(ArxCommandTest):
                       "You have already submitted an action for this stage of the crisis.")
         action_2 = self.dompc.actions.create(actions="completed storyaction", status=CrisisAction.PUBLISHED,
                                              date_submitted=datetime.now())
-        self.dompc.actions.create(actions="another completed storyaction", status=CrisisAction.PUBLISHED,
-                                  date_submitted=datetime.now())
+        action_2.assisting_actions.create(dompc=self.dompc2)
+        action_3 = self.dompc.actions.create(actions="another completed storyaction", status=CrisisAction.PUBLISHED,
+                                             date_submitted=datetime.now())
+        action_3.assisting_actions.create(dompc=self.dompc2)
         draft = self.dompc.actions.create(actions="storyaction draft", status=CrisisAction.DRAFT,
                                           category=CrisisAction.RESEARCH,
                                           topic="test summary", stat_used="stat", skill_used="skill")
         draft.questions.create(is_intent=True, text="intent")
-        self.call_cmd("/submit 4", "You are permitted 2 action requests every 30 days. Recent actions: 2, 3")
+        self.call_cmd("/invite 4=TestAccount2", "You have invited Testaccount2 to join your action.")
+        self.call_cmd("/submit 4", "You are permitted 2 action requests every 30 days. Recent actions: 1, 2, 3")
+        self.caller = self.account2
+        # unused actions can be used as assists. Try with one slot free to be used as an assist
+        self.dompc2.actions.create(actions="dompc completed storyaction", status=CrisisAction.PUBLISHED,
+                                   date_submitted=datetime.now())
+        self.call_cmd("/setaction 4=test assist", 'Action by Testaccount now has your assistance: test assist')
+        self.dompc2.actions.create(actions="another dompc completed storyaction", status=CrisisAction.PUBLISHED,
+                                   date_submitted=datetime.now())
+        # now both slots free
+        self.call_cmd("/setaction 4=test assist", "You are assisting too many actions.")
+        # cancel an action to free a slot
         action_2.status = CrisisAction.CANCELLED
         action_2.save()
-        self.call_cmd("/submit 4", "Before submitting this action, make certain that you have invited all players you "
-                                   "wish to help with the action, and add any resources necessary. Any invited players "
-                                   "who have incomplete actions will have their assists deleted.\nWhen ready, /submit "
-                                   "the action again.")
+        self.call_cmd("/setaction 4=test assist", 'Action by Testaccount now has your assistance: test assist')
         action.status = CrisisAction.CANCELLED
         action.save()
+        # now back to player 1 to see if they can submit after the other actions are gone
+        self.caller = self.account
+        self.call_cmd("/submit 4", "Before submitting this action, make certain that you have invited all players you "
+                                   "wish to help with the action, and add any resources necessary. Any invited players "
+                                   "who have incomplete actions will have their assists deleted.\nThe following "
+                                   "assistants are not ready and will be deleted: Testaccount2\nWhen ready, /submit "
+                                   "the action again.")
+        # make sure they can't create a new one while they have a draft
         self.call_cmd("/newaction test crisis=testing",
                       "You have drafted an action which needs to be submitted or canceled: 4")
         action_4 = self.dompc.actions.last()
         action_4.status = CrisisAction.CANCELLED
         action_4.save()
-        self.call_cmd("/newaction test crisis=testing", "You have drafted a new action (#5) to respond to Test Crisis: "
+        self.call_cmd("/newaction test crisis=testing", "You have drafted a new action (#7) to respond to Test Crisis: "
                                                         "testing|Please note that you cannot invite players to an "
                                                         "action once it is submitted.")
 
