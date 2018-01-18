@@ -141,9 +141,11 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
         msg = self.__doc__
         recent_actions = caller.recent_actions
         max_actions = CrisisAction.max_requests
+        max_assists = CrisisActionAssistant.MAX_ASSISTS
+        recent_assists = caller.recent_assists
         msg += """
-    You are permitted %s actions every 30 days, and have currently
-    taken %s.""" % (max_actions, recent_actions.count())
+    You are permitted %s actions and %s assists every 30 days, and have currently
+    taken %s actions and %s assists.""" % (max_actions, max_assists, recent_actions.count(), recent_assists.count())
         return msg
     
     def func(self):

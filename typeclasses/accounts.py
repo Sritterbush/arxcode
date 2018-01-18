@@ -473,3 +473,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
     @property
     def recent_actions(self):
         return self.Dominion.recent_actions
+
+    @property
+    def recent_assists(self):
+        return self.Dominion.recent_assists

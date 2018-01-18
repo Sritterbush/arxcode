@@ -1091,6 +1091,10 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         return self.player_ob.recent_actions
 
     @property
+    def recent_assists(self):
+        return self.player_ob.recent_assists
+
+    @property
     def skills(self):
         if self.db.skills is None:
             self.db.skills = {}
