@@ -215,6 +215,9 @@ def journal_list_json(request):
 
 def board_list(request):
     """View for getting list of boards"""
+    if not request.user.is_authenticated():
+        raise Http404
+
     def map_board(board):
         """Helper function for getting dict of information for each board to add to context"""
         last_post = board.posts.last()
@@ -341,6 +344,9 @@ def post_view_all(request, board_id):
 
 def post_view_unread(request):
     """View for seeing all posts at once. It'll mark them all read."""
+    if not request.user.is_authenticated():
+        raise Http404
+
     def post_map(post):
         """Returns dict of information about each individual post to add to context"""
         return {

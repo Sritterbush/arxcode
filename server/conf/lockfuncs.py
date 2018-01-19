@@ -97,7 +97,7 @@ def organization(accessing_obj, accessed_obj, *args, **kwargs):
         import traceback
         traceback.print_exc()
         print("Error in lockfunc: accessing_obj is %s\n" % accessing_obj)
-        print("Accessed_obj is %s\n" % accessed_obj)
+        print("Accessed_obj is %r\n" % accessed_obj)
     if hasattr(accessing_obj, 'dbobj'):
         accessing_obj = accessing_obj.dbobj
     try:
