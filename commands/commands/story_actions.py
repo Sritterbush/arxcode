@@ -527,6 +527,7 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
         @gm/assign <action #>=<gm>
         @gm/gemit <action #>[,<action #>,...]=<text to post>[/<new episode name>]
         @gm/allowedit <action #>[,assistant name]
+        @gm/togglefree <action #>[,assistant name]
         @gm/invite <action #>=<player to add as assistant>
         @gm/addevent <action #>=<event #>
         @gm/rmevent <action #>=<event #>
@@ -564,7 +565,7 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
     gming_switches = ("story", "secretstory", "charge", "check", "checkall", "stat", "skill", "diff")
     followup_switches = ("ooc", "markanswered")
     admin_switches = ("publish", "markpending", "cancel", "assign", "gemit", "allowedit", "invite",
-                      "addevent", "rmevent")
+                      "addevent", "rmevent", "togglefree")
     event_switches = ("addevent", "rmevent")
     difficulties = {"easy": CrisisAction.EASY_DIFFICULTY, "normal": CrisisAction.NORMAL_DIFFICULTY,
                     "hard": CrisisAction.HARD_DIFFICULTY}
@@ -746,6 +747,8 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
             return self.do_gemit_for_action(action)
         if "allowedit" in self.switches:
             return self.toggle_editable(action)
+        if "togglefree" in self.switches:
+            return self.toggle_free(action)
         if "invite" in self.switches:
             return self.invite_assistant(action)
         if self.check_switches(self.event_switches):
@@ -798,6 +801,7 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
         self.msg("StoryEmit created.")
     
     def toggle_editable(self, action):
+        """Toggles whether an action is editable or not"""
         action = self.replace_action_with_assistant_if_provided(action)
         if not action:
             return
@@ -808,6 +812,19 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
             self.msg("You have made their action editable and the player has been informed.")
         else:
             self.msg("Their action is no longer editable.")
+
+    def toggle_free(self, action):
+        """Toggles whether an action is free or not"""
+        action = self.replace_action_with_assistant_if_provided(action)
+        if not action:
+            return
+        action.free_action = not action.free_action
+        action.save()
+        if action.free_action:
+            action.inform("Your action is now a free action and will not count towards your maximum.")
+            self.msg("You have made their action free and the player has been informed.")
+        else:
+            self.msg("Their action is no longer free.")
 
     def do_event_admin(self, action):
         from world.dominion.models import RPEvent

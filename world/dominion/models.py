@@ -420,7 +420,8 @@ class PlayerOrNpc(SharedMemoryModel):
         offset = timedelta(days=-CrisisAction.num_days)
         old = datetime.now() + offset
         return self.actions.filter(Q(date_submitted__gte=old) & 
-                                   ~Q(status__in=(CrisisAction.CANCELLED, CrisisAction.DRAFT)))
+                                   ~Q(status__in=(CrisisAction.CANCELLED, CrisisAction.DRAFT)) &
+                                   Q(free_action=False))
 
     @property
     def recent_assists(self):
@@ -429,8 +430,9 @@ class PlayerOrNpc(SharedMemoryModel):
         offset = timedelta(days=-CrisisAction.num_days)
         old = datetime.now() + offset
         actions = CrisisAction.objects.filter(Q(date_submitted__gte=old) &
-                                              ~Q(status__in=(CrisisAction.CANCELLED, CrisisAction.DRAFT)))
-        return self.assisting_actions.filter(crisis_action__in=actions).distinct()
+                                              ~Q(status__in=(CrisisAction.CANCELLED, CrisisAction.DRAFT)) &
+                                              Q(free_action=False))
+        return self.assisting_actions.filter(crisis_action__in=actions, free_action=False).distinct()
         
     @property
     def past_actions(self):
@@ -1908,6 +1910,7 @@ class AbstractAction(AbstractPlayerAllocations):
     date_submitted = models.DateTimeField(blank=True, null=True)
     editable = models.BooleanField(default=True)
     resource_types = ('silver', 'military', 'economic', 'social', 'ap', 'action points', 'army')
+    free_action = models.BooleanField(default=False)
     
     class Meta:
         abstract = True
@@ -2509,7 +2512,7 @@ class CrisisAction(AbstractAction):
             
     def check_action_against_maximum_allowed(self):
         """Checks if we're over our limit on number of actions"""
-        if self.crisis:
+        if self.free_action:
             return
         recent_actions = self.dompc.recent_actions
         num_actions = len(recent_actions)
@@ -2739,6 +2742,8 @@ class CrisisActionAssistant(AbstractAction):
     def check_max_assists(self):
         """Raises an error if we've assisted too many actions"""
         # if we haven't spent all our actions, we'll let them use it on assists
+        if self.free_action or self.crisis_action.free_action:
+            return
         num_actions = self.dompc.recent_actions.count() - 2
         num_assists = self.dompc.recent_assists.count()
         if num_actions < 0:

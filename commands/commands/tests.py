@@ -91,7 +91,15 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/setaction 4=test assist", 'Action by Testaccount now has your assistance: test assist')
         self.dompc2.actions.create(actions="another dompc completed storyaction", status=CrisisAction.PUBLISHED,
                                    date_submitted=datetime.now())
-        # now both slots free
+        # now both slots used up
+        self.call_cmd("/setaction 4=test assist", "You are assisting too many actions.")
+        # test making an action free
+        action_2.free_action = True
+        action_2.save()
+        self.call_cmd("/setaction 4=test assist", 'Action by Testaccount now has your assistance: test assist')
+        # now test again when it's definitely not free
+        action_2.free_action = False
+        action_2.save()
         self.call_cmd("/setaction 4=test assist", "You are assisting too many actions.")
         # cancel an action to free a slot
         action_2.status = CrisisAction.CANCELLED
@@ -150,6 +158,10 @@ class StoryActionTests(ArxCommandTest):
         self.account2.inform.assert_called_with('GM Testaccount has posted a followup to action 1: Sure go nuts',
                                                 append=False, category='Actions', week=1)
         self.assertEquals(action.editable, True)
+        self.call_cmd("/togglefree 1", 'You have made their action free and the player has been informed.')
+        self.account2.inform.assert_called_with('Your action is now a free action and will '
+                                                'not count towards your maximum.',
+                                                append=False, category='Actions', week=1)
         self.account2.gain_resources = Mock()
         self.call_cmd("/cancel 1", "Action cancelled.")
         self.account2.gain_resources.assert_called_with("economic", 2000)
