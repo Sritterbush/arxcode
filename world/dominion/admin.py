@@ -303,7 +303,7 @@ class CrisisActionAssistantInline(admin.StackedInline):
     raw_id_fields = ('crisis_action', 'dompc',)
     readonly_fields = ('ooc_intent',)
     fieldsets = [(None, {'fields': [('dompc', 'topic')]}),
-                 ('Status', {'fields': [('editable', 'attending', 'traitor')], 'classes': ['collapse']}),
+                 ('Status', {'fields': [('editable', 'attending', 'traitor', 'free_action')], 'classes': ['collapse']}),
                  ('Story', {'fields': ['actions', 'secret_actions', 'ooc_intent'], 'classes': ['collapse']}),
                  ('Roll', {'fields': [('stat_used', 'skill_used', 'roll')], 'description': 'Stuff for roll and result',
                            'classes': ['collapse']}),
@@ -351,7 +351,8 @@ class CrisisActionAdmin(DomAdmin):
     raw_id_fields = ('dompc', 'gemit', 'gm', 'crisis', 'update')
     readonly_fields = ('ooc_intent',)
     fieldsets = [(None, {'fields': [('dompc', 'topic')]}),
-                 ('Status', {'fields': [('attending', 'traitor', 'prefer_offscreen'), ('status', 'public', 'editable'),
+                 ('Status', {'fields': [('attending', 'traitor', 'prefer_offscreen'),
+                                        ('status', 'public', 'editable', 'free_action'),
                                         ('crisis', 'update', 'gemit'), ('week', 'date_submitted')],
                              'classes': ['collapse'], 'description': 'Current ooc status of the action'}),
                  ('Story', {'fields': [('topic', 'category'), 'actions', 'secret_actions', 'story', 'secret_story',
