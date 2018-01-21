@@ -20,7 +20,7 @@ from typeclasses.bulletin_board.bboard import BBoard
 
 
 # limit symbol import for API
-__all__ = ("CmdRosterList", "CmdAdminRoster", "CmdSheet", "CmdComment", "CmdRelationship")
+__all__ = ("CmdRosterList", "CmdAdminRoster", "CmdSheet", "CmdRelationship")
 
 
 def get_roster_manager():
@@ -881,26 +881,6 @@ def display_relationships(caller, character, show_hidden=False):
     pass
 
 
-def display_comment_list(caller, character):
-    """
-    Display list of names of who have left comments on character
-    """
-    if character == caller.db.char_ob:
-        caller.db.new_comments = False
-    name = character.key.capitalize()
-    caller.msg("{wCharacters who have left comments on %s:\n--------------------------------------" % name)
-    comment_list = character.messages.comments
-    if not comment_list:
-        caller.msg("No comments have been left yet.")
-        return
-    disp = ""
-    for name in sorted(comment_list.keys()):
-        disp += "%s\t" % name.capitalize()
-    caller.msg(disp)
-    caller.msg("To see individual comments, use @sheet/comments <character>=<commenter>.")
-    pass
-
-
 def display_secrets(caller, character):
     """
     Display secrets
@@ -940,7 +920,6 @@ class CmdSheet(ArxPlayerCommand):
         @sheet/actions <character>=<#>
         @sheet/background <character>
         @sheet/personality <character>
-        @sheet/comments <character>=<commenting character>
         @sheet/desc
         @sheet/stats
         @sheet/all
@@ -988,7 +967,6 @@ class CmdSheet(ArxPlayerCommand):
             if not pers:
                 pers = "No personality written yet."
             caller.msg("\n{wPersonality:{n\n " + pers)
-            display_comment_list(caller, charob)
             return
         if not switches or 'desc' in switches or 'stats' in switches:
             charob, show_hidden = self.get_character()
@@ -1036,64 +1014,6 @@ class CmdSheet(ArxPlayerCommand):
                 caller.msg("{wPersonality:{n\n " + pers)
                 return
             return
-        if 'comments' in switches or 'comment' in switches:
-            # 3 use cases - no args, only lhs, and lhs=rhs
-            # first check for no args. If so, that's a character
-            # looking at their own comments list.
-            if not args:
-                # just a list of who has left comments on the player
-                charob = caller.db.char_ob
-                if not charob:
-                    caller.msg("You have no character object to check.")
-                    return
-                display_comment_list(caller, charob)
-                return
-            else:
-                args = self.args.lower()
-                rhs = self.rhs
-                if not rhs:
-                    playob = caller.search(args)
-                    if not playob:
-                        caller.msg("No character found by that name.")
-                        return
-                    charob = playob.db.char_ob
-                    if not charob:
-                        caller.msg("No character found to @sheet.")
-                        return
-                    # list of who has left comments on the player
-                    display_comment_list(caller, charob)
-                    return
-                else:
-                    # We'll be looking for a list of all comments left by
-                    # the character specified by self.rhs
-                    rhs = self.rhs.lower()
-                    lhs = self.lhs.lower()
-                    if not lhs:
-                        playob = caller
-                    else:
-                        playob = caller.search(lhs)
-                    if not playob:
-                        caller.msg("No character found by that name.")
-                        return
-                    charob = playob.db.char_ob
-                    if not charob:
-                        caller.msg("No character found to @sheet.")
-                        return
-                    comments = charob.messages.comments
-                    if not comments:
-                        caller.msg("No comments left on that character.")
-                        return
-                    # comments is a dict of character_name: comments_list
-                    match = comments.get(rhs)
-                    if not match:
-                        caller.msg("No comments found by that character.")
-                        return
-                    # comments_list is a dict of date: comments
-                    caller.msg("{wComments on %s by %s:{n" % (lhs.capitalize(), rhs.capitalize()))
-                    for entry in match:
-                        date, comment = charob.messages.get_date_from_header(entry), entry.message
-                        caller.msg("%s:  %s" % (date, comment))
-                    return
         if 'relationships' in self.switches or 'privaterels' in self.switches:
             targ = None
             if self.rhs:
@@ -1496,6 +1416,7 @@ class CmdRelationship(ArxPlayerCommand):
         return
 
 
+# currently removed until we find a better way to do this
 class CmdComment(ArxPlayerCommand):
     """
     @comment - Leave a public comment on another character's sheet.

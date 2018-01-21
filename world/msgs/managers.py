@@ -13,7 +13,6 @@ MESSENGER_TAG = "messenger"
 RELATIONSHIP_TAG = "relationship"
 GOSSIP_TAG = "gossip"
 RUMOR_TAG = "rumors"
-COMMENT_TAG = "comment"
 POST_TAG = "board post"
 PRESERVE_TAG = "preserve"
 TAG_CATEGORY = "msg"
@@ -55,7 +54,9 @@ def q_msgtag(tag):
         Returns:
             Q() object of the tag key with the tag category
     """
-    return Q(q_tagname(tag) & Q(db_tags__db_category=TAG_CATEGORY))
+    from evennia.typeclasses.tags import Tag
+    tags = Tag.objects.filter(db_key=tag, db_category=TAG_CATEGORY)
+    return Q(db_tags__in=tags)
 
 
 def q_sender_character(character):
@@ -287,11 +288,6 @@ class MessengerManager(MsgProxyManager):
 class VisionManager(MsgProxyManager):
     def get_queryset(self):
         return super(VisionManager, self).get_queryset().filter(q_msgtag(VISION_TAG))
-
-
-class CommentManager(MsgProxyManager):
-    def get_queryset(self):
-        return super(CommentManager, self).get_queryset().filter(q_msgtag(COMMENT_TAG))
 
 
 class PostManager(MsgProxyManager):
