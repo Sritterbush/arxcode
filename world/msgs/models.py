@@ -5,8 +5,8 @@ from django.conf import settings
 from django.db import models
 from evennia.comms.models import Msg
 from .managers import (JournalManager, WhiteJournalManager, BlackJournalManager, MessengerManager, WHITE_TAG, BLACK_TAG,
-                       VISION_TAG, RELATIONSHIP_TAG, MESSENGER_TAG, GOSSIP_TAG, RUMOR_TAG, POST_TAG, COMMENT_TAG, 
-                       VisionManager, CommentManager, PostManager, RumorManager, PRESERVE_TAG, TAG_CATEGORY)
+                       VISION_TAG, RELATIONSHIP_TAG, MESSENGER_TAG, GOSSIP_TAG, RUMOR_TAG, POST_TAG, VisionManager,
+                       PostManager, RumorManager, PRESERVE_TAG, TAG_CATEGORY)
 
 
 # ------------------------------------------------------------
@@ -65,8 +65,6 @@ def get_model_from_tags(tag_list):
         return Messenger
     if VISION_TAG in tag_list:
         return Vision
-    if COMMENT_TAG in tag_list:
-        return Comment
     if POST_TAG in tag_list:
         return Post
     if RUMOR_TAG in tag_list or GOSSIP_TAG in tag_list:
@@ -237,15 +235,6 @@ class Vision(MarkReadMixin, Msg):
     class Meta:
         proxy = True
     objects = VisionManager()
-
-
-class Comment(MarkReadMixin, Msg):
-    """
-    Proxy model for Msg that represents an in-game comment written by a Character.
-    """
-    class Meta:
-        proxy = True
-    objects = CommentManager()
 
 
 class Rumor(MarkReadMixin, Msg):

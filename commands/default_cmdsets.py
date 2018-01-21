@@ -177,7 +177,6 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
         self.add(roster.CmdRosterList())
         self.add(roster.CmdAdminRoster())
         self.add(roster.CmdSheet())
-        self.add(roster.CmdComment())
         self.add(roster.CmdRelationship())
         self.add(roster.CmdAddSecret())
         self.add(roster.CmdDelComment())
