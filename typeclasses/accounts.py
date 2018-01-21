@@ -128,8 +128,6 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
         super(Account, self).at_post_login(session)
         if self.tags.get("new_mail"):
             self.msg("{y*** You have new mail. ***{n")
-        if self.db.new_comments:
-            self.msg("{wYou have new comments.{n")
         self.announce_informs()
         pending = self.db.pending_messages or []
         for msg in pending:
