@@ -302,6 +302,7 @@ def post_roster_cleanup(entry):
     entry.player.tags.remove("new_mail")
     entry.player.permissions.remove("Helper")
     disconnect_all_channels(entry.player)
+    entry.character.tags.remove("given_starting_gear")
 
 
 def disconnect_all_channels(player):
