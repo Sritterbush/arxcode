@@ -3,14 +3,15 @@ Commands for the 'Character' app that handles the roster,
 stories, the timeline, etc.
 """
 
+from django.db.models import Q
+
+from evennia.utils.evtable import EvTable
 from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
+from server.utils.arx_utils import inform_staff, check_break
+from server.utils.prettytable import PrettyTable
 from web.character.models import (Investigation, Clue, InvestigationAssistant, ClueDiscovery, Theory,
                                   RevelationDiscovery, SearchTag, get_random_clue)
-from server.utils.prettytable import PrettyTable
-from evennia.utils.evtable import EvTable
-from server.utils.arx_utils import inform_staff, check_break
 from world.dominion.models import Agent, RPEvent
-from django.db.models import Q
 from world.stats_and_skills import VALID_STATS, VALID_SKILLS
 
 
@@ -120,6 +121,8 @@ class InvestigationFormCommand(ArxCommand):
         form = self.finished_form
         if not form:
             return
+        if not self.check_enough_time_left():
+            return
         if not self.pay_costs():
             return
         ob = self.create_obj_from_form(form)
@@ -196,6 +199,17 @@ class InvestigationFormCommand(ArxCommand):
             if "finish" in self.switches:
                 self.do_finish()
                 return True
+
+    def check_enough_time_left(self):
+        """Returns True if they have enough time left to create/modify an investigation, False otherwise."""
+        from evennia.scripts.models import ScriptDB
+        from datetime import timedelta
+        script = ScriptDB.objects.get(db_key="Weekly Update")
+        day = timedelta(hours=24, minutes=5)
+        if script.time_remaining < day:
+            self.msg("It is too close to the end of the week to do that.")
+            return False
+        return True
 
 
 class CmdAssistInvestigation(InvestigationFormCommand):
@@ -355,6 +369,8 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                 already_investigating = False
         except AttributeError:
             already_investigating = False
+        if not already_investigating and not self.check_enough_time_left():
+            return
         if not already_investigating and not self.check_ap_cost():
             return
         current_qs = self.helper.assisted_investigations.filter(currently_helping=True)
@@ -491,6 +507,8 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             if char.assisted_investigations.filter(currently_helping=True):
                 self.msg("%s is already assisting an investigation." % char)
                 return
+            if not self.check_enough_time_left():
+                return
             try:
                 ob = char.assisted_investigations.get(investigation__id=self.lhs)
             except (ValueError, TypeError, InvestigationAssistant.DoesNotExist):
@@ -525,6 +543,8 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                 investigation_id = self.lhs
             try:
                 ob = char.assisted_investigations.get(investigation__id=investigation_id)
+                if not self.check_enough_time_left():
+                    return
                 if "changestory" in self.switches:
                     ob.actions = self.rhs
                     field = "story"
@@ -758,12 +778,7 @@ class CmdInvestigate(InvestigationFormCommand):
         inform_staff(staffmsg)
 
     def create_form(self):
-        from evennia.scripts.models import ScriptDB
-        from datetime import timedelta
-        script = ScriptDB.objects.get(db_key="Weekly Update")
-        day = timedelta(hours=24, minutes=5)
-        if script.time_remaining < day:
-            self.msg("It is too close to the end of the week to create another investigation.")
+        if not self.check_enough_time_left():
             return
         super(CmdInvestigate, self).create_form()
 
@@ -797,6 +812,8 @@ class CmdInvestigate(InvestigationFormCommand):
                 msg = "To mark an investigation as active, use /active."
                 if ob.ongoing:
                     self.msg("Already ongoing. %s" % msg)
+                    return
+                if not self.check_enough_time_left():
                     return
                 ob.ongoing = True
                 ob.save()
@@ -844,6 +861,8 @@ class CmdInvestigate(InvestigationFormCommand):
                 if check_break() and not ob.targeted_clue:
                     self.msg("Investigations that do not target a clue cannot be marked active during the break.")
                     return
+                if not self.check_enough_time_left():
+                    return
                 if current_active:
                     if not current_active.automate_result:
                         caller.msg("You already have an active investigation " +
@@ -866,6 +885,8 @@ class CmdInvestigate(InvestigationFormCommand):
                 caller.msg("%s set to active." % ob)
                 return
             if "silver" in self.switches:
+                if not self.check_enough_time_left():
+                    return
                 amt = caller.db.currency or 0.0
                 try:
                     val = int(self.rhs)
@@ -887,6 +908,8 @@ class CmdInvestigate(InvestigationFormCommand):
                 caller.msg("You add %s silver to the investigation." % val)
                 return
             if "actionpoints" in self.switches:
+                if not self.check_enough_time_left():
+                    return
                 if not ob.active:
                     self.msg("The investigation must be marked active to invest AP in it.")
                     return
@@ -910,6 +933,8 @@ class CmdInvestigate(InvestigationFormCommand):
                 caller.msg("You add %s action points to the investigation." % val)
                 return
             if "resource" in self.switches or "resources" in self.switches:
+                if not self.check_enough_time_left():
+                    return
                 try:
                     rtype, val = self.rhslist[0].lower(), int(self.rhslist[1])
                     if val <= 0:
