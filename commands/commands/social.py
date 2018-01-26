@@ -3090,6 +3090,9 @@ class CmdGetInLine(ArxCommand):
         if not self.check_line() or not self.can_alter_line():
             return
         line = self.line
+        if not line:
+            self.msg("No one is next in line.")
+            return
         next_guy = line.pop(0)
         from six import string_types
         is_string = isinstance(next_guy, string_types)
