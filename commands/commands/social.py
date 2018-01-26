@@ -190,6 +190,9 @@ class CmdWhere(ArxPlayerCommand):
             applicable_chars = [ob.entry.character
                                 for ob in AccountHistory.objects.unclaimed_impressions(caller.roster)]
         for room in rooms:
+            # somehow can get Character in queryset rather than ArxRoom
+            if not hasattr(room, 'get_visible_characters'):
+                continue
             charlist = sorted(room.get_visible_characters(caller), key=lambda x: x.name)
             charlist = [ob for ob in charlist if not ob.player_ob.db.hide_from_watch]
             if self.check_switches(self.filter_switches):
