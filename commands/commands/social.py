@@ -167,14 +167,14 @@ class CmdWhere(ArxPlayerCommand):
         if "shops" in self.switches:
             self.list_shops()
             return
-        rooms = ArxRoom.objects.filter(Q(locations_set__db_typeclass_path=settings.BASE_CHARACTER_TYPECLASS) &
-                                       ~Q(db_tags__db_key__iexact="private") &
-                                       ~Q(locations_set__db_tags__db_key__iexact="disguised")
-                                       ).distinct().order_by('db_key')
+        characters = Character.objects.filter(Q(roster__roster__name="Active")
+                                              ).exclude(db_tags__db_key__iexact="disguised")
         if self.args:
-            q_list = map(lambda n: Q(locations_set__db_key__iexact=n), self.lhslist)
-            q_list = reduce(lambda a, b: a | b, q_list)
-            rooms = rooms.filter(q_list)
+            name_list = map(lambda n: Q(db_key__iexact=n), self.lhslist)
+            name_list = reduce(lambda a, b: a | b, name_list)
+            characters = [ob.id for ob in characters.filter(name_list) if not ob.player_ob.db.hide_from_watch]
+        rooms = ArxRoom.objects.exclude(db_tags__db_key__iexact="private").filter(locations_set__in=characters
+                                                                                  ).distinct().order_by('db_key')
         if not rooms:
             caller.msg("No visible characters found.")
             return
@@ -191,6 +191,7 @@ class CmdWhere(ArxPlayerCommand):
                                 for ob in AccountHistory.objects.unclaimed_impressions(caller.roster)]
         for room in rooms:
             charlist = sorted(room.get_visible_characters(caller), key=lambda x: x.name)
+            charlist = [ob for ob in charlist if not ob.player_ob.db.hide_from_watch]
             if self.check_switches(self.filter_switches):
                 charlist = [ob for ob in charlist if ob in applicable_chars and not ob.is_disguised]
             elif "watch" in self.switches:
@@ -1502,10 +1503,10 @@ class CmdCalendar(ArxPlayerCommand):
                 try:
                     room_id = int(self.lhs)
                     plotrooms = PlotRoom.objects.filter(Q(id=room_id)
-                                                       & (Q(creator=callernpc) | Q(public=True)))
+                                                        & (Q(creator=callernpc) | Q(public=True)))
                 except ValueError:
                     plotrooms = PlotRoom.objects.filter(Q(name__icontains=self.lhs)
-                                                       & (Q(creator=callernpc) | Q(public=True)))
+                                                        & (Q(creator=callernpc) | Q(public=True)))
 
                 if not plotrooms:
                     caller.msg("No plotrooms found matching %s" % self.lhs)
@@ -1798,7 +1799,8 @@ class CmdCalendar(ArxPlayerCommand):
             event.location = None
             event.plotroom = plotrooms[0]
             event.save()
-            self.msg("Moved event to plot room |w%s|n (in %s)." % (plotrooms[0].name, plotrooms[0].get_detailed_region_name()))
+            self.msg("Moved event to plot room |w%s|n (in %s)." % (plotrooms[0].name,
+                                                                   plotrooms[0].get_detailed_region_name()))
             return
 
         if "cancel" in self.switches:
@@ -2118,7 +2120,8 @@ class CmdSocialScore(ArxCommand):
                     if (slice_end < 0) or (slice_start < 0) or (slice_end - slice_start > 200):
                         raise ValueError
                 except (ValueError, TypeError):
-                    caller.msg("Two positive numbers can be specified as start and endpoints, not to exceed 200 results. Example: =0,100")
+                    caller.msg("Two positive numbers can be specified as start and endpoints, "
+                               "not to exceed 200 results. Example: =0,100")
                     return
             rep = rep[slice_start:slice_end]
             table = PrettyTable(["{wName{n", "{wOrganization{n", "{wAffection{n", "{wRespect{n"])
@@ -2869,8 +2872,8 @@ class CmdFirstImpression(ArxCommand):
             location = "at your location "
             qs = qs.filter(entry__character__db_location=self.caller.location)
         players = sorted(set(ob.entry.player for ob in qs), key=lambda x: x.username.capitalize())
-        self.msg("{wPlayers %syou haven't written a first impression for yet:{n %s" % (location,
-                                                                         ", ".join(str(ob) for ob in players)))
+        self.msg("{wPlayers %syou haven't written a first impression for yet:{n %s" %
+                 (location, ", ".join(str(ob) for ob in players)))
 
     def func(self):
         """Executes firstimpression command"""
@@ -3110,6 +3113,7 @@ class CmdGetInLine(ArxCommand):
         self.display_line()
     
     def can_alter_line(self):
+        """Returns whether they have permission to change the line"""
         hosts = self.hosts
         caller = self.caller
         if caller not in hosts and not caller.check_permstring("builders"):
@@ -3144,6 +3148,7 @@ class CmdGetInLine(ArxCommand):
         self.display_line()
         
     def toggle_loop(self):
+        """Toggles whether the line will automatically loop"""
         if not self.can_alter_line():
             return
         if self.loop:
