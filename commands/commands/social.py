@@ -192,6 +192,8 @@ class CmdWhere(ArxPlayerCommand):
         for room in rooms:
             # somehow can get Character in queryset rather than ArxRoom
             if not hasattr(room, 'get_visible_characters'):
+                from evennia.utils.logger import log_err
+                log_err("Object ID: %s is not a room despite being from ArxRoom queryset." % room.id)
                 continue
             charlist = sorted(room.get_visible_characters(caller), key=lambda x: x.name)
             charlist = [ob for ob in charlist if not ob.player_ob.db.hide_from_watch]
