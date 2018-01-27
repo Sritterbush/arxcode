@@ -1042,7 +1042,6 @@ class Investigation(AbstractPlayerAllocations):
         except (AttributeError, TypeError, ValueError):
             pass
         # save the character's roll
-        print("final roll is %s" % roll)
         self.roll = roll
         self.save()
         return roll
