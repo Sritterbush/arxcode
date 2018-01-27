@@ -3039,7 +3039,7 @@ class CmdSupport(ArxCommand):
             # display requests and cooldowns
             chars = [ObjectDB.objects.get(id=r_id) for r_id in requests.keys()]
             chars = [ob for ob in chars if ob]
-            msg = "Pending requests: "
+            msg = "Pending requests:\n"
             for char in chars:
                 if not char:
                     continue
@@ -3051,7 +3051,7 @@ class CmdSupport(ArxCommand):
                     del requests[char.id]
                     caller.db.requested_support = requests
                     continue
-                msg += "%s (valid categories: %s)\n" % (char, atask.task.reqs)
+                msg += "{c%s{n (valid categories: %s)\n" % (char, atask.task.reqs)
             caller.msg(msg)
             table = PrettyTable(["{wName{n", "{wMax Points Allowed{n"])
             for c_id in cooldowns:
