@@ -760,7 +760,7 @@ class ClueDiscovery(SharedMemoryModel):
         if self.message:
             if self.date:
                 msg += self.date.strftime("%x %X") + " "
-            msg +=  self.message + "\n"
+            msg += self.message + "\n"
         if show_sharing:
             shared = self.shared_with
             if shared:
