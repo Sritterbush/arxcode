@@ -1726,6 +1726,7 @@ class CmdTidyUp(ArxCommand):
     public or a room you own.
     """
     key = "+tidy"
+    aliases = ["+gohomeyouredrunk"]
     locks = "cmd:all()"
 
     def func(self):
