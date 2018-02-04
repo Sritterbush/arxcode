@@ -218,6 +218,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
 
     Usage:
         @helpinvestigate
+        @helpinvestigate/history
         @helpinvestigate/new
         @helpinvestigate/retainer <retainer ID>
         @helpinvestigate/target <investigation ID #>
@@ -411,14 +412,18 @@ class CmdAssistInvestigation(InvestigationFormCommand):
     def disp_currently_helping(self, char):
         self.msg("%s and retainers is helping the following investigations:" % char)
         table = PrettyTable(["ID", "Character", "Investigation Owner", "Currently Helping"])
-        investigations = list(char.assisted_investigations.all())
-        for retainer in char.player_ob.retainers.all():
-            try:
-                retainer_investigations = list(retainer.dbobj.assisted_investigations.all())
-            except AttributeError:
-                continue
-            if retainer_investigations:
-                investigations.extend(retainer_investigations)
+        if "history" in self.switches:
+            investigations = char.assisted_investigations.filter(investigation__ongoing=False)
+        else:
+            investigations = char.assisted_investigations.filter(investigation__ongoing=True)
+        retainers = [retainer.dbobj.id for retainer in char.player_ob.retainers.all() if retainer.dbobj]
+        if "history" in self.switches:
+            retainer_investigations = InvestigationAssistant.objects.filter(char__in=retainers,
+                                                                            investigation__ongoing=False)
+        else:
+            retainer_investigations = InvestigationAssistant.objects.filter(char__in=retainers,
+                                                                            investigation__ongoing=True)
+        investigations = list(investigations) + list(retainer_investigations)
         for ob in investigations:
             def apply_color(object_to_format):
                 if ob.investigation.active:
@@ -460,7 +465,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         finished = super(CmdAssistInvestigation, self).func()
         if finished:
             return
-        if not self.args and not self.switches:
+        if not self.args and not self.switches or "history" in self.switches:
             if self.investigation_form:
                 self.disp_investigation_form()
             self.disp_invites()
