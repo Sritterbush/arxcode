@@ -195,6 +195,7 @@ class CmdGlance(ArxCommand):
 
     Usage:
         glance <character>
+        glance/pcs
 
     Lets you see some information at a character in the same
     room as you.
@@ -215,6 +216,8 @@ class CmdGlance(ArxCommand):
         caller = self.caller
         if not self.args:
             charlist = [ob for ob in caller.location.contents if ob != caller and hasattr(ob, 'return_extras')]
+            if "pcs" in self.switches:
+                charlist = [ob for ob in charlist if ob.player]
         else:
             char = caller.search(self.args)
             if not char:
@@ -398,6 +401,7 @@ class CmdWhisper(ArxCommand):
       whisper[/switches] [<player>,<player>,... = <message>]
       whisper =<message> - sends whisper to last person you whispered
       whisper <name> <message>
+      whisper/mutter
       whisper/list <number> - Displays list of last <number> of recent whispers
 
     Switch:
@@ -411,7 +415,8 @@ class CmdWhisper(ArxCommand):
     expected that for whispers during public roleplay scenes that the players
     involved should pose to the room with some small mention that they're
     communicating discreetly. For ooc messages, please use the 'page'/'tell'
-    command instead.
+    command instead. If the /mutter switch is used, some of your whisper will
+    be overheard by the room. Mutter cannot be used for whisper-poses.
 
     If no argument is given, you will get a list of your whispers from this
     session.
@@ -524,6 +529,7 @@ class CmdWhisper(ArxCommand):
             return
         header = "{c%s{n whispers," % caller.name
         message = rhs
+        mutter_text = ""
         # if message begins with a :, we assume it is a 'whisper-pose'
         if message.startswith(":"):
             message = "%s {c%s{n %s" % ("Discreetly,", caller.name, message.strip(':').strip())
@@ -534,6 +540,7 @@ class CmdWhisper(ArxCommand):
         else:
             is_a_whisper_pose = False
             message = '"' + message + '"'
+
         # create the temporary message object
         temp_message = TempMsg(senders=caller, receivers=recobjs, message=message)
 
@@ -578,6 +585,23 @@ class CmdWhisper(ArxCommand):
                 self.msg("You posed to %s: %s" % (", ".join(received), message))
             else:
                 self.msg("You whispered to %s, %s" % (", ".join(received), message))
+                if "mutter" in self.switches:
+                    from random import randint
+                    word_list = rhs.split()
+                    chosen = []
+                    num_real = 0
+                    for word in word_list:
+                        if randint(0, 2):
+                            chosen.append(word)
+                            num_real += 1
+                        else:
+                            chosen.append("...")
+                    if num_real:
+                        mutter_text = " ".join(chosen)
+                if mutter_text:
+                    emit_string = ' mutters, "%s{n"' % mutter_text
+                    exclude = [caller] + recobjs
+                    caller.location.msg_action(self.caller, emit_string, options={'is_pose': True}, exclude=exclude)
         caller.posecount += 1
 
 
@@ -1726,6 +1750,7 @@ class CmdTidyUp(ArxCommand):
     public or a room you own.
     """
     key = "+tidy"
+    aliases = ["+gohomeyouredrunk"]
     locks = "cmd:all()"
 
     def func(self):

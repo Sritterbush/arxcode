@@ -49,7 +49,7 @@ class Place(Object):
         self.db.occupants = occupants
         self.location.msg_contents("%s has joined the %s." % (character.name, self.key), exclude=character)
     
-    def tt_msg(self, message, from_obj, exclude=None, emit=False):
+    def tt_msg(self, message, from_obj, exclude=None, emit=False, options=None):
         """
         Send msg to characters at table. Note that if this method was simply named
         'msg' rather than tt_msg, it would be called by msg_contents in rooms, causing
@@ -65,7 +65,7 @@ class Place(Object):
                     formatted_message = "{w[{c%s{w]{n %s" % (from_obj, message)
                 else:
                     formatted_message = message
-                ob.msg(formatted_message, from_obj=from_obj, options={'is_pose': True})
+                ob.msg(formatted_message, from_obj=from_obj, options=options)
         from_obj.posecount += 1
 
     def at_after_move(self, source_location, **kwargs):

@@ -269,12 +269,21 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
         """Prints a table of the actions we've taken"""
         table = EvTable("ID", "Crisis", "Date", "Attend", "Status")
         actions = self.actions_and_invites
+        attending = list(actions.filter(Q(dompc=self.dompc, attending=True) | Q(assisting_actions__dompc=self.dompc,
+                                                                                assisting_actions__attending=True)))
         for action in actions:
             date = "--"
             if action.date_submitted:
                 date = action.date_submitted.strftime("%x")
-            table.add_row(action.id, action.crisis, date, action.attending,
-                          action.get_status_display())
+
+            def color_unsubmitted(string):
+                """Colors the status display for assisting actions of the player that aren't ready to submit"""
+                if action.status == CrisisAction.DRAFT and action.check_unready_assistant(self.dompc):
+                    return "|r%s|n" % string
+                return string
+
+            table.add_row(action.id, str(action.crisis)[:30], date, action in attending,
+                          color_unsubmitted(action.get_status_display()))
         self.msg(table)
     
     def send_no_args_msg(self, noun):

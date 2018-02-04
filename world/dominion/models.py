@@ -2549,6 +2549,18 @@ class CrisisAction(AbstractAction):
                 unready.append(ob)
         return unready
 
+    def check_unready_assistant(self, dompc):
+        """Checks a given dompc being unready"""
+        try:
+            assist = self.assisting_actions.get(dompc=dompc)
+            assist.raise_submission_errors()
+        except CrisisActionAssistant.DoesNotExist:
+            return False
+        except ActionSubmissionError:
+            return True
+        else:
+            return False
+
     @property
     def attendees(self):
         """Returns list of authors of all actions and assists if physically present"""

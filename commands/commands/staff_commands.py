@@ -1168,10 +1168,11 @@ class CmdJournalAdminForDummies(ArxPlayerCommand):
                 self.msg("{rEntries did not match.")
                 self.msg("{rSelected originally:{n %s" % self.caller.ndb.confirm_msg_convert.db_message)
                 self.msg("{rSelected this time:{n %s" % entry.db_message)
-                return
-            charob.messages.convert_to_black(entry)
-            self.msg("{rConverted.{n")
-            inform_staff("%s moved %s's journal to black:\n%s" % (self.caller, charob, entry.db_message))
+                self.msg("Previous selection cleared. You can select it again, for reals this time, then confirm.")
+            else:
+                charob.messages.convert_to_black(entry)
+                self.msg("{rConverted.{n")
+                inform_staff("%s moved %s's journal to black:\n%s" % (self.caller, charob, entry.db_message))
             self.caller.ndb.confirm_msg_convert = None
             return
         self.msg("Invalid switch.")

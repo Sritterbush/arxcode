@@ -183,6 +183,7 @@ class CmdTableTalk(ArxCommand):
 
     Usage:
         tt <message>
+        tt/ooc <message>
 
     Sends a message to your current table. You may pose at the table by
     starting a message with ':' or ';'. ':' has a space after your name,
@@ -209,7 +210,12 @@ class CmdTableTalk(ArxCommand):
         if not table:
             caller.msg("You are not sitting at a private table currently.")
             return
-        prefix = "At the %s," % table.key
+        options = {'is_pose': True}
+        ooc_string = ""
+        if "ooc" in self.switches:
+            options = {}
+            ooc_string = "|w(OOC)|n "
+        prefix = "%sAt the %s," % (ooc_string, table.key)
         # get the first character to see if it's special
         start_char = args[0]
         if start_char in self.char_symbols:
@@ -224,7 +230,8 @@ class CmdTableTalk(ArxCommand):
                 msg = "%s {c%s{n%s" % (prefix, caller.name, msg)
                 emit = False
             # gives the message, its sender, and whether it's an emit
-            table.tt_msg(msg, from_obj=caller, emit=emit)
+            table.tt_msg(msg, from_obj=caller, emit=emit, options=options)
             return
-        caller.msg('%s you say, "%s"' % (prefix, args))
-        table.tt_msg('%s {c%s{n says, "%s"' % (prefix, caller.name, args), from_obj=caller, exclude=caller)
+        caller.msg('%s you say, "%s"' % (prefix, args), options=options, from_obj=caller)
+        table.tt_msg('%s {c%s{n says, "%s"' % (prefix, caller.name, args), from_obj=caller,
+                     exclude=caller, options=options)

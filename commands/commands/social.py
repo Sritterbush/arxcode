@@ -3035,7 +3035,10 @@ class CmdGetInLine(ArxCommand):
         loc = self.caller.location
         if loc.ndb.event_line is None:
             loc.ndb.event_line = []
-        loc.ndb.event_line = [ob for ob in loc.ndb.event_line if ob.location == loc]
+        else:  # cleanup line
+            for ob in loc.ndb.event_line[:]:
+                if hasattr(ob, 'location') and ob.location != self.caller.location:
+                    loc.ndb.event_line.remove(ob)
         return loc.ndb.event_line
 
     @line.setter

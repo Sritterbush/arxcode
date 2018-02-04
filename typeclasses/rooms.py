@@ -782,6 +782,7 @@ class TempRoom(ArxRoom):
         return True
 
     def at_object_leave(self, obj, target_location):
-        if obj.has_player or (hasattr(obj.is_character) and obj.is_character):
+        """Override of at_object_leave hook for soft-deleting this room once it's empty"""
+        if obj.has_player or (hasattr(obj, 'is_character') and obj.is_character):
             if self.is_empty_except(obj):
                 self.softdelete()
