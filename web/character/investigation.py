@@ -1317,7 +1317,7 @@ class CmdListRevelations(ArxPlayerCommand):
             return
         self.msg(rev.display())
         clues = self.caller.roster.finished_clues.filter(clue__revelations=rev.revelation)
-        self.msg("Related Clues: %s" % ", ".join(str(clue.clue) for clue in clues))
+        self.msg("Related Clues: %s" % "; ".join(str(clue.clue) for clue in clues))
 
 
 class CmdListMysteries(ArxPlayerCommand):
