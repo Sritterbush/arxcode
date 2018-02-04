@@ -721,7 +721,7 @@ class CmdArxSay(CmdSay):
         if current and current.lower() != "arvani":
             langstring = " in %s" % current.capitalize()
             options.update({'language': current, 'msg_content': speech})
-        self.caller.msg('You say%s, "%s{n"' % (langstring, speech))
+        self.caller.msg('You say%s, "%s{n"' % (langstring, speech), from_obj=self.caller, options=options)
         # Build the string to emit to neighbors.
         pre_name_emit_string = ' says%s, "%s{n"' % (langstring, speech)
         self.caller.location.msg_action(self.caller, pre_name_emit_string, exclude=[self.caller], options=options)

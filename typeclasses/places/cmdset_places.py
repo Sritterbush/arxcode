@@ -226,5 +226,5 @@ class CmdTableTalk(ArxCommand):
             # gives the message, its sender, and whether it's an emit
             table.tt_msg(msg, from_obj=caller, emit=emit)
             return
-        caller.msg('%s you say, "%s"' % (prefix, args))
+        caller.msg('%s you say, "%s"' % (prefix, args), options={'is_pose': True}, from_obj=caller)
         table.tt_msg('%s {c%s{n says, "%s"' % (prefix, caller.name, args), from_obj=caller, exclude=caller)
