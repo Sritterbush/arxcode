@@ -195,6 +195,7 @@ class CmdGlance(ArxCommand):
 
     Usage:
         glance <character>
+        glance/pcs
 
     Lets you see some information at a character in the same
     room as you.
@@ -215,6 +216,8 @@ class CmdGlance(ArxCommand):
         caller = self.caller
         if not self.args:
             charlist = [ob for ob in caller.location.contents if ob != caller and hasattr(ob, 'return_extras')]
+            if "pcs" in self.switches:
+                charlist = [ob for ob in charlist if ob.player]
         else:
             char = caller.search(self.args)
             if not char:
