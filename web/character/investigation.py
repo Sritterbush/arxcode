@@ -376,9 +376,11 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             return
         if not already_investigating and not self.check_ap_cost():
             return
-        current_qs = self.helper.assisted_investigations.filter(currently_helping=True)
+        current_qs = self.helper.assisted_investigations.filter(currently_helping=True).exclude(id=created_object.id)
         if current_qs:
-            current_qs.update(currently_helping=False)
+            for ob in current_qs:
+                ob.currently_helping = False
+                ob.save()
             self.msg("%s was currently helping another investigation. Switching." % self.helper)
         if not already_investigating:
             created_object.currently_helping = True

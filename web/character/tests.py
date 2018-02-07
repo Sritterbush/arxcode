@@ -60,6 +60,9 @@ class InvestigationTests(ArxCommandTest):
         self.call_cmd("/finish", 'You must have a story defined.')
         self.call_cmd("/story test", 'Helping an investigation:|Investigation: 1|Story: test|Stat: |Skill: '
                                      '|Assisting Character: Char')
+        with patch.object(self.cmd_class, 'check_enough_time_left') as fake_method:
+            fake_method.return_value = True
+            self.call_cmd("/finish", "Char is now helping Char2's investigation on .")
 
 
 class SceneCommandTests(ArxCommandTest):
