@@ -48,6 +48,19 @@ class InvestigationTests(ArxCommandTest):
         self.call_cmd("4", "test clue2\nRating: 50\ntest clue2 desc\n%s This clue was shared with you by Char,"
                       " who noted: Love Tehom\n" % now.strftime("%x %X"))
 
+    def test_cmd_helpinvestigate(self):
+        self.roster_entry2.investigations.create()
+        self.setup_cmd(investigation.CmdAssistInvestigation, self.char1)
+        self.char1.db.investigation_invitations = [1]
+        self.call_cmd("/new", 'Helping an investigation:|Investigation: |Story: |Stat: |Skill: '
+                              '|Assisting Character: Char')
+        self.call_cmd("/target 2", 'No investigation by that ID.')
+        self.call_cmd("/target 1", 'Helping an investigation:|Investigation: 1|Story: |Stat: |Skill: '
+                                   '|Assisting Character: Char')
+        self.call_cmd("/finish", 'You must have a story defined.')
+        self.call_cmd("/story test", 'Helping an investigation:|Investigation: 1|Story: test|Stat: |Skill: '
+                                     '|Assisting Character: Char')
+
 
 class SceneCommandTests(ArxCommandTest):
     def test_cmd_flashback(self):
