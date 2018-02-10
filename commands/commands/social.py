@@ -922,6 +922,28 @@ class CmdMessenger(ArxCommand):
         if unread:
             caller.msg("{mYou have {w%s{m new messengers waiting to be received." % len(unread))
 
+    def check_cannot_use_messengers(self, target):
+        """
+        Checks if the target can receive messengers. If not, we send an error message.
+        Args:
+            target: Character to check
+
+        Returns:
+            True if they can't receive messengers, False if they can.
+        """
+        fail = False
+        if self.caller.check_permstring("builders"):
+            return fail
+        if target.tags.get("no_messengers"):
+            fail = True
+        elif target.location and target.location.tags.get("no_messengers"):
+            fail = True
+        elif target.combat.combat and target in target.combat.combat.ndb.combatants:
+            fail = True
+        if fail:
+            self.msg("%s cannot send or receive messengers at the moment." % target.key)
+        return fail
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -950,6 +972,8 @@ class CmdMessenger(ArxCommand):
             return
         # get the first new messenger we have waiting
         if "receive" in self.switches:
+            if self.check_cannot_use_messengers(self.caller):
+                return
             caller.messages.receive_pending_messenger()
             return
         # display an old message
@@ -1029,6 +1053,8 @@ class CmdMessenger(ArxCommand):
             caller.msg(msg[1])
             return
         if "send" in self.switches:
+            if self.check_cannot_use_messengers(self.caller):
+                return
             caller.messages.send_draft_message()
             caller.ndb.already_previewed = None
             return
@@ -1152,11 +1178,11 @@ class CmdMessenger(ArxCommand):
             targ = self.caller.player.search(arg)
             if targ:
                 can_deliver = True
-                character = targ.db.char_ob
+                character = targ.char_ob
                 if not character:
                     can_deliver = False
-                elif "no_messengers" in character.tags.all():
-                    can_deliver = False
+                elif self.check_cannot_use_messengers(character):
+                    continue
                 elif not hasattr(targ, 'roster') or not targ.roster.roster:
                     can_deliver = False
                 elif targ.roster.roster.name not in ("Active", "Unavailable", "Available", "Inactive"):
