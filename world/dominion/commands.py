@@ -2624,7 +2624,7 @@ class CmdTask(ArxCommand):
                 caller.msg("{wCurrent rumors (both yours and supporters):{n %s" % assign.story)
                 caller.msg("{wCurrent story:{n %s" % assign.notes)
                 asklist = asked_supporters.get(assign.id, [])
-                caller.msg("{wPlayers asked for support:{n %s" % ", ".join(str(ob) for ob in asklist))
+                caller.msg("{wPlayers asked for support:{n %s" % ", ".join(ob.key for ob in asklist))
             return
         if "history" in self.switches or "setfinishedrumors" in self.switches:
             # display our completed tasks
