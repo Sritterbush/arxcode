@@ -2284,14 +2284,22 @@ class CmdRandomScene(ArxCommand):
         @randomscene/viewrequests
         @randomscene/online
 
-    Generates three characters who you can receive bonus xp for this week
-    by having an RP scene with them. Executing the command generates the
-    names, and then once you meet with the player and have a scene with
-    them, using @randomscene/claim will send a request to that player to
-    validate the scene you both had. If they agree, during the weekly script
-    you'll both receive xp. Requests that aren't answered are wiped in
-    weekly maintenance. /claim requires that both of you be in the same room.
-    @randomscene/online will only display players who are currently in the game.
+    Generates three characters, as well as new characters within their first
+    two weeks of play, who you can receive bonus xp for this week by having
+    an RP scene with them. Executing the command generates the names, and
+    then once you meet with the player and have a scene with them, using
+    @randomscene/claim will send a request to that player to validate the
+    scene you both had. If they agree, during the weekly script you'll both
+    receive xp. Requests that aren't answered are wiped in weekly maintenance.
+    /claim requires that both of you be in the same room. @randomscene/online
+    will only display players who are currently in the game.
+
+    Players should only use @randomscene/claim for meaningful interaction in a
+    scene, not simply being in the same room and/or acknowledging them in
+    passing. If someone uses @randomscene/claim on your PC without meaningful
+    interaction, please do not @randomscene/validate the request, and please
+    let staff know. The player claimed will receive XP whether or not they
+    validate.
     """
     key = "@randomscene"
     aliases = ["@rs", "randomscene"]
