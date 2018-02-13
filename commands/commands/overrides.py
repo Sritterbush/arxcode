@@ -407,6 +407,9 @@ class CmdGive(ArxCommand):
         if target == caller:
             caller.msg("You cannot give things to yourself.")
             return
+        if not target.player_ob:
+            self.msg("You cannot give anything to them. Use 'put' instead.")
+            return
         if "mats" in self.switches:
             lhslist = self.lhs.split(",")
             try:

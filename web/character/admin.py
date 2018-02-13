@@ -150,7 +150,7 @@ class ClueDiscoInline(admin.TabularInline):
 class ClueAdmin(BaseCharAdmin):
     """Admin for Clues"""
     list_display = ('id', 'name', 'rating', 'used_for')
-    search_fields = ('id', 'name', 'characters__character__db_key', 'revelations__name', 'search_tags__name')
+    search_fields = ('id', 'name', '=revelations__name', '=search_tags__name')
     inlines = (ClueForRevInline,)
     filter_horizontal = ('search_tags',)
     raw_id_fields = ('event',)

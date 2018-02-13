@@ -75,7 +75,7 @@ class CombatHandler(object):
             self.autoattack = character.db.autoattack or False
             self.base_name = character.name
             self.plural_name = character.name
-        if not character.player:
+        if not character.player_ob:
             self.automated = True
             self.autoattack = True
         self._ready = False

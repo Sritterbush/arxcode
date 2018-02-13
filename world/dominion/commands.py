@@ -2624,7 +2624,7 @@ class CmdTask(ArxCommand):
                 caller.msg("{wCurrent rumors (both yours and supporters):{n %s" % assign.story)
                 caller.msg("{wCurrent story:{n %s" % assign.notes)
                 asklist = asked_supporters.get(assign.id, [])
-                caller.msg("{wPlayers asked for support:{n %s" % ", ".join(str(ob) for ob in asklist))
+                caller.msg("{wPlayers asked for support:{n %s" % ", ".join(ob.key for ob in asklist))
             return
         if "history" in self.switches or "setfinishedrumors" in self.switches:
             # display our completed tasks
@@ -2833,7 +2833,7 @@ class CmdTask(ArxCommand):
                     matches = self.match_char_spheres_for_task(assignment, char)
                     requests[caller.id] = assignment.id
                     char.db.requested_support = requests
-                    mailmsg = "%s has asked you to support them in their task:" % caller.name
+                    mailmsg = "%s has asked you to support them in their task:" % caller.key
                     mailmsg += "\n" + assignment.current_alt_echo
                     if reminder:
                         mailmsg += "\nYou already have a pending request for that task, and they are "
@@ -2869,7 +2869,7 @@ class CmdTask(ArxCommand):
                     success.append(char)
                 if not success:
                     return
-                caller.msg("You ask for the support of %s." % ", ".join(char.name for char in success))
+                caller.msg("You ask for the support of %s." % ", ".join(char.key for char in success))
                 caller.msg(warnmsg)
                 # update asklist
                 asked_supporters[assignment.id] = asklist

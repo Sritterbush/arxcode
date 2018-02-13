@@ -305,3 +305,15 @@ class SocialTests(ArxCommandTest):
         self.call_cmd("/add catname=desc", "Added rphook tag: catname: desc.")
         self.call_cmd("/remove foo", "No rphook by that category name.")
         self.call_cmd("/remove catname", "Removed.")
+
+    def test_cmd_messenger(self):
+        self.setup_cmd(social.CmdMessenger, self.char2)
+        self.char1.tags.add("no_messengers")
+        self.char2.tags.add("no_messengers")
+        self.call_cmd("testaccount=hiya", 'Char cannot send or receive messengers at the moment.'
+                                          '|No valid receivers found.')
+        self.char2.tags.remove("no_messengers")
+        self.call_cmd("testaccount=hiya", 'Char cannot send or receive messengers at the moment.'
+                                          '|No valid receivers found.')
+        self.char1.tags.remove("no_messengers")
+        self.call_cmd("testaccount=hiya", "You dispatch a messenger to Char with the following message:\n\n'hiya'")

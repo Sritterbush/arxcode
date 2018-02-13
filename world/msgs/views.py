@@ -363,14 +363,14 @@ def post_view_unread(request):
                                                                    ).order_by('db_receivers_objects')
 
     alts = []
+    alt_unread_posts = []
     if request.user.db.bbaltread:
         try:
             alts = [ob.player for ob in request.user.roster.alts]
         except AttributeError:
             pass
-
-    accounts = [request.user]
-    accounts.extend(alts)
+        if alts:
+            alt_unread_posts = list(unread_posts.exclude(db_receivers_accounts__in=alts))
     ReadPostModel = Post.db_receivers_accounts.through
     bulk_list = []
 
@@ -378,10 +378,13 @@ def post_view_unread(request):
 
     for unread_post in unread_posts:
         mapped_posts.append(post_map(unread_post))
-        for account in accounts:
-            bulk_list.append(ReadPostModel(accountdb=account, msg=unread_post))
+        bulk_list.append(ReadPostModel(accountdb=request.user, msg=unread_post))
+        for alt in alts:
+            if unread_post in alt_unread_posts:
+                bulk_list.append(ReadPostModel(accountdb=alt, msg=unread_post))
 
     # They've read everything, clear out their unread cache count
+    accounts = [request.user] + alts
     for board in raw_boards:
         for account in accounts:
             board.zero_unread_cache(account)

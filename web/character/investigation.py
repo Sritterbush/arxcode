@@ -333,8 +333,10 @@ class CmdAssistInvestigation(InvestigationFormCommand):
     def valid_targ_ids(self):
         invites = self.caller.db.investigation_invitations or []
         if self.helper != self.caller:
-            for ob in self.caller.roster.investigations.filter(ongoing=True):
-                invites.append(ob.id)
+            # if it's a retainer, we add IDs of investigations we're running or assisting as valid for them
+            invites.extend(list(Investigation.objects.filter(Q(character=self.caller.roster) | 
+                                                             Q(assistants__char=self.caller)
+                                                             ).exclude(ongoing=False).values_list('id', flat=True)))
         return invites
 
     def get_target(self):
@@ -374,9 +376,11 @@ class CmdAssistInvestigation(InvestigationFormCommand):
             return
         if not already_investigating and not self.check_ap_cost():
             return
-        current_qs = self.helper.assisted_investigations.filter(currently_helping=True)
+        current_qs = self.helper.assisted_investigations.filter(currently_helping=True).exclude(id=created_object.id)
         if current_qs:
-            current_qs.update(currently_helping=False)
+            for ob in current_qs:
+                ob.currently_helping = False
+                ob.save()
             self.msg("%s was currently helping another investigation. Switching." % self.helper)
         if not already_investigating:
             created_object.currently_helping = True
@@ -398,9 +402,10 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         if not form:
             return
         invest_id, actions, stat, skill = form
-        if invest_id not in self.valid_targ_ids:
+        valid_investigations = self.valid_targ_ids
+        if invest_id not in valid_investigations:
             self.msg("That is not a valid ID of an investigation for %s to assist." % self.helper)
-            self.msg("Valid IDs: %s" % ", ".join(str(ob) for ob in self.valid_targ_ids))
+            self.msg("Valid IDs: %s" % ", ".join(str(ob) for ob in valid_investigations))
             return
         try:
             investigation = Investigation.objects.get(id=invest_id)

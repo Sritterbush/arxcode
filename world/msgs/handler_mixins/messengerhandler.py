@@ -55,7 +55,7 @@ class MessengerHandler(MsgHandlerBase):
         """
         Returns a list of all messengers this character has received. Does not include pending.
         """
-        pending_ids = [tup[0].id for tup in self.pending_messengers]
+        pending_ids = [tup[0].id for tup in self.pending_messengers if tup and tup[0] and hasattr(tup[0], 'id')]
         self._messenger_history = list(self.messenger_qs.exclude(id__in=pending_ids))
         return self._messenger_history
 
@@ -149,8 +149,9 @@ class MessengerHandler(MsgHandlerBase):
         try:
             import numbers
             msg = msgtuple[0]
-            # Very important: The Msg object is unpickled in Attributes as a Msg. It MUST be reloaded as its proxy
-            msg = reload_model_as_proxy(msg)
+            if msg and hasattr(msg, 'id') and msg.id:
+                # Very important: The Msg object is unpickled in Attributes as a Msg. It MUST be reloaded as its proxy
+                msg = reload_model_as_proxy(msg)
             delivered_object = msgtuple[1]
             money_tuple = msgtuple[2]
             # check if the messenger is of old format, pre-conversion. Possible to sit in database for a long time
@@ -168,10 +169,10 @@ class MessengerHandler(MsgHandlerBase):
             forwarded_by = msgtuple[4]
         except IndexError:
             pass
-        except TypeError:
+        except (TypeError, AttributeError):
             import traceback
             traceback.print_exc()
-            self.msg("The message object was in the wrong format, possibly a result of a database error.")
+            self.msg("The message object was in the wrong format or deleted, possibly a result of a database error.")
             inform_staff("%s received a buggy messenger." % self.obj)
             return
         return msg, delivered_object, money, mats, messenger_name, forwarded_by
@@ -243,9 +244,14 @@ class MessengerHandler(MsgHandlerBase):
         # get msg object and any delivered obj
         msg, obj, money, mats, messenger_name, forwarded_by = self.unpack_oldest_pending_messenger(packed)
         # adds it to our list of old messages
-        self.add_messenger_to_history(msg)
+        if msg and hasattr(msg, 'id') and msg.id:
+            self.add_messenger_to_history(msg)
+            self.display_messenger(msg)
+        else:
+            from evennia.utils.logger import log_err
+            self.msg("Error: The msg object no longer exists.")
+            log_err("%s has tried to receive a messenger that no longer exists." % self.obj)
         self.notify_of_messenger_arrival(messenger_name)
-        self.display_messenger(msg)
         # handle anything delivered
         self.handle_delivery(obj, money, mats)
         if forwarded_by:

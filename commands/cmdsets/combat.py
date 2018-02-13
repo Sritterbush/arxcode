@@ -1117,7 +1117,7 @@ class CmdHarm(ArxCommand):
         event = self.caller.location.event
         if not event:
             return False
-        return self.caller.Dominion in event.gms.all()
+        return self.caller.player_ob.Dominion in event.gms.all()
 
 
 class CmdHeal(ArxCommand):
