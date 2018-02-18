@@ -125,7 +125,7 @@ class RevDiscoInline(admin.TabularInline):
 
 class RevelationAdmin(BaseCharAdmin):
     """Admin for revelations"""
-    list_display = ('id', 'name', 'known_by', 'used_for')
+    list_display = ('id', 'name', 'known_by', 'requires', 'used_for')
     inlines = [ClueForRevInline, RevDiscoInline]
     search_fields = ('id', 'name', 'characters__character__db_key', 'mysteries__name')
 
