@@ -571,6 +571,14 @@ class Revelation(SharedMemoryModel):
     def __str__(self):
         return self.name
 
+    @property
+    def total_clue_value(self):
+        return sum(ob.rating for ob in Clue.objects.filter(revelations=self))
+
+    @property
+    def requires(self):
+        return "%d of %d" % (self.required_clue_value, self.total_clue_value)
+
     def check_progress(self, char):
         """
         Returns the total value of the clues used for this revelation by
@@ -586,6 +594,8 @@ class Clue(SharedMemoryModel):
                                               db_index=True)
     desc = models.TextField("Description", help_text="Description of the clue given to the player",
                             blank=True)
+    gm_notes = models.TextField("GM Notes", help_text="Notes visible only to staff/GMs about this clue",
+                                blank=True)
     revelations = models.ManyToManyField("Revelation", through='ClueForRevelation', db_index=True)
     characters = models.ManyToManyField('RosterEntry', blank=True, through='ClueDiscovery', db_index=True,
                                         through_fields=('clue', 'character'))
