@@ -223,6 +223,11 @@ class MaterialsInline(admin.TabularInline):
     model = CraftingMaterials
     extra = 0
 
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'type':
+            kwargs['queryset'] = CraftingMaterialType.objects.order_by('name')
+        return super(MaterialsInline, self).formfield_for_foreignkey(db_field, request, **kwargs)
+
 
 class AssetAdmin(DomAdmin):
     """Admin for the assets of a player or organization"""
