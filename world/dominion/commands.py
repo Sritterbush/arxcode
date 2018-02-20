@@ -22,6 +22,7 @@ from .models import (Region, Domain, Land, PlayerOrNpc, Army, ClueForOrg,
                      TaskSupporter, InfluenceCategory, Minister, PlotRoom)
 from .unit_types import type_from_str
 from world.stats_and_skills import do_dice_check
+from server.utils.arx_utils import inform_staff
 
 # Constants for Dominion projects
 BUILDING_COST = 1000
@@ -1758,6 +1759,7 @@ class CmdOrganization(ArxPlayerCommand):
         @org <name>
         @org/invite <player>[=<org name>]
         @org/setrank <player>=<rank>[, <org name>]
+        @org/setdesc <player>=<desc>[, <org name>]
         @org/boot <player>[=<org name>]
         @org/setruler <player>[=<org name>]
         @org/perm <type>=<rank>[, <org name>]
@@ -1778,6 +1780,14 @@ class CmdOrganization(ArxPlayerCommand):
 
     @org/perm sets permissions for the organization. Use @org/perm with
     no arguments to see the type of permissions you can set.
+
+    @org/briefing and @org/theorybriefing work off of the list of clues
+    and theories associated with the org, which you can see by viewing
+    the org information itself with @org <name> -- if, for instance,
+    you checked @org Valardin and saw a clue there called 'Honor in
+    the Oathlands', you could do @org/briefing <yourname>/Honor in the
+    Oathlands=Valardin to learn that clue yourself, or the name of
+    another player to brief them on the clue.
     """
     key = "@org"
     locks = "cmd:all()"
@@ -1785,7 +1795,7 @@ class CmdOrganization(ArxPlayerCommand):
     org_locks = ("edit", "boot", "withdraw", "setrank", "invite",
                  "setruler", "view", "guards", "build", "briefing", 
                  "declarations", "army", "informs", "transactions",
-                 "viewassets")
+                 "viewassets", "memberdesc")
 
     @staticmethod
     def get_org_and_member(caller, myorgs, args):
@@ -2013,6 +2023,13 @@ class CmdOrganization(ArxPlayerCommand):
                 caller.msg("You are already a member.")
                 caller.ndb.orginvite = None
                 return
+
+            for alt in caller.roster.alts:
+                altorgs = Organization.objects.filter(Q(members__player__player=alt.player)
+                                                      & Q(members__deguilded=False))
+                if org in altorgs:
+                    inform_staff("%s has joined %s, but their alt %s is already a member." % (caller, org, alt))
+
             # check if they were previously booted out, then we just have them rejoin
             try:
                 member = caller.Dominion.memberships.get(Q(deguilded=True)
@@ -2064,6 +2081,49 @@ class CmdOrganization(ArxPlayerCommand):
             player = caller.search(self.lhs)
             if not player:
                 return
+        if 'setdesc' in self.switches:
+            new_desc = None
+            if len(myorgs) < 2:
+                # if they supplied the org even though they don't have to
+                rhs = self.rhs
+                if len(self.rhslist) > 1:
+                    rhs = self.rhslist[0]
+                if not self.rhs.isdigit():
+                    caller.msg("Rank must be a number.")
+                    return
+                new_desc = self.rhs
+                org = myorgs[0]
+                member = caller.Dominion.memberships.get(organization=org)
+            else:
+                if len(self.rhslist) < 2:
+                    caller.msg("You belong to more than one organization, so must supply both rank number and" +
+                               " the organization name.")
+                    return
+                try:
+                    org, member = self.get_org_and_member(caller, myorgs, self.rhslist[1])
+                    new_desc = self.rhslist[0]
+                except Organization.DoesNotExist:
+                    caller.msg("You are not a member of any organization named %s." % self.rhslist[1])
+                    return
+                except (ValueError, TypeError, AttributeError, KeyError):
+                    caller.msg("Invalid syntax. @org/memberdesc player=desc,orgname")
+                    return
+            if not org.access(caller, 'memberdesc'):
+                caller.msg("You do not have permission to set member descriptions.")
+                return
+            tarmember = self.get_member_from_player(org, player)
+            if not tarmember:
+                caller.msg("They are not a member of the organization.")
+                return
+            if len(new_desc) < 1:
+                new_desc = 'True' # Why is this our default/'empty' description?
+            tarmember.desc = new_desc
+            tarmember.save()
+            if new_desc != "True":
+                caller.msg("%s has had their org desc set to '%s'" % (player, new_desc))
+            else:
+                caller.msg("%s has had their org desc cleared." % player)
+            return
         if 'setrank' in self.switches or 'perm' in self.switches or 'rankname' in self.switches:
             if not self.rhs:
                 if 'perm' in self.switches:
@@ -3040,6 +3100,7 @@ class CmdSupport(ArxCommand):
             chars = [ObjectDB.objects.get(id=r_id) for r_id in requests.keys()]
             chars = [ob for ob in chars if ob]
             msg = "Pending requests:\n"
+            has_requests = False
             for char in chars:
                 if not char:
                     continue
@@ -3051,16 +3112,25 @@ class CmdSupport(ArxCommand):
                     del requests[char.id]
                     caller.db.requested_support = requests
                     continue
+                has_requests = True
                 msg += "{c%s{n (valid categories: %s)\n" % (char, atask.task.reqs)
-            caller.msg(msg)
+
+            if has_requests:
+                caller.msg(msg)
+
             table = PrettyTable(["{wName{n", "{wMax Points Allowed{n"])
+            has_existing = False
             for c_id in cooldowns:
                 try:
                     char = ObjectDB.objects.get(id=c_id)
                 except ObjectDB.DoesNotExist:
                     continue
                 table.add_row([char.key, cooldowns[c_id]])
-            caller.msg(str(table))
+                has_existing = True
+
+            if has_existing:
+                caller.msg(str(table))
+
             self.get_support_table()          
             caller.msg("{wSupport points remaining:{n %s" % remaining)
             for memb in dompc.memberships.filter(deguilded=False):
