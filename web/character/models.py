@@ -1325,6 +1325,10 @@ class Theory(SharedMemoryModel):
         Args:
             player: Player to stop being an editor
         """
+        # No, you don't get to remove the creator
+        if player == self.creator:
+            pass
+
         # if they're not an editor, we don't create a theory_permission for them, since that would share theory
         try:
             permission = self.theory_permissions.get(player=player)

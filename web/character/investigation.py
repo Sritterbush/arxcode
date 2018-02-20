@@ -1479,7 +1479,7 @@ class CmdTheories(ArxPlayerCommand):
             return
         if "addeditor" in self.switches or "rmeditor" in self.switches:
             try:
-                theory = self.caller.created_theories.get(id=self.lhs)
+                theory = self.caller.editable_theories.get(id=self.lhs)
             except (Theory.DoesNotExist, ValueError):
                 self.msg("No theory by that ID.")
                 return
@@ -1494,8 +1494,11 @@ class CmdTheories(ArxPlayerCommand):
                 self.msg("%s can now edit the theory." % player)
                 return
             if "rmeditor" in self.switches:
-                theory.remove_editor(player)
-                self.msg("%s cannot edit the theory." % player)
+                if player == theory.creator:
+                    self.msg("%s is the theory's original author, and cannot be removed." % player)
+                else:
+                    theory.remove_editor(player)
+                    self.msg("%s cannot edit the theory." % player)
                 return
         try:
             theory = self.caller.editable_theories.get(id=self.lhs)
