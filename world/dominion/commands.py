@@ -2082,18 +2082,13 @@ class CmdOrganization(ArxPlayerCommand):
             if not player:
                 return
         if 'setdesc' in self.switches:
-            new_desc = None
             if len(myorgs) < 2:
                 # if they supplied the org even though they don't have to
                 rhs = self.rhs
                 if len(self.rhslist) > 1:
                     rhs = self.rhslist[0]
-                if not self.rhs.isdigit():
-                    caller.msg("Rank must be a number.")
-                    return
-                new_desc = self.rhs
+                new_desc = rhs
                 org = myorgs[0]
-                member = caller.Dominion.memberships.get(organization=org)
             else:
                 if len(self.rhslist) < 2:
                     caller.msg("You belong to more than one organization, so must supply both rank number and" +
