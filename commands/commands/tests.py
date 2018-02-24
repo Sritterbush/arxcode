@@ -194,7 +194,7 @@ class StoryActionTests(ArxCommandTest):
                                              post='{wSummary of action 1{n\nAction by {cTestaccount2{n: {wSummary:{n '
                                                   'test summary\n\n{wStory Result:{n story test\n'
                                                   '{wSecret Story{n sekritfoo',
-                                             subject='Action 1 Published')
+                                             subject='Action 1 Published by Testaccount')
         with patch('server.utils.arx_utils.broadcast_msg_and_post') as mock_msg_and_post:
             from web.character.models import Story, Chapter, Episode
             chapter = Chapter.objects.create(name="test chapter")
@@ -208,7 +208,7 @@ class StoryActionTests(ArxCommandTest):
                                                  post='{wSummary of action 1{n\nAction by {cTestaccount2{n: '
                                                       '{wSummary:{n test summary\n\n'
                                                       '{wStory Result:{n story test\n{wSecret '
-                                                      'Story{n sekritfoo', subject='Action 1 Published')
+                                                      'Story{n sekritfoo', subject='Action 1 Published by Testaccount')
         RPEvent.objects.create(name="test event")
         self.call_cmd("/addevent 1=1", "Added event: test event")
         self.call_cmd("/rmevent 1=1", "Removed event: test event")

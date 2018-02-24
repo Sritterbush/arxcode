@@ -23,7 +23,8 @@ class InvestigationTests(ArxCommandTest):
         self.revelation.clues_used.create(clue=self.clue)
         self.revelation.clues_used.create(clue=self.clue2)
 
-    @patch("web.character.models.datetime")
+    # noinspection PyUnresolvedReferences
+    @patch.object(investigation, "datetime")
     def test_cmd_clues(self, mock_datetime):
         from datetime import datetime
         now = datetime.now()

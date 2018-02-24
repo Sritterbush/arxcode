@@ -2,6 +2,7 @@
 Commands for the 'Character' app that handles the roster,
 stories, the timeline, etc.
 """
+from datetime import datetime
 
 from django.db.models import Q
 
@@ -1284,7 +1285,6 @@ class CmdListClues(ArxPlayerCommand):
         self.msg(msg, options={'box': True})
 
     def add_note(self, clue):
-        from datetime import datetime
         if not self.rhs:
             self.msg("Must contain a note to add.")
             return

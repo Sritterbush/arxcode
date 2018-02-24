@@ -534,7 +534,14 @@ class AbstractPlayerAllocations(SharedMemoryModel):
         'if roll is None' then why not just check a constant anyway?
         """
         return self.roll != self.UNSET_ROLL
-        
+
+    @property
+    def roll_string(self):
+        """Returns a string representation of our roll"""
+        if self.roll_is_set:
+            return str(self.roll)
+        return "No roll"
+
     
 class Mystery(SharedMemoryModel):
     """One of the big mysteries of the game. Kind of used as a category for revelations."""
@@ -573,10 +580,12 @@ class Revelation(SharedMemoryModel):
 
     @property
     def total_clue_value(self):
+        """Total value of the clues used for this revelation"""
         return sum(ob.rating for ob in Clue.objects.filter(revelations=self))
 
     @property
     def requires(self):
+        """String representation of amount required compared to available clue points"""
         return "%d of %d" % (self.required_clue_value, self.total_clue_value)
 
     def check_progress(self, char):
