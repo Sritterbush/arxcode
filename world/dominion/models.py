@@ -2369,7 +2369,7 @@ class CrisisAction(AbstractAction):
             self.gm = caller
         self.save()
         if not update:
-            subject = "Action %s Published" % self.id
+            subject = "Action %s Published by %s" % (self.id, caller)
             post = self.view_tldr()
             post += "\n{wStory Result:{n %s" % self.story
             if self.secret_story:
@@ -2419,7 +2419,7 @@ class CrisisAction(AbstractAction):
                     ob.skill_used.capitalize() or "No skill set",
                     self.difficulty)
                 if self.sent or (ob.roll_is_set and staff_viewer):
-                    msg += "{w [Dice Roll: %s%s{w]{n " % (self.roll_color(ob.roll), ob.roll)
+                    msg += "{w [Dice Roll: %s%s{w]{n " % (self.roll_color(ob.roll), ob.roll_string)
                 if ob.ooc_intent:
                     msg += "\n%s" % ob.ooc_intent.display()
             msg += "\n"
