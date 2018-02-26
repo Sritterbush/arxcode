@@ -1,3 +1,6 @@
+"""
+Views related to the Dominion app
+"""
 from django.views.generic import ListView, DetailView
 from .models import RPEvent, AssignedTask, Crisis, Land, Domain
 from .forms import RPEventCommentForm
@@ -5,22 +8,24 @@ from django.http import HttpResponseRedirect, HttpResponse
 from django.http import Http404
 from django.core.urlresolvers import reverse
 from django.shortcuts import get_object_or_404, render
-from django.db.models import Q, Min, Max
+from django.db.models import Q
 from django.template.loader import render_to_string
 from server.utils.view_mixins import LimitPageMixin
 from PIL import Image, ImageDraw, ImageFont
 from math import trunc
 import os.path
 
-# Create your views here.
-
 
 class RPEventListView(LimitPageMixin, ListView):
+    """
+    View for displaying list of RPEvents
+    """
     model = RPEvent
     template_name = 'dominion/cal_list.html'
     paginate_by = 20
 
     def search_filter(self, qs):
+        """Applies filters matching search options passed in GET request"""
         event_type = self.request.GET.get("event_type")
         if event_type == "gm_only":
             qs = qs.filter(gm_event=True)
@@ -33,6 +38,7 @@ class RPEventListView(LimitPageMixin, ListView):
         return qs
 
     def unfinished(self):
+        """Gets queryset of RPEvents that are not finished"""
         user = self.request.user
         try:
             if user.is_staff:
@@ -50,6 +56,7 @@ class RPEventListView(LimitPageMixin, ListView):
                 '-date'))
 
     def get_queryset(self):
+        """Gets queryset of RPEvents based on who the user is"""
         user = self.request.user
         try:
             if user.is_staff:
@@ -68,6 +75,7 @@ class RPEventListView(LimitPageMixin, ListView):
                 '-date'))
 
     def get_context_data(self, **kwargs):
+        """Passes along search filters to the context"""
         context = super(RPEventListView, self).get_context_data(**kwargs)
         context['page_title'] = 'Events'
         search_tags = ""
@@ -82,10 +90,14 @@ class RPEventListView(LimitPageMixin, ListView):
 
 
 class RPEventDetailView(DetailView):
+    """
+    View for getting a specific RPEvent's page
+    """
     model = RPEvent
     template_name = 'dominion/cal_view.html'
 
     def get_context_data(self, **kwargs):
+        """Adds permission stuff to the context, as well as a comment form"""
         context = super(RPEventDetailView, self).get_context_data(**kwargs)
         context['form'] = RPEventCommentForm
         can_view = False
@@ -111,10 +123,14 @@ class RPEventDetailView(DetailView):
 
 
 class CrisisDetailView(DetailView):
+    """
+    Displays view for a specific crisis
+    """
     model = Crisis
     template_name = 'dominion/crisis_view.html'
 
     def get_context_data(self, **kwargs):
+        """Modifies which actions can be seen based on user"""
         context = super(CrisisDetailView, self).get_context_data(**kwargs)
         if not self.get_object().check_can_view(self.request.user):
             raise Http404
@@ -125,14 +141,19 @@ class CrisisDetailView(DetailView):
 
 
 class AssignedTaskListView(LimitPageMixin, ListView):
+    """
+    Displays list of Task stuff. Tasks are awful and we'll redo them later
+    """
     model = AssignedTask
     template_name = 'dominion/task_list.html'
     paginate_by = 5
 
     def get_queryset(self):
+        """Gets queryset of Tasks based on them being finished"""
         return AssignedTask.objects.filter(finished=True, observer_text__isnull=False).distinct().order_by('-week')
 
     def get_context_data(self, **kwargs):
+        """Changes the page title for context"""
         context = super(AssignedTaskListView, self).get_context_data(**kwargs)
         context['page_title'] = 'Rumors'
         return context
@@ -168,13 +189,14 @@ def map_image(request):
     :return: The Django view response, in this case an image/png blob.
     """
 
-    def draw_font_outline(draw, x, y, font, text):
+    def draw_font_outline(draw, x_coordinate, y_coordinate, font_used, text):
+        """Draws outline"""
         # This is awful
-        draw.text((x - 1, y), text, font=font, fill='white')
-        draw.text((x + 1, y), text, font=font, fill='white')
-        draw.text((x, y - 1), text, font=font, fill='white')
-        draw.text((x, y + 1), text, font=font, fill='white')
-        draw.text((x, y), text, font=font, fill='black')
+        draw.text((x_coordinate - 1, y_coordinate), text, font=font_used, fill='white')
+        draw.text((x_coordinate + 1, y_coordinate), text, font=font_used, fill='white')
+        draw.text((x_coordinate, y_coordinate - 1), text, font=font_used, fill='white')
+        draw.text((x_coordinate, y_coordinate + 1), text, font=font_used, fill='white')
+        draw.text((x_coordinate, y_coordinate), text, font=font_used, fill='black')
 
     TERRAIN_NAMES = {
         Land.COAST: 'Coastal',
@@ -197,6 +219,7 @@ def map_image(request):
     }
 
     regen = False
+    overlay = None
 
     if request.user.is_authenticated():
         overlay = request.GET.get("overlay")
@@ -226,7 +249,6 @@ def map_image(request):
         max_x = max(max_x, land.x_coord)
         max_y = max(max_y, land.y_coord)
 
-    total_width = max_x - min_x
     total_height = max_y - min_y
 
     mapimage = Image.open("world/dominion/map/arxmap_resized.jpg")
@@ -279,7 +301,7 @@ def map_image(request):
                     draw_font_outline(mapdraw, label_x, label_y, domain_font, domain.name)
 
     except Exception as exc:
-        print str(exc)
+        print(str(exc))
 
     # Delete our drawing tool and commit the image
     del mapdraw
@@ -291,7 +313,7 @@ def map_image(request):
 
 
 def map_wrapper(request):
-
+    """Gets the map, whether an existing pre-generated version, or generates a new one."""
     regen = False
 
     if request.user.is_authenticated():
@@ -324,7 +346,6 @@ def map_wrapper(request):
             max_x = max(max_x, land.x_coord)
             max_y = max(max_y, land.y_coord)
 
-        total_width = max_x - min_x
         total_height = max_y - min_y
 
         ratio = 1280.0 / mapimage.size[0]
@@ -358,7 +379,7 @@ def map_wrapper(request):
                     map_links.append(map_data)
 
     except Exception as exc:
-        print str(exc)
+        print(str(exc))
         raise Http404
 
     context = {
@@ -374,6 +395,3 @@ def map_wrapper(request):
     pregen_file.close()
 
     return render(request, "dominion/map_pregen.html", context)
-
-
-
