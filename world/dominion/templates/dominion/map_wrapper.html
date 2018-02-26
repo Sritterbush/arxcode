@@ -1,7 +1,3 @@
-{% extends "base.html" %}
-{% load app_filters %}
-{% block content %}
-	
 <img src="map.png" usemap="#domains" width='{{ img_width }}' height='{{ img_height }}'/>
 
 <map name="domains">
@@ -9,5 +5,3 @@
 	<area shape='rect' coords='{{ maplink.x1 }},{{ maplink.y1 }},{{ maplink.x2 }},{{ maplink.y2 }}' href='{{ maplink.url }}'/>
 {% endfor %}
 </map>
-
-{% endblock %}
