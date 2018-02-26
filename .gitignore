@@ -63,3 +63,7 @@ nosetests.xml
 
 # virtualenv
 venv/
+
+# generated map files
+world/dominion/map/arxmap_generated.png
+world/dominion/templates/dominion/_map_pregen_include.html
