@@ -3,6 +3,7 @@ Views for msg app - Msg proxy models, boards, etc
 """
 import json
 
+from django.contrib.auth.decorators import login_required
 from django.core.urlresolvers import reverse
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
@@ -213,10 +214,9 @@ def journal_list_json(request):
     return HttpResponse(API_CACHE, content_type='application/json')
 
 
+@login_required
 def board_list(request):
     """View for getting list of boards"""
-    if not request.user.is_authenticated():
-        raise Http404
 
     def map_board(board):
         """Helper function for getting dict of information for each board to add to context"""
@@ -282,6 +282,7 @@ def posts_for_request(board):
     return list(board.get_all_posts(old=False))[::-1]
 
 
+@login_required
 def post_list(request, board_id):
     """View for getting list of posts for a given board"""
     def post_map(post, bulletin_board, read_posts_list):
@@ -302,6 +303,7 @@ def post_list(request, board_id):
     return render(request, 'msgs/post_list.html', {'board': board, 'page_title': board.key, 'posts': posts})
 
 
+@login_required
 def post_view_all(request, board_id):
     """View for seeing all posts at once. It'll mark them all read."""
     def post_map(post, bulletin_board, read_posts_list):
@@ -342,10 +344,9 @@ def post_view_all(request, board_id):
                                                        'posts': posts})
 
 
+@login_required
 def post_view_unread(request):
     """View for seeing all posts at once. It'll mark them all read."""
-    if not request.user.is_authenticated():
-        raise Http404
 
     def post_map(post):
         """Returns dict of information about each individual post to add to context"""
@@ -395,6 +396,7 @@ def post_view_unread(request):
                                                           'posts': mapped_posts})
 
 
+@login_required
 def post_view(request, board_id, post_id):
     """View for seeing an individual post"""
     board = board_for_request(request, board_id)
