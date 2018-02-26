@@ -207,7 +207,7 @@ def map_image(request):
     if not os.path.exists("world/dominion/map/arxmap_generated.png"):
         regen = True
 
-    if not regen:
+    if not regen and not overlay:
         mapimage = Image.open("world/dominion/map/arxmap_generated.png")
         mapimage.save(response, "PNG")
         return response
@@ -284,7 +284,8 @@ def map_image(request):
     # Delete our drawing tool and commit the image
     del mapdraw
 
-    mapimage.save("world/dominion/map/arxmap_generated.png", "PNG")
+    if not overlay:
+        mapimage.save("world/dominion/map/arxmap_generated.png", "PNG")
     mapimage.save(response, "PNG")
     return response
 
