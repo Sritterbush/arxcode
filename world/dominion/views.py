@@ -6,9 +6,11 @@ from django.http import Http404
 from django.core.urlresolvers import reverse
 from django.shortcuts import get_object_or_404, render
 from django.db.models import Q, Min, Max
+from django.template.loader import render_to_string
 from server.utils.view_mixins import LimitPageMixin
 from PIL import Image, ImageDraw, ImageFont
 from math import trunc
+import os.path
 
 # Create your views here.
 
@@ -194,11 +196,21 @@ def map_image(request):
         Land.OASIS: 'Oasis',
     }
 
-    if not request.user.is_authenticated():
-        raise Http404
-    overlay = request.GET.get("overlay")
+    regen = False
+
+    if request.user.is_authenticated():
+        overlay = request.GET.get("overlay")
+        regen = request.GET.get("regenerate")
 
     response = HttpResponse(content_type="image/png")
+
+    if not os.path.exists("world/dominion/map/arxmap_generated.png"):
+        regen = True
+
+    if not regen and not overlay:
+        mapimage = Image.open("world/dominion/map/arxmap_generated.png")
+        mapimage.save(response, "PNG")
+        return response
 
     min_x = 0
     min_y = 0
@@ -221,7 +233,7 @@ def map_image(request):
     mapdraw = ImageDraw.Draw(mapimage)
 
     font = ImageFont.truetype("world/dominion/map/Amaranth-Regular.otf", 14)
-    domain_font = ImageFont.truetype("world/dominion/map/Amaranth-Regular.otf", 20)
+    domain_font = ImageFont.truetype("world/dominion/map/Amaranth-Regular.otf", 24)
 
     if overlay:
         for xloop in range(0, mapimage.size[0] / GRID_SIZE):
@@ -272,14 +284,27 @@ def map_image(request):
     # Delete our drawing tool and commit the image
     del mapdraw
 
+    if not overlay:
+        mapimage.save("world/dominion/map/arxmap_generated.png", "PNG")
     mapimage.save(response, "PNG")
     return response
 
 
 def map_wrapper(request):
 
-    if not request.user.is_authenticated():
-        raise Http404
+    regen = False
+
+    if request.user.is_authenticated():
+        regen = request.GET.get("regenerate")
+
+    if not os.path.exists("world/dominion/templates/dominion/_map_pregen_include.html"):
+        regen = True
+
+    if not regen:
+        context = {
+            'page_title': 'Map of Arvum',
+        }
+        return render(request, "dominion/map_pregen.html", context)
 
     map_links = []
     mapimage = Image.open("world/dominion/map/arxmap_resized.jpg")
@@ -306,7 +331,7 @@ def map_wrapper(request):
         img_width = trunc(mapimage.size[0] * ratio)
         img_height = trunc(mapimage.size[1] * ratio)
 
-        domain_font = ImageFont.truetype("world/dominion/map/Amaranth-Regular.otf", 20)
+        domain_font = ImageFont.truetype("world/dominion/map/Amaranth-Regular.otf", 24)
 
         for land in lands:
             x1 = (land.x_coord - min_x) * GRID_SIZE
@@ -340,10 +365,15 @@ def map_wrapper(request):
         'imagemap_links': map_links,
         'img_width': img_width,
         'img_height': img_height,
-        'page_title': 'Map of Arvum',
+        'page_title': 'Map of Arvum'
     }
-    return render(request, 'dominion/map_wrapper.html', context)
+    result = render_to_string("dominion/map_wrapper.html", context)
 
+    pregen_file = open("world/dominion/templates/dominion/_map_pregen_include.html", "w")
+    pregen_file.write(result)
+    pregen_file.close()
+
+    return render(request, "dominion/map_pregen.html", context)
 
 
 
