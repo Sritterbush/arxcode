@@ -2,6 +2,8 @@
 {% load app_filters %}
 {% block content %}
 
-{% include "dominion/_map_pregen_include.html" %}
+<img src="map.png{{ regen_link }}" usemap="#domains" width='{{ img_width }}' height='{{ img_height }}'/>
+
+{{ imagemap_html|safe }}
 
 {% endblock %}

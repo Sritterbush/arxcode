@@ -2,6 +2,7 @@
 Views related to the Dominion app
 """
 from django.views.generic import ListView, DetailView
+from django.views.decorators.cache import never_cache
 from .models import RPEvent, AssignedTask, Crisis, Land, Domain
 from .forms import RPEventCommentForm
 from django.http import HttpResponseRedirect, HttpResponse
@@ -319,17 +320,43 @@ def map_wrapper(request):
     if request.user.is_authenticated():
         regen = request.GET.get("regenerate")
 
-    if not os.path.exists("world/dominion/templates/dominion/_map_pregen_include.html"):
+    if not os.path.exists("world/dominion/map/arxmap_generated.png"):
+        regen = True
+
+    if not os.path.exists("world/dominion/map/arxmap_imagemap.html"):
+        regen = True
+
+    if not os.path.exists("world/dominion/map/arxmap_imagesize.cfg"):
         regen = True
 
     if not regen:
+        imagestats_file = open("world/dominion/map/arxmap_imagesize.cfg")
+        if imagestats_file:
+            img_width = int(imagestats_file.readline())
+            img_height = int(imagestats_file.readline())
+            imagestats_file.close()
+
+        imagemap_file = open("world/dominion/map/arxmap_imagemap.html", "r")
+        imagemap_html = ""
+        if imagemap_file:
+            imagemap_html = imagemap_file.read()
+            imagemap_file.close()
+
         context = {
             'page_title': 'Map of Arvum',
+            'img_width': img_width,
+            'img_height': img_height,
+            'imagemap_html': imagemap_html
         }
         return render(request, "dominion/map_pregen.html", context)
 
     map_links = []
     mapimage = Image.open("world/dominion/map/arxmap_resized.jpg")
+
+    ratio = 1280.0 / mapimage.size[0]
+    img_width = trunc(mapimage.size[0] * ratio)
+    img_height = trunc(mapimage.size[1] * ratio)
+
 
     try:
         lands = Land.objects.all()
@@ -347,10 +374,6 @@ def map_wrapper(request):
             max_y = max(max_y, land.y_coord)
 
         total_height = max_y - min_y
-
-        ratio = 1280.0 / mapimage.size[0]
-        img_width = trunc(mapimage.size[0] * ratio)
-        img_height = trunc(mapimage.size[1] * ratio)
 
         domain_font = ImageFont.truetype("world/dominion/map/Amaranth-Regular.otf", 24)
 
@@ -375,7 +398,7 @@ def map_wrapper(request):
 
                     map_data = {"x1": trunc(domain_x * ratio), "y1": trunc(domain_y * ratio),
                                 "x2": trunc(domain_x2 * ratio), "y2": trunc(domain_y2 * ratio),
-                                "url": org_url}
+                                "url": org_url, "title": org.name}
                     map_links.append(map_data)
 
     except Exception as exc:
@@ -383,15 +406,24 @@ def map_wrapper(request):
         raise Http404
 
     context = {
-        'imagemap_links': map_links,
+        'imagemap_links': map_links
+    }
+    imagemap_html = render_to_string("dominion/map_wrapper.html", context)
+
+    imagemap_file = open("world/dominion/map/arxmap_imagemap.html", "w")
+    imagemap_file.write(imagemap_html)
+    imagemap_file.close()
+
+    imagestats_file = open("world/dominion/map/arxmap_imagesize.cfg", "w")
+    imagestats_file.write("%d\n" % img_width)
+    imagestats_file.write("%d\n" % img_height)
+    imagestats_file.close()
+
+    context = {
         'img_width': img_width,
         'img_height': img_height,
+        'imagemap_html': imagemap_html,
+        'regen_link': regen and "?regenerate=1" or "",
         'page_title': 'Map of Arvum'
     }
-    result = render_to_string("dominion/map_wrapper.html", context)
-
-    pregen_file = open("world/dominion/templates/dominion/_map_pregen_include.html", "w")
-    pregen_file.write(result)
-    pregen_file.close()
-
     return render(request, "dominion/map_pregen.html", context)
