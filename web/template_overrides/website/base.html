@@ -66,9 +66,8 @@
               Logged in as {{user.username}} &laquo;
             {% endif %}
           {% else %}
-            <a href="/accounts/login/">Log In &laquo;</a>
+            <a href="/accounts/login/?next={{ request.get_full_path|urlencode }}">Log In &laquo;</a>
             <span class="doNotDisplay">|</span>
-            <a href="/tbi">Register &laquo;</a>
           {% endif %}
         </div>
       </div>

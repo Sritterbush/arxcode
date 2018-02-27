@@ -12,7 +12,6 @@ from django.views.static import serve
 
 # default evennia patterns
 from evennia.web.urls import urlpatterns
-from web.website.views import to_be_implemented
 
 
 urlpatterns = [
@@ -24,9 +23,6 @@ urlpatterns = [
     url(r'^', include('web.website.urls')),
     # News stuff
     url(r'^news/', include('web.news.urls')),
-
-    # Page place-holder for things that aren't implemented yet.
-    url(r'^tbi/', to_be_implemented),
 
     # Admin interface
     url(r'^admin/doc/', include('django.contrib.admindocs.urls')),
@@ -64,7 +60,6 @@ if settings.DEBUG:
         import debug_toolbar
     except ImportError:
         debug_toolbar = None
-        print "Django toolbar not installed. Please use pip install django-debug-toolbar"
     if debug_toolbar:
         urlpatterns += [
             url(r'^__debug__/', include(debug_toolbar.urls)),

@@ -71,20 +71,6 @@ def page_index(request):
     return render(request, 'index.html', pagevars, content_type="text/html")
 
 
-def to_be_implemented(request):
-    """
-    A notice letting the user know that this particular feature hasn't been
-    implemented yet.
-    """
-
-    pagevars = {
-        "page_title": "To Be Implemented...",
-    }
-
-    context_instance = RequestContext(request)
-    return render_to_response('tbi.html', pagevars, context_instance)
-
-
 def webclient(request):
     """
     Webclient page template loading.
