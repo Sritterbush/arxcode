@@ -66,4 +66,5 @@ venv/
 
 # generated map files
 world/dominion/map/arxmap_generated.png
-world/dominion/templates/dominion/_map_pregen_include.html
+world/dominion/map/arxmap_imagemap.html
+world/dominion/map/arxmap_imagesize.cfg
