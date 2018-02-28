@@ -119,3 +119,9 @@ admin.site.unregister(ObjectDB)
 admin.site.register(ObjectDB, ArxObjectDBAdmin)
 admin.site.unregister(HelpEntry)
 admin.site.register(HelpEntry, ArxHelpDBAdmin)
+try:
+    from django.conf import settings
+    admin.site.site_header = settings.SITE_HEADER
+    admin.site.index_title = settings.INDEX_TITLE
+except Exception:
+    pass
