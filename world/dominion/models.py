@@ -466,7 +466,8 @@ class AssetOwner(SharedMemoryModel):
     # money stored in the bank
     vault = models.PositiveIntegerField(default=0, blank=0)
     # prestige we've earned
-    prestige = models.IntegerField(default=0, blank=0)
+    fame = models.IntegerField(default=0, blank=0)
+    legend = models.IntegerField(default=0, blank=0)
     # resources
     economic = models.PositiveIntegerField(default=0, blank=0)
     military = models.PositiveIntegerField(default=0, blank=0)
@@ -475,6 +476,11 @@ class AssetOwner(SharedMemoryModel):
     min_silver_for_inform = models.PositiveIntegerField(default=0)
     min_resources_for_inform = models.PositiveIntegerField(default=0)
     min_materials_for_inform = models.PositiveIntegerField(default=0)
+
+    @property
+    def prestige(self):
+        return self.fame + self.legend + self.grandeur
+
        
     def _get_owner(self):
         if self.player:
@@ -490,56 +496,49 @@ class AssetOwner(SharedMemoryModel):
     def __repr__(self):
         return "<Owner (#%s): %s>" % (self.id, self.owner)
 
-    def _total_prestige(self):
+    @property
+    def grandeur(self):
         if self.organization_owner:
-            return self.prestige
-        if hasattr(self, '_cached_total_prestige'):
-            return self._cached_total_prestige
-        bonus = 0
-        if self.player.patron and self.player.patron.assets:
-            bonus = self.player.patron.assets.total_prestige / 10
-        for member in self.player.memberships.filter(Q(deguilded=False) &
-                                                     Q(secret=False) &
-                                                     Q(organization__secret=False)
-                                                     & Q(rank__lte=5)):
-            mult = (12 - (2*member.rank))/100.0
-            org = member.organization
-            try:
-                bonus += int(org.assets.prestige * mult)
-            except AttributeError:
-                print("Org %s lacks asset_owner instance!" % org)
-        self._cached_total_prestige = bonus + self.prestige
-        return self._cached_total_prestige
-    total_prestige = property(_total_prestige)
+            return self.get_grandeur_from_members()
+        val = 0
+        val += self.get_grandeur_from_patron()
+        val += self.get_grandeur_from_proteges()
+        val += self.get_grandeur_from_orgs()
+        return val
 
-    def adjust_prestige(self, value):
+    @property
+    def base_grandeur(self):
+        return self.fame/10 + self.legend/10
+
+    def get_grandeur_from_patron(self):
+        return self.player.patron.assets.base_grandeur
+
+    def get_grandeur_from_proteges(self):
+        base = 0
+        for protege in self.player.proteges.all():
+            base += protege.assets.base_grandeur
+        return base
+
+    def get_grandeur_from_orgs(self):
+        base = 0
+        for member in self.player.memberships.filter(deguilded=False):
+            base += member.organization.base_grandeur / 10
+        return base
+
+    def get_grandeur_from_members(self):
+        base = 0
+        for member in self.organization_owner.active_members:
+            base += member.player.assets.base_grandeur / 10
+        return base
+
+    def adjust_prestige(self, value, can_drop_legend=False):
         """
         Adjusts our prestige. Returns list of all affected entities.
         """
-        affected = []
-        if self.organization_owner:
-            self.prestige += value
-            self.save()
-            return [self.organization_owner]
-        if self.player.patron and self.player.patron.assets:
-            # transfer 5% of our prestige gained to our patron
-            transfer = value/20
-            value -= transfer
-            self.player.patron.assets.adjust_prestige(transfer)
-            affected.append(self.player.patron)
-        for member in self.player.memberships.filter(secret=False, organization__secret=False, deguilded=False):
-            # transfer a percentage of our prestige gained to our orgs, based on rank
-            mult = (12 - member.rank)/200.0
-            org = member.organization
-            transfer = int(value * mult)
-            org.assets.prestige += transfer
-            org.assets.save()
-            affected.append(org)
-            value -= transfer
-        affected.append(self.player)
-        self.prestige += value
+        self.fame += value
+        if value > 0 or can_drop_legend:
+            self.legend += value / 100
         self.save()
-        return affected
     
     def _income(self):
         income = 0
@@ -619,10 +618,7 @@ class AssetOwner(SharedMemoryModel):
             # record organization's income
             amount += self.organization_owner.amount
             # organization prestige decay
-            self.prestige -= int(self.prestige * .015)
-        else:
-            # player prestige decay
-            self.prestige -= int(self.prestige * .05)
+        self.fame -= int(self.fame * .20)
         # debts that won't be processed by someone else's income, since they have no receiver
         for debt in self.debts.filter(receiver__isnull=True, do_weekly=True):
             amount -= debt.amount
@@ -640,7 +636,7 @@ class AssetOwner(SharedMemoryModel):
         """Returns formatted string display of this AssetOwner"""
         msg = "{wName{n: %s\n" % self.owner
         msg += "{wVault{n: %s\n" % self.vault
-        msg += "{wPrestige{n: %s\n" % self.total_prestige
+        msg += "{wPrestige{n: %s\n" % self.grandeur
         if hasattr(self, 'estate'):
             msg += "{wHoldings{n: %s\n" % ", ".join(str(dom) for dom in self.estate.holdings.all())
         msg += "{wAgents{n: %s\n" % ", ".join(str(agent) for agent in self.agents.all())
@@ -689,6 +685,30 @@ class AssetOwner(SharedMemoryModel):
         if player.check_permstring("builders"):
             return True
         return self.access(player, "withdraw") or self.access(player, "viewassets")
+
+
+class CharitableDonation(SharedMemoryModel):
+    giver = models.ForeignKey('AssetOwner', related_name='donations')
+    organization = models.ForeignKey('Organization', related_name='donations', blank=True, null=True)
+    npc_group = models.ForeignKey('InfluenceCategory', related_name='donations', blank=True, null=True)
+    amount = models.PositiveIntegerField(default=0)
+
+    @property
+    def receiver(self):
+        return self.organizaton or self.npc_group
+
+    def donate(self, value, roller=None):
+        from world.stats_and_skills import do_dice_check
+        self.amount += value
+        self.save()
+        character = self.giver.player.player.char_ob
+        roller = roller or character
+        roll = do_dice_check(caller=roller, stat="charm", skill="propaganda", difficulty=10)
+        roll += roller.social_clout
+        roll /= 100
+        roll *= value/5
+        prest = int(roll)
+        self.giver.gain_fame(prest)
 
 
 class AccountTransaction(SharedMemoryModel):

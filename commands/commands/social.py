@@ -2235,42 +2235,74 @@ class CmdDonate(ArxCommand):
 
     Usage:
         +donate <group name>=<amount>
+        +donate/hype <player>,<group>=<amount>
         
     Donates money to some group of npcs in exchange for prestige.
     """
     key = "+donate"
     locks = "cmd:all()"
     help_category = "Social"
+
+    @property
+    def donations(self):
+        return self.caller.player.Dominion.assets.donations.all().order_by('amount')
             
     def func(self):
         """Execute command."""
         caller = self.caller
         dompc = caller.player_ob.Dominion
-        donations = caller.db.donations or {}
         if not self.lhs:
-            caller.msg("{wDonations:{n")
-            table = PrettyTable(["{wGroup{n", "{wTotal{n"])
-            for group in sorted(donations.keys()):
-                table.add_row([group, donations[group]])
-            caller.msg(str(table))
+            self.list_donations(caller)
             return
-        group = self.lhs
-        old = donations.get(group, 0)
+        group = self.get_donation_target()
         try:
             val = int(self.rhs)
             if val > caller.db.currency:
                 caller.msg("Not enough money.")
                 return
             caller.pay_money(val)
-            old += val
-            donations[group] = old
-            caller.db.donations = donations
-            prest = int(val * 0.5)
-            dompc.assets.adjust_prestige(prest)
+            if not caller.player.pay_action_points(2):
+                self.msg("Not enough AP")
+                return
+            if "hype" in self.switches:
+                group.donate(val, roller=self.caller)
+                group.giver.inform("%s donated %s to %s on your behalf" % (self.caller, val, group.receiver))
+            else:
+                group.donate(val)
+
             caller.msg("You donate %s to %s and gain %s prestige." % (val, group, prest))
         except (TypeError, ValueError):
             caller.msg("Must give a number.")
             return
+
+    def list_donations(self, caller):
+        caller.msg("{wDonations:{n")
+        table = PrettyTable(["{wGroup{n", "{wTotal{n"])
+        for donation in self.donations:
+            table.add_row([str(donation.receiver), donation.amount])
+        caller.msg(str(table))
+
+    def get_donation_target(self):
+        org = None
+        npc = None
+        try:
+            org = Organization.objects.get(name__iexact=self.lhs)
+        except Organization.DoesNotExist:
+            try:
+                npc = InfluenceCategory.objects.get(name__iexact=self.lhs)
+            except InfluenceCategory.DoesNotExist:
+                self.msg("Could not find an organization or npc group by that name.")
+                return
+        if "hype" in self.switches:
+            player = self.caller.player.search(self.lhslist[0])
+            if not player:
+                return
+            donations = player.Dominion.assets.donations.all()
+        else:
+            donations = self.donations
+        if org:
+            return donations.get_or_create(organization=org)[0]
+        return donations.get_or_create(npc_group=npc)[0]
 
 
 class CmdRandomScene(ArxCommand):

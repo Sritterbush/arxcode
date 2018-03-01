@@ -164,9 +164,11 @@ class CmdInventory(ArxCommand):
         if hasattr(player, 'Dominion') and hasattr(player.Dominion, 'assets'):
             vault = player.Dominion.assets.vault
             self.caller.msg("{wBank Account:{n %s silver coins" % vault)
-            total_prestige = player.Dominion.assets.total_prestige
-            personal_prestige = player.Dominion.assets.prestige
-            self.caller.msg("{wPrestige:{n %s personal, %s total" % (personal_prestige, total_prestige))
+            prestige = player.Dominion.assets.prestige
+            fame = player.Dominion.assets.fame
+            legend = player.Dominion.assets.legend
+            grandeur = player.Dominion.assets.grandeur
+            self.caller.msg("{wPrestige:{n %s, {wLegend{n: %s, Fame: %s, Grandeur: %s" % (prestige, legend, fame, grandeur))
             econ = player.Dominion.assets.economic
             soc = player.Dominion.assets.social
             mil = player.Dominion.assets.military
