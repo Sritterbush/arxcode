@@ -2265,10 +2265,10 @@ class CmdDonate(ArxCommand):
                 self.msg("Not enough AP")
                 return
             if "hype" in self.switches:
-                group.donate(val, roller=self.caller)
+                prest = group.donate(val, roller=self.caller)
                 group.giver.inform("%s donated %s to %s on your behalf" % (self.caller, val, group.receiver))
             else:
-                group.donate(val)
+                prest = group.donate(val)
 
             caller.msg("You donate %s to %s and gain %s prestige." % (val, group, prest))
         except (TypeError, ValueError):
@@ -2283,6 +2283,7 @@ class CmdDonate(ArxCommand):
         caller.msg(str(table))
 
     def get_donation_target(self):
+        from world.dominion.models import Organization, InfluenceCategory
         org = None
         npc = None
         try:
@@ -2297,9 +2298,9 @@ class CmdDonate(ArxCommand):
             player = self.caller.player.search(self.lhslist[0])
             if not player:
                 return
-            donations = player.Dominion.assets.donations.all()
+            donations = player.Dominion.assets.donations
         else:
-            donations = self.donations
+            donations = self.caller.player.Dominion.assets.donations
         if org:
             return donations.get_or_create(organization=org)[0]
         return donations.get_or_create(npc_group=npc)[0]

@@ -1121,7 +1121,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     def social_clout(self):
         val = 0
         squared_skills = ("diplomacy", "empathy", "seduction", "manipulation", "etiquette", "propaganda")
-        flat_skills = ("intimidation", "leadership", "performance")
+        flat_skills = ("intimidation", "leadership", "performance", "streetwise")
         for skill in squared_skills:
             skill_val = self.db.skills.get(skill, 0)
             val += skill_val * skill_val

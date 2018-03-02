@@ -511,7 +511,10 @@ class AssetOwner(SharedMemoryModel):
         return self.fame/10 + self.legend/10
 
     def get_grandeur_from_patron(self):
-        return self.player.patron.assets.base_grandeur
+        try:
+            return self.player.patron.assets.base_grandeur
+        except AttributeError:
+            return 0
 
     def get_grandeur_from_proteges(self):
         base = 0
@@ -522,7 +525,7 @@ class AssetOwner(SharedMemoryModel):
     def get_grandeur_from_orgs(self):
         base = 0
         for member in self.player.memberships.filter(deguilded=False):
-            base += member.organization.base_grandeur / 10
+            base += member.organization.assets.base_grandeur / 10
         return base
 
     def get_grandeur_from_members(self):
@@ -695,7 +698,10 @@ class CharitableDonation(SharedMemoryModel):
 
     @property
     def receiver(self):
-        return self.organizaton or self.npc_group
+        return self.organization or self.npc_group
+
+    def __str__(self):
+        return str(self.receiver)
 
     def donate(self, value, roller=None):
         from world.stats_and_skills import do_dice_check
@@ -708,7 +714,8 @@ class CharitableDonation(SharedMemoryModel):
         roll /= 100
         roll *= value/5
         prest = int(roll)
-        self.giver.gain_fame(prest)
+        self.giver.adjust_prestige(prest)
+        return prest
 
 
 class AccountTransaction(SharedMemoryModel):
