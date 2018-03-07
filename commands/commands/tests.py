@@ -276,10 +276,11 @@ class SocialTests(ArxCommandTest):
         self.call_cmd("/shops/all", "List of shops:\n|Room: Char2 (Inactive)")
         # TODO: create AccountHistory thingies, set a firstimpression for one of the Chars
         # TODO: test /firstimp, /rs, /watch
-        self.call_cmd("", "Locations of players:\n|Players who are currently LRP have a + by their name."
-                          "|Room: Char, Char2")
+        self.call_cmd("", 'Locations of players:\n|Players who are currently LRP have a + by their name.\n'
+                          'Players who are on your watch list have a * by their name.|Room: Char, Char2')
         self.char2.tags.add("disguised")
-        self.call_cmd("", "Locations of players:\n|Players who are currently LRP have a + by their name.|Room: Char")
+        self.call_cmd("", 'Locations of players:\n|Players who are currently LRP have a + by their name.\n'
+                          'Players who are on your watch list have a * by their name.|Room: Char')
         self.room1.tags.add("private")
         self.call_cmd("", "No visible characters found.")
     
