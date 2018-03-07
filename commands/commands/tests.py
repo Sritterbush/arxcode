@@ -318,7 +318,8 @@ class SocialTests(ArxCommandTest):
         self.char1.tags.remove("no_messengers")
         self.call_cmd("testaccount=hiya", "You dispatch a messenger to Char with the following message:\n\n'hiya'")
 
-    def test_cmd_randomscene(self):
+    @patch.object(social, "inform_staff")
+    def test_cmd_randomscene(self, mock_inform_staff):
         self.setup_cmd(social.CmdRandomScene, self.char1)
         self.char1.player_ob.db.random_scenelist = [self.char2, self.char2, self.char2]
         self.call_cmd("", "Randomly generated RP partners for this week: Char2, Char2, Char2|New players who "
@@ -328,3 +329,4 @@ class SocialTests(ArxCommandTest):
         self.call_cmd("/claim Char2=test test test", 'You have sent a request to Char2 to validate your scene.\n'
                                                      'Reminder: Please only /claim those you have interacted with '
                                                      'significantly in a scene.')
+        mock_inform_staff.assert_called_with("Char has completed a random scene with Char2. Summary: test test test")
