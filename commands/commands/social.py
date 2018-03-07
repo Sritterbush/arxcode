@@ -2308,6 +2308,7 @@ class CmdRandomScene(ArxCommand):
     NUM_SCENES = 3
     NUM_DAYS = 3
     DAYS_FOR_NEWBIE_CHECK = 14
+    reminder = "{yReminder: Please only /claim those you have interacted with significantly in a scene.{n"
 
     @property
     def scenelist(self):
@@ -2351,7 +2352,7 @@ class CmdRandomScene(ArxCommand):
         event = loc.event
         if not event:
             return []
-        gms = [ob.player.db.char_ob for ob in event.gms.all() if ob.player and ob.player.db.char_ob]
+        gms = [ob.player.char_ob for ob in event.gms.all() if ob.player and ob.player.char_ob]
         return [gm for gm in gms if gm.location == loc]
 
     @property
@@ -2400,6 +2401,7 @@ class CmdRandomScene(ArxCommand):
             self.msg("{wThose you have already RP'd with this week:{n %s" % ", ".join(ob.key for ob in claimlist))
         if validated:
             self.msg("{wThose you have validated scenes for this week{n %s" % ", ".join(ob.key for ob in validated))
+        self.msg(self.reminder)
 
     def generate_lists(self):
         """Generates our random choices of people we can claim this week."""
@@ -2451,7 +2453,7 @@ class CmdRandomScene(ArxCommand):
         msg += "from someone who did not meaningfully interact with you.{n"
         targ.player_ob.inform(msg, category="Validate")
         inform_staff("%s has completed a random scene with %s. Summary: %s" % (self.caller.key, targ, self.rhs))
-        self.msg("You have sent a request to %s to validate your scene." % targ)
+        self.msg("You have sent a request to %s to validate your scene.\n%s" % (targ, self.reminder))
         our_requests = self.requested_validation
         our_requests.append(targ)
         self.caller.player_ob.db.requested_validation = our_requests

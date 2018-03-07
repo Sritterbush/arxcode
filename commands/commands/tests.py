@@ -317,3 +317,14 @@ class SocialTests(ArxCommandTest):
                                           '|No valid receivers found.')
         self.char1.tags.remove("no_messengers")
         self.call_cmd("testaccount=hiya", "You dispatch a messenger to Char with the following message:\n\n'hiya'")
+
+    def test_cmd_randomscene(self):
+        self.setup_cmd(social.CmdRandomScene, self.char1)
+        self.char1.player_ob.db.random_scenelist = [self.char2, self.char2, self.char2]
+        self.call_cmd("", "Randomly generated RP partners for this week: Char2, Char2, Char2|New players who "
+                          "can be also RP'd with for credit: |GMs for events here that can be claimed for credit: "
+                          "Char2|Reminder: Please only /claim those you have interacted with significantly in a scene.")
+        self.call_cmd("/claim Char2", 'You must include some summary of the scene. It may be quite short.')
+        self.call_cmd("/claim Char2=test test test", 'You have sent a request to Char2 to validate your scene.\n'
+                                                     'Reminder: Please only /claim those you have interacted with '
+                                                     'significantly in a scene.')
