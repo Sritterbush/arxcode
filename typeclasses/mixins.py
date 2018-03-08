@@ -679,7 +679,7 @@ class MsgMixins(object):
         if lang and msg_content:
             try:
                 if not self.check_permstring("builders") and lang.lower() not in self.languages.known_languages:
-                    text = text.replace(msg_content, "<Something in %s that you don't understand>." % lang.capitalize())
+                    text = text.replace(msg_content, "<Something in a language that you don't understand>.")
             except AttributeError:
                 pass
         if options.get('is_pose', False):
