@@ -26,7 +26,7 @@ from web.character.models import AccountHistory, FirstContact
 from world.dominion import setup_utils
 from world.dominion.models import (RPEvent, Agent, CraftingMaterialType, CraftingMaterials,
                                    AssetOwner, Renown, Reputation, Member, PlotRoom,
-                                   PlayerOrNpc)
+                                   PlayerOrNpc, Organization, InfluenceCategory)
 from world.msgs.models import Journal, Messenger
 from world.msgs.managers import reload_model_as_proxy
 
@@ -2251,22 +2251,26 @@ class CmdDonate(ArxCommand):
         """Execute command."""
         caller = self.caller
         dompc = caller.player_ob.Dominion
+        if "score" in self.switches:
+            return self.display_score()
         if not self.lhs:
             self.list_donations(caller)
             return
         group = self.get_donation_target()
+        if not group:
+            return
         try:
             val = int(self.rhs)
             if val > caller.db.currency:
                 caller.msg("Not enough money.")
                 return
             caller.pay_money(val)
-            if not caller.player.pay_action_points(2):
+            if not caller.player.pay_action_points(5):
                 self.msg("Not enough AP")
                 return
             if "hype" in self.switches:
                 prest = group.donate(val, roller=self.caller)
-                group.giver.inform("%s donated %s to %s on your behalf" % (self.caller, val, group.receiver))
+                group.giver.inform("%s donated %s to %s on your behalf." % (self.caller, val, group.receiver))
             else:
                 prest = group.donate(val)
 
@@ -2283,17 +2287,10 @@ class CmdDonate(ArxCommand):
         caller.msg(str(table))
 
     def get_donation_target(self):
-        from world.dominion.models import Organization, InfluenceCategory
-        org = None
-        npc = None
-        try:
-            org = Organization.objects.get(name__iexact=self.lhs)
-        except Organization.DoesNotExist:
-            try:
-                npc = InfluenceCategory.objects.get(name__iexact=self.lhs)
-            except InfluenceCategory.DoesNotExist:
-                self.msg("Could not find an organization or npc group by that name.")
-                return
+        result = self.get_org_or_npc_from_args()
+        if not result:
+            return
+        org, npc = result
         if "hype" in self.switches:
             player = self.caller.player.search(self.lhslist[0])
             if not player:
@@ -2304,6 +2301,52 @@ class CmdDonate(ArxCommand):
         if org:
             return donations.get_or_create(organization=org)[0]
         return donations.get_or_create(npc_group=npc)[0]
+
+    def get_org_or_npc_from_args(self):
+        org = None
+        npc = None
+        if "hype" in self.switches:
+            name = self.lhslist[1]
+        else:
+            name = self.lhs
+        try:
+            org = Organization.objects.get(name__iexact=name)
+        except Organization.DoesNotExist:
+            try:
+                npc = InfluenceCategory.objects.get(name__iexact=name)
+            except InfluenceCategory.DoesNotExist:
+                self.msg("Could not find an organization or npc group by that name.")
+                return
+        return org, npc
+
+    def display_score(self):
+        if self.args:
+            return self.display_score_for_group()
+        return self.display_top_donor_for_each_group()
+
+    def display_score_for_group(self):
+        """Displays a list of the top 10 donors for a given group"""
+        org, npc = self.get_org_or_npc_from_args()
+        group = org or npc
+        if not group:
+            return
+        self.msg("Top donors for %s" % group)
+        table = PrettyTable(["Donor", "Amount"])
+        for donation in group.donations.distinct().order_by('-amount'):
+            table.add_row([str(donation.giver), str(donation.amount)])
+        self.msg(str(table))
+
+    def display_top_donor_for_each_group(self):
+        orgs = list(Organization.objects.filter(donations__isnull=False).distinct())
+        npcs = list(InfluenceCategory.objects.filter(donations__isnull=False).distinct())
+        groups = orgs + npcs
+        table = PrettyTable(["Group", "Top Donor", "Donor's Total Donations"])
+        for group in groups:
+            donation = group.donations.order_by('-amount').distinct().first()
+            table.add_row([str(donation.receiver), str(donation.giver), str(donation.amount)])
+        self.msg(str(table))
+
+
 
 
 class CmdRandomScene(ArxCommand):

@@ -711,10 +711,29 @@ class CharitableDonation(SharedMemoryModel):
         roller = roller or character
         roll = do_dice_check(caller=roller, stat="charm", skill="propaganda", difficulty=10)
         roll += roller.social_clout
-        roll /= 100
+        roll /= 100.0
         roll *= value/5
         prest = int(roll)
         self.giver.adjust_prestige(prest)
+        player = self.giver.player
+        if self.organization and player:
+            reputation = player.reputations.filter(organization=self.organization).first()
+            affection = 0
+            respect = 0
+            if reputation:
+                if roll < reputation.affection and roll < reputation.respect:
+                    player.player.msg("Though the charity is appreciated, your reputation with %s does not change. Ingrates." % self.organization)
+                    return prest
+                if reputation.affection > reputation.respect:
+                    respect += 1
+                else:
+                    affection += 1
+            else:
+                affection += 1
+            player.gain_reputation(self.organization, affection, respect)
+            thing = "affection" if affection else "respect"
+            val = affection or respect
+            player.player.msg("You gain %s %s with %s." % (val, thing, self.organization))
         return prest
 
 
