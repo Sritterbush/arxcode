@@ -703,37 +703,49 @@ class CharitableDonation(SharedMemoryModel):
     def __str__(self):
         return str(self.receiver)
 
-    def donate(self, value, roller=None):
+    def donate(self, value, caller):
         from world.stats_and_skills import do_dice_check
         self.amount += value
         self.save()
         character = self.giver.player.player.char_ob
-        roller = roller or character
-        roll = do_dice_check(caller=roller, stat="charm", skill="propaganda", difficulty=10)
-        roll += roller.social_clout
+        roll = do_dice_check(caller=caller, stat="charm", skill="propaganda", difficulty=10)
+        roll += caller.social_clout
         roll /= 100.0
         roll *= value/5
         prest = int(roll)
         self.giver.adjust_prestige(prest)
         player = self.giver.player
+        if caller != character:
+            msg = "%s donated %s silver to %s on your behalf.\n" % (caller, value, self.receiver)
+        else:
+            msg = "You donate %s silver to %s.\n" % (value, self.receiver)
         if self.organization and player:
             reputation = player.reputations.filter(organization=self.organization).first()
             affection = 0
             respect = 0
+            gain = True
             if reputation:
                 if roll < reputation.affection and roll < reputation.respect:
-                    player.player.msg("Though the charity is appreciated, your reputation with %s does not change. Ingrates." % self.organization)
-                    return prest
-                if reputation.affection > reputation.respect:
+                    msg += " Though the charity is appreciated, your reputation with %s does not change. Ingrates.\n" % self.organization
+                    gain = False
+                elif reputation.affection > reputation.respect:
                     respect += 1
                 else:
                     affection += 1
             else:
                 affection += 1
-            player.gain_reputation(self.organization, affection, respect)
-            thing = "affection" if affection else "respect"
-            val = affection or respect
-            player.player.msg("You gain %s %s with %s." % (val, thing, self.organization))
+            if gain:
+                player.gain_reputation(self.organization, affection, respect)
+                thing = "affection" if affection else "respect"
+                val = affection or respect
+                msg += "You gain %s %s with %s.\n" % (val, thing, self.organization)
+        if caller != character:
+            caller.msg("You donated and they gain %s prestige." % prest)
+            msg += " You gain %s prestige." % (prest)
+            player.inform(msg)
+        else:
+            msg += "You gain %s prestige." % (prest)
+            player.msg(msg)
         return prest
 
 

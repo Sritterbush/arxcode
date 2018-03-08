@@ -2268,13 +2268,7 @@ class CmdDonate(ArxCommand):
             if not caller.player.pay_action_points(5):
                 self.msg("Not enough AP")
                 return
-            if "hype" in self.switches:
-                prest = group.donate(val, roller=self.caller)
-                group.giver.inform("%s donated %s to %s on your behalf." % (self.caller, val, group.receiver))
-            else:
-                prest = group.donate(val)
-
-            caller.msg("You donate %s to %s and gain %s prestige." % (val, group, prest))
+            group.donate(val, self.caller)
         except (TypeError, ValueError):
             caller.msg("Must give a number.")
             return
@@ -2315,7 +2309,7 @@ class CmdDonate(ArxCommand):
             try:
                 npc = InfluenceCategory.objects.get(name__iexact=name)
             except InfluenceCategory.DoesNotExist:
-                self.msg("Could not find an organization or npc group by that name.")
+                self.msg("Could not find an organization or npc group by the name %s." % name)
                 return
         return org, npc
 

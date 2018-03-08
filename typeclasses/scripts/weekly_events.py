@@ -687,7 +687,8 @@ class WeeklyEvents(Script):
             sorted_changes = sorted(self.db.prestige_changes.items(), key=lambda x: abs(x[1]), reverse=True)
             sorted_changes = sorted_changes[:20]
             table = EvTable("{wName{n", "{wPrestige Change Amount{n", "{wPrestige Rank{n", border="cells", width=78)
-            rank_order = list(AssetOwner.objects.filter(player__player__isnull=False).order_by('-prestige'))
+            rank_order = list(AssetOwner.objects.filter(player__player__isnull=False))
+            rank_order = sorted(rank_order, key=lambda x: x.prestige)
             for tup in sorted_changes:
                 # get our prestige ranking compared to others
                 player = tup[0]
