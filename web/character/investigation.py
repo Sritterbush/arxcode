@@ -126,9 +126,15 @@ class InvestigationFormCommand(ArxCommand):
             return
         if not self.pay_costs():
             return
+        if self.check_too_busy_to_finish():
+            return
         ob = self.create_obj_from_form(form)
         self.mark_active(ob)       
         self.caller.attributes.remove(self.form_attr)
+
+    def check_too_busy_to_finish(self):
+        """Checks whether we're too busy to finish the form"""
+        pass
 
     def create_form(self):
         """
@@ -365,14 +371,20 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         self.investigation_form[0] = targ
         self.disp_investigation_form()
 
-    def mark_active(self, created_object):
+    def check_too_busy_to_finish(self):
+        """Checks if helper is too busy"""
         try:
             if self.helper.roster.investigations.filter(active=True):
                 already_investigating = True
+                self.msg("You already have active investigations.")
             else:
                 already_investigating = False
         except AttributeError:
             already_investigating = False
+        return already_investigating
+
+    def mark_active(self, created_object):
+        already_investigating = self.check_too_busy_to_finish()
         if not already_investigating and not self.check_enough_time_left():
             return
         if not already_investigating and not self.check_ap_cost():
@@ -490,14 +502,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                     return
             else:
                 char = self.caller
-            refund = 0
-            for ob in char.assisted_investigations.filter(currently_helping=True):
-                ob.currently_helping = False
-                ob.save()
-                refund += self.ap_cost
             self.msg("%s stopped assisting investigations." % char)
-            if refund:
-                self.caller.player_ob.pay_action_points(-refund)
             return
         if "resume" in self.switches:
             if "retainer" in self.switches:
