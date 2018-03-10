@@ -481,7 +481,13 @@ class AssetOwner(SharedMemoryModel):
     def prestige(self):
         return self.fame + self.legend + self.grandeur
 
-       
+    @property
+    def prestige_mod(self):
+        prestige = self.prestige
+        if prestige >= 0:
+            return prestige ** (1. / 3.)
+        return -(-prestige) ** (1. / 3.)
+
     def _get_owner(self):
         if self.player:
             return self.player
@@ -690,6 +696,27 @@ class AssetOwner(SharedMemoryModel):
         return self.access(player, "withdraw") or self.access(player, "viewassets")
 
 
+class PraiseOrCondemn(SharedMemoryModel):
+    praiser = models.ForeignKey('PlayerOrNpc', related_name='praises_given')
+    target = models.ForeignKey('PlayerOrNpc', related_name='praises_received')
+    message = models.TextField(blank=True)
+    week = models.PositiveSmallIntegerField(default=0, blank=0)
+    db_date_created = models.DateTimeField(auto_now_add=True)
+    value = models.IntegerField(default=0)
+    number_used = models.PositiveSmallIntegerField(help_text="Number of praises/condemns used from weekly pool",
+                                                   default=1)
+
+    @property
+    def verb(self):
+        return "praise" if self.value >= 0 else 'condemn'
+
+    def do_prestige_adjustment(self):
+        self.target.assets.adjust_prestige(self.value)
+        msg = "%s has %sed you. " % (self.praiser, self.verb)
+        msg += "Your prestige has been adjusted by %s." % self.value
+        self.target.inform(msg)
+
+
 class CharitableDonation(SharedMemoryModel):
     giver = models.ForeignKey('AssetOwner', related_name='donations')
     organization = models.ForeignKey('Organization', related_name='donations', blank=True, null=True)
@@ -741,7 +768,7 @@ class CharitableDonation(SharedMemoryModel):
                 msg += "You gain %s %s with %s.\n" % (val, thing, self.organization)
         if caller != character:
             caller.msg("You donated and they gain %s prestige." % prest)
-            msg += " You gain %s prestige." % (prest)
+            msg += "You gain %s prestige." % (prest)
             player.inform(msg)
         else:
             msg += "You gain %s prestige." % (prest)

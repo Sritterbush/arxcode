@@ -1861,47 +1861,7 @@ class CmdCalendar(ArxPlayerCommand):
         caller.msg("Invalid switch.")
 
 
-def get_max_praises(char):
-    """Calculates how many praises character has"""
-    val = char.db.charm or 0
-    val += char.db.command or 0
-    val += char.db.skills.get('propaganda', 0)
-    val += char.db.skills.get('diplomacy', 0)
-    val *= 2
-    srank = char.db.social_rank or 10
-    if srank == 0:
-        srank = 10
-    val /= srank
-    if val <= 0:
-        val = 1
-    return val
-    
-
-def display_praises(player):
-    """Returns table of praises by player"""
-    praises = player.db.praises or {}
-    condemns = player.db.condemns or {}
-    msg = "Praises:\n"
-    table = EvTable("Name", "Praises", "Message", width=78)
-    current = 0
-    for pc in praises:
-        table.add_row(pc.capitalize(), praises[pc][0], praises[pc][1])
-        current += praises[pc][0]
-    p_max = get_max_praises(player.db.char_ob)
-    msg += str(table)
-    msg += "\nPraises remaining: %s" % (p_max - current)
-    msg += "\nCondemns:\n"
-    current = 0
-    table = EvTable("Name", "Condemns", "Message", width=78)
-    for pc in condemns:
-        table.add_row(pc.capitalize(), condemns[pc][0], condemns[pc][1])
-        current += condemns[pc][0]
-    msg += str(table)
-    msg += "\nCondemns remaining: %s" % (p_max - current)
-    return msg
-
-
-class CmdPraise(ArxCommand):
+class CmdPraise(ArxPlayerCommand):
     """
     praise
 
@@ -1925,42 +1885,34 @@ class CmdPraise(ArxCommand):
         """Execute command."""
         caller = self.caller
         if not self.args:
-            caller.msg(display_praises(caller.player), options={'box': True})
+            caller.msg(self.display_praises(), options={'box': True})
             return
-        targ = caller.player.search(self.lhs)
-        if not targ or not targ.db.char_ob:
+        targ = caller.search(self.lhs)
+        if not targ or not targ.char_ob:
             caller.msg("No character object found.")
             return
         account = caller.roster.current_account
         if account == targ.roster.current_account:
             caller.msg("You cannot %s yourself." % self.verb)
             return
-        if targ.roster.roster.name != "Active":
-            caller.msg("You can only %s active characters." % self.verb)
-            return
         if targ.is_staff:
             caller.msg("Staff don't need your %s." % self.attr)
             return
-        char = caller
-        caller = caller.player       
-        p_max = get_max_praises(char)
-        current = 0
-        praises = caller.attributes.get(self.attr) or {}
-        for key in praises:
-            current += praises[key][0]
-        if current >= p_max:
+        char = caller.char_ob
+        current_used = self.current_used
+        if current_used >= self.get_max_praises():
             caller.msg("You have already used all your %s for the week." % self.attr)
             return
-        to_use = 1 if "all" not in self.switches else p_max - current
-        current += to_use
-        key = self.lhs.lower()
-        value = praises.get(key, [0, ""])
-        value[0] += to_use
-        value[1] = self.rhs
-        praises[key] = value
-        caller.attributes.add(self.attr, praises)
+        to_use = 1 if "all" not in self.switches else self.get_actions_remaining()
+        current_used += to_use
+        from world.dominion.models import PraiseOrCondemn
+        from server.utils.arx_utils import get_week
+        amount = self.do_praise_roll() * to_use
+        praise = PraiseOrCondemn.objects.create(praiser=caller.Dominion, target=targ.Dominion, number_used=to_use,
+                                                message=self.rhs or "", week=get_week(), value=amount)
+        praise.do_prestige_adjustment()
         caller.msg("You %s the actions of %s. You have %s %s remaining." %
-                   (self.verb, self.lhs.capitalize(), (p_max-current), self.attr)
+                   (self.verb, self.lhs.capitalize(), self.get_actions_remaining(), self.attr)
                    )
         if self.rhs:
             char.location.msg_contents("%s is overheard %s %s for: %s" % (char.name, self.verbing,
@@ -1970,6 +1922,50 @@ class CmdPraise(ArxCommand):
             char.location.msg_contents("%s is overheard %s %s." % (char.name, self.verbing,
                                                                    targ.key.capitalize()),
                                        exclude=char)
+
+    def do_praise_roll(self):
+        """(charm+propaganda at difficulty 15=x, where x >0), x* ((40*prestige mod)+# of social resources)"""
+        from world.stats_and_skills import do_dice_check
+        roll = do_dice_check(self.caller.char_ob, stat='charm', skill='propaganda')
+        roll *= int(self.caller.Dominion.assets.prestige_mod)
+        if roll > 0:
+            return roll
+        return 0
+
+    def get_max_praises(self):
+        """Calculates how many praises character has"""
+        char = self.caller.char_ob
+        clout = char.social_clout
+        s_rank = char.db.social_rank or 10
+        return clout + ((8 - s_rank) / 2)
+
+    @property
+    def current_used(self):
+        praises = self.caller.get_current_praises_and_condemns()
+        return sum(ob.number_used for ob in praises)
+
+    def get_actions_remaining(self):
+        """How many praises and condemns left this week"""
+        return self.get_max_praises() - self.current_used
+
+    def display_praises(self):
+        """Returns table of praises by player"""
+        player = self.caller
+        praises_or_condemns = player.get_current_praises_and_condemns()
+        praises = praises_or_condemns.filter(value__gte=0)
+        condemns = praises_or_condemns.filter(value__lt=0)
+        msg = "Praises:\n"
+        table = EvTable("Name", "Praises", "Value", "Message", width=78)
+        for praise in praises:
+            table.add_row(praise.target, praise.number_used, praise.value, praise.message)
+        msg += str(table)
+        msg += "\nCondemns:\n"
+        table = EvTable("Name", "Condemns", "Value", "Message", width=78)
+        for pc in condemns:
+            table.add_row(pc.capitalize(), condemns[pc][0], condemns[pc][1])
+        msg += str(table)
+        msg += "\nPraises or Condemns remaining: %s" % self.get_actions_remaining()
+        return msg
 
 
 class CmdCondemn(CmdPraise):
@@ -2109,10 +2105,10 @@ class CmdSocialScore(ArxCommand):
             # NB: We're going through the Player manager in order to cache the assetowner total_prestige calc
             # If we just queried AssetOwner.objects, it would not cache, and would be incredibly expensive. 100x or so
             pcs = [ob.Dominion.assets for ob in Account.objects.filter(roster__roster__name="Active")]
-            pcs = sorted(pcs, key=lambda x: x.total_prestige, reverse=True)[:20]
+            pcs = sorted(pcs, key=lambda x: x.prestige, reverse=True)[:20]
             table = PrettyTable(["{wName{n", "{wPrestige{n"])
             for pc in pcs:
-                table.add_row([str(pc), pc.total_prestige])
+                table.add_row([str(pc), pc.prestige])
             caller.msg(str(table))
             return
         if "renown" in self.switches:

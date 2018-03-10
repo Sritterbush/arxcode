@@ -101,8 +101,6 @@ class WeeklyEvents(Script):
         self.award_scene_xp()
         self.award_vote_xp()
         self.post_top_rpers()
-        # prestige adjustments
-        self.award_prestige()
         self.post_top_prestige()
         # dominion stuff
         self.do_dominion_events()
@@ -284,11 +282,6 @@ class WeeklyEvents(Script):
             self.db.vote_history = {}
             # storing how much xp each player gets to post after
             self.db.xp = {}
-            # our praises/condemns are {name: [total adjustment, times, [msgs]]}
-            self.db.recorded_praises = {}
-            self.db.recorded_condemns = {}
-            # records how much each player name has gained or lost prestige
-            self.db.prestige_changes = {}
             self.db.xptypes = {}
             self.db.requested_support = {}
             self.db.scenes = {}
@@ -298,7 +291,6 @@ class WeeklyEvents(Script):
                                                        Q(is_staff=True)).distinct() if ob.char_ob]
         for player in players:
             self.count_votes(player)
-            self.count_praises_and_condemns(player)
             # journal XP
             self.process_journals(player)
             self.count_scenes(player)
@@ -318,14 +310,6 @@ class WeeklyEvents(Script):
             char.db.support_points_spent = 0
             # for lazy refresh_from_db calls for queries right after the script runs, but unnecessary after a @reload
             char.ndb.stale_ap = True
-            try:
-                old = player.Dominion.assets.prestige
-                self.db.prestige_changes[player] = old
-            except AttributeError:
-                try:
-                    del self.db.prestige_changes[player]
-                except KeyError:
-                    pass
             # wipe cached attributes
             for attrname in PLAYER_ATTRS:
                 try:
@@ -468,48 +452,6 @@ class WeeklyEvents(Script):
         if requested_scenes:
             self.db.scenes[charob.id] = self.db.scenes.get(charob.id, 0) + len(requested_scenes)
 
-    def count_praises_and_condemns(self, player):
-        # from world.dominion.models import PlayerOrNpc
-        # praises/condemns are {name: [times, msg]}
-        praises = player.db.praises or {}
-        # condemns = player.db.condemns or {}
-        # base_condemn = 0
-        # try:
-        #     # our base prestige is our total * .05%
-        #     dompc = PlayerOrNpc.objects.get(player=player)
-        #     assets = dompc.assets
-        #     # base_condemn = int(assets.total_prestige * 0.0005)
-        # except PlayerOrNpc.DoesNotExist:
-        #     from world.dominion.setup_utils import setup_dom_for_char
-        #     char = player.db.char_ob
-        #     if not char or not char.db.social_rank:
-        #         return
-        #     try:
-        #         if char.roster.roster.name == "Active":
-        #             setup_dom_for_char(char)
-        #     except (AttributeError, TypeError, ValueError):
-        #         base_condemn = 0
-
-        # praises are a flat value, condemns scale with the prestige of the condemner
-        base_praise = 1000
-        # prest = base_praise + base_condemn
-        for name in praises:
-            num = praises[name][0]
-            msg = praises[name][1]
-            existing = self.db.recorded_praises.get(name, [0, 0, []])
-            existing[0] += base_praise
-            existing[1] += num
-            existing[2].append((player, msg))
-            self.db.recorded_praises[name] = existing
-        # for name in condemns:
-        #    num = condemns[name][0]
-        #    msg = condemns[name][1]
-        #    existing = self.db.recorded_condemns.get(name, [0, 0, []])
-        #    existing[0] -= prest
-        #    existing[1] += num
-        #    existing[2].append((player, msg))
-        #    self.db.recorded_condemns[name] = existing
-
     def award_scene_xp(self):
         for char_id in self.db.scenes:
             try:
@@ -614,33 +556,6 @@ class WeeklyEvents(Script):
         if resource_msg:
             player.inform(resource_msg, "Resources", week=self.db.week, append=True)
 
-    def award_prestige(self):
-        for name in self.db.recorded_praises:
-            try:
-                player = Account.objects.select_related('Dominion__assets').get(username__iexact=name)
-                assets = player.Dominion.assets
-            except AttributeError:
-                continue
-            val = self.db.recorded_praises[name][0]
-            assets.adjust_prestige(val)
-        for name in self.db.recorded_condemns:
-            try:
-                player = Account.objects.select_related('Dominion__assets').get(username__iexact=name)
-                assets = player.Dominion.assets
-            except AttributeError:
-                continue
-            val = self.db.recorded_condemns[name][0]
-            assets.adjust_prestige(val)
-        for player in self.db.prestige_changes.keys():
-            try:
-                # our new and old prestige values
-                prestige = player.Dominion.assets.prestige
-                old = self.db.prestige_changes[player]
-                # the amount our prestige has changed
-                self.db.prestige_changes[player] = prestige - old
-            except (AttributeError, IndexError, KeyError, ValueError, TypeError):
-                pass
-
     def post_top_rpers(self):
         """
         Post ourselves to a bulletin board to celebrate the highest voted RPers
@@ -669,35 +584,60 @@ class WeeklyEvents(Script):
 
     def post_top_prestige(self):
         import random
+        from world.dominion.models import PraiseOrCondemn
+        changes = PraiseOrCondemn.objects.filter(week=self.db.week)
+        praises = {}
+        condemns = {}
+        total_values = {}
+        for praise in changes.filter(value__gte=0):
+            list_of_praises = praises.get(praise.target, [])
+            list_of_praises.append(praise)
+            praises[praise.target] = list_of_praises
+        for condemn in changes.filter(value__lte=0):
+            list_of_condemns = condemns.get(condemn.target, [])
+            list_of_condemns.append(condemn)
+            condemns[condemn.target] = list_of_condemns
+        for change in changes:
+            current = total_values.get(change.target, 0)
+            current += change.value
+            total_values[change.target] = current
+
         board = BBoard.objects.get(db_key__iexact=PRESTIGE_BOARD_NAME)
-        sorted_praises = sorted(self.db.recorded_praises.items(), key=lambda x: x[1][1], reverse=True)
+
+        def get_total_from_list(entry_list):
+            return sum(ob.value for ob in entry_list)
+
+        sorted_praises = sorted(praises.items(), key=lambda x: get_total_from_list(x[1]), reverse=True)
         sorted_praises = sorted_praises[:20]
-        table = EvTable("{wName{n", "{w#{n", "{wMsg{n", border="cells", width=78)
+        table = EvTable("{wName{n", "{wValue{n", "{wMsg{n", border="cells", width=78)
         for tup in sorted_praises:
-            praise_messages = [msg for _, msg in tup[1][2] if msg] or [None]
-            table.add_row(tup[0].capitalize()[:18], tup[1][1], "'%s'" % random.choice(praise_messages))
+            praise_messages = [ob.message for ob in tup[1] if ob.message]
+            selected_message = ""
+            if praise_messages:
+                selected_message = random.choice(praise_messages)
+            table.add_row(str(tup[0]).capitalize()[:18], get_total_from_list(tup[1]), selected_message)
         table.reformat_column(0, width=18)
-        table.reformat_column(1, width=5)
-        table.reformat_column(2, width=55)
+        table.reformat_column(1, width=10)
+        table.reformat_column(2, width=50)
         prestige_msg = "{wMost Praised this week{n".center(72)
         prestige_msg = "%s\n%s" % (prestige_msg, str(table).lstrip())
         prestige_msg += "\n\n"
         try:
             # sort by our prestige change amount
-            sorted_changes = sorted(self.db.prestige_changes.items(), key=lambda x: abs(x[1]), reverse=True)
+            sorted_changes = sorted(total_values.items(), key=lambda x: abs(x[1]), reverse=True)
             sorted_changes = sorted_changes[:20]
             table = EvTable("{wName{n", "{wPrestige Change Amount{n", "{wPrestige Rank{n", border="cells", width=78)
             rank_order = list(AssetOwner.objects.filter(player__player__isnull=False))
-            rank_order = sorted(rank_order, key=lambda x: x.prestige)
+            rank_order = sorted(rank_order, key=lambda x: x.prestige, reverse=True)
             for tup in sorted_changes:
                 # get our prestige ranking compared to others
-                player = tup[0]
-                rank = rank_order.index(player.Dominion.assets) + 1
+                dompc = tup[0]
+                rank = rank_order.index(dompc.assets) + 1
                 # get the amount that our prestige has changed. add + for positive
                 amt = tup[1]
                 if amt > 0:
                     amt = "+%s" % amt
-                table.add_row(player, amt, rank)
+                table.add_row(dompc, amt, rank)
             prestige_msg += "\n\n"
             prestige_msg += "{wTop Prestige Changes{n".center(72)
             prestige_msg = "%s\n%s" % (prestige_msg, str(table).lstrip())
