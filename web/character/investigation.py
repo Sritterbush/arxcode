@@ -265,7 +265,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
     change_switches = ("changestory", "changestat", "changeskill", "actionpoints", "silver", "resource", "resources")
 
     def pay_costs(self):
-        return True
+        return self.check_ap_cost()
 
     @property
     def related_manager(self):
@@ -384,6 +384,10 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         return already_investigating
 
     def mark_active(self, created_object):
+        """
+        The checks here should be redundant when creating the object because they're supposed to be checked both
+        for creation and if we're marking something active.
+        """
         already_investigating = self.check_too_busy_to_finish()
         if not already_investigating and not self.check_enough_time_left():
             return
