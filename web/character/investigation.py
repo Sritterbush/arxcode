@@ -265,7 +265,8 @@ class CmdAssistInvestigation(InvestigationFormCommand):
     change_switches = ("changestory", "changestat", "changeskill", "actionpoints", "silver", "resource", "resources")
 
     def pay_costs(self):
-        return self.check_ap_cost()
+        """No resource cost for helping investigations"""
+        return True
 
     @property
     def related_manager(self):
@@ -384,10 +385,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         return already_investigating
 
     def mark_active(self, created_object):
-        """
-        The checks here should be redundant when creating the object because they're supposed to be checked both
-        for creation and if we're marking something active.
-        """
+        """After the InvestigationAssistant has been created, check to see if we can mark it helping"""
         already_investigating = self.check_too_busy_to_finish()
         if not already_investigating and not self.check_enough_time_left():
             return
@@ -506,6 +504,13 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                     return
             else:
                 char = self.caller
+            refund = 0
+            for ob in char.assisted_investigations.filter(currently_helping=True):
+                ob.currently_helping = False
+                ob.save()
+                refund += self.ap_cost
+            if refund:
+                self.caller.player_ob.pay_action_points(-refund)
             self.msg("%s stopped assisting investigations." % char)
             return
         if "resume" in self.switches:
