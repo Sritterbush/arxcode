@@ -919,7 +919,7 @@ class ClueForRevelation(SharedMemoryModel):
 
 class InvestigationAssistant(SharedMemoryModel):
     """Someone who is helping an investigation out. Note that char is an ObjectDB, not RosterEntry."""
-    currently_helping = models.BooleanField(default=True, help_text="Whether they're currently helping out")
+    currently_helping = models.BooleanField(default=False, help_text="Whether they're currently helping out")
     investigation = models.ForeignKey('Investigation', related_name="assistants", db_index=True)
     char = models.ForeignKey('objects.ObjectDB', related_name="assisted_investigations", db_index=True)
     stat_used = models.CharField(blank=True, max_length=80, default="perception",
@@ -927,6 +927,9 @@ class InvestigationAssistant(SharedMemoryModel):
     skill_used = models.CharField(blank=True, max_length=80, default="investigation",
                                   help_text="The skill the player chose to use")
     actions = models.TextField(blank=True, help_text="The writeup the player submits of their actions, used for GMing.")
+
+    class Meta:
+        unique_together = ('char', 'investigation')
 
     def __str__(self):
         return "%s helping: %s" % (self.char, self.investigation)

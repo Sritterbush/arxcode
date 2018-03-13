@@ -232,7 +232,7 @@ class CmdForce(ArxCommand):
     the character of a given player name, who may be anywhere.
     """
     key = "@force"
-    locks = "cmd:perm(force) or perm(Immortals)"
+    locks = "cmd:perm(force) or perm(Builders)"
     help_category = "GMing"
 
     def func(self):
@@ -272,7 +272,7 @@ class CmdRestore(ArxPlayerCommand):
     Undeletes an object or player
     """
     key = "@restore"
-    locks = "cmd:perm(restore) or perm(Immortals)"
+    locks = "cmd:perm(restore) or perm(Wizards)"
     help_category = "Admin"
 
     def func(self):

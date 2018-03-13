@@ -31,17 +31,21 @@ from world.msgs.models import Journal, Messenger
 from world.msgs.managers import reload_model_as_proxy
 
 
-def char_name(character_object, verbose_where=False):
+def char_name(character_object, verbose_where=False, watch_list=None):
     """
     Formats the name of character_object
     Args:
         character_object: Character object to format the name of
         verbose_where: Whether to add room title
+        watch_list: List of characters that are being watched, for highlighting
 
     Returns:
         String of formatted character name
     """
+    watch_list = watch_list or []
     cname = character_object.name
+    if character_object in watch_list:
+        cname += "{c*{n"
     if character_object.player_ob and character_object.player_ob.db.lookingforrp:
         cname += "|R+|n"
     if not verbose_where:
@@ -61,10 +65,11 @@ def get_char_names(charlist, caller):
     Returns:
         String that's a list of names
     """
+    watch_list = caller.db.watching or []
     verbose_where = False
     if caller.tags.get("verbose_where"):
         verbose_where = True
-    return ", ".join(char_name(char, verbose_where) for char in charlist if char.player
+    return ", ".join(char_name(char, verbose_where, watch_list) for char in charlist if char.player
                      and (not char.player.db.hide_from_watch or caller.check_permstring("builders")))
 
 
@@ -180,7 +185,8 @@ class CmdWhere(ArxPlayerCommand):
             return
         caller.msg("{wLocations of players:\n")
         # this blank line is now a love note to my perfect partner. <3
-        self.msg("Players who are currently LRP have a |R+|n by their name.")
+        self.msg("Players who are currently LRP have a |R+|n by their name.\n"
+                 "Players who are on your watch list have a {c*{n by their name.")
         applicable_chars = []
         if self.check_switches(self.randomscene_switches):
             cmd = CmdRandomScene()
@@ -196,12 +202,14 @@ class CmdWhere(ArxPlayerCommand):
                 log_err("Object ID: %s is not a room despite being from ArxRoom queryset." % room.id)
                 continue
             charlist = sorted(room.get_visible_characters(caller), key=lambda x: x.name)
-            charlist = [ob for ob in charlist if not ob.player_ob.db.hide_from_watch]
+            charlist = [ob for ob in charlist if not ob.player_ob.db.hide_from_watch and not ob.is_disguised]
             if self.check_switches(self.filter_switches):
-                charlist = [ob for ob in charlist if ob in applicable_chars and not ob.is_disguised]
+                charlist = [ob for ob in charlist if ob in applicable_chars]
             elif "watch" in self.switches:
                 watching = caller.db.watching or []
-                charlist = [ob for ob in charlist if ob in watching and not ob.is_disguised]
+                matches = [ob for ob in charlist if ob in watching]
+                if not matches:
+                    continue
             char_names = get_char_names(charlist, caller)
             if not char_names:
                 continue
@@ -2308,6 +2316,7 @@ class CmdRandomScene(ArxCommand):
     NUM_SCENES = 3
     NUM_DAYS = 3
     DAYS_FOR_NEWBIE_CHECK = 14
+    reminder = "{yReminder: Please only /claim those you have interacted with significantly in a scene.{n"
 
     @property
     def scenelist(self):
@@ -2351,7 +2360,7 @@ class CmdRandomScene(ArxCommand):
         event = loc.event
         if not event:
             return []
-        gms = [ob.player.db.char_ob for ob in event.gms.all() if ob.player and ob.player.db.char_ob]
+        gms = [ob.player.char_ob for ob in event.gms.all() if ob.player and ob.player.char_ob]
         return [gm for gm in gms if gm.location == loc]
 
     @property
@@ -2400,6 +2409,7 @@ class CmdRandomScene(ArxCommand):
             self.msg("{wThose you have already RP'd with this week:{n %s" % ", ".join(ob.key for ob in claimlist))
         if validated:
             self.msg("{wThose you have validated scenes for this week{n %s" % ", ".join(ob.key for ob in validated))
+        self.msg(self.reminder)
 
     def generate_lists(self):
         """Generates our random choices of people we can claim this week."""
@@ -2451,7 +2461,7 @@ class CmdRandomScene(ArxCommand):
         msg += "from someone who did not meaningfully interact with you.{n"
         targ.player_ob.inform(msg, category="Validate")
         inform_staff("%s has completed a random scene with %s. Summary: %s" % (self.caller.key, targ, self.rhs))
-        self.msg("You have sent a request to %s to validate your scene." % targ)
+        self.msg("You have sent a request to %s to validate your scene.\n%s" % (targ, self.reminder))
         our_requests = self.requested_validation
         our_requests.append(targ)
         self.caller.player_ob.db.requested_validation = our_requests

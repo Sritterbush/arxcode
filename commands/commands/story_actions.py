@@ -55,16 +55,18 @@ class ActionCommandMixin(object):
 
     def invite_assistant(self, action):
         """Invites an assistant to an action"""
-        player = self.caller.search(self.rhs)
-        if not player:
+        player_list = [self.caller.search(arg) for arg in self.rhslist]
+        player_list = [ob for ob in player_list if ob]
+        if not player_list:
             return
-        dompc = player.Dominion
-        try:
-            action.invite(dompc)
-        except ActionSubmissionError as err:
-            self.msg(err)
-        else:
-            self.msg("You have invited %s to join your action." % dompc)
+        for player in player_list:
+            dompc = player.Dominion
+            try:
+                action.invite(dompc)
+            except ActionSubmissionError as err:
+                self.msg(err)
+            else:
+                self.msg("You have invited %s to join your action." % dompc)
 
 
 class CmdAction(ActionCommandMixin, ArxPlayerCommand):
@@ -83,7 +85,7 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
         @action/submit <action #>
     Options:
         @action [<action #>]
-        @action/invite <action #>=<character>
+        @action/invite <action #>=<character>[,<character2>,...]
         @action/setaction <action #>=<action text>
         @action/setsecret[/traitor] <action #>=<secret action>
         @action/setcrisis <action #>=<crisis #>
@@ -574,7 +576,7 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
         @gm/gemit <action #>[,<action #>,...]=<text to post>[/<new episode name>]
         @gm/allowedit <action #>[,assistant name]
         @gm/togglefree <action #>[,assistant name]
-        @gm/invite <action #>=<player to add as assistant>
+        @gm/invite <action #>=<player to add as assistant>[,player2,...]
         @gm/addevent <action #>=<event #>
         @gm/rmevent <action #>=<event #>
 

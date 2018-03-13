@@ -159,9 +159,20 @@ class CmdHelp(Command):
 
         # try an exact command auto-help match
         match = [cmd for cmd in all_cmds if cmd == query]
+
+        # Account for prefixes
+        if not match:
+            if (query[0] == '+'):
+                match = [cmd for cmd in all_cmds if ((cmd == query[1:]) or (cmd == "@%s" % query[1:]))]
+            elif (query[0] == '@'):
+                match = [cmd for cmd in all_cmds if ((cmd == query[1:]) or (cmd == "+%s" % query[1:]))]
+            else:
+                match = [cmd for cmd in all_cmds if ((cmd == "@%s" % query) or (cmd == "+%s" % query))]
+
         if not match:
             match = [cmd for cmd in SituationalCmdSet() if cmd == query]
             unavailable = True
+
         if len(match) == 1:
             if not [ob for ob in self.cmdset if ob == match[0]]:
                 unavailable = True
