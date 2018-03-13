@@ -2406,6 +2406,9 @@ class CrisisAction(AbstractAction):
             msg += "{wAction ID:{n #%s" % self.id
             if self.date_submitted:
                 msg += "  {wDate Submitted:{n %s" % self.date_submitted.strftime("%x %X")
+            if staff_viewer:
+                if self.gm is not None:
+                    msg += "  {wGM:{n %s" % self.gm
         for ob in all_actions:
             view_secrets = staff_viewer or ob.check_view_secret(caller)
             msg += ob.get_action_text(disp_summary=view_secrets)
