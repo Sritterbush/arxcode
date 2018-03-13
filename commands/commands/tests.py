@@ -176,8 +176,8 @@ class StoryActionTests(ArxCommandTest):
         action.ask_question("another test question")
         self.call_cmd("/markanswered 1", "You have marked the questions as answered.")
         self.assertEqual(action.questions.last().mark_answered, True)
-        self.call_cmd("1", "Action ID: #1  Date Submitted: %s\n" % (now.strftime("%x %X")) +
-                           "Action by Testaccount2\nSummary: test summary\nAction: test\n"
+        self.call_cmd("1", "Action ID: #1 Category: Unknown  Date: %s  " % (now.strftime("%x %X")) +
+                           "GM: Testaccount\nAction by Testaccount2\nSummary: test summary\nAction: test\n"
                            "[physically present] Perception (stat) + Investigation (skill) at difficulty 60\n"
                            "Testaccount2 OOC intentions: ooc intent test\n\nOOC Notes and GM responses\n"
                            "Testaccount2 OOC Question: foo inform\nReply by Testaccount: Sure go nuts\n"
@@ -264,6 +264,7 @@ class OverridesTests(ArxCommandTest):
         self.call_cmd("asdf", "Players:\n\nPlayer name Fealty Idle \n\nShowing 0 out of 1 unique account logged in.")
 
 
+# noinspection PyUnresolvedReferences
 class SocialTests(ArxCommandTest):
     def test_cmd_where(self):
         self.setup_cmd(social.CmdWhere, self.account)

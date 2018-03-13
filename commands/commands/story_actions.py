@@ -643,17 +643,18 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
     def list_actions(self):
         """Lists the actions for the matching queryset"""
         qs = self.get_queryset_from_switches()
-        table = EvTable("{wID", "{wplayer", "{wtldr", "{wcategory", "{wcrisis", width=78, border="cells")
+        table = EvTable("{wID", "{wplayer", "{wtldr", "{wdate", "{wcrisis", width=78, border="cells")
         for action in qs:
             if action.unanswered_questions:
                 action_id = "{c*%s{n" % action.id
             else:
                 action_id = action.id
-            table.add_row(action_id, action.dompc, action.topic, action.get_category_display(), action.crisis)
+            date = action.date_submitted.strftime("%m/%d") if action.date_submitted else "----"
+            table.add_row(action_id, action.dompc, action.topic, date, action.crisis)
         table.reformat_column(0, width=9)
         table.reformat_column(1, width=10)
-        table.reformat_column(2, width=33)
-        table.reformat_column(3, width=12)
+        table.reformat_column(2, width=37)
+        table.reformat_column(3, width=8)
         table.reformat_column(4, width=14)
         arx_more.msg(self.caller, str(table), justify_kwargs=False, pages_by_char=True)
     

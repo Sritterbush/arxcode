@@ -2404,8 +2404,9 @@ class CrisisAction(AbstractAction):
         view_main_secrets = staff_viewer or self.check_view_secret(caller)
         if disp_ooc:
             msg += "{wAction ID:{n #%s" % self.id
+            msg += " {wCategory:{n %s" % self.get_category_display()
             if self.date_submitted:
-                msg += "  {wDate Submitted:{n %s" % self.date_submitted.strftime("%x %X")
+                msg += "  {wDate:{n %s" % self.date_submitted.strftime("%x %X")
             if staff_viewer:
                 if self.gm is not None:
                     msg += "  {wGM:{n %s" % self.gm
