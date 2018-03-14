@@ -33,12 +33,13 @@ class InvestigationTests(ArxCommandTest):
         self.call_cmd("1", "test clue\nRating: 10\ntest clue desc")
         self.call_cmd("/addnote 1=test note", "test clue\nRating: 10\ntest clue desc\nadditional text test"
                                               "\n[%s] TestAccount wrote: test note" % now.strftime("%x %X"))
+        self.call_cmd("/share 1=", "Who are you sharing with?")
         self.call_cmd("/share 1=Testaccount2", "Sharing the clue(s) with them would cost 101 action points.")
         self.roster_entry.action_points = 202
         self.call_cmd("/share 1=Testaccount2", "You use 101 action points and have 101 remaining this week.|"
                                                "You have shared the clue(s)"
                       " 'test clue' with Char2.")
-        self.call_cmd("/share 2=Testaccount2", "No clue found by that ID.")
+        self.call_cmd("/share 2=Testaccount2", "No clue found by this ID: 2. ")
         self.clue_disco2.roll += 450
         self.clue_disco2.save()
         self.assertFalse(bool(self.roster_entry2.revelations.all()))
