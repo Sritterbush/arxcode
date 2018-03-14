@@ -397,13 +397,19 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
       
     def set_roll(self, action):
         """Sets a stat and skill for action or assistant"""
-        if len(self.rhslist) < 2 or not self.rhslist[0] or not self.rhslist[1]:
+        from world.stats_and_skills import VALID_SKILLS, VALID_STATS
+        try:
+            stat, skill = self.rhslist
+        except (ValueError, TypeError):
             self.msg("Usage: @action/roll <action #>=<stat>,<skill>")
             return
+        if stat not in VALID_STATS or skill not in VALID_SKILLS:
+            self.msg("You must provide a valid stat and skill.")
+            return
         field_name = "stat_used"
-        self.set_action_field(action, field_name, self.rhslist[0], verbose_name="stat")
+        self.set_action_field(action, field_name, stat, verbose_name="stat")
         field_name = "skill_used"
-        return self.set_action_field(action, field_name, self.rhslist[1], verbose_name="skill")
+        return self.set_action_field(action, field_name, skill, verbose_name="skill")
         
     def set_topic(self, action):
         """Sets the topic for an action"""
@@ -684,7 +690,7 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
                            ~Q(status__in=(old_status, draft_status, cancelled_status, pending_status)))
         if "mine" in self.switches:
             qs = qs.filter(gm=self.caller)
-        elif not self.args and not "everyone" in self.switches:
+        elif not self.args and "everyone" not in self.switches:
             qs = qs.filter(gm__isnull=True)
         if self.args:
             name = self.args
