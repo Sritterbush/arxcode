@@ -798,7 +798,7 @@ class CmdAdmOrganization(ArxPlayerCommand):
             caller.msg("No organization found for %s." % self.lhs)
             return
         if not self.switches:
-            caller.msg(org.display())
+            caller.msg(org.display(show_all=True))
             return
         # already found an existing org
         if 'create' in self.switches:
@@ -809,7 +809,7 @@ class CmdAdmOrganization(ArxPlayerCommand):
             self.msg("Created board and channel for %s." % org)
             return
         if 'members' in self.switches:
-            caller.msg(org.display_members())
+            caller.msg(org.display_members(show_all=True))
             return
         if 'boot' in self.switches:
             try:
