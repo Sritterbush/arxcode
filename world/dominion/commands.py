@@ -182,6 +182,7 @@ class CmdAdmDomain(ArxPlayerCommand):
             player = caller.search(self.lhs)
             if not player:
                 caller.msg("No player by the name %s." % self.lhs)
+                return
             try:
                 d_id = int(self.rhslist[0])
                 if len(self.rhslist) > 1:
@@ -198,7 +199,7 @@ class CmdAdmDomain(ArxPlayerCommand):
             if "createvassal" in self.switches:
                 try:
                     region = dom.land.region
-                    setup_utils.setup_dom_for_char(player.db.char_ob, liege_domain=dom, region=region)
+                    setup_utils.setup_dom_for_char(player.char_ob, liege_domain=dom, region=region)
                     caller.msg("Vassal created.")
                 except Exception as err:
                     caller.msg(err)
