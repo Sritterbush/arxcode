@@ -890,8 +890,9 @@ class Land(SharedMemoryModel):
 
     def _get_occupied_area(self):
         total_area = 0
-        for domain in self.domains.all():
-            total_area += domain.area
+        for location in self.locations.all():
+            for domain in location.domains.all():
+                total_area += domain.area
         return total_area
     occupied_area = property(_get_occupied_area)
 

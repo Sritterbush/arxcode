@@ -520,7 +520,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                         char = self.caller.player.retainers.get(id=self.rhs).dbobj
                     else:
                         char = self.caller.player.retainers.get(name=self.rhs).dbobj
-                except Agent.DoesNotExist:
+                except (Agent.DoesNotExist, AttributeError):
                     self.msg("No retainer found by that ID or number.")
                     return
             else:  # not a retainer, just the caller. So check if they have an active investigation

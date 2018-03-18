@@ -214,6 +214,7 @@ class CmdKill(ArxCommand):
                 obj = obj.db.char_ob
         if not obj:
             caller.msg("No character found by that name.")
+            return
         obj.death_process()
         caller.msg("%s has been murdered." % obj.key)
 
