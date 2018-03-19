@@ -1057,13 +1057,13 @@ class Domain(SharedMemoryModel):
     @staticmethod
     def required_worker_mod(buildings, workers):
         """
-        Returns what percentage (as a float between 0.0 to 100.0) we have of
+        Returns what percentage (as a float between 0.0 to 1.0) we have of
         the workers needed to run these number of buildings at full strength.
         """
         req = buildings * SERFS_PER_BUILDING
         # if we have more than enough workers, we're at 100%
         if workers >= req:
-            return 100.0
+            return 1.0
         # percentage of our efficiency
         return workers/req
     
