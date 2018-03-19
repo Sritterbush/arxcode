@@ -400,7 +400,9 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
         from world.stats_and_skills import VALID_SKILLS, VALID_STATS
         try:
             stat, skill = self.rhslist
-        except (ValueError, TypeError):
+            stat = stat.lower()
+            skill = skill.lower()
+        except (ValueError, TypeError, AttributeError):
             self.msg("Usage: @action/roll <action #>=<stat>,<skill>")
             return
         if stat not in VALID_STATS or skill not in VALID_SKILLS:

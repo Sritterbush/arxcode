@@ -35,7 +35,7 @@ class StoryActionTests(ArxCommandTest):
         self.assertEquals(action.questions.first().is_intent, True)
         self.call_cmd("/tldr 1=summary", "topic set to summary.")
         self.call_cmd("/roll 1=foo,bar", "You must provide a valid stat and skill.")
-        self.call_cmd("/roll 1=strength,athletics", "stat set to strength.|skill set to athletics.")
+        self.call_cmd("/roll 1=Strength,athletics", "stat set to strength.|skill set to athletics.")
         self.call_cmd("/setsecret 1=sekrit", "Secret actions set to sekrit.")
         self.call_cmd("/invite 1=foo", "Could not find 'foo'.")
         self.call_cmd("/invite 1=TestAccount2", "You have invited Testaccount2 to join your action.")
