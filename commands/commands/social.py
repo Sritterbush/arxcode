@@ -2434,16 +2434,24 @@ class CmdRandomScene(ArxCommand):
         if targ == self.caller:
             self.msg("You cannot claim yourself.")
             return
-        if targ not in self.scenelist and targ not in self.newbies and targ not in self.gms:
-            self.msg("%s is not in your list of random scene partners this week: %s" % (targ, ", ".join(
-                str(ob) for ob in self.scenelist)))
-            self.msg("New players who can be RP'd with for credit: %s" % ", ".join(str(ob) for ob in self.newbies))
-            return
-        if targ in self.claimlist:
-            self.msg("You have already claimed a scene with %s this week." % targ)
-            return
         if not self.rhs:
             self.msg("You must include some summary of the scene. It may be quite short.")
+            return
+        # If we would fail for any reason, give a more ambiguous error message if the target is masked.
+        err = ""
+        if targ not in self.scenelist and targ not in self.newbies and targ not in self.gms:
+            err = ("%s is not in your list of random scene partners this week: %s" % (targ, ", ".join(
+                ob.key for ob in self.scenelist)))
+            err += "New players who can be RP'd with for credit: %s" % ", ".join(ob.key for ob in self.newbies)
+        if targ in self.claimlist:
+            err += "You have already claimed a scene with %s this week." % targ
+        try:
+            if err and targ.fakename:
+                err = "You cannot claim them."
+        except AttributeError:
+            pass
+        if err:
+            self.msg(err)
             return
         requests = targ.db.scene_requests or {}
         tup = (self.caller, self.rhs)

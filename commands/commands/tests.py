@@ -333,3 +333,6 @@ class SocialTests(ArxCommandTest):
                                                      'Reminder: Please only /claim those you have interacted with '
                                                      'significantly in a scene.')
         mock_inform_staff.assert_called_with("Char has completed a random scene with Char2. Summary: test test test")
+        self.call_cmd("/claim Char2=test test test", "You have already claimed a scene with Char2 this week.")
+        self.char2.db.false_name = "asdf"
+        self.call_cmd("/claim Char2=test test test", "You cannot claim them.")
