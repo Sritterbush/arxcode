@@ -493,6 +493,8 @@ class CmdListStaff(ArxPlayerCommand):
         table = evtable.EvTable("{wName{n", "{wRole{n", "{wIdle{n", width=78)
         for ob in staff:
             from .overrides import CmdWho
+            if ob.tags.get("hidden_staff") or ob.db.hide_from_watch:
+                continue
             timestr = CmdWho.get_idlestr(ob.idle_time)
             obname = CmdWho.format_pname(ob)
             table.add_row(obname, ob.db.staff_role or "", timestr)
