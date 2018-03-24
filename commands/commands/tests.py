@@ -3,11 +3,11 @@ Tests for different general commands. Tests for other command sets or for differ
 """
 
 from mock import Mock, patch
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from server.utils.test_utils import ArxCommandTest
 from world.dominion.models import CrisisAction, Crisis, Army, RPEvent
-from . import story_actions, overrides, social
+from . import story_actions, overrides, social, staff_commands
 
 
 class StoryActionTests(ArxCommandTest):
@@ -336,3 +336,22 @@ class SocialTests(ArxCommandTest):
         self.call_cmd("/claim Char2=test test test", "You have already claimed a scene with Char2 this week.")
         self.char2.db.false_name = "asdf"
         self.call_cmd("/claim Char2=test test test", "You cannot claim them.")
+
+
+class StaffCommandTests(ArxCommandTest):
+    def test_cmd_admin_break(self):
+        from server.utils.arx_utils import check_break
+        now = datetime.now()
+        future = now + timedelta(days=1)
+        self.setup_cmd(staff_commands.CmdAdminBreak, self.account)
+        self.call_cmd("", "Current end date is: No time set.")
+        self.assertFalse(check_break())
+        self.call_cmd("asdf", "Date did not match 'mm/dd/yy hh:mm' format.|You entered: asdf|"
+                              "Current end date is: No time set.")
+        future_string = future.strftime("%m/%d/%y %H:%M")
+        self.call_cmd(future_string, "Break date updated.|Current end date is: %s." % future_string)
+        self.assertTrue(check_break())
+        past = now - timedelta(days=1)
+        past_string = past.strftime("%m/%d/%y %H:%M")
+        self.call_cmd(past_string, "Break date updated.|Current end date is: %s." % past_string)
+        self.assertFalse(check_break())
