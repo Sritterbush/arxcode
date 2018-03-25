@@ -1442,6 +1442,7 @@ class CmdAdminBreak(ArxPlayerCommand):
 
     Usage:
         @admin_break <date>
+        @admin_break/toggle_allow_ocs
 
     Sets the end date of a break. Players are informed that staff are on break
     as long as the date is in the future. To end the break, set it to be the
@@ -1454,6 +1455,11 @@ class CmdAdminBreak(ArxPlayerCommand):
     def func(self):
         """Executes admin_break command"""
         from datetime import datetime
+        if "toggle_allow_ocs" in self.switches:
+            new_value = not bool(ServerConfig.objects.conf("allow_character_creation_on_break"))
+            ServerConfig.objects.conf("allow_character_creation_on_break", new_value)
+            self.msg("Allowing character creation during break has been set to %s." % new_value)
+            return
         if not self.args:
             self.display_break_date()
             return
