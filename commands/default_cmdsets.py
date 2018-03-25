@@ -239,6 +239,7 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
         self.add(staff_commands.CmdTransferKeys())
         self.add(staff_commands.CmdAdminTitles())
         self.add(staff_commands.CmdAdminWrit())
+        self.add(staff_commands.CmdAdminBreak())
         from .cmdsets import starting_gear
         self.add(starting_gear.CmdSetupGear())
 

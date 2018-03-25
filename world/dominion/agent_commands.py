@@ -132,8 +132,6 @@ class CmdAgents(ArxPlayerCommand):
             owner_ids = [ob.id for ob in owners]
             owner_names = ", ".join(str(ob) for ob in owners)
         except (AttributeError, AssetOwner.DoesNotExist, ValueError, TypeError):
-            import traceback
-            self.msg(traceback.print_exc())
             caller.msg("You do not have access to guards here.")
             return
         if not self.lhslist:

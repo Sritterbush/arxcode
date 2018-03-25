@@ -79,9 +79,14 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         if table and source_location != self.location:
             table.leave(self)
         if self.db.briefmode:
-            string = "{c%s{n" % self.location.name
-            string += self.location.return_contents(self, show_places=False)
-            string += self.location.event_string()
+            string = ""
+            # handle cases of self.location being None or not a Room object
+            try:
+                string = "{c%s{n" % self.location.name
+                string += self.location.return_contents(self, show_places=False)
+                string += self.location.event_string()
+            except AttributeError:
+                pass
             self.msg(string)
         else:
             self.msg(self.at_look(self.location))

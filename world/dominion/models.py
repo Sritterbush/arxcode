@@ -890,8 +890,9 @@ class Land(SharedMemoryModel):
 
     def _get_occupied_area(self):
         total_area = 0
-        for domain in self.domains.all():
-            total_area += domain.area
+        for location in self.locations.all():
+            for domain in location.domains.all():
+                total_area += domain.area
         return total_area
     occupied_area = property(_get_occupied_area)
 
@@ -1056,13 +1057,13 @@ class Domain(SharedMemoryModel):
     @staticmethod
     def required_worker_mod(buildings, workers):
         """
-        Returns what percentage (as a float between 0.0 to 100.0) we have of
+        Returns what percentage (as a float between 0.0 to 1.0) we have of
         the workers needed to run these number of buildings at full strength.
         """
         req = buildings * SERFS_PER_BUILDING
         # if we have more than enough workers, we're at 100%
         if workers >= req:
-            return 100.0
+            return 1.0
         # percentage of our efficiency
         return workers/req
     
@@ -2404,8 +2405,12 @@ class CrisisAction(AbstractAction):
         view_main_secrets = staff_viewer or self.check_view_secret(caller)
         if disp_ooc:
             msg += "{wAction ID:{n #%s" % self.id
+            msg += " {wCategory:{n %s" % self.get_category_display()
             if self.date_submitted:
-                msg += "  {wDate Submitted:{n %s" % self.date_submitted.strftime("%x %X")
+                msg += "  {wDate:{n %s" % self.date_submitted.strftime("%x %X")
+            if staff_viewer:
+                if self.gm is not None:
+                    msg += "  {wGM:{n %s" % self.gm
         for ob in all_actions:
             view_secrets = staff_viewer or ob.check_view_secret(caller)
             msg += ob.get_action_text(disp_summary=view_secrets)
@@ -2938,7 +2943,7 @@ class Organization(InformMixin, SharedMemoryModel):
     def __repr__(self):
         return "<Org (#%s): %s>" % (self.id, self.name)
     
-    def display_members(self, start=1, end=10, viewing_member=None):
+    def display_members(self, start=1, end=10, viewing_member=None, show_all=False):
         """Returns string display of the org"""
         pcs = self.all_members
         active = self.active_members
@@ -2948,7 +2953,8 @@ class Organization(InformMixin, SharedMemoryModel):
             if not self.secret:
                 members_to_exclude = members_to_exclude.filter(secret=True)
             pcs = pcs.exclude(id__in=members_to_exclude)
-            
+        elif not show_all:
+            pcs = pcs.exclude(secret=True)
         msg = ""
         for rank in range(start, end+1):
             chars = pcs.filter(rank=rank)
@@ -2982,17 +2988,17 @@ class Organization(InformMixin, SharedMemoryModel):
                 msg += "{w%s{n (Rank %s): %s\n" % (title, rank, name)
         return msg
     
-    def display_public(self):
+    def display_public(self, show_all=False):
         """Public display of this org"""
         msg = "\n{wName{n: %s\n" % self.name
         msg += "{wDesc{n: %s\n" % self.desc
         if not self.secret:
-            msg += "\n{wLeaders of %s:\n%s\n" % (self.name, self.display_members(end=2))
+            msg += "\n{wLeaders of %s:\n%s\n" % (self.name, self.display_members(end=2, show_all=show_all))
         webpage = PAGEROOT + self.get_absolute_url()
         msg += "{wWebpage{n: %s\n" % webpage
         return msg
     
-    def display(self, viewing_member=None, display_clues=False):
+    def display(self, viewing_member=None, display_clues=False, show_all=False):
         """Returns string display of org"""
         if hasattr(self, 'assets'):
             money = self.assets.vault
@@ -3010,14 +3016,14 @@ class Organization(InformMixin, SharedMemoryModel):
             display_money = False
             prestige = 0
             holdings = []
-        msg = self.display_public()
+        msg = self.display_public(show_all=show_all)
         if self.secret:
             # if we're secret, we display the leaders only to members. And then
             # only if they're not marked secret themselves
             start = 1
         else:
             start = 3
-        members = self.display_members(start=start, viewing_member=viewing_member)
+        members = self.display_members(start=start, viewing_member=viewing_member, show_all=show_all)
         if members:
             members = "{wMembers of %s:\n%s" % (self.name, members)
         msg += members

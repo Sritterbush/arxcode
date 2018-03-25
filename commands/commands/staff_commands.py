@@ -9,6 +9,7 @@ from evennia.server.sessionhandler import SESSIONS
 from evennia.utils import evtable
 from evennia.accounts.models import AccountDB
 from evennia.objects.models import ObjectDB
+from evennia.server.models import ServerConfig
 from evennia.typeclasses.tags import Tag
 from evennia.scripts.models import ScriptDB
 
@@ -214,6 +215,7 @@ class CmdKill(ArxCommand):
                 obj = obj.db.char_ob
         if not obj:
             caller.msg("No character found by that name.")
+            return
         obj.death_process()
         caller.msg("%s has been murdered." % obj.key)
 
@@ -492,6 +494,8 @@ class CmdListStaff(ArxPlayerCommand):
         table = evtable.EvTable("{wName{n", "{wRole{n", "{wIdle{n", width=78)
         for ob in staff:
             from .overrides import CmdWho
+            if ob.tags.get("hidden_staff") or ob.db.hide_from_watch:
+                continue
             timestr = CmdWho.get_idlestr(ob.idle_time)
             obname = CmdWho.format_pname(ob)
             table.add_row(obname, ob.db.staff_role or "", timestr)
@@ -1430,3 +1434,48 @@ class CmdAdminWrit(ArxPlayerCommand):
             self.msg("%s's writ to %s removed." % (targ, holder))
             return
         self.msg("Invalid switch.")
+
+
+class CmdAdminBreak(ArxPlayerCommand):
+    """
+    Sets when staff break ends
+
+    Usage:
+        @admin_break <date>
+        @admin_break/toggle_allow_ocs
+
+    Sets the end date of a break. Players are informed that staff are on break
+    as long as the date is in the future. To end the break, set it to be the
+    past.
+    """
+    key = "@admin_break"
+    locks = "cmd: perm(builders)"
+    help_category = "Admin"
+
+    def func(self):
+        """Executes admin_break command"""
+        from datetime import datetime
+        if "toggle_allow_ocs" in self.switches:
+            new_value = not bool(ServerConfig.objects.conf("allow_character_creation_on_break"))
+            ServerConfig.objects.conf("allow_character_creation_on_break", new_value)
+            self.msg("Allowing character creation during break has been set to %s." % new_value)
+            return
+        if not self.args:
+            self.display_break_date()
+            return
+        try:
+            date = datetime.strptime(self.args, "%m/%d/%y %H:%M")
+        except ValueError:
+            self.msg("Date did not match 'mm/dd/yy hh:mm' format.")
+            self.msg("You entered: %s" % self.args)
+        else:
+            ServerConfig.objects.conf("end_break_date", date)
+            self.msg("Break date updated.")
+        finally:
+            self.display_break_date()
+
+    def display_break_date(self):
+        """Displays the current end date of the break"""
+        date = ServerConfig.objects.conf("end_break_date")
+        display = date.strftime("%m/%d/%y %H:%M") if date else "No time set"
+        self.msg("Current end date is: %s." % display)

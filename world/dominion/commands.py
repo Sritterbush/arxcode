@@ -182,6 +182,7 @@ class CmdAdmDomain(ArxPlayerCommand):
             player = caller.search(self.lhs)
             if not player:
                 caller.msg("No player by the name %s." % self.lhs)
+                return
             try:
                 d_id = int(self.rhslist[0])
                 if len(self.rhslist) > 1:
@@ -198,7 +199,7 @@ class CmdAdmDomain(ArxPlayerCommand):
             if "createvassal" in self.switches:
                 try:
                     region = dom.land.region
-                    setup_utils.setup_dom_for_char(player.db.char_ob, liege_domain=dom, region=region)
+                    setup_utils.setup_dom_for_char(player.char_ob, liege_domain=dom, region=region)
                     caller.msg("Vassal created.")
                 except Exception as err:
                     caller.msg(err)
@@ -797,7 +798,7 @@ class CmdAdmOrganization(ArxPlayerCommand):
             caller.msg("No organization found for %s." % self.lhs)
             return
         if not self.switches:
-            caller.msg(org.display())
+            caller.msg(org.display(show_all=True))
             return
         # already found an existing org
         if 'create' in self.switches:
@@ -808,7 +809,7 @@ class CmdAdmOrganization(ArxPlayerCommand):
             self.msg("Created board and channel for %s." % org)
             return
         if 'members' in self.switches:
-            caller.msg(org.display_members())
+            caller.msg(org.display_members(show_all=True))
             return
         if 'boot' in self.switches:
             try:

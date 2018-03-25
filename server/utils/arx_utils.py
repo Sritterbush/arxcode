@@ -221,12 +221,13 @@ def raw(text):
     return text
 
 
-def check_break(caller=None):
+def check_break(caller=None, checking_character_creation=False):
     """
     Checks if staff are currently on break
 
         Args:
             caller (ObjectDB or AccountDB): object to .msg our end date
+            checking_character_creation (bool): Whether we can make characters during break
     Returns:
         (bool): True if we're on our break, false otherwise
 
@@ -234,7 +235,10 @@ def check_break(caller=None):
     if passed along as args, then return True.
     """
     from evennia.server.models import ServerConfig
+    allow_character_creation = ServerConfig.objects.conf("allow_character_creation_on_break")
     end_date = ServerConfig.objects.conf("end_break_date")
+    if checking_character_creation and allow_character_creation:
+        return False
     if not end_date:
         return False
     if end_date > datetime.now():

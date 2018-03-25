@@ -998,6 +998,8 @@ class CmdSheet(ArxPlayerCommand):
                 return
         if 'social' in switches or 'background' in switches or 'info' in switches or 'personality' in switches:
             charob, show_hidden = self.get_character()
+            if not charob:
+                return
             if 'social' in switches:
                 display_relationships(caller, charob, show_hidden)
                 return
