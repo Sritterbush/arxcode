@@ -106,7 +106,7 @@ class JournalHandler(MsgHandlerBase):
     def add_to_journals(self, msg, white=True):
         """adds message to our journal"""
         if not white:
-            msg.set_black_locks()
+            msg.add_black_locks()
             if msg not in self.black_journal:
                 self.black_journal.insert(0, msg)
         else:
