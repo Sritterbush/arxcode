@@ -594,6 +594,10 @@ class AssetOwner(SharedMemoryModel):
         else:
             target = self.organization_owner
         return target
+
+    def prestige_decay(self):
+        self.fame -= int(self.fame * .20)
+        self.save()
         
     def do_weekly_adjustment(self, week):
         """
@@ -626,8 +630,7 @@ class AssetOwner(SharedMemoryModel):
         if org:
             # record organization's income
             amount += self.organization_owner.amount
-            # organization prestige decay
-        self.fame -= int(self.fame * .20)
+
         # debts that won't be processed by someone else's income, since they have no receiver
         for debt in self.debts.filter(receiver__isnull=True, do_weekly=True):
             amount -= debt.amount

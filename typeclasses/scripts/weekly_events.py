@@ -115,6 +115,9 @@ class WeeklyEvents(Script):
         self.reset_action_points()
 
     def do_dominion_events(self):
+        for owner in AssetOwner.objects.all():
+            owner.prestige_decay()
+
         for owner in AssetOwner.objects.filter(
                         Q(organization_owner__isnull=False) |
                         (Q(player__player__roster__roster__name="Active") &

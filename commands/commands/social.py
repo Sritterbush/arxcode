@@ -2170,12 +2170,15 @@ class CmdSocialScore(ArxCommand):
             self.msg(str(table))
             return
         if "personal" in self.switches:
-            assets = AssetOwner.objects.filter(player__player__isnull=False).order_by('-prestige')[:20]
+            assets = AssetOwner.objects.filter(player__player__isnull=False)
+            assets = sorted(assets, key=lambda x: x.fame + x.legend, reverse=True)[:20]
         elif "orgs" in self.switches:
-            assets = AssetOwner.objects.filter(organization_owner__isnull=False).order_by('-prestige')[:20]
+            assets = AssetOwner.objects.filter(organization_owner__isnull=False)
+            assets = sorted(assets, key=lambda x: x.prestige, reverse=True)[:20]
         else:
             caller.msg("Invalid switch.")
             return
+
         table = PrettyTable(["{wName{n", "{wPrestige{n"])
         for asset in assets:
             table.add_row([str(asset), asset.prestige])
