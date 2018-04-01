@@ -1073,17 +1073,22 @@ class CmdJournalAdminForDummies(ArxPlayerCommand):
         @admin_journal/cancel
         @admin_journal/delete <character>=<entry #>
         @admin_journal/convert_to_black <character>=<entry #>
+        @admin_journal/convert_to_white <character>=<entry #>
+        @admin_journal/reveal_black <character>=<entry #>
+        @admin_journal/hide_black <character>=<entry #>
     """
     key = "@admin_journal"
     aliases = ["@admin_journals"]
     locks = "cmd: perm(builders)"
     help_category = "Admin"
+    black_switches = ("convert_to_white", "reveal_black", "hide_black")
+    conversion_switches = black_switches + ('convert_to_black',)
 
     def journal_index(self, character, j_list):
         """Displays table of journals for character"""
         from server.utils.prettytable import PrettyTable
         num = 1
-        table = PrettyTable(["{w#{n", "{wWritten About{n", "{wDate{n", "{wUnread?{n"])
+        table = PrettyTable(["{w#{n", "{wWritten About{n", "{wDate{n", "{wPublic{n"])
         fav_tag = "pid_%s_favorite" % self.caller.id
         for entry in j_list:
             try:
@@ -1095,9 +1100,9 @@ class CmdJournalAdminForDummies(ArxPlayerCommand):
                     str_num = str(num) + "{w*{n"
                 else:
                     str_num = str(num)
-                unread = "" if self.caller in entry.receivers else "{wX{n"
+                public = "{wX{n" if entry.is_public else ""
                 date = character.messages.get_date_from_header(entry)
-                table.add_row([str_num, name, date, unread])
+                table.add_row([str_num, name, date, public])
                 num += 1
             except (AttributeError, RuntimeError, ValueError, TypeError):
                 continue
@@ -1144,7 +1149,9 @@ class CmdJournalAdminForDummies(ArxPlayerCommand):
                 self.msg("Need Wizard or higher permissions.")
                 return
             journals = charob.messages.white_journal if "black" not in self.switches else charob.messages.black_journal
-            entry = journals[int(self.rhs) - 1]
+            entry = self.get_entry(journals)
+            if not entry:
+                return
             if not self.caller.ndb.confirm_msg_delete:
                 self.caller.ndb.confirm_msg_delete = entry
                 self.msg("{rEntry selected for deletion. To delete, repeat command. Otherwise cancel.")
@@ -1161,25 +1168,70 @@ class CmdJournalAdminForDummies(ArxPlayerCommand):
             inform_staff("%s deleted %s's journal: %s" % (self.caller, charob, oldtext))
             self.caller.ndb.confirm_msg_delete = None
             return
-        if "convert_to_black" in self.switches:
-            entry = charob.messages.white_journal[int(self.rhs) - 1]
-            if not self.caller.ndb.confirm_msg_convert:
-                self.caller.ndb.confirm_msg_convert = entry
-                self.msg("{rEntry selected for conversion. To convert, repeat command. Otherwise cancel.")
-                self.msg("{rSelected entry:{n %s" % entry.db_message)
-                return
-            if self.caller.ndb.confirm_msg_convert != entry:
-                self.msg("{rEntries did not match.")
-                self.msg("{rSelected originally:{n %s" % self.caller.ndb.confirm_msg_convert.db_message)
-                self.msg("{rSelected this time:{n %s" % entry.db_message)
-                self.msg("Previous selection cleared. You can select it again, for reals this time, then confirm.")
+        if self.check_switches(self.conversion_switches):
+            if self.check_switches(self.black_switches):
+                journal = charob.messages.black_journal
             else:
+                journal = charob.messages.white_journal
+            entry = self.get_entry(journal)
+            if not entry:
+                return
+            if not self.confirm_entry_conversion(entry):
+                return
+            self.msg("{rConverted.{n")
+            if "convert_to_black" in self.switches:
                 charob.messages.convert_to_black(entry)
-                self.msg("{rConverted.{n")
                 inform_staff("%s moved %s's journal to black:\n%s" % (self.caller, charob, entry.db_message))
+            elif "convert_to_white" in self.switches:
+                charob.messages.convert_to_white(entry)
+                inform_staff("%s moved %s's journal to white:\n%s" % (self.caller, charob, entry.db_message))
+            elif "reveal_black" in self.switches:
+                entry.reveal_black_journal()
+                inform_staff("%s made %s's black journal public:\n%s" % (self.caller, charob, entry.db_message))
+            elif "hide_black" in self.switches:
+                entry.hide_black_journal()
+                inform_staff("%s made %s's black journal private:\n%s" % (self.caller, charob, entry.db_message))
             self.caller.ndb.confirm_msg_convert = None
             return
         self.msg("Invalid switch.")
+
+    def get_entry(self, journal):
+        """
+        Gets an entry from a journal or sends an error message
+        Args:
+            journal: the white_journal or black_journal list of a character
+
+        Returns:
+            Msg object or None, if something is found
+        """
+        try:
+            return journal[int(self.rhs) - 1]
+        except (TypeError, ValueError, IndexError):
+            self.msg("You tried to get journal %s, but there are only %s entries." % (self.rhs, len(journal)))
+
+    def confirm_entry_conversion(self, entry):
+        """
+        Checks for confirmation of modifying a given Msg object
+        Args:
+            entry (msg): Entry we're checking
+
+        Returns:
+            True if the entry has already been confirmed, False otherwise
+
+        """
+        if not self.caller.ndb.confirm_msg_convert:
+            self.caller.ndb.confirm_msg_convert = entry
+            self.msg("{rEntry selected for conversion. To convert, repeat command. Otherwise cancel.")
+            self.msg("{rSelected entry:{n %s" % entry.db_message)
+            return False
+        if self.caller.ndb.confirm_msg_convert != entry:
+            self.msg("{rEntries did not match.")
+            self.msg("{rSelected originally:{n %s" % self.caller.ndb.confirm_msg_convert.db_message)
+            self.msg("{rSelected this time:{n %s" % entry.db_message)
+            self.msg("Previous selection cleared. You can select it again, for reals this time, then confirm.")
+            self.caller.ndb.confirm_msg_convert = None
+            return False
+        return True
 
 
 class CmdTransferKeys(ArxPlayerCommand):

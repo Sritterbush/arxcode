@@ -8,6 +8,7 @@ from evennia.comms.managers import MsgManager
 
 WHITE_TAG = "white_journal"
 BLACK_TAG = "black_journal"
+REVEALED_BLACK_TAG = "revealed_black"
 VISION_TAG = "visions"
 MESSENGER_TAG = "messenger"
 RELATIONSHIP_TAG = "relationship"
@@ -225,6 +226,7 @@ class MsgQuerySet(QuerySet):
 class MsgProxyManager(MsgManager):
     white_query = q_msgtag(WHITE_TAG)
     black_query = q_msgtag(BLACK_TAG)
+    revealed_query = q_msgtag(REVEALED_BLACK_TAG)
     all_journals_query = Q(white_query | black_query)
 
     def get_queryset(self):
@@ -267,7 +269,8 @@ class JournalManager(MsgProxyManager):
         if user.is_staff:
             return qs
         # get all White Journals plus Black Journals they've written
-        return qs.filter(self.white_query | Q(self.black_query & q_sender_character(user.db.char_ob)))
+        return qs.filter(self.white_query |
+                         Q(self.black_query & q_sender_character(user.char_ob) | self.revealed_query))
         
         
 class BlackJournalManager(MsgProxyManager):

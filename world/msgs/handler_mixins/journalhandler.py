@@ -106,12 +106,7 @@ class JournalHandler(MsgHandlerBase):
     def add_to_journals(self, msg, white=True):
         """adds message to our journal"""
         if not white:
-            try:
-                p_id = self.obj.player_ob.id
-                blacklock = "read: perm(Builders) or pid(%s)." % p_id
-            except AttributeError:
-                blacklock = "read: perm(Builders)"
-            msg.locks.add(blacklock)
+            msg.add_black_locks()
             if msg not in self.black_journal:
                 self.black_journal.insert(0, msg)
         else:
@@ -229,9 +224,24 @@ class JournalHandler(MsgHandlerBase):
         msg.delete()
 
     def convert_to_black(self, msg):
+        """
+        Converts a given white journal to a black journal
+        Args:
+            msg: The msg to convert
+        """
         self.white_journal.remove(msg)
         msg.convert_to_black()
         self.add_to_journals(msg, white=False)
+
+    def convert_to_white(self, msg):
+        """
+        Converts a black journal to a white journal
+        Args:
+            msg: The msg to convert
+        """
+        self.black_journal.remove(msg)
+        msg.convert_to_white()
+        self.add_to_journals(msg)
 
     def disp_entry_by_num(self, num=1, white=True, caller=None):
         if white:
