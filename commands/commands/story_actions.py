@@ -8,6 +8,7 @@ from evennia.utils.evtable import EvTable
 
 from server.utils.exceptions import ActionSubmissionError
 from server.utils.arx_utils import dict_from_choices_field, ArxPlayerCommand
+from server.utils import arx_more
 from world.dominion.models import Crisis, CrisisAction, CrisisActionAssistant, ActionOOCQuestion
 
 
@@ -49,22 +50,23 @@ class ActionCommandMixin(object):
 
     def view_action(self, action, disp_old=False):
         """Views an action for caller"""
-        from server.utils import arx_more
         text = action.view_action(caller=self.caller, disp_old=disp_old)
         arx_more.msg(self.caller, text, justify_kwargs=False, pages_by_char=True)
 
     def invite_assistant(self, action):
         """Invites an assistant to an action"""
-        player = self.caller.search(self.rhs)
-        if not player:
+        player_list = [self.caller.search(arg) for arg in self.rhslist]
+        player_list = [ob for ob in player_list if ob]
+        if not player_list:
             return
-        dompc = player.Dominion
-        try:
-            action.invite(dompc)
-        except ActionSubmissionError as err:
-            self.msg(err)
-        else:
-            self.msg("You have invited %s to join your action." % dompc)
+        for player in player_list:
+            dompc = player.Dominion
+            try:
+                action.invite(dompc)
+            except ActionSubmissionError as err:
+                self.msg(err)
+            else:
+                self.msg("You have invited %s to join your action." % dompc)
 
 
 class CmdAction(ActionCommandMixin, ArxPlayerCommand):
@@ -83,7 +85,7 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
         @action/submit <action #>
     Options:
         @action [<action #>]
-        @action/invite <action #>=<character>
+        @action/invite <action #>=<character>[,<character2>,...]
         @action/setaction <action #>=<action text>
         @action/setsecret[/traitor] <action #>=<secret action>
         @action/setcrisis <action #>=<crisis #>
@@ -395,13 +397,21 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
       
     def set_roll(self, action):
         """Sets a stat and skill for action or assistant"""
-        if len(self.rhslist) < 2 or not self.rhslist[0] or not self.rhslist[1]:
+        from world.stats_and_skills import VALID_SKILLS, VALID_STATS
+        try:
+            stat, skill = self.rhslist
+            stat = stat.lower()
+            skill = skill.lower()
+        except (ValueError, TypeError, AttributeError):
             self.msg("Usage: @action/roll <action #>=<stat>,<skill>")
             return
+        if stat not in VALID_STATS or skill not in VALID_SKILLS:
+            self.msg("You must provide a valid stat and skill.")
+            return
         field_name = "stat_used"
-        self.set_action_field(action, field_name, self.rhslist[0], verbose_name="stat")
+        self.set_action_field(action, field_name, stat, verbose_name="stat")
         field_name = "skill_used"
-        return self.set_action_field(action, field_name, self.rhslist[1], verbose_name="skill")
+        return self.set_action_field(action, field_name, skill, verbose_name="skill")
         
     def set_topic(self, action):
         """Sets the topic for an action"""
@@ -550,7 +560,7 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
         @gm [<action #> or <character or alias> or <crisis name> or <gm name>]
         @gm/mine
         @gm/old
-        @gm[/needgm or /needplayer or /cancelled or /pending or /draft]
+        @gm[/needgm, /needplayer, /cancelled, /pending, /draft, /everyone]
         
         Commands for modifying an action stats or results:
         @gm/story <action #>=<the IC result of their action, told as a story>
@@ -574,7 +584,7 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
         @gm/gemit <action #>[,<action #>,...]=<text to post>[/<new episode name>]
         @gm/allowedit <action #>[,assistant name]
         @gm/togglefree <action #>[,assistant name]
-        @gm/invite <action #>=<player to add as assistant>
+        @gm/invite <action #>=<player to add as assistant>[,player2,...]
         @gm/addevent <action #>=<event #>
         @gm/rmevent <action #>=<event #>
 
@@ -641,19 +651,20 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
     def list_actions(self):
         """Lists the actions for the matching queryset"""
         qs = self.get_queryset_from_switches()
-        table = EvTable("{wID", "{wplayer", "{wtldr", "{wcategory", "{wcrisis", width=78, border="cells")
-        for action in list(qs)[-50:]:
+        table = EvTable("{wID", "{wplayer", "{wtldr", "{wdate", "{wcrisis", width=78, border="cells")
+        for action in qs:
             if action.unanswered_questions:
                 action_id = "{c*%s{n" % action.id
             else:
                 action_id = action.id
-            table.add_row(action_id, action.dompc, action.topic, action.get_category_display(), action.crisis)
+            date = action.date_submitted.strftime("%m/%d") if action.date_submitted else "----"
+            table.add_row(action_id, action.dompc, action.topic, date, action.crisis)
         table.reformat_column(0, width=9)
         table.reformat_column(1, width=10)
-        table.reformat_column(2, width=33)
-        table.reformat_column(3, width=12)
+        table.reformat_column(2, width=37)
+        table.reformat_column(3, width=8)
         table.reformat_column(4, width=14)
-        self.msg(table)
+        arx_more.msg(self.caller, str(table), justify_kwargs=False, pages_by_char=True)
     
     def get_queryset_from_switches(self):
         """Filters the queryset of actions based on given options from switches/args"""
@@ -681,7 +692,7 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
                            ~Q(status__in=(old_status, draft_status, cancelled_status, pending_status)))
         if "mine" in self.switches:
             qs = qs.filter(gm=self.caller)
-        elif not self.args:
+        elif not self.args and "everyone" not in self.switches:
             qs = qs.filter(gm__isnull=True)
         if self.args:
             name = self.args

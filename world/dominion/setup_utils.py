@@ -514,9 +514,7 @@ def setup_dom_for_npc(name, srank, gender='male', region=None, ruler=None,
         male = False
     else:
         male = True
-    if PlayerOrNpc.objects.filter(npc_name__iexact=name):
-        raise ValueError("An npc of that name already exists.")
-    domnpc = PlayerOrNpc.objects.create(npc_name=name)
+    domnpc, _ = PlayerOrNpc.objects.get_or_create(npc_name=name)
     setup_assets(domnpc, starting_money(srank))
     if create_domain and region:
         setup_domain(domnpc, region, srank, male, ruler)

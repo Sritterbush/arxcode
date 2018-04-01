@@ -501,7 +501,7 @@ class CmdGuestCharCreate(ArxPlayerCommand):
                      "approved while offline, with the password emailed to the address " +
                      "provided.")
             return
-        if check_break(player):
+        if check_break(player, checking_character_creation=True):
             self.msg("Staff are currently on break, and making original characters has been disabled until the "
                      "break ends. You can still apply to play roster characters until that time, or wait until "
                      "the break is over.")

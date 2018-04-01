@@ -3,11 +3,11 @@ Tests for different general commands. Tests for other command sets or for differ
 """
 
 from mock import Mock, patch
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from server.utils.test_utils import ArxCommandTest
 from world.dominion.models import CrisisAction, Crisis, Army, RPEvent
-from . import story_actions, overrides, social
+from . import story_actions, overrides, social, staff_commands
 
 
 class StoryActionTests(ArxCommandTest):
@@ -34,7 +34,8 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/ooc_intent 1=testooc", "You have set your ooc intent to be: testooc")
         self.assertEquals(action.questions.first().is_intent, True)
         self.call_cmd("/tldr 1=summary", "topic set to summary.")
-        self.call_cmd("/roll 1=strength,athletics", "stat set to strength.|skill set to athletics.")
+        self.call_cmd("/roll 1=foo,bar", "You must provide a valid stat and skill.")
+        self.call_cmd("/roll 1=Strength,athletics", "stat set to strength.|skill set to athletics.")
         self.call_cmd("/setsecret 1=sekrit", "Secret actions set to sekrit.")
         self.call_cmd("/invite 1=foo", "Could not find 'foo'.")
         self.call_cmd("/invite 1=TestAccount2", "You have invited Testaccount2 to join your action.")
@@ -176,8 +177,8 @@ class StoryActionTests(ArxCommandTest):
         action.ask_question("another test question")
         self.call_cmd("/markanswered 1", "You have marked the questions as answered.")
         self.assertEqual(action.questions.last().mark_answered, True)
-        self.call_cmd("1", "Action ID: #1  Date Submitted: %s\n" % (now.strftime("%x %X")) +
-                           "Action by Testaccount2\nSummary: test summary\nAction: test\n"
+        self.call_cmd("1", "Action ID: #1 Category: Unknown  Date: %s  " % (now.strftime("%x %X")) +
+                           "GM: Testaccount\nAction by Testaccount2\nSummary: test summary\nAction: test\n"
                            "[physically present] Perception (stat) + Investigation (skill) at difficulty 60\n"
                            "Testaccount2 OOC intentions: ooc intent test\n\nOOC Notes and GM responses\n"
                            "Testaccount2 OOC Question: foo inform\nReply by Testaccount: Sure go nuts\n"
@@ -264,6 +265,7 @@ class OverridesTests(ArxCommandTest):
         self.call_cmd("asdf", "Players:\n\nPlayer name Fealty Idle \n\nShowing 0 out of 1 unique account logged in.")
 
 
+# noinspection PyUnresolvedReferences
 class SocialTests(ArxCommandTest):
     def test_cmd_where(self):
         self.setup_cmd(social.CmdWhere, self.account)
@@ -276,10 +278,11 @@ class SocialTests(ArxCommandTest):
         self.call_cmd("/shops/all", "List of shops:\n|Room: Char2 (Inactive)")
         # TODO: create AccountHistory thingies, set a firstimpression for one of the Chars
         # TODO: test /firstimp, /rs, /watch
-        self.call_cmd("", "Locations of players:\n|Players who are currently LRP have a + by their name."
-                          "|Room: Char, Char2")
+        self.call_cmd("", 'Locations of players:\n|Players who are currently LRP have a + by their name.\n'
+                          'Players who are on your watch list have a * by their name.|Room: Char, Char2')
         self.char2.tags.add("disguised")
-        self.call_cmd("", "Locations of players:\n|Players who are currently LRP have a + by their name.|Room: Char")
+        self.call_cmd("", 'Locations of players:\n|Players who are currently LRP have a + by their name.\n'
+                          'Players who are on your watch list have a * by their name.|Room: Char')
         self.room1.tags.add("private")
         self.call_cmd("", "No visible characters found.")
     
@@ -317,3 +320,42 @@ class SocialTests(ArxCommandTest):
                                           '|No valid receivers found.')
         self.char1.tags.remove("no_messengers")
         self.call_cmd("testaccount=hiya", "You dispatch a messenger to Char with the following message:\n\n'hiya'")
+
+    @patch.object(social, "inform_staff")
+    def test_cmd_randomscene(self, mock_inform_staff):
+        self.setup_cmd(social.CmdRandomScene, self.char1)
+        self.char1.player_ob.db.random_scenelist = [self.char2, self.char2, self.char2]
+        self.call_cmd("", "Randomly generated RP partners for this week: Char2, Char2, Char2|New players who "
+                          "can be also RP'd with for credit: |GMs for events here that can be claimed for credit: "
+                          "Char2|Reminder: Please only /claim those you have interacted with significantly in a scene.")
+        self.call_cmd("/claim Char2", 'You must include some summary of the scene. It may be quite short.')
+        self.call_cmd("/claim Char2=test test test", 'You have sent a request to Char2 to validate your scene.\n'
+                                                     'Reminder: Please only /claim those you have interacted with '
+                                                     'significantly in a scene.')
+        mock_inform_staff.assert_called_with("Char has completed a random scene with Char2. Summary: test test test")
+        self.call_cmd("/claim Char2=test test test", "You have already claimed a scene with Char2 this week.")
+        self.char2.db.false_name = "asdf"
+        self.call_cmd("/claim Char2=test test test", "You cannot claim them.")
+
+
+class StaffCommandTests(ArxCommandTest):
+    def test_cmd_admin_break(self):
+        from server.utils.arx_utils import check_break
+        now = datetime.now()
+        future = now + timedelta(days=1)
+        self.setup_cmd(staff_commands.CmdAdminBreak, self.account)
+        self.call_cmd("", "Current end date is: No time set.")
+        self.assertFalse(check_break())
+        self.call_cmd("asdf", "Date did not match 'mm/dd/yy hh:mm' format.|You entered: asdf|"
+                              "Current end date is: No time set.")
+        future_string = future.strftime("%m/%d/%y %H:%M")
+        self.call_cmd(future_string, "Break date updated.|Current end date is: %s." % future_string)
+        self.assertTrue(check_break())
+        self.call_cmd("/toggle_allow_ocs", "Allowing character creation during break has been set to True.")
+        self.assertFalse(check_break(checking_character_creation=True))
+        self.call_cmd("/toggle_allow_ocs", "Allowing character creation during break has been set to False.")
+        self.assertTrue(check_break(checking_character_creation=True))
+        past = now - timedelta(days=1)
+        past_string = past.strftime("%m/%d/%y %H:%M")
+        self.call_cmd(past_string, "Break date updated.|Current end date is: %s." % past_string)
+        self.assertFalse(check_break())

@@ -126,9 +126,15 @@ class InvestigationFormCommand(ArxCommand):
             return
         if not self.pay_costs():
             return
+        if self.check_too_busy_to_finish():
+            return
         ob = self.create_obj_from_form(form)
         self.mark_active(ob)       
         self.caller.attributes.remove(self.form_attr)
+
+    def check_too_busy_to_finish(self):
+        """Checks whether we're too busy to finish the form"""
+        pass
 
     def create_form(self):
         """
@@ -259,6 +265,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
     change_switches = ("changestory", "changestat", "changeskill", "actionpoints", "silver", "resource", "resources")
 
     def pay_costs(self):
+        """No resource cost for helping investigations"""
         return True
 
     @property
@@ -365,14 +372,21 @@ class CmdAssistInvestigation(InvestigationFormCommand):
         self.investigation_form[0] = targ
         self.disp_investigation_form()
 
-    def mark_active(self, created_object):
+    def check_too_busy_to_finish(self):
+        """Checks if helper is too busy"""
         try:
             if self.helper.roster.investigations.filter(active=True):
                 already_investigating = True
+                self.msg("You already have active investigations.")
             else:
                 already_investigating = False
         except AttributeError:
             already_investigating = False
+        return already_investigating
+
+    def mark_active(self, created_object):
+        """After the InvestigationAssistant has been created, check to see if we can mark it helping"""
+        already_investigating = self.check_too_busy_to_finish()
         if not already_investigating and not self.check_enough_time_left():
             return
         if not already_investigating and not self.check_ap_cost():
@@ -495,9 +509,9 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                 ob.currently_helping = False
                 ob.save()
                 refund += self.ap_cost
-            self.msg("%s stopped assisting investigations." % char)
             if refund:
                 self.caller.player_ob.pay_action_points(-refund)
+            self.msg("%s stopped assisting investigations." % char)
             return
         if "resume" in self.switches:
             if "retainer" in self.switches:
@@ -506,7 +520,7 @@ class CmdAssistInvestigation(InvestigationFormCommand):
                         char = self.caller.player.retainers.get(id=self.rhs).dbobj
                     else:
                         char = self.caller.player.retainers.get(name=self.rhs).dbobj
-                except Agent.DoesNotExist:
+                except (Agent.DoesNotExist, AttributeError):
                     self.msg("No retainer found by that ID or number.")
                     return
             else:  # not a retainer, just the caller. So check if they have an active investigation
@@ -1223,26 +1237,31 @@ class CmdListClues(ArxPlayerCommand):
 
     def share_clues(self):
         clues_to_share = []
+        clue_err_msg = ""
         for arg in self.lhslist:
             try:
                 clue = self.finished_clues.get(id=arg)
             except (ClueDiscovery.DoesNotExist, ValueError, TypeError):
-                self.msg("No clue found by that ID.")
+                clue_err_msg += "No clue found by this ID: {w%s{n. " % arg
                 continue
-            if not clue.clue.allow_sharing:
-                self.msg("%s cannot be shared." % clue.clue)
-                return
-            clues_to_share.append(clue)
+            if clue.clue.allow_sharing:
+                clues_to_share.append(clue)
+            else:
+                clue_err_msg += "{w%s{n cannot be shared. " % clue.clue
+        if clue_err_msg:
+            self.msg(clue_err_msg)
         if not clues_to_share:
             return
+        if not self.rhs:
+            self.msg("Who are you sharing with?")
+            return
         note = ""
-        rhslist = []
-        entrylist = self.rhslist
-        for entry in entrylist:
-            if "/" in entry:
-                split_result = entry.split("/")
-                entry, note = split_result[0], split_result[1]
-            rhslist.append(entry)
+        if "/" in self.rhs:
+            split_result = self.rhs.split("/", 1)
+            rhslist, note = split_result[0], split_result[1]
+            rhslist = rhslist.split(",")
+        else:
+            rhslist = self.rhslist
         shared_names = []
         cost = len(rhslist) * len(clues_to_share) * self.caller.clue_cost
         if cost > self.caller.roster.action_points:
