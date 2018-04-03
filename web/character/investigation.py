@@ -838,6 +838,9 @@ class CmdInvestigate(InvestigationFormCommand):
                 if ob.ongoing:
                     self.msg("Already ongoing. %s" % msg)
                     return
+                if ob.finished_clues.exists():
+                    self.msg("This investigation has found something already. Start another.")
+                    return
                 if not self.check_enough_time_left():
                     return
                 ob.ongoing = True
@@ -875,6 +878,9 @@ class CmdInvestigate(InvestigationFormCommand):
             if "active" in self.switches:
                 if ob.active:
                     self.msg("It is already active.")
+                    return
+                if not ob.ongoing:
+                    self.msg("That investigation is finished.")
                     return
                 try:
                     current_active = entry.investigations.get(active=True)

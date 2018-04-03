@@ -1028,6 +1028,11 @@ class Investigation(AbstractPlayerAllocations):
         """Assistants that are flagged as actively participating"""
         return self.assistants.filter(currently_helping=True)
 
+    @property
+    def finished_clues(self):
+        """Queryset of clues that this investigation has uncovered"""
+        return self.clues.filter(roll__gte=F('clue__rating') * DISCO_MULT)
+
     @staticmethod
     def do_obj_roll(obj, diff):
         """
