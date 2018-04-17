@@ -248,6 +248,24 @@ class RosterEntry(SharedMemoryModel):
         return "\n\n".join("{c%s{n wrote %s: %s" % (ob.writer, public_str(ob),
                                                     ob.summary) for ob in qs)
 
+    def save(self, *args, **kwargs):
+        """check if a database lock during profile_picture setting has put us in invalid state"""
+        if self.profile_picture and not self.profile_picture.pk:
+            print("Error: RosterEntry %s had invalid profile_picture." % self)
+            # noinspection PyBroadException
+            try:
+                self.profile_picture.save()
+            except Exception:
+                print("Error when attempting to save it:")
+                traceback.print_exc()
+            else:
+                print("Saved profile_picture successfully.")
+            # if profile_picture's pk is still invalid we'll just clear it out to super().save won't ValueError
+            if not self.profile_picture.pk:
+                print("profile_picture has no pk, clearing it.")
+                self.profile_picture = None
+        return super(RosterEntry, self).save(*args, **kwargs)
+
 
 class Story(SharedMemoryModel):
     """An overall storyline for the game. It can be divided into chapters, which have their own episodes."""
