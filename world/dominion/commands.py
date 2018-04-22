@@ -3477,15 +3477,23 @@ class CmdWork(ArxPlayerCommand):
     Usage:
         work organization,type[=protege to use]
 
-    Spends 25 action points to have work done for an organization,
+    Spends 15 action points to have work done for an organization,
     either by yourself or by one of your proteges, to generate
     resources.
+
+    The stat/skill used for the roll is based on the resource type.
+    Economic: intellect + economics
+    Military: command + war
+    Social: charm + diplomacy
+
+    Social clout of you and your protege lowers the difficulty and
+    increases results, and the roller is whoever has higher skill.
     """
     key = "work"
     help_category = "Dominion"
     locks = "cmd:all()"
     aliases = ["task", "support"]
-    ap_cost = 25
+    ap_cost = 15
 
     def func(self):
         """Perform work command"""

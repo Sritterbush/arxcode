@@ -52,6 +52,7 @@ Army, and then do weekly_adjustment() in every assetowner. So only domains
 that currently have a ruler designated will change on a weekly basis.
 """
 from datetime import datetime
+from random import randint
 import traceback
 
 from evennia.typeclasses.models import SharedMemoryModel
@@ -4322,46 +4323,57 @@ class Member(SharedMemoryModel):
             raise ValueError("You cannot afford the AP cost to work.")
         clout = self.char.social_clout
         clout_msg = "Your social clout "
-        if not protege:
-            roller = self.char
-        else:
-            roller = protege.player.char_ob
-            protege_clout = roller.social_clout
+        protege_clout = 0
+        if protege:
+            protege_clout = protege.player.char_ob.social_clout
             clout += protege_clout
             clout_msg += "combined with that of your protege "
         stat, skill = worktypes[worktype]
-        difficulty = 30 - clout
-        msg = "%sreduces difficulty by %s.\n%s rolling %s and %s against difficulty %s. " % (clout_msg, clout, roller.key, stat, skill, difficulty)
-        outcome = do_dice_check(roller, stat=stat, skill=skill, difficulty=difficulty)
-        if outcome <= 0:
-            outcome_string = "Rolled %d, failing to generate any resources." % outcome
-            self.player.player.msg(msg + outcome_string)
-            return
-        self.work_this_week += 1
-        self.work_total += 1
-        self.save()
+        difficulty = 15 - clout
+        org_mod = getattr(self.organization, "%s_modifier" % worktype)
+        roller = self.char
+        if protege:
+            skill_val = self.char.db.skills.get(skill, 0)
+            if protege.player.char_ob.db.skills.get(skill, 0) > skill_val:
+                roller = protege.player.char_ob
+        msg = "%sreduces difficulty by %s.\n%s rolling %s and %s. " % (clout_msg, clout, roller.key, stat, skill)
+        outcome = do_dice_check(self.char, stat=stat, skill=skill, difficulty=difficulty,
+                                bonus_dice=org_mod, bonus_keep=org_mod//2)
+        outcome //= 3
 
         def adjust_resources(assets, r_type, amount):
             """helper function to add resources from string name"""
+            if amount <= 0:
+                return
             current = getattr(assets, r_type)
             setattr(assets, r_type, current + amount)
             assets.save()
             if assets != self.player.assets:
-                assets.inform("%s has done work, and %s has gained %s %s resources." % (self, assets, amount, r_type), category="Work", append=True)
+                assets.inform("%s has been working on your behalf, and %s has gained %s %s resources." % (
+                    self, assets, amount, r_type),
+                              category="Work", append=True)
             else:
                 self.player.player.msg(msg)
 
-        def get_amount_after_clout(clout_value, added=100):
+        def get_amount_after_clout(clout_value, added=100, minimum=0):
             """helper function to calculate clout modifier on outcome amount"""
             percent = (clout_value + added)/100.0
-            return int(outcome * percent)
+            total = int(outcome * percent)
+            if total < minimum:
+                total = minimum
+            return total
 
-        patron_amount = get_amount_after_clout(clout)
+        patron_amount = get_amount_after_clout(clout, minimum=randint(1, 10))
         msg += "You have gained %s %s resources." % (patron_amount, worktype)
         adjust_resources(self.player.assets, worktype, patron_amount)
-        adjust_resources(self.organization.assets, worktype, patron_amount)
+        org_amount = patron_amount//5
+        if org_amount:
+            adjust_resources(self.organization.assets, worktype, org_amount)
+            self.work_this_week += org_amount
+            self.work_total += org_amount
+            self.save()
         if protege:
-            adjust_resources(protege.assets, worktype, get_amount_after_clout(protege_clout, added=0))
+            adjust_resources(protege.assets, worktype, get_amount_after_clout(protege_clout, added=25, minimum=1))
 
     @property
     def pool_share(self):

@@ -22,7 +22,7 @@ class Roll(object):
                  skill_list=None, skill_keep=True, stat_keep=False, quiet=True, announce_room=None,
                  keep_override=None, bonus_dice=0, divisor=1, average_lists=False, can_crit=True,
                  average_stat_list=False, average_skill_list=False, announce_values=False, flub=False,
-                 use_real_name=False):
+                 use_real_name=False, bonus_keep=0):
         self.character = caller
         self.difficulty = difficulty
         self.skill_keep = skill_keep
@@ -42,6 +42,7 @@ class Roll(object):
         self.skills = {}
         self.bonus_crit_chance = 0
         self.bonus_crit_mult = 0
+        self.bonus_keep = bonus_keep
         self.result = 0
         self.crit_mult = 1
         self.msg = ""
@@ -93,7 +94,7 @@ class Roll(object):
         if self.average_lists or self.average_skill_list:
             skillval //= len(self.skills)
         # keep dice is either based on some combination of stats or skills, or supplied by caller
-        keep_dice = DEFAULT_KEEP
+        keep_dice = DEFAULT_KEEP + self.bonus_keep
         if self.stat_keep:
             keep_dice += statval
         if self.skill_keep:
