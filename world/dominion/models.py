@@ -73,6 +73,7 @@ from server.utils.exceptions import ActionSubmissionError, PayError
 from typeclasses.npcs import npc_types
 from typeclasses.mixins import InformMixin
 from web.character.models import AbstractPlayerAllocations, Clue
+from world.stats_and_skills import do_dice_check
 
 # Dominion constants
 BASE_WORKER_COST = 0.10
@@ -4252,8 +4253,8 @@ class Member(SharedMemoryModel):
             self.player.msg(*args, **kwargs)
 
     def _get_char(self):
-        if self.player and self.player.player and self.player.player.db.char_ob:
-            return self.player.player.db.char_ob
+        if self.player and self.player.player and self.player.player.char_ob:
+            return self.player.player.char_ob
     char = property(_get_char)
 
     def set_salary(self, val):
@@ -4306,29 +4307,61 @@ class Member(SharedMemoryModel):
         if org_channel:
             org_channel.connect(self.player.player)
 
-    def work(self, worktype):
+    def work(self, worktype, ap_cost, protege=None):
         """
-        Perform work in a week for our Organization.
+        Perform work in a week for our Organization. If a protege is specified we use their skills and add their
+        social clout to the roll.
         """
-        worktypes = ("military", "economic", "social")
-        if worktype not in worktypes:
-            raise ValueError("Type must be in: %s." % ", ".join(worktypes))
+
+        worktypes = {"military": ['command', 'war'], "economic": ['intellect', 'economics'],
+                     "social": ['charm', 'diplomacy']}
+        worktype = worktype.lower()
+        if worktype not in worktypes.keys():
+            raise ValueError("Type must be one of these: %s." % ", ".join(sorted(worktypes.keys())))
+        if not self.player.player.pay_action_points(ap_cost):
+            raise ValueError("You cannot afford the AP cost to work.")
+        clout = self.char.social_clout
+        clout_msg = "Your social clout "
+        if not protege:
+            roller = self.char
+        else:
+            roller = protege.player.char_ob
+            protege_clout = roller.social_clout
+            clout += protege_clout
+            clout_msg += "combined with that of your protege "
+        stat, skill = worktypes[worktype]
+        difficulty = 30 - clout
+        msg = "%sreduces difficulty by %s.\n%s rolling %s and %s against difficulty %s. " % (clout_msg, clout, roller.key, stat, skill, difficulty)
+        outcome = do_dice_check(roller, stat=stat, skill=skill, difficulty=difficulty)
+        if outcome <= 0:
+            outcome_string = "Rolled %d, failing to generate any resources." % outcome
+            self.player.player.msg(msg + outcome_string)
+            return
         self.work_this_week += 1
         self.work_total += 1
         self.save()
-        # self.player.assets.vault += 20
-        # self.organization.assets.vault += 20
-        if worktype == "military":
-            self.player.assets.military += 1
-            self.organization.assets.military += 1
-        if worktype == "economic":
-            self.player.assets.economic += 1
-            self.organization.assets.economic += 1
-        if worktype == "social":
-            self.player.assets.social += 1
-            self.organization.assets.social += 1
-        self.player.assets.save()
-        self.organization.assets.save()
+
+        def adjust_resources(assets, r_type, amount):
+            """helper function to add resources from string name"""
+            current = getattr(assets, r_type)
+            setattr(assets, r_type, current + amount)
+            assets.save()
+            if assets != self.player.assets:
+                assets.inform("%s has done work, and %s has gained %s %s resources." % (self, assets, amount, r_type), category="Work", append=True)
+            else:
+                self.player.player.msg(msg)
+
+        def get_amount_after_clout(clout_value, added=100):
+            """helper function to calculate clout modifier on outcome amount"""
+            percent = (clout_value + added)/100.0
+            return int(outcome * percent)
+
+        patron_amount = get_amount_after_clout(clout)
+        msg += "You have gained %s %s resources." % (patron_amount, worktype)
+        adjust_resources(self.player.assets, worktype, patron_amount)
+        adjust_resources(self.organization.assets, worktype, patron_amount)
+        if protege:
+            adjust_resources(protege.assets, worktype, get_amount_after_clout(protege_clout, added=0))
 
     @property
     def pool_share(self):

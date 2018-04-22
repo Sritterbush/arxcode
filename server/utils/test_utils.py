@@ -20,7 +20,7 @@ from typeclasses.exits import Exit
 
 # set up signal here since we are not starting the server
 
-_RE = re.compile(r"^\+|-+\+|\+-+|--*|\|(?:\s|$)", re.MULTILINE)
+_RE = re.compile(r"^\+|-+\+|\+-+|--+|\|(?:\s|$)", re.MULTILINE)
 
 
 class ArxTestConfigMixin(object):
@@ -65,8 +65,8 @@ class ArxCommandTest(ArxTestConfigMixin, CommandTest):
         self.cmd_class = cmd_cls
         self.caller = caller
 
-    def call_cmd(self, args, msg):
-        self.call(self.cmd_class(), args, msg, caller=self.caller)
+    def call_cmd(self, args, msg, **kwargs):
+        self.call(self.cmd_class(), args, msg, caller=self.caller, **kwargs)
 
     # noinspection PyBroadException
     def call(self, cmdobj, args, msg=None, cmdset=None, noansi=True, caller=None, receiver=None, cmdstring=None,
