@@ -46,9 +46,10 @@ class TestCrisisCommands(ArxCommandTest):
 
 
 class TestGeneralDominionCommands(ArxCommandTest):
+    @patch("world.dominion.models.randint")
     @patch("world.dominion.models.get_week")
     @patch('world.dominion.models.do_dice_check')
-    def test_cmd_work(self, mock_dice_check, mock_get_week):
+    def test_cmd_work(self, mock_dice_check, mock_get_week, mock_randint):
         from world.dominion.models import Organization, AssetOwner
         org = Organization.objects.create(name="Orgtest")
         org_owner = AssetOwner.objects.create(organization_owner=org)
@@ -67,27 +68,28 @@ class TestGeneralDominionCommands(ArxCommandTest):
         mock_get_week.return_value = 0
         self.char1.db.intellect = 5
         self.char1.db.composure = 5
-        self.call_cmd("Orgtest, economic", 'You use 25 action points and have 75 remaining this week.|'
+        mock_randint.return_value = 5
+        self.call_cmd("Orgtest, economic", 'You use 15 action points and have 85 remaining this week.|'
                                            'Your social clout reduces difficulty by 1.\n'
-                                           'Char rolling intellect and economics against difficulty 29. '
-                                           'Rolled -5, failing to generate any resources.')
+                                           'Char rolling intellect and economics. '
+                                           'You have gained 5 economic resources.')
         mock_dice_check.return_value = 20
-        self.call_cmd("Orgtest, economic", 'You use 25 action points and have 50 remaining this week.|'
+        self.call_cmd("Orgtest, economic", 'You use 15 action points and have 70 remaining this week.|'
                                            'Your social clout reduces difficulty by 1.\n'
-                                           'Char rolling intellect and economics against difficulty 29. '
-                                           'You have gained 20 economic resources.')
+                                           'Char rolling intellect and economics. '
+                                           'You have gained 6 economic resources.')
         self.call_cmd("Orgtest, economic=Char2", "No protege by that name.")
         self.dompc2.patron = self.dompc
         self.dompc2.save()
         self.char2.db.charm = 10
         self.char2.db.intellect = 5
         self.char2.db.composure = 5
-        self.call_cmd("Orgtest, economic=TestAccount2", 'You use 25 action points and have 25 remaining this week.|'
+        self.call_cmd("Orgtest, economic=TestAccount2", 'You use 15 action points and have 55 remaining this week.|'
                                                         'Your social clout combined with that of your protege '
                                                         'reduces difficulty by 22.\n'
-                                                        'Char2 rolling intellect and economics against difficulty 8. '
-                                                        'You have gained 24 economic resources.')
-        self.assertEqual(self.assetowner2.economic, 4)
-        self.assertEqual(self.assetowner.economic, 44)
-        self.assertEqual(org_owner.economic, 44)
-        self.assertEqual(member.work_this_week, 2)
+                                                        'Char rolling intellect and economics. '
+                                                        'You have gained 7 economic resources.')
+        self.assertEqual(self.assetowner2.economic, 2)
+        self.assertEqual(self.assetowner.economic, 18)
+        self.assertEqual(org_owner.economic, 3)
+        self.assertEqual(member.work_this_week, 3)
