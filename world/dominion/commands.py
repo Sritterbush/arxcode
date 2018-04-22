@@ -17,7 +17,7 @@ from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from . import setup_utils
 from web.character.models import Clue
-from .models import (Region, Domain, Land, PlayerOrNpc, Army, ClueForOrg,
+from world.dominion.models import (Region, Domain, Land, PlayerOrNpc, Army, ClueForOrg,
                      Castle, AssetOwner, Task, MilitaryUnit,
                      Ruler, Organization, Member, SphereOfInfluence, SupportUsed, AssignedTask,
                      TaskSupporter, InfluenceCategory, Minister, PlotRoom)
@@ -3468,6 +3468,53 @@ class CmdSupport(ArxCommand):
             return
         caller.msg("Invalid usage.")
         return
+
+
+class CmdWork(ArxPlayerCommand):
+    """
+    Does work for a given organization to generate resources
+
+    Usage:
+        work organization,type[=protege to use]
+
+    Spends 25 action points to have work done for an organization,
+    either by yourself or by one of your proteges, to generate
+    resources.
+    """
+    key = "work"
+    help_category = "Dominion"
+    locks = "cmd:all()"
+    aliases = ["task", "support"]
+    ap_cost = 25
+
+    def func(self):
+        """Perform work command"""
+        if self.cmdstring.lower() in self.aliases:
+            self.msg("Command does not exist. Please see 'help work'.")
+            return
+        try:
+            name, res_type = self.lhslist
+        except ValueError:
+            self.msg("Must give a name and type of resource.")
+            return
+        dompc = self.caller.Dominion
+        try:
+            member = dompc.memberships.get(deguilded=False, organization__name__iexact=name)
+        except Member.DoesNotExist:
+            self.msg("No match for an org by the name: %s." % name)
+            return
+        if self.rhs:
+            try:
+                protege = dompc.proteges.get(player__username__iexact=self.rhs)
+            except PlayerOrNpc.DoesNotExist:
+                self.msg("No protege by that name.")
+                return
+        else:
+            protege = None
+        try:
+            member.work(res_type, self.ap_cost, protege)
+        except ValueError as err:
+            self.msg(err)
 
 
 class CmdPlotRoom(ArxCommand):
