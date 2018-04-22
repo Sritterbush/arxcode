@@ -3077,6 +3077,11 @@ class Organization(InformMixin, SharedMemoryModel):
         return self.members.filter(Q(player__player__roster__roster__name="Active") & Q(deguilded=False)).distinct()
 
     @property
+    def living_members(self):
+        """Returns queryset of players in active or available roster and not deguilded"""
+        return self.members.filter((Q(player__player__roster__roster__name="Active") | Q(player__player__roster__roster__name="Available")) & Q(deguilded=False)).distinct()
+
+    @property
     def can_receive_informs(self):
         """Whether this org can get informs"""
         return bool(self.active_members)

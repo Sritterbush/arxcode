@@ -68,3 +68,6 @@ venv/
 world/dominion/map/arxmap_generated.png
 world/dominion/map/arxmap_imagemap.html
 world/dominion/map/arxmap_imagesize.cfg
+
+# generated fealty graph
+world/dominion/fealty/fealty_graph.png
