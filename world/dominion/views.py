@@ -489,8 +489,8 @@ def fealty_chart(request):
         return response
 
     try:
-        G = Graph('fealties', format='png', engine='twopi',
-                  graph_attr=(('overlap', 'prism'), ('concentrate', 'true')))
+        G = Graph('fealties', format='png', engine='dot',
+                  graph_attr=(('overlap', 'prism'), ('spline', 'true'), ('concentrate', 'true')))
         crown = Organization.objects.get(id=145)
         add_vassals(G, crown)
 
