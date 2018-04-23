@@ -461,7 +461,7 @@ def fealty_chart(request):
                 org_name = org_name + "\n(" + org_rank_1.player.player.key.title() + ")"
 
             for vassal in org.assets.estate.vassals.all():
-                if vassal.house:
+                if vassal.house and not vassal.house.organization_owner.name.startswith("Vassal of"):
                     node_color = node_colors.get(vassal.house.organization_owner.rank_1_male, None)
                     name = vassal.house.organization_owner.name
 
@@ -473,8 +473,6 @@ def fealty_chart(request):
                         G.node(name, style='filled', color=node_color)
                     G.edge(org_name, name)
                     add_vassals(G, vassal.house.organization_owner)
-                else:
-                    print "%s has empty owner" % vassal
 
     regen = False
 
