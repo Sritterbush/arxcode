@@ -4453,7 +4453,8 @@ class Member(SharedMemoryModel):
             if not assignments:
                 assignment = random_choice(all_assignments)
             elif len(assignments) > 1:
-                skill_list = [(value, skill) for (skill, value) in skills_we_have.items()]
+                valid_skills = [ob.skill for ob in assignments]
+                skill_list = [(value, skill) for (skill, value) in skills_we_have.items() if skill in valid_skills]
                 highest_num = sorted(skill_list, reverse=True)[0][0]
                 top_skills = [ob[1] for ob in skill_list if ob[0] >= highest_num]
                 assignments = assignments.filter(skill__in=top_skills)
