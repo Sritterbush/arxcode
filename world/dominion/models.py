@@ -3079,7 +3079,9 @@ class Organization(InformMixin, SharedMemoryModel):
     @property
     def living_members(self):
         """Returns queryset of players in active or available roster and not deguilded"""
-        return self.members.filter((Q(player__player__roster__roster__name="Active") | Q(player__player__roster__roster__name="Available")) & Q(deguilded=False)).distinct()
+        return self.members.filter((Q(player__player__roster__roster__name="Active") |
+                                    Q(player__player__roster__roster__name="Available"))
+                                   & Q(deguilded=False)).distinct()
 
     @property
     def can_receive_informs(self):
@@ -4245,6 +4247,7 @@ class WorkSetting(SharedMemoryModel):
         return cls.objects.create(organization=organization, stat=stat, skill=skill, resource=resource_key)
         
     def do_work(self, member, clout, protege=None):
+        """Does rolls for a given WorkSetting for Member/protege and returns roll and the msg"""
         msg_spacer = " " if self.message else ""
         difficulty = 15 - clout
         org_mod = getattr(self.organization, "%s_modifier" % self.get_resource_display().lower())
@@ -4426,6 +4429,7 @@ class Member(SharedMemoryModel):
             Args:
                 resource_type (str): The type of resource
                 protege (PlayerOrNpc): Protege if any
+                clout (int): How much clout they have
                 
             Returns:
                 An outcome and a message
@@ -4454,6 +4458,8 @@ class Member(SharedMemoryModel):
                 top_skills = [ob[1] for ob in skill_list if ob[0] >= highest_num]
                 assignments = assignments.filter(skill__in=top_skills)
                 assignment = random_choice(assignments)
+            else:
+                assignment = assignments[0]
         else:
             assignment = all_assignments[0]
         outcome, roll_msg = assignment.do_work(self, clout, protege)
