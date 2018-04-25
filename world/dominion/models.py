@@ -4455,7 +4455,7 @@ class Member(SharedMemoryModel):
                 assignments = assignments.filter(skill__in=top_skills)
                 assignment = random_choice(assignments)
         else:
-            assignment = assignments[0]
+            assignment = all_assignments[0]
         outcome, roll_msg = assignment.do_work(self, clout, protege)
         return outcome, roll_msg
 

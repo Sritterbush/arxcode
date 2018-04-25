@@ -3,7 +3,7 @@ Admin for Dominion
 """
 from django.contrib import admin
 from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister, MapLocation,
-                     AssetOwner, Region, Land, Castle,
+                     AssetOwner, Region, Land, Castle, WorkSetting,
                      Ruler, Army, Orders, MilitaryUnit, Member, Task, OrgUnitModifiers,
                      CraftingRecipe, CraftingMaterialType, CraftingMaterials, CrisisActionAssistant,
                      RPEvent, AccountTransaction, AssignedTask, Crisis, CrisisAction, CrisisUpdate,
@@ -53,6 +53,12 @@ class MemberInline(admin.StackedInline):
     readonly_fields = ('work_this_week', 'work_total')
 
 
+class WorkSettingInline(admin.StackedInline):
+    """Inline for displaying WorkSettings for an Org"""
+    model = WorkSetting
+    extra = 0
+
+
 class ClueForOrgInline(admin.TabularInline):
     """Inline for display clues orgs know"""
     model = ClueForOrg
@@ -94,7 +100,7 @@ class OrgAdmin(DomAdmin):
     search_fields = ['name', 'category', 'members__player__player__username']
     list_filter = (OrgListFilter,)
     filter_horizontal = ("theories",)
-    inlines = [MemberInline, ClueForOrgInline, OrgUnitInline]
+    inlines = [MemberInline, ClueForOrgInline, OrgUnitInline, WorkSettingInline]
 
 
 class Supporters(admin.TabularInline):
@@ -224,6 +230,7 @@ class MaterialsInline(admin.TabularInline):
     extra = 0
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """Orders the material type selection"""
         if db_field.name == 'type':
             kwargs['queryset'] = CraftingMaterialType.objects.order_by('name')
         return super(MaterialsInline, self).formfield_for_foreignkey(db_field, request, **kwargs)
