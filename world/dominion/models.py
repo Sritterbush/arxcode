@@ -4445,7 +4445,7 @@ class Member(SharedMemoryModel):
             from random import choice as random_choice
             skills_we_have = dict(self.char.db.skills)
             if protege:
-                protege_skills = dict(protege.char.db.skills)
+                protege_skills = dict(protege.player.char_ob.db.skills)
                 for skill, value in protege_skills.items():
                     if skill not in skills_we_have or value > skills_we_have[skill]:
                         skills_we_have[skill] = value
