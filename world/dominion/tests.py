@@ -60,7 +60,7 @@ class TestGeneralDominionCommands(ArxCommandTest):
                   caller=self.caller, cmdstring="task")
         self.call_cmd("", "Must give a name and type of resource.")
         self.call_cmd("asdf, 5", "No match for an org by the name: asdf.")
-        self.call_cmd("Orgtest, 5", "Type must be one of these: economic, military, social.")
+        self.call_cmd("Orgtest, 5", "Type must be one of these: Economic, Military, Social.")
         self.roster_entry.action_points = 0
         self.call_cmd("Orgtest, economic", "You cannot afford the AP cost to work.")
         self.roster_entry.action_points = 100
