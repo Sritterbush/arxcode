@@ -282,6 +282,13 @@ def posts_for_request(board):
     return list(board.get_all_posts(old=False))[::-1]
 
 
+def posts_for_request_all(board):
+    """Get all posts from the board in reverse order"""
+    current_posts = list(board.get_all_posts(old=False))[::-1]
+    old_posts = list(board.get_all_posts(old=True))[::-1]
+    return current_posts + old_posts
+
+
 @login_required
 def post_list(request, board_id):
     """View for getting list of posts for a given board"""
@@ -296,7 +303,7 @@ def post_list(request, board_id):
         }
 
     board = board_for_request(request, board_id)
-    raw_posts = posts_for_request(board)
+    raw_posts = posts_for_request_all(board)
     # force list so it's not generating a query in each map run
     read_posts = list(Post.objects.all_read_by(request.user))
     posts = map(lambda post: post_map(post, board, read_posts), raw_posts)
@@ -341,6 +348,54 @@ def post_view_all(request, board_id):
 
     posts = map(lambda post: post_map(post, board, read_posts), raw_posts)
     return render(request, 'msgs/post_view_all.html', {'board': board, 'page_title': board.key + " - Posts",
+                                                       'posts': posts})
+
+
+@login_required
+def post_view_unread_board(request, board_id):
+    """View for seeing all posts at once. It'll mark them all read."""
+    def post_map(post, bulletin_board):
+        """Returns dict of information about each individual post to add to context"""
+        return {
+            'id': post.id,
+            'poster': bulletin_board.get_poster(post),
+            'subject': ansi.strip_ansi(post.db_header),
+            'date': post.db_date_created.strftime("%x"),
+            'text': ansi.strip_ansi(post.db_message)
+        }
+
+    print ("Beginning run...")
+
+    board = board_for_request(request, board_id)
+    unread_posts = Post.objects.all_unread_by(request.user).filter(db_receivers_objects=board
+                                                                   )
+
+    print ("Got unread posts.")
+
+    alts = []
+    if request.user.db.bbaltread:
+        try:
+            alts = [ob.player for ob in request.user.roster.alts]
+        except AttributeError:
+            pass
+    accounts = [request.user]
+    accounts.extend(alts)
+    ReadPostModel = Post.db_receivers_accounts.through
+    bulk_list = []
+
+    print ("Marking unread...")
+
+    for post in unread_posts:
+        for account in accounts:
+            bulk_list.append(ReadPostModel(accountdb=account, msg=post))
+            # They've read everything, clear out their unread cache count
+            board.zero_unread_cache(account)
+    ReadPostModel.objects.bulk_create(bulk_list)
+
+    print ("Mapping...")
+
+    posts = map(lambda post: post_map(post, board), unread_posts)
+    return render(request, 'msgs/post_view_all.html', {'board': board, 'page_title': board.key + " - Unread Posts",
                                                        'posts': posts})
 
 
@@ -403,7 +458,10 @@ def post_view(request, board_id, post_id):
     try:
         post = board.posts.get(id=post_id)
     except (Post.DoesNotExist, ValueError):
-        raise Http404
+        try:
+            post = board.archived_posts.get(id=post_id)
+        except (Post.DoesNotExist, ValueError):
+            raise Http404
 
     board.mark_read(request.user, post)
 
