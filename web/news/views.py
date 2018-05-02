@@ -6,15 +6,13 @@ like news-categories/topics and searchable archives.
 """
 
 from django.views.generic import ListView
-from django.shortcuts import render_to_response, get_object_or_404
-from django.template import RequestContext
+from django.shortcuts import get_object_or_404, render
 from django.conf import settings
 from django.http import HttpResponseRedirect
-from django.contrib.auth.models import User
 from django import forms
 from django.db.models import Q
 
-from .models import NewsTopic, NewsEntry
+from .models import NewsEntry
 
 # The sidebar text to be included as a variable on each page. There's got to
 # be a better, cleaner way to include this on every page.
@@ -26,6 +24,7 @@ sidebar = """
     </ul>
 """
 
+
 class SearchForm(forms.Form):
     """
     Class to represent a news search form under Django's newforms. This is used
@@ -34,6 +33,7 @@ class SearchForm(forms.Form):
     via the search form or by directly inputing values via GET key pairs.
     """
     search_terms = forms.CharField(max_length=100, min_length=3, required=True)
+
 
 def show_news(request, entry_id):
     """
@@ -48,8 +48,8 @@ def show_news(request, entry_id):
         "sidebar": sidebar
     }
 
-    context_instance = RequestContext(request)
-    return render_to_response('news/show_entry.html', pagevars, context_instance)
+    return render(request, 'news/show_entry.html', pagevars, content_type="text/html")
+
 
 def news_archive(request):
     """
@@ -67,8 +67,9 @@ def news_archive(request):
         "sidebar": sidebar
     }
     view = ListView.as_view(queryset=news_entries)
-    return view(request, template_name='news/archive.html',  \
-        extra_context=pagevars, paginate_by=entries_per_page)
+    return view(request, template_name='news/archive.html',
+                extra_context=pagevars, paginate_by=entries_per_page)
+
 
 def search_form(request):
     """
@@ -79,24 +80,24 @@ def search_form(request):
     if request.method == 'GET':
         # A GET request was sent to the search page, load the value and
         # validate it.
-        search_form = SearchForm(request.GET)
-        if search_form.is_valid():
+        form = SearchForm(request.GET)
+        if form.is_valid():
             # If the input is good, send them to the results page with the
             # query attached in GET variables.
-            return HttpResponseRedirect('/news/search/results/?search_terms='+ search_form.cleaned_data['search_terms'])
+            return HttpResponseRedirect('/news/search/results/?search_terms=' + form.cleaned_data['search_terms'])
     else:
         # Brand new search, nothing has been sent just yet.
-        search_form = SearchForm()
+        form = SearchForm()
 
     pagevars = {
         "page_title": "Search News",
-        "search_form": search_form,
+        "search_form": form,
         "debug": settings.DEBUG,
         "sidebar": sidebar
     }
 
-    context_instance = RequestContext(request)
-    return render_to_response('news/search_form.html', pagevars, context_instance)
+    return render(request, 'news/search_form.html', pagevars, content_type="text/html")
+
 
 def search_results(request):
     """
@@ -106,17 +107,18 @@ def search_results(request):
     entries_per_page = 15
 
     # Load the form values from GET to validate against.
-    search_form = SearchForm(request.GET)
+    form = SearchForm(request.GET)
     # You have to call is_valid() or cleaned_data won't be populated.
-    valid_search = search_form.is_valid()
+    valid_search = form.is_valid()
     # This is the safe data that we can pass to queries without huge worry of
     # badStuff(tm).
-    cleaned_get = search_form.cleaned_data
+    cleaned_get = form.cleaned_data
 
     # Perform searches that match the title and contents.
     # TODO: Allow the user to specify what to match against and in what
     # topics/categories.
-    news_entries = NewsEntry.objects.filter(Q(title__contains=cleaned_get['search_terms']) | Q(body__contains=cleaned_get['search_terms']))
+    news_entries = NewsEntry.objects.filter(Q(title__contains=cleaned_get['search_terms'])
+                                            | Q(body__contains=cleaned_get['search_terms']))
 
     pagevars = {
         "game_name": settings.SERVERNAME,
@@ -126,4 +128,5 @@ def search_results(request):
         "sidebar": sidebar
     }
     view = ListView.as_view(queryset=news_entries)
-    return view(request, news_entries, template_name='news/archive.html', extra_context=pagevars, paginate_by=entries_per_page)
+    return view(request, news_entries, template_name='news/archive.html', extra_context=pagevars,
+                paginate_by=entries_per_page)
