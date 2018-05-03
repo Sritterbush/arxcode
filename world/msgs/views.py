@@ -10,6 +10,7 @@ from django.db.models import Q
 from django.http import HttpResponseRedirect, HttpResponse, Http404
 from django.shortcuts import render, get_object_or_404
 from django.views.generic import ListView
+from django.contrib.auth import get_user_model
 
 from evennia.utils import ansi
 
@@ -214,7 +215,6 @@ def journal_list_json(request):
     return HttpResponse(API_CACHE, content_type='application/json')
 
 
-@login_required
 def board_list(request):
     """View for getting list of boards"""
 
@@ -225,10 +225,15 @@ def board_list(request):
         if last_post:
             last_date = last_post.db_date_created.strftime("%x")
 
+        if request.user.is_authenticated():
+            unread = board.num_of_unread_posts(user, old=False)
+        else:
+            unread = board.posts.count()
+
         return {
             'id': board.id,
             'name': board.key,
-            'unread': board.num_of_unread_posts(request.user, old=False),
+            'unread': unread,
             'last_date': last_date
         }
 
@@ -236,7 +241,10 @@ def board_list(request):
 
     save_unread = request.GET.get("save_unread")
     if save_unread is None:
-        unread_only = request.user.tags.get('web_boards_only_unread', category='boards')
+        if not request.user or not request.user.is_authenticated():
+            unread_only = False
+        else:
+            unread_only = request.user.tags.get('web_boards_only_unread', category='boards')
 
     if unread_only is None:
         unread_only = False
@@ -249,13 +257,21 @@ def board_list(request):
         else:
             unread_only = False
 
-    if save_unread:
+    if save_unread and request.user.is_authenticated():
         if unread_only:
             request.user.tags.add('web_boards_only_unread', category='boards')
         else:
             request.user.tags.remove('web_boards_only_unread', category='boards')
 
-    raw_boards = get_boards(request.user)
+    user = request.user
+    if not user or not user.is_authenticated():
+        Account = get_user_model()
+        try:
+            user = Account.objects.get(username__iexact="Guest1")
+        except (Account.DoesNotExist, Account.MultipleObjectsReturned):
+            raise Http404
+
+    raw_boards = get_boards(user)
     boards = map(lambda board: map_board(board), raw_boards)
     if unread_only:
         boards = filter(lambda board: board['unread'] > 0, boards)
@@ -271,7 +287,15 @@ def board_list(request):
 def board_for_request(request, board_id):
     """Check if we can get a board by the given ID. 404 if we don't have privileges"""
     board = get_object_or_404(BBoard, id=board_id)
-    character = request.user.char_ob
+    user = request.user
+    if not user or not user.is_authenticated:
+        Account = get_user_model()
+        try:
+            user = Account.objects.get(username__iexact="Guest1")
+        except (Account.DoesNotExist, Account.MultipleObjectsReturned):
+            raise Http404
+
+    character = user.char_ob
     if not board.access(character):
         raise Http404
     return board
@@ -289,7 +313,6 @@ def posts_for_request_all(board):
     return current_posts + old_posts
 
 
-@login_required
 def post_list(request, board_id):
     """View for getting list of posts for a given board"""
     def post_map(post, bulletin_board, read_posts_list):
@@ -305,12 +328,14 @@ def post_list(request, board_id):
     board = board_for_request(request, board_id)
     raw_posts = posts_for_request_all(board)
     # force list so it's not generating a query in each map run
-    read_posts = list(Post.objects.all_read_by(request.user))
+    if not request.user or not request.user.is_authenticated():
+        read_posts = []
+    else:
+        read_posts = list(Post.objects.all_read_by(request.user))
     posts = map(lambda post: post_map(post, board, read_posts), raw_posts)
     return render(request, 'msgs/post_list.html', {'board': board, 'page_title': board.key, 'posts': posts})
 
 
-@login_required
 def post_view_all(request, board_id):
     """View for seeing all posts at once. It'll mark them all read."""
     def post_map(post, bulletin_board, read_posts_list):
@@ -326,32 +351,35 @@ def post_view_all(request, board_id):
 
     board = board_for_request(request, board_id)
     raw_posts = posts_for_request(board)
-    read_posts = list(Post.objects.all_read_by(request.user))
+    if not request.user or not request.user.is_authenticated():
+        read_posts = []
+    else:
+        read_posts = list(Post.objects.all_read_by(request.user))
 
-    alts = []
-    if request.user.db.bbaltread:
-        try:
-            alts = [ob.player for ob in request.user.roster.alts]
-        except AttributeError:
-            pass
-    accounts = [request.user]
-    accounts.extend(alts)
-    ReadPostModel = Post.db_receivers_accounts.through
-    bulk_list = []
-    for post in raw_posts:
-        if post not in read_posts:
-            for account in accounts:
-                bulk_list.append(ReadPostModel(accountdb=account, msg=post))
-                # They've read everything, clear out their unread cache count
-                board.zero_unread_cache(account)
-    ReadPostModel.objects.bulk_create(bulk_list)
+    if request.user.is_authenticated():
+        alts = []
+        if request.user.db.bbaltread:
+            try:
+                alts = [ob.player for ob in request.user.roster.alts]
+            except AttributeError:
+                pass
+        accounts = [request.user]
+        accounts.extend(alts)
+        ReadPostModel = Post.db_receivers_accounts.through
+        bulk_list = []
+        for post in raw_posts:
+            if post not in read_posts:
+                for account in accounts:
+                    bulk_list.append(ReadPostModel(accountdb=account, msg=post))
+                    # They've read everything, clear out their unread cache count
+                    board.zero_unread_cache(account)
+        ReadPostModel.objects.bulk_create(bulk_list)
 
     posts = map(lambda post: post_map(post, board, read_posts), raw_posts)
     return render(request, 'msgs/post_view_all.html', {'board': board, 'page_title': board.key + " - Posts",
                                                        'posts': posts})
 
 
-@login_required
 def post_view_unread_board(request, board_id):
     """View for seeing all posts at once. It'll mark them all read."""
     def post_map(post, bulletin_board):
@@ -364,42 +392,31 @@ def post_view_unread_board(request, board_id):
             'text': ansi.strip_ansi(post.db_message)
         }
 
-    print ("Beginning run...")
-
     board = board_for_request(request, board_id)
-    unread_posts = Post.objects.all_unread_by(request.user).filter(db_receivers_objects=board
-                                                                   )
+    unread_posts = []
 
-    print ("Got unread posts.")
-
-    alts = []
-    if request.user.db.bbaltread:
-        try:
+    if request.user.is_authenticated():
+        unread_posts = Post.objects.all_unread_by(request.user).filter(db_receivers_objects=board)
+        alts = []
+        if request.user.db.bbaltread:
             alts = [ob.player for ob in request.user.roster.alts]
-        except AttributeError:
-            pass
-    accounts = [request.user]
-    accounts.extend(alts)
-    ReadPostModel = Post.db_receivers_accounts.through
-    bulk_list = []
+        accounts = [request.user]
+        accounts.extend(alts)
+        ReadPostModel = Post.db_receivers_accounts.through
+        bulk_list = []
 
-    print ("Marking unread...")
-
-    for post in unread_posts:
-        for account in accounts:
-            bulk_list.append(ReadPostModel(accountdb=account, msg=post))
-            # They've read everything, clear out their unread cache count
-            board.zero_unread_cache(account)
-    ReadPostModel.objects.bulk_create(bulk_list)
-
-    print ("Mapping...")
+        for post in unread_posts:
+            for account in accounts:
+                bulk_list.append(ReadPostModel(accountdb=account, msg=post))
+                # They've read everything, clear out their unread cache count
+                board.zero_unread_cache(account)
+        ReadPostModel.objects.bulk_create(bulk_list)
 
     posts = map(lambda post: post_map(post, board), unread_posts)
     return render(request, 'msgs/post_view_all.html', {'board': board, 'page_title': board.key + " - Unread Posts",
                                                        'posts': posts})
 
 
-@login_required
 def post_view_unread(request):
     """View for seeing all posts at once. It'll mark them all read."""
 
@@ -418,40 +435,40 @@ def post_view_unread(request):
     unread_posts = Post.objects.all_unread_by(request.user).filter(db_receivers_objects__in=raw_boards
                                                                    ).order_by('db_receivers_objects')
 
-    alts = []
-    alt_unread_posts = []
-    if request.user.db.bbaltread:
-        try:
-            alts = [ob.player for ob in request.user.roster.alts]
-        except AttributeError:
-            pass
-        if alts:
-            alt_unread_posts = list(unread_posts.exclude(db_receivers_accounts__in=alts))
-    ReadPostModel = Post.db_receivers_accounts.through
-    bulk_list = []
+    if request.user.is_authenticated():
+        alts = []
+        alt_unread_posts = []
+        if request.user.db.bbaltread:
+            try:
+                alts = [ob.player for ob in request.user.roster.alts]
+            except AttributeError:
+                pass
+            if alts:
+                alt_unread_posts = list(unread_posts.exclude(db_receivers_accounts__in=alts))
+        ReadPostModel = Post.db_receivers_accounts.through
+        bulk_list = []
 
-    mapped_posts = []
+        mapped_posts = []
 
-    for unread_post in unread_posts:
-        mapped_posts.append(post_map(unread_post))
-        bulk_list.append(ReadPostModel(accountdb=request.user, msg=unread_post))
-        for alt in alts:
-            if unread_post in alt_unread_posts:
-                bulk_list.append(ReadPostModel(accountdb=alt, msg=unread_post))
+        for unread_post in unread_posts:
+            mapped_posts.append(post_map(unread_post))
+            bulk_list.append(ReadPostModel(accountdb=request.user, msg=unread_post))
+            for alt in alts:
+                if unread_post in alt_unread_posts:
+                    bulk_list.append(ReadPostModel(accountdb=alt, msg=unread_post))
 
-    # They've read everything, clear out their unread cache count
-    accounts = [request.user] + alts
-    for board in raw_boards:
-        for account in accounts:
-            board.zero_unread_cache(account)
+        # They've read everything, clear out their unread cache count
+        accounts = [request.user] + alts
+        for board in raw_boards:
+            for account in accounts:
+                board.zero_unread_cache(account)
 
-    ReadPostModel.objects.bulk_create(bulk_list)
+        ReadPostModel.objects.bulk_create(bulk_list)
 
     return render(request, 'msgs/post_view_unread.html', {'page_title': 'All Unread Posts',
                                                           'posts': mapped_posts})
 
 
-@login_required
 def post_view(request, board_id, post_id):
     """View for seeing an individual post"""
     board = board_for_request(request, board_id)
@@ -463,7 +480,8 @@ def post_view(request, board_id, post_id):
         except (Post.DoesNotExist, ValueError):
             raise Http404
 
-    board.mark_read(request.user, post)
+    if request.user.is_authenticated():
+        board.mark_read(request.user, post)
 
     context = {
         'id': post.id,
