@@ -3,7 +3,7 @@
 {% block content %}
 <div class="container">
 	<h2>{{ board.key }}</h2>
-    <div class="newsDate"><a href="{% url 'msgs:post_view_all' board_id=board.id %}">Read all posts</a></div>
+    <div class="newsDate"><a href="{% url 'msgs:post_view_unread_board' board_id=board.id %}">Unread posts</a> | <a href="{% url 'msgs:post_view_all' board_id=board.id %}">Read all posts</a></div>
     <br/>
 	<table class="table table-hover">
 		<tr class="danger">
