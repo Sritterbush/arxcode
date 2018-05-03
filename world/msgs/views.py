@@ -313,6 +313,13 @@ def posts_for_request_all(board):
     return current_posts + old_posts
 
 
+def posts_for_request_all_search(board, searchstring):
+    """Get all posts from the board in reverse order"""
+    current_posts = list(board.get_all_posts(old=False).filter(db_message__icontains=searchstring))[::-1]
+    old_posts = list(board.get_all_posts(old=True).filter(db_message__icontains=searchstring))[::-1]
+    return current_posts + old_posts
+
+
 def post_list(request, board_id):
     """View for getting list of posts for a given board"""
     def post_map(post, bulletin_board, read_posts_list):
@@ -326,7 +333,13 @@ def post_list(request, board_id):
         }
 
     board = board_for_request(request, board_id)
-    raw_posts = posts_for_request_all(board)
+
+    search = request.GET.get("search")
+    if search and search != "":
+        raw_posts = posts_for_request_all_search(board, search)
+    else:
+        raw_posts = posts_for_request_all(board)
+
     # force list so it's not generating a query in each map run
     if not request.user or not request.user.is_authenticated():
         read_posts = []

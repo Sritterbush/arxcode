@@ -2,6 +2,7 @@
 {% load app_filters %}
 {% block content %}
 <div class="container">
+    {% include "msgs/_board_post_search.html" %}
 	<h2>{{ board.key }}</h2>
     {% if user.is_authenticated %}
     <div class="newsDate"><a href="{% url 'msgs:post_view_unread_board' board_id=board.id %}">Unread posts</a> | <a href="{% url 'msgs:post_view_all' board_id=board.id %}">Read all posts</a></div>
