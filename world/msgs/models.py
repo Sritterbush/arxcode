@@ -297,11 +297,7 @@ class Post(MarkReadMixin, Msg):
     def bulletin_board(self):
         """Returns the bulletin board this post is attached to"""
         from typeclasses.bulletin_board.bboard import BBoard
-        result = None
-        for receiver in self.db_receivers_objects.all():
-            if isinstance(receiver, BBoard):
-                result = receiver
-                continue
+        result = self.db_receivers_objects.filter(db_typeclass_path=BBoard.path).first()
 
         if result is None:
             result = self.db_receivers_objects.first()
