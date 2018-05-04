@@ -320,6 +320,26 @@ def posts_for_request_all_search(board, searchstring):
     return current_posts + old_posts
 
 
+def posts_for_request_all_search_global(user, searchstring):
+    """Get all posts from all boards for this user, containing the searchstring"""
+    # raw_boards = get_boards(user)
+    # result = None
+    # for board in raw_boards:
+    #     current_posts = list(board.get_all_posts(old=False).filter(db_message__icontains=searchstring))
+    #     old_posts = list(board.get_all_posts(old=True).filter(db_message__icontains=searchstring))
+    #     if result is None:
+    #         result = current_posts
+    #     else:
+    #         result = result + current_posts
+    #     result = result + old_posts
+    #
+    # result.sort(key=lambda x: x.db_date_created, reverse=True)
+    # return result
+
+    posts = list(Post.objects.filter(db_message__icontains=searchstring).order_by('-db_date_created'))
+    return filter(lambda x: x.bulletin_board.access(user, 'read'), posts)
+
+
 def post_list(request, board_id):
     """View for getting list of posts for a given board"""
     def post_map(post, bulletin_board, read_posts_list):
@@ -347,6 +367,41 @@ def post_list(request, board_id):
         read_posts = list(Post.objects.all_read_by(request.user))
     posts = map(lambda post: post_map(post, board, read_posts), raw_posts)
     return render(request, 'msgs/post_list.html', {'board': board, 'page_title': board.key, 'posts': posts})
+
+
+def post_list_global_search(request):
+    """View for getting list of posts for a given board"""
+    def post_map(post, read_posts_list):
+        """Helper function to get dict of post information to add to context per post"""
+        return {
+            'id': post.id,
+            'poster': post.bulletin_board.get_poster(post),
+            'subject': post.bulletin_board.key + ": " + ansi.strip_ansi(post.db_header),
+            'date': post.db_date_created.strftime("%x"),
+            'unread': post not in read_posts_list,
+            'board': post.bulletin_board
+        }
+
+
+    user = request.user
+    if not user or not user.is_authenticated():
+        read_posts = []
+        Account = get_user_model()
+        try:
+            user = Account.objects.get(username__iexact="Guest1")
+        except (Account.DoesNotExist, Account.MultipleObjectsReturned):
+            raise Http404
+    else:
+        read_posts = list(Post.objects.all_read_by(user))
+
+    search = request.GET.get("search")
+    if search and search != "":
+        raw_posts = posts_for_request_all_search_global(user, search)
+    else:
+        raw_posts = []
+
+    posts = map(lambda post: post_map(post, read_posts), raw_posts)
+    return render(request, 'msgs/post_list_search.html', {'page_title': 'Search Results', 'posts': posts})
 
 
 def post_view_all(request, board_id):
