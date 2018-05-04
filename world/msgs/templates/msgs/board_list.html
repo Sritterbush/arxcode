@@ -2,6 +2,12 @@
 {% load app_filters %}
 {% block content %}
 <div class="container">
+	<div class="row">
+		<form method="get" action="./search" class="navbar-form pull-right">
+			<label><input type="text" class="input-medium search-query" name="search" placeholder="Search"/>
+			<input type="submit" class="btn" value="Search" >
+		</form>
+	</div>
 	{% if user.is_authenticated %}
 	{% include "msgs/_board_list_settings.html" %}
     <a href="{% url 'msgs:post_view_unread' %}">All Unread Posts</a>
