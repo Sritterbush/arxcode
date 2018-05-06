@@ -12,11 +12,22 @@ just overloads its hooks to have it perform its function.
 
 """
 
-from evennia import DefaultScript
+from evennia.scripts.scripts import DefaultScript, ExtendedLoopingCall
 from evennia.scripts.models import ScriptDB
 from evennia.comms import channelhandler
 
 _SESSIONS = None
+
+FLUSHING_INSTANCES = False
+SCRIPT_FLUSH_TIMERS = {}
+
+
+def restart_scripts_after_flush():
+    """After instances are flushed, validate scripts so they're not dead for a long period of time"""
+    global FLUSHING_INSTANCES
+    ScriptDB.objects.validate()
+    FLUSHING_INSTANCES = False
+
 
 class Script(DefaultScript):
     """
@@ -91,7 +102,41 @@ class Script(DefaultScript):
       at_server_shutdown() - called at a full server shutdown.
 
     """
-    pass
+    def at_idmapper_flush(self):
+        """If we're flushing this object, make sure the LoopingCall is gone too"""
+        ret = super(Script, self).at_idmapper_flush()
+        if ret:
+            try:
+                from twisted.internet import reactor
+                global FLUSHING_INSTANCES
+                paused_time = self.ndb._task.next_call_time()
+                callcount = self.ndb._task.callcount
+                self._stop_task()
+                SCRIPT_FLUSH_TIMERS[self.id] = (paused_time, callcount)
+                if not FLUSHING_INSTANCES:
+                    FLUSHING_INSTANCES = True
+                    reactor.callLater(2, restart_scripts_after_flush)
+            except Exception:
+                import traceback
+                traceback.print_exc()
+        return ret
+
+    def start(self, force_restart=False):
+        ret = super(Script, self).start(force_restart=force_restart)
+        if not self.ndb._task:
+            self.ndb._task = ExtendedLoopingCall(self._step_task)
+            try:
+                start_delay, callcount = SCRIPT_FLUSH_TIMERS[self.id]
+                del SCRIPT_FLUSH_TIMERS[self.id]
+                now = False
+            except (KeyError, ValueError, TypeError):
+                now = not self.db_start_delay
+                start_delay = None
+                callcount = 0
+            self.ndb._task.start(self.db_interval, now=now, start_delay=start_delay, count_start=callcount)
+
+        return ret
+
 
 class CheckSessions(Script):
     "Check sessions regularly."
@@ -125,6 +170,7 @@ class ValidateScripts(Script):
         "called every hour"
         #print "ValidateScripts run."
         ScriptDB.objects.validate()
+
 
 class ValidateChannelHandler(Script):
     "Update the channelhandler to make sure it's in sync."
