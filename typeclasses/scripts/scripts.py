@@ -123,7 +123,8 @@ class Script(DefaultScript):
 
     def start(self, force_restart=False):
         ret = super(Script, self).start(force_restart=force_restart)
-        if not self.ndb._task:
+        # restart task if it's missing when we're marked as active
+        if not self.ndb._task and self.is_active:
             self.ndb._task = ExtendedLoopingCall(self._step_task)
             try:
                 start_delay, callcount = SCRIPT_FLUSH_TIMERS[self.id]
@@ -134,7 +135,6 @@ class Script(DefaultScript):
                 start_delay = None
                 callcount = 0
             self.ndb._task.start(self.db_interval, now=now, start_delay=start_delay, count_start=callcount)
-
         return ret
 
 
