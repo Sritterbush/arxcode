@@ -23,9 +23,12 @@ INSTALLED_APPS += ('world.dominion',
                    'django.contrib.humanize',
                    'markdown_deux',
                    'crispy_forms',
-                   'bootstrapform')
+                   'bootstrapform',
+                   'test_without_migrations')
 
 CRISPY_TEMPLATE_PACK = 'bootstrap3'
+
+from evennia.contrib import color_markups
 
 COLOR_ANSI_EXTRA_MAP = color_markups.CURLY_COLOR_ANSI_EXTRA_MAP + color_markups.MUX_COLOR_ANSI_EXTRA_MAP
 COLOR_XTERM256_EXTRA_FG = color_markups.CURLY_COLOR_XTERM256_EXTRA_FG + color_markups.MUX_COLOR_XTERM256_EXTRA_FG
@@ -61,7 +64,7 @@ Evennia resources:
 From here on you might want to look at one of the beginner tutorials:
 http://github.com/evennia/evennia/wiki/Tutorials.
 
-Evennia's documentation is here: 
+Evennia's documentation is here:
 https://github.com/evennia/evennia/wiki.
 
 Enjoy!
