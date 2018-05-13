@@ -3035,8 +3035,9 @@ class Organization(InformMixin, SharedMemoryModel):
         msg += "\n{wEconomic Mod:{n %s, {wMilitary Mod:{n %s, {wSocial Mod:{n %s\n" % (self.economic_modifier,
                                                                                        self.military_modifier,
                                                                                        self.social_modifier)
-        msg += "{wSpheres of Influence:{n %s\n" % ", ".join("{w%s{n: %s" % (ob.category, ob.rating)
-                                                            for ob in self.spheres.all())
+        # msg += "{wSpheres of Influence:{n %s\n" % ", ".join("{w%s{n: %s" % (ob.category, ob.rating)
+        #                                                     for ob in self.spheres.all())
+        msg += "{wSkills used for work:{n %s\n" % ", ".join(ob.skill for ob in self.work_settings.all())
         clues = self.clues.all()
         if display_clues:
             if clues:
