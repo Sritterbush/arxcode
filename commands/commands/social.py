@@ -2414,8 +2414,9 @@ class CmdRandomScene(ArxCommand):
     def generate_lists(self):
         """Generates our random choices of people we can claim this week."""
         scenelist = self.scenelist
-        claimlist = [ob for ob in self.claimlist if ob not in self.newbies]
-        newbies = [ob.id for ob in self.newbies]
+        newbies = self.newbies
+        claimlist = [ob for ob in self.claimlist if ob not in newbies]
+        newbies = [ob.id for ob in newbies]
         choices = self.valid_choices
         if newbies:
             choices = choices.exclude(id__in=newbies)
@@ -2441,9 +2442,10 @@ class CmdRandomScene(ArxCommand):
             return
         # If we would fail for any reason, give a more ambiguous error message if the target is masked.
         err = ""
-        if targ not in self.scenelist and targ not in self.newbies and targ not in self.gms:
+        scenelist = self.scenelist
+        if targ not in scenelist and targ not in self.newbies and targ not in self.gms:
             err = ("%s is not in your list of random scene partners this week: %s" % (targ, ", ".join(
-                ob.key for ob in self.scenelist)))
+                ob.key for ob in scenelist)))
             err += "New players who can be RP'd with for credit: %s" % ", ".join(ob.key for ob in self.newbies)
         if targ in self.claimlist:
             err += "You have already claimed a scene with %s this week." % targ
@@ -2475,6 +2477,8 @@ class CmdRandomScene(ArxCommand):
         our_requests = self.requested_validation
         our_requests.append(targ)
         self.caller.player_ob.db.requested_validation = our_requests
+        if targ in scenelist:
+            scenelist.remove(targ)
 
     def validate_scene(self):
         """Grants a request to validate a randomscene."""
