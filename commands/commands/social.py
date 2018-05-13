@@ -2419,6 +2419,8 @@ class CmdRandomScene(ArxCommand):
         choices = self.valid_choices
         if newbies:
             choices = choices.exclude(id__in=newbies)
+        if claimlist:
+            choices = choices.exclude(id__in=[ob.id for ob in claimlist])
         choices = list(choices)
         num_scenes = self.NUM_SCENES - (len(claimlist) + len(scenelist))
         if num_scenes > 0:
