@@ -2407,12 +2407,14 @@ class CmdFamily(ArxPlayerCommand):
             return
 
 max_proteges = {
-    1: 7,
-    2: 6,
-    3: 5,
-    4: 4,
-    5: 3,
+    1: 5,
+    2: 4,
+    3: 3,
+    4: 3,
+    5: 2,
     6: 2,
+    7: 1,
+    8: 1,
     }
 
 
