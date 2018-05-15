@@ -1193,7 +1193,7 @@ class CmdMessenger(ArxCommand):
                     continue
                 elif not hasattr(targ, 'roster') or not targ.roster.roster:
                     can_deliver = False
-                elif targ.roster.roster.name not in ("Active", "Unavailable", "Available", "Inactive"):
+                elif targ.roster.roster.name not in ("Active", "Unavailable"):
                     can_deliver = False
                 if not can_deliver:
                     self.msg("%s cannot receive messengers." % targ)
