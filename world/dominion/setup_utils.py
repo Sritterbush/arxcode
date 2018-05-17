@@ -4,7 +4,7 @@ as creating Land squares of random terrain based on a regional
 climate, and setup a character's initial domain based on their
 social rank.
 """
-from .models import (Land, PlayerOrNpc, Ruler, Domain, AssetOwner, Organization)
+from world.dominion.models import (Land, PlayerOrNpc, Ruler, Domain, AssetOwner, Organization)
 from . import unit_constants
 from django.core.exceptions import ObjectDoesNotExist
 import random

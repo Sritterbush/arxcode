@@ -17,28 +17,28 @@ MSSPTable =  {
 
     # Required fieldss
 
-    "NAME":               "Evennia",
+    "NAME":               "Arx: After the Reckoning",
 
     # Generic
 
     "CRAWL DELAY":        "-1",     # limit how often crawler updates the listing. -1 for no limit
 
-    "HOSTNAME":           "",       # current or new hostname
-    "PORT":               ["4000"], # most important port should be last in list
+    "HOSTNAME":           "play.arxgame.org",       # current or new hostname
+    "PORT":               ["3000"], # most important port should be last in list
     "CODEBASE":           "Evennia",
-    "CONTACT":            "",       # email for contacting the mud
-    "CREATED":            "",       # year MUD was created
-    "ICON":               "",       # url to icon 32x32 or larger; <32kb.
+    "CONTACT":            "arxmush@gmail.com",       # email for contacting the mud
+    "CREATED":            "2016",       # year MUD was created
+    "ICON":               "http://play.arxgame.org/static/images/arx_badge_small.png",       # url to icon 32x32 or larger; <32kb.
     "IP":                 "",       # current or new IP address
-    "LANGUAGE":           "",       # name of language used, e.g. English
-    "LOCATION":           "",       # full English name of server country
-    "MINIMUM AGE":        "0",      # set to 0 if not applicable
-    "WEBSITE":            "www.evennia.com",
+    "LANGUAGE":           "English",       # name of language used, e.g. English
+    "LOCATION":           "United States",       # full English name of server country
+    "MINIMUM AGE":        "18",      # set to 0 if not applicable
+    "WEBSITE":            "play.arxgame.org",
 
     # Categorisation
 
     "FAMILY":             "Custom", # evennia goes under 'Custom'
-    "GENRE":              "None",   # Adult, Fantasy, Historical, Horror, Modern, None, or Science Fiction
+    "GENRE":              "Fantasy",   # Adult, Fantasy, Historical, Horror, Modern, None, or Science Fiction
     "GAMEPLAY":           "",       # Adventure, Educational, Hack and Slash, None,
                                       # Player versus Player, Player versus Environment,
                                       # Roleplaying, Simulation, Social or Strategy
@@ -72,7 +72,7 @@ MSSPTable =  {
     "PUEBLO":             "0",
     "UTF-8":              "1",
     "VT100":              "0",
-    "XTERM 256 COLORS":   "0",
+    "XTERM 256 COLORS":   "1",
 
     # Commercial set to 1 or 0)
 
@@ -105,12 +105,12 @@ MSSPTable =  {
     "PLAYER CRAFTING":    "0",
     "PLAYER GUILDS":      "0",
     "EQUIPMENT SYSTEM":   "None",  # "None", "Level", "Skill", "Both"
-    "MULTIPLAYING":       "None",  # "None", "Restricted", "Full"
-    "PLAYERKILLING":      "None",  # "None", "Restricted", "Full"
+    "MULTIPLAYING":       "Restricted",  # "None", "Restricted", "Full"
+    "PLAYERKILLING":      "Restricted",  # "None", "Restricted", "Full"
     "QUEST SYSTEM":       "None",  # "None", "Immortal Run", "Automated", "Integrated"
-    "ROLEPLAYING":        "None",  # "None", "Accepted", "Encouraged", "Enforced"
-    "TRAINING SYSTEM":    "None",  # "None", "Level", "Skill", "Both"
-    "WORLD ORIGINALITY":  "None",  # "All Stock", "Mostly Stock", "Mostly Original", "All Original"
+    "ROLEPLAYING":        "Enforced",  # "None", "Accepted", "Encouraged", "Enforced"
+    "TRAINING SYSTEM":    "Skill",  # "None", "Level", "Skill", "Both"
+    "WORLD ORIGINALITY":  "All Original",  # "All Stock", "Mostly Stock", "Mostly Original", "All Original"
 
     # Protocols (only change if you added/removed something manually)
 
@@ -120,4 +120,4 @@ MSSPTable =  {
     "SSL":                "1",
     "UTF-8":              "1",
     "ZMP":                "0",
-    "XTERM 256 COLORS":   "0"}
+    "XTERM 256 COLORS":   "1"}

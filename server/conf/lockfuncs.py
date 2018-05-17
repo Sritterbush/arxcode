@@ -93,15 +93,11 @@ def organization(accessing_obj, accessed_obj, *args, **kwargs):
     try:
         if accessing_obj.player_ob:
             accessing_obj = accessing_obj.player_ob
-    except Exception:
-        import traceback
-        traceback.print_exc()
-        print("Error in lockfunc: accessing_obj is %s\n" % accessing_obj)
-        print("Accessed_obj is %r\n" % accessed_obj)
+    except AttributeError:
+        pass
     if hasattr(accessing_obj, 'dbobj'):
         accessing_obj = accessing_obj.dbobj
     try:
-        
         org_obj = Organization.objects.get(name__iexact=args[0])
     except Organization.DoesNotExist:
         return False

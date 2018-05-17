@@ -2,8 +2,8 @@
 Views related to the Dominion app
 """
 from django.views.generic import ListView, DetailView
+from .models import RPEvent, AssignedTask, Crisis, Land, Domain, Organization
 from django.views.decorators.cache import never_cache
-from .models import RPEvent, AssignedTask, Crisis, Land, Domain
 from .forms import RPEventCommentForm
 from django.http import HttpResponseRedirect, HttpResponse
 from django.http import Http404
@@ -13,6 +13,7 @@ from django.db.models import Q
 from django.template.loader import render_to_string
 from server.utils.view_mixins import LimitPageMixin
 from PIL import Image, ImageDraw, ImageFont
+from graphviz import Graph, Digraph
 from math import trunc
 import os.path
 
@@ -375,6 +376,10 @@ def map_wrapper(request):
 
         total_height = max_y - min_y
 
+        ratio = 1280.0 / mapimage.size[0]
+        img_width = trunc(mapimage.size[0] * ratio)
+        img_height = trunc(mapimage.size[1] * ratio)
+
         domain_font = ImageFont.truetype("world/dominion/map/Amaranth-Regular.otf", 24)
 
         for land in lands:
@@ -409,7 +414,6 @@ def map_wrapper(request):
         'imagemap_links': map_links
     }
     imagemap_html = render_to_string("dominion/map_wrapper.html", context)
-
     imagemap_file = open("world/dominion/map/arxmap_imagemap.html", "w")
     imagemap_file.write(imagemap_html)
     imagemap_file.close()
@@ -427,3 +431,76 @@ def map_wrapper(request):
         'page_title': 'Map of Arvum'
     }
     return render(request, "dominion/map_pregen.html", context)
+
+
+def fealty_chart(request):
+
+    node_colors = {
+        'Ruling Prince': 'lightblue',
+        'Prince': 'lightblue',
+        'Archduke': 'lightblue',
+        'Ruling Duke': 'purple',
+        'Duke': 'purple',
+        'Ruling Marquis': 'red',
+        'Marquis': 'red',
+        'Marquis, Count of the March': 'red',
+        'Lord of the March': 'red',
+        'Ruling Count': 'yellow',
+        'Count': 'yellow',
+        'Ruling Baron': 'green',
+        'Baron': 'green',
+    }
+
+    def add_vassals(G, org):
+        if not org:
+            print "Something has gone horribly wrong!"
+        else:
+            org_name = org.name
+            org_rank_1 = org.living_members.filter(rank=1).first()
+            if org_rank_1 is not None:
+                org_name = org_name + "\n(" + org_rank_1.player.player.key.title() + ")"
+
+            for vassal in org.assets.estate.vassals.all():
+                if vassal.house and not vassal.house.organization_owner.name.startswith("Vassal of"):
+                    node_color = node_colors.get(vassal.house.organization_owner.rank_1_male, None)
+                    name = vassal.house.organization_owner.name
+
+                    rank_1 = vassal.house.organization_owner.living_members.filter(rank=1).first()
+                    if rank_1 is not None:
+                        name = name + "\n(" + rank_1.player.player.key.title() + ")"
+
+                    if node_color:
+                        G.node(name, style='filled', color=node_color)
+                    G.edge(org_name, name)
+                    add_vassals(G, vassal.house.organization_owner)
+
+    regen = False
+
+    if request.user.is_authenticated():
+        regen = request.GET.get("regenerate")
+
+    if not os.path.exists("world/dominion/fealty/fealty_graph.png"):
+        regen = True
+
+    if not regen:
+        response = HttpResponse(content_type="image/png")
+        fealtyimage = Image.open("world/dominion/fealty/fealty_graph.png")
+        fealtyimage.save(response, "PNG")
+        return response
+
+    try:
+        G = Graph('fealties', format='png', engine='dot',
+                  graph_attr=(('overlap', 'prism'), ('spline', 'true'), ('concentrate', 'true')))
+        crown = Organization.objects.get(id=145)
+        add_vassals(G, crown)
+
+        G.render("world/dominion/fealty/fealty_graph", cleanup=True)
+
+        response = HttpResponse(content_type="image/png")
+        fealtyimage = Image.open("world/dominion/fealty/fealty_graph.png")
+        fealtyimage.save(response, "PNG")
+        return response
+
+    except Exception as e:
+        print e
+        raise Http404

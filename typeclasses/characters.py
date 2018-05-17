@@ -644,6 +644,20 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     max_support = property(_get_max_support)
 
     @property
+    def social_clout(self):
+        """Another representation of social value of a character"""
+        total = 0
+        my_skills = self.db.skills or {}
+        skills_used = {"diplomacy": 2, "empathy": 2, "seduction": 2, "etiquette": 2, "manipulation": 2, "propaganda": 2,
+                       "intimidation": 1, "leadership": 1, "streetwise": 1, "performance": 1}
+        stats_used = {"charm": 2, "composure": 1, "command": 1}
+        for skill, exponent in skills_used.items():
+            total += pow(my_skills.get(skill, 0), exponent)
+        for stat, exponent in stats_used.items():
+            total += pow((self.attributes.get(stat) or 0), exponent)
+        return total // 5
+
+    @property
     def guards(self):
         if self.db.assigned_guards is None:
             self.db.assigned_guards = []

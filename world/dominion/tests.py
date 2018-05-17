@@ -4,7 +4,7 @@ Tests for dominion stuff. Crisis commands, etc.
 from mock import patch
 
 from server.utils.test_utils import ArxCommandTest
-from . import crisis_commands
+from . import crisis_commands, commands
 
 
 class TestCrisisCommands(ArxCommandTest):
@@ -43,3 +43,53 @@ class TestCrisisCommands(ArxCommandTest):
         self.cmd_class = crisis_commands.CmdViewCrisis
         self.caller = self.account
         self.call_cmd("1", "Name: test crisis\nDescription: None\nCurrent Rating: 100")
+
+
+class TestGeneralDominionCommands(ArxCommandTest):
+    @patch("world.dominion.models.randint")
+    @patch("world.dominion.models.get_week")
+    @patch('world.dominion.models.do_dice_check')
+    def test_cmd_work(self, mock_dice_check, mock_get_week, mock_randint):
+        from world.dominion.models import Organization, AssetOwner
+        org = Organization.objects.create(name="Orgtest")
+        org_owner = AssetOwner.objects.create(organization_owner=org)
+        member = org.members.create(player=self.dompc)
+        self.cmd_class = commands.CmdWork
+        self.caller = self.account
+        self.call(self.cmd_class(), args="", msg="Command does not exist. Please see 'help work'.", 
+                  caller=self.caller, cmdstring="task")
+        self.call_cmd("", "Must give a name and type of resource.")
+        self.call_cmd("asdf, 5", "No match for an org by the name: asdf.")
+        self.call_cmd("Orgtest, 5", "Type must be one of these: Economic, Military, Social.")
+        self.roster_entry.action_points = 0
+        self.call_cmd("Orgtest, economic", "You cannot afford the AP cost to work.")
+        self.roster_entry.action_points = 100
+        mock_dice_check.return_value = -5
+        mock_get_week.return_value = 0
+        self.char1.db.intellect = 5
+        self.char1.db.composure = 5
+        mock_randint.return_value = 5
+        self.call_cmd("Orgtest, economic", 'You use 15 action points and have 85 remaining this week.|'
+                                           'Your social clout reduces difficulty by 1.\n'
+                                           'Char rolling intellect and economics. '
+                                           'You have gained 5 economic resources.')
+        mock_dice_check.return_value = 20
+        self.call_cmd("Orgtest, economic", 'You use 15 action points and have 70 remaining this week.|'
+                                           'Your social clout reduces difficulty by 1.\n'
+                                           'Char rolling intellect and economics. '
+                                           'You have gained 6 economic resources.')
+        self.call_cmd("Orgtest, economic=Char2", "No protege by that name.")
+        self.dompc2.patron = self.dompc
+        self.dompc2.save()
+        self.char2.db.charm = 10
+        self.char2.db.intellect = 5
+        self.char2.db.composure = 5
+        self.call_cmd("Orgtest, economic=TestAccount2", 'You use 15 action points and have 55 remaining this week.|'
+                                                        'Your social clout combined with that of your protege '
+                                                        'reduces difficulty by 22.\n'
+                                                        'Char rolling intellect and economics. '
+                                                        'You have gained 7 economic resources.')
+        self.assertEqual(self.assetowner2.economic, 2)
+        self.assertEqual(self.assetowner.economic, 18)
+        self.assertEqual(org_owner.economic, 3)
+        self.assertEqual(member.work_this_week, 3)

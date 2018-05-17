@@ -52,6 +52,7 @@ Army, and then do weekly_adjustment() in every assetowner. So only domains
 that currently have a ruler designated will change on a weekly basis.
 """
 from datetime import datetime
+from random import randint
 import traceback
 
 from evennia.typeclasses.models import SharedMemoryModel
@@ -73,6 +74,7 @@ from server.utils.exceptions import ActionSubmissionError, PayError
 from typeclasses.npcs import npc_types
 from typeclasses.mixins import InformMixin
 from web.character.models import AbstractPlayerAllocations, Clue
+from world.stats_and_skills import do_dice_check
 
 # Dominion constants
 BASE_WORKER_COST = 0.10
@@ -3121,8 +3123,9 @@ class Organization(InformMixin, SharedMemoryModel):
         msg += "\n{wEconomic Mod:{n %s, {wMilitary Mod:{n %s, {wSocial Mod:{n %s\n" % (self.economic_modifier,
                                                                                        self.military_modifier,
                                                                                        self.social_modifier)
-        msg += "{wSpheres of Influence:{n %s\n" % ", ".join("{w%s{n: %s" % (ob.category, ob.rating)
-                                                            for ob in self.spheres.all())
+        # msg += "{wSpheres of Influence:{n %s\n" % ", ".join("{w%s{n: %s" % (ob.category, ob.rating)
+        #                                                     for ob in self.spheres.all())
+        msg += "{wSkills used for work:{n %s\n" % ", ".join(ob.skill for ob in self.work_settings.all())
         clues = self.clues.all()
         if display_clues:
             if clues:
@@ -3161,6 +3164,13 @@ class Organization(InformMixin, SharedMemoryModel):
     def active_members(self):
         """Returns queryset of players in active roster and not deguilded"""
         return self.members.filter(Q(player__player__roster__roster__name="Active") & Q(deguilded=False)).distinct()
+
+    @property
+    def living_members(self):
+        """Returns queryset of players in active or available roster and not deguilded"""
+        return self.members.filter((Q(player__player__roster__roster__name="Active") |
+                                    Q(player__player__roster__roster__name="Available"))
+                                   & Q(deguilded=False)).distinct()
 
     @property
     def can_receive_informs(self):
@@ -4288,7 +4298,59 @@ class MilitaryUnit(UnitTypeInfo):
             self.xp -= levelup_cost
             self.level += 1
         self.save()
+
+
+class WorkSetting(SharedMemoryModel):
+    """
+    An Organization's options for work performed by its members. For a particular
+    resource, a number of work_settings may exist and the member's highest Skill 
+    will primarily decide which one is used. If a member relies on their protege, 
+    the highest skill between them both will be used to choose a work_setting.
+    """
+    RESOURCE_TYPES = ('Economic', 'Military', 'Social')
+    RESOURCE_CHOICES = tuple(enumerate(RESOURCE_TYPES))
     
+    organization = models.ForeignKey('Organization', related_name='work_settings')
+    stat = models.CharField(blank=True, null=True, max_length=80)
+    skill = models.CharField(blank=True, null=True, max_length=80)
+    resource = models.PositiveSmallIntegerField(choices=RESOURCE_CHOICES, default=0)
+    message = models.TextField(blank=True)
+    
+    def __str__(self):
+        return "%s-%s for %s" % (self.get_resource_display(), self.skill.capitalize(), self.organization)
+    
+    @classmethod
+    def get_choice_from_string(cls, string):
+        """Checks if a string names a type of resource and returns its choice number."""
+        for int_constant, name in cls.RESOURCE_CHOICES:
+            if string.lower() == name.lower():
+                return int_constant
+        raise ValueError("Type must be one of these: %s." % ", ".join(sorted(cls.RESOURCE_TYPES)))
+    
+    @classmethod    
+    def create_work(cls, organization, resource_key):
+        """Creates a new WorkSetting with default stat and skill chosen."""
+        default_settings = {0: ['intellect', 'economics'], 1: ['command', 'war'], 2: ['charm', 'diplomacy']}
+        stat = default_settings[resource_key][0]
+        skill = default_settings[resource_key][1]
+        return cls.objects.create(organization=organization, stat=stat, skill=skill, resource=resource_key)
+        
+    def do_work(self, member, clout, protege=None):
+        """Does rolls for a given WorkSetting for Member/protege and returns roll and the msg"""
+        msg_spacer = " " if self.message else ""
+        difficulty = 15 - clout
+        org_mod = getattr(self.organization, "%s_modifier" % self.get_resource_display().lower())
+        roller = member.char
+        if protege:
+            skill_val = member.char.db.skills.get(self.skill, 0)
+            if protege.player.char_ob.db.skills.get(self.skill, 0) > skill_val:
+                roller = protege.player.char_ob
+        roll_msg = "\n%s%s%s rolling %s and %s. " % (self.message, msg_spacer, roller.key, self.stat, self.skill)
+        outcome = do_dice_check(roller, stat=self.stat, skill=self.skill, difficulty=difficulty,
+                                bonus_dice=org_mod, bonus_keep=org_mod//2)
+        outcome //= 3
+        return outcome, roll_msg
+        
 
 class Member(SharedMemoryModel):
     """
@@ -4340,8 +4402,8 @@ class Member(SharedMemoryModel):
             self.player.msg(*args, **kwargs)
 
     def _get_char(self):
-        if self.player and self.player.player and self.player.player.db.char_ob:
-            return self.player.player.db.char_ob
+        if self.player and self.player.player and self.player.player.char_ob:
+            return self.player.player.char_ob
     char = property(_get_char)
 
     def set_salary(self, val):
@@ -4394,29 +4456,104 @@ class Member(SharedMemoryModel):
         if org_channel:
             org_channel.connect(self.player.player)
 
-    def work(self, worktype):
+    def work(self, resource_type, ap_cost, protege=None):
         """
-        Perform work in a week for our Organization.
+        Perform work in a week for our Organization. If a protege is specified we use their skills and add their
+        social clout to the roll.
+        
+            Raises:
+                ValueError if resource_type is invalid or ap_cost is greater than Member's AP
         """
-        worktypes = ("military", "economic", "social")
-        if worktype not in worktypes:
-            raise ValueError("Type must be in: %s." % ", ".join(worktypes))
-        self.work_this_week += 1
-        self.work_total += 1
-        self.save()
-        # self.player.assets.vault += 20
-        # self.organization.assets.vault += 20
-        if worktype == "military":
-            self.player.assets.military += 1
-            self.organization.assets.military += 1
-        if worktype == "economic":
-            self.player.assets.economic += 1
-            self.organization.assets.economic += 1
-        if worktype == "social":
-            self.player.assets.social += 1
-            self.organization.assets.social += 1
-        self.player.assets.save()
-        self.organization.assets.save()
+        resource_type = resource_type.lower()
+        clout = self.char.social_clout
+        msg = "Your social clout "
+        protege_clout = 0
+        if protege:
+            protege_clout = protege.player.char_ob.social_clout
+            msg += "combined with that of your protege "
+        clout += protege_clout
+        msg += "reduces difficulty by %s." % clout
+        outcome, roll_msg = self.get_work_roll(resource_type, clout, protege)
+        msg += roll_msg
+        if not self.player.player.pay_action_points(ap_cost):
+            raise ValueError("You cannot afford the AP cost to work.")
+
+        def adjust_resources(assets, amount):
+            """helper function to add resources from string name"""
+            if amount <= 0:
+                return
+            current = getattr(assets, resource_type)
+            setattr(assets, resource_type, current + amount)
+            assets.save()
+            if assets != self.player.assets:
+                assets.inform("%s has been working on your behalf, and %s has gained %s %s resources." % (
+                              self, assets, amount, resource_type), category="Work", append=True)
+            else:
+                self.player.player.msg(msg)
+
+        def get_amount_after_clout(clout_value, added=100, minimum=0):
+            """helper function to calculate clout modifier on outcome amount"""
+            percent = (clout_value + added)/100.0
+            total = int(outcome * percent)
+            if total < minimum:
+                total = minimum
+            return total
+
+        patron_amount = get_amount_after_clout(clout, minimum=randint(1, 10))
+        msg += "You have gained %s %s resources." % (patron_amount, resource_type)
+        adjust_resources(self.player.assets, patron_amount)
+        org_amount = patron_amount//5
+        if org_amount:
+            adjust_resources(self.organization.assets, org_amount)
+            self.work_this_week += org_amount
+            self.work_total += org_amount
+            self.save()
+        if protege:
+            adjust_resources(protege.assets, get_amount_after_clout(protege_clout, added=25, minimum=1))
+
+    def get_work_roll(self, resource_type, clout, protege=None):
+        """
+        Gets the result of a roll
+        
+            Args:
+                resource_type (str): The type of resource
+                protege (PlayerOrNpc): Protege if any
+                clout (int): How much clout they have
+                
+            Returns:
+                An outcome and a message
+                
+            Raises:
+                ValueError if resource_type is invalid
+        """
+        resource_key = WorkSetting.get_choice_from_string(resource_type)
+        all_assignments = self.organization.work_settings.filter(resource=resource_key)
+        if not all_assignments:
+            assignment = WorkSetting.create_work(self.organization, resource_key)
+        elif len(all_assignments) > 1:
+            from random import choice as random_choice
+            skills_we_have = dict(self.char.db.skills)
+            if protege:
+                protege_skills = dict(protege.player.char_ob.db.skills)
+                for skill, value in protege_skills.items():
+                    if skill not in skills_we_have or value > skills_we_have[skill]:
+                        skills_we_have[skill] = value
+            assignments = all_assignments.filter(skill__in=skills_we_have.keys())
+            if not assignments:
+                assignment = random_choice(all_assignments)
+            elif len(assignments) > 1:
+                valid_skills = [ob.skill for ob in assignments]
+                skill_list = [(value, skill) for (skill, value) in skills_we_have.items() if skill in valid_skills]
+                highest_num = sorted(skill_list, reverse=True)[0][0]
+                top_skills = [ob[1] for ob in skill_list if ob[0] >= highest_num]
+                assignments = assignments.filter(skill__in=top_skills)
+                assignment = random_choice(assignments)
+            else:
+                assignment = assignments[0]
+        else:
+            assignment = all_assignments[0]
+        outcome, roll_msg = assignment.do_work(self, clout, protege)
+        return outcome, roll_msg
 
     @property
     def pool_share(self):

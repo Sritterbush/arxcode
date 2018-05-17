@@ -248,6 +248,24 @@ class RosterEntry(SharedMemoryModel):
         return "\n\n".join("{c%s{n wrote %s: %s" % (ob.writer, public_str(ob),
                                                     ob.summary) for ob in qs)
 
+    def save(self, *args, **kwargs):
+        """check if a database lock during profile_picture setting has put us in invalid state"""
+        if self.profile_picture and not self.profile_picture.pk:
+            print("Error: RosterEntry %s had invalid profile_picture." % self)
+            # noinspection PyBroadException
+            try:
+                self.profile_picture.save()
+            except Exception:
+                print("Error when attempting to save it:")
+                traceback.print_exc()
+            else:
+                print("Saved profile_picture successfully.")
+            # if profile_picture's pk is still invalid we'll just clear it out to super().save won't ValueError
+            if not self.profile_picture.pk:
+                print("profile_picture has no pk, clearing it.")
+                self.profile_picture = None
+        return super(RosterEntry, self).save(*args, **kwargs)
+
 
 class Story(SharedMemoryModel):
     """An overall storyline for the game. It can be divided into chapters, which have their own episodes."""
@@ -795,7 +813,7 @@ class ClueDiscovery(SharedMemoryModel):
         clue_usage = self.clue.usage.all()
         # get the associated revelations the player doesn't yet have
         revelations = Revelation.objects.filter(Q(clues_used__in=clue_usage) &
-                                                ~Q(characters=self.character))
+                                                ~Q(characters=self.character)).distinct()
         discovered = []
         char_clues = set([ob.clue for ob in self.character.finished_clues])
         for rev in revelations:
@@ -1027,6 +1045,11 @@ class Investigation(AbstractPlayerAllocations):
     def active_assistants(self):
         """Assistants that are flagged as actively participating"""
         return self.assistants.filter(currently_helping=True)
+
+    @property
+    def finished_clues(self):
+        """Queryset of clues that this investigation has uncovered"""
+        return self.clues.filter(roll__gte=F('clue__rating') * DISCO_MULT)
 
     @staticmethod
     def do_obj_roll(obj, diff):

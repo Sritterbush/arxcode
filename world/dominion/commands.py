@@ -16,7 +16,8 @@ from server.utils.arx_utils import get_week, caller_change_field
 from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
 from . import setup_utils
-from .models import (Region, Domain, Land, PlayerOrNpc, Army, ClueForOrg,
+from web.character.models import Clue
+from world.dominion.models import (Region, Domain, Land, PlayerOrNpc, Army, ClueForOrg,
                      Castle, AssetOwner, Task, MilitaryUnit,
                      Ruler, Organization, Member, SphereOfInfluence, SupportUsed, AssignedTask,
                      TaskSupporter, InfluenceCategory, Minister, PlotRoom)
@@ -742,6 +743,7 @@ class CmdAdmOrganization(ArxPlayerCommand):
         @admin_org/femaletitle <orgname or number>=<rank>,<name>
         @admin_org/setinfluence <org name or number>=<inf name>,<value>
         @admin_org/cptasks <target org>=<org to copy>
+        @admin_org/addclue <org name or number>=<clue ID>
 
     Allows you to change or control organizations. Orgs can be accessed either by
     their ID number or name. /setup creates a board and channel for them.
@@ -898,6 +900,31 @@ class CmdAdmOrganization(ArxPlayerCommand):
                 bulk_list.append(OrgTaskModel(organization=org, task=task))
             OrgTaskModel.objects.bulk_create(bulk_list)
             self.msg("Tasks copied from %s to %s." % (org2, org))
+            return
+        if 'addclue' in self.switches:
+            try:
+                clue = Clue.objects.get(id=self.rhs)
+            except Clue.DoesNotExist:
+                self.msg("Could not find a clue by that number.")
+                return
+            if clue in org.clues.all():
+                self.msg("%s already knows about %s." % (org, clue))
+                return
+            if not clue.allow_sharing:
+                self.msg("%s cannot be shared." % clue)
+                return
+            ClueForOrg.objects.create(clue=clue, org=org, revealed_by=caller.roster)
+            category = "%s: Clue Added" % org
+            share_str = str(clue)
+            targ_type = "clue"
+            briefing_type = "/briefing"
+            text = "%s has shared the %s {w%s{n to {c%s{n. It can now be used in a %s." % (caller.db.char_ob,
+                                                                                           targ_type, share_str, org,
+                                                                                           briefing_type)
+            org.inform(text, category)
+            self.msg("Added clue {w%s{n to {c%s{n" % (clue, org))
+            return
+
 
     def get_org_from_args(self, args):
         if args.isdigit():
@@ -2380,12 +2407,14 @@ class CmdFamily(ArxPlayerCommand):
             return
 
 max_proteges = {
-    1: 7,
-    2: 6,
-    3: 5,
-    4: 4,
-    5: 3,
+    1: 5,
+    2: 4,
+    3: 3,
+    4: 3,
+    5: 2,
     6: 2,
+    7: 1,
+    8: 1,
     }
 
 
@@ -3441,6 +3470,61 @@ class CmdSupport(ArxCommand):
             return
         caller.msg("Invalid usage.")
         return
+
+
+class CmdWork(ArxPlayerCommand):
+    """
+    Does work for a given organization to generate resources
+
+    Usage:
+        work organization,type[=protege to use]
+
+    Spends 15 action points to have work done for an organization,
+    either by yourself or by one of your proteges, to generate
+    resources.
+
+    The stat/skill used for the roll is based on the resource type.
+    Economic: intellect + economics
+    Military: command + war
+    Social: charm + diplomacy
+
+    Social clout of you and your protege lowers the difficulty and
+    increases results, and the roller is whoever has higher skill.
+    """
+    key = "work"
+    help_category = "Dominion"
+    locks = "cmd:all()"
+    aliases = ["task", "support"]
+    ap_cost = 15
+
+    def func(self):
+        """Perform work command"""
+        if self.cmdstring.lower() in self.aliases:
+            self.msg("Command does not exist. Please see 'help work'.")
+            return
+        try:
+            name, res_type = self.lhslist
+        except ValueError:
+            self.msg("Must give a name and type of resource.")
+            return
+        dompc = self.caller.Dominion
+        try:
+            member = dompc.memberships.get(deguilded=False, organization__name__iexact=name)
+        except Member.DoesNotExist:
+            self.msg("No match for an org by the name: %s." % name)
+            return
+        if self.rhs:
+            try:
+                protege = dompc.proteges.get(player__username__iexact=self.rhs)
+            except PlayerOrNpc.DoesNotExist:
+                self.msg("No protege by that name.")
+                return
+        else:
+            protege = None
+        try:
+            member.work(res_type, self.ap_cost, protege)
+        except ValueError as err:
+            self.msg(err)
 
 
 class CmdPlotRoom(ArxCommand):

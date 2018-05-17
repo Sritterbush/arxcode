@@ -3,7 +3,7 @@ Admin for Dominion
 """
 from django.contrib import admin
 from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister, MapLocation,
-                     AssetOwner, Region, Land, Castle,
+                     AssetOwner, Region, Land, Castle, WorkSetting,
                      Ruler, Army, Orders, MilitaryUnit, Member, Task, OrgUnitModifiers,
                      CraftingRecipe, CraftingMaterialType, CraftingMaterials, CrisisActionAssistant,
                      RPEvent, AccountTransaction, AssignedTask, Crisis, CrisisAction, CrisisUpdate,
@@ -49,14 +49,21 @@ class MemberInline(admin.StackedInline):
     model = Member
     extra = 0
     raw_id_fields = ('commanding_officer', 'player', 'organization')
-    exclude = ('object', 'pc_exists', 'salary')
-    readonly_fields = ('work_this_week', 'work_total')
+    exclude = ('object', 'pc_exists', 'salary', 'commanding_officer', 'public_notes', 'officer_notes')
+    readonly_fields = ('work_this_week', 'work_total',)
+
+
+class WorkSettingInline(admin.StackedInline):
+    """Inline for displaying WorkSettings for an Org"""
+    model = WorkSetting
+    extra = 0
 
 
 class ClueForOrgInline(admin.TabularInline):
     """Inline for display clues orgs know"""
     model = ClueForOrg
     extra = 0
+    readonly_fields = ('org', 'revealed_by')
     raw_id_fields = ('clue', 'org', 'revealed_by')
 
 
@@ -94,7 +101,9 @@ class OrgAdmin(DomAdmin):
     search_fields = ['name', 'category', 'members__player__player__username']
     list_filter = (OrgListFilter,)
     filter_horizontal = ("theories",)
-    inlines = [MemberInline, ClueForOrgInline, OrgUnitInline]
+    # omit unused fields for now
+    exclude = ('motd', 'special_modifiers', 'morale', 'allow_work', 'base_support_value', 'member_support_multiplier')
+    inlines = [MemberInline, ClueForOrgInline, OrgUnitInline, WorkSettingInline]
 
 
 class Supporters(admin.TabularInline):
@@ -224,6 +233,7 @@ class MaterialsInline(admin.TabularInline):
     extra = 0
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """Orders the material type selection"""
         if db_field.name == 'type':
             kwargs['queryset'] = CraftingMaterialType.objects.order_by('name')
         return super(MaterialsInline, self).formfield_for_foreignkey(db_field, request, **kwargs)
@@ -607,6 +617,12 @@ class ShardhavenDiscoveryAdmin(DomAdmin):
     search_fields = ('player__name', 'shardhaven__name')
 
 
+class WorkSettingAdmin(DomAdmin):
+    """Non-inline admin for WorkSettings"""
+    list_display = ('organization', 'resource', 'stat', 'skill', 'message')
+    search_fields = ('organization__name', 'stat', 'skill')
+
+
 # Register your models here.
 admin.site.register(PlayerOrNpc, PCAdmin)
 admin.site.register(Organization, OrgAdmin)
@@ -633,3 +649,4 @@ admin.site.register(Landmark, LandmarkAdmin)
 admin.site.register(Shardhaven, ShardhavenAdmin)
 admin.site.register(ShardhavenType, ShardhavenTypeAdmin)
 admin.site.register(ShardhavenDiscovery, ShardhavenDiscoveryAdmin)
+admin.site.register(WorkSetting, WorkSettingAdmin)

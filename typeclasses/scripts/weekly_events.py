@@ -177,7 +177,7 @@ class WeeklyEvents(Script):
                 investigation.process_events()
             except Exception as err:
                 traceback.print_exc()
-                print "Error in investigation: %s" % err
+                print("Error in investigation %s: %s" % (investigation, err))
 
     @staticmethod
     def do_cleanup():
