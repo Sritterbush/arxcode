@@ -1135,18 +1135,3 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         except AttributeError:
             pass
         return name
-
-    @property
-    def social_clout(self):
-        val = 0
-        squared_skills = ("diplomacy", "empathy", "seduction", "manipulation", "etiquette", "propaganda")
-        flat_skills = ("intimidation", "leadership", "performance", "streetwise")
-        for skill in squared_skills:
-            skill_val = self.db.skills.get(skill, 0)
-            val += skill_val * skill_val
-        val += self.db.charm * self.db.charm
-        val += self.db.composure
-        val += self.db.command
-        for skill in flat_skills:
-            val += self.db.skills.get(skill, 0)
-        return val // 5
