@@ -2314,12 +2314,15 @@ class CmdDonate(ArxCommand):
             name = self.lhs
         try:
             org = Organization.objects.get(name__iexact=name)
+            if org.secret and not self.caller.check_permstring("builders"):
+                if not org.active_members.filter(player__player=self.caller.player):
+                    org = None
+                    raise Organization.DoesNotExist
         except Organization.DoesNotExist:
             try:
                 npc = InfluenceCategory.objects.get(name__iexact=name)
             except InfluenceCategory.DoesNotExist:
                 self.msg("Could not find an organization or npc group by the name %s." % name)
-                return
         return org, npc
 
     def display_score(self):
@@ -2330,6 +2333,9 @@ class CmdDonate(ArxCommand):
     def display_score_for_group(self):
         """Displays a list of the top 10 donors for a given group"""
         org, npc = self.get_org_or_npc_from_args()
+        if org and org.secret:
+            self.msg("Cannot display donations for secret orgs.")
+            return
         group = org or npc
         if not group:
             return
@@ -2340,7 +2346,10 @@ class CmdDonate(ArxCommand):
         self.msg(str(table))
 
     def display_top_donor_for_each_group(self):
-        orgs = list(Organization.objects.filter(donations__isnull=False).distinct())
+        orgs = Organization.objects.filter(donations__isnull=False)
+        if not self.caller.check_permstring("builders"):
+            orgs = orgs.exclude(secret=True)
+        orgs = list(orgs.distinct())
         npcs = list(InfluenceCategory.objects.filter(donations__isnull=False).distinct())
         groups = orgs + npcs
         table = PrettyTable(["Group", "Top Donor", "Donor's Total Donations"])
@@ -2348,8 +2357,6 @@ class CmdDonate(ArxCommand):
             donation = group.donations.order_by('-amount').distinct().first()
             table.add_row([str(donation.receiver), str(donation.giver), str(donation.amount)])
         self.msg(str(table))
-
-
 
 
 class CmdRandomScene(ArxCommand):
