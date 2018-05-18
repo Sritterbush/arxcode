@@ -755,22 +755,17 @@ class CharitableDonation(SharedMemoryModel):
             reputation = player.reputations.filter(organization=self.organization).first()
             affection = 0
             respect = 0
-            gain = True
             if reputation:
-                if roll < reputation.affection and roll < reputation.respect:
+                if roll < reputation.affection:
                     msg += " Though the charity is appreciated, your reputation with %s does not change. Ingrates.\n" % self.organization
-                    gain = False
-                elif reputation.affection > reputation.respect:
-                    respect += 1
                 else:
                     affection += 1
             else:
                 affection += 1
-            if gain:
+            if affection:
                 player.gain_reputation(self.organization, affection, respect)
-                thing = "affection" if affection else "respect"
-                val = affection or respect
-                msg += "You gain %s %s with %s.\n" % (val, thing, self.organization)
+                val = affection
+                msg += "You gain %s affection with %s.\n" % (val, self.organization)
         if caller != character:
             caller.msg("You donated and they gain %s prestige." % prest)
             msg += "You gain %s prestige." % (prest)
