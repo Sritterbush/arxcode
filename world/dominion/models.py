@@ -713,11 +713,11 @@ class PraiseOrCondemn(SharedMemoryModel):
 
     @property
     def verb(self):
-        return "praise" if self.value >= 0 else 'condemn'
+        return "praised" if self.value >= 0 else 'condemned'
 
     def do_prestige_adjustment(self):
         self.target.assets.adjust_prestige(self.value)
-        msg = "%s has %sed you. " % (self.praiser, self.verb)
+        msg = "%s has %s you. " % (self.praiser, self.verb)
         msg += "Your prestige has been adjusted by %s." % self.value
         self.target.inform(msg)
 
