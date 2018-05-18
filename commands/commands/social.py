@@ -2243,8 +2243,10 @@ class CmdDonate(ArxCommand):
     Usage:
         +donate <group name>=<amount>
         +donate/hype <player>,<group>=<amount>
+        +donate/score [<group>]
         
     Donates money to some group of npcs in exchange for prestige.
+    +donate/score lists donation amounts.
     """
     key = "+donate"
     locks = "cmd:all()"
