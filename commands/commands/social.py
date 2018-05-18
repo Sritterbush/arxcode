@@ -2273,13 +2273,15 @@ class CmdDonate(ArxCommand):
             if val > caller.db.currency:
                 caller.msg("Not enough money.")
                 return
-            caller.pay_money(val)
+            if val <= 0:
+                raise ValueError
             if not caller.player.pay_action_points(5):
-                self.msg("Not enough AP")
+                self.msg("Not enough AP.")
                 return
+            caller.pay_money(val)
             group.donate(val, self.caller)
         except (TypeError, ValueError):
-            caller.msg("Must give a number.")
+            caller.msg("Must give a positive number.")
             return
 
     def list_donations(self, caller):
@@ -2341,7 +2343,7 @@ class CmdDonate(ArxCommand):
             return
         self.msg("Top donors for %s" % group)
         table = PrettyTable(["Donor", "Amount"])
-        for donation in group.donations.distinct().order_by('-amount'):
+        for donation in group.donations.filter(amount__gt=0).distinct().order_by('-amount'):
             table.add_row([str(donation.giver), str(donation.amount)])
         self.msg(str(table))
 
@@ -2354,8 +2356,9 @@ class CmdDonate(ArxCommand):
         groups = orgs + npcs
         table = PrettyTable(["Group", "Top Donor", "Donor's Total Donations"])
         for group in groups:
-            donation = group.donations.order_by('-amount').distinct().first()
-            table.add_row([str(donation.receiver), str(donation.giver), str(donation.amount)])
+            donation = group.donations.filter(amount__gt=0).order_by('-amount').distinct().first()
+            if donation:
+                table.add_row([str(donation.receiver), str(donation.giver), str(donation.amount)])
         self.msg(str(table))
 
 
