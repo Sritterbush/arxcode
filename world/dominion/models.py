@@ -55,7 +55,7 @@ from datetime import datetime
 from random import randint
 import traceback
 
-from evennia.typeclasses.models import SharedMemoryModel
+from evennia.utils.idmapper.models import SharedMemoryModel
 from evennia.locks.lockhandler import LockHandler
 from evennia.utils.utils import lazy_property
 from evennia.utils import create
@@ -481,7 +481,10 @@ class AssetOwner(SharedMemoryModel):
 
     @property
     def prestige(self):
-        return self.fame + self.legend + self.grandeur
+        if hasattr(self, '_cached_prestige'):
+            return self._cached_prestige
+        self._cached_prestige = self.fame + self.legend + self.grandeur
+        return self._cached_prestige
 
     @property
     def prestige_mod(self):
@@ -489,6 +492,16 @@ class AssetOwner(SharedMemoryModel):
         if prestige >= 0:
             return prestige ** (1. / 3.)
         return -(-prestige) ** (1. / 3.)
+
+    def get_bonus_resources(self, base_amount):
+        """Calculates the amount of bonus resources we get from prestige."""
+        mod = self.prestige_mod
+        bonus = (mod * base_amount)/100.0
+        return int(bonus)
+
+    def get_bonus_domain_income(self, base_amount):
+        """Calculates the bonus to domain income we get from prestige."""
+        return self.get_bonus_resources(base_amount)/2
 
     def _get_owner(self):
         if self.player:
@@ -553,8 +566,8 @@ class AssetOwner(SharedMemoryModel):
     
     def _income(self):
         income = 0
-        if hasattr(self, 'cached_income'):
-            return self.cached_income
+        if hasattr(self, '_cached_income'):
+            return self._cached_income
         if self.organization_owner:
             income += self.organization_owner.amount
         for amt in self.incomes.filter(do_weekly=True).exclude(category="vassal taxes"):
@@ -563,12 +576,12 @@ class AssetOwner(SharedMemoryModel):
             return income
         for domain in self.estate.holdings.all():
             income += domain.total_income
-        self.cached_income = income
+        self._cached_income = income
         return income
     
     def _costs(self):
         costs = 0
-        if hasattr(self, 'cached_costs'):
+        if hasattr(self, '_cached_costs'):
             return self.cached_costs
         for debt in self.debts.filter(do_weekly=True).exclude(category="vassal taxes"):
             costs += debt.weekly_amount
@@ -576,7 +589,7 @@ class AssetOwner(SharedMemoryModel):
             return costs
         for domain in self.estate.holdings.all():
             costs += domain.costs
-        self.cached_costs = costs
+        self._cached_costs = costs
         return costs
     
     def _net_income(self):
@@ -658,12 +671,12 @@ class AssetOwner(SharedMemoryModel):
 
     def clear_cache(self):
         """Clears cached values"""
-        if hasattr(self, 'cached_income'):
-            del self.cached_income
-        if hasattr(self, 'cached_costs'):
-            del self.cached_costs
-        if hasattr(self, '_cached_total_prestige'):
-            del self._cached_total_prestige
+        if hasattr(self, '_cached_income'):
+            del self._cached_income
+        if hasattr(self, '_cached_costs'):
+            del self._cached_costs
+        if hasattr(self, '_cached_prestige'):
+            del self._cached_prestige
         
     def save(self, *args, **kwargs):
         """Saves changes and clears the cache"""
