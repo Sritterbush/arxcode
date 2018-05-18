@@ -146,12 +146,12 @@ class CmdWrite(ArxCommand):
         if not self.args and not self.switches:
             self.switches.append("proof")
         if not self.switches or 'desc' in self.switches:
-            obj.ndb.desc = self.lhs
-            caller.msg("Desc set to:\n%s" % self.lhs)
+            obj.ndb.desc = self.args
+            caller.msg("Desc set to:\n%s" % self.args)
             return
         if "title" in self.switches:
-            obj.ndb.title = self.lhs
-            caller.msg("Name set to: %s" % self.lhs)
+            obj.ndb.title = self.args
+            caller.msg("Name set to: %s" % self.args)
             return
         if "translated_text" in self.switches:
             transtext = obj.ndb.transtext or {}

@@ -475,3 +475,8 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
     @property
     def recent_assists(self):
         return self.Dominion.recent_assists
+
+    def get_current_praises_and_condemns(self):
+        """Current praises given by this player character"""
+        from server.utils.arx_utils import get_week
+        return self.Dominion.praises_given.filter(week=get_week())

@@ -13,9 +13,20 @@ from server.utils.arx_utils import ArxCommand
 from evennia.utils.utils import list_to_string
 
 
+def get_movement_message(verb, place):
+    """Returns the movement message for joining/leaving a place"""
+    if not place or not place.key:
+        return "You %s the place." % verb
+    prefix = place.key.split()[0]
+    article = ""
+    if prefix.lower() not in ("the", "a", "an"):
+        article = "the "
+    return "You %s %s%s." % (verb, article, place.key)
+
 # ------------------------------------------------------------
-# Commands defined for wearable
+# Commands defined for places
 # ------------------------------------------------------------
+
 
 class CmdJoin(ArxCommand):
     """
@@ -62,11 +73,7 @@ class CmdJoin(ArxCommand):
             caller.msg("There is no room at %s." % table.key)
             return
         table.join(caller)
-        if table.key.lower().startswith("the "):
-            caller.msg("You have joined %s." % table.key)
-            return
-        caller.msg("You have joined the %s." % table.key)
-        return
+        caller.msg(get_movement_message("join", table))
 
         
 class CmdListPlaces(ArxCommand):
@@ -174,7 +181,7 @@ class CmdDepart(ArxCommand):
             caller.msg("You are not sitting at a table.")
             return
         table.leave(caller)
-        caller.msg("You have left the %s." % table.key)
+        caller.msg(get_movement_message("leave", table))
 
 
 class CmdTableTalk(ArxCommand):

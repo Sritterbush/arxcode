@@ -26,7 +26,7 @@ from web.character.models import AccountHistory, FirstContact
 from world.dominion import setup_utils
 from world.dominion.models import (RPEvent, Agent, CraftingMaterialType, CraftingMaterials,
                                    AssetOwner, Renown, Reputation, Member, PlotRoom,
-                                   PlayerOrNpc)
+                                   PlayerOrNpc, Organization, InfluenceCategory)
 from world.msgs.models import Journal, Messenger
 from world.msgs.managers import reload_model_as_proxy
 
@@ -1193,7 +1193,7 @@ class CmdMessenger(ArxCommand):
                     continue
                 elif not hasattr(targ, 'roster') or not targ.roster.roster:
                     can_deliver = False
-                elif targ.roster.roster.name not in ("Active", "Unavailable", "Available", "Inactive"):
+                elif targ.roster.roster.name not in ("Active", "Unavailable"):
                     can_deliver = False
                 if not can_deliver:
                     self.msg("%s cannot receive messengers." % targ)
@@ -1869,47 +1869,7 @@ class CmdCalendar(ArxPlayerCommand):
         caller.msg("Invalid switch.")
 
 
-def get_max_praises(char):
-    """Calculates how many praises character has"""
-    val = char.db.charm or 0
-    val += char.db.command or 0
-    val += char.db.skills.get('propaganda', 0)
-    val += char.db.skills.get('diplomacy', 0)
-    val *= 2
-    srank = char.db.social_rank or 10
-    if srank == 0:
-        srank = 10
-    val /= srank
-    if val <= 0:
-        val = 1
-    return val
-    
-
-def display_praises(player):
-    """Returns table of praises by player"""
-    praises = player.db.praises or {}
-    condemns = player.db.condemns or {}
-    msg = "Praises:\n"
-    table = EvTable("Name", "Praises", "Message", width=78)
-    current = 0
-    for pc in praises:
-        table.add_row(pc.capitalize(), praises[pc][0], praises[pc][1])
-        current += praises[pc][0]
-    p_max = get_max_praises(player.db.char_ob)
-    msg += str(table)
-    msg += "\nPraises remaining: %s" % (p_max - current)
-    msg += "\nCondemns:\n"
-    current = 0
-    table = EvTable("Name", "Condemns", "Message", width=78)
-    for pc in condemns:
-        table.add_row(pc.capitalize(), condemns[pc][0], condemns[pc][1])
-        current += condemns[pc][0]
-    msg += str(table)
-    msg += "\nCondemns remaining: %s" % (p_max - current)
-    return msg
-
-
-class CmdPraise(ArxCommand):
+class CmdPraise(ArxPlayerCommand):
     """
     praise
 
@@ -1933,42 +1893,34 @@ class CmdPraise(ArxCommand):
         """Execute command."""
         caller = self.caller
         if not self.args:
-            caller.msg(display_praises(caller.player), options={'box': True})
+            caller.msg(self.display_praises(), options={'box': True})
             return
-        targ = caller.player.search(self.lhs)
-        if not targ or not targ.db.char_ob:
+        targ = caller.search(self.lhs)
+        if not targ or not targ.char_ob:
             caller.msg("No character object found.")
             return
         account = caller.roster.current_account
         if account == targ.roster.current_account:
             caller.msg("You cannot %s yourself." % self.verb)
             return
-        if targ.roster.roster.name != "Active":
-            caller.msg("You can only %s active characters." % self.verb)
-            return
         if targ.is_staff:
             caller.msg("Staff don't need your %s." % self.attr)
             return
-        char = caller
-        caller = caller.player       
-        p_max = get_max_praises(char)
-        current = 0
-        praises = caller.attributes.get(self.attr) or {}
-        for key in praises:
-            current += praises[key][0]
-        if current >= p_max:
+        char = caller.char_ob
+        current_used = self.current_used
+        if current_used >= self.get_max_praises():
             caller.msg("You have already used all your %s for the week." % self.attr)
             return
-        to_use = 1 if "all" not in self.switches else p_max - current
-        current += to_use
-        key = self.lhs.lower()
-        value = praises.get(key, [0, ""])
-        value[0] += to_use
-        value[1] = self.rhs
-        praises[key] = value
-        caller.attributes.add(self.attr, praises)
+        to_use = 1 if "all" not in self.switches else self.get_actions_remaining()
+        current_used += to_use
+        from world.dominion.models import PraiseOrCondemn
+        from server.utils.arx_utils import get_week
+        amount = self.do_praise_roll() * to_use
+        praise = PraiseOrCondemn.objects.create(praiser=caller.Dominion, target=targ.Dominion, number_used=to_use,
+                                                message=self.rhs or "", week=get_week(), value=amount)
+        praise.do_prestige_adjustment()
         caller.msg("You %s the actions of %s. You have %s %s remaining." %
-                   (self.verb, self.lhs.capitalize(), (p_max-current), self.attr)
+                   (self.verb, self.lhs.capitalize(), self.get_actions_remaining(), self.attr)
                    )
         if self.rhs:
             char.location.msg_contents("%s is overheard %s %s for: %s" % (char.name, self.verbing,
@@ -1978,6 +1930,50 @@ class CmdPraise(ArxCommand):
             char.location.msg_contents("%s is overheard %s %s." % (char.name, self.verbing,
                                                                    targ.key.capitalize()),
                                        exclude=char)
+
+    def do_praise_roll(self):
+        """(charm+propaganda at difficulty 15=x, where x >0), x* ((40*prestige mod)+# of social resources)"""
+        from world.stats_and_skills import do_dice_check
+        roll = do_dice_check(self.caller.char_ob, stat='charm', skill='propaganda')
+        roll *= int(self.caller.Dominion.assets.prestige_mod)
+        if roll > 0:
+            return roll
+        return 0
+
+    def get_max_praises(self):
+        """Calculates how many praises character has"""
+        char = self.caller.char_ob
+        clout = char.social_clout
+        s_rank = char.db.social_rank or 10
+        return clout + ((8 - s_rank) / 2)
+
+    @property
+    def current_used(self):
+        praises = self.caller.get_current_praises_and_condemns()
+        return sum(ob.number_used for ob in praises)
+
+    def get_actions_remaining(self):
+        """How many praises and condemns left this week"""
+        return self.get_max_praises() - self.current_used
+
+    def display_praises(self):
+        """Returns table of praises by player"""
+        player = self.caller
+        praises_or_condemns = player.get_current_praises_and_condemns()
+        praises = praises_or_condemns.filter(value__gte=0)
+        condemns = praises_or_condemns.filter(value__lt=0)
+        msg = "Praises:\n"
+        table = EvTable("Name", "Praises", "Value", "Message", width=78)
+        for praise in praises:
+            table.add_row(praise.target, praise.number_used, praise.value, praise.message)
+        msg += str(table)
+        msg += "\nCondemns:\n"
+        table = EvTable("Name", "Condemns", "Value", "Message", width=78)
+        for pc in condemns:
+            table.add_row(pc.capitalize(), condemns[pc][0], condemns[pc][1])
+        msg += str(table)
+        msg += "\nPraises or Condemns remaining: %s" % self.get_actions_remaining()
+        return msg
 
 
 class CmdCondemn(CmdPraise):
@@ -2117,10 +2113,10 @@ class CmdSocialScore(ArxCommand):
             # NB: We're going through the Player manager in order to cache the assetowner total_prestige calc
             # If we just queried AssetOwner.objects, it would not cache, and would be incredibly expensive. 100x or so
             pcs = [ob.Dominion.assets for ob in Account.objects.filter(roster__roster__name="Active")]
-            pcs = sorted(pcs, key=lambda x: x.total_prestige, reverse=True)[:20]
+            pcs = sorted(pcs, key=lambda x: x.prestige, reverse=True)[:20]
             table = PrettyTable(["{wName{n", "{wPrestige{n"])
             for pc in pcs:
-                table.add_row([str(pc), pc.total_prestige])
+                table.add_row([str(pc), pc.prestige])
             caller.msg(str(table))
             return
         if "renown" in self.switches:
@@ -2182,12 +2178,15 @@ class CmdSocialScore(ArxCommand):
             self.msg(str(table))
             return
         if "personal" in self.switches:
-            assets = AssetOwner.objects.filter(player__player__isnull=False).order_by('-prestige')[:20]
+            assets = AssetOwner.objects.filter(player__player__isnull=False)
+            assets = sorted(assets, key=lambda x: x.fame + x.legend, reverse=True)[:20]
         elif "orgs" in self.switches:
-            assets = AssetOwner.objects.filter(organization_owner__isnull=False).order_by('-prestige')[:20]
+            assets = AssetOwner.objects.filter(organization_owner__isnull=False)
+            assets = sorted(assets, key=lambda x: x.prestige, reverse=True)[:20]
         else:
             caller.msg("Invalid switch.")
             return
+
         table = PrettyTable(["{wName{n", "{wPrestige{n"])
         for asset in assets:
             table.add_row([str(asset), asset.prestige])
@@ -2243,42 +2242,124 @@ class CmdDonate(ArxCommand):
 
     Usage:
         +donate <group name>=<amount>
+        +donate/hype <player>,<group>=<amount>
+        +donate/score [<group>]
         
     Donates money to some group of npcs in exchange for prestige.
+    +donate/score lists donation amounts.
     """
     key = "+donate"
     locks = "cmd:all()"
     help_category = "Social"
+
+    @property
+    def donations(self):
+        return self.caller.player.Dominion.assets.donations.all().order_by('amount')
             
     def func(self):
         """Execute command."""
         caller = self.caller
         dompc = caller.player_ob.Dominion
-        donations = caller.db.donations or {}
+        if "score" in self.switches:
+            return self.display_score()
         if not self.lhs:
-            caller.msg("{wDonations:{n")
-            table = PrettyTable(["{wGroup{n", "{wTotal{n"])
-            for group in sorted(donations.keys()):
-                table.add_row([group, donations[group]])
-            caller.msg(str(table))
+            self.list_donations(caller)
             return
-        group = self.lhs
-        old = donations.get(group, 0)
+        group = self.get_donation_target()
+        if not group:
+            return
         try:
             val = int(self.rhs)
             if val > caller.db.currency:
                 caller.msg("Not enough money.")
                 return
+            if val <= 0:
+                raise ValueError
+            if not caller.player.pay_action_points(5):
+                self.msg("Not enough AP.")
+                return
             caller.pay_money(val)
-            old += val
-            donations[group] = old
-            caller.db.donations = donations
-            prest = int(val * 0.5)
-            dompc.assets.adjust_prestige(prest)
-            caller.msg("You donate %s to %s and gain %s prestige." % (val, group, prest))
+            group.donate(val, self.caller)
         except (TypeError, ValueError):
-            caller.msg("Must give a number.")
+            caller.msg("Must give a positive number.")
             return
+
+    def list_donations(self, caller):
+        caller.msg("{wDonations:{n")
+        table = PrettyTable(["{wGroup{n", "{wTotal{n"])
+        for donation in self.donations:
+            table.add_row([str(donation.receiver), donation.amount])
+        caller.msg(str(table))
+
+    def get_donation_target(self):
+        result = self.get_org_or_npc_from_args()
+        org, npc = result
+        if not org and not npc:
+            return
+        if "hype" in self.switches:
+            player = self.caller.player.search(self.lhslist[0])
+            if not player:
+                return
+            donations = player.Dominion.assets.donations
+        else:
+            donations = self.caller.player.Dominion.assets.donations
+        if org:
+            return donations.get_or_create(organization=org)[0]
+        return donations.get_or_create(npc_group=npc)[0]
+
+    def get_org_or_npc_from_args(self):
+        org = None
+        npc = None
+        if "hype" in self.switches:
+            name = self.lhslist[1]
+        else:
+            name = self.lhs
+        try:
+            org = Organization.objects.get(name__iexact=name)
+            if org.secret and not self.caller.check_permstring("builders"):
+                if not org.active_members.filter(player__player=self.caller.player):
+                    org = None
+                    raise Organization.DoesNotExist
+        except Organization.DoesNotExist:
+            try:
+                npc = InfluenceCategory.objects.get(name__iexact=name)
+            except InfluenceCategory.DoesNotExist:
+                self.msg("Could not find an organization or npc group by the name %s." % name)
+        return org, npc
+
+    def display_score(self):
+        if self.args:
+            return self.display_score_for_group()
+        return self.display_top_donor_for_each_group()
+
+    def display_score_for_group(self):
+        """Displays a list of the top 10 donors for a given group"""
+        org, npc = self.get_org_or_npc_from_args()
+        if org and org.secret:
+            self.msg("Cannot display donations for secret orgs.")
+            return
+        group = org or npc
+        if not group:
+            return
+        self.msg("Top donors for %s" % group)
+        table = PrettyTable(["Donor", "Amount"])
+        for donation in group.donations.filter(amount__gt=0).distinct().order_by('-amount'):
+            table.add_row([str(donation.giver), str(donation.amount)])
+        self.msg(str(table))
+
+    def display_top_donor_for_each_group(self):
+        orgs = Organization.objects.filter(donations__isnull=False)
+        if not self.caller.check_permstring("builders"):
+            orgs = orgs.exclude(secret=True)
+        orgs = list(orgs.distinct())
+        npcs = list(InfluenceCategory.objects.filter(donations__isnull=False).distinct())
+        groups = orgs + npcs
+        table = PrettyTable(["Group", "Top Donor", "Donor's Total Donations"])
+        for group in groups:
+            donation = group.donations.filter(amount__gt=0).order_by('-amount').distinct().first()
+            if donation:
+                table.add_row([str(donation.receiver), str(donation.giver), str(donation.amount)])
+        self.msg(str(table))
 
 
 class CmdRandomScene(ArxCommand):
@@ -2414,11 +2495,14 @@ class CmdRandomScene(ArxCommand):
     def generate_lists(self):
         """Generates our random choices of people we can claim this week."""
         scenelist = self.scenelist
-        claimlist = [ob for ob in self.claimlist if ob not in self.newbies]
-        newbies = [ob.id for ob in self.newbies]
+        newbies = self.newbies
+        claimlist = [ob for ob in self.claimlist if ob not in newbies]
+        newbies = [ob.id for ob in newbies]
         choices = self.valid_choices
         if newbies:
             choices = choices.exclude(id__in=newbies)
+        if claimlist:
+            choices = choices.exclude(id__in=[ob.id for ob in claimlist])
         choices = list(choices)
         num_scenes = self.NUM_SCENES - (len(claimlist) + len(scenelist))
         if num_scenes > 0:
@@ -2439,9 +2523,10 @@ class CmdRandomScene(ArxCommand):
             return
         # If we would fail for any reason, give a more ambiguous error message if the target is masked.
         err = ""
-        if targ not in self.scenelist and targ not in self.newbies and targ not in self.gms:
+        scenelist = self.scenelist
+        if targ not in scenelist and targ not in self.newbies and targ not in self.gms:
             err = ("%s is not in your list of random scene partners this week: %s" % (targ, ", ".join(
-                ob.key for ob in self.scenelist)))
+                ob.key for ob in scenelist)))
             err += "New players who can be RP'd with for credit: %s" % ", ".join(ob.key for ob in self.newbies)
         if targ in self.claimlist:
             err += "You have already claimed a scene with %s this week." % targ
@@ -2473,6 +2558,8 @@ class CmdRandomScene(ArxCommand):
         our_requests = self.requested_validation
         our_requests.append(targ)
         self.caller.player_ob.db.requested_validation = our_requests
+        if targ in scenelist:
+            scenelist.remove(targ)
 
     def validate_scene(self):
         """Grants a request to validate a randomscene."""

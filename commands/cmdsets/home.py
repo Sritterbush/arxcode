@@ -421,6 +421,9 @@ class CmdManageRoom(ArxCommand):
 
         ```
         <night>In the darkness, the forest looks foreboding.</night>.
+        <morning>Birds are chirping and whatnot.</morning>
+        <afternoon>Birds are no longer chirping.</morning>
+        <evening>THEY WILL NEVER CHIRP AGAIN.</evening>
         ```
 
     Text marked this way will only display when the server is truly at the given

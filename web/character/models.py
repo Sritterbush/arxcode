@@ -813,7 +813,7 @@ class ClueDiscovery(SharedMemoryModel):
         clue_usage = self.clue.usage.all()
         # get the associated revelations the player doesn't yet have
         revelations = Revelation.objects.filter(Q(clues_used__in=clue_usage) &
-                                                ~Q(characters=self.character))
+                                                ~Q(characters=self.character)).distinct()
         discovered = []
         char_clues = set([ob.clue for ob in self.character.finished_clues])
         for rev in revelations:
