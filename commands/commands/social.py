@@ -2291,9 +2291,9 @@ class CmdDonate(ArxCommand):
 
     def get_donation_target(self):
         result = self.get_org_or_npc_from_args()
-        if not result:
-            return
         org, npc = result
+        if not org and not npc:
+            return
         if "hype" in self.switches:
             player = self.caller.player.search(self.lhslist[0])
             if not player:
