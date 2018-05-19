@@ -592,7 +592,7 @@ class AssetOwner(SharedMemoryModel):
     def _costs(self):
         costs = 0
         if hasattr(self, '_cached_costs'):
-            return self.cached_costs
+            return self._cached_costs
         for debt in self.debts.filter(do_weekly=True).exclude(category="vassal taxes"):
             costs += debt.weekly_amount
         if not hasattr(self, 'estate'):
