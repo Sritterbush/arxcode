@@ -2092,6 +2092,7 @@ class CmdSocialScore(ArxCommand):
         +score
         +score/orgs
         +score/personal
+        +score/legend
         +score/renown [<category>]
         +score/reputation[/bad] [<organization>][=<start #>,<stop #>]
         
@@ -2104,21 +2105,13 @@ class CmdSocialScore(ArxCommand):
     key = "+score"
     locks = "cmd:all()"
     help_category = "Information"
+    prestige_switches = ("orgs", "personal", "legend")
             
     def func(self):
         """Execute command."""
         caller = self.caller
-        if not self.switches:
-            from typeclasses.accounts import Account
-            # NB: We're going through the Player manager in order to cache the assetowner total_prestige calc
-            # If we just queried AssetOwner.objects, it would not cache, and would be incredibly expensive. 100x or so
-            pcs = [ob.Dominion.assets for ob in Account.objects.filter(roster__roster__name="Active")]
-            pcs = sorted(pcs, key=lambda x: x.prestige, reverse=True)[:20]
-            table = PrettyTable(["{wName{n", "{wPrestige{n"])
-            for pc in pcs:
-                table.add_row([str(pc), pc.prestige])
-            caller.msg(str(table))
-            return
+        if not self.switches or self.check_switches(self.prestige_switches):
+            return self.get_queryset_for_prestige_table()
         if "renown" in self.switches:
             renowned = Renown.objects.filter(player__player__isnull=False,
                                              player__player__roster__roster__name="Active").exclude(
@@ -2177,20 +2170,32 @@ class CmdSocialScore(ArxCommand):
                 table.add_row([str(ob.player), str(ob.organization), ob.affection, ob.respect])
             self.msg(str(table))
             return
-        if "personal" in self.switches:
-            assets = AssetOwner.objects.filter(player__player__isnull=False)
-            assets = sorted(assets, key=lambda x: x.fame + x.legend, reverse=True)[:20]
-        elif "orgs" in self.switches:
-            assets = AssetOwner.objects.filter(organization_owner__isnull=False)
-            assets = sorted(assets, key=lambda x: x.prestige, reverse=True)[:20]
         else:
             caller.msg("Invalid switch.")
             return
 
-        table = PrettyTable(["{wName{n", "{wPrestige{n"])
+    def get_queryset_for_prestige_table(self):
+        """Determines who goes in the table based on our switches"""
+        from typeclasses.accounts import Account
+        if "orgs" in self.switches:
+            assets = AssetOwner.objects.filter(organization_owner__isnull=False)
+            assets = sorted(assets, key=lambda x: x.prestige, reverse=True)[:20]
+        elif "legend" in self.switches:
+            assets = AssetOwner.objects.filter(player__player__isnull=False).order_by('-legend')[:20]
+        else:
+            assets = [ob.Dominion.assets for ob in Account.objects.filter(roster__roster__name="Active")]
+            if "personal" in self.switches:
+                assets = sorted(assets, key=lambda x: x.fame + x.legend, reverse=True)[:20]
+            else:
+                assets = sorted(assets, key=lambda x: x.prestige, reverse=True)[:20]
+        self.display_prestige_table(assets)
+
+    def display_prestige_table(self, assets):
+        """Prints out a table of prestige"""
+        table = PrettyTable(["{wName{n", "{wPrestige{n", "{wFame{n", "{wLegend{n", "{wGrandeur{n"])
         for asset in assets:
-            table.add_row([str(asset), asset.prestige])
-        caller.msg(str(table))
+            table.add_row([str(asset), asset.prestige, asset.fame, asset.legend, asset.grandeur])
+        self.msg(str(table))
 
 
 class CmdThink(ArxCommand):
