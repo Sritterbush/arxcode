@@ -1949,6 +1949,7 @@ class CmdPraise(ArxPlayerCommand):
 
     @property
     def current_used(self):
+        """Number of praises already used"""
         praises = self.caller.get_current_praises_and_condemns()
         return sum(ob.number_used for ob in praises)
 
@@ -2259,12 +2260,12 @@ class CmdDonate(ArxCommand):
 
     @property
     def donations(self):
+        """Queryset of donations by caller"""
         return self.caller.player.Dominion.assets.donations.all().order_by('amount')
             
     def func(self):
         """Execute command."""
         caller = self.caller
-        dompc = caller.player_ob.Dominion
         if "score" in self.switches:
             return self.display_score()
         if not self.lhs:
@@ -2290,6 +2291,7 @@ class CmdDonate(ArxCommand):
             return
 
     def list_donations(self, caller):
+        """Lists donations to the caller"""
         caller.msg("{wDonations:{n")
         table = PrettyTable(["{wGroup{n", "{wTotal{n"])
         for donation in self.donations:
@@ -2297,6 +2299,7 @@ class CmdDonate(ArxCommand):
         caller.msg(str(table))
 
     def get_donation_target(self):
+        """Get donation object"""
         result = self.get_org_or_npc_from_args()
         org, npc = result
         if not org and not npc:
@@ -2313,6 +2316,7 @@ class CmdDonate(ArxCommand):
         return donations.get_or_create(npc_group=npc)[0]
 
     def get_org_or_npc_from_args(self):
+        """Get a tuple of org, npc used for getting the donation object"""
         org = None
         npc = None
         if "hype" in self.switches:
@@ -2333,6 +2337,7 @@ class CmdDonate(ArxCommand):
         return org, npc
 
     def display_score(self):
+        """Displays score for donations"""
         if self.args:
             return self.display_score_for_group()
         return self.display_top_donor_for_each_group()
@@ -2353,6 +2358,7 @@ class CmdDonate(ArxCommand):
         self.msg(str(table))
 
     def display_top_donor_for_each_group(self):
+        """Displays the highest donor for each group"""
         orgs = Organization.objects.filter(donations__isnull=False)
         if not self.caller.check_permstring("builders"):
             orgs = orgs.exclude(secret=True)

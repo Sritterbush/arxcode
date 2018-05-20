@@ -105,7 +105,7 @@ class Script(DefaultScript):
     def at_idmapper_flush(self):
         """If we're flushing this object, make sure the LoopingCall is gone too"""
         ret = super(Script, self).at_idmapper_flush()
-        if ret:
+        if ret and self.ndb._task:
             try:
                 from twisted.internet import reactor
                 global FLUSHING_INSTANCES

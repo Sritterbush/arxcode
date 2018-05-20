@@ -580,26 +580,24 @@ class WeeklyEvents(Script):
                 name = char.db.longname or char.key
                 string += "{w%s){n %-35s {wXP{n: %s\n" % (num, name, votes)
             except AttributeError:
-                print "Could not find character of id %s during posting." % str(tup[0])
+                print("Could not find character of id %s during posting." % str(tup[0]))
         board = BBoard.objects.get(db_key__iexact=VOTES_BOARD_NAME)
         board.bb_post(poster_obj=self, msg=string, subject="Weekly Votes", poster_name="Vote Results")
         inform_staff("Vote process awards complete. Posted on %s." % board)
 
     def post_top_prestige(self):
+        """Makes a board post of the top prestige earners this past week"""
         import random
         from world.dominion.models import PraiseOrCondemn
+        from collections import defaultdict
         changes = PraiseOrCondemn.objects.filter(week=self.db.week)
-        praises = {}
-        condemns = {}
+        praises = defaultdict(list)
+        condemns = defaultdict(list)
         total_values = {}
         for praise in changes.filter(value__gte=0):
-            list_of_praises = praises.get(praise.target, [])
-            list_of_praises.append(praise)
-            praises[praise.target] = list_of_praises
-        for condemn in changes.filter(value__lte=0):
-            list_of_condemns = condemns.get(condemn.target, [])
-            list_of_condemns.append(condemn)
-            condemns[condemn.target] = list_of_condemns
+            praises[praise.target].append(praise)
+        for condemn in changes.filter(value__lt=0):
+            condemns[condemn.target].append(condemn)
         for change in changes:
             current = total_values.get(change.target, 0)
             current += change.value
@@ -630,12 +628,16 @@ class WeeklyEvents(Script):
             sorted_changes = sorted(total_values.items(), key=lambda x: abs(x[1]), reverse=True)
             sorted_changes = sorted_changes[:20]
             table = EvTable("{wName{n", "{wPrestige Change Amount{n", "{wPrestige Rank{n", border="cells", width=78)
-            rank_order = list(AssetOwner.objects.filter(player__player__isnull=False))
+            rank_order = list(AssetOwner.objects.filter(player__player__roster__roster__name="Active").distinct())
             rank_order = sorted(rank_order, key=lambda x: x.prestige, reverse=True)
             for tup in sorted_changes:
                 # get our prestige ranking compared to others
                 dompc = tup[0]
-                rank = rank_order.index(dompc.assets) + 1
+                try:
+                    rank = rank_order.index(dompc.assets) + 1
+                except ValueError:
+                    # they rostered mid-week or whatever, skip them
+                    continue
                 # get the amount that our prestige has changed. add + for positive
                 amt = tup[1]
                 if amt > 0:

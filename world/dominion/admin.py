@@ -3,7 +3,7 @@ Admin for Dominion
 """
 from django.contrib import admin
 from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister, MapLocation,
-                     AssetOwner, Region, Land, Castle, WorkSetting,
+                     AssetOwner, Region, Land, Castle, WorkSetting, CharitableDonation, PraiseOrCondemn,
                      Ruler, Army, Orders, MilitaryUnit, Member, Task, OrgUnitModifiers,
                      CraftingRecipe, CraftingMaterialType, CraftingMaterials, CrisisActionAssistant,
                      RPEvent, AccountTransaction, AssignedTask, Crisis, CrisisAction, CrisisUpdate,
@@ -623,6 +623,12 @@ class WorkSettingAdmin(DomAdmin):
     search_fields = ('organization__name', 'stat', 'skill')
 
 
+class PraiseAdmin(DomAdmin):
+    """Admin for PraiseOrCondemn"""
+    list_display = ('praiser', 'target', 'message', 'week', 'value')
+    search_fields = ('praiser__player__username', 'target__player__username')
+
+
 # Register your models here.
 admin.site.register(PlayerOrNpc, PCAdmin)
 admin.site.register(Organization, OrgAdmin)
@@ -650,3 +656,4 @@ admin.site.register(Shardhaven, ShardhavenAdmin)
 admin.site.register(ShardhavenType, ShardhavenTypeAdmin)
 admin.site.register(ShardhavenDiscovery, ShardhavenDiscoveryAdmin)
 admin.site.register(WorkSetting, WorkSettingAdmin)
+admin.site.register(PraiseOrCondemn, PraiseAdmin)
