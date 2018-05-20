@@ -3208,11 +3208,15 @@ class Organization(InformMixin, SharedMemoryModel):
         """
         return self.locks.check(accessing_obj, access_type=access_type, default=default)
     
-    def msg(self, message, *args, **kwargs):
+    def msg(self, message, prefix=True, *args, **kwargs):
         """Sends msg to all active members"""
         pcs = self.active_members
         for pc in pcs:
-            pc.msg("%s organization-wide message: %s" % (self.name, message), *args, **kwargs)
+            if prefix:
+                msg = "|w%s organization-wide message:|n %s" % (self.name, message)
+            else:
+                msg = message
+            pc.msg(msg, *args, **kwargs)
         return
     
     @property

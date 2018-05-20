@@ -1559,28 +1559,48 @@ class CmdSetServerConfig(ArxPlayerCommand):
 
     def func(self):
         """Executes cmd"""
-        from evennia.server.models import ServerConfig
         if not self.args:
             return self.list_config_values()
-        if self.lhs not in self.valid_keys:
-            self.msg("Not a valid key: %s" % ", ".join(self.valid_keys))
-            return
         if "del" in self.switches or "delete" in self.switches:
             ServerConfig.objects.conf(key=self.shorthand_to_real_keys[self.lhs], delete=True)
             return self.list_config_values()
-        ServerConfig.objects.conf(key=self.shorthand_to_real_keys[self.lhs], value=self.rhs)
-        self.list_config_values()
+        self.set_server_config_value()
+
+    def validate_income_value(self, value, quiet=False):
+        """Validates the global income modifier value"""
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            if not quiet:
+                self.msg("Cannot convert to number. Using Default income value.")
+            from world.dominion.models import DEFAULT_GLOBAL_INCOME_MOD
+            return DEFAULT_GLOBAL_INCOME_MOD
 
     def list_config_values(self):
         """Prints table of config values"""
-        table = prettytable.PrettyTable(["key", "value"])
+        from evennia.utils.evtable import EvTable
+        table = EvTable("key", "value", width=78)
         for key in self.valid_keys:
             val = ServerConfig.objects.conf(key=self.shorthand_to_real_keys[key])
             if key == "income":
-                try:
-                    val = float(val)
-                except (TypeError, ValueError):
-                    from world.dominion.models import DEFAULT_GLOBAL_INCOME_MOD
-                    val = DEFAULT_GLOBAL_INCOME_MOD
-            table.add_row([key, val])
+                val = self.validate_income_value(self.rhs, quiet=True)
+            table.add_row(key, val)
         self.msg(str(table))
+
+    def set_server_config_value(self):
+        """Sets our configuration values. validates them if necessary"""
+        key = self.lhs.lower()
+        real_key = self.shorthand_to_real_keys[key]
+        if key not in self.valid_keys:
+            self.msg("Not a valid key: %s" % ", ".join(self.valid_keys))
+            return
+        if not self.rhs:
+            ServerConfig.objects.conf(key=real_key, delete=True)
+        else:
+            val = self.rhs
+            if key == "income":
+                val = self.validate_income_value(self.rhs)
+            if key == "motd":
+                broadcast("|yServer Message of the Day:|n %s" % val)
+            ServerConfig.objects.conf(key=real_key, value=val)
+        self.list_config_values()
