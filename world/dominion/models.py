@@ -55,7 +55,7 @@ from datetime import datetime
 from random import randint
 import traceback
 
-from evennia.typeclasses.models import SharedMemoryModel
+from evennia.utils.idmapper.models import SharedMemoryModel
 from evennia.locks.lockhandler import LockHandler
 from evennia.utils.utils import lazy_property
 from evennia.utils import create
@@ -80,6 +80,8 @@ from world.stats_and_skills import do_dice_check
 BASE_WORKER_COST = 0.10
 SILVER_PER_BUILDING = 225.00
 FOOD_PER_FARM = 100.00
+# default value for a global modifier to Dominion income, can be set as a ServerConfig value on a per-game basis
+DEFAULT_GLOBAL_INCOME_MOD = -0.25
 # each point in a dominion skill is a 5% bonus
 BONUS_PER_SKILL_POINT = 0.10
 # number of workers for a building to be at full production
@@ -481,14 +483,29 @@ class AssetOwner(SharedMemoryModel):
 
     @property
     def prestige(self):
-        return self.fame + self.legend + self.grandeur
+        """Our prestige used for different mods. aggregate of fame, legend, and grandeur"""
+        if hasattr(self, '_cached_prestige'):
+            return self._cached_prestige
+        self._cached_prestige = self.fame + self.legend + self.grandeur
+        return self._cached_prestige
 
     @property
     def prestige_mod(self):
+        """Modifier derived from prestige used as bonus for resource gain, org income, etc"""
         prestige = self.prestige
         if prestige >= 0:
             return prestige ** (1. / 3.)
         return -(-prestige) ** (1. / 3.)
+
+    def get_bonus_resources(self, base_amount):
+        """Calculates the amount of bonus resources we get from prestige."""
+        mod = self.prestige_mod
+        bonus = (mod * base_amount)/100.0
+        return int(bonus)
+
+    def get_bonus_income(self, base_amount):
+        """Calculates the bonus to domain/org income we get from prestige."""
+        return self.get_bonus_resources(base_amount)/4
 
     def _get_owner(self):
         if self.player:
@@ -506,6 +523,7 @@ class AssetOwner(SharedMemoryModel):
 
     @property
     def grandeur(self):
+        """Value used for prestige that represents prestige from external sources"""
         if self.organization_owner:
             return self.get_grandeur_from_members()
         val = 0
@@ -516,27 +534,32 @@ class AssetOwner(SharedMemoryModel):
 
     @property
     def base_grandeur(self):
+        """The amount we contribute to other people when they're totalling up grandeur"""
         return self.fame/10 + self.legend/10
 
     def get_grandeur_from_patron(self):
+        """Gets our grandeur value from our patron, if we have one"""
         try:
             return self.player.patron.assets.base_grandeur
         except AttributeError:
             return 0
 
     def get_grandeur_from_proteges(self):
+        """Gets grandeur value from each of our proteges, if any"""
         base = 0
         for protege in self.player.proteges.all():
             base += protege.assets.base_grandeur
         return base
 
     def get_grandeur_from_orgs(self):
+        """Gets grandeur value from orgs we're a member of."""
         base = 0
         for member in self.player.memberships.filter(deguilded=False):
             base += member.organization.assets.base_grandeur / 10
         return base
 
     def get_grandeur_from_members(self):
+        """Gets grandeur for an org from its members"""
         base = 0
         for member in self.organization_owner.active_members:
             base += member.player.assets.base_grandeur / 10
@@ -553,8 +576,8 @@ class AssetOwner(SharedMemoryModel):
     
     def _income(self):
         income = 0
-        if hasattr(self, 'cached_income'):
-            return self.cached_income
+        if hasattr(self, '_cached_income'):
+            return self._cached_income
         if self.organization_owner:
             income += self.organization_owner.amount
         for amt in self.incomes.filter(do_weekly=True).exclude(category="vassal taxes"):
@@ -563,20 +586,20 @@ class AssetOwner(SharedMemoryModel):
             return income
         for domain in self.estate.holdings.all():
             income += domain.total_income
-        self.cached_income = income
+        self._cached_income = income
         return income
     
     def _costs(self):
         costs = 0
-        if hasattr(self, 'cached_costs'):
-            return self.cached_costs
+        if hasattr(self, '_cached_costs'):
+            return self._cached_costs
         for debt in self.debts.filter(do_weekly=True).exclude(category="vassal taxes"):
             costs += debt.weekly_amount
         if not hasattr(self, 'estate'):
             return costs
         for domain in self.estate.holdings.all():
             costs += domain.costs
-        self.cached_costs = costs
+        self._cached_costs = costs
         return costs
     
     def _net_income(self):
@@ -598,6 +621,7 @@ class AssetOwner(SharedMemoryModel):
         return target
 
     def prestige_decay(self):
+        """Decreases our fame for the week"""
         self.fame -= int(self.fame * .20)
         self.save()
         
@@ -658,12 +682,12 @@ class AssetOwner(SharedMemoryModel):
 
     def clear_cache(self):
         """Clears cached values"""
-        if hasattr(self, 'cached_income'):
-            del self.cached_income
-        if hasattr(self, 'cached_costs'):
-            del self.cached_costs
-        if hasattr(self, '_cached_total_prestige'):
-            del self._cached_total_prestige
+        if hasattr(self, '_cached_income'):
+            del self._cached_income
+        if hasattr(self, '_cached_costs'):
+            del self._cached_costs
+        if hasattr(self, '_cached_prestige'):
+            del self._cached_prestige
         
     def save(self, *args, **kwargs):
         """Saves changes and clears the cache"""
@@ -702,6 +726,10 @@ class AssetOwner(SharedMemoryModel):
 
 
 class PraiseOrCondemn(SharedMemoryModel):
+    """
+    Praises or Condemns are a record of someone trying to influence public opinion to increase
+    a character's prestige.
+    """
     praiser = models.ForeignKey('PlayerOrNpc', related_name='praises_given')
     target = models.ForeignKey('PlayerOrNpc', related_name='praises_received')
     message = models.TextField(blank=True)
@@ -713,16 +741,22 @@ class PraiseOrCondemn(SharedMemoryModel):
 
     @property
     def verb(self):
-        return "praise" if self.value >= 0 else 'condemn'
+        """Helper property for distinguishing which verb to use in strings"""
+        return "praised" if self.value >= 0 else 'condemned'
 
     def do_prestige_adjustment(self):
+        """Adjusts the prestige of the target after they're praised."""
         self.target.assets.adjust_prestige(self.value)
-        msg = "%s has %sed you. " % (self.praiser, self.verb)
+        msg = "%s has %s you. " % (self.praiser, self.verb)
         msg += "Your prestige has been adjusted by %s." % self.value
         self.target.inform(msg)
 
 
 class CharitableDonation(SharedMemoryModel):
+    """
+    Represents all donations from a character to an Organization or Npc Group. They receive some affection
+    and prestige in exchange for giving silver.
+    """
     giver = models.ForeignKey('AssetOwner', related_name='donations')
     organization = models.ForeignKey('Organization', related_name='donations', blank=True, null=True)
     npc_group = models.ForeignKey('InfluenceCategory', related_name='donations', blank=True, null=True)
@@ -730,12 +764,17 @@ class CharitableDonation(SharedMemoryModel):
 
     @property
     def receiver(self):
+        """Alias to return the receiver of the donation"""
         return self.organization or self.npc_group
 
     def __str__(self):
         return str(self.receiver)
 
     def donate(self, value, caller):
+        """
+        Handles adding more to their donations to this group in exchange for prestige. Caller might be a
+        different individual than the giver in order to use their social stats for the prestige roll.
+        """
         from world.stats_and_skills import do_dice_check
         self.amount += value
         self.save()
@@ -757,7 +796,8 @@ class CharitableDonation(SharedMemoryModel):
             respect = 0
             if reputation:
                 if roll < reputation.affection:
-                    msg += " Though the charity is appreciated, your reputation with %s does not change. Ingrates.\n" % self.organization
+                    msg += " Though the charity is appreciated, your reputation" \
+                           " with %s does not change. Ingrates.\n" % self.organization
                 else:
                     affection += 1
             else:
@@ -768,10 +808,10 @@ class CharitableDonation(SharedMemoryModel):
                 msg += "You gain %s affection with %s.\n" % (val, self.organization)
         if caller != character:
             caller.msg("You donated and they gain %s prestige." % prest)
-            msg += "You gain %s prestige." % (prest)
+            msg += "You gain %s prestige." % prest
             player.inform(msg)
         else:
-            msg += "You gain %s prestige." % (prest)
+            msg += "You gain %s prestige." % prest
             player.msg(msg)
         return prest
 
@@ -1195,6 +1235,7 @@ class Domain(SharedMemoryModel):
         Returns our total income after all modifiers. All income sources are
         floats, which we'll convert to an int once we're all done.
         """
+        from evennia.server.models import ServerConfig
         if hasattr(self, 'cached_total_income'):
             return self.cached_total_income
         amount = self.tax_income
@@ -1202,6 +1243,15 @@ class Domain(SharedMemoryModel):
         amount += self.lumber_income
         amount += self.mill_income
         amount = (amount * self.income_modifier)/100.0
+        global_mod = ServerConfig.objects.conf("GLOBAL_INCOME_MOD", default=DEFAULT_GLOBAL_INCOME_MOD)
+        try:
+            amount += int(amount * global_mod)
+        except (TypeError, ValueError):
+            print("Error: Improperly Configured GLOBAL_INCOME_MOD: %s" % global_mod)
+        try:
+            amount += self.ruler.house.get_bonus_income(amount)
+        except AttributeError:
+            pass
         if self.ruler and self.ruler.castellan:
             bonus = self.get_bonus('income') * amount
             amount += bonus
@@ -3015,6 +3065,7 @@ class Organization(InformMixin, SharedMemoryModel):
     def _get_npc_money(self):
         npc_income = self.npc_members * self.income_per_npc
         npc_income = (npc_income * self.income_modifier)/100.0
+        npc_income += self.assets.get_bonus_income(npc_income)
         npc_cost = self.npc_members * self.cost_per_npc
         return int(npc_income) - npc_cost
     amount = property(_get_npc_money)
@@ -3115,6 +3166,15 @@ class Organization(InformMixin, SharedMemoryModel):
         if display_money:
             msg += "\n{wMoney{n: %s" % money
             msg += " {wPrestige{n: %s" % prestige
+            prestige_mod = self.assets.prestige_mod
+            resource_mod = int(prestige_mod)
+
+            def mod_string(amount):
+                """Helper function to format resource modifier string"""
+                return "%s%s%%" % ("+" if amount > 0 else "", amount)
+
+            income_mod = int(prestige_mod/4)
+            msg += " {wResource Mod:{n %s {wIncome Mod:{n %s" % (mod_string(resource_mod), mod_string(income_mod))
         msg += "\n{wEconomic Mod:{n %s, {wMilitary Mod:{n %s, {wSocial Mod:{n %s\n" % (self.economic_modifier,
                                                                                        self.military_modifier,
                                                                                        self.social_modifier)
@@ -4478,13 +4538,18 @@ class Member(SharedMemoryModel):
             if amount <= 0:
                 return
             current = getattr(assets, resource_type)
-            setattr(assets, resource_type, current + amount)
+            bonus = assets.get_bonus_resources(amount)
+            setattr(assets, resource_type, current + amount + bonus)
             assets.save()
+            bonus_msg = ""
+            if bonus:
+                bonus_msg = " Amount modified by %s%s resources due to prestige." % ("+" if bonus > 0 else "", bonus)
             if assets != self.player.assets:
-                assets.inform("%s has been working on your behalf, and %s has gained %s %s resources." % (
-                              self, assets, amount, resource_type), category="Work", append=True)
+                inform_msg = "%s has been hard at work, and %s has gained %s %s resources." % (
+                              self, assets, amount, resource_type)
+                assets.inform(inform_msg + bonus_msg, category="Work", append=True)
             else:
-                self.player.player.msg(msg)
+                self.player.player.msg(msg + bonus_msg)
 
         def get_amount_after_clout(clout_value, added=100, minimum=0):
             """helper function to calculate clout modifier on outcome amount"""

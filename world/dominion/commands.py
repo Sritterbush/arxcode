@@ -1791,6 +1791,7 @@ class CmdOrganization(ArxPlayerCommand):
         @org/boot <player>[=<org name>]
         @org/setruler <player>[=<org name>]
         @org/perm <type>=<rank>[, <org name>]
+        @org/motd <message>[=<org name>]
         @org/rankname <name>=<rank>[, <org name>][,male or female]
         @org/accept
         @org/decline
@@ -1823,7 +1824,7 @@ class CmdOrganization(ArxPlayerCommand):
     org_locks = ("edit", "boot", "withdraw", "setrank", "invite",
                  "setruler", "view", "guards", "build", "briefing", 
                  "declarations", "army", "informs", "transactions",
-                 "viewassets", "memberdesc")
+                 "viewassets", "memberdesc", "motd")
 
     @staticmethod
     def get_org_and_member(caller, myorgs, args):
@@ -1880,6 +1881,8 @@ class CmdOrganization(ArxPlayerCommand):
         caller = self.caller
         myorgs = Organization.objects.filter(Q(members__player__player=caller)
                                              & Q(members__deguilded=False))
+        if 'motd' in self.switches:
+            return self.set_motd(myorgs)
         if 'briefing' in self.switches or 'theorybriefing' in self.switches:
             org = self.get_org_from_myorgs(myorgs)
             if not org:
@@ -2347,6 +2350,18 @@ class CmdOrganization(ArxPlayerCommand):
             caller.msg("%s has been placed in command of all of the armies and holdings of %s." % (player, org))
             return
         self.msg("Invalid switch.")
+
+    def set_motd(self, myorgs):
+        """Sets a message of the day for an organization"""
+        org = self.get_org_from_myorgs(myorgs)
+        if not org:
+            return
+        if not org.access(self.caller, "motd"):
+            self.msg("You do not have permission to set the motd.")
+            return
+        org.motd = self.lhs
+        org.save()
+        self.msg("Message of the day for %s set to: %s" % (org, org.motd))
 
 
 class CmdFamily(ArxPlayerCommand):
