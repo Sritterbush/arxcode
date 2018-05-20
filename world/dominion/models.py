@@ -565,12 +565,13 @@ class AssetOwner(SharedMemoryModel):
             base += member.player.assets.base_grandeur / 10
         return base
 
-    def adjust_prestige(self, value, can_drop_legend=False):
+    def adjust_prestige(self, value, force=False):
         """
-        Adjusts our prestige. Returns list of all affected entities.
+        Adjusts our prestige. We gain fame equal to the value, and then our legend is modified
+        if the value of the hit is greater than our current legend or the force flag is set.
         """
         self.fame += value
-        if value > 0 or can_drop_legend:
+        if value > self.legend or force:
             self.legend += value / 100
         self.save()
     
