@@ -1555,6 +1555,7 @@ class CmdSetServerConfig(ArxPlayerCommand):
         """Modifies help string"""
         ret = super(CmdSetServerConfig, self).get_help(caller, cmdset)
         ret += "\nValid keys: " + ", ".join(self.valid_keys)
+        return ret
 
     def func(self):
         """Executes cmd"""
