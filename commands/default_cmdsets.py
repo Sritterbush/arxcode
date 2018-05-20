@@ -240,6 +240,7 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
         self.add(staff_commands.CmdAdminTitles())
         self.add(staff_commands.CmdAdminWrit())
         self.add(staff_commands.CmdAdminBreak())
+        self.add(staff_commands.CmdSetServerConfig())
         from .cmdsets import starting_gear
         self.add(starting_gear.CmdSetupGear())
 

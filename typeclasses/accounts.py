@@ -132,10 +132,11 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
         pending = self.db.pending_messages or []
         for msg in pending:
             self.msg(msg, options={'box': True})
-        self.db.pending_messages = []
+        self.attributes.remove("pending_messages")
         if self.assigned_to.filter(status=1, priority__lte=5):
             self.msg("{yYou have unresolved tickets assigned to you. Use @job/mine to view them.{n")
             return
+        self.check_motd()
         # in this mode we should have only one character available. We
         # try to auto-connect to it by calling the @ic command
         # (this relies on player.db._last_puppet being set)
@@ -168,18 +169,22 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
 
     # noinspection PyBroadException
     def announce_informs(self):
+        """Lets us know if we have unread informs"""
+        msg = ""
         try:
             unread = self.informs.filter(read_by__isnull=True).count()
             if unread:
-                self.msg("{w*** You have %s unread informs. Use @informs to read them. ***{n" % unread)
+                msg += "{w*** You have %s unread informs. Use @informs to read them. ***{n\n" % unread
             for org in self.current_orgs:
                 if not org.access(self, "informs"):
                     continue
                 unread = org.informs.exclude(read_by=self).count()
                 if unread:
-                    self.msg("{w*** You have %s unread informs for %s. ***{n" % (unread, org))
+                    msg += "{w*** You have %s unread informs for %s. ***{n\n" % (unread, org)
         except Exception:
             pass
+        if msg:
+            self.msg(msg)
 
     def is_guest(self):
         """
@@ -213,6 +218,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
         self.tags.add("new_mail")
 
     def get_fancy_name(self):
+        """Ensures that our name is capitalized"""
         return self.key.capitalize()
 
     # noinspection PyAttributeOutsideInit
@@ -221,6 +227,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
     name = property(get_fancy_name, set_name)
 
     def send_or_queue_msg(self, message):
+        """Sends a message to us if we're online or queues it for later"""
         if self.is_connected:
             self.msg(message, options={'box': True})
             return
@@ -229,6 +236,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
         self.db.pending_messages = pending
 
     def get_all_sessions(self):
+        """Retrieves our connected sessions"""
         return self.sessions.all()
 
     @property
@@ -243,6 +251,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
 
     @property
     def current_orgs(self):
+        """Returns our current organizations we're a member of"""
         try:
             return self.Dominion.current_orgs
         except AttributeError:
@@ -250,6 +259,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
 
     @property
     def secret_orgs(self):
+        """Returns any secret orgs we're a member of"""
         try:
             return self.Dominion.secret_orgs
         except AttributeError:
@@ -257,6 +267,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
 
     @property
     def assets(self):
+        """Returns the holder for all our assets/prestige/etc"""
         return self.Dominion.assets
 
     def pay_resources(self, rtype, amt):
@@ -312,6 +323,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
 
     @property
     def retainers(self):
+        """Returns queryset of retainer agents"""
         try:
             return self.assets.agents.filter(unique=True)
         except AttributeError:
@@ -319,23 +331,24 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
 
     @property
     def agents(self):
+        """Returns queryset of any agents we own"""
         try:
             return self.assets.agents.all()
         except AttributeError:
             return []
 
     def get_absolute_url(self):
+        """Returns our absolute URL for the webpage for our character"""
         try:
             return self.char_ob.get_absolute_url()
         except AttributeError:
             pass
 
     def at_post_disconnect(self):
+        """Called after we disconnect"""
         if not self.sessions.all():
             watched_by = self.char_ob and self.char_ob.db.watched_by or []
-            if not watched_by:
-                return
-            if not self.db.hide_from_watch:
+            if watched_by and not self.db.hide_from_watch:
                 for watcher in watched_by:
                     watcher.msg("{wA player you are watching, {c%s{w, has disconnected.{n" % self.key.capitalize())
             self.previous_log = self.current_log
@@ -347,6 +360,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
             self.attributes.remove('temp_mute_list')
 
     def log_message(self, from_obj, text):
+        """Logs messages if we're not in private for this session"""
         from evennia.utils.utils import make_iter
         if not self.tags.get("private_mode"):
             text = text.strip()
@@ -357,6 +371,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
 
     @property
     def current_log(self):
+        """Temporary messages for this session"""
         if self.ndb.current_log is None:
             self.ndb.current_log = []
         return self.ndb.current_log
@@ -367,6 +382,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
 
     @property
     def previous_log(self):
+        """Log of our past session"""
         if self.db.previous_log is None:
             self.db.previous_log = []
         return self.db.previous_log
@@ -377,6 +393,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
 
     @property
     def flagged_log(self):
+        """Messages flagged for GM notice"""
         if self.db.flagged_log is None:
             self.db.flagged_log = []
         return self.db.flagged_log
@@ -386,6 +403,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
         self.db.flagged_log = val
 
     def report_player(self, player):
+        """Reports a player for GM attention"""
         charob = player.char_ob
         log = []
         for line in (list(self.previous_log) + list(self.current_log)):
@@ -395,18 +413,21 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
 
     @property
     def allow_list(self):
+        """List of players allowed to interact with us"""
         if self.db.allow_list is None:
             self.db.allow_list = []
         return self.db.allow_list
     
     @property
     def block_list(self):
+        """List of players who should not be allowed to interact with us"""
         if self.db.block_list is None:
             self.db.block_list = []
         return self.db.block_list
 
     @property
     def clues_shared_modifier_seed(self):
+        """Seed value for clue sharing costs"""
         from world.stats_and_skills import SOCIAL_SKILLS, SOCIAL_STATS
         seed = 0
         pc = self.char_ob
@@ -419,11 +440,12 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
 
     @property
     def clue_cost(self):
+        """Total cost for clues"""
         return int(100.0/float(self.clues_shared_modifier_seed + 1)) + 1
         
     @property
     def participated_actions(self):
-        """Storyrequests we participated in"""
+        """Actions we participated in"""
         from world.dominion.models import CrisisAction
         from django.db.models import Q
         dompc = self.Dominion
@@ -431,6 +453,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
 
     @property
     def past_participated_actions(self):
+        """Actions we participated in previously"""
         from world.dominion.models import CrisisAction
         return self.participated_actions.filter(status=CrisisAction.PUBLISHED).distinct()
 
@@ -450,10 +473,12 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
 
     @property
     def player_ob(self):
+        """Maybe this should return self? Will need to think about that. Inherited from mixins"""
         return None
 
     @property
     def char_ob(self):
+        """Returns our character object if any"""
         try:
             return self.roster.character
         except AttributeError:
@@ -461,22 +486,38 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
 
     @property
     def editable_theories(self):
+        """Theories we have permission to edit"""
         ids = [ob.theory.id for ob in self.theory_permissions.filter(can_edit=True)]
         return self.known_theories.filter(id__in=ids)
         
     @property
     def past_actions(self):
+        """Actions we created that have been finished in the past"""
         return self.Dominion.past_actions
 
     @property
     def recent_actions(self):
+        """Actions we created that have submitted recently"""
         return self.Dominion.recent_actions
 
     @property
     def recent_assists(self):
+        """Actions we assisted recently"""
         return self.Dominion.recent_assists
 
     def get_current_praises_and_condemns(self):
         """Current praises given by this player character"""
         from server.utils.arx_utils import get_week
         return self.Dominion.praises_given.filter(week=get_week())
+
+    def check_motd(self):
+        """Checks for a message of the day and sends it to us."""
+        from evennia.server.models import ServerConfig
+        motd = ServerConfig.objects.conf(key="MESSAGE_OF_THE_DAY")
+        msg = ""
+        if motd:
+            msg += "|yServer Message of the Day:|n %s\n\n" % motd
+        for org in self.current_orgs:
+            if org.motd:
+                msg += "|wMessage of the Day for %s:|n %s\n" % (org, org.motd)
+        self.msg(msg)

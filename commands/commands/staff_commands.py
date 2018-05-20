@@ -1531,3 +1531,55 @@ class CmdAdminBreak(ArxPlayerCommand):
         date = ServerConfig.objects.conf("end_break_date")
         display = date.strftime("%m/%d/%y %H:%M") if date else "No time set"
         self.msg("Current end date is: %s." % display)
+
+
+class CmdSetServerConfig(ArxPlayerCommand):
+    """
+    Manages different configuration values
+
+    Usage:
+        @setconfig
+        @setconfig <key>=<value>
+        @setconfig/del <key>
+
+    Sets configuration values for the server, such as a global MOTD,
+    income modifier for Dominion, etc.
+    """
+    key = "setconfig"
+    help_category = "Admin"
+    locks = "cmd: perm(wizards)"
+    shorthand_to_real_keys = {"motd": "MESSAGE_OF_THE_DAY", "income": "GLOBAL_INCOME_MOD"}
+    valid_keys = shorthand_to_real_keys.keys()
+
+    def get_help(self, caller, cmdset):
+        """Modifies help string"""
+        ret = super(CmdSetServerConfig, self).get_help(caller, cmdset)
+        ret += "\nValid keys: " + ", ".join(self.valid_keys)
+
+    def func(self):
+        """Executes cmd"""
+        from evennia.server.models import ServerConfig
+        if not self.args:
+            return self.list_config_values()
+        if self.lhs not in self.valid_keys:
+            self.msg("Not a valid key: %s" % ", ".join(self.valid_keys))
+            return
+        if "del" in self.switches or "delete" in self.switches:
+            ServerConfig.objects.conf(key=self.shorthand_to_real_keys[self.lhs], delete=True)
+            return self.list_config_values()
+        ServerConfig.objects.conf(key=self.shorthand_to_real_keys[self.lhs], value=self.rhs)
+        self.list_config_values()
+
+    def list_config_values(self):
+        """Prints table of config values"""
+        table = prettytable.PrettyTable(["key", "value"])
+        for key in self.valid_keys:
+            val = ServerConfig.objects.conf(key=self.shorthand_to_real_keys[key])
+            if key == "income":
+                try:
+                    val = float(val)
+                except (TypeError, ValueError):
+                    from world.dominion.models import DEFAULT_GLOBAL_INCOME_MOD
+                    val = DEFAULT_GLOBAL_INCOME_MOD
+            table.add_row([key, val])
+        self.msg(str(table))
