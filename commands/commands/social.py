@@ -2817,8 +2817,8 @@ class CmdIAmHelping(ArxPlayerCommand):
             return
         try:
             val = int(self.rhs)
-        except ValueError:
-            self.msg("AP needs to be a number")
+        except (ValueError, TypeError):
+            self.msg("AP needs to be a number.")
             return
         receive_amt = val/3
         if receive_amt < 1:
