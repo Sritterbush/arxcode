@@ -1931,7 +1931,7 @@ class CmdPraise(ArxPlayerCommand):
                                                 message=self.rhs or "", week=get_week(), value=amount)
         praise.do_prestige_adjustment()
         caller.msg("You %s the actions of %s. You have %s %s remaining." %
-                   (self.verb, self.lhs.capitalize(), self.get_actions_remaining(), self.attr)
+                   (self.verb, targ, self.get_actions_remaining(), self.attr)
                    )
         if self.rhs:
             char.location.msg_contents("%s is overheard %s %s for: %s" % (char.name, self.verbing,
