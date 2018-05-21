@@ -782,6 +782,8 @@ class CharitableDonation(SharedMemoryModel):
         character = self.giver.player.player.char_ob
         roll = do_dice_check(caller=caller, stat="charm", skill="propaganda", difficulty=10)
         roll += caller.social_clout
+        if roll <= 1:
+            roll = 1
         roll /= 100.0
         roll *= value/5
         prest = int(roll)
