@@ -1892,7 +1892,7 @@ class CmdPraise(ArxPlayerCommand):
     def func(self):
         """Execute command."""
         caller = self.caller
-        if not self.lhslist:
+        if not self.lhs:
             caller.msg(self.display_praises(), options={'box': True})
             return
         targ = caller.search(self.lhslist[0])
