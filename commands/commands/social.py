@@ -1874,7 +1874,7 @@ class CmdPraise(ArxPlayerCommand):
     praise
 
     Usage:
-        praise <character>[=<message>]
+        praise <character>[,<num praises>][=<message>]
         praise/all <character>[=<message>]
 
     Praises a character, increasing their prestige. Your number
@@ -1892,10 +1892,10 @@ class CmdPraise(ArxPlayerCommand):
     def func(self):
         """Execute command."""
         caller = self.caller
-        if not self.args:
+        if not self.lhslist:
             caller.msg(self.display_praises(), options={'box': True})
             return
-        targ = caller.search(self.lhs)
+        targ = caller.search(self.lhslist[0])
         if not targ or not targ.char_ob:
             caller.msg("No character object found.")
             return
@@ -1911,7 +1911,18 @@ class CmdPraise(ArxPlayerCommand):
         if current_used >= self.get_max_praises():
             caller.msg("You have already used all your %s for the week." % self.attr)
             return
-        to_use = 1 if "all" not in self.switches else self.get_actions_remaining()
+        if len(self.lhslist) > 1:
+            try:
+                to_use = int(self.lhslist[1])
+                if to_use < 1:
+                    raise ValueError
+                if to_use > self.get_actions_remaining():
+                    raise ValueError
+            except ValueError:
+                self.msg("The number of praises used must be a positive number less than your max praises.")
+                return
+        else:
+            to_use = 1 if "all" not in self.switches else self.get_actions_remaining()
         current_used += to_use
         from world.dominion.models import PraiseOrCondemn
         from server.utils.arx_utils import get_week
