@@ -315,6 +315,13 @@ class PlayerOrNpc(SharedMemoryModel):
         life_lvl = self.lifestyle_rating      
         cost = LIFESTYLES.get(life_lvl, (0, 0))[0]
         prestige = LIFESTYLES.get(life_lvl, (0, 0))[1]
+        try:
+            clout = self.player.char_ob.social_clout
+            bonus = int(prestige * clout * 3 * 0.01)
+            if bonus > 0:
+                prestige += bonus
+        except (AttributeError, TypeError, ValueError):
+            pass
         
         def pay_and_adjust(payer):
             """Helper function to make the payment, adjust prestige, and send a report"""
