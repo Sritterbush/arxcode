@@ -266,7 +266,9 @@ class CmdCraft(ArxCommand):
     character, not a description of the bottle. When crafting masks, the name is 
     used to identify its wearer: "A Fox Mask" will bestow "Someone wearing A Fox 
     Mask" upon its wearer, and the altdesc switch is used for their temporary 
-    description.
+    description. For any desc, ascii can be enclosed in <ascii> tags that
+    will note to not display them to screenreaders. Use <ascii> and <ascii/> with
+    the desc between the opening and closing tags.
     
     If the item should contain words in a foreign tongue that you know, use 
     translated_text to display what the translated words actually say.

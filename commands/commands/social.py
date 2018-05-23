@@ -1879,7 +1879,8 @@ class CmdPraise(ArxPlayerCommand):
 
     Praises a character, increasing their prestige. Your number
     of praises per week are based on your social rank and skills.
-    Using praise with no arguments lists your praises.
+    Using praise with no arguments lists your praises. Costs 1 AP
+    regardless of how many praises are used.
     """
     key = "praise"
     locks = "cmd:all()"
@@ -1926,6 +1927,9 @@ class CmdPraise(ArxPlayerCommand):
         current_used += to_use
         from world.dominion.models import PraiseOrCondemn
         from server.utils.arx_utils import get_week
+        if not caller.pay_action_points(1):
+            self.msg("You cannot muster the energy to praise someone at this time.")
+            return
         amount = self.do_praise_roll() * to_use
         praise = PraiseOrCondemn.objects.create(praiser=caller.Dominion, target=targ.Dominion, number_used=to_use,
                                                 message=self.rhs or "", week=get_week(), value=amount)
@@ -2263,7 +2267,7 @@ class CmdDonate(ArxCommand):
         +donate/score [<group>]
         
     Donates money to some group of npcs in exchange for prestige.
-    +donate/score lists donation amounts.
+    +donate/score lists donation amounts. Costs 5 AP.
     """
     key = "+donate"
     locks = "cmd:all()"
