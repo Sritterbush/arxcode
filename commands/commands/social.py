@@ -842,12 +842,14 @@ class CmdMessenger(ArxCommand):
     the total. For example, 'messenger/money copper,prism|50=hi!' would cost
     a total of 100 silver.
 
+    For turning off messenger notifications, see @settings.
     """
     key = "messenger"
     locks = "cmd:all()"
     aliases = ["+messenger", "messengers", "+messengers", "receive messenger", "receive messengers",
                "receive messages", "message"]
     help_category = "Social"
+    delivery_switches = ("deliver", "money", "materials", "silver")
 
     def disp_messenger(self, msg):
         """Displays msg to caller, reloads it as correct proxy class if necessary"""
@@ -1073,11 +1075,11 @@ class CmdMessenger(ArxCommand):
         money = 0.0
         mats = None
         delivery = None
-        if "deliver" in self.switches or "money" in self.switches or "materials" in self.switches:
+        if self.check_switches(self.delivery_switches):
             try:
                 name_list, remainder = self.get_list_of_arguments()
                 targs = self.check_valid_receivers(name_list)
-                if "money" in self.switches:
+                if "money" in self.switches or "silver" in self.switches:
                     money = float(remainder[0])
                 elif "materials" in self.switches:
                     mats = self.get_mats_from_args(remainder[0])
