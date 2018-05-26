@@ -2502,6 +2502,9 @@ class CmdRandomScene(ArxCommand):
                     self.caller.player_ob.db.random_scenelist.remove(ob)
             except (AttributeError, TypeError, ValueError):
                 pass
+        # ensure that we can never have more than NUM_SCENES in our random_scenelist
+        if len(self.scenelist) > self.NUM_SCENES:
+            self.caller.player_ob.db.random_scenelist = random.sample(self.scenelist, self.NUM_SCENES)
         if len(self.scenelist) + len([ob for ob in self.claimlist if ob not in self.newbies]) < self.NUM_SCENES:
             self.generate_lists()
         scenelist = self.scenelist
@@ -2543,7 +2546,7 @@ class CmdRandomScene(ArxCommand):
             choices = choices.exclude(id__in=[ob.id for ob in claimlist])
         choices = list(choices)
         num_scenes = self.NUM_SCENES - (len(claimlist) + len(scenelist))
-        if num_scenes > 0 and num_scenes >= choices:
+        if 0 < num_scenes <= len(choices):
             scenelist.extend(random.sample(choices, num_scenes))
         elif num_scenes > 0:
             scenelist.extend(choices)
