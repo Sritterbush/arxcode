@@ -51,6 +51,9 @@ class DeathCmdSet(CmdSet):
         self.add(CmdDitch())
         self.add(CmdShout())
         self.add(CmdMoveOverride())
+        self.add(CmdFight())
+        self.add(CmdDonate())
+        self.add(CmdOrgs)
         
 
 class DeathCommand(ArxCommand):
@@ -59,6 +62,11 @@ class DeathCommand(ArxCommand):
     """
     key = "dead"
     locks = "cmd:all()"
+
+    def get_help(self, caller, cmdset):
+        return """
+    You are dead. Many character commands will no longer function.
+    """
 
     def func(self):
         """Let the player know they can't do anything."""
@@ -121,7 +129,24 @@ class CmdDitch(DeathCommand):
 
 
 class CmdShout(DeathCommand):
-    """
-    You are dead. Many character commands will no longer function.
-    """
+    """No shouting"""
     key = "shout"
+
+
+class CmdFight(DeathCommand):
+    """No fighting"""
+    key = "fight"
+    aliases = ["train", "heal"]
+
+
+class CmdDonate(DeathCommand):
+    """No donating"""
+    key = "donate"
+    aliases = "praise"
+
+
+class CmdOrgs(DeathCommand):
+    """No org stuff"""
+    key = "@org"
+    aliases = ["@domain", "@army"]
+

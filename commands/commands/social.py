@@ -10,7 +10,7 @@ from functools import reduce
 from django.conf import settings
 from django.db.models import Q
 
-from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
+from server.utils.arx_utils import ArxCommand, ArxPlayerCommand, list_to_string
 from evennia.objects.models import ObjectDB
 from evennia.typeclasses.tags import Tag
 from evennia.utils.evtable import EvTable
@@ -151,7 +151,7 @@ class CmdWhere(ArxPlayerCommand):
     def list_shops(self):
         """Sends msg of list of shops to caller"""
         rooms = ArxRoom.objects.filter(db_tags__db_key__iexact="shop").order_by('db_key')
-        self.msg("{wList of shops:\n")
+        msg = "{wList of shops:{n"
         for room in rooms:
             owner = room.db.shopowner
             if self.args and owner:
@@ -164,7 +164,8 @@ class CmdWhere(ArxPlayerCommand):
                 if "all" not in self.switches:
                     continue
                 name += " {w(Inactive){n"
-            self.msg("%s: %s" % (self.get_room_str(room), name))
+            msg += "\n%s: %s" % (self.get_room_str(room), name)
+        self.msg(msg)
 
     def func(self):
         """"Execute command."""
@@ -181,12 +182,11 @@ class CmdWhere(ArxPlayerCommand):
         rooms = ArxRoom.objects.exclude(db_tags__db_key__iexact="private").filter(locations_set__in=characters
                                                                                   ).distinct().order_by('db_key')
         if not rooms:
-            caller.msg("No visible characters found.")
+            self.msg("No visible characters found.")
             return
-        caller.msg("{wLocations of players:\n")
         # this blank line is now a love note to my perfect partner. <3
-        self.msg("Players who are currently LRP have a |R+|n by their name.\n"
-                 "Players who are on your watch list have a {c*{n by their name.")
+        msg = " {wLocations of players:\nPlayers who are currently LRP have a |R+|n by their name, "
+        msg += "and players who are on your watch list have a {c*{n by their name."
         applicable_chars = []
         if self.check_switches(self.randomscene_switches):
             cmd = CmdRandomScene()
@@ -213,9 +213,9 @@ class CmdWhere(ArxPlayerCommand):
             char_names = get_char_names(charlist, caller)
             if not char_names:
                 continue
-            name = self.get_room_str(room)
-            msg = "%s: %s" % (name, char_names)
-            caller.msg(msg)
+            room_name = self.get_room_str(room)
+            msg += "\n%s: %s" % (room_name, char_names)
+        self.msg(msg)
 
 
 class CmdWatch(ArxPlayerCommand):
@@ -2435,7 +2435,7 @@ class CmdRandomScene(ArxCommand):
     @property
     def claimlist(self):
         """List of people we have claimed and who have asked to claim us"""
-        return set(list(self.caller.player_ob.db.claimed_scenelist or []) + list(self.requested_validation))
+        return list(set(list(self.caller.player_ob.db.claimed_scenelist or []) + list(self.requested_validation)))
 
     @property
     def validatedlist(self):
@@ -2455,8 +2455,10 @@ class CmdRandomScene(ArxCommand):
             queryset: valid_choices queryset filtered by new players
         """
         newness = datetime.now() - timedelta(days=self.DAYS_FOR_NEWBIE_CHECK)
-        return self.valid_choices.filter(Q(roster__accounthistory__start_date__gte=newness) &
-                                         Q(roster__accounthistory__end_date__isnull=True)).distinct().order_by('db_key')
+        newbies = self.valid_choices.filter(Q(roster__accounthistory__start_date__gte=newness) &
+                                            Q(roster__accounthistory__end_date__isnull=True)
+                                             ).distinct().order_by('db_key')
+        return list(newbies)
 
     @property
     def gms(self):
@@ -2507,18 +2509,26 @@ class CmdRandomScene(ArxCommand):
         validated = self.validatedlist
         gms = self.gms
         newbies = [ob for ob in self.newbies if ob not in claimlist]
+        msg = "{w@Randomscene Information:{n "
         if "online" in self.switches:
-            self.msg("{wOnly displaying online characters.{n")
+            msg += "{wOnly displaying online characters.{n"
             scenelist = [ob for ob in scenelist if ob.show_online(self.caller.player)]
             newbies = [ob for ob in newbies if ob.show_online(self.caller.player)]
-        self.msg("{wRandomly generated RP partners for this week:{n %s" % ", ".join(ob.key for ob in scenelist))
-        self.msg("{wNew players who can be also RP'd with for credit:{n %s" % ", ".join(ob.key for ob in newbies))
-        self.msg("{wGMs for events here that can be claimed for credit:{n %s" % ", ".join(ob.key for ob in gms))
+        msg += "\n"
+        if scenelist:
+            msg += "{wRandomly generated RP partners for this week:{n %s\n" % list_to_string([ob.key for ob in scenelist])
+        if newbies:
+            msg += "{wNew players who can be also RP'd with for credit:{n %s\n" % list_to_string([ob.key for ob in newbies])
+        if gms:
+            msg += "{wGMs for events here that can be claimed for credit:{n %s\n" % list_to_string(gms)
         if claimlist:
-            self.msg("{wThose you have already RP'd with this week:{n %s" % ", ".join(ob.key for ob in claimlist))
+            msg += "{wThose you have already RP'd with this week:{n %s\n" % list_to_string([ob.key for ob in claimlist])
         if validated:
-            self.msg("{wThose you have validated scenes for this week{n %s" % ", ".join(ob.key for ob in validated))
-        self.msg(self.reminder)
+            msg += "{wThose you have validated scenes for this week:{n %s\n" % list_to_string([ob.key for ob in validated])
+        msg += self.reminder
+        if not any((scenelist, newbies, gms, claimlist, validated)):
+            msg = "No characters qualify for @randomscene information to be displayed."
+        self.msg(msg)
 
     def generate_lists(self):
         """Generates our random choices of people we can claim this week."""
@@ -2533,8 +2543,10 @@ class CmdRandomScene(ArxCommand):
             choices = choices.exclude(id__in=[ob.id for ob in claimlist])
         choices = list(choices)
         num_scenes = self.NUM_SCENES - (len(claimlist) + len(scenelist))
-        if num_scenes > 0:
+        if num_scenes > 0 and num_scenes >= choices:
             scenelist.extend(random.sample(choices, num_scenes))
+        elif num_scenes > 0:
+            scenelist.extend(choices)
         scenelist = sorted(scenelist, key=lambda x: x.key.capitalize())
         self.caller.player_ob.db.random_scenelist = scenelist
 
@@ -2543,8 +2555,12 @@ class CmdRandomScene(ArxCommand):
         targ = self.caller.search(self.lhs)
         if not targ:
             return
-        if targ == self.caller:
-            self.msg("You cannot claim yourself.")
+        try:
+            cannot_claim = targ.fakename
+        except AttributeError:
+            cannot_claim = True
+        if targ == self.caller or cannot_claim:
+            self.msg("You cannot claim '%s'." % self.lhs)
             return
         if not self.rhs:
             self.msg("You must include some summary of the scene. It may be quite short.")
@@ -2552,17 +2568,13 @@ class CmdRandomScene(ArxCommand):
         # If we would fail for any reason, give a more ambiguous error message if the target is masked.
         err = ""
         scenelist = self.scenelist
-        if targ not in scenelist and targ not in self.newbies and targ not in self.gms:
-            err = ("%s is not in your list of random scene partners this week: %s" % (targ, ", ".join(
-                ob.key for ob in scenelist)))
-            err += "New players who can be RP'd with for credit: %s" % ", ".join(ob.key for ob in self.newbies)
+        if targ not in (scenelist + self.newbies + self.gms):
+            err = "%s is not in your list of random scene partners this week: " % self.lhs
+            err += list_to_string([ob.key for ob in scenelist])
+            err += "\nNew players who can be RP'd with for credit: "
+            err += list_to_string([ob.key for ob in self.newbies])
         if targ in self.claimlist:
-            err += "You have already claimed a scene with %s this week." % targ
-        try:
-            if err and targ.fakename:
-                err = "You cannot claim them."
-        except AttributeError:
-            pass
+            err += "You have already claimed a scene with %s this week." % self.lhs
         if err:
             self.msg(err)
             return

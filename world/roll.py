@@ -22,7 +22,7 @@ class Roll(object):
                  skill_list=None, skill_keep=True, stat_keep=False, quiet=True, announce_room=None,
                  keep_override=None, bonus_dice=0, divisor=1, average_lists=False, can_crit=True,
                  average_stat_list=False, average_skill_list=False, announce_values=False, flub=False,
-                 use_real_name=False, bonus_keep=0):
+                 use_real_name=False, bonus_keep=0, flat_modifier=0):
         self.character = caller
         self.difficulty = difficulty
         self.skill_keep = skill_keep
@@ -47,6 +47,7 @@ class Roll(object):
         self.crit_mult = 1
         self.msg = ""
         self.character_name = ""
+        self.flat_modifier = flat_modifier
         if self.character:
             caller.ndb.last_roll = self
             # None isn't iterable so make an empty set of stats
@@ -128,6 +129,8 @@ class Roll(object):
         # makes those investments far more meaningful.
         if self.difficulty <= 0:
             result = int(result * crit_mult)
+        # flat modifier is after crits/botches, but before a flubbed result
+        result += self.flat_modifier
         if self.flub:
             surrender = randint(-15, -1)
             if result > surrender:

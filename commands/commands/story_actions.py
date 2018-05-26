@@ -46,7 +46,7 @@ class ActionCommandMixin(object):
                 return
             else:
                 totals = action.view_total_resources_msg()
-                self.msg("{c%s{n %s added. Action %s" % (value, r_type, totals))
+                self.msg("{c%s{n %s added. {wAction #%d %s" % (value, r_type, action.id, totals))
 
     def view_action(self, action, disp_old=False):
         """Views an action for caller"""

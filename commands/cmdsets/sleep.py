@@ -56,6 +56,7 @@ class SleepCmdSet(CmdSet):
         self.add(CmdShout())
         self.add(CmdWake())
         self.add(CmdMoveOverride())
+        self.add(CmdNoFighting())
         
 
 class SleepCommand(ArxCommand):
@@ -63,8 +64,13 @@ class SleepCommand(ArxCommand):
     You are sleeping. Many character commands will no longer function.
     """
     key = "sleep"
-    
     locks = "cmd:all()"
+
+    def get_help(self, caller, cmdset):
+        """Returns same help string for all commands"""
+        return """
+    You are sleeping. Many character commands will no longer function.
+    """
 
     def func(self):
         """Let the player know they can't do anything."""
@@ -73,6 +79,7 @@ class SleepCommand(ArxCommand):
 
 
 class CmdMoveOverride(SleepCommand):
+    """Prevents movement"""
     key = "north"
     aliases = ["n", "s", "w", "e"]
 
@@ -167,3 +174,9 @@ class CmdShout(SleepCommand):
     You are sleeping. Many character commands will no longer function.
     """
     key = "shout"
+
+
+class CmdNoFighting(SleepCommand):
+    """Prevents fighting, etc"""
+    key = "fight"
+    aliases = ["heal", "train"]

@@ -5194,6 +5194,25 @@ class RPEvent(SharedMemoryModel):
         (EXTRAVAGANT, 'Extravagant'),
         (LEGENDARY, 'Legendary'),
         )
+    
+    NO_RISK = 0
+    MINIMAL_RISK = 1
+    LOW_RISK = 2
+    REDUCED_RISK = 3
+    NORMAL_RISK = 4
+    SLIGHTLY_ELEVATED_RISK = 5
+    MODERATELY_ELEVATED_RISK = 6
+    HIGHLY_ELEVATED_RISK = 7
+    VERY_HIGH_RISK = 8
+    EXTREME_RISK = 9
+    SUICIDAL_RISK = 10
+    
+    RISK_CHOICES = (
+        (NO_RISK, "No Risk"), (MINIMAL_RISK, "Minimal Risk"), (LOW_RISK, "Low Risk"), (REDUCED_RISK, "Reduced Risk"),
+        (NORMAL_RISK, "Normal Risk"), (SLIGHTLY_ELEVATED_RISK, "Slightly Elevated Risk"),
+        (MODERATELY_ELEVATED_RISK, "Moderately Elevated Risk"), (HIGHLY_ELEVATED_RISK, "Highly Elevated Risk"),
+        (VERY_HIGH_RISK, "Very High Risk"), (EXTREME_RISK, "Extreme Risk"), (SUICIDAL_RISK, "Suicidal Risk"),
+        )
     hosts = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_hosted', db_index=True)
     name = models.CharField(max_length=255, db_index=True)
     desc = models.TextField(blank=True, null=True)
@@ -5210,6 +5229,7 @@ class RPEvent(SharedMemoryModel):
     room_desc = models.TextField(blank=True, null=True)
     actions = models.ManyToManyField("CrisisAction", blank=True, related_name="events")
     plotroom = models.ForeignKey('PlotRoom', blank=True, null=True, related_name='events_held_here')
+    risk = models.PositiveSmallIntegerField(choices=RISK_CHOICES, default=NORMAL_RISK)
 
     @property
     def prestige(self):

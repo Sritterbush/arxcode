@@ -1,7 +1,9 @@
-from server.utils.arx_utils import sub_old_ansi, text_box
+from server.utils.arx_utils import sub_old_ansi, text_box, lowercase_kwargs
 import re
 from evennia.utils.utils import lazy_property
 from evennia.utils.ansi import parse_ansi
+
+from world.conditions.triggerhandler import TriggerHandler
 
 
 class DescMixins(object):
@@ -321,6 +323,14 @@ class BaseObjectMixins(object):
                 caller.msg("You cannot get %s." % self)
                 return False
         return super(BaseObjectMixins, self).at_before_move(destination, **kwargs)
+        
+    def get_room(self):
+        """Returns the outermost location/room of this object."""
+        # if we have no location, we are the room
+        if not self.location:
+            return self
+        # recursive call to get the room
+        return self.location.get_room()
 
 
 class AppearanceMixins(BaseObjectMixins):
@@ -505,9 +515,90 @@ class AppearanceMixins(BaseObjectMixins):
     def transfer_all(self, destination, caller=None):
         self.pay_money(self.currency, destination)
         return super(AppearanceMixins, self).transfer_all(destination, caller)
+        
+        
+class ModifierMixin(object):
+    """
+    Allows us to set modifiers in different situations with specific values. We check against a tag in the target,
+    and if there's a match we apply the modifier.
+    """
+    @property
+    def modifier_tags(self):
+        """Gets list of modifier tags this object has"""
+        return self.tags.get(category="modifiers", return_list=True)
+        
+    def add_modifier_tag(self, tag_name):
+        """Adds a tag to this object"""
+        self.tags.add(tag_name, category="modifiers")
+        
+    def rm_modifier_tag(self, tag_name):
+        """Removes a modifier tag from this object"""
+        self.tags.remove(tag_name, category="modifiers")
+
+    def add_modifier(self, value, check_type, user_tag="", target_tag="", stat="", skill="", ability=""):
+        """
+        Sets the modifier for this object for a type of tag. For example, if we want to give a bonus against
+        all Abyssal creatures, we'd have tag_name 'abyssal' and keep check_type as 'all'.
+        
+            Args:
+                value (int): Positive for a bonus, negative for a penalty. Flatly applied to rolls.
+                check_type: Type of roll we're making. Must be in CHECK_CHOICES.
+                user_tag: Name of the tag user must have for this to apply.
+                target_tag: Name of the tag target must have for this to apply.
+                stat: Stat that must be used for this modifier to apply.
+                skill: Skill that must be used for this modifier to apply.
+                ability: Ability that must be used for this modifier to apply.
+        """
+        from world.conditions.models import RollModifier
+        check_types = [ob[0] for ob in RollModifier.CHECK_CHOICES]
+        if check_type not in check_types:
+            raise ValueError("check_type was not valid.")
+        user_tag = user_tag.lower()
+        target_tag = target_tag.lower()
+        stat = stat.lower()
+        skill = skill.lower()
+        ability = ability.lower()
+        mod = self.modifiers.get_or_create(check=check_type, user_tag=user_tag, target_tag=target_tag, stat=stat,
+                                           skill=skill, ability=ability)[0]
+        mod.value = value
+        mod.save()
+        return mod
+
+    @lowercase_kwargs("user_tags", "target_tags", "stat_list", "skill_list", "ability_list", default_append="")
+    def get_modifier(self, check_type, user_tags=None, target_tags=None, stat_list=None,
+                     skill_list=None, ability_list=None):
+        """Returns an integer that is the value of our modifier for the listed tags and check.
+        
+            Args:
+                check_type: The type of roll/check we're making
+                user_tags: Tags of the user we wanna check
+                target_tags: Tags of the target we wanna check
+                stat_list: Only check modifiers for this stat
+                skill_list: Only check modifiers for this skill
+                ability_list: Only check modifiers for this ability
+                
+            Returns:
+                Integer value of the total mods we calculate.
+        """
+        from django.db.models import Sum
+        from world.conditions.models import RollModifier
+        check_types = RollModifier.get_check_type_list(check_type)
+        return self.modifiers.filter(check__in=check_types, user_tag__in=user_tags, target_tag__in=target_tags,
+                                     stat__in=stat_list, skill__in=skill_list, ability__in=ability_list
+                                     ).aggregate(Sum('value'))[1]
 
 
-class ObjectMixins(DescMixins, AppearanceMixins):
+class TriggersMixin(object):
+    """
+    Adds triggerhandler to our objects.
+    """
+    @lazy_property
+    def triggerhandler(self):
+        """Adds a triggerhandler property for caching trigger checks to avoid excessive queries"""
+        return TriggerHandler(self)
+        
+
+class ObjectMixins(DescMixins, AppearanceMixins, ModifierMixin, TriggersMixin):
     @property
     def has_player(self):
         return self.has_account
@@ -742,6 +833,10 @@ class MsgMixins(object):
             text = RE_ASCII.sub(r"\1", text)
             text = RE_ALT_ASCII.sub("", text)
         super(MsgMixins, self).msg(text, from_obj, session, options, **kwargs)
+
+    def msg_location_or_contents(self, text=None, **kwargs):
+        """A quick way to ensure a room message, no matter what it's called on. Requires rooms have null location."""
+        self.get_room().msg_contents(text=text, **kwargs)
 
 
 class LockMixins(object):

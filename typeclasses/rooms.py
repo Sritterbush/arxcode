@@ -76,7 +76,7 @@ from evennia.objects.models import ObjectDB
 
 from server.utils.arx_utils import ArxCommand
 from typeclasses.scripts import gametime
-from typeclasses.mixins import DescMixins, AppearanceMixins, NameMixins
+from typeclasses.mixins import NameMixins, ObjectMixins
 from world.msgs.messagehandler import MessageHandler
 
 # error return function, needed by Extended Look command
@@ -93,7 +93,7 @@ SHOPCMD = "cmdsets.home.ShopCmdSet"
 # implements the Extended Room
 
 # noinspection PyUnresolvedReferences
-class ArxRoom(DescMixins, NameMixins, AppearanceMixins, ExtendedRoom):
+class ArxRoom(NameMixins, ObjectMixins, ExtendedRoom):
     """
     This room implements a more advanced look functionality depending on
     time. It also allows for "details", together with a slightly modified
@@ -165,7 +165,7 @@ class ArxRoom(DescMixins, NameMixins, AppearanceMixins, ExtendedRoom):
         # update desc
         ExtendedRoom.return_appearance(self, looker)
         # return updated desc plus other stuff
-        return (AppearanceMixins.return_appearance(self, looker, detailed, format_desc)
+        return (ObjectMixins.return_appearance(self, looker, detailed, format_desc)
                 + self.command_string() + self.mood_string + self.event_string() + self.combat_string(looker))
     
     def _current_event(self):

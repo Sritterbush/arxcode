@@ -99,7 +99,8 @@ class ArxCommandTest(ArxTestConfigMixin, CommandTest):
         old_msg = receiver.msg
         try:
             receiver.msg = Mock()
-            cmdobj.at_pre_cmd()
+            if cmdobj.at_pre_cmd():
+                return
             cmdobj.parse()
             cmdobj.func()
             cmdobj.at_post_cmd()
@@ -113,9 +114,8 @@ class ArxCommandTest(ArxTestConfigMixin, CommandTest):
             # Get the first element of a tuple if msg received a tuple instead of a string
             stored_msg = [smsg[0] if hasattr(smsg, '__iter__') else smsg for smsg in stored_msg]
             if msg is not None:
-                returned_msg = "||".join(_RE.sub("", str(mess)) for mess in stored_msg)
-                returned_msg = ansi.parse_ansi(returned_msg, strip_ansi=noansi).strip()
-                if msg == "" and returned_msg or not returned_msg.startswith(msg.strip()):
+                returned_msg = self.format_returned_msg(stored_msg, noansi)
+                if msg == "" and returned_msg or returned_msg != msg.strip():
                     sep1 = "\n" + "="*30 + "Wanted message" + "="*34 + "\n"
                     sep2 = "\n" + "="*30 + "Returned message" + "="*32 + "\n"
                     sep3 = "\n" + "="*78
@@ -126,5 +126,20 @@ class ArxCommandTest(ArxTestConfigMixin, CommandTest):
                 returned_msg = "\n".join(str(msg) for msg in stored_msg)
                 returned_msg = ansi.parse_ansi(returned_msg, strip_ansi=noansi).strip()
             receiver.msg = old_msg
+        return returned_msg
 
+    @staticmethod
+    def format_returned_msg(stored_msg, no_ansi):
+        """
+        Formats the stored_msg list into a single string joined by separators
+        Args:
+            stored_msg: list of strings that have been sent to our receiver
+            no_ansi: whether to strip ansi or not
+
+        Returns:
+            A string joined by | for each substring in stored_msg. Ansi will
+            be stripped if no_ansi is specified.
+        """
+        returned_msg = "||".join(_RE.sub("", str(mess)) for mess in stored_msg)
+        returned_msg = ansi.parse_ansi(returned_msg, strip_ansi=no_ansi).strip()
         return returned_msg

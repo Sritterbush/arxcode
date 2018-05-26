@@ -112,6 +112,11 @@ try:
 except Exception as err:
     traceback.print_exc()
     print("<<ERROR>>: Error encountered in storyaction commands: %s" % err)
+try:
+    from world.conditions import condition_commands
+except Exception as err:
+    traceback.print_exc()
+    print("<<ERROR>>: Error encountered in condition commands: %s" % err)
 from evennia.commands.cmdset import CmdSet
 
 
@@ -302,6 +307,7 @@ class StaffCmdSet(CmdSet):
         self.add(combat.CmdCreateAntagonist())
         self.add(combat.CmdStandYoAssUp())
         self.add(domcommands.CmdSetRoom())
+        self.add(condition_commands.CmdModifiers())
         # home commands
         self.add(home.CmdAllowBuilding())
         self.add(home.CmdBuildRoom())

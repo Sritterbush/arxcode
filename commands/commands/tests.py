@@ -50,7 +50,7 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/readycheck 1", "Only the action leader can use that switch.")
         self.caller = self.account
         self.call_cmd("/add 1=foo,bar", "Invalid type of resource.")
-        self.call_cmd("/add 1=ap,50", "50 ap added. Action Resources: extra action points 50")
+        self.call_cmd("/add 1=ap,50", "50 ap added. Action #1 Resources: extra action points 50")
         self.call_cmd("/add 1=army,1", "You have successfully relayed new orders to that army.")
         self.call_cmd("/toggletraitor 1", "Traitor is now set to: True")
         self.call_cmd("/toggletraitor 1", "Traitor is now set to: False")
@@ -148,7 +148,7 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/invite 1=TestAccount", "You have new informs. Use @inform 1 to read them."
                                                "|You have invited Testaccount to join your action.")
         self.account2.pay_resources = Mock()
-        self.call_cmd("/charge 1=economic,2000", "2000 economic added. Action Resources: economic 2000")
+        self.call_cmd("/charge 1=economic,2000", "2000 economic added. Action #1 Resources: economic 2000, silver 50")
         self.account2.pay_resources.assert_called_with("economic", 2000)
         self.caller.inform = Mock()
         self.account2.inform = Mock()
@@ -222,12 +222,12 @@ class OverridesTests(ArxCommandTest):
         self.setup_cmd(overrides.CmdGive, self.char1)
         self.call_cmd("obj to char2", "You are not holding Obj.")
         self.obj1.move_to(self.char1)
-        self.call_cmd("obj to char2", "You give Obj to Char2")
+        self.call_cmd("obj to char2", "You give Obj to Char2.")
         wearable = create_object(typeclass=Wearable, key="worn", location=self.char1)
         wearable.wear(self.char1)
         self.call_cmd("worn to char2", 'worn is currently worn and cannot be moved.')
         wearable.remove(self.char1)
-        self.call_cmd("worn to char2", "You give worn to Char2")
+        self.call_cmd("worn to char2", "You give worn to Char2.")
         self.char1.currency = 50
         self.call_cmd("-10 silver to char2", "Amount must be positive.")
         self.call_cmd("75 silver to char2", "You do not have that much money to give.")
@@ -272,17 +272,17 @@ class SocialTests(ArxCommandTest):
         self.call_cmd("/shops", "List of shops:")
         self.room1.tags.add("shop")
         self.room1.db.shopowner = self.char2
-        self.call_cmd("/shops", "List of shops:\n|Room: Char2")
+        self.call_cmd("/shops", "List of shops:\nRoom: Char2")
         from web.character.models import Roster
         self.roster_entry2.roster = Roster.objects.create(name="Bishis")
-        self.call_cmd("/shops/all", "List of shops:\n|Room: Char2 (Inactive)")
+        self.call_cmd("/shops/all", "List of shops:\nRoom: Char2 (Inactive)")
         # TODO: create AccountHistory thingies, set a firstimpression for one of the Chars
         # TODO: test /firstimp, /rs, /watch
-        self.call_cmd("", 'Locations of players:\n|Players who are currently LRP have a + by their name.\n'
-                          'Players who are on your watch list have a * by their name.|Room: Char, Char2')
-        self.char2.tags.add("disguised")
-        self.call_cmd("", 'Locations of players:\n|Players who are currently LRP have a + by their name.\n'
-                          'Players who are on your watch list have a * by their name.|Room: Char')
+        self.call_cmd("", 'Locations of players:\nPlayers who are currently LRP have a + by their name, '
+                          'and players who are on your watch list have a * by their name.\nRoom: Char, Char2')
+        self.char2.fakename = "Kamda"
+        self.call_cmd("", 'Locations of players:\nPlayers who are currently LRP have a + by their name, '
+                          'and players who are on your watch list have a * by their name.\nRoom: Char')
         self.room1.tags.add("private")
         self.call_cmd("", "No visible characters found.")
     
@@ -324,10 +324,12 @@ class SocialTests(ArxCommandTest):
     @patch.object(social, "inform_staff")
     def test_cmd_randomscene(self, mock_inform_staff):
         self.setup_cmd(social.CmdRandomScene, self.char1)
+        self.char2.sessions.all = Mock(return_value="Meow")
         self.char1.player_ob.db.random_scenelist = [self.char2, self.char2, self.char2]
-        self.call_cmd("", "Randomly generated RP partners for this week: Char2, Char2, Char2|New players who "
-                          "can be also RP'd with for credit: |GMs for events here that can be claimed for credit: "
-                          "Char2|Reminder: Please only /claim those you have interacted with significantly in a scene.")
+        self.call_cmd("/online", "@Randomscene Information: Only displaying online characters."
+                                 "\nRandomly generated RP partners for this week: Char2, Char2, and Char2"
+                                 "\nReminder: Please only /claim those you have interacted with significantly "
+                                 "in a scene.")
         self.call_cmd("/claim Char2", 'You must include some summary of the scene. It may be quite short.')
         self.call_cmd("/claim Char2=test test test", 'You have sent a request to Char2 to validate your scene.\n'
                                                      'Reminder: Please only /claim those you have interacted with '
@@ -335,7 +337,23 @@ class SocialTests(ArxCommandTest):
         mock_inform_staff.assert_called_with("Char has completed a random scene with Char2. Summary: test test test")
         self.call_cmd("/claim Char2=test test test", "You have already claimed a scene with Char2 this week.")
         self.char2.db.false_name = "asdf"
-        self.call_cmd("/claim Char2=test test test", "You cannot claim them.")
+        self.char2.aliases.add("asdf")
+        self.call_cmd("/claim Char2=test test test", "You cannot claim 'Char2'.")
+        self.call_cmd("/claim asdf=test test test", "You cannot claim 'asdf'.")
+        self.call_cmd("", "@Randomscene Information: \nRandomly generated RP partners for this week: Char2 and Char2"
+                          "\nThose you have already RP'd with this week: Char2"
+                          "\nReminder: Please only /claim those you have interacted with significantly in a scene.")
+        self.caller = self.char2
+        self.call_cmd("/viewrequests", '| Name                               | Summary                               '
+                                       '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+\n'
+                                       '| Char                               | test test test')
+        self.call_cmd("/validate Tehom",
+                      'No character by that name has sent you a request.|\n'
+                      '| Name                               | Summary                               '
+                      '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+\n'
+                      '| Char                               | test test test')
+        self.call_cmd("/validate Char", "Validating their scene. Both of you will receive xp for it later.")
+        self.assertEqual(self.char2.player_ob.db.validated_list, [self.char1])
 
 
 class StaffCommandTests(ArxCommandTest):
