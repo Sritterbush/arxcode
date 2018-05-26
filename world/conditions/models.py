@@ -219,8 +219,9 @@ class EffectTrigger(SharedMemoryModel):
             if not target.player_ob:
                 triggered = False
             else:
-                member = target.player_ob.Dominion.memberships(deguilded=False, 
-                                                               organization__name__iexact=self.text_value).first()
+                member = target.player_ob.Dominion.memberships.filter(deguilded=False,
+                                                                      organization__name__iexact=self.text_value
+                                                                      ).first()
                 if not member or self.max_value < member.rank < self.min_value:
                     triggered = False
         elif self.conditional_check == self.CURRENT_HEALTH_PERCENTAGE:
