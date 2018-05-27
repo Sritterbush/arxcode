@@ -566,7 +566,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         return self.db.fakeweapon
         
     def _get_weapondata(self):
-        wpndict = self.get_fakeweapon() or {}
+        wpndict = dict(self.get_fakeweapon() or {})
         wpn = self.db.weapon
         if wpn:
             wpndict['attack_skill'] = wpn.db.attack_skill or 'crushing melee'
