@@ -493,7 +493,6 @@ class CmdAdminRoster(ArxPlayerCommand):
                 except AccountHistory.MultipleObjectsReturned:
                     history = AccountHistory.objects.filter(account=current, entry=entry).last()
                 entry.current_account = None
-                entry.save()
                 date = datetime.now()
                 history.end_date = date
                 if not history.gm_notes and self.rhs:
@@ -515,6 +514,7 @@ class CmdAdminRoster(ArxPlayerCommand):
                 traceback.print_exc()
                 caller.msg("Error when setting new password. Logged.")
             inform_staff("%s has returned %s to the %s roster." % (caller, self.lhs, new_roster.name))
+            entry.save()
             if "retire" in self.switches:
                 try:
                     bb = BBoard.objects.get(db_key__iexact="Roster Changes")
