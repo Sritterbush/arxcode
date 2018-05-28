@@ -5,6 +5,7 @@ status, any temporary modifiers, initiative rolls, fatigue, etc.
 
 roll_initiative() - sets initiative and a tiebreaker value for the character
 """
+from functools import total_ordering
 from random import randint, choice
 
 from commands.cmdsets.combat import CombatCmdSet
@@ -75,6 +76,7 @@ class CombatAction(object):
                      difficulty=self.special_action.difficulty)
 
 
+@total_ordering
 class CombatantStateHandler(object):
     """
     Stores information about a character's participation in a fight.
@@ -101,8 +103,6 @@ class CombatantStateHandler(object):
             for ob in self.character.db.assigned_guards:
                 self.add_defender(ob)
         self.guarding = character.db.guarding  # can only guard 1 character
-        if not self.combat.ndb.initializing:
-            self.reset()
         self.initiative = 0
         self.tiebreaker = 0
         self.queued_action = None
@@ -143,13 +143,25 @@ class CombatantStateHandler(object):
 
     def __str__(self):
         return self.combat_handler.name
-    
-    def __cmp__(self, other):
-        value = cmp(self.ready, other.ready)
-        if value == 0:
-            return cmp(str(self), str(other))
-        else:
-            return value * -1
+
+    def __lt__(self, other):
+        try:
+            if self.ready == other.ready:
+                return str(self) < str(other)
+            return other.ready < self.ready
+        except AttributeError:
+            return id(self) < id(other)
+
+    def __eq__(self, other):
+        try:
+            if self.ready == other.ready:
+                return str(self) == str(other)
+            return False
+        except AttributeError:
+            return False
+
+    def __hash__(self):
+        return id(self)
     
     @property
     def affect_real_dmg(self):
