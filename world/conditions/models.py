@@ -200,7 +200,7 @@ class EffectTrigger(SharedMemoryModel):
                         rank = self._cached_prestige_rankings.index(target)
                     except ValueError:
                         pass
-                if rank is None or self.max_value < rank < self.min_value:
+                if rank is None or self.max_value < rank or rank < self.min_value:
                     triggered = False
         elif self.conditional_check == self.PRESTIGE_VALUE:
             # see if the target's prestige value doesn't fall within the range
@@ -238,7 +238,7 @@ class EffectTrigger(SharedMemoryModel):
         """Creates a list of all the active Characters ranked by their prestige order. caches it in the class."""
         from typeclasses.characters import Character
         qs = list(Character.objects.filter(roster__roster__name="Active"))
-        cls._cached_prestige_rankings = sorted(qs, key=lambda x: x.player_ob.Dominion.assets.prestige)
+        cls._cached_prestige_rankings = sorted(qs, key=lambda x: x.player_ob.Dominion.assets.prestige, reverse=True)
 
     def do_trigger_results(self, target):
         """
