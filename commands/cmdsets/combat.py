@@ -502,6 +502,9 @@ class CmdAttack(CombatCommand):
         do_ready = not caller.combat.state.ready
         qtype = "kill" if can_kill else "attack"
         caller.combat.state.set_queued_action(qtype, targ, msg, attack_penalty, dmg_penalty, do_ready)
+        # check if their participation in combat ended after it set them to be ready
+        if not combat or combat.ndb.shutting_down or not caller.combat.state:
+            return
         # check if this is queue-for-turn-later, ELSE we're going to immediately use our turn.
         if combat.ndb.phase != 2 or combat.ndb.active_character != caller:
             if this_round == combat.ndb.rounds and caller.combat.state.remaining_attacks > 0:

@@ -118,6 +118,8 @@ class CombatCommandsTests(ArxCommandTest):
         self.call_cmd("", "You are already spectating a combat.")
         self.call_cmd("/stop", 'You stop spectating the fight.')
         fight.add_combatant(self.char1)
+        # check to make sure equality functions for non-StateHandler
+        self.assertFalse(None in fight.ndb.combatants)
         self.call_cmd("", "You are already involved in this combat.")
 
     def test_cmd_combat_status(self, mock_inform_staff):

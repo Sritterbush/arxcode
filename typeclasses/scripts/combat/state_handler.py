@@ -143,13 +143,25 @@ class CombatantStateHandler(object):
 
     def __str__(self):
         return self.combat_handler.name
-    
-    def __cmp__(self, other):
-        value = cmp(self.ready, other.ready)
-        if value == 0:
-            return cmp(str(self), str(other))
-        else:
-            return value * -1
+
+    def __lt__(self, other):
+        try:
+            if self.ready == other.ready:
+                return str(self) < str(other)
+            return other.ready < self.ready
+        except AttributeError:
+            return id(self) < id(other)
+
+    def __eq__(self, other):
+        try:
+            if self.ready == other.ready:
+                return str(self) == str(other)
+            return False
+        except AttributeError:
+            return False
+
+    def __hash__(self):
+        return id(self)
     
     @property
     def affect_real_dmg(self):
