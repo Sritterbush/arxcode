@@ -5,6 +5,7 @@ status, any temporary modifiers, initiative rolls, fatigue, etc.
 
 roll_initiative() - sets initiative and a tiebreaker value for the character
 """
+from functools import total_ordering
 from random import randint, choice
 
 from commands.cmdsets.combat import CombatCmdSet
@@ -75,6 +76,7 @@ class CombatAction(object):
                      difficulty=self.special_action.difficulty)
 
 
+@total_ordering
 class CombatantStateHandler(object):
     """
     Stores information about a character's participation in a fight.
