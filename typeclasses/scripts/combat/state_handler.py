@@ -103,8 +103,6 @@ class CombatantStateHandler(object):
             for ob in self.character.db.assigned_guards:
                 self.add_defender(ob)
         self.guarding = character.db.guarding  # can only guard 1 character
-        if not self.combat.ndb.initializing:
-            self.reset()
         self.initiative = 0
         self.tiebreaker = 0
         self.queued_action = None
