@@ -255,7 +255,7 @@ class CmdWatch(ArxPlayerCommand):
         if caller.db.hide_from_watch:
             caller.msg("You are currently in hidden mode.")
         return
-            
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -322,7 +322,7 @@ class CmdFinger(ArxPlayerCommand):
     locks = "cmd:all()"
     aliases = ["@finger", "finger"]
     help_category = "Social"
-            
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -434,7 +434,7 @@ class CmdFinger(ArxPlayerCommand):
         if prefs:
             msg += "{wRP Preference Notes:{n %s\n" % prefs
         caller.msg(msg, options={'box': True})
-        
+
 
 # for a character writing in their White Journal or Black Reflection
 class CmdJournal(ArxCommand):
@@ -886,12 +886,12 @@ class CmdMessenger(ArxCommand):
         # succeeded, return amount. It'll be decremented when sent off later
         else:
             return material.id, amt
-            
+
     def set_or_remove_retainer_ability(self, attr_name, attr_desc):
         """
         Sets or removes customization options for messengers based on our retainers, such as the ability
         to send custom messengers, or to receive them discreetly.
-        
+
             Args:
                 attr_name (str): name of the Attribute to check/set
                 attr_desc (str): A phrase of what the attr makes retainers do, to send to players.
@@ -1358,7 +1358,7 @@ class CmdCalendar(ArxPlayerCommand):
         mssg += "{wLargesse:{n %s\n" % largesse
         mssg += "{wRoom Desc:{n %s\n" % roomdesc
         return mssg
-                         
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -1646,7 +1646,7 @@ class CmdCalendar(ArxPlayerCommand):
             if not (name and date and desc and hosts):
                 caller.msg("Name, date, desc, and hosts must be defined before you submit.")
                 caller.msg(self.display_project(proj), options={'box': True})
-                return         
+                return
             if not largesse:
                 cel_lvl = 0
             elif largesse.lower() == 'common':
@@ -1776,7 +1776,7 @@ class CmdCalendar(ArxPlayerCommand):
                 event_manager.start_event(event, location=loc)
             else:
                 event_manager.start_event(event)
-            caller.msg("You have started the event.")        
+            caller.msg("You have started the event.")
             return
         if "endevent" in self.switches:
             event_manager.finish_event(event)
@@ -1867,7 +1867,7 @@ class CmdCalendar(ArxPlayerCommand):
             event_manager.cancel_event(event)
             caller.msg("You have cancelled the event.")
             return
-        
+
         caller.msg("Invalid switch.")
 
 
@@ -1891,7 +1891,7 @@ class CmdPraise(ArxPlayerCommand):
     attr = "praises"
     verb = "praise"
     verbing = "praising"
-            
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -2027,7 +2027,7 @@ class CmdAFK(ArxPlayerCommand):
     key = "afk"
     locks = "cmd:all()"
     help_category = "Social"
-            
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -2046,7 +2046,7 @@ class CmdRoomHistory(ArxCommand):
 
     Usage:
         +roomhistory <message>
-        
+
     Tags a note into a room to indicate that something significant happened
     here in-character. This is primarily intended to allow for magically
     sensitive characters to have a mechanism for detecting a past event, far
@@ -2055,7 +2055,7 @@ class CmdRoomHistory(ArxCommand):
     key = "+roomhistory"
     locks = "cmd:all()"
     help_category = "Social"
-            
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -2113,7 +2113,7 @@ class CmdSocialScore(ArxCommand):
         +score/legend
         +score/renown [<category>]
         +score/reputation[/bad] [<organization>][=<start #>,<stop #>]
-        
+
     Checks the organizations and players who have the highest prestige.
     Renown measures the influence a character has built with different npc
     groups, while reputation is how a character is thought of by the npcs
@@ -2124,7 +2124,7 @@ class CmdSocialScore(ArxCommand):
     locks = "cmd:all()"
     help_category = "Information"
     prestige_switches = ("orgs", "personal", "legend")
-            
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -2222,7 +2222,7 @@ class CmdThink(ArxCommand):
 
     Usage:
         +think <message>
-        
+
     Sends a message to yourself about your thoughts. At present, this
     is really mostly for your own use in logs and the like. Eventually,
     characters with mind-reading powers may be able to see these.
@@ -2231,7 +2231,7 @@ class CmdThink(ArxCommand):
     aliases = ["think"]
     locks = "cmd:all()"
     help_category = "Social"
-            
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -2244,7 +2244,7 @@ class CmdFeel(ArxCommand):
 
     Usage:
         +feel
-        
+
     Sends a message to yourself about your feelings. Can possibly
     be seen by very sensitive people.
     """
@@ -2252,7 +2252,7 @@ class CmdFeel(ArxCommand):
     aliases = ["feel"]
     locks = "cmd:all()"
     help_category = "Social"
-            
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -2267,7 +2267,7 @@ class CmdDonate(ArxCommand):
         +donate <group name>=<amount>
         +donate/hype <player>,<group>=<amount>
         +donate/score [<group>]
-        
+
     Donates money to some group of npcs in exchange for prestige.
     +donate/score lists donation amounts. Costs 5 AP.
     """
@@ -2279,7 +2279,7 @@ class CmdDonate(ArxCommand):
     def donations(self):
         """Queryset of donations by caller"""
         return self.caller.player.Dominion.assets.donations.all().order_by('amount')
-            
+
     def func(self):
         """Execute command."""
         caller = self.caller
@@ -2425,7 +2425,6 @@ class CmdRandomScene(ArxCommand):
     NUM_SCENES = 3
     NUM_DAYS = 3
     DAYS_FOR_NEWBIE_CHECK = 14
-    reminder = "{yReminder: Please only /claim those you have interacted with significantly in a scene.{n"
 
     @property
     def scenelist(self):
@@ -2452,12 +2451,13 @@ class CmdRandomScene(ArxCommand):
         """A list of new players we want to encourage people to RP with
 
         Returns:
-            queryset: valid_choices queryset filtered by new players
+            List: valid_choices queryset filtered by new players and
+                  returned as a list instead.
         """
         newness = datetime.now() - timedelta(days=self.DAYS_FOR_NEWBIE_CHECK)
         newbies = self.valid_choices.filter(Q(roster__accounthistory__start_date__gte=newness) &
                                             Q(roster__accounthistory__end_date__isnull=True)
-                                             ).distinct().order_by('db_key')
+                                            ).distinct().order_by('db_key')
         return list(newbies)
 
     @property
@@ -2491,6 +2491,29 @@ class CmdRandomScene(ArxCommand):
                                         Q(roster__player__is_staff=False) &
                                         ~Q(roster__player__db_tags__db_key="staff_npc")).distinct()
 
+    @property
+    def valid_scene_choices(self):
+        """List of valid_choices but without newbies or those already claimed."""
+        newbies = [ob.id for ob in self.newbies]
+        claimlist = [ob.id for ob in self.claimlist if ob.id not in newbies]
+        choices = self.valid_choices
+        if newbies:
+            choices = choices.exclude(id__in=newbies)
+        if claimlist:
+            choices = choices.exclude(id__in=claimlist)
+        return list(choices)
+
+    @property
+    def num_remaining_scenes(self):
+        options = (len(self.valid_scene_choices), self.NUM_SCENES)
+        return min(options)
+
+    @property
+    def need_to_generate_lists(self):
+        """Bool luv u."""
+        potential = len(self.scenelist) + len([ob for ob in self.claimlist if ob not in self.newbies])
+        return potential < self.num_remaining_scenes
+
     def display_lists(self):
         """Displays (and generates, if needed) the list of players we can claim and have validated."""
         for ob in self.scenelist[:]:
@@ -2502,10 +2525,7 @@ class CmdRandomScene(ArxCommand):
                     self.caller.player_ob.db.random_scenelist.remove(ob)
             except (AttributeError, TypeError, ValueError):
                 pass
-        # ensure that we can never have more than NUM_SCENES in our random_scenelist
-        if len(self.scenelist) > self.NUM_SCENES:
-            self.caller.player_ob.db.random_scenelist = random.sample(self.scenelist, self.NUM_SCENES)
-        if len(self.scenelist) + len([ob for ob in self.claimlist if ob not in self.newbies]) < self.NUM_SCENES:
+        if self.need_to_generate_lists:
             self.generate_lists()
         scenelist = self.scenelist
         claimlist = self.claimlist
@@ -2514,21 +2534,28 @@ class CmdRandomScene(ArxCommand):
         newbies = [ob for ob in self.newbies if ob not in claimlist]
         msg = "{w@Randomscene Information:{n "
         if "online" in self.switches:
-            msg += "{wOnly displaying online characters.{n"
+            msg += "{yOnly displaying online characters.{n"
             scenelist = [ob for ob in scenelist if ob.show_online(self.caller.player)]
             newbies = [ob for ob in newbies if ob.show_online(self.caller.player)]
-        msg += "\n"
         if scenelist:
-            msg += "{wRandomly generated RP partners for this week:{n %s\n" % list_to_string([ob.key for ob in scenelist])
+            msg += "\n{wRandomly generated RP partners for this week:{n "
+            msg += list_to_string([ob.key for ob in scenelist])
         if newbies:
-            msg += "{wNew players who can be also RP'd with for credit:{n %s\n" % list_to_string([ob.key for ob in newbies])
+            msg += "\n{wNew players who can be also RP'd with for credit:{n "
+            msg += list_to_string([ob.key for ob in newbies])
         if gms:
-            msg += "{wGMs for events here that can be claimed for credit:{n %s\n" % list_to_string(gms)
+            msg += "\n{wGMs for events here that can be claimed for credit:{n "
+            msg += list_to_string(gms)
+        if not any((scenelist, newbies, gms)):
+            msg += "\n{wNo players remain to be claimed.{n"
+        else:
+            msg += "\n{yReminder: Please only /claim those you have interacted with significantly in a scene.{n"
         if claimlist:
-            msg += "{wThose you have already RP'd with this week:{n %s\n" % list_to_string([ob.key for ob in claimlist])
+            msg += "\n{wThose you have already RP'd with this week:{n "
+            msg += list_to_string([ob.key for ob in claimlist])
         if validated:
-            msg += "{wThose you have validated scenes for this week:{n %s\n" % list_to_string([ob.key for ob in validated])
-        msg += self.reminder
+            msg += "\n{wThose you have validated scenes for this week:{n "
+            msg += list_to_string([ob.key for ob in validated])
         if not any((scenelist, newbies, gms, claimlist, validated)):
             msg = "No characters qualify for @randomscene information to be displayed."
         self.msg(msg)
@@ -2538,18 +2565,13 @@ class CmdRandomScene(ArxCommand):
         scenelist = self.scenelist
         newbies = self.newbies
         claimlist = [ob for ob in self.claimlist if ob not in newbies]
-        newbies = [ob.id for ob in newbies]
-        choices = self.valid_choices
-        if newbies:
-            choices = choices.exclude(id__in=newbies)
-        if claimlist:
-            choices = choices.exclude(id__in=[ob.id for ob in claimlist])
-        choices = list(choices)
+        choices = self.valid_scene_choices
         num_scenes = self.NUM_SCENES - (len(claimlist) + len(scenelist))
-        if 0 < num_scenes <= len(choices):
-            scenelist.extend(random.sample(choices, num_scenes))
-        elif num_scenes > 0:
-            scenelist.extend(choices)
+        if num_scenes > 0:
+            try:
+                scenelist.extend(random.sample(choices, num_scenes))
+            except ValueError:
+                scenelist.extend(choices)
         scenelist = sorted(scenelist, key=lambda x: x.key.capitalize())
         self.caller.player_ob.db.random_scenelist = scenelist
 
@@ -2562,22 +2584,16 @@ class CmdRandomScene(ArxCommand):
             cannot_claim = targ.fakename
         except AttributeError:
             cannot_claim = True
-        if targ == self.caller or cannot_claim:
-            self.msg("You cannot claim '%s'." % self.lhs)
-            return
-        if not self.rhs:
-            self.msg("You must include some summary of the scene. It may be quite short.")
-            return
-        # If we would fail for any reason, give a more ambiguous error message if the target is masked.
-        err = ""
         scenelist = self.scenelist
-        if targ not in (scenelist + self.newbies + self.gms):
-            err = "%s is not in your list of random scene partners this week: " % self.lhs
-            err += list_to_string([ob.key for ob in scenelist])
-            err += "\nNew players who can be RP'd with for credit: "
-            err += list_to_string([ob.key for ob in self.newbies])
-        if targ in self.claimlist:
-            err += "You have already claimed a scene with %s this week." % self.lhs
+        err = ""
+        if targ == self.caller or cannot_claim:
+            err = "You cannot claim '%s'." % self.lhs
+        elif not self.rhs:
+            err = "You must include some summary of the scene. It may be quite short."
+        elif targ in self.claimlist:
+            err = "You have already claimed a scene with %s this week." % self.lhs
+        elif targ not in (scenelist + self.newbies + self.gms):
+            err = "%s is not in your list of random scene partners this week." % self.lhs
         if err:
             self.msg(err)
             return
@@ -2590,14 +2606,14 @@ class CmdRandomScene(ArxCommand):
         targ.db.scene_requests = requests
         msg = "%s has submitted a RP scene that included you, for which you have received xp. " % name
         msg += "Validating it will grant them xp."
-        msg += "\n\nTheir summary of the scene was the following: %s\n" % self.rhs
-        msg += "If you ignore this request, it will be wiped in weekly maintenance."
+        msg += "\n\nTheir summary of the scene was the following: %s" % self.rhs
+        msg += "\nIf you ignore this request, it will be wiped in weekly maintenance."
         msg += "\nTo validate, use {w@randomscene/validate %s{n" % name
         msg += "\n{rYou are already flagged for xp, and are not penalized in any way for ignoring a request "
         msg += "from someone who did not meaningfully interact with you.{n"
         targ.player_ob.inform(msg, category="Validate")
-        inform_staff("%s has completed a random scene with %s. Summary: %s" % (self.caller.key, targ, self.rhs))
-        self.msg("You have sent a request to %s to validate your scene.\n%s" % (targ, self.reminder))
+        inform_staff("%s has completed this random scene with %s: %s" % (self.caller.key, targ, self.rhs))
+        self.msg("You have sent %s a request to validate your scene: %s" % (self.lhs, self.rhs))
         our_requests = self.requested_validation
         our_requests.append(targ)
         self.caller.player_ob.db.requested_validation = our_requests
@@ -2960,7 +2976,7 @@ class CmdRPHooks(ArxPlayerCommand):
             self.msg("Removed.")
             return
         self.msg("Invalid switch.")
-        
+
     def validate_name(self, name):
         """Ensures that RPHooks doesn't have a name with special characters that would break it"""
         import re
@@ -3029,7 +3045,7 @@ class CmdFirstImpression(ArxCommand):
     def imps_of_me(self):
         """Retrieves impressions of us, in our current incarnation"""
         return self.caller.roster.accounthistory_set.last().received_contacts.all()
-        
+
     @property
     def imps_by_me(self):
         """Retrieves impressions we have written, as our current incarnation"""
@@ -3194,10 +3210,10 @@ class CmdGetInLine(ArxCommand):
         +line/dismiss
 
     Allows you to recognize people who are standing in a line for their turn
-    to speak. To create a line, use +line/createline with the names of fellow 
+    to speak. To create a line, use +line/createline with the names of fellow
     hosts who may also control it. +line/loop toggles the line to repeat.
-    Call the next person with +line/nextinline. To join a line that's been 
-    created, use +line/getinline. If you want to give up your turn, use 
+    Call the next person with +line/nextinline. To join a line that's been
+    created, use +line/getinline. If you want to give up your turn, use
     +line/dropout. If you are done recognizing people, use +line/dismiss.
     """
     key = "+line"
@@ -3238,7 +3254,7 @@ class CmdGetInLine(ArxCommand):
     def loop(self):
         """Returns a thingy if line looping was set"""
         return self.caller.location.ndb.event_line_loop
-        
+
     @loop.setter
     def loop(self, val):
         self.caller.location.ndb.event_line_loop = val
@@ -3298,7 +3314,7 @@ class CmdGetInLine(ArxCommand):
             return
         self.msg("You are not in the line.")
         self.display_line()
-    
+
     def can_alter_line(self):
         """Returns whether they have permission to change the line"""
         hosts = self.hosts
@@ -3307,7 +3323,7 @@ class CmdGetInLine(ArxCommand):
             self.msg("You do not have permission to alter the line.")
             return
         return True
-    
+
     def dismiss(self):
         """Gets rid of the line."""
         if not self.can_alter_line:
@@ -3333,7 +3349,7 @@ class CmdGetInLine(ArxCommand):
         if "loop" in self.switches:
             self.toggle_loop()
         self.display_line()
-        
+
     def toggle_loop(self):
         """Toggles whether the line will automatically loop"""
         if not self.can_alter_line():
