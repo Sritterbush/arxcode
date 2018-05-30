@@ -2581,10 +2581,10 @@ class CmdRandomScene(ArxCommand):
         if not targ:
             return
         try:
-            cannot_claim = targ.fakename
+            cannot_claim = bool(targ.fakename)
         except AttributeError:
             cannot_claim = True
-        scenelist = self.scenelist
+        messagelist = list(self.scenelist) + list(self.newbies) + list(self.gms)
         err = ""
         if targ == self.caller or cannot_claim:
             err = "You cannot claim '%s'." % self.lhs
@@ -2592,7 +2592,7 @@ class CmdRandomScene(ArxCommand):
             err = "You must include some summary of the scene. It may be quite short."
         elif targ in self.claimlist:
             err = "You have already claimed a scene with %s this week." % self.lhs
-        elif targ not in (scenelist + self.newbies + self.gms):
+        elif targ not in messagelist:
             err = "%s is not in your list of random scene partners this week." % self.lhs
         if err:
             self.msg(err)
@@ -2617,8 +2617,8 @@ class CmdRandomScene(ArxCommand):
         our_requests = self.requested_validation
         our_requests.append(targ)
         self.caller.player_ob.db.requested_validation = our_requests
-        if targ in scenelist:
-            scenelist.remove(targ)
+        if targ in self.scenelist:
+            self.scenelist.remove(targ)
 
     def validate_scene(self):
         """Grants a request to validate a randomscene."""
