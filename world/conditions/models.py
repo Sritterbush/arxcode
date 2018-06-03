@@ -232,7 +232,8 @@ class EffectTrigger(SharedMemoryModel):
             if self.max_value < change_amount < self.min_value:
                 triggered = False
         if (triggered and not self.negated_check) or (self.negated_check and not triggered):
-            self.do_trigger_results(target)
+            return self.do_trigger_results(target)
+        return False
 
     @classmethod
     def cache_prestige_rankings(cls):
@@ -252,7 +253,7 @@ class EffectTrigger(SharedMemoryModel):
         if self.target_msg:
             target.msg(self.target_msg)
         # TODO: Process additional_effects
-        pass
+        return True
 
     def save(self, *args, **kwargs):
         """On save, we'll refresh the cache of ou"""

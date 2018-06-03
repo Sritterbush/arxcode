@@ -31,19 +31,17 @@ class TriggerHandler(object):
         """Checks triggers for a given event_type. Caches check."""
         if event_type not in self._cache:
             self.add_query_to_cache(event_type)
-        stale = False
+        triggered = False
         current_priority = None
-        for trigger in self._cache[event_type]:
-            # check to make sure it hasn't been deleted
-            if trigger and trigger.pk:
-                if current_priority is None:
-                    current_priority = trigger.priority
-                elif trigger.priority < current_priority:
-                    break
-                trigger.check_trigger_on_target(target, change_amount=change_amount)
-            else:
-                stale = True
-        if stale:
+        relevant_triggers = sorted([ob for ob in self._cache[event_type] if ob and ob.pk],
+                                   key=lambda x: x.priority, reverse=True)
+        for trigger in relevant_triggers:
+            if triggered and trigger.priority < current_priority:
+                break
+            triggered = trigger.check_trigger_on_target(target, change_amount=change_amount)
+            current_priority = trigger.priority
+
+        if any([ob for ob in self._cache[event_type] if not ob or not ob.pk]):
             self.add_query_to_cache(event_type)
 
     def add_query_to_cache(self, event_type):
