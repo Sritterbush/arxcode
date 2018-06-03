@@ -208,7 +208,8 @@ class EffectTrigger(SharedMemoryModel):
                 triggered = False
         elif self.conditional_check == self.SOCIAL_RANK:
             # see if their social rank doesn't fall within the range
-            if not target.db.social_rank or self.max_value < target.db.social_rank < self.min_value:
+            s_rank = target.db.social_rank
+            if not s_rank or s_rank > self.max_value or s_rank < self.min_value:
                 triggered = False
         elif self.conditional_check == self.TAG_NAME:
             # see if the target doesn't have the right tag
