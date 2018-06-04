@@ -1891,6 +1891,7 @@ class CmdPraise(ArxPlayerCommand):
     attr = "praises"
     verb = "praise"
     verbing = "praising"
+    MIN_VALUE = 10
 
     def func(self):
         """Execute command."""
@@ -1953,9 +1954,9 @@ class CmdPraise(ArxPlayerCommand):
         from world.stats_and_skills import do_dice_check
         roll = do_dice_check(self.caller.char_ob, stat='charm', skill='propaganda')
         roll *= int(self.caller.Dominion.assets.prestige_mod)
-        if roll > 0:
-            return roll
-        return 0
+        if roll < self.MIN_VALUE:
+            roll = self.MIN_VALUE
+        return roll
 
     def get_max_praises(self):
         """Calculates how many praises character has"""
