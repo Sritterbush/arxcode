@@ -204,7 +204,11 @@ class EffectTrigger(SharedMemoryModel):
                     triggered = False
         elif self.conditional_check == self.PRESTIGE_VALUE:
             # see if the target's prestige value doesn't fall within the range
-            if not target.player_ob or self.max_value < target.player_ob.Dominion.assets.prestige < self.min_value:
+            try:
+                prest = target.player_ob.Dominion.assets.prestige
+                if prest < self.min_value or prest > self.max_value:
+                    triggered = False
+            except (AttributeError, ValueError, TypeError):
                 triggered = False
         elif self.conditional_check == self.SOCIAL_RANK:
             # see if their social rank doesn't fall within the range
@@ -223,10 +227,14 @@ class EffectTrigger(SharedMemoryModel):
                 member = target.player_ob.Dominion.memberships.filter(deguilded=False,
                                                                       organization__name__iexact=self.text_value
                                                                       ).first()
-                if not member or self.max_value < member.rank < self.min_value:
+                if not member or member.rank > self.max_value or member.rank < self.min_value:
                     triggered = False
         elif self.conditional_check == self.CURRENT_HEALTH_PERCENTAGE:
-            if self.max_value < target.get_health_percentage() * 100 < self.min_value:
+            try:
+                health = target.get_health_percentage() * 100
+                if health > self.max_value or health < self.min_value:
+                    triggered = False
+            except (AttributeError, ValueError, TypeError):
                 triggered = False
         elif self.conditional_check == self.CHANGE_AMOUNT:
             if self.max_value < change_amount < self.min_value:
