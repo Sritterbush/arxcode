@@ -1301,7 +1301,9 @@ class CmdCalendar(ArxPlayerCommand):
     event is public or private (defaults to public). To spend extravagant
     amounts of money in hosting an event for prestige, set the /largesse
     level. To see the valid largesse types with their costs and prestige
-    values, do '@cal/largesse'. All times are in EST.
+    values, do '@cal/largesse'. Prestige is divided among hosts present,
+    or if no hosts are present goes fully to the main host. Private events
+    give half prestige. All times are in EST.
 
     To mark an event as a player-run-plot, use /addgm to designate a
     player as the storyteller for the event. Please only use this for a
