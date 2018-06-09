@@ -718,9 +718,9 @@ class CraftingMixins(object):
 
 
 # regex removes the ascii inside an ascii tag
-RE_ASCII = re.compile(r"<ascii>(.*?)</ascii>", re.IGNORECASE)
+RE_ASCII = re.compile(r"<ascii>(.*?)</ascii>", re.IGNORECASE | re.DOTALL)
 # designates text to be ascii-free by a crafter
-RE_ALT_ASCII = re.compile(r"<noascii>(.*?)</noascii>", re.IGNORECASE)
+RE_ALT_ASCII = re.compile(r"<noascii>(.*?)</noascii>", re.IGNORECASE | re.DOTALL)
 RE_COLOR = re.compile(r'"(.*?)"')
 
 
@@ -802,7 +802,7 @@ class MsgMixins(object):
             if self.attributes.has("dice_string"):
                 text = "{w<" + self.db.dice_string + "> {n" + text
         try:
-            if self.db.char_ob:
+            if self.char_ob:
                 msg_sep = self.tags.get("newline_on_messages")
                 player_ob = self
             else:
@@ -826,13 +826,19 @@ class MsgMixins(object):
                     player_ob.log_message(from_obj, text)
         except AttributeError:
             pass
+        text = self.strip_ascii_from_tags(text)
+        super(MsgMixins, self).msg(text, from_obj, session, options, **kwargs)
+
+    def strip_ascii_from_tags(self, text):
+        """Removes ascii within tags for formatting."""
+        player_ob = self.player_ob or self
         if 'no_ascii' in player_ob.tags.all():
             text = RE_ASCII.sub("", text)
             text = RE_ALT_ASCII.sub(r"\1", text)
         else:
             text = RE_ASCII.sub(r"\1", text)
             text = RE_ALT_ASCII.sub("", text)
-        super(MsgMixins, self).msg(text, from_obj, session, options, **kwargs)
+        return text
 
     def msg_location_or_contents(self, text=None, **kwargs):
         """A quick way to ensure a room message, no matter what it's called on. Requires rooms have null location."""
