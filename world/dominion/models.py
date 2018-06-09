@@ -5246,6 +5246,8 @@ class RPEvent(SharedMemoryModel):
             prestige = 100000
         elif cel_level == 5:
             prestige = 400000
+        if not self.public_event:
+            prestige /= 2
         return prestige
 
     def can_view(self, player):
