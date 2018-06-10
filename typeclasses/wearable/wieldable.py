@@ -167,7 +167,7 @@ class Wieldable(Object):
             diffmod += 1
         elif self.db.attack_skill == "archery":
             self.ranged_mode()
-            diffmod += 5
+            diffmod -= 10
         elif self.db.attack_skill == "small wpn":
             diffmod -= 1
         from world.dominion.models import CraftingRecipe
