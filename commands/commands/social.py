@@ -1901,9 +1901,19 @@ class CmdPraise(ArxPlayerCommand):
         if not self.lhs:
             caller.msg(self.display_praises(), options={'box': True})
             return
+        # don't you dare judge us for having thought of this
+        if self.cmdstring == "praise" and self.lhs.lower() == "the sun":
+            caller.msg("Thank you for your jolly cooperation. Heresy averted.")
+            return
         targ = caller.search(self.lhslist[0])
-        if not targ or not targ.char_ob:
-            caller.msg("No character object found.")
+        if not targ:
+            return
+        try:
+            name = targ.char_ob.roster.roster.name
+            if not name or name.lower() == "incomplete" or not targ.Dominion.assets:
+                raise AttributeError
+        except AttributeError:
+            caller.msg("No character found by '%s'." % self.lhslist[0])
             return
         account = caller.roster.current_account
         if account == targ.roster.current_account:
@@ -1925,7 +1935,7 @@ class CmdPraise(ArxPlayerCommand):
                 if to_use > self.get_actions_remaining():
                     raise ValueError
             except ValueError:
-                self.msg("The number of praises used must be a positive number less than your max praises.")
+                self.msg("The number of praises used must be a positive number, and less than your max praises.")
                 return
         else:
             to_use = 1 if "all" not in self.switches else self.get_actions_remaining()
@@ -1942,14 +1952,10 @@ class CmdPraise(ArxPlayerCommand):
         caller.msg("You %s the actions of %s. You have %s %s remaining." %
                    (self.verb, targ, self.get_actions_remaining(), self.attr)
                    )
-        if self.rhs:
-            char.location.msg_contents("%s is overheard %s %s for: %s" % (char.name, self.verbing,
-                                                                          targ.key.capitalize(), self.rhs),
-                                       exclude=char)
-        else:
-            char.location.msg_contents("%s is overheard %s %s." % (char.name, self.verbing,
-                                                                   targ.key.capitalize()),
-                                       exclude=char)
+        reasons = ": %s" % self.rhs if self.rhs else "."
+        char.location.msg_contents("%s is overheard %s %s%s" % (char.name, self.verbing, targ.key.capitalize(),
+                                                                reasons),
+                                   exclude=char)
 
     def do_praise_roll(self):
         """(charm+propaganda at difficulty 15=x, where x >0), x* ((40*prestige mod)+# of social resources)"""
