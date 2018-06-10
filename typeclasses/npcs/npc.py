@@ -53,16 +53,18 @@ class Npc(Character):
         else:
             self.execute_cmd("attack %s" % targ)
         # if we're ordered to attack, don't vote to end
-        self.combat.wants_to_end = False
+        if self.combat.state:
+            self.combat.state.wants_to_end = False
     
     def stop(self):
         """
         Stop attacking/exit combat.
         """
-        self.combat.wants_to_end = True
-        if self.combat.combat:
-            self.combat.reset()
-            self.combat.setup_phase_prep()
+        state = self.combat.state
+        if state:
+            state.wants_to_end = True
+            state.reset()
+            state.setup_phase_prep()
 
     def _get_passive(self):
         return self.db.passive_guard or False
@@ -73,7 +75,8 @@ class Npc(Character):
             self.stop()
         else:
             self.db.passive_guard = False
-            self.combat.wants_to_end = False
+            if self.combat.state:
+                self.combat.state.wants_to_end = False
     passive = property(_get_passive, _set_passive)
 
     @property
