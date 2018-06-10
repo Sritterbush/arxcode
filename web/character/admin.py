@@ -9,7 +9,7 @@ from .models import (Roster, RosterEntry, Photo, DISCO_MULT, SearchTag, Flashbac
                      PlayerAccount, AccountHistory, InvestigationAssistant,
                      Mystery, Revelation, Clue, Investigation,
                      MysteryDiscovery, RevelationDiscovery, ClueDiscovery,
-                     RevelationForMystery, ClueForRevelation, Theory,
+                     RevelationForMystery, ClueForRevelation, Theory, TheoryPermissions,
                      )
 from django.db.models import F, Subquery, OuterRef, IntegerField, ExpressionWrapper, Q
 
@@ -290,10 +290,18 @@ class InvestigationAdmin(BaseCharAdmin):
         return "%s/%s" % (obj.progress, obj.completion_value)
 
 
+class TheoryPermissionInline(admin.StackedInline):
+    """Inline of TheoryPermissions for TheoryAdmin"""
+    model = TheoryPermissions
+    extra = 0
+    raw_id_fields = ('player',)
+
+
 class TheoryAdmin(BaseCharAdmin):
     """Admin class for Theory"""
     list_display = ('id', 'creator', 'topic', 'description', 'shared_with')
     filter_horizontal = ('known_by', 'related_clues', 'related_theories')
+    inlines = (TheoryPermissionInline,)
 
     @staticmethod
     def shared_with(obj):
