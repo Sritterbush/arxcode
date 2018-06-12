@@ -42,27 +42,29 @@ class Npc(Character):
     # PC command methods
     # ------------------------------------------------
 
-    def attack(self, targ, lethal=False):
+    def attack(self, targ, kill=False):
         """
-        Attack a given target. If lethal is False, we will not kill any
+        Attack a given target. If kill is False, we will not kill any
         characters in combat.
         """
         self.execute_cmd("+fight %s" % targ)
-        if lethal:
+        if kill:
             self.execute_cmd("kill %s" % targ)
         else:
             self.execute_cmd("attack %s" % targ)
         # if we're ordered to attack, don't vote to end
-        self.combat.wants_to_end = False
+        if self.combat.state:
+            self.combat.state.wants_to_end = False
     
     def stop(self):
         """
         Stop attacking/exit combat.
         """
-        self.combat.wants_to_end = True
-        if self.combat.combat:
-            self.combat.reset()
-            self.combat.setup_phase_prep()
+        state = self.combat.state
+        if state:
+            state.wants_to_end = True
+            state.reset()
+            state.setup_phase_prep()
 
     def _get_passive(self):
         return self.db.passive_guard or False
@@ -73,7 +75,8 @@ class Npc(Character):
             self.stop()
         else:
             self.db.passive_guard = False
-            self.combat.wants_to_end = False
+            if self.combat.state:
+                self.combat.state.wants_to_end = False
     passive = property(_get_passive, _set_passive)
 
     @property
@@ -108,17 +111,18 @@ class Npc(Character):
         if self.location:
             self.location.msg_contents("{w%s has returned to life.{n" % self.name)
 
-    def fall_asleep(self, uncon=False, quiet=False, **kwargs):
+    def fall_asleep(self, uncon=False, quiet=False, verb=None, **kwargs):
         """
         Falls asleep. Uncon flag determines if this is regular sleep,
         or unconsciousness.
         """
+        reason = " is %s and" % verb if verb else ""
         if uncon:
             self.db.sleep_status = "unconscious"
         else:
             self.db.sleep_status = "asleep"
-        if self.location:
-            self.location.msg_contents("%s falls %s." % (self.name, self.db.sleep_status))
+        if self.location and not quiet:
+            self.location.msg_contents("%s%s falls %s." % (self.name, reason, self.db.sleep_status))
 
     def wake_up(self, quiet=False):
         """
@@ -127,10 +131,6 @@ class Npc(Character):
         self.db.sleep_status = "awake"
         if self.location:
             self.location.msg_contents("%s wakes up." % self.name)
-            combat = self.location.ndb.combat_manager
-            if combat and self in combat.ndb.combatants:
-                combat.wake_up(self)
-        return
 
     def get_health_appearance(self):
         """
@@ -276,10 +276,15 @@ class Npc(Character):
         # if we don't
         if not keepold:
             self.db.npc_type = ntype
-            self.name = sing_name or plural_name or "#%s" % self.id
-            self.desc = desc or get_npc_desc(ntype)
+            self.set_npc_new_name(sing_name, plural_name)
+            self.set_npc_new_desc(desc)
         self.setup_stats(ntype, threat)
-
+        
+    def set_npc_new_name(self, sing_name=None, plural_name=None):
+        self.name = sing_name or plural_name or "#%s" % self.id
+        
+    def set_npc_new_desc(self, desc=None):
+        self.desc = desc or get_npc_desc(self.db.npc_type or 0)
 
 class MultiNpc(Npc):
     def multideath(self, num, death=False):
@@ -299,29 +304,45 @@ class MultiNpc(Npc):
 
     def get_plural_name(self):
         return self.db.plural_name or get_npc_plural_name(self._get_npc_type())
+        
+    @property
+    def ae_dmg(self):
+        return self.ndb.ae_dmg or 0
+        
+    @ae_dmg.setter
+    def ae_dmg(self, val):
+        self.ndb.ae_dmg = val
 
     def death_process(self, *args, **kwargs):
         """
         This object dying. Set its state to dead, send out
         death message to location. Add death commandset.
         """
-        if self.location:
-            self.location.msg_contents("{r%s has died.{n" % get_npc_singular_name(self._get_npc_type()))
-        if kwargs.get('lethal', True):
-            self.multideath(num=1, death=True)
+        num = 1
+        if self.ae_dmg >= self.max_hp:
+            num = self.quantity
+            message = "{r%s have all died.{n" % get_npc_plural_name(self._get_npc_type())
         else:
-            self.temp_losses += 1
-        self.db.damage = 0
+            message = "{r%s has died.{n" % get_npc_singular_name(self._get_npc_type())
+        if self.location:
+            self.location.msg_contents(message)
+        if kwargs.get('affect_real_dmg', True):
+            self.multideath(num=num, death=True)
+            self.real_dmg = self.ae_dmg
+        else:
+            self.temp_losses += num
+            self.temp_dmg = self.ae_dmg
 
-    def fall_asleep(self, uncon=False, quiet=False, **kwargs):
+    def fall_asleep(self, uncon=False, quiet=False, verb=None, **kwargs):
         """
         Falls asleep. Uncon flag determines if this is regular sleep,
         or unconsciousness.
         """
+        reason = " is %s and " % verb if verb else ""
         if self.location:
-            self.location.msg_contents("{w%s falls %s.{n" % (get_npc_singular_name(self._get_npc_type()),
-                                                             "unconscious" if uncon else "asleep"))
-        if kwargs.get('lethal', True):
+            self.location.msg_contents("{w%s%s falls %s.{n" % (get_npc_singular_name(self._get_npc_type()),
+                                                               reason, "unconscious" if uncon else "asleep"))
+        if kwargs.get('affect_real_dmg', True):
             self.multideath(num=1, death=False)
         else:
             self.temp_losses += 1
@@ -887,7 +908,17 @@ class Agent(AgentMixin, MultiNpc):
         This object dying. Set its state to dead, send out
         death message to location.
         """
+        num = 1
+        if self.ae_dmg >= self.max_hp:
+            num = self.quantity
+            message = "{r%s have all died.{n" % get_npc_plural_name(self._get_npc_type())
+        else:
+            message = "{r%s has died.{n" % get_npc_singular_name(self._get_npc_type())
         if self.location:
-            self.location.msg_contents("{r%s has died.{n" % get_npc_singular_name(self._get_npc_type()))
-        self.lose_agents(num=1, death=True)
-        self.db.damage = 0
+            self.location.msg_contents(message)
+        if kwargs.get('affect_real_dmg', False):
+            self.lose_agents(num=num, death=True)
+            self.real_dmg = self.ae_dmg
+        else:
+            self.temp_losses += num
+            self.temp_dmg = self.ae_dmg

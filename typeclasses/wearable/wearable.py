@@ -104,10 +104,11 @@ class Wearable(Object):
         try:
             recipe = CraftingRecipe.objects.get(id=recipe_id)
         except CraftingRecipe.DoesNotExist:
-            return self.db.armor_class or 0, self.db.penalty or 0
+            return self.db.armor_class or 0, self.db.penalty or 0, self.db.armor_resilience or 0
         base = float(recipe.resultsdict.get("baseval", 0.0))
         scaling = float(recipe.resultsdict.get("scaling", (base/10.0) or 0.2))
         penalty = float(recipe.resultsdict.get("penalty", 0.0))
+        resilience = penalty / 3
         if quality >= 10:
             crafter = self.db.crafted_by
             if (recipe.level > 3) or not crafter or crafter.check_permstring("builders"):
@@ -115,7 +116,8 @@ class Wearable(Object):
         if not base:
             self.ndb.cached_armor_value = 0
             self.ndb.cached_penalty_value = penalty
-            return self.ndb.cached_armor_value, self.ndb.cached_penalty_value
+            self.ndb.cached_resilience = resilience
+            return self.ndb.cached_armor_value, self.ndb.cached_penalty_value, self.ndb.cached_resilience
         try:
             armor = base + (scaling * quality)
         except (TypeError, ValueError):
@@ -128,7 +130,8 @@ class Wearable(Object):
                 armor = 0
         self.ndb.cached_armor_value = armor
         self.ndb.cached_penalty_value = penalty
-        return armor, penalty
+        self.ndb.cached_resilience = resilience
+        return armor, penalty, resilience
     
     def _get_armor(self):
         # if we have no recipe or we are set to ignore it, use armor_class
@@ -156,6 +159,15 @@ class Wearable(Object):
             return self.ndb.cached_penalty_value
         return self.calc_armor()[1]
     penalty = property(_get_penalty)
+
+    @property
+    def armor_resilience(self):
+        """How hard the armor is to penetrate"""
+        if not self.db.recipe or self.db.ignore_crafted:
+            return 0
+        if self.ndb.cached_resilience is not None:
+            return self.ndb.cached_resilience
+        return self.calc_armor()[2]
 
     @property
     def slot(self):

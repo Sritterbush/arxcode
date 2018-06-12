@@ -249,6 +249,8 @@ class CmdBBReadOrPost(ArxPlayerCommand):
 
     To mark all posts as read, use '+bbnew/markread all'. The /old
     switch may be chained to view archived posts.
+
+    @bborgstance is used to set an organization's stance on a proclamation.
     """
 
     key = "@bb"
@@ -416,7 +418,7 @@ class CmdOrgStance(ArxPlayerCommand):
         @bborgstance <post #>/<org>=<brief declaration>
         
     Declare your org's bold, nuanced political stance in response to a posted
-    proclamation - in a svelte 140 characters or less.
+    proclamation - in a svelte 280 characters or less.
     """
     key = "@bborgstance"
     aliases = ["bborgstance", "+bborgstance"]

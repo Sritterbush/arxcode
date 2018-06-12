@@ -93,7 +93,7 @@ class BBoard(Object):
         if not org.access(poster_obj, "declarations"):
             poster_obj.msg("Your {w%s{n rank isn't yet high enough to make declarations on their behalf." % org)
             return
-        if len(msg) > 140:
+        if len(msg) > 280:
             poster_obj.msg("That message is too long for a brief declaration.")
             return
         if org.secret:

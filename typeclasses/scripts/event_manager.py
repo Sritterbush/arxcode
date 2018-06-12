@@ -266,9 +266,12 @@ class EventManager(Script):
 
     @staticmethod
     def do_awards(event):
-        if not event.public_event:
-            return
-        qualified_hosts = [ob for ob in event.hosts.all() if ob in event.participants.all()]
+        participants = list(event.participants.all())
+        qualified_hosts = [ob for ob in event.hosts.all() if ob in participants]
+        if not qualified_hosts:
+            main_host = event.main_host
+            if main_host:
+                qualified_hosts = [main_host.Dominion]
         for host in qualified_hosts:
             if not host.player:
                 continue

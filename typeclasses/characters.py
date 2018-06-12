@@ -8,6 +8,7 @@ creation commands.
 
 """
 from evennia.objects.objects import DefaultCharacter
+from server.utils.arx_utils import lowercase_kwargs
 from typeclasses.mixins import MsgMixins, ObjectMixins, NameMixins
 from world.msgs.messagehandler import MessageHandler
 from world.msgs.languagehandler import LanguageHandler
@@ -115,6 +116,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             self.attributes.remove("room_title")
         if self.combat.combat and self in self.combat.combat.ndb.observers:
             self.combat.combat.remove_observer(self)
+        if self.location:
+            self.location.triggerhandler.check_room_entry_triggers(self)
 
     def return_appearance(self, pobject, detailed=False, format_desc=False, show_contents=False):
         """
@@ -244,17 +247,18 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         # we'll also be asleep when we're dead, so that we're resurrected unconscious if we're brought back
         self.fall_asleep(uncon=True, quiet=True)
 
-    def fall_asleep(self, uncon=False, quiet=False, **kwargs):
+    def fall_asleep(self, uncon=False, quiet=False, verb=None, **kwargs):
         """
         Falls asleep. Uncon flag determines if this is regular sleep,
         or unconsciousness.
         """
+        reason = " is %s and" % verb if verb else ""
         if uncon:
             self.db.sleep_status = "unconscious"
         else:
             self.db.sleep_status = "asleep"
         if self.location and not quiet:
-            self.location.msg_contents("%s falls %s." % (self.name, self.db.sleep_status))
+            self.location.msg_contents("%s%s falls %s." % (self.name, reason, self.db.sleep_status))
         try:
             from commands.cmdsets import sleep
             cmds = sleep.SleepCmdSet
@@ -285,33 +289,6 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         self.db.sleep_status = "awake"
         return
 
-    def get_health_appearance(self):
-        """
-        Return a string based on our current health.
-        """
-        name = self.name
-        if self.db.health_status == "dead":
-            return "%s is currently dead." % name
-        wound = float(self.dmg)/float(self.max_hp)
-        if wound <= 0:
-            msg = "%s is in perfect health." % name
-        elif 0 < wound <= 0.1:
-            msg = "%s is very slightly hurt." % name
-        elif 0.1 < wound <= 0.25:
-            msg = "%s is moderately wounded." % name
-        elif 0.25 < wound <= 0.5:
-            msg = "%s is seriously wounded." % name
-        elif 0.5 < wound <= 0.75:
-            msg = "%s is very seriously wounded." % name
-        elif 0.75 < wound <= self.death_threshold:
-            msg = "%s is critically wounded." % name
-        else:
-            msg = "%s is very critically wounded, possibly dying." % name
-        awake = self.db.sleep_status
-        if awake and awake != "awake":
-            msg += " They are %s." % awake
-        return msg
-    
     def recovery_test(self, diff_mod=0, free=False):
         """
         A mechanism for healing characters. Whenever they get a recovery
@@ -332,30 +309,82 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         if not free:
             self.db.last_recovery_test = time.time()
         return roll
-        
-    def change_health(self, amount):
+    
+    def change_health(self, amount, quiet=False, affect_real_dmg=True, wake=True):
         """
-        Change character's health and give them feedback about it.
+        Change character's health and maybe tell them about it.
+        Positive amount will 'heal'. Negative will 'harm'. 
+        A character with hp to attempt waking up.
         """
-        wound = float(abs(amount))/float(self.max_hp)
-        if wound <= 0:
-            wound_str = "no "
-        elif wound <= 0.25:
-            wound_str = "a little "
-        elif wound <= 0.5:
-            wound_str = "somewhat "
-        elif wound <= 0.75:
-            wound_str = "a lot "
+        difference = self.get_health_percentage(abs(amount))
+        if not quiet:
+            msg = "You feel "
+            if difference <= 0:
+                msg += "no "
+            elif difference <= 0.1:
+                msg += "a little "
+            elif difference <= 0.25:
+                pass
+            elif difference <= 0.5:
+                msg += "a lot "
+            elif difference <= 0.75:
+                msg += "significantly "
+            else:
+                msg += "profoundly "
+            msg += "better" if amount > 0 else "worse"
+            punctuation = "." if difference < 0.5 else "!"
+            self.msg(msg + punctuation)
+        if affect_real_dmg:
+            self.real_dmg -= amount
         else:
-            wound_str = "incredibly "
-        if amount > 0:
-            self.msg("You feel %sbetter." % wound_str)
-        else:
-            self.msg("You feel %sworse." % wound_str)
-        # ignore temporary damage so we don't convert it to real
-        self.real_dmg -= amount
-        if self.dmg <= self.max_hp and self.db.sleep_status != "awake":
+            self.temp_dmg -= amount
+        if difference:
+            self.triggerhandler.check_health_change_triggers(amount)
+        if wake and self.dmg <= self.max_hp and self.db.sleep_status != "awake":
             self.wake_up()
+    
+    def get_health_percentage(self, damage=None):
+        """Returns the float percentage of the health. If damage is not specified, we use self.dmg"""
+        if damage is None:
+            damage = self.dmg
+        return float(damage) / float(self.max_hp)
+            
+    def get_health_appearance(self):
+        """
+        Return a string based on our current health.
+        """
+        wounds = self.get_health_percentage()
+        msg = "%s " % self.name
+        if self.db.health_status == "dead":
+            return msg + "is currently dead."
+        elif wounds <= 0:
+            msg += "is in perfect health"
+        elif 0 < wounds <= self.death_threshold:
+            msg += "seems to have %s injuries" % self.get_wound_descriptor(self.dmg)
+        else:
+            msg += "is in critical condition - possibly dying"
+        sleep_status = self.db.sleep_status
+        if sleep_status and sleep_status != "awake":
+            msg += ", and is %s" % sleep_status
+        return msg + "."
+            
+    def get_wound_descriptor(self, dmg):
+        wound = self.get_health_percentage(dmg)
+        if wound <= 0:
+            wound_desc = "no"
+        elif wound <= 0.1:
+            wound_desc = "minor"
+        elif 0.1 < wound <= 0.25:
+            wound_desc = "moderate"
+        elif 0.25 < wound <= 0.5:
+            wound_desc = "serious"
+        elif 0.5 < wound <= 0.75:
+            wound_desc = "severe"
+        elif 0.75 < wound < 2.0:
+            wound_desc = "grievous"
+        else:
+            wound_desc = "grave"
+        return wound_desc
 
     def sensing_check(self, difficulty=15, invis=False, allow_wake=False):
         """
@@ -382,7 +411,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         """Returns list of items in inventory currently being worn."""
         return [ob for ob in self.contents if ob.db.currently_worn]
     
-    def _get_armor(self):
+    @property
+    def armor(self):
         """
         Returns armor value of all items the character is wearing plus any
         armor in their attributes.
@@ -395,6 +425,10 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
                 ob_armor = 0
             armor += ob_armor
         return int(round(armor))
+    
+    @armor.setter
+    def armor(self, value):
+        self.db.armor_class = value
 
     def _get_armor_penalties(self):
         penalty = 0
@@ -406,7 +440,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         return penalty
     armor_penalties = property(_get_armor_penalties)
 
-    def _get_maxhp(self):
+    @property
+    def max_hp(self):
         """Returns our max hp"""
         hp = self.db.stamina or 0
         hp *= 20
@@ -415,7 +450,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         hp += bonus
         hp += self.boss_rating * 100
         return hp
-
+        
     @property
     def death_threshold(self):
         """
@@ -427,17 +462,17 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         """
         return 1.25
     
-    def _get_current_damage(self):
+    @property
+    def dmg(self):
         """Returns how much damage we've taken."""
-        dmg = self.db.damage or 0
-        dmg += self.temp_dmg
-        return dmg
+        return self.real_dmg + self.temp_dmg
 
-    def _set_current_damage(self, dmg):
-        if dmg < 1:
-            dmg = 0
-        self.db.damage = dmg
-        self.start_recovery_script()
+    @dmg.setter
+    def dmg(self, value):
+        self.real_dmg = value
+
+    # alias for dmg
+    damage = dmg
 
     @property
     def temp_dmg(self):
@@ -446,8 +481,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         return self.ndb.temp_dmg
 
     @temp_dmg.setter
-    def temp_dmg(self, val):
-        self.ndb.temp_dmg = val
+    def temp_dmg(self, value):
+        self.ndb.temp_dmg = value
 
     @property
     def real_dmg(self):
@@ -455,7 +490,10 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
 
     @real_dmg.setter
     def real_dmg(self, dmg):
-        self._set_current_damage(dmg)
+        if dmg < 1:
+            dmg = 0
+        self.db.damage = dmg
+        self.start_recovery_script()
 
     def start_recovery_script(self):
         # start the script if we have damage
@@ -468,19 +506,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
                 scripts[0].stop()
         elif start_script:
             self.scripts.add("typeclasses.scripts.recovery.Recovery")
-        
-    # @property
-    # def name(self):
-    #     return self.get_fancy_name(short=True)
-    
-    # note - setter properties do not work with the typeclass system
-    armor = property(_get_armor)
-    
+
     worn = property(_get_worn)
-    
-    max_hp = property(_get_maxhp)
-    
-    dmg = property(_get_current_damage, _set_current_damage)
 
     @property
     def xp(self):
@@ -539,7 +566,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         return self.db.fakeweapon
         
     def _get_weapondata(self):
-        wpndict = self.get_fakeweapon() or {}
+        wpndict = dict(self.get_fakeweapon() or {})
         wpn = self.db.weapon
         if wpn:
             wpndict['attack_skill'] = wpn.db.attack_skill or 'crushing melee'
@@ -565,6 +592,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
                 wpndict['flat_damage'] = wpn.flat_damage or 0
             except AttributeError:
                 wpndict['flat_damage'] = wpn.db.flat_damage_bonus or 0
+            wpndict['modifier_tags'] = wpn.modifier_tags
         boss_rating = self.boss_rating
         if boss_rating:
             wpndict['weapon_damage'] = wpndict.get('weapon_damage', 1) + boss_rating
@@ -829,7 +857,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     @lazy_property
     def combat(self):
         from typeclasses.scripts.combat.combatant import CombatHandler
-        return CombatHandler(self, None)
+        return CombatHandler(self)
 
     def view_stats(self, viewer, combat=False):
         from commands.commands.roster import display_stats, display_skills, display_abilities
@@ -1135,3 +1163,35 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         except AttributeError:
             pass
         return name
+
+    @lowercase_kwargs("target_tags", "stat_list", "skill_list", "ability_list", default_append="")
+    def get_total_modifier(self, check_type, target_tags=None, stat_list=None, skill_list=None, ability_list=None):
+        """Gets all modifiers from their location and worn/wielded objects."""
+        from django.db.models import Sum
+        from world.conditions.models import RollModifier
+        user_tags = self.modifier_tags or []
+        user_tags.append("")
+        # get modifiers from worn stuff we have and our location, if any
+        if hasattr(self, 'worn'):
+            all_objects = self.worn
+        else:
+            all_objects = []
+        if self.location:
+            all_objects.append(self.location)
+        all_objects.append(self)
+        if self.db.weapon:
+            all_objects.append(self.db.weapon)
+        all_objects = [ob.id for ob in all_objects]
+        check_types = RollModifier.get_check_type_list(check_type)
+        return RollModifier.objects.filter(object_id__in=all_objects or [], check__in=check_types or [],
+                                           user_tag__in=user_tags or [], target_tag__in=target_tags or [],
+                                           stat__in=stat_list or [], skill__in=skill_list or [],
+                                           ability__in=ability_list or []).aggregate(Sum('value'))['value__sum'] or 0
+
+    @property
+    def armor_resilience(self):
+        """Determines how hard it is to penetrate our armor"""
+        value = self.db.armor_resilience or 15
+        for ob in self.worn:
+            value += ob.armor_resilience
+        return int(value)

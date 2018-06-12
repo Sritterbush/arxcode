@@ -2361,7 +2361,7 @@ class CmdOrganization(ArxPlayerCommand):
             return
         org.motd = self.lhs
         org.save()
-        self.msg("Message of the day for %s set to: %s" % (org, org.motd))
+        org.msg("|yMessage of the day for %s set to:|n %s" % (org, org.motd), prefix=False)
 
 
 class CmdFamily(ArxPlayerCommand):

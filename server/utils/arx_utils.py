@@ -519,6 +519,30 @@ def passthrough_properties(field_name, *property_names):
     return wrapped
 
 
+def lowercase_kwargs(*kwarg_names, **defaults):
+    """
+    Decorator for converting given kwargs that are list of strings to lowercase, and optionally appending a
+    default value.
+    """
+    default_append = defaults.get('default_append', None)
+    from functools import wraps
+
+    def wrapper(func):
+        """The actual decorator that we'll return"""
+        @wraps(func)
+        def wrapped(*args, **kwargs):
+            """The wrapped function"""
+            for kwarg in kwarg_names:
+                if kwarg in kwargs:
+                    kwargs[kwarg] = kwargs[kwarg] or []
+                    kwargs[kwarg] = [ob.lower() for ob in kwargs[kwarg]]
+                    if default_append is not None:
+                        kwargs[kwarg].append(default_append)
+            return func(*args, **kwargs)
+        return wrapped
+    return wrapper
+
+
 def fix_broken_attributes(broken_object):
     """
     Patch to fix objects broken by broken formset for Attributes in django admin, where validation errors convert
@@ -532,3 +556,45 @@ def fix_broken_attributes(broken_object):
         except (ValueError, SyntaxError) as err:
             print("Error for attr %s: %s" % (attr.key, err))
             continue
+
+def list_to_string(inlist, endsep="and", addquote=False):
+    """
+    This pretty-formats a list as string output, adding an optional
+    alternative separator to the second to last entry.  If `addquote`
+    is `True`, the outgoing strings will be surrounded by quotes.
+    Args:
+        inlist (list): The list to print.
+        endsep (str, optional): If set, the last item separator will
+            be replaced with this value. Oxford comma used for "and" and "or".
+        addquote (bool, optional): This will surround all outgoing
+            values with double quotes.
+    Returns:
+        liststr (str): The list represented as a string.
+    Examples:
+        ```python
+         # no endsep:
+            [1,2,3] -> '1, 2, 3'
+         # with endsep=='and':
+            [1,2,3] -> '1, 2, and 3'
+         # with endsep=='that delicious':
+            [7,8,9] -> '7, 8 that delicious 9'
+         # with addquote and endsep
+            [1,2,3] -> '"1", "2" and "3"'
+        ```
+    """
+    if not endsep:
+        endsep = ","
+    elif endsep in ("and", "or") and len(inlist) > 2:
+        endsep = ", " + endsep
+    else:
+        endsep = " " + endsep
+    if not inlist:
+        return ""
+    if addquote:
+        if len(inlist) == 1:
+            return "\"%s\"" % inlist[0]
+        return ", ".join("\"%s\"" % v for v in inlist[:-1]) + "%s %s" % (endsep, "\"%s\"" % inlist[-1])
+    else:
+        if len(inlist) == 1:
+            return str(inlist[0])
+        return ", ".join(str(v) for v in inlist[:-1]) + "%s %s" % (endsep, inlist[-1])

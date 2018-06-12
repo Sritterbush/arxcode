@@ -143,6 +143,7 @@ class EvMore(object):
                 return
             session = sessions[0]
         self._session = session
+        text = caller.strip_ascii_from_tags(text)
 
         # set up individual pages for different sessions
         height = max(4, session.protocol_flags.get("SCREENHEIGHT", {0:_SCREEN_HEIGHT})[0] - 4)

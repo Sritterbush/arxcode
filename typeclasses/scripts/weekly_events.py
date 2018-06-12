@@ -12,7 +12,7 @@ from django.db.models import Q, F
 from evennia.objects.models import ObjectDB
 from evennia.utils.evtable import EvTable
 
-from world.dominion.models import AssetOwner, Army, AssignedTask, Member, AccountTransaction, Orders
+from world.dominion.models import AssetOwner, Army, Member, AccountTransaction, Orders, PraiseOrCondemn
 from typeclasses.bulletin_board.bboard import BBoard
 from typeclasses.accounts import Account
 from .scripts import Script
@@ -115,6 +115,7 @@ class WeeklyEvents(Script):
         self.reset_action_points()
 
     def do_dominion_events(self):
+        """Does all the dominion weekly events"""
         for owner in AssetOwner.objects.all():
             owner.prestige_decay()
 
@@ -126,7 +127,7 @@ class WeeklyEvents(Script):
                 owner.do_weekly_adjustment(self.db.week)
             except Exception as err:
                 traceback.print_exc()
-                print "Error in %s's weekly adjustment: %s" % (owner, err)
+                print("Error in %s's weekly adjustment: %s" % (owner, err))
         # resets the weekly record of work command
         cache_safe_update(Member.objects.filter(deguilded=False), work_this_week=0)
         # decrement timer of limited transactions, remove transactions that are over
@@ -137,10 +138,9 @@ class WeeklyEvents(Script):
                 army.execute_orders(self.db.week)
             except Exception as err:
                 traceback.print_exc()
-                print "Error in %s's army orders: %s" % (army, err)
+                print("Error in %s's army orders: %s" % (army, err))
         old_orders = Orders.objects.filter(complete=True, week__lt=self.db.week - 4)
         old_orders.delete()
-        self.do_tasks()
         inform_staff("Dominion weekly events processed for week %s." % self.db.week)
 
     @staticmethod
@@ -161,16 +161,9 @@ class WeeklyEvents(Script):
             if increment:
                 ob.pay_action_points(-increment)
 
-    def do_tasks(self):
-        for task in AssignedTask.objects.filter(finished=False):
-            try:
-                task.payout_check(self.db.week)
-            except Exception as err:
-                traceback.print_exc()
-                print "Error in task completion: %s" % err
-
     @staticmethod
     def do_investigations():
+        """Does all the investigation events"""
         for investigation in Investigation.objects.filter(active=True, ongoing=True,
                                                           character__roster__name="Active"):
             try:
@@ -179,29 +172,32 @@ class WeeklyEvents(Script):
                 traceback.print_exc()
                 print("Error in investigation %s: %s" % (investigation, err))
 
-    @staticmethod
-    def do_cleanup():
+    def do_cleanup(self):
+        """Cleans up stale objects from database"""
         date = datetime.now()
         offset = timedelta(days=-30)
         date = date + offset
         try:
-            WeeklyEvents.cleanup_old_informs(date)
-            WeeklyEvents.cleanup_old_tickets(date)
-            WeeklyEvents.cleanup_django_admin_logs(date)
-            WeeklyEvents.cleanup_soft_deleted_objects()
-            WeeklyEvents.cleanup_stale_attributes()
-            WeeklyEvents.cleanup_empty_tags()
+            self.cleanup_old_informs(date)
+            self.cleanup_old_tickets(date)
+            self.cleanup_django_admin_logs(date)
+            self.cleanup_soft_deleted_objects()
+            self.cleanup_stale_attributes()
+            self.cleanup_empty_tags()
+            self.cleanup_old_praises()
         except Exception as err:
             traceback.print_exc()
-            print "Error in cleanup: %s" % err
+            print("Error in cleanup: %s" % err)
 
     @staticmethod
     def cleanup_empty_tags():
+        """Deletes stale tags"""
         from server.utils.arx_utils import delete_empty_tags
         delete_empty_tags()
 
     @staticmethod
     def cleanup_stale_attributes():
+        """Deletes stale attributes"""
         from evennia.typeclasses.attributes import Attribute
         attr_names = CHARACTER_ATTRS + PLAYER_ATTRS
         qs = Attribute.objects.filter(db_key__in=attr_names)
@@ -209,6 +205,7 @@ class WeeklyEvents(Script):
 
     @staticmethod
     def cleanup_soft_deleted_objects():
+        """Permanently deletes previously 'soft'-deleted objects"""
         try:
             import time
             qs = ObjectDB.objects.filter(db_tags__db_key__iexact="deleted")
@@ -232,20 +229,22 @@ class WeeklyEvents(Script):
                     ob.delete()
         except Exception as err:
             traceback.print_exc()
-            print "Error in cleaning up deleted objects: %s" % err
+            print("Error in cleaning up deleted objects: %s" % err)
 
     @staticmethod
     def cleanup_django_admin_logs(date):
+        """Deletes old django admin logs"""
         try:
             from django.contrib.admin.models import LogEntry
             qs = LogEntry.objects.filter(action_time__lte=date)
             qs.delete()
         except Exception as err:
             traceback.print_exc()
-            print "Error in cleaning Django Admin Change History: %s" % err
+            print("Error in cleaning Django Admin Change History: %s" % err)
 
     @staticmethod
     def cleanup_old_tickets(date):
+        """Deletes old request tickets"""
         try:
             from web.helpdesk.models import Ticket, Queue
             try:
@@ -258,17 +257,27 @@ class WeeklyEvents(Script):
                 pass
         except Exception as err:
             traceback.print_exc()
-            print "Error in cleaning tickets: %s" % err
+            print("Error in cleaning tickets: %s" % err)
 
     @staticmethod
     def cleanup_old_informs(date):
+        """Deletes old informs"""
         try:
             from world.msgs.models import Inform
             qs = Inform.objects.filter(date_sent__lte=date).exclude(important=True)
             qs.delete()
         except Exception as err:
             traceback.print_exc()
-            print "Error in cleaning informs: %s" % err
+            print("Error in cleaning informs: %s" % err)
+
+    def cleanup_old_praises(self):
+        """Clean up old praises"""
+        try:
+            qs = PraiseOrCondemn.objects.filter(week__lte=self.db.week - 4)
+            qs.delete()
+        except Exception as err:
+            traceback.print_exc()
+            print("Error in cleaning praises: %s" % err)
 
     # noinspection PyProtectedMember
     def do_events_per_player(self, reset=True):
@@ -332,6 +341,7 @@ class WeeklyEvents(Script):
 
     @staticmethod
     def check_freeze():
+        """Checks if a character should be frozen now"""
         try:
             date = datetime.now()
             Account.objects.filter(last_login__isnull=True).update(last_login=date)
@@ -341,9 +351,10 @@ class WeeklyEvents(Script):
         except Exception as err:
             import traceback
             traceback.print_exc()
-            print "Error on freezing accounts: %s" % err
+            print("Error on freezing accounts: %s" % err)
 
     def post_inactives(self):
+        """Makes a board post of inactive characters"""
         date = datetime.now()
         cutoffdate = date - timedelta(days=30)
         qs = Account.objects.filter(roster__roster__name="Active", last_login__isnull=False).filter(
@@ -356,6 +367,7 @@ class WeeklyEvents(Script):
         inform_staff("List of Inactive Characters posted.")
 
     def count_poses(self):
+        """Makes a board post of characters with insufficient pose-counts"""
         qs = ObjectDB.objects.filter(roster__roster__isnull=False)
         min_poses = 20
         low_activity = []
@@ -406,7 +418,7 @@ class WeeklyEvents(Script):
         except AttributeError:
             return
         except Exception as err:
-            print "ERROR in process journals: %s" % err
+            print("ERROR in process journals: %s" % err)
             traceback.print_exc()
             return
         if xp:
@@ -456,6 +468,7 @@ class WeeklyEvents(Script):
             self.db.scenes[charob.id] = self.db.scenes.get(charob.id, 0) + len(requested_scenes)
 
     def award_scene_xp(self):
+        """Awards xp for a character basedon their number of scenes"""
         for char_id in self.db.scenes:
             try:
                 char = ObjectDB.objects.get(id=char_id)
@@ -471,6 +484,7 @@ class WeeklyEvents(Script):
 
     @staticmethod
     def scale_xp(votes):
+        """Helper method for diminishing returns of xp"""
         xp = 0
         # 1 vote is 3 xp
         if votes > 0:
@@ -484,6 +498,7 @@ class WeeklyEvents(Script):
             xp += 1
 
         def calc_xp(num_votes, start, stop, div):
+            """Helper function for calculating bonus xp"""
             bonus_votes = num_votes
             if stop and (bonus_votes > stop):
                 bonus_votes = stop
@@ -523,9 +538,10 @@ class WeeklyEvents(Script):
                         msg = "You received %s votes this week, earning %s xp." % (votes, xp)
                         self.award_xp(char, xp, player, msg, xptype="votes")
             except (AttributeError, ValueError, TypeError):
-                print "Error for in award_vote_xp for key %s" % player
+                print("Error for in award_vote_xp for key %s" % player)
 
     def award_xp(self, char, xp, player=None, msg=None, xptype="all"):
+        """Awards xp for a given character"""
         try:
             try:
                 account = char.roster.current_account
@@ -539,12 +555,13 @@ class WeeklyEvents(Script):
             self.db.xp[char] = xp + self.db.xp.get(char, 0)
         except Exception as err:
             traceback.print_exc()
-            print "Award XP encountered ERROR: %s" % err
+            print("Award XP encountered ERROR: %s" % err)
         if player and msg:
             player.inform(msg, "XP", week=self.db.week, append=True)
             self.award_resources(player, xp, xptype)
 
     def award_resources(self, player, xp, xptype="all"):
+        """Awards resources to someone based on their xp awards"""
         if xptype not in self.XP_TYPES_FOR_RESOURCES:
             return
         resource_msg = ""
@@ -580,26 +597,24 @@ class WeeklyEvents(Script):
                 name = char.db.longname or char.key
                 string += "{w%s){n %-35s {wXP{n: %s\n" % (num, name, votes)
             except AttributeError:
-                print "Could not find character of id %s during posting." % str(tup[0])
+                print("Could not find character of id %s during posting." % str(tup[0]))
         board = BBoard.objects.get(db_key__iexact=VOTES_BOARD_NAME)
         board.bb_post(poster_obj=self, msg=string, subject="Weekly Votes", poster_name="Vote Results")
         inform_staff("Vote process awards complete. Posted on %s." % board)
 
     def post_top_prestige(self):
+        """Makes a board post of the top prestige earners this past week"""
         import random
         from world.dominion.models import PraiseOrCondemn
+        from collections import defaultdict
         changes = PraiseOrCondemn.objects.filter(week=self.db.week)
-        praises = {}
-        condemns = {}
+        praises = defaultdict(list)
+        condemns = defaultdict(list)
         total_values = {}
         for praise in changes.filter(value__gte=0):
-            list_of_praises = praises.get(praise.target, [])
-            list_of_praises.append(praise)
-            praises[praise.target] = list_of_praises
-        for condemn in changes.filter(value__lte=0):
-            list_of_condemns = condemns.get(condemn.target, [])
-            list_of_condemns.append(condemn)
-            condemns[condemn.target] = list_of_condemns
+            praises[praise.target].append(praise)
+        for condemn in changes.filter(value__lt=0):
+            condemns[condemn.target].append(condemn)
         for change in changes:
             current = total_values.get(change.target, 0)
             current += change.value
@@ -608,7 +623,8 @@ class WeeklyEvents(Script):
         board = BBoard.objects.get(db_key__iexact=PRESTIGE_BOARD_NAME)
 
         def get_total_from_list(entry_list):
-            return sum(ob.value for ob in entry_list)
+            """Helper function to get total prestige amount from a list"""
+            return sum(praise_ob.value for praise_ob in entry_list)
 
         sorted_praises = sorted(praises.items(), key=lambda x: get_total_from_list(x[1]), reverse=True)
         sorted_praises = sorted_praises[:20]
@@ -630,12 +646,16 @@ class WeeklyEvents(Script):
             sorted_changes = sorted(total_values.items(), key=lambda x: abs(x[1]), reverse=True)
             sorted_changes = sorted_changes[:20]
             table = EvTable("{wName{n", "{wPrestige Change Amount{n", "{wPrestige Rank{n", border="cells", width=78)
-            rank_order = list(AssetOwner.objects.filter(player__player__isnull=False))
+            rank_order = list(AssetOwner.objects.filter(player__player__roster__roster__name="Active").distinct())
             rank_order = sorted(rank_order, key=lambda x: x.prestige, reverse=True)
             for tup in sorted_changes:
                 # get our prestige ranking compared to others
                 dompc = tup[0]
-                rank = rank_order.index(dompc.assets) + 1
+                try:
+                    rank = rank_order.index(dompc.assets) + 1
+                except ValueError:
+                    # they rostered mid-week or whatever, skip them
+                    continue
                 # get the amount that our prestige has changed. add + for positive
                 amt = tup[1]
                 if amt > 0:

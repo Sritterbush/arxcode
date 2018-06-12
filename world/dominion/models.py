@@ -315,6 +315,13 @@ class PlayerOrNpc(SharedMemoryModel):
         life_lvl = self.lifestyle_rating      
         cost = LIFESTYLES.get(life_lvl, (0, 0))[0]
         prestige = LIFESTYLES.get(life_lvl, (0, 0))[1]
+        try:
+            clout = self.player.char_ob.social_clout
+            bonus = int(prestige * clout * 3 * 0.01)
+            if bonus > 0:
+                prestige += bonus
+        except (AttributeError, TypeError, ValueError):
+            pass
         
         def pay_and_adjust(payer):
             """Helper function to make the payment, adjust prestige, and send a report"""
@@ -565,12 +572,13 @@ class AssetOwner(SharedMemoryModel):
             base += member.player.assets.base_grandeur / 10
         return base
 
-    def adjust_prestige(self, value, can_drop_legend=False):
+    def adjust_prestige(self, value, force=False):
         """
-        Adjusts our prestige. Returns list of all affected entities.
+        Adjusts our prestige. We gain fame equal to the value, and then our legend is modified
+        if the value of the hit is greater than our current legend or the force flag is set.
         """
         self.fame += value
-        if value > 0 or can_drop_legend:
+        if value > self.legend or force:
             self.legend += value / 100
         self.save()
     
@@ -781,6 +789,8 @@ class CharitableDonation(SharedMemoryModel):
         character = self.giver.player.player.char_ob
         roll = do_dice_check(caller=caller, stat="charm", skill="propaganda", difficulty=10)
         roll += caller.social_clout
+        if roll <= 1:
+            roll = 1
         roll /= 100.0
         roll *= value/5
         prest = int(roll)
@@ -3208,11 +3218,15 @@ class Organization(InformMixin, SharedMemoryModel):
         """
         return self.locks.check(accessing_obj, access_type=access_type, default=default)
     
-    def msg(self, message, *args, **kwargs):
+    def msg(self, message, prefix=True, *args, **kwargs):
         """Sends msg to all active members"""
         pcs = self.active_members
         for pc in pcs:
-            pc.msg("%s organization-wide message: %s" % (self.name, message), *args, **kwargs)
+            if prefix:
+                msg = "|w%s organization-wide message:|n %s" % (self.name, message)
+            else:
+                msg = message
+            pc.msg(msg, *args, **kwargs)
         return
     
     @property
@@ -5180,6 +5194,25 @@ class RPEvent(SharedMemoryModel):
         (EXTRAVAGANT, 'Extravagant'),
         (LEGENDARY, 'Legendary'),
         )
+    
+    NO_RISK = 0
+    MINIMAL_RISK = 1
+    LOW_RISK = 2
+    REDUCED_RISK = 3
+    NORMAL_RISK = 4
+    SLIGHTLY_ELEVATED_RISK = 5
+    MODERATELY_ELEVATED_RISK = 6
+    HIGHLY_ELEVATED_RISK = 7
+    VERY_HIGH_RISK = 8
+    EXTREME_RISK = 9
+    SUICIDAL_RISK = 10
+    
+    RISK_CHOICES = (
+        (NO_RISK, "No Risk"), (MINIMAL_RISK, "Minimal Risk"), (LOW_RISK, "Low Risk"), (REDUCED_RISK, "Reduced Risk"),
+        (NORMAL_RISK, "Normal Risk"), (SLIGHTLY_ELEVATED_RISK, "Slightly Elevated Risk"),
+        (MODERATELY_ELEVATED_RISK, "Moderately Elevated Risk"), (HIGHLY_ELEVATED_RISK, "Highly Elevated Risk"),
+        (VERY_HIGH_RISK, "Very High Risk"), (EXTREME_RISK, "Extreme Risk"), (SUICIDAL_RISK, "Suicidal Risk"),
+        )
     hosts = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_hosted', db_index=True)
     name = models.CharField(max_length=255, db_index=True)
     desc = models.TextField(blank=True, null=True)
@@ -5196,6 +5229,7 @@ class RPEvent(SharedMemoryModel):
     room_desc = models.TextField(blank=True, null=True)
     actions = models.ManyToManyField("CrisisAction", blank=True, related_name="events")
     plotroom = models.ForeignKey('PlotRoom', blank=True, null=True, related_name='events_held_here')
+    risk = models.PositiveSmallIntegerField(choices=RISK_CHOICES, default=NORMAL_RISK)
 
     @property
     def prestige(self):
@@ -5212,6 +5246,8 @@ class RPEvent(SharedMemoryModel):
             prestige = 100000
         elif cel_level == 5:
             prestige = 400000
+        if not self.public_event:
+            prestige /= 2
         return prestige
 
     def can_view(self, player):

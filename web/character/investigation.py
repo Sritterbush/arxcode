@@ -1408,8 +1408,7 @@ class CmdTheories(ArxPlayerCommand):
         if "mine" in self.switches:
             qs = self.caller.editable_theories.all().order_by('id')
         else:
-            qs = self.caller.known_theories.all()
-            qs.order_by('id')
+            qs = self.caller.known_theories.all().order_by('id')
         for theory in qs:
             table.add_row(theory.id, theory.topic)
         self.msg(table)

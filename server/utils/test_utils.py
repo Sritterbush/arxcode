@@ -32,22 +32,68 @@ class ArxTestConfigMixin(object):
     character_typeclass = Character
     exit_typeclass = Exit
     room_typeclass = ArxRoom
+    num_additional_characters = 0  # additional characters for this test
+    BASE_NUM_CHARACTERS = 2  # constant set by Evennia
+    
+    @property
+    def total_num_characters(self):
+        """The total number of characters we'll have for this test"""
+        return self.BASE_NUM_CHARACTERS + self.num_additional_characters
+        
+    def setup_aliases(self):
+        """Setup aliases because the inconsistency drove me crazy"""
+        self.char = self.char1
+        self.account1 = self.account
+        self.room = self.room1
+        self.obj = self.obj1
 
     # noinspection PyAttributeOutsideInit
     def setUp(self):
         """Run for each testcase"""
         super(ArxTestConfigMixin, self).setUp()
-        from world.dominion.setup_utils import setup_dom_for_player, setup_assets
         from web.character.models import Roster
-        self.dompc = setup_dom_for_player(self.account)
-        self.dompc2 = setup_dom_for_player(self.account2)
-        self.assetowner = setup_assets(self.dompc, 0)
-        self.assetowner2 = setup_assets(self.dompc2, 0)
         self.active_roster = Roster.objects.create(name="Active")
-        self.roster_entry = self.active_roster.entries.create(player=self.account, character=self.char1)
-        self.roster_entry2 = self.active_roster.entries.create(player=self.account2, character=self.char2)
-
-
+        self.setup_aliases()
+        self.setup_arx_characters()
+        
+    def setup_arx_characters(self):
+        """
+        Creates any additional characters/accounts and initializes them all. Sets up
+        their roster entries, dominion objects, asset owners, etc.
+        """
+        if self.num_additional_characters:
+            first_additional = self.BASE_NUM_CHARACTERS + 1
+            for num in range(first_additional, self.total_num_characters + 1):
+                self.add_character(num)
+        for num in range(1, self.total_num_characters + 1):
+            character = getattr(self, "char%s" % num)
+            account = getattr(self, "account%s" % num)
+            self.setup_character_and_account(character, account, num)
+        
+    def add_character(self, number):
+        """Creates another character/account of the given number"""
+        from evennia.utils import create
+        setattr(self, "account%s" % number, 
+                create.create_account("TestAccount%s" % number, email="test@test.com", password="testpassword", 
+                                      typeclass=self.account_typeclass))
+        setattr(self, "char%s" % number,
+                create.create_object(self.character_typeclass, key="Char%s" % number, 
+                                     location=self.room1, home=self.room1))
+        
+    def setup_character_and_account(self, character, account, num=""):
+        """Sets up a character/account combo with RosterEntry, dompc, etc."""
+        from world.dominion.setup_utils import setup_dom_for_player, setup_assets
+        # the attributes that are for 1 don't have a number
+        if num == 1:
+            num = ""
+        num = str(num)
+        setattr(self, 'dompc%s' % num, setup_dom_for_player(account))
+        setattr(self, "assetowner%s" % num, setup_assets(getattr(self, "dompc%s" % num), 0))
+        setattr(self, "roster_entry%s" % num, 
+                self.active_roster.entries.create(player=getattr(self, "account%s" % num),
+                                                  character=getattr(self, "char%s" % num)))
+            
+    
 class ArxTest(ArxTestConfigMixin, EvenniaTest):
     pass
 
@@ -99,7 +145,8 @@ class ArxCommandTest(ArxTestConfigMixin, CommandTest):
         old_msg = receiver.msg
         try:
             receiver.msg = Mock()
-            cmdobj.at_pre_cmd()
+            if cmdobj.at_pre_cmd():
+                return
             cmdobj.parse()
             cmdobj.func()
             cmdobj.at_post_cmd()
@@ -113,9 +160,8 @@ class ArxCommandTest(ArxTestConfigMixin, CommandTest):
             # Get the first element of a tuple if msg received a tuple instead of a string
             stored_msg = [smsg[0] if hasattr(smsg, '__iter__') else smsg for smsg in stored_msg]
             if msg is not None:
-                returned_msg = "||".join(_RE.sub("", str(mess)) for mess in stored_msg)
-                returned_msg = ansi.parse_ansi(returned_msg, strip_ansi=noansi).strip()
-                if msg == "" and returned_msg or not returned_msg.startswith(msg.strip()):
+                returned_msg = self.format_returned_msg(stored_msg, noansi)
+                if msg == "" and returned_msg or returned_msg != msg.strip():
                     sep1 = "\n" + "="*30 + "Wanted message" + "="*34 + "\n"
                     sep2 = "\n" + "="*30 + "Returned message" + "="*32 + "\n"
                     sep3 = "\n" + "="*78
@@ -126,5 +172,20 @@ class ArxCommandTest(ArxTestConfigMixin, CommandTest):
                 returned_msg = "\n".join(str(msg) for msg in stored_msg)
                 returned_msg = ansi.parse_ansi(returned_msg, strip_ansi=noansi).strip()
             receiver.msg = old_msg
+        return returned_msg
 
+    @staticmethod
+    def format_returned_msg(stored_msg, no_ansi):
+        """
+        Formats the stored_msg list into a single string joined by separators
+        Args:
+            stored_msg: list of strings that have been sent to our receiver
+            no_ansi: whether to strip ansi or not
+
+        Returns:
+            A string joined by | for each substring in stored_msg. Ansi will
+            be stripped if no_ansi is specified.
+        """
+        returned_msg = "||".join(_RE.sub("", str(mess)) for mess in stored_msg)
+        returned_msg = ansi.parse_ansi(returned_msg, strip_ansi=no_ansi).strip()
         return returned_msg

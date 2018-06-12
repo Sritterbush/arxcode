@@ -1049,7 +1049,7 @@ class CmdGuards(ArxCommand):
             caller.msg("You order %s to attack %s." % (guard.name, targ.name))
             return
         if 'kill' in self.switches:
-            guard.attack(targ, lethal=True)
+            guard.attack(targ, kill=True)
             caller.msg("You order %s to kill %s." % (guard.name, targ.name))
             return
         if 'follow' in self.switches:

@@ -710,6 +710,14 @@ class CmdPose(ArxCommand):
 class CmdArxSay(CmdSay):
     """Override of CmdSay"""
     __doc__ = CmdSay.__doc__
+    arg_regex = None
+
+    # noinspection PyAttributeOutsideInit
+    def parse(self):
+        """Make sure cmdstring 'say' has a space, other aliases don't"""
+        super(CmdArxSay, self).parse()
+        if self.cmdstring == "say":
+            self.args = " %s" % self.args.lstrip()
 
     def func(self):
         """Replacement for CmdSay's func"""

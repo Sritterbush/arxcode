@@ -46,7 +46,7 @@ class ActionCommandMixin(object):
                 return
             else:
                 totals = action.view_total_resources_msg()
-                self.msg("{c%s{n %s added. Action %s" % (value, r_type, totals))
+                self.msg("{c%s{n %s added. {wAction #%d %s" % (value, r_type, action.id, totals))
 
     def view_action(self, action, disp_old=False):
         """Views an action for caller"""
@@ -157,8 +157,8 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
         max_assists = CrisisActionAssistant.MAX_ASSISTS
         recent_assists = caller.recent_assists
         msg += """
-    You are permitted %s actions and %s assists every 30 days, and have currently
-    taken %s actions and %s assists. Assists can be made instead of actions, and
+    You are permitted {w%s{n actions and {w%s{n assists every 30 days, and have currently
+    taken {w%s{n actions and {w%s{n assists. Assists can be made instead of actions, and
     assists over 2 count toward the action cap.""" % (max_actions, max_assists, recent_actions.count(),
                                                       recent_assists.count())
         return msg
