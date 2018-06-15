@@ -2205,7 +2205,7 @@ class CmdSocialScore(ArxCommand):
         """Determines who goes in the table based on our switches"""
         from typeclasses.accounts import Account
         if "orgs" in self.switches:
-            assets = AssetOwner.objects.filter(organization_owner__isnull=False)
+            assets = AssetOwner.objects.filter(organization_owner__secret=False)
             assets = sorted(assets, key=lambda x: x.prestige, reverse=True)[:20]
         elif "legend" in self.switches:
             assets = AssetOwner.objects.filter(player__player__isnull=False).order_by('-legend')[:20]

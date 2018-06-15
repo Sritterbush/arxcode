@@ -542,7 +542,7 @@ class AssetOwner(SharedMemoryModel):
     @property
     def base_grandeur(self):
         """The amount we contribute to other people when they're totalling up grandeur"""
-        return self.fame/10 + self.legend/10
+        return int(self.fame/10.0 + self.legend/10.0)
 
     def get_grandeur_from_patron(self):
         """Gets our grandeur value from our patron, if we have one"""
@@ -561,16 +561,29 @@ class AssetOwner(SharedMemoryModel):
     def get_grandeur_from_orgs(self):
         """Gets grandeur value from orgs we're a member of."""
         base = 0
-        for member in self.player.memberships.filter(deguilded=False):
-            base += member.organization.assets.base_grandeur / 10
-        return base
+        memberships = list(self.player.memberships.filter(deguilded=False, secret=False,
+                                                          organization__secret=False).distinct())
+        too_many_org_penalty = max(len(memberships) * 0.5, 1.0)
+        for member in memberships:
+            rank_divisor = max(member.rank, 1)
+            grandeur = member.organization.assets.base_grandeur / rank_divisor
+            grandeur /= too_many_org_penalty
+            base += grandeur
+        return int(base)
 
     def get_grandeur_from_members(self):
         """Gets grandeur for an org from its members"""
         base = 0
-        for member in self.organization_owner.active_members:
-            base += member.player.assets.base_grandeur / 10
-        return base
+        members = list(self.organization_owner.active_members)
+        ranks = 0
+        for member in members:
+            rank_divisor = max(member.rank, 1)
+            grandeur = member.player.assets.base_grandeur / rank_divisor
+            base += grandeur
+            ranks += 11 - member.rank
+        too_many_members_mod = max(ranks/200.0, 0.01)
+        base /= too_many_members_mod
+        return int(base)
 
     def adjust_prestige(self, value, force=False):
         """
