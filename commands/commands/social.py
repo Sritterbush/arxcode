@@ -2392,10 +2392,14 @@ class CmdDonate(ArxCommand):
         npcs = list(InfluenceCategory.objects.filter(donations__isnull=False).distinct())
         groups = orgs + npcs
         table = PrettyTable(["Group", "Top Donor", "Donor's Total Donations"])
+        top_donations = []
         for group in groups:
             donation = group.donations.filter(amount__gt=0).order_by('-amount').distinct().first()
             if donation:
-                table.add_row([str(donation.receiver), str(donation.giver), str(donation.amount)])
+                top_donations.append(donation)
+        top_donations.sort(key=lambda x: x.amount, reverse=True)
+        for donation in top_donations:
+            table.add_row([str(donation.receiver), str(donation.giver), str(donation.amount)])
         self.msg(str(table))
 
 
@@ -2514,6 +2518,7 @@ class CmdRandomScene(ArxCommand):
 
     @property
     def num_remaining_scenes(self):
+        """Number of remaining scenes for the caller"""
         options = (len(self.valid_scene_choices), self.NUM_SCENES)
         return min(options)
 
