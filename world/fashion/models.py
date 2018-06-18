@@ -38,26 +38,33 @@ class FashionSnapshot(SharedMemoryModel):
         super(FashionSnapshot, self).save(*args, **kwargs)
         self.fashion_item.invalidate_snapshots_cache()
 
+    def delete(self, *args, **kwargs):
+        """Invalidates cache before delete"""
+        self.fashion_item.invalidate_snapshots_cache()
+        super(FashionSnapshot, self).delete(*args, **kwargs)
+
     def roll_for_fame(self):
-        """Rolls for amount of fame to generate"""
+        """Rolls for amount of fame the item generates, minimum 2 fame."""
         from world.stats_and_skills import do_dice_check
         char = self.fashion_model.player.character
         roll = do_dice_check(caller=char, stat="composure", skill="performance")
-        percentage = max((roll + char.social_clout)/100.0, 0.01)
-        level_mod = self.fashion_item.recipe.level/3.0
+        percentage = max((roll + char.social_clout)*5/100.0, 0.01)
+        level_mod = self.fashion_item.recipe.level/6.0
         percentage *= max(level_mod * level_mod, 0.01)
         percentage *= max((self.fashion_item.quality_level/5.0), 0.01)
-        self.fame = int(self.item_worth * percentage)
+        self.fame = max(int(self.item_worth * percentage), 2)
         self.save()
 
-    def apply_fame(self):
+    def apply_fame(self, reverse=False):
         """
         Awards full amount of fame to fashion model and a portion to the
         sponsoring Organization & the item's Designer.
         """
-        self.fashion_model.assets.adjust_prestige(self.fame)
-        self.org.assets.adjust_prestige(self.client_fame)
-        self.designer.assets.adjust_prestige(self.client_fame)
+        model_fame = -self.fame if reverse else self.fame
+        client_fame = -self.client_fame if reverse else self.client_fame
+        self.fashion_model.assets.adjust_prestige(model_fame, force=reverse)
+        self.org.assets.adjust_prestige(client_fame, force=reverse)
+        self.designer.assets.adjust_prestige(client_fame, force=reverse)
 
     def inform_fashion_clients(self):
         """

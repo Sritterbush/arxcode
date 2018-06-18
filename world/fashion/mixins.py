@@ -10,7 +10,7 @@ class FashionableMixins(object):
     Handles the fashion requirements of wearable items. Requires that the object
     using the mixin is an ObjectDB/Typeclass instance.
     """
-    ap_cost = 5
+    fashion_ap_cost = 5
 
     def check_fashion_ready(self):
         """Raises FashionError if the object is not ready to be modeled."""
@@ -30,8 +30,8 @@ class FashionableMixins(object):
         and has it calculate fame. Then fame is awarded and a record of it made.
         """
         self.check_fashion_ready()
-        if not player.pay_action_points(self.ap_cost):
-            raise FashionError("You cannot afford the %d AP cost to model." % self.ap_cost)
+        if not player.pay_action_points(self.fashion_ap_cost):
+            raise FashionError("You cannot afford the %d AP cost to model." % self.fashion_ap_cost)
         snapshot = FashionSnapshot.objects.create(fashion_model=player.Dominion, fashion_item=self, org=org,
                                                   designer=self.designer.Dominion)
         snapshot.roll_for_fame()

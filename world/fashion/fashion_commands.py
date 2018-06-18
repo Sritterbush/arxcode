@@ -13,7 +13,7 @@ class CmdFashionModel(ArxCommand):
     Usage:
         model <item>=<organization>
     Leaderboards:
-        model/models[/all]
+        model[/all]
         model/designers[/all] [<designer name>]
         model/orgs[/all] [<organization>]
 
@@ -24,12 +24,13 @@ class CmdFashionModel(ArxCommand):
     Without the /all switch for leaderboards, only the Top 20 are displayed.
     """
     key = "model"
+    aliases = ["models"]
     help_category = "social"
-    leaderboard_switches = ("designers", "orgs", "models")
+    leaderboard_switches = ("designers", "orgs", "models", "all")
 
     def model_item(self):
         """Models an item to earn prestige"""
-        if not self.lhs or not self.rhs:
+        if not self.rhs:
             self.feedback_command_error("Please specify <item>=<organization>")
             return
         item = self.caller.search(self.lhs, location=self.caller)
@@ -61,9 +62,7 @@ class CmdFashionModel(ArxCommand):
                            .annotate(avg=Avg(F('fame')/fame_divisor, output_field=IntegerField()))
                            .order_by('-total_fame'))
 
-        if not self.switches or "models" in self.switches:  # Models by fame
-            qs = get_queryset(Snapshot.objects, 'fashion_model__player__username', 1)
-        elif "designers" in self.switches:  # Designers by fame
+        if "designers" in self.switches:  # Designers by fame
             if self.args:
                 designer = self.caller.player.search(self.args)
                 if not designer:
@@ -74,7 +73,7 @@ class CmdFashionModel(ArxCommand):
             else:
                 pretty_headers[0] = "Designer"
                 qs = get_queryset(Snapshot.objects, 'designer__player__username', 2)
-        else:  # Fashionable orgs
+        elif "orgs" in self.switches:  # Fashionable orgs
             if self.args:
                 org = Organization.objects.get_public_org(self.args, self.caller)
                 if not org:
@@ -84,6 +83,8 @@ class CmdFashionModel(ArxCommand):
             else:
                 pretty_headers[0] = "Organization"
                 qs = get_queryset(Snapshot.objects, 'org__name', 2)
+        else:  # Models by fame
+            qs = get_queryset(Snapshot.objects, 'fashion_model__player__username', 1)
         qs = qs[:20] if "all" not in self.switches else qs
         if not qs:
             self.msg("Nothing was found.")
@@ -101,9 +102,59 @@ class CmdFashionModel(ArxCommand):
 
     def func(self):
         """Execute model command"""
-        if not self.switches:
+        if self.args and not self.switches:
             self.model_item()
-        elif self.check_switches(self.leaderboard_switches):
+        elif not self.switches or self.check_switches(self.leaderboard_switches):
             self.view_leaderboards()
+        else:
+            self.feedback_invalid_switch()
+
+
+class CmdAdminFashion(ArxCommand):
+    """
+    Admin commands for modeling.
+    Usage:
+        @admin_fashion <item ID#>
+        @admin_fashion/delete <snapshot ID#>
+
+    Shows the #IDs of model snapshot(s) that were generated whenever the
+    item was modeled. /Delete will remove all status awarded, refund AP,
+    and delete the snapshot, effectively reversing the model command.
+    """
+    key = "@admin_model"
+    help_category = "admin"
+    locks = "cmd:perm(Wizards)"
+
+    def display_item_snapshots(self):
+        try:
+            item = ObjectDB.objects.get(id=self.args)
+        except ObjectDB.DoesNotExist:
+            self.msg("No object found for ID %s." % self.args)
+            return
+        snapshots = item.fashion_snapshots.all()
+        if not snapshots:
+            self.msg("No snapshots exist for %s." % item)
+            return
+        self.msg("%s model snapshots: %s" % (item, ", ".join(ob.id + " by " + ob.fashion_model for ob in snapshots)))
+
+    def reverse_snapshot(self):
+        try:
+            snapshot = Snapshot.objects.get(id=self.args)
+        except Snapshot.DoesNotExist:
+            self.msg("No snapshot with ID# %s." % self.args)
+            return
+        snapshot.apply_fame(reverse=True)
+        snapshot.fashion_model.player.pay_action_points(-snapshot.fashion_item.fashion_ap_cost)
+        self.msg("Snapshot #%s fame/ap has been reversed. Deleting it." % snapshot.id)
+        snapshot.delete()
+
+    def func(self):
+        """Execute command"""
+        if not self.args or not self.args.is_digit():
+            self.feedback_command_error("Requires an ID #.")
+        elif not self.switches:
+            self.display_item_snapshots()
+        elif "delete" in self.switches:
+            self.reverse_snapshot()
         else:
             self.feedback_invalid_switch()

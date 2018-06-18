@@ -31,7 +31,7 @@ class FashionCommandTests(ArxCommandTest):
     def test_model_cmd(self, mock_dice_check, mock_get_week):
         mock_get_week.return_value = 1
         self.setup_cmd(fashion_commands.CmdFashionModel, self.char1)
-        self.call_cmd("", 'Command incorrect. Please specify <item>=<organization>')
+        self.call_cmd("catsuit", 'Command incorrect. Please specify <item>=<organization>')
         self.call_cmd("catsuit=Shadow Striders",
                       "Could not find 'catsuit'.|Could not find public org 'Shadow Striders'.")
         self.obj1.location = self.char1
@@ -51,12 +51,12 @@ class FashionCommandTests(ArxCommandTest):
         self.account2.assets.inform_owner = Mock()
         # TODO: add adornments to test increase of value
         self.obj3.db.adorns = {}
-        self.call_cmd("Obj3=Orgtest", 'You spend time modeling Obj3 around Arx on behalf of Orgtest and earn 2400 fame.'
-                                      ' Your prestige is now 2436.')
+        self.call_cmd("Obj3=Orgtest", 'You spend time modeling Obj3 around Arx on behalf of Orgtest and earn 3000 fame.'
+                                      ' Your prestige is now 3045.')
         self.assertEqual(self.roster_entry.action_points, 95)
-        self.org.assets.inform_owner.assert_called_with("{3151200{n fame awarded from Testaccount modeling Obj3.",
+        self.org.assets.inform_owner.assert_called_with("{3151500{n fame awarded from Testaccount modeling Obj3.",
                                                         append=True, category='fashion')
-        self.account2.assets.inform_owner.assert_called_with("{3151200{n fame awarded from Testaccount modeling Obj3.",
+        self.account2.assets.inform_owner.assert_called_with("{3151500{n fame awarded from Testaccount modeling Obj3.",
                                                              append=True, category='fashion')
         # TODO: Other tests
         #   change recipe result with fashion_mult
