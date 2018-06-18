@@ -44,15 +44,22 @@ class FashionSnapshot(SharedMemoryModel):
         super(FashionSnapshot, self).delete(*args, **kwargs)
 
     def roll_for_fame(self):
-        """Rolls for amount of fame the item generates, minimum 2 fame."""
+        """
+        Rolls for amount of fame the item generates, minimum 2 fame. The fashion model's social clout and
+        skill check of composure + performance is made exponential to be an enormous swing in the efficacy
+        of fame generated: Someone whose roll+social_clout is 50 will be hundreds of times as effective
+        as someone who flubs the roll.
+        """
         from world.stats_and_skills import do_dice_check
         char = self.fashion_model.player.character
         roll = do_dice_check(caller=char, stat="composure", skill="performance", difficulty=30)
-        percentage = max(pow(max((roll + char.social_clout), 1), 1.5)/100.0, 0.01)
+        roll = pow(max((roll + char.social_clout), 1), 1.5)
+        percentage = max(roll/100.0, 0.01)
         level_mod = self.fashion_item.recipe.level/6.0
         percentage *= max(level_mod * level_mod, 0.01)
         percentage *= max((self.fashion_item.quality_level/10.0), 0.01)
-        self.fame = max(int(self.item_worth * percentage), 2)
+        # they get either their percentage of the item's worth, their modified roll, or 2, whichever is highest
+        self.fame = max(int(self.item_worth * percentage), max(roll, 2))
         self.save()
 
     def apply_fame(self, reverse=False):
