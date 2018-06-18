@@ -12,9 +12,6 @@ from evennia.commands.cmdset import CmdSet
 from evennia import utils
 from server.utils.arx_utils import ArxCommand
 
-# error return function, needed by wear/remove command
-AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
-
 # ------------------------------------------------------------
 # Commands defined for wearable
 # ------------------------------------------------------------
@@ -23,7 +20,7 @@ AT_SEARCH_RESULT = utils.variable_from_module(*settings.SEARCH_AT_RESULT.rsplit(
 class CmdWear(ArxCommand):
     """
     Put on an item of clothing or armor.
-    
+
     Usage:
         wear <item>
 
@@ -43,14 +40,7 @@ class CmdWear(ArxCommand):
         if args == "all":
             obj_list = [ob for ob in caller.contents if hasattr(ob, 'wear')]
         else:
-            # Because the wear command by definition looks for items
-            # in inventory, call the search function using location = caller
-            results = caller.search(args, location=caller, quiet=True)
-            # now we send it into the error handler (this will output consistent
-            # error messages if there are problems).
-            obj = AT_SEARCH_RESULT(results, caller, args, False,
-                                   nofound_string="You don't carry %s." % args,
-                                   multimatch_string="You carry more than one %s:" % args)
+            obj = caller.search(args, location=caller)
             if not obj:
                 return
             obj_list = [obj]
@@ -82,7 +72,7 @@ class CmdRemove(ArxCommand):
     Remove an item of clothing or armor.
     Usage:
         remove <item>
-        
+
     Takes off the given item from your character. The object must
     be in your inventory and currently worn to remove it.
     """
@@ -96,15 +86,7 @@ class CmdRemove(ArxCommand):
         if not args:
             caller.msg("Remove what?")
             return
-        # Because the wear command by definition looks for items
-        # in inventory, call the search function using location = caller
-        results = caller.search(args, location=caller, quiet=True)
-
-        # now we send it into the error handler (this will output consistent
-        # error messages if there are problems).
-        obj = AT_SEARCH_RESULT(results, caller, args, False,
-                               nofound_string="You don't carry %s." % args,
-                               multimatch_string="You carry more than one %s:" % args)
+        obj = caller.search(args, location=caller)
         if not obj:
             return
         if not obj.db.currently_worn and not obj.db.sheathed_by:

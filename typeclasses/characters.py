@@ -30,7 +30,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     at_post_unpuppet(player) -  when Player disconnects from the Character, we
                     store the current location in the pre_logout_location Attribute and
                     move it to a None-location so the "unpuppeted" character
-                    object does not need to stay on grid. Echoes "Player has disconnected" 
+                    object does not need to stay on grid. Echoes "Player has disconnected"
                     to the room.
     at_pre_puppet - Just before Player re-connects, retrieves the character's
                     pre_logout_location Attribute and move it back on the grid.
@@ -61,9 +61,9 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     @property
     def is_character(self):
         return True
-        
+
     @lazy_property
-    def messages(self):    
+    def messages(self):
         return MessageHandler(self)
 
     @lazy_property
@@ -202,13 +202,13 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         string = """
 {w.---------------------->Physical Characteristics<---------------------.{n
 {w|                                                                     |{n
-{w| Species:{n %(species)-14s {wGender:{n %(gender)-15s {wAge:{n %(age)-15s{w|{n 
+{w| Species:{n %(species)-14s {wGender:{n %(gender)-15s {wAge:{n %(age)-15s{w|{n
 {w| Height:{n %(height)-15s {wEye Color:{n %(eyes)-15s                  {w|{n
 {w| Hair Color:{n %(hair)-11s {wSkin Tone:{n %(skin)-17s                {w|{n
 {w.---------------------------------------------------------------------.{n
 """ % ({'species': species, 'hair': hair, 'eyes': eyes, 'height': height, 'gender': gender, 'age': age, 'skin': skin})
         return string
-    
+
     def death_process(self, *args, **kwargs):
         """
         This object dying. Set its state to dead, send out
@@ -309,11 +309,11 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         if not free:
             self.db.last_recovery_test = time.time()
         return roll
-    
+
     def change_health(self, amount, quiet=False, affect_real_dmg=True, wake=True):
         """
         Change character's health and maybe tell them about it.
-        Positive amount will 'heal'. Negative will 'harm'. 
+        Positive amount will 'heal'. Negative will 'harm'.
         A character with hp to attempt waking up.
         """
         difference = self.get_health_percentage(abs(amount))
@@ -342,13 +342,13 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             self.triggerhandler.check_health_change_triggers(amount)
         if wake and self.dmg <= self.max_hp and self.db.sleep_status != "awake":
             self.wake_up()
-    
+
     def get_health_percentage(self, damage=None):
         """Returns the float percentage of the health. If damage is not specified, we use self.dmg"""
         if damage is None:
             damage = self.dmg
         return float(damage) / float(self.max_hp)
-            
+
     def get_health_appearance(self):
         """
         Return a string based on our current health.
@@ -367,7 +367,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         if sleep_status and sleep_status != "awake":
             msg += ", and is %s" % sleep_status
         return msg + "."
-            
+
     def get_wound_descriptor(self, dmg):
         wound = self.get_health_percentage(dmg)
         if wound <= 0:
@@ -406,11 +406,11 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         if not short and self.db.longname:
             return self.db.longname
         return self.db.colored_name or self.key
-    
+
     def _get_worn(self):
         """Returns list of items in inventory currently being worn."""
         return [ob for ob in self.contents if ob.db.currently_worn]
-    
+
     @property
     def armor(self):
         """
@@ -425,7 +425,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
                 ob_armor = 0
             armor += ob_armor
         return int(round(armor))
-    
+
     @armor.setter
     def armor(self, value):
         self.db.armor_class = value
@@ -450,7 +450,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         hp += bonus
         hp += self.boss_rating * 100
         return hp
-        
+
     @property
     def death_threshold(self):
         """
@@ -461,7 +461,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             float: Multiplier before death checks happen
         """
         return 1.25
-    
+
     @property
     def dmg(self):
         """Returns how much damage we've taken."""
@@ -548,7 +548,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             targ.ndb.followers.append(self)
         self.msg("You start to follow %s. To stop following, use 'follow' with no arguments." % targ.name)
         self.ndb.following = targ
-        
+
     def stop_follow(self):
         f_targ = self.ndb.following
         if not f_targ:
@@ -564,7 +564,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
 
     def get_fakeweapon(self):
         return self.db.fakeweapon
-        
+
     def _get_weapondata(self):
         wpndict = dict(self.get_fakeweapon() or {})
         wpn = self.db.weapon
@@ -626,11 +626,11 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
                 watcher.msg(msg)
                 spam.append(self)
                 watcher.ndb.journal_spam = spam
-                
+
     @property
     def social_value(self):
         """Value used for calculating support based on social stats/skills
-        
+
             returns: int
         """
         total = 0
@@ -775,7 +775,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         q_add = ""
         from django.db.models import Q
         exclude_ob = Q()
-        
+
         def get_new_exclude_ob():
             """Helper function to build Q() objects to exclude"""
             base_exclude_query = "db_tags__db_key"
@@ -784,7 +784,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
             exclude_query = q_add + base_exclude_query
             exclude_dict = {exclude_query: "secret"}
             return Q(**exclude_dict) | Q(**other_exclude_query) | Q(**traversed_query)
-            
+
         while not exit_name and iterations < max_iter:
             q_add = "db_destination__locations_set__" * iterations
             query = q_add + base_query
@@ -1045,6 +1045,9 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         # quiet means that messaging is handled elsewhere
         if quiet:
             return results
+        if location == self:
+            nofound_string = nofound_string or "You don't carry '%s'." % searchdata
+            multimatch_string = multimatch_string or "You carry more than one '%s':" % searchdata
         # call the _AT_SEARCH_RESULT func to transform our results and send messages
         _AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
         return _AT_SEARCH_RESULT(results, self, query=searchdata,  nofound_string=nofound_string,
@@ -1124,7 +1127,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     @property
     def glass_jaw(self):
         return False
-        
+
     @property
     def past_actions(self):
         return self.player_ob.past_actions
@@ -1150,7 +1153,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
     @property
     def truesight(self):
         return self.check_permstring("builders") or self.tags.get("story_npc")
-        
+
     def get_display_name(self, looker, **kwargs):
         if not self.is_disguised:
             return super(Character, self).get_display_name(looker, **kwargs)

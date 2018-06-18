@@ -217,7 +217,7 @@ class NameMixins(object):
         self.key = parse_ansi(val, strip_ansi=True)
         self.save()
     name = property(__name_get, __name_set)
-    
+
     def __str__(self):
         return self.name
 
@@ -315,7 +315,7 @@ class BaseObjectMixins(object):
         for obj in obj_list:
             obj.move_to(destination, quiet=True)
         return obj_list
-        
+
     def at_before_move(self, destination, **kwargs):
         caller = kwargs.pop('caller', None)
         if caller:
@@ -323,7 +323,7 @@ class BaseObjectMixins(object):
                 caller.msg("You cannot get %s." % self)
                 return False
         return super(BaseObjectMixins, self).at_before_move(destination, **kwargs)
-        
+
     def get_room(self):
         """Returns the outermost location/room of this object."""
         # if we have no location, we are the room
@@ -515,8 +515,8 @@ class AppearanceMixins(BaseObjectMixins):
     def transfer_all(self, destination, caller=None):
         self.pay_money(self.currency, destination)
         return super(AppearanceMixins, self).transfer_all(destination, caller)
-        
-        
+
+
 class ModifierMixin(object):
     """
     Allows us to set modifiers in different situations with specific values. We check against a tag in the target,
@@ -526,11 +526,11 @@ class ModifierMixin(object):
     def modifier_tags(self):
         """Gets list of modifier tags this object has"""
         return self.tags.get(category="modifiers", return_list=True)
-        
+
     def add_modifier_tag(self, tag_name):
         """Adds a tag to this object"""
         self.tags.add(tag_name, category="modifiers")
-        
+
     def rm_modifier_tag(self, tag_name):
         """Removes a modifier tag from this object"""
         self.tags.remove(tag_name, category="modifiers")
@@ -539,7 +539,7 @@ class ModifierMixin(object):
         """
         Sets the modifier for this object for a type of tag. For example, if we want to give a bonus against
         all Abyssal creatures, we'd have tag_name 'abyssal' and keep check_type as 'all'.
-        
+
             Args:
                 value (int): Positive for a bonus, negative for a penalty. Flatly applied to rolls.
                 check_type: Type of roll we're making. Must be in CHECK_CHOICES.
@@ -568,7 +568,7 @@ class ModifierMixin(object):
     def get_modifier(self, check_type, user_tags=None, target_tags=None, stat_list=None,
                      skill_list=None, ability_list=None):
         """Returns an integer that is the value of our modifier for the listed tags and check.
-        
+
             Args:
                 check_type: The type of roll/check we're making
                 user_tags: Tags of the user we wanna check
@@ -576,7 +576,7 @@ class ModifierMixin(object):
                 stat_list: Only check modifiers for this stat
                 skill_list: Only check modifiers for this skill
                 ability_list: Only check modifiers for this ability
-                
+
             Returns:
                 Integer value of the total mods we calculate.
         """
@@ -596,7 +596,7 @@ class TriggersMixin(object):
     def triggerhandler(self):
         """Adds a triggerhandler property for caching trigger checks to avoid excessive queries"""
         return TriggerHandler(self)
-        
+
 
 class ObjectMixins(DescMixins, AppearanceMixins, ModifierMixin, TriggersMixin):
     @property
@@ -620,7 +620,7 @@ class CraftingMixins(object):
                                                                show_contents=show_contents)
         string += self.return_crafting_desc()
         return string
-        
+
     @property
     def recipe(self):
         """
@@ -637,7 +637,7 @@ class CraftingMixins(object):
                 return recipe
             except CraftingRecipe.DoesNotExist:
                 pass
-            
+
     @property
     def adorns(self):
         """
@@ -646,7 +646,7 @@ class CraftingMixins(object):
         :type self: ObjectDB
             Returns:
                 ret (dict): dict of crafting materials as keys to amt
-                
+
         SharedMemoryModel causes all .get by ID to be cached inside the class,
         so these queries will only hit the database once. After that, we're just
         building a dict so it'll be insignificant.
@@ -661,7 +661,7 @@ class CraftingMixins(object):
                 continue
             ret[mat] = adorns[adorn_id]
         return ret
-            
+
     def return_crafting_desc(self):
         """
         :type self: ObjectDB
@@ -676,8 +676,8 @@ class CraftingMixins(object):
         recipe = self.recipe
         if recipe:
             string += "\nIt is a %s." % recipe.name
-        # quality_level is an integer, we'll get a name from crafter file's dict
-        string += self.get_quality_appearance()
+            # quality_level is an integer, we'll get a name from crafter file's dict
+            string += self.get_quality_appearance()
         if self.db.translation:
             string += "\nIt contains script in a foreign tongue."
         # signed_by is a crafter's character object
@@ -685,21 +685,23 @@ class CraftingMixins(object):
         if signed:
             string += "\n%s" % (signed.db.crafter_signature or "")
         return string
-        
+
+    @property
+    def quality_level(self):
+        return self.db.quality_level or 0
+
     def get_quality_appearance(self):
         """
         :type self: ObjectDB
         :return str:
         """
-        if self.db.quality_level:
-            from commands.commands.crafting import QUALITY_LEVELS
-            qual = self.db.quality_level
-            if qual > 11:
-                qual = 11
-            qual = QUALITY_LEVELS.get(qual, "average")
-            return "\nIts level of craftsmanship is %s." % qual
-        return ""
-    
+        if self.quality_level < 0:
+            return ""
+        from commands.commands.crafting import QUALITY_LEVELS
+        qual = min(self.quality_level, 11)
+        qual = QUALITY_LEVELS.get(qual, "average")
+        return "\nIts level of craftsmanship is %s." % qual
+
     def add_adorn(self, material, quantity):
         """
         Adds an adornment to this crafted object.
@@ -731,7 +733,7 @@ class MsgMixins(object):
         # regex that contains our name inside quotes
         name = self.key
         return re.compile(r'"(.*?)%s{n(.*?)"' % name)
-        
+
     def msg(self, text=None, from_obj=None, session=None, options=None, **kwargs):
         """
         :type self: ObjectDB
@@ -862,7 +864,7 @@ class LockMixins(object):
             caller.msg("You do not have a key to %s." % self)
             return False
         return True
-    
+
     def lock(self, caller=None):
         """
         :type self: ObjectDB
@@ -875,7 +877,7 @@ class LockMixins(object):
             if caller:
                 caller.msg("%s is already locked." % self)
             return
-        self.db.locked = True      
+        self.db.locked = True
         msg = "%s is now locked." % self.key
         if caller:
             caller.msg(msg)
@@ -899,7 +901,7 @@ class LockMixins(object):
             if caller:
                 caller.msg("%s is already unlocked." % self)
             return
-        self.db.locked = False  
+        self.db.locked = False
         msg = "%s is now unlocked." % self.key
         if caller:
             caller.msg(msg)
