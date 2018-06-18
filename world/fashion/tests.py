@@ -51,12 +51,12 @@ class FashionCommandTests(ArxCommandTest):
         self.account2.assets.inform_owner = Mock()
         # TODO: add adornments to test increase of value
         self.obj3.db.adorns = {}
-        self.call_cmd("Obj3=Orgtest", 'You spend time modeling Obj3 around Arx on behalf of Orgtest and earn 3000 fame.'
-                                      ' Your prestige is now 3045.')
+        self.call_cmd("Obj3=Orgtest", 'You spend time modeling Obj3 around Arx on behalf of Orgtest and earn 6000 fame.'
+                                      ' Your prestige is now 6090.')
         self.assertEqual(self.roster_entry.action_points, 95)
-        self.org.assets.inform_owner.assert_called_with("{3151500{n fame awarded from Testaccount modeling Obj3.",
+        self.org.assets.inform_owner.assert_called_with("{3153000{n fame awarded from Testaccount modeling Obj3.",
                                                         append=True, category='fashion')
-        self.account2.assets.inform_owner.assert_called_with("{3151500{n fame awarded from Testaccount modeling Obj3.",
+        self.account2.assets.inform_owner.assert_called_with("{3153000{n fame awarded from Testaccount modeling Obj3.",
                                                              append=True, category='fashion')
         # TODO: Other tests
         #   change recipe result with fashion_mult
