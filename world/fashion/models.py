@@ -84,7 +84,7 @@ class FashionSnapshot(SharedMemoryModel):
         overrides with "fashion_mult" in the recipe's 'result' field.
         """
         if self.fashion_mult_override is not None:
-            return self.fashion_mult_override
+            return float(self.fashion_mult_override)
         recipe_base = self.fashion_item.recipe.baseval
         if not recipe_base:
             return 1.25
