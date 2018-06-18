@@ -2283,6 +2283,7 @@ class CmdDonate(ArxCommand):
     key = "+donate"
     locks = "cmd:all()"
     help_category = "Social"
+    action_point_cost = 1
 
     @property
     def donations(self):
@@ -2307,7 +2308,7 @@ class CmdDonate(ArxCommand):
                 return
             if val <= 0:
                 raise ValueError
-            if not caller.player.pay_action_points(5):
+            if not caller.player.pay_action_points(self.action_point_cost):
                 self.msg("Not enough AP.")
                 return
             caller.pay_money(val)
