@@ -121,7 +121,7 @@ class CmdAdminFashion(ArxCommand):
     item was modeled. /Delete will remove all status awarded, refund AP,
     and delete the snapshot, effectively reversing the model command.
     """
-    key = "@admin_model"
+    key = "@admin_fashion"
     help_category = "admin"
     locks = "cmd:perm(Wizards)"
 
