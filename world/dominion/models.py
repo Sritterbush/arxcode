@@ -583,7 +583,7 @@ class AssetOwner(SharedMemoryModel):
             ranks += 11 - member.rank
         too_many_members_mod = max(ranks/200.0, 0.01)
         base /= too_many_members_mod
-        return int(base)
+        return min(int(base), self.fame * 2)
 
     def adjust_prestige(self, value, force=False):
         """
