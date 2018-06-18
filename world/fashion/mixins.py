@@ -10,7 +10,7 @@ class FashionableMixins(object):
     Handles the fashion requirements of wearable items. Requires that the object
     using the mixin is an ObjectDB/Typeclass instance.
     """
-    fashion_ap_cost = 5
+    fashion_ap_cost = 1
 
     def check_fashion_ready(self):
         """Raises FashionError if the object is not ready to be modeled."""

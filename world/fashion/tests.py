@@ -44,20 +44,30 @@ class FashionCommandTests(ArxCommandTest):
         self.call_cmd("Obj3=Orgtest", "Please wear Obj3 before trying to model it as fashion.")
         self.obj3.db.currently_worn = True
         self.roster_entry.action_points = 0
-        self.call_cmd("Obj3=Orgtest", "You cannot afford the 5 AP cost to model.")
+        self.call_cmd("Obj3=Orgtest", "You cannot afford the %s AP cost to model." % self.obj3.fashion_ap_cost)
         self.roster_entry.action_points = 100
         mock_dice_check.return_value = 100
         self.org.assets.inform_owner = Mock()
         self.account2.assets.inform_owner = Mock()
         # TODO: add adornments to test increase of value
         self.obj3.db.adorns = {}
-        self.call_cmd("Obj3=Orgtest", 'You spend time modeling Obj3 around Arx on behalf of Orgtest and earn 3000 fame.'
-                                      ' Your prestige is now 3045.')
-        self.assertEqual(self.roster_entry.action_points, 95)
-        self.org.assets.inform_owner.assert_called_with("{3151500{n fame awarded from Testaccount modeling Obj3.",
+        self.call_cmd("Obj3=Orgtest", 'You spend time modeling Obj3 around Arx on behalf of Orgtest and earn 1000 fame.'
+                                      ' Your prestige is now 1015.')
+        self.assertEqual(self.roster_entry.action_points, 100 - self.obj3.fashion_ap_cost)
+        self.org.assets.inform_owner.assert_called_with("{315500{n fame awarded from Testaccount modeling Obj3.",
                                                         append=True, category='fashion')
-        self.account2.assets.inform_owner.assert_called_with("{3151500{n fame awarded from Testaccount modeling Obj3.",
+        self.account2.assets.inform_owner.assert_called_with("{315500{n fame awarded from Testaccount modeling Obj3.",
                                                              append=True, category='fashion')
         # TODO: Other tests
         #   change recipe result with fashion_mult
         #   test the leaderboards
+
+    def test_refund_cmd(self):
+        from world.fashion.models import FashionSnapshot
+        self.setup_cmd(fashion_commands.CmdAdminFashion, self.char1)
+        snapshot = FashionSnapshot.objects.create(fashion_model=self.dompc2, designer=self.dompc2, fame=50000,
+                                                  org=self.org, fashion_item=self.obj3)
+        snapshot.apply_fame()
+        self.assertEqual(self.dompc2.assets.fame, 75000)
+        self.call_cmd("/delete 1", 'Snapshot #1 fame/ap has been reversed. Deleting it.')
+        self.assertEqual(self.dompc2.assets.fame, 0)

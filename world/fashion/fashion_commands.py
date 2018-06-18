@@ -126,6 +126,8 @@ class CmdAdminFashion(ArxCommand):
     locks = "cmd:perm(Wizards)"
 
     def display_item_snapshots(self):
+        """displays snapshots"""
+        from evennia.objects.models import ObjectDB
         try:
             item = ObjectDB.objects.get(id=self.args)
         except ObjectDB.DoesNotExist:
@@ -138,6 +140,7 @@ class CmdAdminFashion(ArxCommand):
         self.msg("%s model snapshots: %s" % (item, ", ".join(ob.id + " by " + ob.fashion_model for ob in snapshots)))
 
     def reverse_snapshot(self):
+        """reverses snapshots"""
         try:
             snapshot = Snapshot.objects.get(id=self.args)
         except Snapshot.DoesNotExist:
@@ -150,7 +153,7 @@ class CmdAdminFashion(ArxCommand):
 
     def func(self):
         """Execute command"""
-        if not self.args or not self.args.is_digit():
+        if not self.args or not self.args.isdigit():
             self.feedback_command_error("Requires an ID #.")
         elif not self.switches:
             self.display_item_snapshots()

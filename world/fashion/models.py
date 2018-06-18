@@ -53,11 +53,11 @@ class FashionSnapshot(SharedMemoryModel):
         from world.stats_and_skills import do_dice_check
         char = self.fashion_model.player.character
         roll = do_dice_check(caller=char, stat="composure", skill="performance", difficulty=30)
-        roll = pow(max((roll + char.social_clout), 1), 1.5)
+        roll = pow(max((roll + char.social_clout * 3), 1), 1.5)
         percentage = max(roll/100.0, 0.01)
         level_mod = self.fashion_item.recipe.level/6.0
         percentage *= max(level_mod * level_mod, 0.01)
-        percentage *= max((self.fashion_item.quality_level/10.0), 0.01)
+        percentage *= max((self.fashion_item.quality_level/40.0), 0.01)
         # they get either their percentage of the item's worth, their modified roll, or 2, whichever is highest
         self.fame = max(int(self.item_worth * percentage), max(roll, 2))
         self.save()
@@ -101,7 +101,7 @@ class FashionSnapshot(SharedMemoryModel):
             return float(self.fashion_mult_override)
         recipe_base = self.fashion_item.recipe.baseval
         if not recipe_base:
-            return 1.25
+            return 3.0
         elif recipe_base <= 2:
             return 1.0
         elif recipe_base == 3:
