@@ -901,8 +901,7 @@ class CmdJunk(ArxCommand):
     Destroys an object, retrieving a portion of the materials
     used to craft it.
     """
-    key = "+junk"
-    aliases = ["@junk"]
+    key = "junk"
     locks = "cmd:all()"
     help_category = "Crafting"
 
@@ -942,21 +941,34 @@ class CmdJunk(ArxCommand):
         mats = obj.db.materials
         adorns = obj.db.adorns or {}
         refunded = []
+        roll = self.get_refund_chance()
+
+        def randomize_amount(amt):
+            """Helper function to determine amount kept when junking"""
+            from random import randint
+            num_kept = 0
+            for _ in range(amt):
+                if randint(0, 100) <= roll:
+                    num_kept += 1
+            return num_kept
+
         for mat in adorns:
             cmat = CraftingMaterialType.objects.get(id=mat)
-            try:
-                pmat = pmats.get(type=cmat)
-            except CraftingMaterials.DoesNotExist:
-                pmat = pmats.create(type=cmat)
             amount = adorns[mat]
-            pmat.amount += amount
-            pmat.save()
-            refunded.append("%s %s" % (amount, cmat.name))
+            amount = randomize_amount(amount)
+            if amount:
+                try:
+                    pmat = pmats.get(type=cmat)
+                except CraftingMaterials.DoesNotExist:
+                    pmat = pmats.create(type=cmat)
+                pmat.amount += amount
+                pmat.save()
+                refunded.append("%s %s" % (amount, cmat.name))
         for mat in mats:
+            amount = mats[mat]
             if mat in adorns:
-                amount = (mats[mat] - adorns[mat])/2
-            else:
-                amount = mats[mat]/2
+                amount -= adorns[mat]
+            amount = randomize_amount(amount)
             if amount <= 0:
                 continue
             cmat = CraftingMaterialType.objects.get(id=mat)
@@ -967,5 +979,10 @@ class CmdJunk(ArxCommand):
             pmat.amount += amount
             pmat.save()            
             refunded.append("%s %s" % (amount, cmat.name))
-        caller.msg("By destroying %s, you have received: %s" % (obj, ", ".join(refunded)))
+        caller.msg("By destroying %s, you have received: %s" % (obj, ", ".join(refunded) or "Nothing."))
         obj.softdelete()
+
+    def get_refund_chance(self):
+        """Gets our chance of material refund based on a skill check"""
+        roll = do_dice_check(self.caller, stat="dexterity", skill="legerdemain", quiet=False)
+        return max(roll, 1)
