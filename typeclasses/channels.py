@@ -77,9 +77,10 @@ class Channel(DefaultChannel):
     
     @property
     def mutelist(self):
-        if self.db.mute_list is None:
-            self.db.mute_list = []
-        return self.db.mute_list
+        """We cache mutelist here because retrieving a SaverList from Attribute is very expensive"""
+        if self.ndb.mute_list is None:
+            self.ndb.mute_list = self.db.mute_list or []
+        return self.ndb.mute_list
 
     @property
     def non_muted_subs(self):
@@ -138,6 +139,8 @@ class Channel(DefaultChannel):
         if subscriber not in mutelist:
             mutelist.append(subscriber)
             self.db.mute_list = mutelist
+            # invalidate cache
+            self.ndb.mute_list = None
             return True
 
     def unmute(self, subscriber):
@@ -150,10 +153,13 @@ class Channel(DefaultChannel):
         if subscriber in mutelist:
             mutelist.remove(subscriber)
             self.db.mute_list = mutelist
+            # invalidate cache
+            self.ndb.mute_list = None
             return True
 
     def clear_mute(self):
         self.db.mute_list = []
+        self.ndb.mute_list = None
         
     def delete_chan_message(self, message):
         """
