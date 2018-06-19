@@ -34,6 +34,12 @@ class ArxTestConfigMixin(object):
     room_typeclass = ArxRoom
     num_additional_characters = 0  # additional characters for this test
     BASE_NUM_CHARACTERS = 2  # constant set by Evennia
+    dompc = None
+    dompc2 = None
+    assetowner = None
+    assetowner2 = None
+    roster_entry = None
+    roster_entry2 = None
     
     @property
     def total_num_characters(self):

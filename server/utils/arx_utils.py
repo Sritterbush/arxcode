@@ -307,6 +307,7 @@ def post_roster_cleanup(entry):
     entry.player.permissions.remove("Helper")
     disconnect_all_channels(entry.player)
     entry.character.tags.remove("given_starting_gear")
+    post_roster_dompc_cleanup(entry.player)
 
 
 def disconnect_all_channels(player):
@@ -327,6 +328,21 @@ def reset_to_default_channels(player):
     for req_channel in required_channels:
         if not req_channel.has_connection(player):
             req_channel.connect(player)
+
+
+def post_roster_dompc_cleanup(player):
+    """
+    Removes patron/protege relationships and sets any 'Voice' rankings to rank 3.
+    """
+    try:
+        dompc = player.Dominion
+    except AttributeError:
+        return
+    dompc.patron = None
+    dompc.save()
+    for member in dompc.memberships.filter(rank=2):
+        member.rank = 3
+        member.save()
 
 
 def caller_change_field(caller, obj, field, value, field_name=None):
