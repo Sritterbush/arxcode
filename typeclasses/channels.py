@@ -79,7 +79,8 @@ class Channel(DefaultChannel):
     def mutelist(self):
         """We cache mutelist here because retrieving a SaverList from Attribute is very expensive"""
         if self.ndb.mute_list is None:
-            self.ndb.mute_list = self.db.mute_list or []
+            # get a copy so cached isn't a SaverList with direct database connection
+            self.ndb.mute_list = list(self.db.mute_list or [])
         return self.ndb.mute_list
 
     @property
