@@ -806,7 +806,7 @@ class CharitableDonation(SharedMemoryModel):
         if roll <= 1:
             roll = 1
         roll /= 100.0
-        roll *= value/5
+        roll *= value/2.0
         prest = int(roll)
         self.giver.adjust_prestige(prest)
         player = self.giver.player
