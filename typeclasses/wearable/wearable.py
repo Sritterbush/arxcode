@@ -11,11 +11,12 @@ False if not worn.
 from typeclasses.objects import Object
 from time import time
 from typeclasses.containers.container import Container
+from world.fashion.mixins import FashionableMixins
 
 
 # noinspection PyMethodMayBeStatic
 # noinspection PyUnusedLocal
-class Wearable(Object):
+class Wearable(FashionableMixins, Object):
     """
     Class for wearable objects
     """
@@ -60,7 +61,7 @@ class Wearable(Object):
         self.calc_armor()
         self.at_post_wear(wearer)
         return True
-        
+
     def at_before_move(self, destination, **kwargs):
         """Checks if the object can be moved"""
         caller = kwargs.get('caller', None)
@@ -92,13 +93,13 @@ class Wearable(Object):
         """Hook called after removing."""
         self.attributes.remove("worn_by")
         return True
-    
+
     def calc_armor(self):
         """
         If we have crafted armor, return the value from the recipe and
         quality.
         """
-        quality = self.db.quality_level or 0
+        quality = self.quality_level
         recipe_id = self.db.recipe
         from world.dominion.models import CraftingRecipe
         try:
@@ -132,7 +133,7 @@ class Wearable(Object):
         self.ndb.cached_penalty_value = penalty
         self.ndb.cached_resilience = resilience
         return armor, penalty, resilience
-    
+
     def _get_armor(self):
         # if we have no recipe or we are set to ignore it, use armor_class
         if not self.db.recipe or self.db.ignore_crafted:
@@ -140,7 +141,7 @@ class Wearable(Object):
         if self.ndb.cached_armor_value is not None:
             return self.ndb.cached_armor_value
         return self.calc_armor()[0]
-    
+
     def _set_armor(self, value):
         """
         Manually sets the value of our armor, ignoring any crafting recipe we have.
@@ -188,6 +189,13 @@ class Wearable(Object):
         except (TypeError, ValueError):
             return 1
 
+    def check_fashion_ready(self):
+        super(Wearable, self).check_fashion_ready()
+        if not self.db.currently_worn:
+            from server.utils.exceptions import FashionError
+            raise FashionError("Please wear %s before trying to model it as fashion." % self)
+        return True
+
 
 # noinspection PyMethodMayBeStatic
 class WearableContainer(Wearable, Container):
@@ -196,7 +204,7 @@ class WearableContainer(Wearable, Container):
         """Creates the object, calls both superclasses"""
         Wearable.at_object_creation(self)
         Container.at_object_creation(self)
-    
+
     def at_cmdset_get(self, **kwargs):
         """
         Called when the cmdset is requested from this object, just before the

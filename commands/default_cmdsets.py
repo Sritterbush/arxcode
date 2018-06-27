@@ -243,6 +243,8 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
         self.add(staff_commands.CmdSetServerConfig())
         from .cmdsets import starting_gear
         self.add(starting_gear.CmdSetupGear())
+        from world.fashion import fashion_commands
+        self.add(fashion_commands.CmdAdminFashion())
 
     @check_errors
     def add_investigation_commands(self):
@@ -253,7 +255,7 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
         self.add(investigation.CmdTheories())
         self.add(investigation.CmdListRevelations())
         self.add(investigation.CmdPRPClue())
-        
+
     @check_errors
     def add_scene_commands(self):
         """Commands for flashbacks"""
@@ -285,7 +287,7 @@ class UnloggedinCmdSet(cmdset_unloggedin.UnloggedinCmdSet):
         #
         # any commands you add below will overload the default ones.
         #
-        
+
         try:
             from evennia.commands.default import unloggedin as default_unloggedin
             self.add(default_unloggedin.CmdUnconnectedConnect())

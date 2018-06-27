@@ -20,7 +20,7 @@ class WalrusJudgement(Exception):
         "Walruses have 450 sensitive whiskers called vibrissae.",
         "Walruses can live to around 40 years old."
         ]
-    
+
     def __init__(self, *args, **kwargs):
         from random import choice
         super(WalrusJudgement, self).__init__("Did you know? " + choice(self.WALRUSFACTS))
@@ -35,4 +35,8 @@ class PayError(CommandError):
 
 
 class ActionSubmissionError(CommandError):
+    pass
+
+
+class FashionError(CommandError):
     pass

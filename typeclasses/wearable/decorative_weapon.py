@@ -50,3 +50,12 @@ class DecorativeWieldable(Wieldable, Wearable):
     def _calc_armor(self):
         return
     armor = property(_get_armor)
+
+    def check_fashion_ready(self):
+        """Require us to either be worn or wielded"""
+        from world.fashion.mixins import FashionableMixins
+        FashionableMixins.check_fashion_ready(self)
+        if not (self.db.currently_wielded or self.db.currently_worn):
+            from server.utils.exceptions import FashionError
+            raise FashionError("You must wear or wield %s to model it." % self)
+        return True

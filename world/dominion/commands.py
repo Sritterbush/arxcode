@@ -2461,6 +2461,21 @@ class CmdPatronage(ArxPlayerCommand):
         msg += "{wProteges:{n %s" % ", ".join("{c%s{n" % str(ob) for ob in proteges)
         return msg
 
+    def check_social_rank_difference(self, target):
+        """Determines if social rank is great enough"""
+        our_rank = self.caller.char_ob.db.social_rank or 10
+        targ_rank = target.db.social_rank or 0
+        if our_rank < 3:
+            diff = 3
+        elif our_rank < 6:
+            diff = 2
+        else:
+            diff = 1
+        if our_rank + diff > targ_rank:
+            self.msg("Your social rank must be at least %d higher than your target." % diff)
+            return False
+        return True
+
     def func(self):
         caller = self.caller
         try:
@@ -2494,14 +2509,11 @@ class CmdPatronage(ArxPlayerCommand):
                     return
                 num = dompc.proteges.all().count()
                 psrank = caller.db.char_ob.db.social_rank
-                tsrank = char.db.social_rank
                 max_p = max_proteges.get(psrank, 0)
                 if num >= max_p:
                     caller.msg("You already have the maximum number of proteges for your social rank.")
                     return
-                # 'greater' social rank is worse. 1 is best, 10 is worst
-                if psrank >= tsrank:
-                    caller.msg("They must be a worse social rank than you to be your protege.")
+                if not self.check_social_rank_difference(char):
                     return
                 player.ndb.pending_patron = caller
                 msg = "{c%s {wwants to become your patron. " % caller.key.capitalize()

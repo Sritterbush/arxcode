@@ -68,7 +68,7 @@ from . import unit_types, unit_constants
 from .reports import WeeklyReport
 from .battle import Battle
 from .agenthandler import AgentHandler
-from .managers import CrisisManager
+from .managers import CrisisManager, OrganizationManager
 from server.utils.arx_utils import get_week, inform_staff, passthrough_properties
 from server.utils.exceptions import ActionSubmissionError, PayError
 from typeclasses.npcs import npc_types
@@ -146,7 +146,7 @@ class PlayerOrNpc(SharedMemoryModel):
         if not self.alive:
             name += "(RIP)"
         return name
-    
+
     def _get_siblings(self):
         return PlayerOrNpc.objects.filter(Q(parents__in=self.all_parents) &
                                           ~Q(id=self.id)).distinct()
@@ -190,7 +190,7 @@ class PlayerOrNpc(SharedMemoryModel):
 
     cousins = property(_get_cousins)
     siblings = property(_get_siblings)
-    
+
     def display_immediate_family(self):
         """
         Creates lists of our family relationships and converts the lists to sets
@@ -312,7 +312,7 @@ class PlayerOrNpc(SharedMemoryModel):
             assets = self.assets
         except AttributeError:
             return False
-        life_lvl = self.lifestyle_rating      
+        life_lvl = self.lifestyle_rating
         cost = LIFESTYLES.get(life_lvl, (0, 0))[0]
         prestige = LIFESTYLES.get(life_lvl, (0, 0))[1]
         try:
@@ -322,7 +322,7 @@ class PlayerOrNpc(SharedMemoryModel):
                 prestige += bonus
         except (AttributeError, TypeError, ValueError):
             pass
-        
+
         def pay_and_adjust(payer):
             """Helper function to make the payment, adjust prestige, and send a report"""
             payer.vault -= cost
@@ -353,7 +353,7 @@ class PlayerOrNpc(SharedMemoryModel):
         if not hasattr(self, 'cached_support_cooldowns'):
             return self.calc_support_cooldowns()
         return self.cached_support_cooldowns
-    
+
     def calc_support_cooldowns(self):
         """Calculates support used in last three weeks, builds a dictionary"""
         self.cached_support_cooldowns = {}
@@ -430,7 +430,7 @@ class PlayerOrNpc(SharedMemoryModel):
         from datetime import timedelta
         offset = timedelta(days=-CrisisAction.num_days)
         old = datetime.now() + offset
-        return self.actions.filter(Q(date_submitted__gte=old) & 
+        return self.actions.filter(Q(date_submitted__gte=old) &
                                    ~Q(status__in=(CrisisAction.CANCELLED, CrisisAction.DRAFT)) &
                                    Q(free_action=False))
 
@@ -444,12 +444,12 @@ class PlayerOrNpc(SharedMemoryModel):
                                               ~Q(status__in=(CrisisAction.CANCELLED, CrisisAction.DRAFT)) &
                                               Q(free_action=False))
         return self.assisting_actions.filter(crisis_action__in=actions, free_action=False).distinct()
-        
+
     @property
     def past_actions(self):
         """Returns queryset of our old published actions"""
         return self.actions.filter(status=CrisisAction.PUBLISHED)
-        
+
     def clear_cached_values_in_appointments(self):
         """Clears cache in ruler/minister appointments"""
         for minister in self.appointments.all():
@@ -473,7 +473,7 @@ class AssetOwner(SharedMemoryModel):
     """
     player = models.OneToOneField('PlayerOrNpc', related_name="assets", blank=True, null=True)
     organization_owner = models.OneToOneField('Organization', related_name='assets', blank=True, null=True)
-    
+
     # money stored in the bank
     vault = models.PositiveIntegerField(default=0, blank=0)
     # prestige we've earned
@@ -521,7 +521,7 @@ class AssetOwner(SharedMemoryModel):
             return self.organization_owner
         return None
     owner = property(_get_owner)
-    
+
     def __unicode__(self):
         return "%s" % self.owner
 
@@ -542,7 +542,7 @@ class AssetOwner(SharedMemoryModel):
     @property
     def base_grandeur(self):
         """The amount we contribute to other people when they're totalling up grandeur"""
-        return self.fame/10 + self.legend/10
+        return int(self.fame/10.0 + self.legend/10.0)
 
     def get_grandeur_from_patron(self):
         """Gets our grandeur value from our patron, if we have one"""
@@ -561,16 +561,30 @@ class AssetOwner(SharedMemoryModel):
     def get_grandeur_from_orgs(self):
         """Gets grandeur value from orgs we're a member of."""
         base = 0
-        for member in self.player.memberships.filter(deguilded=False):
-            base += member.organization.assets.base_grandeur / 10
-        return base
+        memberships = list(self.player.memberships.filter(deguilded=False, secret=False,
+                                                          organization__secret=False).distinct())
+        too_many_org_penalty = max(len(memberships) * 0.5, 1.0)
+        for member in memberships:
+            rank_divisor = max(member.rank, 1)
+            grandeur = member.organization.assets.base_grandeur / rank_divisor
+            grandeur /= too_many_org_penalty
+            base += grandeur
+        return int(base)
 
     def get_grandeur_from_members(self):
         """Gets grandeur for an org from its members"""
         base = 0
-        for member in self.organization_owner.active_members:
-            base += member.player.assets.base_grandeur / 10
-        return base
+        members = list(self.organization_owner.active_members)
+        ranks = 0
+        for member in members:
+            rank_divisor = max(member.rank, 1)
+            grandeur = member.player.assets.base_grandeur / rank_divisor
+            base += grandeur
+            ranks += 11 - member.rank
+        too_many_members_mod = max(ranks/200.0, 0.01)
+        base /= too_many_members_mod
+        sign = -1 if base < 0 else 1
+        return min(abs(int(base)), abs(self.fame + self.legend) * 2) * sign
 
     def adjust_prestige(self, value, force=False):
         """
@@ -581,7 +595,7 @@ class AssetOwner(SharedMemoryModel):
         if value > self.legend or force:
             self.legend += value / 100
         self.save()
-    
+
     def _income(self):
         income = 0
         if hasattr(self, '_cached_income'):
@@ -596,7 +610,7 @@ class AssetOwner(SharedMemoryModel):
             income += domain.total_income
         self._cached_income = income
         return income
-    
+
     def _costs(self):
         costs = 0
         if hasattr(self, '_cached_costs'):
@@ -609,10 +623,10 @@ class AssetOwner(SharedMemoryModel):
             costs += domain.costs
         self._cached_costs = costs
         return costs
-    
+
     def _net_income(self):
         return self.income - self.costs
-    
+
     income = property(_income)
     net_income = property(_net_income)
     costs = property(_costs)
@@ -632,7 +646,7 @@ class AssetOwner(SharedMemoryModel):
         """Decreases our fame for the week"""
         self.fame -= int(self.fame * .20)
         self.save()
-        
+
     def do_weekly_adjustment(self, week):
         """
         Does weekly adjustment of all monetary/prestige stuff for this asset owner and all their holdings. A report
@@ -696,7 +710,7 @@ class AssetOwner(SharedMemoryModel):
             del self._cached_costs
         if hasattr(self, '_cached_prestige'):
             del self._cached_prestige
-        
+
     def save(self, *args, **kwargs):
         """Saves changes and clears the cache"""
         self.clear_cache()
@@ -792,7 +806,7 @@ class CharitableDonation(SharedMemoryModel):
         if roll <= 1:
             roll = 1
         roll /= 100.0
-        roll *= value/5
+        roll *= value/2.0
         prest = int(roll)
         self.giver.adjust_prestige(prest)
         player = self.giver.player
@@ -837,11 +851,11 @@ class AccountTransaction(SharedMemoryModel):
     have it as a debt have the same value subtracted.
     """
     receiver = models.ForeignKey('AssetOwner', related_name='incomes', blank=True, null=True, db_index=True)
-    
+
     sender = models.ForeignKey('AssetOwner', related_name='debts', blank=True, null=True, db_index=True)
     # quick description of the type of transaction. taxes between liege/vassal, etc
     category = models.CharField(blank=True, null=True, max_length=255)
-    
+
     weekly_amount = models.PositiveIntegerField(default=0, blank=0)
 
     # if this is false, this is a debt that continues to accrue
@@ -859,10 +873,10 @@ class AccountTransaction(SharedMemoryModel):
             self.delete()
         else:
             self.save()
-    
+
     def _get_amount(self):
         return self.weekly_amount
-    
+
     def __unicode__(self):
         receiver = self.receiver
         if receiver:
@@ -890,9 +904,9 @@ class AccountTransaction(SharedMemoryModel):
             if report:
                 report.payment_fail(self)
             return 0
-    
+
     amount = property(_get_amount)
-    
+
     @property
     def can_pay(self):
         """prevent possible caching errors with a refresh check on sender, and then check if they can pay"""
@@ -906,7 +920,7 @@ class AccountTransaction(SharedMemoryModel):
             self.sender.clear_cache()
         if self.receiver:
             self.receiver.clear_cache()
-        
+
 
 class Region(SharedMemoryModel):
     """
@@ -927,8 +941,8 @@ class Region(SharedMemoryModel):
 
     def __repr__(self):
         return "<Region: %s(#%s)>" % (self.name, self.id)
-    
-    
+
+
 class Land(SharedMemoryModel):
     """
     A Land square on the world grid. It contains coordinates of its map space,
@@ -954,8 +968,8 @@ class Land(SharedMemoryModel):
     FLOOD_PLAINS = 14
     ICE = 15
     LAKES = 16
-    OASIS = 17   
-    
+    OASIS = 17
+
     TERRAIN_CHOICES = (
         (COAST, 'Coast'),
         (DESERT, 'Desert'),
@@ -975,14 +989,14 @@ class Land(SharedMemoryModel):
         (LAKES, 'Lakes'),
         (OASIS, 'Oasis'),
         )
-    
+
     name = models.CharField(max_length=80, blank=True, null=True)
     desc = models.TextField(blank=True, null=True)
     x_coord = models.SmallIntegerField(default=0, blank=0)
     y_coord = models.SmallIntegerField(default=0, blank=0)
-    
+
     terrain = models.PositiveSmallIntegerField(choices=TERRAIN_CHOICES, default=PLAINS)
-    
+
     region = models.ForeignKey('Region', on_delete=models.SET_NULL, blank=True, null=True)
     # whether we can have boats here
     landlocked = models.BooleanField(default=True, blank=True)
@@ -1114,7 +1128,7 @@ class Domain(SharedMemoryModel):
     A player may own several different domains, but each should be in a unique
     square. Conquering other domains inside the same Land square should annex
     them into a single domain.
-    """    
+    """
     # 'grid' square where our domain is. More than 1 domain can be on a square
     location = models.ForeignKey('MapLocation', on_delete=models.SET_NULL, related_name='domains',
                                  blank=True, null=True)
@@ -1126,21 +1140,21 @@ class Domain(SharedMemoryModel):
     desc = models.TextField(blank=True, null=True)
     title = models.CharField(blank=True, null=True, max_length=255)
     destroyed = models.BooleanField(default=False, blank=False)
-    
+
     # how much of the territory in our land square we control
     from django.core.validators import MaxValueValidator
     area = models.PositiveSmallIntegerField(validators=[MaxValueValidator(LAND_SIZE)], default=0, blank=0)
-    
+
     # granaries, food for emergencies, etc
     stored_food = models.PositiveIntegerField(default=0, blank=0)
-    
+
     # food from other sources - trade, other holdings of player, etc
     # this is currently 'in transit', and will be added to food_stored if it arrives
     shipped_food = models.PositiveIntegerField(default=0, blank=0)
-    
+
     # percentage out of 100
     tax_rate = models.PositiveSmallIntegerField(default=10, blank=10)
-    
+
     # our economic resources
     num_mines = models.PositiveSmallIntegerField(default=0, blank=0)
     num_lumber_yards = models.PositiveSmallIntegerField(default=0, blank=0)
@@ -1156,7 +1170,7 @@ class Domain(SharedMemoryModel):
     lumber_serfs = models.PositiveSmallIntegerField(default=0, blank=0)
     farming_serfs = models.PositiveSmallIntegerField(default=0, blank=0)
     mill_serfs = models.PositiveSmallIntegerField(default=0, blank=0)
-    
+
     # causes mo' problems.
     lawlessness = models.PositiveSmallIntegerField(default=0, blank=0)
     amount_plundered = models.PositiveSmallIntegerField(default=0, blank=0)
@@ -1186,7 +1200,7 @@ class Domain(SharedMemoryModel):
                         tax += amt
                 except (AttributeError, TypeError, ValueError):
                     pass
-        self.cached_tax_income = tax       
+        self.cached_tax_income = tax
         return tax
 
     @staticmethod
@@ -1201,19 +1215,19 @@ class Domain(SharedMemoryModel):
             return 1.0
         # percentage of our efficiency
         return workers/req
-    
+
     def get_resource_income(self, building, workers):
         """Generates base income from resources"""
         base = SILVER_PER_BUILDING * building
         worker_req = self.required_worker_mod(building, workers)
-        return base * worker_req             
-        
+        return base * worker_req
+
     def _get_mining_income(self):
         base = self.get_resource_income(self.num_mines, self.mining_serfs)
         if self.land:
             base = (base * self.land.mine_mod)/100.0
         return base
-        
+
     def _get_lumber_income(self):
         base = self.get_resource_income(self.num_lumber_yards, self.lumber_serfs)
         if self.land:
@@ -1239,7 +1253,7 @@ class Domain(SharedMemoryModel):
             return skill_value
         except AttributeError:
             return 0.0
-    
+
     def _get_total_income(self):
         """
         Returns our total income after all modifiers. All income sources are
@@ -1268,7 +1282,7 @@ class Domain(SharedMemoryModel):
         self.cached_total_income = int(amount)
         # we'll dump the remainder
         return int(amount)
-    
+
     def _get_liege_tax(self):
         if not self.ruler:
             return 0
@@ -1277,7 +1291,7 @@ class Domain(SharedMemoryModel):
         if self.ruler.liege.holdings.all():
             return self.ruler.liege.holdings.first().tax_rate
         return 0
-    
+
     def worker_cost(self, number):
         """
         Cost of workers, reduced if they are slaves
@@ -1291,7 +1305,7 @@ class Domain(SharedMemoryModel):
             reduction = 1.00 + self.get_bonus('upkeep')
             cost /= reduction
         return int(cost)
-        
+
     def _get_costs(self):
         """
         Costs/upkeep for all of our production.
@@ -1339,7 +1353,7 @@ class Domain(SharedMemoryModel):
                                                         weekly_amount=amt)
         transaction.weekly_amount = amt
         transaction.save()
-    
+
     def _get_food_production(self):
         """
         How much food the region produces.
@@ -1350,20 +1364,20 @@ class Domain(SharedMemoryModel):
             bonus = self.get_bonus('farming') * amount
             amount += bonus
         return int(amount)
-    
+
     def _get_food_consumption(self):
         """
         How much food the region consumes from workers. Armies/garrisons will
         draw upon stored food during do_weekly_adjustment.
         """
         return self.total_serfs
-    
+
     def _get_max_pop(self):
         """
         Maximum population.
         """
         return self.num_housing * POP_PER_HOUSING
-    
+
     def _get_employed_serfs(self):
         """
         How many serfs are currently working on a field.
@@ -1375,7 +1389,7 @@ class Domain(SharedMemoryModel):
         Total of all serfs
         """
         return self.employed + self.unassigned_serfs
-    
+
     def kill_serfs(self, deaths, serf_type=None):
         """
         Whenever we lose serfs, we need to lose some that are employed in some field.
@@ -1427,7 +1441,7 @@ class Domain(SharedMemoryModel):
         self.lawlessness += 10
         self.save()
         return pillage
-    
+
     def annex(self, target, week, army):
         """
         Absorbs the target domain into this one. We'll take all buildings/serfs
@@ -1503,7 +1517,7 @@ class Domain(SharedMemoryModel):
             self.kill_serfs(adjustment)
         else:
             self.unassigned_serfs += adjustment
-    
+
     food_production = property(_get_food_production)
     food_consumption = property(_get_food_consumption)
     costs = property(_get_costs)
@@ -1517,10 +1531,10 @@ class Domain(SharedMemoryModel):
     total_serfs = property(_get_total_serfs)
     liege_taxes = property(_get_liege_tax)
     liege_taxed_amt = property(_get_liege_taxed_amt)
-    
+
     def __unicode__(self):
         return "%s (#%s)" % (self.name or 'Unnamed Domain', self.id)
-    
+
     def __repr__(self):
         return "<Domain (#%s): %s>" % (self.id, self.name or 'Unnamed')
 
@@ -1644,7 +1658,7 @@ class DomainProject(SharedMemoryModel):
                        (BUILD_SIEGE_WEAPONS, 'Build Siege Weapons'),
                        (MUSTER_TROOPS, 'Muster Troops'),
                        (BUILD_TROOP_EQUIPMENT, 'Build Troop Equipment'),)
-    
+
     type = models.PositiveSmallIntegerField(choices=PROJECT_CHOICES, default=BUILD_HOUSING)
     amount = models.PositiveSmallIntegerField(blank=1, default=1)
     unit_type = models.PositiveSmallIntegerField(default=1, blank=1)
@@ -1653,7 +1667,7 @@ class DomainProject(SharedMemoryModel):
     castle = models.ForeignKey("Castle", related_name="projects", blank=True, null=True)
     military = models.ForeignKey("Army", related_name="projects", blank=True, null=True)
     unit = models.ForeignKey("MilitaryUnit", related_name="projects", blank=True, null=True)
-    
+
     def advance_project(self, report=None, increment=1):
         """Makes progress on a project for a domain"""
         self.time_remaining -= increment
@@ -1716,7 +1730,7 @@ class Castle(SharedMemoryModel):
     CASTLE_WITH_CURTAIN_WALL = 4
     FORTIFIED_CASTLE = 5
     EPIC_CASTLE = 6
-    
+
     FORTIFICATION_CHOICES = (
         (MOTTE_AND_BAILEY, 'Motte and Bailey'),
         (TIMBER_CASTLE, 'Timber Castle'),
@@ -1785,7 +1799,7 @@ class Minister(SharedMemoryModel):
 
     def __str__(self):
         return "%s acting as %s minister for %s" % (self.player, self.get_category_display(), self.ruler)
-        
+
     def clear_cache(self):
         """Clears cache for the ruler of this minister"""
         return self.ruler.clear_cache()
@@ -1805,7 +1819,7 @@ class Ruler(SharedMemoryModel):
     castellan = models.OneToOneField("PlayerOrNpc", blank=True, null=True)
     # the house that owns the domain
     house = models.OneToOneField("AssetOwner", on_delete=models.SET_NULL, related_name="estate", blank=True, null=True)
-    # a ruler object that this object owes its alliegance to    
+    # a ruler object that this object owes its alliegance to
     liege = models.ForeignKey("self", on_delete=models.SET_NULL, related_name="vassals", blank=True, null=True,
                               db_index=True)
 
@@ -1877,7 +1891,7 @@ class Ruler(SharedMemoryModel):
         if not self.house:
             return 0
         return sum(ob.weekly_amount for ob in self.house.debts.filter(category="vassal taxes"))
-        
+
     def clear_cache(self):
         """Clears cache for all domains under our rule"""
         for domain in self.holdings.all():
@@ -1944,25 +1958,25 @@ class Crisis(SharedMemoryModel):
         except AttributeError:
             pass
         return msg
-        
+
     def check_taken_action(self, dompc):
         """Whether player has submitted action for the current crisis update."""
         return self.actions.filter(Q(dompc=dompc) & Q(update__isnull=True)
                                    & ~Q(status__in=(CrisisAction.DRAFT, CrisisAction.CANCELLED))).exists()
-        
+
     def raise_submission_errors(self):
         """Raises errors if it's not valid to submit an action for this crisis"""
         if self.resolved:
             raise ActionSubmissionError("%s has been marked as resolved." % self)
         if self.end_date and datetime.now() > self.end_date:
             raise ActionSubmissionError("It is past the deadline for %s." % self)
-            
+
     def raise_creation_errors(self, dompc):
         """Raise errors if dompc shouldn't be allowed to submit an action for this crisis"""
         self.raise_submission_errors()
         if self.check_taken_action(dompc=dompc):
             raise ActionSubmissionError("You have already submitted an action for this stage of the crisis.")
-            
+
     def create_update(self, gemit_text, caller=None, gm_notes=None, do_gemit=True,
                       episode_name=None, episode_synopsis=None):
         """
@@ -1985,7 +1999,7 @@ class Crisis(SharedMemoryModel):
         else:
             latest_episode = Chapter.objects.last().episodes.create(name=episode_name, synopsis=episode_synopsis)
         update = self.updates.create(date=datetime.now(), desc=gemit_text, gm_notes=gm_notes, episode=latest_episode)
-        qs = self.actions.filter(status__in=(CrisisAction.PUBLISHED, CrisisAction.PENDING_PUBLISH, 
+        qs = self.actions.filter(status__in=(CrisisAction.PUBLISHED, CrisisAction.PENDING_PUBLISH,
                                              CrisisAction.CANCELLED), update__isnull=True)
         pending = []
         already_published = []
@@ -2039,13 +2053,13 @@ class CrisisUpdate(SharedMemoryModel):
     desc = models.TextField("Story of what happened this update", blank=True)
     gm_notes = models.TextField("Any ooc notes of consequences", blank=True)
     date = models.DateTimeField(blank=True, null=True)
-    episode = models.ForeignKey("character.Episode", related_name="crisis_updates", blank=True, null=True, 
+    episode = models.ForeignKey("character.Episode", related_name="crisis_updates", blank=True, null=True,
                                 on_delete=models.SET_NULL)
 
     def __str__(self):
         return "Update %s for %s" % (self.id, self.crisis)
-        
-        
+
+
 class AbstractAction(AbstractPlayerAllocations):
     """Abstract parent class representing a player's participation in an action"""
     NOUN = "Action"
@@ -2057,24 +2071,24 @@ class AbstractAction(AbstractPlayerAllocations):
     editable = models.BooleanField(default=True)
     resource_types = ('silver', 'military', 'economic', 'social', 'ap', 'action points', 'army')
     free_action = models.BooleanField(default=False)
-    
+
     class Meta:
         abstract = True
-        
+
     @property
     def submitted(self):
         """Whether they've submitted this or not"""
         return bool(self.date_submitted)
-        
+
     @property
     def ap_refund_amount(self):
         """How much AP to refund"""
         return self.action_points + self.BASE_AP_COST
-        
+
     def pay_action_points(self, amount):
         """Passthrough method to make the player pay action points"""
         return self.dompc.player.pay_action_points(amount)
-        
+
     def refund(self):
         """Method for refunding a player's resources, AP, etc."""
         self.pay_action_points(-self.ap_refund_amount)
@@ -2085,14 +2099,14 @@ class AbstractAction(AbstractPlayerAllocations):
         if self.silver:
             self.dompc.assets.vault += self.silver
             self.dompc.assets.save()
-        
+
     def check_view_secret(self, caller):
         """Whether caller can view the secret part of this action"""
         if not caller:
             return
         if caller.check_permstring("builders") or caller == self.dompc.player:
             return True
-    
+
     def get_action_text(self, secret=False, disp_summary=False):
         """Gets the text of their action"""
         noun = self.NOUN
@@ -2118,7 +2132,7 @@ class AbstractAction(AbstractPlayerAllocations):
     def get_summary_text(self):
         """Returns brief formatted summary of this action"""
         return "{wSummary:{n %s" % self.topic
-        
+
     @property
     def ooc_intent(self):
         """Returns the question that acts as this action's OOC intent - what the player wants"""
@@ -2126,7 +2140,7 @@ class AbstractAction(AbstractPlayerAllocations):
             return self.questions.get(is_intent=True)
         except ActionOOCQuestion.DoesNotExist:
             return None
-        
+
     def set_ooc_intent(self, text):
         """Sets the action's OOC intent"""
         ooc_intent = self.ooc_intent
@@ -2135,7 +2149,7 @@ class AbstractAction(AbstractPlayerAllocations):
         else:
             ooc_intent.text = text
             ooc_intent.save()
-            
+
     def ask_question(self, text):
         """Adds an OOC question to GMs by the player"""
         msg = "{c%s{n added a comment/question about Action #%s:\n%s" % (self.author, self.main_id, text)
@@ -2143,26 +2157,26 @@ class AbstractAction(AbstractPlayerAllocations):
         if self.gm:
             self.gm.inform(msg, category="Action questions")
         return self.questions.create(text=text)
-        
+
     @property
     def is_main_action(self):
         """Whether this is the main action. False means we're an assist"""
         return self.NOUN == "Action"
-        
+
     @property
     def author(self):
         """The author of this action - the main originating character who others are assisting"""
         return self.dompc
-    
+
     def inform(self, text, category="Actions", append=False):
         """Passthrough method to send an inform to the player"""
         self.dompc.inform(text, category=category, append=append)
-        
+
     def submit(self):
         """Attempts to submit this action. Can raise ActionSubmissionErrors."""
         self.raise_submission_errors()
         self.on_submit_success()
-        
+
     def on_submit_success(self):
         """If no errors were raised, we mark ourselves as submitted and no longer allow edits."""
         if not self.date_submitted:
@@ -2170,7 +2184,7 @@ class AbstractAction(AbstractPlayerAllocations):
         self.editable = False
         self.save()
         self.post_edit()
-        
+
     def raise_submission_errors(self):
         """Raises errors if this action is not ready for submission."""
         fields = self.check_incomplete_required_fields()
@@ -2179,7 +2193,7 @@ class AbstractAction(AbstractPlayerAllocations):
         from server.utils.arx_utils import check_break
         if check_break():
             raise ActionSubmissionError("Cannot submit an action while staff are on break.")
-            
+
     def check_incomplete_required_fields(self):
         """Returns any required fields that are not yet defined."""
         fields = []
@@ -2192,26 +2206,26 @@ class AbstractAction(AbstractPlayerAllocations):
         if not self.skill_used or not self.stat_used:
             fields.append("roll")
         return fields
-        
+
     def post_edit(self):
         """In both child classes this check occurs after a resubmit."""
         pass
-    
+
     @property
     def crisis_attendance(self):
         """Returns list of actions we are attending - physically present for"""
-        attended_actions = list(self.dompc.actions.filter(Q(update__isnull=True) 
+        attended_actions = list(self.dompc.actions.filter(Q(update__isnull=True)
                                                           & Q(attending=True)
                                                           & Q(crisis__isnull=False)
                                                           & ~Q(status=CrisisAction.CANCELLED)
                                                           & Q(date_submitted__isnull=False)))
-        attended_actions += list(self.dompc.assisting_actions.filter(Q(crisis_action__update__isnull=True) 
+        attended_actions += list(self.dompc.assisting_actions.filter(Q(crisis_action__update__isnull=True)
                                                                      & Q(attending=True)
                                                                      & Q(crisis_action__crisis__isnull=False)
                                                                      & ~Q(crisis_action__status=CrisisAction.CANCELLED)
                                                                      & Q(date_submitted__isnull=False)))
         return attended_actions
-        
+
     def check_crisis_omnipresence(self):
         """Raises an ActionSubmissionError if we are already attending for this crisis"""
         if self.attending:
@@ -2220,7 +2234,7 @@ class AbstractAction(AbstractPlayerAllocations):
                 already_attending = already_attending[-1]
                 raise ActionSubmissionError("You are marked as physically present at %s. Use @action/toggleattend"
                                             " and also ensure this story reads as a passive role." % already_attending)
-                                            
+
     def check_crisis_overcrowd(self):
         """Raises an ActionSubmissionError if too many people are attending"""
         attendees = self.attendees
@@ -2231,20 +2245,20 @@ class AbstractAction(AbstractPlayerAllocations):
                                         "Alternately, the action can be marked as preferring offscreen resolution. "
                                         "Current attendees: %s" % (self.attending_limit, excess,
                                                                    ",".join(str(ob) for ob in attendees)))
-                                        
+
     def check_crisis_errors(self):
         """Raises ActionSubmissionErrors if anything should stop our submission"""
         if self.crisis:
             self.crisis.raise_submission_errors()
             self.check_crisis_omnipresence()
         self.check_crisis_overcrowd()
-            
+
     def mark_attending(self):
         """Marks us as physically attending, raises ActionSubmissionErrors if it shouldn't be allowed."""
         self.check_crisis_errors()
         self.attending = True
         self.save()
-    
+
     def add_resource(self, r_type, value):
         """
         Adds a resource to this action of the specified type and value
@@ -2292,7 +2306,7 @@ class AbstractAction(AbstractPlayerAllocations):
         value += getattr(self, r_type)
         setattr(self, r_type, value)
         self.save()
-    
+
     def add_army(self, name_or_id):
         """Adds army orders to this action. Army can be specified by name or ID."""
         try:
@@ -2312,7 +2326,7 @@ class AbstractAction(AbstractPlayerAllocations):
                                   action_assist=action_assist)
         if not orders:
             raise ActionSubmissionError("Failed to send orders to the army.")
-        
+
     def do_roll(self, stat=None, skill=None, difficulty=None, reset_total=True):
         """
         Does a roll for this action
@@ -2336,11 +2350,11 @@ class AbstractAction(AbstractPlayerAllocations):
         if reset_total:
             self.calculate_outcome_value()
         return self.roll
-        
+
     def display_followups(self):
         """Returns string of the display of all of our questions."""
         return "\n".join(question.display() for question in self.questions.all())
-        
+
     def add_answer(self, gm, text):
         """Adds a GM's answer to an OOC question"""
         unanswered = self.unanswered_questions
@@ -2365,7 +2379,7 @@ class AbstractAction(AbstractPlayerAllocations):
     def unanswered_questions(self):
         """Returns queryset of an OOC questions without an answer"""
         return self.questions.filter(answers__isnull=True).exclude(Q(is_intent=True) | Q(mark_answered=True))
-        
+
 
 class CrisisAction(AbstractAction):
     """
@@ -2391,7 +2405,7 @@ class CrisisAction(AbstractAction):
     gemit = models.ForeignKey("character.StoryEmit", blank=True, null=True, related_name="actions")
     gm = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, related_name="gmd_actions",
                            on_delete=models.SET_NULL)
-    
+
     UNKNOWN = 0
     COMBAT = 1
     SUPPORT = 2
@@ -2399,7 +2413,7 @@ class CrisisAction(AbstractAction):
     DIPLOMACY = 4
     SCOUTING = 5
     RESEARCH = 6
-    
+
     CATEGORY_CHOICES = (
         (UNKNOWN, 'Unknown'),
         (COMBAT, 'Combat'),
@@ -2410,14 +2424,14 @@ class CrisisAction(AbstractAction):
         (RESEARCH, 'Research')
         )
     category = models.PositiveSmallIntegerField(choices=CATEGORY_CHOICES, default=UNKNOWN)
-    
+
     DRAFT = 0
     NEEDS_PLAYER = 1
     NEEDS_GM = 2
     CANCELLED = 3
     PENDING_PUBLISH = 4
     PUBLISHED = 5
-    
+
     STATUS_CHOICES = (
         (DRAFT, 'Draft'),
         (NEEDS_PLAYER, 'Needs Player Input'),
@@ -2430,7 +2444,7 @@ class CrisisAction(AbstractAction):
     max_requests = 2
     num_days = 30
     attending_limit = 5
-    
+
     def __str__(self):
         if self.crisis:
             crisis = " for %s" % self.crisis
@@ -2446,52 +2460,52 @@ class CrisisAction(AbstractAction):
         else:
             crisis = ""
         return "%s by {c%s{n%s" % (self.NOUN, self.author, crisis)
-    
+
     @property
     def sent(self):
         """Whether this action is published"""
         return bool(self.status == self.PUBLISHED)
-        
+
     @property
     def total_social(self):
         """Total social resources spent"""
         return self.social + sum(ob.social for ob in self.assisting_actions.all())
-        
+
     @property
     def total_economic(self):
         """Total economic resources spent"""
         return self.economic + sum(ob.economic for ob in self.assisting_actions.all())
-        
+
     @property
     def total_military(self):
         """Total military resources spent"""
         return self.military + sum(ob.military for ob in self.assisting_actions.all())
-        
+
     @property
     def total_silver(self):
         """Total silver spent"""
         return self.silver + sum(ob.silver for ob in self.assisting_actions.all())
-        
+
     @property
     def total_action_points(self):
         """Total action points spent"""
         return self.action_points + sum(ob.action_points for ob in self.assisting_actions.all())
-    
+
     @property
     def action_and_assists_and_invites(self):
         """List of this action and all our assists, whether they've accepted invite or not"""
         return [self] + list(self.assisting_actions.all())
-    
+
     @property
     def action_and_assists(self):
         """Listof actions and assists if they've written anything"""
         return [ob for ob in self.action_and_assists_and_invites if ob.actions]
-        
+
     @property
     def all_editable(self):
         """List of all actions and assists if they're currently editable"""
         return [ob for ob in self.action_and_assists_and_invites if ob.editable]
-    
+
     def send(self, update=None, caller=None):
         """Publishes this action"""
         if self.crisis:
@@ -2526,13 +2540,13 @@ class CrisisAction(AbstractAction):
     def view_action(self, caller=None, disp_pending=True, disp_old=False, disp_ooc=True):
         """
         Returns a text string of the display of an action.
-        
+
             Args:
                 caller: Player who is viewing this
                 disp_pending (bool): Whether to display pending questions
                 disp_old (bool): Whether to display answered questions
                 disp_ooc (bool): Whether to only display IC information
-                
+
             Returns:
                 Text string to display.
         """
@@ -2615,7 +2629,7 @@ class CrisisAction(AbstractAction):
         for action in self.action_and_assists:
             msg += "\n%s: %s\n" % (action.pretty_str, action.get_summary_text())
         return msg
-    
+
     def view_total_resources_msg(self):
         """Returns string of all resources spent"""
         msg = ""
@@ -2628,7 +2642,7 @@ class CrisisAction(AbstractAction):
         if totals:
             msg = "{wResources:{n %s" % totals
         return msg
-    
+
     def cancel(self):
         """Cancels and refunds this action"""
         for action in self.assisting_actions.all():
@@ -2639,14 +2653,14 @@ class CrisisAction(AbstractAction):
         else:
             self.status = CrisisAction.CANCELLED
             self.save()
-    
+
     def check_incomplete_required_fields(self):
         """Checks which fields are incomplete"""
         fields = super(CrisisAction, self).check_incomplete_required_fields()
         if not self.category:
             fields.append("category")
         return fields
-    
+
     def raise_submission_errors(self):
         """Raises errors that prevent submission"""
         super(CrisisAction, self).raise_submission_errors()
@@ -2659,7 +2673,7 @@ class CrisisAction(AbstractAction):
             return
         self.check_action_against_maximum_allowed()
         self.check_warning_prompt_sent()
-            
+
     def check_action_against_maximum_allowed(self):
         """Checks if we're over our limit on number of actions"""
         if self.free_action:
@@ -2715,7 +2729,7 @@ class CrisisAction(AbstractAction):
     def attendees(self):
         """Returns list of authors of all actions and assists if physically present"""
         return [ob.author for ob in self.action_and_assists if ob.attending]
-    
+
     def on_submit_success(self):
         """Announces us after successful submission. refunds any assistants who weren't ready"""
         if self.status == CrisisAction.DRAFT:
@@ -2724,7 +2738,7 @@ class CrisisAction(AbstractAction):
                 assist.submit_or_refund()
             inform_staff("%s submitted action #%s. %s" % (self.author, self.id, self.get_summary_text()))
         super(CrisisAction, self).on_submit_success()
-        
+
     def post_edit(self):
         """Announces that we've finished editing our action and are ready for a GM"""
         if self.status == CrisisAction.NEEDS_PLAYER and not self.all_editable:
@@ -2733,7 +2747,7 @@ class CrisisAction(AbstractAction):
             inform_staff("%s has been resubmitted for GM review." % self)
             if self.gm:
                 self.gm.inform("Action %s has been updated." % self.id, category="Actions")
-            
+
     def invite(self, dompc):
         """Invites an assistant, sending them an inform"""
         if dompc in self.assistants.all():
@@ -2752,20 +2766,20 @@ class CrisisAction(AbstractAction):
         msg += " the action/crisis should use the '/traitor' switch."
         msg += " To decline this invitation, use {w@action/cancel %s{n." % self.id
         dompc.inform(msg, category="Action Invitation")
-    
+
     def roll_all(self):
         """Rolls for every action and assist, changing outcome value"""
         for ob in self.action_and_assists:
             ob.do_roll(reset_total=False)
         return self.calculate_outcome_value()
-        
+
     def calculate_outcome_value(self):
         """Calculates total value of the action"""
         value = sum(ob.roll for ob in self.action_and_assists)
         self.outcome_value = value
         self.save()
         return self.outcome_value
-        
+
     def get_questions_and_answers_display(self, answered=False, staff=False, caller=None):
         """Displays all OOC questions and answers"""
         qs = self.questions.filter(is_intent=False)
@@ -2828,21 +2842,21 @@ class CrisisActionAssistant(AbstractAction):
     def pretty_str(self):
         """Formatted string of the assist"""
         return "{c%s{n assisting %s" % (self.author, self.crisis_action)
-    
+
     def cancel(self):
         """Cancels and refunds this assist, then deletes it"""
         if self.actions:
             self.refund()
         self.delete()
-    
+
     def view_total_resources_msg(self):
         """Passthrough method to return total resources msg"""
         return self.crisis_action.view_total_resources_msg()
-        
+
     def calculate_outcome_value(self):
         """Passthrough method to calculate outcome value"""
         return self.crisis_action.calculate_outcome_value()
-        
+
     def submit_or_refund(self):
         """Submits our assist if we're ready, or refunds us"""
         try:
@@ -2853,11 +2867,11 @@ class CrisisActionAssistant(AbstractAction):
             self.crisis_action.inform(main_action_msg)
             self.inform(assist_action_msg)
             self.cancel()
-            
+
     def post_edit(self):
         """Passthrough hook for after editing"""
         self.crisis_action.post_edit()
-        
+
     @property
     def has_paid_initial_ap_cost(self):
         """Returns if we've paid our AP cost"""
@@ -2867,15 +2881,15 @@ class CrisisActionAssistant(AbstractAction):
     def main_action(self):
         """Returns the action we're assisting"""
         return self.crisis_action
-        
+
     def set_action(self, story):
         """
         Sets our assist's actions. If the action has not been set yet, we'll attempt to pay the initial ap cost,
         raising an error if that fails.
-        
+
             Args:
                 story (str or unicode): The story of the character's actions, written by the player.
-                
+
             Raises:
                 ActionSubmissionError if we have not yet paid our AP cost and the player fails to do so here.
         """
@@ -2890,7 +2904,7 @@ class CrisisActionAssistant(AbstractAction):
         question = super(CrisisActionAssistant, self).ask_question(text)
         question.action = self.crisis_action
         question.save()
-                    
+
     def pay_initial_ap_cost(self):
         """Pays our initial AP cost or raises an ActionSubmissionError"""
         if not self.pay_action_points(self.BASE_AP_COST):
@@ -2933,14 +2947,14 @@ class ActionOOCQuestion(SharedMemoryModel):
 
     def __str__(self):
         return "%s %s: %s" % (self.author, self.noun, self.text)
-    
+
     @property
     def target(self):
         """The action or assist this question is from"""
         if self.action_assist:
             return self.action_assist
         return self.action
-        
+
     @property
     def author(self):
         """Who wrote this question"""
@@ -2950,7 +2964,7 @@ class ActionOOCQuestion(SharedMemoryModel):
     def noun(self):
         """String display of whether we're ooc intentions or a question"""
         return "OOC %s" % ("intentions" if self.is_intent else "Question")
-    
+
     def display(self):
         """Returns string display of this object"""
         msg = "{c%s{w %s:{n %s" % (self.author, self.noun, self.text)
@@ -2958,7 +2972,7 @@ class ActionOOCQuestion(SharedMemoryModel):
         if answers:
             msg += "\n%s" % "\n".join(ob.display() for ob in answers)
         return msg
-        
+
     @property
     def text_of_answers(self):
         """Returns this question and all the answers to it"""
@@ -2968,7 +2982,7 @@ class ActionOOCQuestion(SharedMemoryModel):
     def main_id(self):
         """ID of the target of this question"""
         return self.target.main_id
-        
+
     def add_answer(self, gm, text):
         """Adds an answer to this question"""
         self.answers.create(gm=gm, text=text)
@@ -2985,7 +2999,7 @@ class ActionOOCAnswer(SharedMemoryModel):
     gm = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True, related_name="answers_given")
     question = models.ForeignKey("ActionOOCQuestion", db_index=True, related_name="answers")
     text = models.TextField(blank=True)
-    
+
     def display(self):
         """Returns string display of this answer"""
         return "{wReply by {c%s{w:{n %s" % (self.gm, self.text)
@@ -3014,7 +3028,7 @@ class Reputation(SharedMemoryModel):
 
     class Meta:
         unique_together = ('player', 'organization')
- 
+
 
 class Organization(InformMixin, SharedMemoryModel):
     """
@@ -3052,7 +3066,7 @@ class Organization(InformMixin, SharedMemoryModel):
     income_per_npc = models.PositiveSmallIntegerField(default=0, blank=0)
     cost_per_npc = models.PositiveSmallIntegerField(default=0, blank=0)
     morale = models.PositiveSmallIntegerField(default=100, blank=100)
-    # this is used to represent temporary windfalls or crises that must be resolved 
+    # this is used to represent temporary windfalls or crises that must be resolved
     income_modifier = models.PositiveSmallIntegerField(default=100, blank=100)
     # whether players can use the @work command
     allow_work = models.BooleanField(default=False, blank=False)
@@ -3071,7 +3085,8 @@ class Organization(InformMixin, SharedMemoryModel):
     clues = models.ManyToManyField('character.Clue', blank=True, related_name="orgs",
                                    through="ClueForOrg")
     theories = models.ManyToManyField('character.Theory', blank=True, related_name="orgs")
-    
+    objects = OrganizationManager()
+
     def _get_npc_money(self):
         npc_income = self.npc_members * self.income_per_npc
         npc_income = (npc_income * self.income_modifier)/100.0
@@ -3088,7 +3103,7 @@ class Organization(InformMixin, SharedMemoryModel):
 
     def __repr__(self):
         return "<Org (#%s): %s>" % (self.id, self.name)
-    
+
     def display_members(self, start=1, end=10, viewing_member=None, show_all=False):
         """Returns string display of the org"""
         pcs = self.all_members
@@ -3133,7 +3148,7 @@ class Organization(InformMixin, SharedMemoryModel):
                     title = female_title
                 msg += "{w%s{n (Rank %s): %s\n" % (title, rank, name)
         return msg
-    
+
     def display_public(self, show_all=False):
         """Public display of this org"""
         msg = "\n{wName{n: %s\n" % self.name
@@ -3143,7 +3158,7 @@ class Organization(InformMixin, SharedMemoryModel):
         webpage = PAGEROOT + self.get_absolute_url()
         msg += "{wWebpage{n: %s\n" % webpage
         return msg
-    
+
     def display(self, viewing_member=None, display_clues=False, show_all=False):
         """Returns string display of org"""
         if hasattr(self, 'assets'):
@@ -3204,7 +3219,7 @@ class Organization(InformMixin, SharedMemoryModel):
             msg += "\n{wMember stats for {c%s{n\n" % viewing_member
             msg += viewing_member.display()
         return msg
-    
+
     def __init__(self, *args, **kwargs):
         super(Organization, self).__init__(*args, **kwargs)
         self.locks = LockHandler(self)
@@ -3217,7 +3232,7 @@ class Organization(InformMixin, SharedMemoryModel):
         default - what to return if no lock of access_type was found
         """
         return self.locks.check(accessing_obj, access_type=access_type, default=default)
-    
+
     def msg(self, message, prefix=True, *args, **kwargs):
         """Sends msg to all active members"""
         pcs = self.active_members
@@ -3228,7 +3243,7 @@ class Organization(InformMixin, SharedMemoryModel):
                 msg = message
             pc.msg(msg, *args, **kwargs)
         return
-    
+
     @property
     def active_members(self):
         """Returns queryset of players in active roster and not deguilded"""
@@ -3245,7 +3260,7 @@ class Organization(InformMixin, SharedMemoryModel):
     def can_receive_informs(self):
         """Whether this org can get informs"""
         return bool(self.active_members)
-    
+
     @property
     def all_members(self):
         """Returns all members who aren't booted, active or not"""
@@ -3330,7 +3345,7 @@ class UnitTypeInfo(models.Model):
     GALLEY = unit_constants.GALLEY
     DROMOND = unit_constants.DROMOND
     COG = unit_constants.COG
-    
+
     UNIT_CHOICES = (
         (INFANTRY, 'Infantry'),
         (PIKE, 'Pike'),
@@ -3342,23 +3357,23 @@ class UnitTypeInfo(models.Model):
         (COG, 'Cog'),
         (DROMOND, 'Dromond'),
         )
-    # type will be used to derive units and their stats elsewhere 
+    # type will be used to derive units and their stats elsewhere
     unit_type = models.PositiveSmallIntegerField(choices=UNIT_CHOICES, default=0, blank=0)
-    
+
     class Meta:
         abstract = True
-    
+
 
 class OrgUnitModifiers(UnitTypeInfo):
     """Model that has modifiers from an org to make a special unit"""
     org = models.ForeignKey('Organization', related_name="unit_mods", db_index=True)
     mod = models.SmallIntegerField(default=0, blank=0)
     name = models.CharField(blank=True, null=True, max_length=80)
-    
+
     class Meta:
         """Define Django meta options"""
         verbose_name_plural = "Unit Modifiers"
-    
+
 
 class ClueForOrg(SharedMemoryModel):
     """Model that shows a clue known by an org"""
@@ -3377,7 +3392,7 @@ class Agent(SharedMemoryModel):
     Agent instance represents a class of npc - whether it's a group of spies,
     armed guards, hired assassins, a pet dragon, whatever. Type is an integer
     that will be defined elsewhere in an agent file. ObjectDB points to Agent
-    as a foreignkey, and we access that set through self.agent_objects. 
+    as a foreignkey, and we access that set through self.agent_objects.
     """
     GUARD = npc_types.GUARD
     THUG = npc_types.THUG
@@ -3413,7 +3428,7 @@ class Agent(SharedMemoryModel):
     xp = models.PositiveSmallIntegerField(default=0)
     modifiers = models.TextField(blank=True)
     loyalty = models.PositiveSmallIntegerField(default=100)
-    
+
     def _get_cost(self):
         return self.cost_per_guard * self.quantity
     cost = property(_get_cost)
@@ -3500,7 +3515,7 @@ class Agent(SharedMemoryModel):
     def get_stat_cost(self, attr):
         """Returns cost for buying stat for agent"""
         return self.dbobj.get_stat_cost(attr)
-    
+
     def get_skill_cost(self, attr):
         """Returns cost for buying skill for agent"""
         return self.dbobj.get_skill_cost(attr)
@@ -3604,7 +3619,7 @@ class AgentOb(SharedMemoryModel):
         self.agent_class.quantity += num
         self.agent_class.save()
         return num
-            
+
     def unassign(self):
         """
         Called from our associated dbobj, already having done the work to
@@ -3681,7 +3696,7 @@ class Army(SharedMemoryModel):
     class Meta:
         """Define Django meta options"""
         verbose_name_plural = "Armies"
-        
+
     def display(self):
         """
         Like domain.display(), returns a string for the mush of our
@@ -3710,7 +3725,7 @@ class Army(SharedMemoryModel):
             table.add_row(unit.id, cmdstr, typestr, unit.quantity, unit.level, unit.equipment, unit.xp)
         msg += str(table)
         return msg
-        
+
     def can_change(self, player):
         """
         Checks if a given player has permission to change the structure of this
@@ -3725,7 +3740,7 @@ class Army(SharedMemoryModel):
         if player.Dominion.appointments.filter(category=Minister.WARFARE, ruler__house=self.owner):
             return True
         return False
-        
+
     def can_order(self, player):
         """
         Checks if a given player has permission to issue orders to this army.
@@ -3743,7 +3758,7 @@ class Army(SharedMemoryModel):
         if self.temp_owner and dompc.appointments.filter(category=Minister.WARFARE, ruler__house=self.temp_owner):
             return True
         return False
-    
+
     def can_view(self, player):
         """
         Checks if given player has permission to view Army details.
@@ -3758,18 +3773,18 @@ class Army(SharedMemoryModel):
         if player.Dominion.memberships.filter(Q(deguilded=False) & (
                     Q(organization__assets=self.owner) | Q(organization__assets=self.temp_owner))):
             return True
-    
+
     @property
     def pending_orders(self):
         """
         Returns pending orders if they exist.
         """
         return self.orders.filter(complete=False)
-    
+
     def send_orders(self, player, order_type, target_domain=None, target_land=None, target_character=None,
                     action=None, action_assist=None, assisting=None):
         """
-        Checks permission to send orders to an army, then records the category 
+        Checks permission to send orders to an army, then records the category
         of orders and their target.
         """
         # first checks for access
@@ -3783,7 +3798,7 @@ class Army(SharedMemoryModel):
         return self.orders.create(type=order_type, target_domain=target_domain, target_land=target_land,
                                   target_character=target_character, action=action, action_assist=action_assist,
                                   assisting=assisting)
-        
+
     def find_unit(self, unit_type):
         """
         Find a unit that we have of the given unit_type. Armies should only have one of each unit_type
@@ -3793,13 +3808,13 @@ class Army(SharedMemoryModel):
         if len(qs) < 1:
             return None
         return qs[0]
-    
+
     def change_general(self, caller, general):
         """Change an army's general. Informs old and new generals of change.
-        
+
         Sets an Army's general to new character or to None and informs the old
         general of the change, if they exist.
-        
+
         Args:
             caller: a player object
             general: a player object
@@ -3813,13 +3828,13 @@ class Army(SharedMemoryModel):
             return
         self.general = None
         self.save()
-    
+
     def change_temp_owner(self, caller, temp_owner):
         """Change an army's temp_owner. Informs old and new temp_owners of change.
-        
+
         Sets an Army's temp_owner to new character or to None and informs the old
         temp_owner of the change, if they exist.
-        
+
         Args:
             caller: a player object
             temp_owner: an AssetOwner
@@ -3831,7 +3846,7 @@ class Army(SharedMemoryModel):
         self.save()
         if temp_owner:
             temp_owner.inform_owner("%s has given you temporary control of army: %s." % (caller, self))
-    
+
     @property
     def max_units(self):
         """How many units can be in the army"""
@@ -3839,13 +3854,13 @@ class Army(SharedMemoryModel):
             return 0
         # TODO maybe look at general's command/leadership
         return 5
-        
+
     @property
     def at_capacity(self):
         """Whether the army is maxxed out"""
         if self.units.count() >= self.max_units:
             return True
-        
+
     def get_unit_class(self, name):
         """Gets the class of a unit type, special or otherwise"""
         try:
@@ -3856,7 +3871,7 @@ class Army(SharedMemoryModel):
             pass
         # no match, get unit type from string and return it
         return unit_types.cls_from_str(name)
-    
+
     def get_food_consumption(self):
         """
         Total food consumption for our army
@@ -3865,7 +3880,7 @@ class Army(SharedMemoryModel):
         for unit in self.units.all():
             hunger += unit.food_consumption
         return hunger
-    
+
     def consume_food(self, report=None):
         """
         To do: have food eaten while we're executing orders, which limits
@@ -3954,7 +3969,7 @@ class Army(SharedMemoryModel):
         # to do : add to report here
         if report:
             print("Placeholder for army orders report")
-                
+
     def do_battle(self, tdomain, week):
         """
         Returns True if attackers win, False if defenders
@@ -3999,7 +4014,7 @@ class Army(SharedMemoryModel):
         target.save()
         self.morale -= 1
         self.save()
-    
+
     def conquer(self, target, week):
         """
         Conquers a domain. If the army has a domain, that domain will
@@ -4047,7 +4062,7 @@ class Army(SharedMemoryModel):
             conqueror.annex(target, week, self)
         else:  # no bordering domain. So domain intact, but changing owner
             # set the domain's ruler
-            target.ruler = ruler       
+            target.ruler = ruler
             target.lawlessness += 50
             target.save()
             # set army as occupying the domain
@@ -4060,7 +4075,7 @@ class Army(SharedMemoryModel):
         Weekly maintenance for the army. Consume food.
         """
         self.consume_food(report)
-                   
+
     def _get_costs(self):
         """
         Costs for the army.
@@ -4118,22 +4133,22 @@ class Orders(SharedMemoryModel):
     BOLSTER = 11
     EQUIP = 12
     CRISIS = 13
-       
+
     ORDER_CHOICES = (
         (TRAIN, 'Troop Training'),
         (EXPLORE, 'Explore territory'),
         (RAID, 'Raid Domain'),
         (CONQUER, 'Conquer Domain'),
-        (ENFORCE_ORDER, 'Enforce Order'),   
-        (BESIEGE, 'Besiege Castle'),        
-        (MARCH, 'March'),                   
-        (DEFEND, 'Defend'),                 
+        (ENFORCE_ORDER, 'Enforce Order'),
+        (BESIEGE, 'Besiege Castle'),
+        (MARCH, 'March'),
+        (DEFEND, 'Defend'),
         # like killing bandits
         (PATROL, 'Patrol'),
         # assisting other armies' orders
         (ASSIST, 'Assist'),
         # restoring morale
-        (BOLSTER, 'Bolster Morale'),        
+        (BOLSTER, 'Bolster Morale'),
         (EQUIP, 'Upgrade Equipment'),
         # using army in a crisis action
         (CRISIS, 'Crisis Response'))
@@ -4175,7 +4190,7 @@ class Orders(SharedMemoryModel):
     def troops_sent(self):
         """Returns display of troops being ordered"""
         return ", ".join("%s %s" % (ob.quantity, ob.type) for ob in self.army.units.all())
-    
+
 
 class MilitaryUnit(UnitTypeInfo):
     """
@@ -4211,13 +4226,13 @@ class MilitaryUnit(UnitTypeInfo):
         msg = "{wID:{n#%s %s{wType{n: %-12s {wAmount{n: %-7s" % (self.id, cmdstr, self.type.capitalize(), self.quantity)
         msg += " {wLevel{n: %s {wEquip{n: %s {wXP{n: %s" % (self.level, self.equipment, self.xp)
         return msg
-    
+
     def change_commander(self, caller, commander):
         """Informs commanders of a change, if they exist.
-        
+
         Sets a unit's commander to new character or to None and informs the old
         commander of the change.
-        
+
         Args:
             caller: a player object
             commander: a player object
@@ -4232,13 +4247,13 @@ class MilitaryUnit(UnitTypeInfo):
             return
         self.commander = None
         self.save()
-    
+
     def split(self, qty):
         """Create a duplicate unit with a specified quantity.
-        
-        Copies a unit, but with a specific quantity and no commander to simulate 
+
+        Copies a unit, but with a specific quantity and no commander to simulate
         it being split.
-        
+
         Args:
             qty: an integer
         """
@@ -4247,7 +4262,7 @@ class MilitaryUnit(UnitTypeInfo):
         MilitaryUnit.objects.create(origin=self.origin, army=self.army, orders=self.orders, quantity=qty,
                                     level=self.level, equipment=self.equipment, xp=self.xp,
                                     hostile_area=self.hostile_area, unit_type=self.unit_type)
-    
+
     def decimate(self, amount=0.10):
         """
         Losing a percentage of our troops. Generally this is due to death
@@ -4265,7 +4280,7 @@ class MilitaryUnit(UnitTypeInfo):
         self.quantity -= losses
         if self.quantity <= 0:
             self.delete()
-    
+
     def train(self, val=1):
         """
         Getting xp, and increasing our level if we have enough. The default
@@ -4288,7 +4303,7 @@ class MilitaryUnit(UnitTypeInfo):
     def stats(self):
         """Returns stats for this type of unit"""
         return unit_types.get_unit_stats(self)
-    
+
     def _get_costs(self):
         """
         Costs for the unit.
@@ -4301,7 +4316,7 @@ class MilitaryUnit(UnitTypeInfo):
             cost = 0
         cost *= self.quantity
         return cost
-    
+
     def _get_food_consumption(self):
         """
         Food for the unit
@@ -4314,7 +4329,7 @@ class MilitaryUnit(UnitTypeInfo):
             hunger = 0
         hunger *= self.quantity
         return hunger
-    
+
     food_consumption = property(_get_food_consumption)
     costs = property(_get_costs)
 
@@ -4338,7 +4353,7 @@ class MilitaryUnit(UnitTypeInfo):
             self.army.owner.clear_cache()
         except (AttributeError, TypeError, ValueError):
             pass
-        
+
     def combine_units(self, target):
         """
         Combine our units. get average of both worlds. Mediocrity wins!
@@ -4372,22 +4387,22 @@ class MilitaryUnit(UnitTypeInfo):
 class WorkSetting(SharedMemoryModel):
     """
     An Organization's options for work performed by its members. For a particular
-    resource, a number of work_settings may exist and the member's highest Skill 
-    will primarily decide which one is used. If a member relies on their protege, 
+    resource, a number of work_settings may exist and the member's highest Skill
+    will primarily decide which one is used. If a member relies on their protege,
     the highest skill between them both will be used to choose a work_setting.
     """
     RESOURCE_TYPES = ('Economic', 'Military', 'Social')
     RESOURCE_CHOICES = tuple(enumerate(RESOURCE_TYPES))
-    
+
     organization = models.ForeignKey('Organization', related_name='work_settings')
     stat = models.CharField(blank=True, null=True, max_length=80)
     skill = models.CharField(blank=True, null=True, max_length=80)
     resource = models.PositiveSmallIntegerField(choices=RESOURCE_CHOICES, default=0)
     message = models.TextField(blank=True)
-    
+
     def __str__(self):
         return "%s-%s for %s" % (self.get_resource_display(), self.skill.capitalize(), self.organization)
-    
+
     @classmethod
     def get_choice_from_string(cls, string):
         """Checks if a string names a type of resource and returns its choice number."""
@@ -4395,15 +4410,15 @@ class WorkSetting(SharedMemoryModel):
             if string.lower() == name.lower():
                 return int_constant
         raise ValueError("Type must be one of these: %s." % ", ".join(sorted(cls.RESOURCE_TYPES)))
-    
-    @classmethod    
+
+    @classmethod
     def create_work(cls, organization, resource_key):
         """Creates a new WorkSetting with default stat and skill chosen."""
         default_settings = {0: ['intellect', 'economics'], 1: ['command', 'war'], 2: ['charm', 'diplomacy']}
         stat = default_settings[resource_key][0]
         skill = default_settings[resource_key][1]
         return cls.objects.create(organization=organization, stat=stat, skill=skill, resource=resource_key)
-        
+
     def do_work(self, member, clout, protege=None):
         """Does rolls for a given WorkSetting for Member/protege and returns roll and the msg"""
         msg_spacer = " " if self.message else ""
@@ -4419,7 +4434,7 @@ class WorkSetting(SharedMemoryModel):
                                 bonus_dice=org_mod, bonus_keep=org_mod//2)
         outcome //= 3
         return outcome, roll_msg
-        
+
 
 class Member(SharedMemoryModel):
     """
@@ -4437,13 +4452,13 @@ class Member(SharedMemoryModel):
 
     As far as salary goes, anyone in the Member model can have a WeeklyTransaction
     set up with their Organization.
-    """  
-    
+    """
+
     player = models.ForeignKey('PlayerOrNpc', related_name='memberships', blank=True, null=True, db_index=True)
     commanding_officer = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='subordinates', blank=True,
                                            null=True)
     organization = models.ForeignKey('Organization', related_name='members', blank=True, null=True, db_index=True)
-    
+
     work_this_week = models.PositiveSmallIntegerField(default=0, blank=0)
     work_total = models.PositiveSmallIntegerField(default=0, blank=0)
     secret = models.BooleanField(blank=False, default=False)
@@ -4452,9 +4467,9 @@ class Member(SharedMemoryModel):
     # a rare case of us not using a player object, since we may designate any type of object as belonging
     # to an organization - character objects without players (npcs), rooms, exits, items, etc.
     object = models.ForeignKey('objects.ObjectDB', related_name='memberships', blank=True, null=True)
-    
+
     rank = models.PositiveSmallIntegerField(blank=10, default=10)
-    
+
     pc_exists = models.BooleanField(blank=True, default=True,
                                     help_text="Whether this member is a player character in the database")
     # stuff that players may set for their members:
@@ -4496,7 +4511,7 @@ class Member(SharedMemoryModel):
 
     def __repr__(self):
         return "<Member %s (#%s)>" % (self.player, self.id)
-    
+
     def fake_delete(self):
         """
         Alternative to deleting this object. That way we can just readd them if they
@@ -4529,7 +4544,7 @@ class Member(SharedMemoryModel):
         """
         Perform work in a week for our Organization. If a protege is specified we use their skills and add their
         social clout to the roll.
-        
+
             Raises:
                 ValueError if resource_type is invalid or ap_cost is greater than Member's AP
         """
@@ -4588,15 +4603,15 @@ class Member(SharedMemoryModel):
     def get_work_roll(self, resource_type, clout, protege=None):
         """
         Gets the result of a roll
-        
+
             Args:
                 resource_type (str): The type of resource
                 protege (PlayerOrNpc): Protege if any
                 clout (int): How much clout they have
-                
+
             Returns:
                 An outcome and a message
-                
+
             Raises:
                 ValueError if resource_type is invalid
         """
@@ -4732,7 +4747,7 @@ class Member(SharedMemoryModel):
         else:
             rankstr = "rank_%s_%s" % (self.rank, "female")
         return getattr(self.organization, rankstr)
-        
+
 
 class Task(SharedMemoryModel):
     """
@@ -4751,7 +4766,7 @@ class Task(SharedMemoryModel):
 
     def __str__(self):
         return self.name
-    
+
     @property
     def reqs(self):
         """Returns string display of task requirements"""
@@ -4803,7 +4818,7 @@ class AssignedTask(SharedMemoryModel):
                 mod = 2
             base += (mod * oflow)/2
         return base
-    
+
     @property
     def overflow(self):
         """Returns how much over difficulty we got"""
@@ -4831,7 +4846,7 @@ class AssignedTask(SharedMemoryModel):
             del char.db.asked_supporters[self.id]
         except (AttributeError, KeyError, TypeError, ValueError):
             pass
-           
+
     def payout_check(self, week):
         """Whether this task should complete. If so, do rewards"""
         total = self.total
@@ -4922,7 +4937,7 @@ class AssignedTask(SharedMemoryModel):
         if elapsed == 1:
             return "Last week"
         return "%s weeks ago" % elapsed
-        
+
 
 class TaskSupporter(SharedMemoryModel):
     """
@@ -4936,7 +4951,7 @@ class TaskSupporter(SharedMemoryModel):
     observer_text = models.TextField(blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
     additional_points = models.PositiveSmallIntegerField(default=0, blank=0)
-    
+
     def __str__(self):
         return "%s supporting %s" % (self.player, self.task) or "Unknown supporter"
 
@@ -4975,7 +4990,7 @@ class TaskSupporter(SharedMemoryModel):
             return self.allocation.all().first().week or 14
         except AttributeError:
             return 14
-        
+
 
 class Mats(object):
     """helper classes for crafting recipe to simplify API - allow for 'recipe.materials.all()'"""
@@ -5037,15 +5052,16 @@ class CraftingRecipe(SharedMemoryModel):
         self.resultsdict = self.parse_result(self.result)
         self.materials = MatList()
         # create throws errors on __init__ for many to many fields
-        if self.primary_amount:
-            for mat in self.primary_materials.all():
-                self.materials.mats.append(Mats(mat, self.primary_amount))
-        if self.secondary_amount:
-            for mat in self.secondary_materials.all():
-                self.materials.mats.append(Mats(mat, self.secondary_amount))
-        if self.tertiary_amount:
-            for mat in self.tertiary_materials.all():
-                self.materials.mats.append(Mats(mat, self.tertiary_amount))
+        if self.pk:
+            if self.primary_amount:
+                for mat in self.primary_materials.all():
+                    self.materials.mats.append(Mats(mat, self.primary_amount))
+            if self.secondary_amount:
+                for mat in self.secondary_materials.all():
+                    self.materials.mats.append(Mats(mat, self.secondary_amount))
+            if self.tertiary_amount:
+                for mat in self.tertiary_materials.all():
+                    self.materials.mats.append(Mats(mat, self.tertiary_amount))
 
     def access(self, accessing_obj, access_type='learn', default=False):
         """
@@ -5095,7 +5111,7 @@ class CraftingRecipe(SharedMemoryModel):
                 else:
                     msg += ", ".join("%s: %s" % (str(ob), tup[0]) for ob in tup[2].all())
         return msg
-    
+
     @property
     def value(self):
         """Returns total cost of all materials used"""
@@ -5117,7 +5133,7 @@ class CraftingRecipe(SharedMemoryModel):
     @property
     def baseval(self):
         """Returns baseval used in recipes"""
-        return self.resultsdict.get("baseval", 0.0)
+        return float(self.resultsdict.get("baseval", 0.0))
 
 
 class CraftingMaterialType(SharedMemoryModel):
@@ -5136,7 +5152,7 @@ class CraftingMaterialType(SharedMemoryModel):
     category = models.CharField(blank=True, null=True, max_length=80, db_index=True)
     # Text we can parse for notes about cost modifiers for different orgs, locations to obtain, etc
     acquisition_modifiers = models.TextField(blank=True, null=True)
-    
+
     def __init__(self, *args, **kwargs):
         super(CraftingMaterialType, self).__init__(*args, **kwargs)
         # uses same method from CraftingRecipe in order to create a dict of our mods
@@ -5156,14 +5172,14 @@ class CraftingMaterials(SharedMemoryModel):
     type = models.ForeignKey('CraftingMaterialType', blank=True, null=True, db_index=True)
     amount = models.PositiveIntegerField(blank=0, default=0)
     owner = models.ForeignKey('AssetOwner', blank=True, null=True, related_name='materials', db_index=True)
-    
+
     class Meta:
         """Define Django meta options"""
         verbose_name_plural = "Crafting Materials"
 
     def __unicode__(self):
         return "%s %s" % (self.amount, self.type)
-    
+
     @property
     def value(self):
         """Returns value of materials they have"""
@@ -5185,7 +5201,7 @@ class RPEvent(SharedMemoryModel):
     GRAND = 3
     EXTRAVAGANT = 4
     LEGENDARY = 5
-    
+
     LARGESSE_CHOICES = (
         (NONE, 'Small'),
         (COMMON, 'Average'),
@@ -5194,7 +5210,7 @@ class RPEvent(SharedMemoryModel):
         (EXTRAVAGANT, 'Extravagant'),
         (LEGENDARY, 'Legendary'),
         )
-    
+
     NO_RISK = 0
     MINIMAL_RISK = 1
     LOW_RISK = 2
@@ -5206,7 +5222,7 @@ class RPEvent(SharedMemoryModel):
     VERY_HIGH_RISK = 8
     EXTREME_RISK = 9
     SUICIDAL_RISK = 10
-    
+
     RISK_CHOICES = (
         (NO_RISK, "No Risk"), (MINIMAL_RISK, "Minimal Risk"), (LOW_RISK, "Low Risk"), (REDUCED_RISK, "Reduced Risk"),
         (NORMAL_RISK, "Normal Risk"), (SLIGHTLY_ELEVATED_RISK, "Slightly Elevated Risk"),
@@ -5328,7 +5344,7 @@ class RPEvent(SharedMemoryModel):
     def hostnames(self):
         """Returns string of all hosts"""
         return ", ".join(str(ob) for ob in self.hosts.all())
-    
+
     @property
     def log(self):
         """Returns our logfile"""
@@ -5388,7 +5404,7 @@ class RPEvent(SharedMemoryModel):
     def characters(self):
         """Returns set of all PlayerOrNpc objects involved with the event"""
         return set(self.gms.all() | self.hosts.all() | self.participants.all())
-    
+
 
 class InfluenceCategory(SharedMemoryModel):
     """This model describes influence with different npc groups, used for organizations, players, and tasks"""

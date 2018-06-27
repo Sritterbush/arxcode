@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 from server.utils.test_utils import ArxCommandTest
 from world.dominion.models import CrisisAction, Crisis, Army, RPEvent
-from . import story_actions, overrides, social, staff_commands
+from . import story_actions, overrides, social, staff_commands, roster
 
 
 class StoryActionTests(ArxCommandTest):
@@ -263,6 +263,39 @@ class OverridesTests(ArxCommandTest):
     def test_cmd_who(self):
         self.setup_cmd(overrides.CmdWho, self.account2)
         self.call_cmd("asdf", "Players:\n\nPlayer name Fealty Idle \n\nShowing 0 out of 1 unique account logged in.")
+
+
+class RosterTests(ArxCommandTest):
+    def setUp(self):
+        """Adds rosters and an announcement board"""
+        from web.character.models import Roster
+        from typeclasses.bulletin_board.bboard import BBoard
+        from evennia.utils.create import create_object
+        super(RosterTests, self).setUp()
+        self.available_roster = Roster.objects.create(name="Available")
+        self.gone_roster = Roster.objects.create(name="Gone")
+        self.bboard = create_object(typeclass=BBoard, key="Roster Changes")
+
+    @patch.object(roster, "inform_staff")
+    def test_cmd_admin_roster(self, mock_inform_staff):
+        from world.dominion.models import Organization
+        self.org = Organization.objects.create(name="testorg")
+        self.member = self.org.members.create(player=self.dompc2, rank=2)
+        self.setup_cmd(roster.CmdAdminRoster, self.account)
+        self.bboard.bb_post = Mock()
+        self.dompc2.patron = self.dompc
+        self.dompc2.save()
+        self.call_cmd("/retire char2", 'Random password generated for Testaccount2.')
+        self.assertEqual(self.roster_entry2.roster, self.available_roster)
+        entry = self.roster_entry2
+        post = "%s no longer has an active player and is now available for applications." % entry.character
+        url = "http://play.arxmush.org" + entry.character.get_absolute_url()
+        post += "\nCharacter page: %s" % url
+        subject = "%s now available" % entry.character
+        self.bboard.bb_post.assert_called_with(self.caller, post, subject=subject, poster_name="Roster")
+        mock_inform_staff.assert_called_with("Testaccount has returned char2 to the Available roster.")
+        self.assertEqual(self.member.rank, 3)
+        self.assertEqual(self.dompc2.patron, None)
 
 
 # noinspection PyUnresolvedReferences

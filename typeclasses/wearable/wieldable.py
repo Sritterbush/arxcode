@@ -9,11 +9,12 @@ False if not wielded.
 
 from typeclasses.objects import Object
 from cmdset_wieldable import WeaponCmdSet
+from world.fashion.mixins import FashionableMixins
 
 
 # noinspection PyMethodMayBeStatic
 # noinspection PyUnusedLocal
-class Wieldable(Object):
+class Wieldable(FashionableMixins, Object):
     """
     Class for wieldable objects
     API: Properties are all a series of database attributes,
@@ -22,7 +23,7 @@ class Wieldable(Object):
     the object is wielded. ex: @set sword/ready_phrase = "wields a large sword"
     'stealth' determines if the weapon will give an echo to the room when it is
     wielded. Poisons, magic, stealthy daggers, etc, fall into this category.
-    """              
+    """
 
     def at_object_creation(self):
         """
@@ -45,7 +46,7 @@ class Wieldable(Object):
         self.db.can_be_blocked = True
         self.db.can_be_dodged = True
         self.db.can_be_countered = True
-        self.db.can_parry = True 
+        self.db.can_parry = True
         self.db.can_riposte = True
         self.db.sheathed_by = None
         self.db.difficulty_mod = 0
@@ -112,7 +113,7 @@ class Wieldable(Object):
             self.location = wielder
         self.calc_weapon()
         return True
-        
+
     def at_before_move(self, destination, **kwargs):
         caller = kwargs.get('caller', None)
         if caller:
@@ -153,13 +154,13 @@ class Wieldable(Object):
             cdat = wielder.combat
             cdat.setup_weapon(wielder.weapondata)
         return True
-    
+
     def calc_weapon(self):
         """
         If we have crafted armor, return the value from the recipe and
         quality.
         """
-        quality = self.db.quality_level or 0
+        quality = self.quality_level
         recipe_id = self.db.recipe
         diffmod = self.db.difficulty_mod or 0
         flat_damage_bonus = self.db.flat_damage_bonus or 0
@@ -206,7 +207,7 @@ class Wieldable(Object):
         self.ndb.cached_difficulty_mod = diffmod
         self.ndb.cached_flat_damage_bonus = flat_damage_bonus
         return damage, diffmod, flat_damage_bonus
-    
+
     def _get_damage_bonus(self):
         # if we have no recipe or we are set to ignore it, use armor_class
         if not self.db.recipe or self.db.ignore_crafted:
@@ -214,7 +215,7 @@ class Wieldable(Object):
         if self.ndb.cached_damage_bonus is not None:
             return self.ndb.cached_damage_bonus
         return self.calc_weapon()[0]
-    
+
     def _set_damage_bonus(self, value):
         """
         Manually sets the value of our weapon, ignoring any crafting recipe we have.
@@ -240,3 +241,10 @@ class Wieldable(Object):
     damage_bonus = property(_get_damage_bonus, _set_damage_bonus)
     difficulty_mod = property(_get_difficulty_mod)
     flat_damage = property(_get_flat_damage)
+
+    def check_fashion_ready(self):
+        super(Wieldable, self).check_fashion_ready()
+        if not self.db.currently_wielded:
+            from server.utils.exceptions import FashionError
+            raise FashionError("Please wield %s before trying to model it as fashion." % self)
+        return True

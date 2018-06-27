@@ -198,13 +198,13 @@ def broadcast(txt, format_announcement=True):
 def raw(text):
     """
     Escape text with Arx-specific codes
-    
+
         Args:
             text: the text string to escape
-            
+
         Returns:
             text: Text with escaped codes
-            
+
     First we transform arx-specific codes into the equivalent
     ansi codes that Evennia uses. Then we escape them all,
     returning the escaped string.
@@ -307,6 +307,7 @@ def post_roster_cleanup(entry):
     entry.player.permissions.remove("Helper")
     disconnect_all_channels(entry.player)
     entry.character.tags.remove("given_starting_gear")
+    post_roster_dompc_cleanup(entry.player)
 
 
 def disconnect_all_channels(player):
@@ -329,6 +330,21 @@ def reset_to_default_channels(player):
             req_channel.connect(player)
 
 
+def post_roster_dompc_cleanup(player):
+    """
+    Removes patron/protege relationships and sets any 'Voice' rankings to rank 3.
+    """
+    try:
+        dompc = player.Dominion
+    except AttributeError:
+        return
+    dompc.patron = None
+    dompc.save()
+    for member in dompc.memberships.filter(rank=2):
+        member.rank = 3
+        member.save()
+
+
 def caller_change_field(caller, obj, field, value, field_name=None):
     """
     DRY way of changing a field and notifying a caller of the change.
@@ -347,8 +363,8 @@ def caller_change_field(caller, obj, field, value, field_name=None):
         old = "\n%s\n" % old
         value = "\n%s" % value
     caller.msg("%s changed from %s to %s." % (field_name, old, value))
-    
-    
+
+
 def create_arx_message(senderobj, message, channels=None, receivers=None, locks=None, header=None, cls=None, tags=None):
     """
     Create a new communication Msg. Msgs represent a unit of
@@ -420,8 +436,15 @@ class ArxCommmandMixins(object):
     def check_switches(self, switch_set):
         """Checks if the commands switches are inside switch_set"""
         return set(self.switches) & set(switch_set)
-        
-        
+
+    def feedback_invalid_switch(self):
+        self.caller.msg("Invalid Switch.")
+
+    def feedback_command_error(self, requirement=""):
+        msg = "Command incorrect. " + requirement
+        self.caller.msg(msg)
+
+
 class ArxCommand(ArxCommmandMixins, MuxCommand):
     """Base command for Characters for Arx"""
     pass
@@ -455,8 +478,8 @@ def create_gemit_and_post(msg, caller, episode_name=None, synopsis=None):
                                      sender=caller)
     broadcast_msg_and_post(msg, caller, episode_name=episode_name)
     return gemit
-    
-    
+
+
 def broadcast_msg_and_post(msg, caller, episode_name=None):
     """Sends a message to all online sessions, then makes a post about it."""
     caller.msg("Announcing to all connected players ...")

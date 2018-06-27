@@ -2205,7 +2205,7 @@ class CmdSocialScore(ArxCommand):
         """Determines who goes in the table based on our switches"""
         from typeclasses.accounts import Account
         if "orgs" in self.switches:
-            assets = AssetOwner.objects.filter(organization_owner__isnull=False)
+            assets = AssetOwner.objects.filter(organization_owner__secret=False)
             assets = sorted(assets, key=lambda x: x.prestige, reverse=True)[:20]
         elif "legend" in self.switches:
             assets = AssetOwner.objects.filter(player__player__isnull=False).order_by('-legend')[:20]
@@ -2283,6 +2283,7 @@ class CmdDonate(ArxCommand):
     key = "+donate"
     locks = "cmd:all()"
     help_category = "Social"
+    action_point_cost = 1
 
     @property
     def donations(self):
@@ -2307,7 +2308,7 @@ class CmdDonate(ArxCommand):
                 return
             if val <= 0:
                 raise ValueError
-            if not caller.player.pay_action_points(5):
+            if not caller.player.pay_action_points(self.action_point_cost):
                 self.msg("Not enough AP.")
                 return
             caller.pay_money(val)
@@ -2392,10 +2393,14 @@ class CmdDonate(ArxCommand):
         npcs = list(InfluenceCategory.objects.filter(donations__isnull=False).distinct())
         groups = orgs + npcs
         table = PrettyTable(["Group", "Top Donor", "Donor's Total Donations"])
+        top_donations = []
         for group in groups:
             donation = group.donations.filter(amount__gt=0).order_by('-amount').distinct().first()
             if donation:
-                table.add_row([str(donation.receiver), str(donation.giver), str(donation.amount)])
+                top_donations.append(donation)
+        top_donations.sort(key=lambda x: x.amount, reverse=True)
+        for donation in top_donations:
+            table.add_row([str(donation.receiver), str(donation.giver), str(donation.amount)])
         self.msg(str(table))
 
 
@@ -2514,6 +2519,7 @@ class CmdRandomScene(ArxCommand):
 
     @property
     def num_remaining_scenes(self):
+        """Number of remaining scenes for the caller"""
         options = (len(self.valid_scene_choices), self.NUM_SCENES)
         return min(options)
 
