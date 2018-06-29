@@ -68,6 +68,6 @@ class FashionCommandTests(ArxCommandTest):
         snapshot = FashionSnapshot.objects.create(fashion_model=self.dompc2, designer=self.dompc2, fame=50000,
                                                   org=self.org, fashion_item=self.obj3)
         snapshot.apply_fame()
-        self.assertEqual(self.dompc2.assets.fame, 75000)
+        self.assertEqual(self.dompc2.assets.fame, 62500)
         self.call_cmd("/delete 1", 'Snapshot #1 fame/ap has been reversed. Deleting it.')
         self.assertEqual(self.dompc2.assets.fame, 0)

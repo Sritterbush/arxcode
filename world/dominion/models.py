@@ -101,6 +101,7 @@ LIFESTYLES = {
     5: (1500, 7000),
     6: (5000, 10000),
     }
+PRESTIGE_DECAY_AMOUNT = 0.2
 
 PAGEROOT = "http://play.arxgame.org"
 
@@ -644,7 +645,7 @@ class AssetOwner(SharedMemoryModel):
 
     def prestige_decay(self):
         """Decreases our fame for the week"""
-        self.fame -= int(self.fame * .20)
+        self.fame -= int(self.fame * PRESTIGE_DECAY_AMOUNT)
         self.save()
 
     def do_weekly_adjustment(self, week):

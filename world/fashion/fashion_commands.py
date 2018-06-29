@@ -69,20 +69,21 @@ class CmdFashionModel(ArxCommand):
                     return
                 pretty_headers[0] = "%s Model" % designer
                 designer = designer.Dominion
-                qs = get_queryset(designer.designer_snapshots, 'fashion_model__player__username', 2)
+                qs = get_queryset(designer.designer_snapshots, 'fashion_model__player__username',
+                                  Snapshot.DESIGNER_FAME_DIVISOR)
             else:
                 pretty_headers[0] = "Designer"
-                qs = get_queryset(Snapshot.objects, 'designer__player__username', 2)
+                qs = get_queryset(Snapshot.objects, 'designer__player__username', Snapshot.DESIGNER_FAME_DIVISOR)
         elif "orgs" in self.switches:  # Fashionable orgs
             if self.args:
                 org = Organization.objects.get_public_org(self.args, self.caller)
                 if not org:
                     return
                 pretty_headers[0] = "%s Model" % org
-                qs = get_queryset(org.fashion_snapshots, 'fashion_model__player__username', 2)
+                qs = get_queryset(org.fashion_snapshots, 'fashion_model__player__username', Snapshot.ORG_FAME_DIVISOR)
             else:
                 pretty_headers[0] = "Organization"
-                qs = get_queryset(Snapshot.objects, 'org__name', 2)
+                qs = get_queryset(Snapshot.objects, 'org__name', Snapshot.ORG_FAME_DIVISOR)
         else:  # Models by fame
             qs = get_queryset(Snapshot.objects, 'fashion_model__player__username', 1)
         qs = qs[:20] if "all" not in self.switches else qs
