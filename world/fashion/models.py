@@ -81,12 +81,14 @@ class FashionSnapshot(SharedMemoryModel):
         """
         Informs clients when fame is earned, by using their AssetOwner method.
         """
-        if self.client_fame > 0:
-            category = "fashion"
-            msg = "{315%d{n fame awarded from %s modeling %s." % (self.client_fame, self.fashion_model,
-                                                                  self.fashion_item)
-            self.org.assets.inform_owner(msg, category=category, append=True)
-            self.designer.assets.inform_owner(msg, category=category, append=True)
+        category = "fashion"
+        msg = "fame awarded from %s modeling %s." % (self.fashion_model, self.fashion_item)
+        if self.org_fame > 0:
+            org_msg = "{315%d{n %s" % (self.org_fame, msg)
+            self.org.assets.inform_owner(org_msg, category=category, append=True)
+        if self.designer_fame > 0:
+            designer_msg = "{315%d{n %s" % (self.designer_fame, msg)
+            self.designer.assets.inform_owner(designer_msg, category=category, append=True)
 
     @property
     def fashion_mult_override(self):
@@ -127,11 +129,6 @@ class FashionSnapshot(SharedMemoryModel):
             for material, quantity in adorns.items():
                 value += material.value * quantity
         return int(value)
-
-    @property
-    def client_fame(self):
-        """The portion of fame awarded to sponsoring org and item designer."""
-        return int(self.fame/2)
 
     @property
     def org_fame(self):

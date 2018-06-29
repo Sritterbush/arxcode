@@ -56,7 +56,7 @@ class FashionCommandTests(ArxCommandTest):
         self.assertEqual(self.roster_entry.action_points, 100 - self.obj3.fashion_ap_cost)
         self.org.assets.inform_owner.assert_called_with("{315500{n fame awarded from Testaccount modeling Obj3.",
                                                         append=True, category='fashion')
-        self.account2.assets.inform_owner.assert_called_with("{315500{n fame awarded from Testaccount modeling Obj3.",
+        self.account2.assets.inform_owner.assert_called_with("{315250{n fame awarded from Testaccount modeling Obj3.",
                                                              append=True, category='fashion')
         # TODO: Other tests
         #   change recipe result with fashion_mult
