@@ -60,8 +60,8 @@ class FashionSnapshot(SharedMemoryModel):
         level_mod = self.fashion_item.recipe.level/6.0
         percentage *= max(level_mod, 0.01)
         percentage *= max((self.fashion_item.quality_level/40.0), 0.01)
-        # they get either their percentage of the item's worth, their modified roll, or 2, whichever is highest
-        self.fame = max(int(self.item_worth * percentage), max(int(roll), 2))
+        # they get either their percentage of the item's worth, their modified roll, or 4, whichever is highest
+        self.fame = max(int(self.item_worth * percentage), max(int(roll), 4))
         self.save()
 
     def apply_fame(self, reverse=False):
