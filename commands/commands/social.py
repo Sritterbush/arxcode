@@ -988,7 +988,7 @@ class CmdMessenger(ArxCommand):
             return
         # display an old message
         if ("old" in self.switches or 'delete' in self.switches or 'oldindex' in self.switches
-                or "preserve" in self.switches or "forward" in self.switches):
+                or "preserve" in self.switches or "forward" in self.switches or "save" in self.switches):
             old = caller.messages.messenger_history
             if not old:
                 caller.msg("You have never received a single messenger ever. Not a single one. " +
@@ -1017,7 +1017,7 @@ class CmdMessenger(ArxCommand):
                     caller.messages.del_messenger(msg)
                     caller.msg("You destroy all evidence that you ever received that message.")
                     return
-                if "preserve" in self.switches:
+                if "preserve" in self.switches or "save" in self.switches:
                     if not caller.messages.preserve_messenger(msg):
                         return
                 self.disp_messenger(msg)
