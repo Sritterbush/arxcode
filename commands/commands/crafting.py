@@ -160,12 +160,21 @@ def get_ability_val(char, recipe):
             abvalues.append(abilities.get(abname, 0))
         ability = sorted(abvalues, reverse=True)[0]
     return ability
-    
+
+
+def get_highest_crafting_skill(character):
+    """Returns the highest crafting skill for character"""
+    from world.stats_and_skills import CRAFTING_SKILLS
+    skills = character.db.skills or {}
+    return max(CRAFTING_SKILLS + ("artwork",), key=lambda x: skills.get(x, 0))
+
 
 def do_crafting_roll(char, recipe, diffmod=0, diffmult=1.0, room=None):
     diff = int(recipe.difficulty * diffmult) - diffmod
     ability = get_ability_val(char, recipe)
     skill = recipe.skill
+    if skill in ("all", "any"):
+        skill = get_highest_crafting_skill(char)
     stat = "luck" if char.db.luck > char.db.dexterity else "dexterity"
     can_crit = False
     try:

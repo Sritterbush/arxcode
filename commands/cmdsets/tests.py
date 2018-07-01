@@ -321,6 +321,27 @@ class CombatCommandsTests(ArxCommandTest):
                                "Current Round: 1")
         self.assertEqual(self.char1.damage, 3)
         self.assertEqual(self.char2.damage, 11)
+        self.call_cmd("/flub Char2", "You must specify both a to-hit and damage penalty, though they can be 0.")
+        self.call_cmd("/flub Char2=5,6,7", "You must specify both a to-hit and damage penalty, though they can be 0.")
+        self.call_cmd("/flub Char2=200,-2000", "Maximum flub value is 500.")
+        self.call_cmd("/flub Char2=200,-200", 'You have marked yourself as ready to proceed.|\n'
+                                              'Combatant Damage   Fatigue Action       Ready? \n'
+                                              'Char      moderate 0       attack Char2 yes    '
+                                              'Char2     severe   0       None         no     '
+                                              'Char3     no       0       attack Char2 no     \n'
+                                              'Current Round: 1|'
+                                              'Queuing action for your turn: You attack Char2. '
+                                              'Adjusting your attack with a to-hit penalty of 200 and'
+                                              ' damage penalty of 200.')
+        last_action = self.char1.combat.state.queued_action
+        self.assertEqual(last_action.attack_penalty, 200)
+        self.assertEqual(last_action.dmg_penalty, 200)
+        fight.ndb.phase = 2
+        self.char1.combat.state.do_turn_actions()
+        self.assertEqual(last_action, self.char1.combat.state.last_action)
+        attack = last_action.finished_attack
+        self.assertEqual(attack.dmg_penalty, 200)
+        self.assertEqual(attack.attack_penalty, 200)
         # TODO: Maybe try a riposte. Also test death.
     
     @patch('typeclasses.scripts.combat.attacks.randint')

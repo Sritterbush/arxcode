@@ -4,6 +4,7 @@ on a weekly basis. Things we'll be updating are counting votes
 for players, and processes for Dominion.
 """
 import traceback
+from collections import defaultdict
 from datetime import datetime, timedelta
 
 from django.db.models import Q, F
@@ -12,10 +13,12 @@ from django.db.models import Q, F
 from evennia.objects.models import ObjectDB
 from evennia.utils.evtable import EvTable
 
-from world.dominion.models import AssetOwner, Army, Member, AccountTransaction, Orders, PraiseOrCondemn
+from world.dominion.models import AssetOwner, Army, Member, AccountTransaction, Orders
+from world.msgs.models import Inform
 from typeclasses.bulletin_board.bboard import BBoard
 from typeclasses.accounts import Account
 from .scripts import Script
+from .script_mixins import RunDateMixin
 from server.utils.arx_utils import inform_staff, cache_safe_update
 from web.character.models import Investigation, RosterEntry
 
@@ -28,10 +31,45 @@ TRAINING_CAP_PER_WEEK = 10
 PLAYER_ATTRS = ("votes", 'claimed_scenelist', 'random_scenelist', 'validated_list', 'praises', 'condemns',
                 'requested_validation', 'donated_ap')
 CHARACTER_ATTRS = ("currently_training", "trainer", 'scene_requests', "num_trained", "num_journals",
-                   "num_rel_updates", "num_comments", "num_flashbacks")
+                   "num_rel_updates", "num_comments", "num_flashbacks", "support_cooldown", "support_points_spent")
 
 
-class WeeklyEvents(Script):
+class BulkInformCreator(object):
+    """
+    A container where we can add informs one at a time to be created after all are
+    ready.
+    """
+    def __init__(self, week=None):
+        self.informs = []
+        self.receivers_to_notify = set()
+        self.week = week
+
+    def add_player_inform(self, player, msg, category, week=None):
+        """Adds an inform for a player to our list"""
+        return self.make_initial_inform(msg, category, week, player=player)
+
+    def add_org_inform(self, org, msg, category, week=None):
+        """Adds an inform for an org to our list"""
+        return self.make_initial_inform(msg, category, week, org=org)
+
+    def make_initial_inform(self, msg, category, week=None, player=None, org=None):
+        """Creates a base Inform object. This isn't in the database yet."""
+        week = week or self.week or 0
+        inform = Inform(message=msg, week=week, category=category, player=player, organization=org)
+        # for efficiency we're going to skip notifying orgs, as that's expensive
+        if player:
+            self.receivers_to_notify.add(player)
+        self.informs.append(inform)
+        return inform
+
+    def create_and_send_informs(self):
+        """Creates all our informs and notifies players/orgs about them"""
+        Inform.objects.bulk_create(self.informs)
+        for receiver in self.receivers_to_notify:
+            receiver.msg("{yYou have new informs from the Weekly Update script.{n")
+
+
+class WeeklyEvents(RunDateMixin, Script):
     """
     This script repeatedly saves server times so
     it can be retrieved after server downtime.
@@ -51,16 +89,11 @@ class WeeklyEvents(Script):
         self.attributes.add("run_date", datetime.now() + timedelta(days=7))
 
     @property
-    def time_remaining(self):
-        """
-        Returns the time the update is scheduled to run.AccountTransaction
-        
-            Returns:
-                remaining (Timedelta): remaining time before weekly update will process
-        """
-        # self.db.run_date is the date we're scheduled to run the weekly update on
-        remaining = self.db.run_date - datetime.now()
-        return remaining
+    def inform_creator(self):
+        """Returns a bulk inform creator we'll use for gathering informs from the weekly update"""
+        if self.ndb.inform_creator is None:
+            self.ndb.inform_creator = BulkInformCreator(week=self.db.week)
+        return self.ndb.inform_creator
 
     def at_repeat(self):
         """
@@ -76,27 +109,16 @@ class WeeklyEvents(Script):
                 cron_msg = "{wReminder: Weekly Updates will be running in about an hour.{n"
                 SESSIONS.announce_all(cron_msg)
 
-    def check_event(self):
-        """
-        Determine if a week has passed. Return true if so.
-        
-            Returns:
-                bool: whether we're ready for weekly event to run or not
-        """
-        rounding_check = timedelta(minutes=5)
-        if self.time_remaining < rounding_check:
-            return True
-        else:
-            return False
-
     def do_weekly_events(self, reset=True):
         """
         It's time for us to do events, like count votes, update dominion, etc.
         """
         # schedule next weekly update for one week from now
         self.db.run_date += timedelta(days=7)
+        # initialize temporary dictionaries we used for aggregating values
+        self.initialize_temp_dicts()
         # processing for each player
-        self.do_events_per_player(reset)
+        self.do_events_per_player()
         # awarding votes we counted
         self.award_scene_xp()
         self.award_vote_xp()
@@ -105,7 +127,7 @@ class WeeklyEvents(Script):
         # dominion stuff
         self.do_dominion_events()
         self.do_investigations()
-        self.do_cleanup()
+        self.cleanup_stale_attributes()
         self.post_inactives()
         self.db.pose_counter = (self.db.pose_counter or 0) + 1
         if self.db.pose_counter % 4 == 0:
@@ -113,6 +135,9 @@ class WeeklyEvents(Script):
             self.count_poses()
         self.db.week += 1
         self.reset_action_points()
+        self.inform_creator.create_and_send_informs()
+        if reset:
+            self.record_awarded_values()
 
     def do_dominion_events(self):
         """Does all the dominion weekly events"""
@@ -124,7 +149,7 @@ class WeeklyEvents(Script):
                         (Q(player__player__roster__roster__name="Active") &
                          Q(player__player__roster__frozen=False))).distinct():
             try:
-                owner.do_weekly_adjustment(self.db.week)
+                owner.do_weekly_adjustment(self.db.week, self.inform_creator)
             except Exception as err:
                 traceback.print_exc()
                 print("Error in %s's weekly adjustment: %s" % (owner, err))
@@ -161,126 +186,30 @@ class WeeklyEvents(Script):
             if increment:
                 ob.pay_action_points(-increment)
 
-    @staticmethod
-    def do_investigations():
+    def do_investigations(self):
         """Does all the investigation events"""
         for investigation in Investigation.objects.filter(active=True, ongoing=True,
                                                           character__roster__name="Active"):
             try:
-                investigation.process_events()
+                investigation.process_events(self.inform_creator)
             except Exception as err:
                 traceback.print_exc()
                 print("Error in investigation %s: %s" % (investigation, err))
 
-    def do_cleanup(self):
-        """Cleans up stale objects from database"""
-        date = datetime.now()
-        offset = timedelta(days=-30)
-        date = date + offset
+    @staticmethod
+    def cleanup_stale_attributes():
+        """Deletes stale attributes"""
         try:
-            self.cleanup_old_informs(date)
-            self.cleanup_old_tickets(date)
-            self.cleanup_django_admin_logs(date)
-            self.cleanup_soft_deleted_objects()
-            self.cleanup_stale_attributes()
-            self.cleanup_empty_tags()
-            self.cleanup_old_praises()
+            from evennia.typeclasses.attributes import Attribute
+            attr_names = CHARACTER_ATTRS + PLAYER_ATTRS
+            qs = Attribute.objects.filter(db_key__in=attr_names)
+            qs.delete()
         except Exception as err:
             traceback.print_exc()
             print("Error in cleanup: %s" % err)
 
-    @staticmethod
-    def cleanup_empty_tags():
-        """Deletes stale tags"""
-        from server.utils.arx_utils import delete_empty_tags
-        delete_empty_tags()
-
-    @staticmethod
-    def cleanup_stale_attributes():
-        """Deletes stale attributes"""
-        from evennia.typeclasses.attributes import Attribute
-        attr_names = CHARACTER_ATTRS + PLAYER_ATTRS
-        qs = Attribute.objects.filter(db_key__in=attr_names)
-        qs.delete()
-
-    @staticmethod
-    def cleanup_soft_deleted_objects():
-        """Permanently deletes previously 'soft'-deleted objects"""
-        try:
-            import time
-            qs = ObjectDB.objects.filter(db_tags__db_key__iexact="deleted")
-            current_time = time.time()
-            for ob in qs:
-                # never delete a player character
-                if ob.player_ob:
-                    ob.undelete()
-                    continue
-                # never delete something in-game
-                if ob.location:
-                    ob.undelete()
-                    continue
-                deleted_time = ob.db.deleted_time
-                # all checks passed, delete it for reals
-                if (not deleted_time) or (current_time - deleted_time > 604800):
-                    # if we're a unique retainer, wipe the agent object as well
-                    if hasattr(ob, 'agentob'):
-                        if ob.agentob.agent_class.unique:
-                            ob.agentob.agent_class.delete()
-                    ob.delete()
-        except Exception as err:
-            traceback.print_exc()
-            print("Error in cleaning up deleted objects: %s" % err)
-
-    @staticmethod
-    def cleanup_django_admin_logs(date):
-        """Deletes old django admin logs"""
-        try:
-            from django.contrib.admin.models import LogEntry
-            qs = LogEntry.objects.filter(action_time__lte=date)
-            qs.delete()
-        except Exception as err:
-            traceback.print_exc()
-            print("Error in cleaning Django Admin Change History: %s" % err)
-
-    @staticmethod
-    def cleanup_old_tickets(date):
-        """Deletes old request tickets"""
-        try:
-            from web.helpdesk.models import Ticket, Queue
-            try:
-                queue = Queue.objects.get(slug__iexact="story")
-                qs = Ticket.objects.filter(status__in=(Ticket.RESOLVED_STATUS, Ticket.CLOSED_STATUS),
-                                           modified__lte=date
-                                           ).exclude(queue=queue)
-                qs.delete()
-            except Queue.DoesNotExist:
-                pass
-        except Exception as err:
-            traceback.print_exc()
-            print("Error in cleaning tickets: %s" % err)
-
-    @staticmethod
-    def cleanup_old_informs(date):
-        """Deletes old informs"""
-        try:
-            from world.msgs.models import Inform
-            qs = Inform.objects.filter(date_sent__lte=date).exclude(important=True)
-            qs.delete()
-        except Exception as err:
-            traceback.print_exc()
-            print("Error in cleaning informs: %s" % err)
-
-    def cleanup_old_praises(self):
-        """Clean up old praises"""
-        try:
-            qs = PraiseOrCondemn.objects.filter(week__lte=self.db.week - 4)
-            qs.delete()
-        except Exception as err:
-            traceback.print_exc()
-            print("Error in cleaning praises: %s" % err)
-
     # noinspection PyProtectedMember
-    def do_events_per_player(self, reset=True):
+    def do_events_per_player(self):
         """
         All the different processes that need to occur per player.
         These should be able to occur in any particular order. Because
@@ -288,15 +217,6 @@ class WeeklyEvents(Script):
         but handle them separately for efficiency. Things that don't need
         to be recorded will just be processed in their methods.
         """
-        if reset:
-            # our votes are a dict of player to their number of votes
-            self.db.recorded_votes = {}
-            self.db.vote_history = {}
-            # storing how much xp each player gets to post after
-            self.db.xp = {}
-            self.db.xptypes = {}
-            self.db.requested_support = {}
-            self.db.scenes = {}
         self.check_freeze()
         players = [ob for ob in Account.objects.filter(Q(Q(roster__roster__name="Active") &
                                                          Q(roster__frozen=False)) |
@@ -313,13 +233,6 @@ class WeeklyEvents(Script):
             # conditions/social imperative
             # aspirations/progress toward goals
             char = player.db.char_ob
-            # task resets
-            cooldown = dict(char.db.support_cooldown or {})
-            for cid in cooldown:
-                if cooldown[cid] > 0:
-                    cooldown[cid] -= 1
-            char.db.support_cooldown = cooldown
-            char.db.support_points_spent = 0
             # for lazy refresh_from_db calls for queries right after the script runs, but unnecessary after a @reload
             char.ndb.stale_ap = True
             # wipe cached attributes
@@ -338,6 +251,17 @@ class WeeklyEvents(Script):
                     del agent.dbobj.attributes._cache["trainer-None"]
                 except (KeyError, AttributeError):
                     continue
+
+    def initialize_temp_dicts(self):
+        """Initializes dicts we record weekly values in"""
+        # our votes are a dict of player to their number of votes
+        self.ndb.recorded_votes = defaultdict(int)
+        self.ndb.vote_history = {}
+        # storing how much xp each player gets to post after
+        self.ndb.xp = defaultdict(int)
+        self.ndb.xptypes = {}
+        self.ndb.requested_support = {}
+        self.ndb.scenes = defaultdict(int)
 
     @staticmethod
     def check_freeze():
@@ -368,12 +292,12 @@ class WeeklyEvents(Script):
 
     def count_poses(self):
         """Makes a board post of characters with insufficient pose-counts"""
-        qs = ObjectDB.objects.filter(roster__roster__isnull=False)
+        qs = ObjectDB.objects.filter(roster__roster__name="Active")
         min_poses = 20
         low_activity = []
         for ob in qs:
-            if (ob.posecount < min_poses and ob.roster.roster.name == "Active" and
-                    (ob.tags.get("rostercg")and ob.player_ob and not ob.player_ob.tags.get("staff_alt"))):
+            if (ob.posecount < min_poses and (ob.tags.get("rostercg")and ob.player_ob
+                                              and not ob.player_ob.tags.get("staff_alt"))):
                 low_activity.append(ob)
             ob.db.previous_posecount = ob.posecount
             ob.posecount = 0
@@ -393,10 +317,10 @@ class WeeklyEvents(Script):
         char = player.char_ob
         try:
             account = player.roster.current_account
-            if account.id in self.db.xptypes:
-                total = self.db.xptypes[account.id].get("journals", 0)
+            if account.id in self.ndb.xptypes:
+                total = self.ndb.xptypes[account.id].get("journals", 0)
             else:
-                self.db.xptypes[account.id] = {}
+                self.ndb.xptypes[account.id] = {}
                 total = 0
             journal_total = char.messages.num_weekly_journals
             xp = 0
@@ -436,12 +360,9 @@ class WeeklyEvents(Script):
         """       
         votes = player.db.votes or []
         for ob in votes:
-            if ob in self.db.recorded_votes:
-                self.db.recorded_votes[ob] += 1
-            else:
-                self.db.recorded_votes[ob] = 1
+            self.ndb.recorded_votes[ob] += 1
         if votes:
-            self.db.vote_history[player] = votes
+            self.ndb.vote_history[player] = votes
 
     def count_scenes(self, player):
         """
@@ -450,33 +371,23 @@ class WeeklyEvents(Script):
         2 xp.
         """
         scenes = player.db.claimed_scenelist or []
-        charob = player.db.char_ob
+        charob = player.char_ob
         for ob in scenes:
             # give credit to the character the player had a scene with
-            if ob.id in self.db.scenes:
-                self.db.scenes[ob.id] += 1
-            else:
-                self.db.scenes[ob.id] = 1
+            self.ndb.scenes[ob] += 1
             # give credit to the player's character, once per scene
             if charob:
-                if charob.id in self.db.scenes:
-                    self.db.scenes[charob.id] += 1
-                else:
-                    self.db.scenes[charob.id] = 1
+                self.ndb.scenes[charob] += 1
         requested_scenes = charob.db.scene_requests or {}
         if requested_scenes:
-            self.db.scenes[charob.id] = self.db.scenes.get(charob.id, 0) + len(requested_scenes)
+            self.ndb.scenes[charob] += len(requested_scenes)
 
     def award_scene_xp(self):
         """Awards xp for a character basedon their number of scenes"""
-        for char_id in self.db.scenes:
-            try:
-                char = ObjectDB.objects.get(id=char_id)
-            except ObjectDB.DoesNotExist:
-                continue
+        for char in self.ndb.scenes:
             player = char.player_ob
             if char and player:
-                scenes = self.db.scenes[char_id]
+                scenes = self.ndb.scenes[char]
                 xp = self.scale_xp(scenes * 2)
                 if scenes and xp:
                     msg = "You were in %s random scenes this week, earning %s xp." % (scenes, xp)
@@ -528,10 +439,10 @@ class WeeklyEvents(Script):
         object of each player we've recorded votes for.
         """
         # go through each key in our votes dict, get player, award xp to their character
-        for player, votes in self.db.recorded_votes.items():
+        for player, votes in self.ndb.recorded_votes.items():
             # important - get their character, not the player object
             try:
-                char = player.db.char_ob
+                char = player.char_ob
                 if char:
                     xp = self.scale_xp(votes)
                     if votes and xp:
@@ -545,19 +456,19 @@ class WeeklyEvents(Script):
         try:
             try:
                 account = char.roster.current_account
-                if account.id not in self.db.xptypes:
-                    self.db.xptypes[account.id] = {}
-                self.db.xptypes[account.id][xptype] = xp + self.db.xptypes[account.id].get(xptype, 0)
+                if account.id not in self.ndb.xptypes:
+                    self.ndb.xptypes[account.id] = {}
+                self.ndb.xptypes[account.id][xptype] = xp + self.ndb.xptypes[account.id].get(xptype, 0)
             except AttributeError:
                 pass
             xp = int(xp)
             char.adjust_xp(xp)
-            self.db.xp[char] = xp + self.db.xp.get(char, 0)
+            self.ndb.xp[char] += xp
         except Exception as err:
             traceback.print_exc()
             print("Award XP encountered ERROR: %s" % err)
         if player and msg:
-            player.inform(msg, "XP", week=self.db.week, append=True)
+            self.inform_creator.add_player_inform(player, msg, "XP", week=self.db.week)
             self.award_resources(player, xp, xptype)
 
     def award_resources(self, player, xp, xptype="all"):
@@ -574,7 +485,7 @@ class WeeklyEvents(Script):
         except AttributeError:
             pass
         if resource_msg:
-            player.inform(resource_msg, "Resources", week=self.db.week, append=True)
+            self.inform_creator.add_player_inform(player, resource_msg, "Resources", week=self.db.week)
 
     def post_top_rpers(self):
         """
@@ -584,7 +495,7 @@ class WeeklyEvents(Script):
         """
         import operator
         # this will create a sorted list of tuples of (id, votes), sorted by xp, highest to lowest
-        sorted_xp = sorted(self.db.xp.items(), key=operator.itemgetter(1), reverse=True)
+        sorted_xp = sorted(self.ndb.xp.items(), key=operator.itemgetter(1), reverse=True)
         string = "{wTop RPers this week by XP earned{n".center(60)
         string += "\n{w" + "-"*60 + "{n\n"
         sorted_xp = sorted_xp[:20]
@@ -606,7 +517,6 @@ class WeeklyEvents(Script):
         """Makes a board post of the top prestige earners this past week"""
         import random
         from world.dominion.models import PraiseOrCondemn
-        from collections import defaultdict
         changes = PraiseOrCondemn.objects.filter(week=self.db.week)
         praises = defaultdict(list)
         condemns = defaultdict(list)
@@ -669,3 +579,13 @@ class WeeklyEvents(Script):
             traceback.print_exc()
         board.bb_post(poster_obj=self, msg=prestige_msg, subject="Weekly Praises/Condemns", poster_name="Prestige")
         inform_staff("Praises/condemns tally complete. Posted on %s." % board)
+
+    def record_awarded_values(self):
+        """Makes a record of all values for this week for review, if necessary"""
+        self.db.recorded_votes = dict(self.ndb.recorded_votes)
+        self.db.vote_history = self.ndb.vote_history
+        # storing how much xp each player gets to post after
+        self.db.xp = dict(self.ndb.xp)
+        self.db.xptypes = self.ndb.xptypes
+        self.db.requested_support = self.ndb.requested_support
+        self.db.scenes = dict(self.ndb.scenes)

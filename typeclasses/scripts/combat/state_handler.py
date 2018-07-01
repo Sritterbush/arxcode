@@ -34,6 +34,7 @@ class CombatAction(object):
         self.roll = None
         self.description = desc
         self.special_action = action
+        self.finished_attack = None
 
     def __str__(self):
         text = "attack" if self.qtype in self.ATTACK_QTYPES else self.qtype
@@ -45,6 +46,7 @@ class CombatAction(object):
         
     @property
     def table_str(self):
+        """Gets text for our table"""
         text = "attack" if self.qtype in self.ATTACK_QTYPES else self.qtype
         if self.targ:
             text += " %s" % self.targ
@@ -284,7 +286,8 @@ class CombatantStateHandler(object):
         if targ and targ not in self.foelist:
             self.add_foe(targ)
         self.queued_action = CombatAction(self.character, qtype=qtype, targ=targ, msg=msg, 
-                                          attack_penalty=attack_penalty, dmg_penalty=dmg_penalty, desc=desc, action=action)
+                                          attack_penalty=attack_penalty, dmg_penalty=dmg_penalty, desc=desc,
+                                          action=action)
         if do_ready:
             self.character_ready()
 
@@ -482,8 +485,10 @@ class CombatantStateHandler(object):
                 targ = self.npc_target_choice(targ)
             # set who we attacked
             self.prev_targ = targ
-            self.combat_handler.do_attack(targ, attacker=self.character, attack_penalty=q.attack_penalty,
-                                          dmg_penalty=q.dmg_penalty)
+            attack = self.combat_handler.do_attack(targ, attacker=self.character, attack_penalty=q.attack_penalty,
+                                                   dmg_penalty=q.dmg_penalty)
+            q.finished_attack = attack
+            self.recent_actions.append(q)
             return True
 
     def roll_initiative(self):
@@ -830,7 +835,7 @@ class CombatantStateHandler(object):
             return
         if combat.register_surrendering_character(self.character):
             combat.msg("%s is attempting to surrender. They will leave combat if not prevented "
-                            "with surrender/deny." % self.character)
+                       "with surrender/deny." % self.character)
         else:
             self.character.msg("You are stopped from attempting to surrender.")
 
@@ -858,3 +863,11 @@ class CombatantStateHandler(object):
     def take_unique_action(self, description):
         """Takes a unique action that the GM can react to."""
         self.set_queued_action(qtype="Unique", desc=description)
+
+    @property
+    def last_action(self):
+        """Gets our most recent action"""
+        try:
+            return self.recent_actions[-1]
+        except IndexError:
+            return None

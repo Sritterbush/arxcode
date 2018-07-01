@@ -1715,7 +1715,7 @@ class CmdArxScripts(CmdScripts):
     def func(self):
         """Override of CmdScripts"""
         if self.switches:
-            super(CmdScripts, self).func()
+            super(CmdArxScripts, self).func()
             return
         self.list_scripts()
 

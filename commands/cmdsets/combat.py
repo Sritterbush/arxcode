@@ -424,6 +424,7 @@ class CmdAttack(CombatCommand):
           attack/only <character>
           attack/critical <character>[=difficulty]
           attack/accuracy <character>[=advantage]
+          attack/flub <character>[=to-hit penalty,damage penalty]
           
     An attempt to attack a given character that is in combat with you. If
     the character has defenders, you will be forced to attack one of them
@@ -437,6 +438,8 @@ class CmdAttack(CombatCommand):
     in order to attempt to do more damage. The default value is 15.
     The /accuracy switch allows you to lower your damage roll for a greater
     chance to hit. The default value is 15.
+    The /flub switch allows you to attach penalties to hit and/or damage
+    to intentionally make a poor attack.
     """
     key = "attack"
     locks = "cmd:all()"
@@ -498,6 +501,18 @@ class CmdAttack(CombatCommand):
                 attack_penalty += mod
                 dmg_penalty += -mod
                 msg += "Attempting a critical hit."
+        elif "flub" in self.switches:
+            try:
+                attack_penalty, dmg_penalty = [abs(int(num)) for num in self.rhslist]
+            except (TypeError, ValueError):
+                self.msg("You must specify both a to-hit and damage penalty, though they can be 0.")
+                return
+            MAX = 500
+            if attack_penalty > MAX or dmg_penalty > MAX:
+                self.msg("Maximum flub value is %d." % MAX)
+                return
+            msg += "Adjusting your attack with a to-hit penalty of %d and damage penalty of %d." % (attack_penalty,
+                                                                                                    dmg_penalty)
         this_round = combat.ndb.rounds
         do_ready = not caller.combat.state.ready
         qtype = "kill" if can_kill else "attack"

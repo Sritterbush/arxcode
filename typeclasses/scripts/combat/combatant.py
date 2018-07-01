@@ -401,6 +401,7 @@ class CombatHandler(object):
             self.state.take_action(self.state.remaining_attacks)
             if self.state:  # could have left combat based on that action
                 self.state.roll_fatigue()
+        return attack
 
     def get_defenders(self):
         """Returns our defenders, in or out of combat"""

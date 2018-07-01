@@ -17,6 +17,8 @@ class FashionSnapshot(SharedMemoryModel):
     The recorded moment when a piece of gear becomes a weapon
     of the fashionpocalypse.
     """
+    ORG_FAME_DIVISOR = 2
+    DESIGNER_FAME_DIVISOR = 4
     db_date_created = models.DateTimeField(auto_now_add=True)
     fashion_item = models.ForeignKey('objects.ObjectDB', related_name='fashion_snapshots',
                                      on_delete=models.SET_NULL, null=True)
@@ -58,8 +60,8 @@ class FashionSnapshot(SharedMemoryModel):
         level_mod = self.fashion_item.recipe.level/6.0
         percentage *= max(level_mod, 0.01)
         percentage *= max((self.fashion_item.quality_level/40.0), 0.01)
-        # they get either their percentage of the item's worth, their modified roll, or 2, whichever is highest
-        self.fame = max(int(self.item_worth * percentage), max(int(roll), 2))
+        # they get either their percentage of the item's worth, their modified roll, or 4, whichever is highest
+        self.fame = max(int(self.item_worth * percentage), max(int(roll), 4))
         self.save()
 
     def apply_fame(self, reverse=False):
@@ -67,22 +69,26 @@ class FashionSnapshot(SharedMemoryModel):
         Awards full amount of fame to fashion model and a portion to the
         sponsoring Organization & the item's Designer.
         """
-        model_fame = -self.fame if reverse else self.fame
-        client_fame = -self.client_fame if reverse else self.client_fame
+        mult = -1 if reverse else 1
+        model_fame = self.fame * mult
+        org_fame = self.org_fame * mult
+        designer_fame = self.designer_fame * mult
         self.fashion_model.assets.adjust_prestige(model_fame, force=reverse)
-        self.org.assets.adjust_prestige(client_fame, force=reverse)
-        self.designer.assets.adjust_prestige(client_fame, force=reverse)
+        self.org.assets.adjust_prestige(org_fame, force=reverse)
+        self.designer.assets.adjust_prestige(designer_fame, force=reverse)
 
     def inform_fashion_clients(self):
         """
         Informs clients when fame is earned, by using their AssetOwner method.
         """
-        if self.client_fame > 0:
-            category = "fashion"
-            msg = "{315%d{n fame awarded from %s modeling %s." % (self.client_fame, self.fashion_model,
-                                                                  self.fashion_item)
-            self.org.assets.inform_owner(msg, category=category, append=True)
-            self.designer.assets.inform_owner(msg, category=category, append=True)
+        category = "fashion"
+        msg = "fame awarded from %s modeling %s." % (self.fashion_model, self.fashion_item)
+        if self.org_fame > 0:
+            org_msg = "{315%d{n %s" % (self.org_fame, msg)
+            self.org.assets.inform_owner(org_msg, category=category, append=True)
+        if self.designer_fame > 0:
+            designer_msg = "{315%d{n %s" % (self.designer_fame, msg)
+            self.designer.assets.inform_owner(designer_msg, category=category, append=True)
 
     @property
     def fashion_mult_override(self):
@@ -125,6 +131,11 @@ class FashionSnapshot(SharedMemoryModel):
         return int(value)
 
     @property
-    def client_fame(self):
-        """The portion of fame awarded to sponsoring org and item designer."""
-        return int(self.fame/2)
+    def org_fame(self):
+        """The portion of fame awarded to sponsoring org"""
+        return int(self.fame/self.ORG_FAME_DIVISOR)
+
+    @property
+    def designer_fame(self):
+        """The portion of fame awarded to item designer."""
+        return int(self.fame/self.DESIGNER_FAME_DIVISOR)

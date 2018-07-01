@@ -2405,12 +2405,7 @@ class CmdFamily(ArxPlayerCommand):
                 try:
                     family = player.db.char_ob.db.family
                     fam_org = Organization.objects.get(name__iexact=family)
-                    if not fam_org.members.filter(player=dompc, deguilded=False):
-                        show_private = False
-                    if show_private:
-                        details = fam_org.display()
-                    else:
-                        details = fam_org.display_public()
+                    details = fam_org.display_public()
                     caller.msg("%s family information:\n%s" % (family, details))
                     return
                 except Organization.DoesNotExist:

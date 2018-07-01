@@ -80,7 +80,8 @@ class Attack(object):
             self.prev_targ = prev_targ or self.state and self.state.prev_targ
             self.cleaving = can_cleave or attacker.combat.can_cleave
             self.switch_chance = switch_chance if switch_chance is not None else attacker.combat.switch_chance
-            self.affect_real_dmg = affect_real_dmg if affect_real_dmg is not None else self.combat and self.combat.ndb.affect_real_dmg
+            self.affect_real_dmg = (affect_real_dmg if affect_real_dmg is not None
+                                    else self.combat and self.combat.ndb.affect_real_dmg)
             self.can_be_parried = can_be_parried if can_be_parried is not None else attacker.combat.can_be_parried
             self.can_be_dodged = can_be_dodged if can_be_dodged is not None else attacker.combat.can_be_dodged
             self.can_be_blocked = can_be_blocked if can_be_blocked is not None else attacker.combat.can_be_blocked

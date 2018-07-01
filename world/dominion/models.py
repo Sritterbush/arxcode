@@ -101,6 +101,7 @@ LIFESTYLES = {
     5: (1500, 7000),
     6: (5000, 10000),
     }
+PRESTIGE_DECAY_AMOUNT = 0.2
 
 PAGEROOT = "http://play.arxgame.org"
 
@@ -644,16 +645,17 @@ class AssetOwner(SharedMemoryModel):
 
     def prestige_decay(self):
         """Decreases our fame for the week"""
-        self.fame -= int(self.fame * .20)
+        self.fame -= int(self.fame * PRESTIGE_DECAY_AMOUNT)
         self.save()
 
-    def do_weekly_adjustment(self, week):
+    def do_weekly_adjustment(self, week, inform_creator=None):
         """
         Does weekly adjustment of all monetary/prestige stuff for this asset owner and all their holdings. A report
         is generated and sent to the owner.
 
             Args:
                 week (int): The week where this occurred
+                inform_creator: A bulk inform creator, if any
 
             Returns:
                 The amount our vault changed.
@@ -664,7 +666,7 @@ class AssetOwner(SharedMemoryModel):
         inform_target = self.inform_target
         org = self.organization_owner
         if inform_target and inform_target.can_receive_informs:
-            report = WeeklyReport(inform_target, week)
+            report = WeeklyReport(inform_target, week, inform_creator)
             npc = False
         if hasattr(self, 'estate'):
             for domain in self.estate.holdings.all():
