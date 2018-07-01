@@ -8,27 +8,19 @@ import traceback
 
 
 class Report(object):
-    def __init__(self, owner, week, category=None):
+    def __init__(self, owner, week, category=None, inform_creator=None):
         self.owner = owner
         self.week = week
         self.category = category
-        
-    def get_reports(self, category):
-        """
-        Retrieve inform from Inform.objects.filter(),
-        or create it if it doesn't exist if we have create=True. Note that
-        if create is True, we return the object created, while if it's
-        False we return a queryset.
-        """
-        owner = self.owner
-        week = self.week
-        reports = owner.informs.filter(week=week, category=category, read_by__isnull=True)
-        return reports
+        self.inform_creator = inform_creator
     
     def get_or_create_report(self, category):
-        reports = self.get_reports(category)
-        if reports:
-            report = reports[0]
+        if self.inform_creator:
+            # kind of hacky way to determine if this is a AccountDB or Organization instance, but whatever
+            if hasattr(self.owner, 'char_ob'):
+                report = self.inform_creator.add_player_inform(self.owner, "", category)
+            else:
+                report = self.inform_creator.add_org_inform(self.owner, "", category)
         else:
             owner = self.owner
             week = self.week
@@ -120,8 +112,8 @@ class WeeklyReport(Report):
     This report will act as a synopsis of all other reports we've accumulated
     during this weekly cycle.
     """
-    def __init__(self, owner, week):
-        super(WeeklyReport, self).__init__(owner, week, "synopsis")
+    def __init__(self, owner, week, inform_creator=None):
+        super(WeeklyReport, self).__init__(owner, week, "synopsis", inform_creator)
         self.projects = 0
         self.vault = 0
         self.income_change = 0
@@ -152,10 +144,7 @@ class WeeklyReport(Report):
         """
         Sends our collected reports to the player as an Inform.
         """
-        battles = self.get_reports("battle")
-        exploration = self.get_reports("explore")
-        projects = self.get_reports("project")
-        if not any((battles, exploration, projects, self.income_change)):
+        if not any((self.army_reports, self.income_change, self.failed_payments, self.successful_payments)):
             return
         report = self.get_or_create_report(self.category)
         txt = ""
@@ -167,12 +156,6 @@ class WeeklyReport(Report):
             if self.failed_payments:
                 txt += "Failed payments to you: %s\n" % ", ".join(self.failed_payments)
             txt += "Bank balance after income: %s\n" % self.vault
-            if battles:
-                txt += "Battles: %s\n" % str(len(battles))
-            if exploration:
-                txt += "Exploration events: %s\n" % str(len(exploration))
-            if projects:
-                txt += "Projects completed: %s\n" % str(self.projects)
             if self.army_reports:
                 txt += "Army reports: %s\n" % ", ".join(self.army_reports)
             if self.lifestyle_msg:
@@ -184,7 +167,8 @@ class WeeklyReport(Report):
         except Exception:
             import traceback
             report.message = txt + "\n" + traceback.print_exc()
-        report.save()
+        if not self.inform_creator:
+            report.save()
 
     def payment_fail(self, payment):
         self.failed_payments.append(str(payment))

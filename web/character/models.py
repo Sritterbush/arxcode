@@ -836,7 +836,8 @@ class ClueDiscovery(SharedMemoryModel):
         except (AttributeError, TypeError, ValueError, ZeroDivisionError):
             return 0
 
-    def mark_discovered(self, method="Prior Knowledge", message="", roll=None, revealed_by=None, investigation=None):
+    def mark_discovered(self, method="Prior Knowledge", message="", roll=None, revealed_by=None, investigation=None,
+                        inform_creator=None):
         """
         Discovers the clue for our character.
 
@@ -846,6 +847,7 @@ class ClueDiscovery(SharedMemoryModel):
             roll: Stored in self.roll if we want to note high success. Otherwise self.roll becomes minimum required
             revealed_by: If the clue was shared by someone else, we store their RosterEntry
             investigation: If it was from an investigation, we mark that also.
+            inform_creator: Object used for bulk creation of informs
         """
         if roll and roll > self.required_roll_for_discovery:
             self.roll = roll
@@ -873,14 +875,17 @@ class ClueDiscovery(SharedMemoryModel):
                 MysteryDiscovery.objects.create(character=self.character, message=message, investigation=investigation,
                                                 mystery=mystery, date=date)
         if revelations:
-            self.character.player.inform(msg, category="Discovery", append=False)
+            if inform_creator:
+                inform_creator.add_player_inform(self.character.player, msg, "Discovery")
+            else:
+                self.character.player.inform(msg, category="Discovery", append=False)
         # make sure any investigations targeting the now discovered clue get reset. queryset.update doesn't work with
         # SharedMemoryModel (cached objects will overwrite it), so we iterate through them instead
         for investigation in self.character.investigations.filter(clue_target=self.clue):
             investigation.clue_target = None
             investigation.save()
 
-    def share(self, entry, investigation=None, note=None):
+    def share(self, entry, investigation=None, note=None, inform_creator=None):
         """
         Copy this clue to target entry. If they already have the
         discovery, we'll add our roll to theirs (which presumably should
@@ -907,11 +912,14 @@ class ClueDiscovery(SharedMemoryModel):
             note_msg = ", who noted: %s" % note
         message = "This clue was shared with you by %s%s" % (self.character, note_msg)
         targ_clue.mark_discovered(method="Sharing", message=message, revealed_by=self.character,
-                                  investigation=investigation)
+                                  investigation=investigation, inform_creator=inform_creator)
         pc = targ_clue.character.player
         msg = "A new clue (%d) has been shared with you by %s!\n\n%s\n" % (targ_clue.id, self.character,
                                                                            targ_clue.display())
-        pc.inform(msg, category="Investigations", append=False)
+        if inform_creator:
+            inform_creator.add_player_inform(pc, msg, "Investigations")
+        else:
+            pc.inform(msg, category="Investigations", append=False)
         return True
 
     @property
@@ -960,17 +968,18 @@ class InvestigationAssistant(SharedMemoryModel):
             name += " (%s)" % self.char.owner
         return name
 
-    def shared_discovery(self, clue):
+    def shared_discovery(self, clue, inform_creator=None):
         """
         Shares a clue discovery with this assistant.
         Args:
             clue: The ClueDiscovery we're sharing
+            inform_creator: Object used for bulk-creation of informs
         """
         self.currently_helping = False
         self.save()
         entry = self.roster_entry
         if entry:
-            clue.share(entry, investigation=self.investigation)
+            clue.share(entry, investigation=self.investigation, inform_creator=inform_creator)
         
     @property
     def roster_entry(self):
@@ -1149,21 +1158,24 @@ class Investigation(AbstractPlayerAllocations):
             return (roll + self.progress) >= (diff + modifier)
         return (roll + self.progress) >= self.completion_value
 
-    def process_events(self):
+    def process_events(self, inform_creator=None):
         """
         Called by the weekly event script to make the investigation run and reset our values,
         then notify the player.
         """
-        self.generate_result()
+        self.generate_result(inform_creator=inform_creator)
         # reset values
         self.reset_values()
         self.char.attributes.remove("investigation_roll")
         # send along msg
         msg = "Your investigation into '%s' has had the following result:\n" % self.topic
         msg += self.results
-        self.character.player.inform(msg, category="Investigations", append=False)
+        if inform_creator:
+            inform_creator.add_player_inform(self.character.player, msg, "Investigations")
+        else:
+            self.character.player.inform(msg, category="Investigations", append=False)
 
-    def generate_result(self):
+    def generate_result(self, inform_creator=None):
         """
         If we aren't GMing this, check success then set the results string
         accordingly.
@@ -1202,7 +1214,7 @@ class Investigation(AbstractPlayerAllocations):
                 for ass in self.active_assistants:
                     # noinspection PyBroadException
                     try:
-                        ass.shared_discovery(clue)
+                        ass.shared_discovery(clue, inform_creator)
                     except Exception:
                         traceback.print_exc()
         else:
