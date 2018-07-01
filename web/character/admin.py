@@ -11,7 +11,7 @@ from .models import (Roster, RosterEntry, Photo, DISCO_MULT, SearchTag, Flashbac
                      MysteryDiscovery, RevelationDiscovery, ClueDiscovery,
                      RevelationForMystery, ClueForRevelation, Theory, TheoryPermissions,
                      )
-from django.db.models import F, Subquery, OuterRef, IntegerField, ExpressionWrapper, Q
+from django.db.models import F, Subquery, OuterRef, IntegerField, ExpressionWrapper, Q, Sum
 
 
 class BaseCharAdmin(admin.ModelAdmin):
@@ -123,11 +123,40 @@ class RevDiscoInline(admin.TabularInline):
     raw_id_fields = ('character', 'investigation', 'revealed_by', 'revelation',)
 
 
+class RevelationListFilter(admin.SimpleListFilter):
+    """List filter for showing whether an investigation will finish this week or not"""
+    title = "Obtainable"
+    parameter_name = "obtainable"
+
+    def lookups(self, request, model_admin):
+        """Values for the GET request and how they display"""
+        return (
+            ('true', 'True'),
+            ('false', 'False')
+        )
+
+    def queryset(self, request, queryset):
+        """
+        This performs a total tally of all clues for a given revelation, annotating the
+        queryset accordingly, which is used in a subquery to determine if the requirements
+        for this revelation can actually be met by players or not.
+        """
+        qs = queryset
+        clues = Clue.objects.filter(revelations=OuterRef('id')).order_by().values('revelations')
+        total_rating = clues.annotate(total=Sum('rating')).values('total')
+        if self.value() == "true":
+            qs = qs.filter(required_clue_value__lte=Subquery(total_rating))
+        if self.value() == "false":
+            qs = qs.filter(required_clue_value__gt=Subquery(total_rating))
+        return qs
+
+
 class RevelationAdmin(BaseCharAdmin):
     """Admin for revelations"""
     list_display = ('id', 'name', 'known_by', 'requires', 'used_for')
     inlines = [ClueForRevInline, RevDiscoInline]
     search_fields = ('id', 'name', 'characters__character__db_key', 'mysteries__name')
+    list_filter = (RevelationListFilter,)
 
     @staticmethod
     def known_by(obj):
