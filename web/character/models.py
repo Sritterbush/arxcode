@@ -606,6 +606,19 @@ class Revelation(SharedMemoryModel):
         """String representation of amount required compared to available clue points"""
         return "%d of %d" % (self.required_clue_value, self.total_clue_value)
 
+    def player_can_discover(self, char):
+        char_clues = set([ob.clue for ob in char.finished_clues])
+        used_clues = set([ob.clue for ob in self.clues_used.filter(required_for_revelation=True)])
+        # check if we have all the required clues for this revelation discovered
+        if not used_clues.issubset(char_clues):
+            return False
+
+        # check if we have enough numerical value of clues to pass
+        if self.check_progress(char) >= self.required_clue_value:
+            return True
+
+        return False
+
     def check_progress(self, char):
         """
         Returns the total value of the clues used for this revelation by
@@ -815,14 +828,9 @@ class ClueDiscovery(SharedMemoryModel):
         revelations = Revelation.objects.filter(Q(clues_used__in=clue_usage) &
                                                 ~Q(characters=self.character)).distinct()
         discovered = []
-        char_clues = set([ob.clue for ob in self.character.finished_clues])
         for rev in revelations:
-            used_clues = set([ob.clue for ob in rev.clues_used.filter(required_for_revelation=True)])
-            # check if we have all the required clues for this revelation discovered
-            if used_clues.issubset(char_clues):
-                # check if we have enough numerical value of clues to pass
-                if rev.check_progress(self.character) >= rev.required_clue_value:
-                    discovered.append(rev)
+            if rev.player_can_discover(self.character):
+                discovered.append(rev)
         return discovered
 
     def __str__(self):

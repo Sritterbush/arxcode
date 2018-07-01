@@ -11,7 +11,7 @@ from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
 from server.utils.arx_utils import inform_staff, check_break
 from server.utils.prettytable import PrettyTable
 from web.character.models import (Investigation, Clue, InvestigationAssistant, ClueDiscovery, Theory,
-                                  RevelationDiscovery, SearchTag, get_random_clue)
+                                  RevelationDiscovery, Revelation, SearchTag, get_random_clue)
 from world.dominion.models import Agent, RPEvent
 from world.stats_and_skills import VALID_STATS, VALID_SKILLS
 
@@ -1325,6 +1325,14 @@ class CmdListRevelations(ArxPlayerCommand):
     
     Usage:
         @revelations
+        @revelations <ID>
+        @revelations/checkmissed
+
+        The first form of this command will just list all the revelations you know.
+        The second form views a specific revelation.
+        The third form will check if there are any revelations you should know which were missed
+        due to clues being added to revelations later.
+
     """
     key = "@revelations"
     locks = "cmd:all()"
@@ -1340,7 +1348,39 @@ class CmdListRevelations(ArxPlayerCommand):
         msg += str(table)
         caller.msg(msg, options={'box': True})
 
+    def resync_revelations(self):
+        character = self.caller.roster
+        revelations = Revelation.objects.filter(~Q(characters=character)).distinct()
+        discovered = []
+        for revelation in revelations:
+            if revelation.player_can_discover(character):
+                discovered.append(revelation)
+
+        date = datetime.now()
+        for revelation in discovered:
+            msg = "\nYou have discovered a revelation: %s\n%s" % (str(revelation), revelation.desc)
+            message = "You had a revelation which had been missed!"
+            rev = RevelationDiscovery.objects.create(character=character, discovery_method="Checked for Missing",
+                                                     message=message, investigation=None,
+                                                     revelation=revelation, date=date)
+
+            self.msg("You were missing a revelation: %s" % str(revelation))
+
+            mysteries = rev.check_mystery_discovery()
+            for mystery in mysteries:
+                msg += "\nYou have also discovered a mystery: %s\n%s" % (str(mystery), mystery.desc)
+                message = "You uncovered a mystery after learning a revelation!"
+                MysteryDiscovery.objects.create(character=character, message=message, investigation=None,
+                                                mystery=mystery, date=date)
+
+                self.msg("You were missing a mystery: %s" % str(mystery))
+
     def func(self):
+        if "checkmissed" in self.switches:
+            self.msg("Checking for missed revelations...")
+            self.resync_revelations()
+            self.msg("Done!")
+            return
         if not self.args:
             self.disp_rev_table()
             return
