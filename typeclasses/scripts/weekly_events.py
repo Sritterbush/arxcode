@@ -113,59 +113,31 @@ class WeeklyEvents(RunDateMixin, Script):
         """
         It's time for us to do events, like count votes, update dominion, etc.
         """
-        import time
         # schedule next weekly update for one week from now
         self.db.run_date += timedelta(days=7)
         # initialize temporary dictionaries we used for aggregating values
         self.initialize_temp_dicts()
         # processing for each player
-        elapsed = time.clock()
         self.do_events_per_player()
-        elapsed = time.clock() - elapsed
-        print("%d seconds for do_events_per_player" % elapsed)
         # awarding votes we counted
         self.award_scene_xp()
-        elapsed = time.clock() - elapsed
-        print("%d seconds for award scene xp" % elapsed)
         self.award_vote_xp()
-        elapsed = time.clock() - elapsed
-        print("%d seconds for award vote xp" % elapsed)
         self.post_top_rpers()
-        elapsed = time.clock() - elapsed
-        print("%d seconds for post top rpers" % elapsed)
         self.post_top_prestige()
-        elapsed = time.clock() - elapsed
-        print("%d seconds for post top prestige xp" % elapsed)
         # dominion stuff
         self.do_dominion_events()
-        elapsed = time.clock() - elapsed
-        print("%d seconds for dominion events" % elapsed)
         self.do_investigations()
-        elapsed = time.clock() - elapsed
-        print("%d seconds for investigations" % elapsed)
         self.cleanup_stale_attributes()
-        elapsed = time.clock() - elapsed
-        print("%d seconds for cleanup" % elapsed)
         self.post_inactives()
-        elapsed = time.clock() - elapsed
-        print("%d seconds for post inactives" % elapsed)
         self.db.pose_counter = (self.db.pose_counter or 0) + 1
         if self.db.pose_counter % 4 == 0:
             self.db.pose_counter = 0
             self.count_poses()
-            elapsed = time.clock() - elapsed
-            print("%d seconds for count poses" % elapsed)
         self.db.week += 1
         self.reset_action_points()
-        elapsed = time.clock() - elapsed
-        print("%d seconds for reset_action_points" % elapsed)
         self.inform_creator.create_and_send_informs()
-        elapsed = time.clock() - elapsed
-        print("%d seconds for sending informs" % elapsed)
         if reset:
             self.record_awarded_values()
-            elapsed = time.clock() - elapsed
-            print("%d seconds for recording values" % elapsed)
 
     def do_dominion_events(self):
         """Does all the dominion weekly events"""

@@ -4,7 +4,7 @@ Script for periodically removing unwanted objects from the database.
 from datetime import datetime, timedelta
 import traceback
 
-from server.utils.arx_utils import inform_staff
+from server.utils.arx_utils import inform_staff, get_week
 from .scripts import Script
 from .script_mixins import RunDateMixin
 
@@ -126,11 +126,12 @@ class DatabaseCleanup(RunDateMixin, Script):
             traceback.print_exc()
             print("Error in cleaning informs: %s" % err)
 
-    def cleanup_old_praises(self):
+    @staticmethod
+    def cleanup_old_praises():
         """Clean up old praises"""
         try:
             from world.dominion.models import PraiseOrCondemn
-            qs = PraiseOrCondemn.objects.filter(week__lte=self.db.week - 4)
+            qs = PraiseOrCondemn.objects.filter(week__lte=get_week() - 4)
             qs.delete()
         except Exception as err:
             traceback.print_exc()
