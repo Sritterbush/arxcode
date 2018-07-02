@@ -13,6 +13,7 @@ class DatabaseCleanup(RunDateMixin, Script):
     """
     Occasionally will wipe stale objects from database.
     """
+    DAYS_BETWEEN_CLEANUP = 7
 
     # noinspection PyAttributeOutsideInit
     def at_script_creation(self):
@@ -33,7 +34,7 @@ class DatabaseCleanup(RunDateMixin, Script):
         if self.check_event():
             # check if we've been tagged to not reset next time we run
             self.do_cleanup()
-            self.db.run_date += timedelta(days=30)
+            self.db.run_date += timedelta(days=self.DAYS_BETWEEN_CLEANUP)
 
     def do_cleanup(self):
         """Cleans up stale objects from database"""
