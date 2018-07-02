@@ -1364,7 +1364,7 @@ class CmdCalendar(ArxPlayerCommand):
     def func(self):
         """Execute command."""
         caller = self.caller
-        char = caller.db.char_ob
+        char = caller.char_ob
         if not char:
             caller.msg("You have no character object.")
             return
@@ -1473,7 +1473,7 @@ class CmdCalendar(ArxPlayerCommand):
                 caller.msg("Argument needs to be in %s." % ", ".join(ob for ob in largesse_types))
                 return
             cost = costs[args][0]
-            currency = caller.db.char_ob.db.currency
+            currency = caller.char_ob.db.currency
             if currency < cost:
                 caller.msg("That requires %s to buy. You have %s." % (cost, currency))
                 return
@@ -1666,15 +1666,18 @@ class CmdCalendar(ArxPlayerCommand):
                 caller.msg("It must be 'common', 'refined', 'grand', 'extravagant', or 'legendary.'")
                 return
             cost = costs.get(largesse, (0, 0))[0]
-            if cost > caller.db.char_ob.db.currency:
+            if cost > caller.char_ob.db.currency:
                 caller.msg("The largesse level set requires %s, you have %s." % (cost, caller.db.currency))
                 return
             else:
-                caller.db.char_ob.pay_money(cost)
+                caller.char_ob.pay_money(cost)
                 caller.msg("You pay %s coins for the event." % cost)
+            gm_event = False
+            if any([gm.player.is_staff or gm.player.check_permstring("builder") for gm in gms]):
+                gm_event = True
             event = RPEvent.objects.create(name=name, date=date, desc=desc, location=loc,
                                            public_event=public, celebration_tier=cel_lvl,
-                                           room_desc=room_desc, plotroom=plotroom)
+                                           room_desc=room_desc, plotroom=plotroom, gm_event=gm_event)
             for host in hosts:
                 event.hosts.add(host)
                 player = host.player
@@ -1699,7 +1702,7 @@ class CmdCalendar(ArxPlayerCommand):
         try:
             dompc = caller.Dominion
         except AttributeError:
-            char = caller.db.char_ob
+            char = caller.char_ob
             if not char:
                 caller.msg("You have no character, which is required to set up Dominion.")
                 return
