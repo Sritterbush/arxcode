@@ -494,8 +494,30 @@ class AssetOwner(SharedMemoryModel):
         """Our prestige used for different mods. aggregate of fame, legend, and grandeur"""
         if hasattr(self, '_cached_prestige'):
             return self._cached_prestige
-        self._cached_prestige = self.fame + self.legend + self.grandeur
+        self._cached_prestige = self.fame + self.total_legend + self.grandeur + self.propriety
         return self._cached_prestige
+
+    @property
+    def propriety(self):
+        """A modifier to our fame based on tags we have"""
+        if hasattr(self, '_cached_propriety'):
+            return self._cached_propriety
+        percentage = max(sum(ob.percentage for ob in self.proprieties.all()), -100)
+        self._cached_propriety = int(self.fame * percentage/100.0)
+        return self._cached_propriety
+
+    @property
+    def honor(self):
+        """A modifier to our legend based on our actions"""
+        if hasattr(self, '_cached_honor'):
+            return self._cached_honor
+        self._cached_honor = sum(ob.amount for ob in self.honorifics.all())
+        return self._cached_honor
+
+    @property
+    def total_legend(self):
+        """Sum of legend and honor"""
+        return self.legend + self.honor
 
     @property
     def prestige_mod(self):
@@ -543,7 +565,7 @@ class AssetOwner(SharedMemoryModel):
     @property
     def base_grandeur(self):
         """The amount we contribute to other people when they're totalling up grandeur"""
-        return int(self.fame/10.0 + self.legend/10.0)
+        return int(self.fame/10.0 + self.total_legend/10.0 + self.propriety/10.0)
 
     def get_grandeur_from_patron(self):
         """Gets our grandeur value from our patron, if we have one"""
@@ -712,6 +734,10 @@ class AssetOwner(SharedMemoryModel):
             del self._cached_costs
         if hasattr(self, '_cached_prestige'):
             del self._cached_prestige
+        if hasattr(self, '_cached_propriety'):
+            del self._cached_propriety
+        if hasattr(self, '_cached_honor'):
+            del self._cached_honor
 
     def save(self, *args, **kwargs):
         """Saves changes and clears the cache"""
@@ -747,6 +773,48 @@ class AssetOwner(SharedMemoryModel):
         if player.check_permstring("builders"):
             return True
         return self.access(player, "withdraw") or self.access(player, "viewassets")
+
+
+class Propriety(SharedMemoryModel):
+    """
+    Tags that can be attached to a given AssetOwner that represent societal approval or
+    disapproval. These act as percentile modifiers to their fame.
+    """
+    name = models.CharField(unique=True, max_length=120)
+    percentage = models.SmallIntegerField(default=0)
+    owners = models.ManyToManyField('AssetOwner', related_name="proprieties")
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        """Override of save to clear cache in associated owners when changed"""
+        super(Propriety, self).save(*args, **kwargs)
+        if self.pk:
+            for owner in self.owners.all():
+                owner.clear_cache()
+
+
+class Honorific(SharedMemoryModel):
+    """
+    A record of a significant action that permanently alters the legend of an AssetOwner,
+    bringing them fame or notoriety.
+    """
+    owner = models.ForeignKey('AssetOwner', related_name="honorifics")
+    title = models.CharField(db_index=True, max_length=200)
+    description = models.TextField()
+    amount = models.IntegerField(default=0)
+
+    def save(self, *args, **kwargs):
+        """Clears cache in owner when saved"""
+        super(Honorific, self).save(*args, **kwargs)
+        self.owner.clear_cache()
+
+    def delete(self, *args, **kwargs):
+        """Clears cache in owner when deleted"""
+        if self.owner:
+            self.owner.clear_cache()
+        super(Honorific, self).delete(*args, **kwargs)
 
 
 class PraiseOrCondemn(SharedMemoryModel):

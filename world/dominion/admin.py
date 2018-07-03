@@ -3,13 +3,14 @@ Admin for Dominion
 """
 from django.contrib import admin
 from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister, MapLocation,
-                     AssetOwner, Region, Land, Castle, WorkSetting, CharitableDonation, PraiseOrCondemn,
+                     AssetOwner, Region, Land, Castle, WorkSetting, PraiseOrCondemn,
                      Ruler, Army, Orders, MilitaryUnit, Member, Task, OrgUnitModifiers,
                      CraftingRecipe, CraftingMaterialType, CraftingMaterials, CrisisActionAssistant,
                      RPEvent, AccountTransaction, AssignedTask, Crisis, CrisisAction, CrisisUpdate,
                      OrgRelationship, Reputation, TaskSupporter, InfluenceCategory,
                      Renown, SphereOfInfluence, TaskRequirement, ClueForOrg, ActionOOCQuestion,
-                     PlotRoom, Landmark, Shardhaven, ShardhavenType, ShardhavenClue, ShardhavenDiscovery)
+                     PlotRoom, Landmark, Shardhaven, ShardhavenType, ShardhavenClue, ShardhavenDiscovery,
+                     Honorific, Propriety)
 
 from web.help_topics.templatetags.app_filters import mush_to_html
 
@@ -629,6 +630,20 @@ class PraiseAdmin(DomAdmin):
     search_fields = ('praiser__player__username', 'target__player__username')
 
 
+class ProprietyAdmin(DomAdmin):
+    """Admin for Propriety"""
+    list_display = ('name', 'percentage')
+    search_fields = ('name', 'owners__organization_owner__name', 'owners__player__player__username')
+    filter_horizontal = ('owners',)
+
+
+class HonorificAdmin(DomAdmin):
+    """Admin for Honorifics"""
+    list_display = ('owner', 'title', 'amount')
+    search_fields = ('owner__player__player__username', 'owner__organization_owner__name', 'title')
+    raw_id_fields = ('owner',)
+
+
 # Register your models here.
 admin.site.register(PlayerOrNpc, PCAdmin)
 admin.site.register(Organization, OrgAdmin)
@@ -657,3 +672,5 @@ admin.site.register(ShardhavenType, ShardhavenTypeAdmin)
 admin.site.register(ShardhavenDiscovery, ShardhavenDiscoveryAdmin)
 admin.site.register(WorkSetting, WorkSettingAdmin)
 admin.site.register(PraiseOrCondemn, PraiseAdmin)
+admin.site.register(Honorific, HonorificAdmin)
+admin.site.register(Propriety, ProprietyAdmin)
