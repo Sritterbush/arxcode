@@ -919,6 +919,9 @@ def display_recognition(caller, charob):
         msg += "{wDescription:{n %s\n" % action.description
     if not actions:
         msg += "\nNone yet."
+    propriety = ", ".join("%s (%s)" % ob for ob in
+                          charob.player_ob.Dominion.assets.proprieties.values_list('name', 'percentage'))
+    msg += "\n\n{wPropriety Modifiers:{n %s" % propriety
     caller.msg(msg)
 
 
