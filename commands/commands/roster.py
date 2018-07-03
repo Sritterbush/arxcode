@@ -904,6 +904,24 @@ def display_timeline(caller, character):
     pass
 
 
+def display_recognition(caller, charob):
+    """
+    Displays honorifics earned by charob
+    Args:
+        caller: Player who is viewing this
+        charob: Character we're viewing
+    """
+    msg = "\n{wPositions, titles, or actions that have earned attention for {c%s{n\n" % charob.key
+    actions = charob.player_ob.Dominion.assets.honorifics.all()
+    for action in actions:
+        msg += "\n{wTitle:{n %s\n" % action.title
+        msg += "{wAmount:{n %d\n" % action.amount
+        msg += "{wDescription:{n %s\n" % action.description
+    if not actions:
+        msg += "\nNone yet."
+    caller.msg(msg)
+
+
 class CmdSheet(ArxPlayerCommand):
     """
     @sheet - Displays a character's sheet.
@@ -920,6 +938,7 @@ class CmdSheet(ArxPlayerCommand):
         @sheet/actions <character>=<#>
         @sheet/background <character>
         @sheet/personality <character>
+        @sheet/recognition <character>
         @sheet/desc
         @sheet/stats
         @sheet/all
@@ -934,13 +953,15 @@ class CmdSheet(ArxPlayerCommand):
     character's personality. @sheet/relationships is a brief outline
     of the character's relationships. @sheet/comments displays quotes
     from other characters that display their publicly known opinions
-    upon that character.
+    upon that character. @sheet/recognition displays public actions
+    that have earned the character fame or notoriety.
     """
     key = "@sheet"
     aliases = ["+sheet", "sheet"]
     help_category = "General"
     locks = "cmd:all()"
     private_switches = ("secrets", "secret", "visions", "vision", "actions")
+    public_switches = ('social', 'background', 'info', 'personality', 'recognition')
 
     def func(self):
         """Executes sheet command"""
@@ -979,7 +1000,7 @@ class CmdSheet(ArxPlayerCommand):
                 display_skills(caller, charob)
                 display_abilities(caller, charob)                                
             return
-        if set(switches) & set(self.private_switches):
+        if self.check_switches(self.private_switches):
             check_storyactions = ('actions' in switches or 'storyrequests' in switches) and self.rhs
             charob, show_hidden = self.get_character(check_storyactions)
             if not charob:
@@ -996,7 +1017,7 @@ class CmdSheet(ArxPlayerCommand):
             if 'actions' in switches or 'storyrequests' in switches:
                 self.display_storyactions(charob)
                 return
-        if 'social' in switches or 'background' in switches or 'info' in switches or 'personality' in switches:
+        if self.check_switches(self.public_switches):
             charob, show_hidden = self.get_character()
             if not charob:
                 return
@@ -1015,6 +1036,8 @@ class CmdSheet(ArxPlayerCommand):
                     pers = "No personality written yet."
                 caller.msg("{wPersonality:{n\n " + pers)
                 return
+            elif "recognition" in switches:
+                display_recognition(caller, charob)
             return
         if 'relationships' in self.switches or 'privaterels' in self.switches:
             targ = None
