@@ -918,7 +918,7 @@ def display_recognition(caller, charob):
         msg += "  {wAmount:{n %d\n" % action.amount
         msg += "  {wDescription:{n %s\n" % action.description
     if not actions:
-        msg += "\n  No actions that modify their legend have been recorded yet."
+        msg += "\n  There's no record of any actions that have earned them special acclaim or notoriety."
     propriety = ", ".join("%s (%s)" % ob for ob in
                           charob.player_ob.Dominion.assets.proprieties.values_list('name', 'percentage'))
     msg += "\n\n{wPropriety Modifiers:{n %s" % propriety
