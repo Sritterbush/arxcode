@@ -914,11 +914,11 @@ def display_recognition(caller, charob):
     msg = "\n{wPositions, titles, or actions that have earned attention for {c%s{n\n" % charob.key
     actions = charob.player_ob.Dominion.assets.honorifics.all()
     for action in actions:
-        msg += "\n{wTitle:{n %s\n" % action.title
-        msg += "{wAmount:{n %d\n" % action.amount
-        msg += "{wDescription:{n %s\n" % action.description
+        msg += "\n  {wTitle:{n %s\n" % action.title
+        msg += "  {wAmount:{n %d\n" % action.amount
+        msg += "  {wDescription:{n %s\n" % action.description
     if not actions:
-        msg += "\nNone yet."
+        msg += "\n  No actions that modify their legend have been recorded yet."
     propriety = ", ".join("%s (%s)" % ob for ob in
                           charob.player_ob.Dominion.assets.proprieties.values_list('name', 'percentage'))
     msg += "\n\n{wPropriety Modifiers:{n %s" % propriety
