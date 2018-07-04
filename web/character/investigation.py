@@ -11,7 +11,7 @@ from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
 from server.utils.arx_utils import inform_staff, check_break
 from server.utils.prettytable import PrettyTable
 from web.character.models import (Investigation, Clue, InvestigationAssistant, ClueDiscovery, Theory,
-                                  RevelationDiscovery, Revelation, SearchTag, get_random_clue)
+                                  RevelationDiscovery, Revelation, SearchTag, get_random_clue, MysteryDiscovery)
 from world.dominion.models import Agent, RPEvent
 from world.stats_and_skills import VALID_STATS, VALID_SKILLS
 

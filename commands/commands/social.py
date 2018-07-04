@@ -1364,7 +1364,7 @@ class CmdCalendar(ArxPlayerCommand):
     def func(self):
         """Execute command."""
         caller = self.caller
-        char = caller.db.char_ob
+        char = caller.char_ob
         if not char:
             caller.msg("You have no character object.")
             return
@@ -1473,7 +1473,7 @@ class CmdCalendar(ArxPlayerCommand):
                 caller.msg("Argument needs to be in %s." % ", ".join(ob for ob in largesse_types))
                 return
             cost = costs[args][0]
-            currency = caller.db.char_ob.db.currency
+            currency = caller.char_ob.db.currency
             if currency < cost:
                 caller.msg("That requires %s to buy. You have %s." % (cost, currency))
                 return
@@ -1666,15 +1666,18 @@ class CmdCalendar(ArxPlayerCommand):
                 caller.msg("It must be 'common', 'refined', 'grand', 'extravagant', or 'legendary.'")
                 return
             cost = costs.get(largesse, (0, 0))[0]
-            if cost > caller.db.char_ob.db.currency:
+            if cost > caller.char_ob.db.currency:
                 caller.msg("The largesse level set requires %s, you have %s." % (cost, caller.db.currency))
                 return
             else:
-                caller.db.char_ob.pay_money(cost)
+                caller.char_ob.pay_money(cost)
                 caller.msg("You pay %s coins for the event." % cost)
+            gm_event = False
+            if any([gm.player.is_staff or gm.player.check_permstring("builder") for gm in gms]):
+                gm_event = True
             event = RPEvent.objects.create(name=name, date=date, desc=desc, location=loc,
                                            public_event=public, celebration_tier=cel_lvl,
-                                           room_desc=room_desc, plotroom=plotroom)
+                                           room_desc=room_desc, plotroom=plotroom, gm_event=gm_event)
             for host in hosts:
                 event.hosts.add(host)
                 player = host.player
@@ -1699,7 +1702,7 @@ class CmdCalendar(ArxPlayerCommand):
         try:
             dompc = caller.Dominion
         except AttributeError:
-            char = caller.db.char_ob
+            char = caller.char_ob
             if not char:
                 caller.msg("You have no character, which is required to set up Dominion.")
                 return
@@ -2122,6 +2125,8 @@ class CmdSocialScore(ArxCommand):
         +score/legend
         +score/renown [<category>]
         +score/reputation[/bad] [<organization>][=<start #>,<stop #>]
+        +score/commoners
+        +score/nobles
 
     Checks the organizations and players who have the highest prestige.
     Renown measures the influence a character has built with different npc
@@ -2132,7 +2137,7 @@ class CmdSocialScore(ArxCommand):
     key = "+score"
     locks = "cmd:all()"
     help_category = "Information"
-    prestige_switches = ("orgs", "personal", "legend")
+    prestige_switches = ("orgs", "personal", "legend", "nobles", "commoners")
 
     def func(self):
         """Execute command."""
@@ -2204,13 +2209,25 @@ class CmdSocialScore(ArxCommand):
     def get_queryset_for_prestige_table(self):
         """Determines who goes in the table based on our switches"""
         from typeclasses.accounts import Account
+
+        def sort_queryset_by_social_rank(queryset):
+            """Helper function to sort by nobles or commoners"""
+            if "nobles" in self.switches:
+                return [own_ob for own_ob in queryset if own_ob.player.player.char_ob.db.social_rank < 7]
+            elif "commoners" in self.switches:
+                return [own_ob for own_ob in queryset if own_ob.player.player.char_ob.db.social_rank >= 7]
+            else:
+                return queryset
         if "orgs" in self.switches:
             assets = AssetOwner.objects.filter(organization_owner__secret=False)
             assets = sorted(assets, key=lambda x: x.prestige, reverse=True)[:20]
         elif "legend" in self.switches:
-            assets = AssetOwner.objects.filter(player__player__isnull=False).order_by('-legend')[:20]
+            assets = sort_queryset_by_social_rank(
+                AssetOwner.objects.filter(player__player__roster__character__isnull=False))
+            assets = sorted(assets, key=lambda x: x.total_legend, reverse=True)[:20]
         else:
             assets = [ob.Dominion.assets for ob in Account.objects.filter(roster__roster__name="Active")]
+            assets = sort_queryset_by_social_rank(assets)
             if "personal" in self.switches:
                 assets = sorted(assets, key=lambda x: x.fame + x.legend, reverse=True)[:20]
             else:
@@ -2219,9 +2236,9 @@ class CmdSocialScore(ArxCommand):
 
     def display_prestige_table(self, assets):
         """Prints out a table of prestige"""
-        table = PrettyTable(["{wName{n", "{wPrestige{n", "{wFame{n", "{wLegend{n", "{wGrandeur{n"])
+        table = PrettyTable(["{wName{n", "{wPrestige{n", "{wFame{n", "{wLegend{n", "{wGrandeur{n", "{wPropriety{n"])
         for asset in assets:
-            table.add_row([str(asset), asset.prestige, asset.fame, asset.legend, asset.grandeur])
+            table.add_row([str(asset), asset.prestige, asset.fame, asset.total_legend, asset.grandeur, asset.propriety])
         self.msg(str(table))
 
 

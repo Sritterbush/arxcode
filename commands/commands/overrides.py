@@ -142,10 +142,9 @@ class CmdInventory(ArxCommand):
         items = char.return_contents(self.caller, detailed=True, show_ids=show_other)
         if not items:
             string = "%s not carrying anything." % basemsg
-        else:        
-            string = "{w%s carrying:%s" % (basemsg, items)
-        string += "\n{wVolume:{n %s/%s" % (char.volume,
-                                           char.db.max_volume or 100)
+        else:
+            volume = "Volume:{n %s/%s" % (char.volume, char.db.max_volume or 100)
+            string = "{w%s carrying (%s{w):%s" % (basemsg, volume, items)
         xp = char.db.xp or 0
         ap = 0
         try:
@@ -163,20 +162,20 @@ class CmdInventory(ArxCommand):
         self.caller.msg(string)
         if hasattr(player, 'Dominion') and hasattr(player.Dominion, 'assets'):
             vault = player.Dominion.assets.vault
-            self.caller.msg("{wBank Account:{n %s silver coins" % vault)
-            prestige = player.Dominion.assets.prestige
-            fame = player.Dominion.assets.fame
-            legend = player.Dominion.assets.legend
-            grandeur = player.Dominion.assets.grandeur
-            self.caller.msg("{wPrestige:{n %s, {wLegend{n: %s, Fame: %s, Grandeur: %s" % (prestige, legend, fame, grandeur))
+            msg = "{wBank Account:{n %s silver coins" % vault
+            assets = player.Dominion.assets
             econ = player.Dominion.assets.economic
             soc = player.Dominion.assets.social
             mil = player.Dominion.assets.military
-            self.caller.msg("{wEconomic Resources:{n %s" % econ)
-            self.caller.msg("{wSocial Resources:{n %s" % soc)
-            self.caller.msg("{wMilitary Resources:{n %s" % mil)
+            msg += "\n{wPrestige:{n      %-10s  {wResources         {wSocial Clout:{n %s" % (assets.prestige,
+                                                                                             char.social_clout)
+            msg += "\n{w||__ Legend:{n    %-10s  {wEconomic:{n %s" % (assets.total_legend, econ)
+            msg += "\n{w||__ Fame:{n      %-10s  {wMilitary:{n %s" % (assets.fame, mil)
+            msg += "\n{w||__ Grandeur:{n  %-10s  {wSocial:{n   %s" % (assets.grandeur, soc)
+            msg += "\n{w||__ Propriety:{n %-10s" % assets.propriety
             mats = player.Dominion.assets.materials.filter(amount__gte=1)
-            self.caller.msg("{wMaterials:{n %s" % ", ".join(str(ob) for ob in mats))
+            msg += "\n{wMaterials:{n %s" % ", ".join(str(ob) for ob in mats)
+            self.msg(msg)
 
 
 class CmdGet(ArxCommand):
