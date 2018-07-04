@@ -373,8 +373,8 @@ class CmdSendVision(ArxPlayerCommand):
     all visions for a given character. Otherwise, send a vision with the
     appropriate text to a given character.
     """
-    key = "@sendvision"
-    aliases = ["@sendvisions", "@sendclue"]
+    key = "sendvision"
+    aliases = ["sendvisions", "sendclue"]
     locks = "cmd:perm(sendvision) or perm(Wizards)"
     help_category = "GMing"
 
@@ -398,7 +398,7 @@ class CmdSendVision(ArxPlayerCommand):
             rhs = self.rhs
         if not targlist:
             return
-        if self.cmdstring == "@sendclue":
+        if "sendclue" in self.cmdstring:
             try:
                 rhs = self.rhs.split("/")
                 clue = Clue.objects.get(id=rhs[0])
