@@ -205,7 +205,12 @@ class RosterEntry(SharedMemoryModel):
         return self.accounthistory_set.last()
 
     @property
-    def current_impressions(self):
+    def previous_history(self):
+        """Gets all previous accounthistories after current"""
+        return self.accounthistory_set.order_by('-id')[1:]
+
+    @property
+    def impressions_of_me(self):
         """
         Gets queryset of all our current first impressions
         """
@@ -215,10 +220,15 @@ class RosterEntry(SharedMemoryModel):
             return []
 
     @property
-    def public_impressions(self):
-        """Gets queryset of non-private current_impressions"""
+    def previous_impressions_of_me(self):
+        """Gets queryset of first impressions written on previous"""
+        return FirstContact.objects.filter(to_account__in=self.previous_history)
+
+    @property
+    def public_impressions_of_me(self):
+        """Gets queryset of non-private impressions_of_me"""
         try:
-            return self.current_impressions.filter(private=False).order_by('from_account__entry__character__db_key')
+            return self.impressions_of_me.filter(private=False).order_by('from_account__entry__character__db_key')
         except AttributeError:
             return []
 
@@ -226,13 +236,16 @@ class RosterEntry(SharedMemoryModel):
     def impressions_for_all(self):
         """Public impressions that both the writer and receiver have signed off on sharing"""
         try:
-            return self.public_impressions.filter(writer_share=True, receiver_share=True)
+            return self.public_impressions_of_me.filter(writer_share=True, receiver_share=True)
         except AttributeError:
             return []
 
-    def get_impressions_str(self, player=None):
+    def get_impressions_str(self, player=None, previous=False):
         """Returns string display of first impressions"""
-        qs = self.current_impressions.filter(private=False)
+        if previous:
+            qs = self.previous_impressions_of_me.filter(private=False)
+        else:
+            qs = self.impressions_of_me.filter(private=False)
         if player:
             qs = qs.filter(from_account__entry__player=player)
 

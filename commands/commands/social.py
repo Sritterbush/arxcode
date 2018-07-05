@@ -3023,9 +3023,9 @@ class CmdFirstImpression(ArxCommand):
     An award for a first RP scene with another player
 
     Usage:
-        +firstimpression <character>
+        +firstimpression[/previous] <character>
         +firstimpression <character>=<summary of the RP Scene>
-        +firstimpression/list
+        +firstimpression/list[/previous]
         +firstimpression/here
         +firstimpression/outstanding
         +firstimpression/quiet <character>=<summary>
@@ -3033,7 +3033,7 @@ class CmdFirstImpression(ArxCommand):
         +firstimpression/all <character>=<summary>
         +firstimpression/toggleprivate <character>
         +firstimpression/share <character>[=-1, -2, etc]
-        +firstimpressions/mine
+        +firstimpressions/mine[/previous]
         +firstimpression/publish <character>[=-1, -2, etc]
 
     This allows you to claim an xp reward for the first time you
@@ -3068,6 +3068,9 @@ class CmdFirstImpression(ArxCommand):
     was played by a previous character, you must specify a negative number.
     For example, '+firstimpression/publish bob=-1' is for the previous player
     of Bob who wrote a first impression of you.
+
+    To see firstimpressions written by or on a previous version of your
+    character, use the /previous switch.
     """
     key = "+firstimpression"
     help_category = "Social"
@@ -3076,17 +3079,24 @@ class CmdFirstImpression(ArxCommand):
     @property
     def imps_of_me(self):
         """Retrieves impressions of us, in our current incarnation"""
-        return self.caller.roster.accounthistory_set.last().received_contacts.all()
+        return self.caller.roster.impressions_of_me
 
     @property
     def imps_by_me(self):
         """Retrieves impressions we have written, as our current incarnation"""
         return self.caller.roster.accounthistory_set.last().initiated_contacts.all()
 
+    @property
+    def previous_imps_by_me(self):
+        """Retrieves impressions written by previous incarnations"""
+        return FirstContact.objects.filter(from_account__in=self.caller.roster.previous_history)
+
     def list_valid(self):
         """Sends msg to caller of list of characters they can make firstimpression of"""
         contacts = AccountHistory.objects.claimed_impressions(self.caller.roster)
         if "list" in self.switches:
+            if "previous" in self.switches:
+                contacts = AccountHistory.objects.filter(contacted_by__in=self.caller.roster.previous_history)
             self.msg("{wCharacters you have written first impressions of:{n %s" % ", ".join(
                 str(ob.entry) for ob in contacts))
             return
@@ -3114,14 +3124,22 @@ class CmdFirstImpression(ArxCommand):
                 if not player:
                     return
                 by_str = " by %s" % self.args.capitalize()
-            self.msg("{wFirst impressions written of you so far%s:{n" % by_str)
-            self.msg(self.caller.roster.get_impressions_str(player=player))
+            if "previous" in self.switches:
+                msg = "{wFirst impressions written on previous versions of this character%s:{n\n" % by_str
+            else:
+                msg = "{wFirst impressions written of you so far%s:{n\n" % by_str
+            msg += self.caller.roster.get_impressions_str(player=player, previous="previous" in self.switches)
+            self.msg(msg)
             return
         if not self.args:
             self.list_valid()
             return
-        if not self.switches and not self.rhs:
-            history = self.imps_by_me.filter(to_account__entry__player__username__iexact=self.args)
+        if (not self.switches or "previous" in self.switches) and not self.rhs:
+            if "previous" in self.switches:
+                qs = self.previous_imps_by_me
+            else:
+                qs = self.imps_by_me
+            history = qs.filter(to_account__entry__player__username__iexact=self.args)
             if not history:
                 self.msg("{wNo history found for %s. Use with no arguments to see a list of valid chars.{n" % self.args)
                 return
