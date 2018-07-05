@@ -841,7 +841,7 @@ class PraiseOrCondemn(SharedMemoryModel):
         self.target.assets.adjust_prestige(self.value)
         msg = "%s has %s you. " % (self.praiser, self.verb)
         msg += "Your prestige has been adjusted by %s." % self.value
-        self.target.inform(msg)
+        self.target.inform(msg, category=self.verb.capitalize())
 
 
 class CharitableDonation(SharedMemoryModel):

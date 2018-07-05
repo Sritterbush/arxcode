@@ -29,6 +29,7 @@ from world.dominion.models import (RPEvent, Agent, CraftingMaterialType, Craftin
                                    PlayerOrNpc, Organization, InfluenceCategory)
 from world.msgs.models import Journal, Messenger
 from world.msgs.managers import reload_model_as_proxy
+from world.stats_and_skills import do_dice_check
 
 
 def char_name(character_object, verbose_where=False, watch_list=None):
@@ -1962,7 +1963,6 @@ class CmdPraise(ArxPlayerCommand):
 
     def do_praise_roll(self):
         """(charm+propaganda at difficulty 15=x, where x >0), x* ((40*prestige mod)+# of social resources)"""
-        from world.stats_and_skills import do_dice_check
         roll = do_dice_check(self.caller.char_ob, stat='charm', skill='propaganda')
         roll *= int(self.caller.Dominion.assets.prestige_mod)
         if roll < self.MIN_VALUE:

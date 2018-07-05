@@ -2,7 +2,7 @@
 Tests for different general commands. Tests for other command sets or for different apps can be found elsewhere.
 """
 
-from mock import Mock, patch
+from mock import Mock, patch, PropertyMock
 from datetime import datetime, timedelta
 
 from server.utils.test_utils import ArxCommandTest
@@ -265,6 +265,7 @@ class OverridesTests(ArxCommandTest):
         self.call_cmd("asdf", "Players:\n\nPlayer name Fealty Idle \n\nShowing 0 out of 1 unique account logged in.")
 
 
+# noinspection PyUnresolvedReferences
 class RosterTests(ArxCommandTest):
     def setUp(self):
         """Adds rosters and an announcement board"""
@@ -401,6 +402,36 @@ class SocialTests(ArxCommandTest):
                                              '{wRoom Desc:{n \n')
         mock_inform_staff.assert_called_with('New event created by Testaccount: test_event, '
                                              'scheduled for 12/12/30 12:00:00.')
+
+    @patch("world.dominion.models.get_week")
+    @patch("server.utils.arx_utils.get_week")
+    @patch.object(social, "do_dice_check")
+    def test_cmd_praise(self, mock_dice_check, mock_get_week, mock_dom_get_week):
+        from web.character.models import PlayerAccount
+        self.roster_entry.current_account = PlayerAccount.objects.create(email="asdf@asdf.com")
+        self.roster_entry.save()
+        self.setup_cmd(social.CmdPraise, self.account)
+        mock_get_week.return_value = 1
+        mock_dom_get_week.return_value = 1
+        self.assertEqual(self.account.get_current_praises_and_condemns().count(), 0)
+        self.call_cmd("testaccount2", "You have already used all your praises for the week.")
+        # property mocks have to be reset at the end, or screws up other tests
+        old = type(self.char1).social_clout
+        type(self.char1).social_clout = PropertyMock(return_value=10)
+        mock_dice_check.return_value = 50
+        self.call_cmd("testaccount2,-2=hi", "The number of praises used must be a positive number, "
+                                            "and less than your max praises.")
+        self.call_cmd("testaccount2,99=hi", "The number of praises used must be a positive number, "
+                                            "and less than your max praises.")
+        self.account2.inform = Mock()
+        self.call_cmd("/all testaccount2=hi", 'You use 1 action points and have 99 remaining this week.|'
+                                              'You praise the actions of Testaccount2. You have 0 praises remaining.')
+        self.account2.inform.assert_called_with('Testaccount has praised you. Your prestige has been adjusted by 90.',
+                                                append=False, category='Praised', week=1)
+        self.assertEqual(self.assetowner2.fame, 90)
+        self.assertEqual(self.account.get_current_praises_and_condemns().count(), 1)
+        # cleanup property mock
+        type(self.char1).social_clout = old
 
 
 # noinspection PyUnresolvedReferences
