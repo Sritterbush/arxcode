@@ -542,18 +542,18 @@ class TestMarketCommands(ArxCommandTest):
                                                  ' a bonus of 25.|You found someone willing to buy 100 economic. '
                                                  'You can use /roll to try to negotiate the price.')
         self.call_cmd("/roll", 'You have found a better deal:\nAttempting to sell: 100 economic resources.\n'
-                               'Current Markup Bonus: 83\nSilver Value: 41500.0')
-        self.call_cmd("/accept", 'You have sold 100 economic resources and gained 41500.0 silver.')
+                               'Current Markup Bonus: 89\nSilver Value: 44500.0')
+        self.call_cmd("/accept", 'You have sold 100 economic resources and gained 44500.0 silver.')
         self.assertEqual(self.assetowner.economic, 0)
-        self.assertEqual(self.char1.currency, 46500.0)
+        self.assertEqual(self.char1.currency, 49500.0)
         material = CraftingMaterialType.objects.create(name="testium", value=5000)
         self.call_cmd("/findseller testium=10", 'Due to your success in searching for a deal, haggling rolls will have'
                                                 ' a bonus of 25.|You found someone willing to sell 10 testium. You can '
                                                 'use /roll to try to negotiate the price.')
-        self.call_cmd("/roll", 'You have found a better deal:\nAttempting to buy: 10 testium.\nCurrent Discount: 73\n'
-                               'Silver Cost: 13500.0')
+        self.call_cmd("/roll", 'You have found a better deal:\nAttempting to buy: 10 testium.\nCurrent Discount: 79\n'
+                               'Silver Cost: 10500.0')
         deal = list(self.char1.db.haggling_deal)
-        self.call_cmd("/accept", "You have bought 10 testium for 13500.0 silver.")
+        self.call_cmd("/accept", "You have bought 10 testium for 10500.0 silver.")
         mats = self.assetowner.materials.get(type__name=material.name)
         self.assertEqual(mats.amount, 10)
         deal[0] = "sell"
@@ -567,12 +567,12 @@ class TestMarketCommands(ArxCommandTest):
         self.assetowner.save()
         self.call_cmd("/roll", 'Engaging in crass mercantile haggling is considered beneath those of high social rank. '
                                'Fortunately, no one noticed this time.|You failed to find a better deal.\n'
-                               'Attempting to sell: 30 testium.\nCurrent Markup Bonus: 83\nSilver Value: 124500.0')
+                               'Attempting to sell: 30 testium.\nCurrent Markup Bonus: 89\nSilver Value: 133500.0')
         mock_dice_check.return_value = -5
         self.call_cmd("/roll", 'Engaging in crass mercantile haggling is considered beneath those of high social rank. '
                                'Unfortunately, you were noticed and lose 5 fame.|You failed to find a better deal.\n'
-                               'Attempting to sell: 30 testium.\nCurrent Markup Bonus: 83\nSilver Value: 124500.0')
-        self.call_cmd("/accept", 'You have sold 30 testium and gained 124500.0 silver.')
+                               'Attempting to sell: 30 testium.\nCurrent Markup Bonus: 89\nSilver Value: 133500.0')
+        self.call_cmd("/accept", 'You have sold 30 testium and gained 133500.0 silver.')
         self.assertEqual(self.assetowner.fame, 495)
         self.assertEqual(mats.amount, 0)
-        self.assertEqual(self.char1.currency, 157500.0)
+        self.assertEqual(self.char1.currency, 172500.0)

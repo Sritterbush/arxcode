@@ -385,14 +385,19 @@ class HaggledDeal(object):
     def discount(self):
         """Calculate some value from discount roll"""
         discount = self.discount_roll
+        base_value = 10 if self.transaction_type == "sell" else 0
         if discount <= 40:
-            return discount
-        discount = 41 + (discount - 40)/5
+            return discount + base_value
+        if discount <= 60:
+            return (41 + (discount - 40)/2) + base_value
+        if discount <= 100:
+            return (51 + (discount - 60)/4) + base_value
+        if discount <= 160:
+            return (61 + (discount - 100)/5) + base_value
+        discount = 73 + (discount - 160)/6  # roll of 262 to cap
         if discount > 90:
             discount = 90
-        if self.transaction_type == "sell":
-            discount += 10  # base of 10% value when selling to reflect market/sell
-        return discount
+        return discount + base_value
 
     @property
     def silver_value(self):
