@@ -200,7 +200,7 @@
                     <td>Summary</td>
                 </tr>
                 {% if show_hidden %}
-                    {% for impression in character.roster.public_impressions %}
+                    {% for impression in character.roster.public_impressions_of_me %}
                         <tr>
                         <td width="20%">{{ impression.writer }}</td>
                         <td width="80%">{{ impression.summary }}</td>

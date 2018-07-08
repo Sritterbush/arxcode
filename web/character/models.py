@@ -620,16 +620,15 @@ class Revelation(SharedMemoryModel):
         return "%d of %d" % (self.required_clue_value, self.total_clue_value)
 
     def player_can_discover(self, char):
+        """Check whether they can discover the revelation"""
         char_clues = set([ob.clue for ob in char.finished_clues])
         used_clues = set([ob.clue for ob in self.clues_used.filter(required_for_revelation=True)])
         # check if we have all the required clues for this revelation discovered
         if not used_clues.issubset(char_clues):
             return False
-
         # check if we have enough numerical value of clues to pass
         if self.check_progress(char) >= self.required_clue_value:
             return True
-
         return False
 
     def check_progress(self, char):
