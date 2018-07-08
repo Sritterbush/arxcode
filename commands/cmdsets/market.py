@@ -558,6 +558,7 @@ class CmdHaggle(ArxCommand):
             Raises:
                 HaggleError if they fail to find a deal.
         """
+        from math import ceil
         skill = "economics" if self.caller.db.skills.get("economics", 0) > self.caller.db.skills.get("streetwise", 0) \
             else "streetwise"
         difficulty = 20
@@ -572,7 +573,7 @@ class CmdHaggle(ArxCommand):
             value_per_object = material.value
         value_we_found = roll * 5000.0
         # minimum of 1
-        amount_willing_to_deal = max(int(value_we_found / value_per_object), 1)
+        amount_willing_to_deal = max(int(ceil(value_we_found / value_per_object)), 1)
         if amount_willing_to_deal > amount:
             bonus = min(amount_willing_to_deal - amount, 25)
             self.msg("Due to your success in searching for a deal, haggling rolls will have a bonus of %s." % bonus)
