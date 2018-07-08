@@ -468,6 +468,9 @@ class CmdHaggle(ArxCommand):
 
     Both looking for a deal and negotiating the agreement costs 5 AP per
     attempt.
+
+    Resources can be bought or sold by specifying the type of resource as
+    the 'material'.
     """
     key = "haggle"
     locks = "cmd:all()"
