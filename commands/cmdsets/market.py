@@ -12,6 +12,7 @@ telling. It's simply too disruptive, and often creates
 situations that are damaging to immersion and the
 creative process.
 """
+from random import randint
 
 from evennia import CmdSet
 from server.utils.arx_utils import ArxCommand
@@ -19,6 +20,7 @@ from server.utils import prettytable
 from evennia.utils.create import create_object
 from world.dominion.models import (CraftingMaterialType, PlayerOrNpc, CraftingMaterials)
 from world.dominion import setup_utils
+from world.stats_and_skills import do_dice_check
 
 
 RESOURCE_VAL = 250
@@ -30,6 +32,7 @@ other_items = {"book": [BOOK_PRICE, "parchment",
 
 
 class OtherMaterial(object):
+    """Class for handling transactions of buying generic items in shop"""
     def __init__(self, otype):
         self.name = "book"       
         self.value = other_items[otype][0]
@@ -41,6 +44,7 @@ class OtherMaterial(object):
         return self.name
 
     def create(self, caller):
+        """Create the object after buying it"""
         stacking = [ob for ob in caller.contents if ob.typeclass_path == self.path and ob.db.can_stack]
         if stacking:
             obj = stacking[0]
@@ -70,6 +74,7 @@ class MarketCmdSet(CmdSet):
         replaced as needed.
         """
         self.add(CmdMarket())
+        self.add(CmdHaggle())
 
 
 # noinspection PyUnresolvedReferences
@@ -93,7 +98,7 @@ class CmdMarket(ArxCommand):
     key = "market"
     aliases = ["buy", "sell"]
     locks = "cmd:all()"
-    help_category = "Combat"
+    help_category = "Market"
 
     def func(self):
         """Execute command."""
@@ -226,7 +231,7 @@ class CmdMarket(ArxCommand):
             mat.amount -= amt
             mat.save()
             money = caller.db.currency or 0.0
-            sale = amt * material.value/2
+            sale = amt * material.value/10
             money += sale
             caller.db.currency = money
             caller.msg("You have sold %s %s for %s silver coins." % (amt, material.name, sale))
@@ -266,3 +271,305 @@ class CmdMarket(ArxCommand):
             return
         caller.msg("Invalid switch.")
         return
+
+
+class HaggleError(Exception):
+    """Errors raised when haggling"""
+    pass
+
+
+class HaggledDeal(object):
+    """Helper class for trying to haggle a deal"""
+    VALID_RESOURCES = ('economic', 'military', 'social')
+
+    def __init__(self, caller):
+        self.caller = caller
+        # build from SaverDict stored in haggling_deal attribute
+        deal = self.caller.db.haggling_deal
+        self.transaction_type = deal[0]
+        # the material type we're trying to buy, and how much
+        if deal[1] in self.VALID_RESOURCES:
+            self.resource_type = deal[1]
+            self.material = None
+        else:
+            self.material = CraftingMaterialType.objects.get(id=deal[1])
+            self.resource_type = None
+        self.amount = deal[2]
+        # discount_roll will be None if they haven't haggled at all yet
+        self.discount_roll = deal[3]
+        self.roll_bonus = deal[4]
+
+    def accept(self):
+        """Accepts the deal"""
+        if not self.discount_roll:
+            raise HaggleError("You haven't struck a deal yet. You must negotiate the deal before you can accept it.")
+        if self.transaction_type == "sell":
+            self.sell_materials()
+        else:
+            self.buy_materials()
+        self.post_deal_cleanup()
+
+    def decline(self):
+        """Declines the deal"""
+        self.caller.msg("You have cancelled the deal.")
+        self.post_deal_cleanup()
+
+    def post_deal_cleanup(self):
+        """Cleans up the Evennia Attribute used for storage, haggling deal"""
+        del self.caller.ndb.haggling_deal
+        self.caller.attributes.remove("haggling_deal")
+
+    def display(self):
+        """Returns a user-friendly string of the status of our deal"""
+        msg = "{wAttempting to %s:{n %s %s.\n" % (self.transaction_type, self.amount, self.material_display)
+        noun = "Discount" if self.transaction_type == "buy" else "Markup Bonus"
+        msg += "{wCurrent %s:{n %s\n" % (noun, self.discount)
+        noun = "Value" if self.transaction_type == "sell" else "Cost"
+        msg += "{wSilver %s:{n %s" % (noun, self.silver_value)
+        return msg
+
+    @property
+    def material_display(self):
+        """Displays material type we're after"""
+        if self.resource_type:
+            return "%s resources" % self.resource_type
+        return str(self.material)
+
+    def haggle(self):
+        """Alters the terms of our deal. Pray they do not alter it further."""
+        if not self.caller.player_ob.pay_action_points(5):
+            return
+        self.noble_discovery_check()
+        difficulty = randint(1, 50) - self.roll_bonus
+        clout = self.caller.social_clout
+        if clout > 0:
+            difficulty -= randint(0, clout)
+        try:
+            prest_factor = int(self.caller.player_ob.Dominion.assets.prestige_mod)
+            if prest_factor > 0:
+                difficulty -= randint(0, prest_factor)
+        except (AttributeError, ValueError, TypeError):
+            pass
+        roll = do_dice_check(self.caller, stat="charm", skill="haggling", difficulty=difficulty)
+        if roll <= self.discount_roll:
+            self.caller.msg("You failed to find a better deal.\n%s" % self.display())
+        else:
+            self.discount_roll = roll
+            self.save()
+            self.caller.msg("You have found a better deal:\n%s" % self.display())
+
+    def noble_discovery_check(self):
+        """Checks if a noble loses fame for haggling"""
+        rank = self.caller.db.social_rank or 10
+        if rank > 6:
+            return
+        msg = "Engaging in crass mercantile haggling is considered beneath those of high social rank."
+        if do_dice_check(stat="wits", skill="stealth", difficulty=30) < 1:
+            fame_loss = self.caller.player_ob.Dominion.assets.fame // 100
+            if not fame_loss:
+                msg += " You were noticed, but fortunately, so few people know of you that it hardly matters."
+            else:
+                msg += " Unfortunately, you were noticed and lose %d fame." % fame_loss
+                self.caller.player_ob.Dominion.assets.fame -= fame_loss
+                self.caller.player_ob.Dominion.assets.save()
+        else:
+            msg += " Fortunately, no one noticed this time."
+        self.caller.msg(msg)
+
+    def save(self):
+        """Saves the deal in the underlying Evennia Attribute so progress is not lost if server restarts"""
+        self.caller.db.haggling_deal = (self.transaction_type, self.resource_type or self.material.id,
+                                        self.amount, self.discount_roll, self.roll_bonus)
+
+    @property
+    def discount(self):
+        """Calculate some value from discount roll"""
+        discount = self.discount_roll
+        if discount <= 40:
+            return discount
+        discount = 41 + (discount - 40)/5
+        if discount > 90:
+            discount = 90
+        if self.transaction_type == "sell":
+            discount += 10  # base of 10% value when selling to reflect market/sell
+        return discount
+
+    @property
+    def silver_value(self):
+        """Calculates silver value of the deal"""
+        if self.transaction_type == "buy":
+            discount = 100 - self.discount
+        else:
+            discount = self.discount
+        if self.resource_type:
+            base_cost = 500.0
+        else:
+            base_cost = self.material.value
+        return (base_cost * discount/100.0) * self.amount
+
+    def sell_materials(self):
+        """Attempt to sell the materials we made the deal for"""
+        if self.resource_type:
+            if not self.caller.player_ob.pay_resources(self.resource_type, amt=self.amount):
+                raise HaggleError("You do not have enough resources to sell.")
+        else:  # crafting materials
+            err = "You do not have enough %s to sell." % self.material
+            try:
+                mats = self.caller.player_ob.Dominion.assets.materials.get(type=self.material)
+                if mats.amount < self.amount:
+                    raise HaggleError(err)
+                mats.amount -= self.amount
+                mats.save()
+            except CraftingMaterials.DoesNotExist:
+                raise HaggleError(err)
+        silver = self.silver_value
+        self.caller.pay_money(-silver)
+        self.caller.msg("You have sold %s %s and gained %s silver." % (self.amount, self.material_display, silver))
+
+    def buy_materials(self):
+        """Attempt to buy the materials we made the deal for"""
+        err = "You cannot afford the silver cost of %s."
+        if self.resource_type:
+            cost = self.silver_value
+            if cost > self.caller.currency:
+                raise HaggleError(err % cost)
+            self.caller.player_ob.gain_resources(self.resource_type, self.amount)
+        else:
+            cost = self.silver_value
+            if cost > self.caller.currency:
+                raise HaggleError(err % cost)
+            mat, _ = self.caller.player_ob.Dominion.assets.materials.get_or_create(type=self.material)
+            mat.amount += self.amount
+            mat.save()
+        self.caller.pay_money(cost)
+        self.caller.msg("You have bought %s %s for %s silver." % (self.amount, self.material_display, cost))
+
+
+class CmdHaggle(ArxCommand):
+    """
+    Haggle to get a discount on goods
+    Usage:
+        haggle
+        haggle/roll
+        haggle/findbuyer <material>=<amount>
+        haggle/findseller <material>=<amount>
+        haggle/accept
+        haggle/decline
+
+    This can buy/sell materials and resources. You must first attempt to find
+    a buyer or seller for your deal. Once found, you can /roll to attempt to
+    negotiate the terms of the deal with them. Nobles should beware - it's
+    considered extremely crass to haggle, and if they are discovered doing
+    so, their reputation will suffer.
+
+    Both looking for a deal and negotiating the agreement costs 5 AP per
+    attempt.
+    """
+    key = "haggle"
+    locks = "cmd:all()"
+    help_category = "Market"
+
+    @property
+    def deal(self):
+        """
+        We find if the caller has a HagglingTransaction cached. If so, we return the cached object. If they
+        have a SaverDict in an evennia Attribute that can build the transaction, we build the transaction,
+        cache it, and return it.
+        """
+        if self.caller.ndb.haggling_deal:
+            return self.caller.ndb.haggling_deal
+        if self.caller.db.haggling_deal is None:
+            return None
+        self.caller.ndb.haggling_deal = HaggledDeal(self.caller)
+        return self.caller.ndb.haggling_deal
+
+    @deal.setter
+    def deal(self, val):
+        self.caller.db.haggling_deal = val
+        self.caller.ndb.haggling_deal = HaggledDeal(self.caller)
+
+    def func(self):
+        """Execute haggle command"""
+        try:
+            if not self.args and not self.switches:
+                return self.display_current_deal()
+            if "findbuyer" in self.switches or "findseller" in self.switches:
+                return self.find_deal()
+            if not self.deal:
+                raise HaggleError("You must have a deal first.")
+            if "roll" in self.switches:
+                return self.deal.haggle()
+            if "accept" in self.switches:
+                return self.deal.accept()
+            if "decline" in self.switches:
+                return self.deal.decline()
+        except HaggleError as err:
+            self.msg(err)
+            return
+        self.msg("Invalid switch.")
+
+    def display_current_deal(self):
+        """Outputs our current deal"""
+        if not self.deal:
+            raise HaggleError("You currently haven't found a deal to negotiate. Use haggle/findbuyer or "
+                              "haggle/findseller first.")
+        self.msg(self.deal.display())
+
+    def find_deal(self):
+        """Attempts to find a HaggledDeal for our caller"""
+        if self.deal:
+            raise HaggleError("You already have a deal in progress: please decline it first.\n%s" % self.deal.display())
+        try:
+            material, amount = self.lhs, int(self.rhs)
+            if amount < 1:
+                raise ValueError
+        except (TypeError, ValueError):
+            raise HaggleError("You must provide a material type and a positive amount for the transaction.")
+        if material not in HaggledDeal.VALID_RESOURCES:
+            try:
+                material = CraftingMaterialType.objects.get(name__iexact=material)
+                material_identifier = material.id
+            except CraftingMaterialType.DoesNotExist:
+                raise HaggleError("No material found for the name '%s'." % material)
+        else:
+            material_identifier = material
+        if not self.caller.player_ob.pay_action_points(5):
+            return
+        # transaction type is what we're doing, buying or selling. their_verb is for the display of the other party
+        transaction_type = "buy" if "findseller" in self.switches else "sell"
+        their_verb = "sell" if transaction_type == "buy" else "buy"
+        amount, roll_bonus = self.search_for_deal_roll(material, amount)
+        self.deal = (transaction_type, material_identifier, amount, 0, roll_bonus)
+        self.msg("You found someone willing to %s %s %s. You can use /roll to try to negotiate the price." %
+                 (their_verb, amount, material))
+
+    def search_for_deal_roll(self, material, amount):
+        """Does the roll to search for a deal. Positive roll * 5000 is how
+        much of the value of the material they're able to buy/sell.
+            Args:
+                material: The type of material we're looking for
+                amount: Max amount much we're looking to buy/sell
+            Returns:
+                The amount we're able to buy/sell and a modifier to haggling rolls
+            Raises:
+                HaggleError if they fail to find a deal.
+        """
+        skill = "economics" if self.caller.db.skills.get("economics", 0) > self.caller.db.skills.get("streetwise", 0) \
+            else "streetwise"
+        difficulty = 20
+        bonus = 0
+        roll = do_dice_check(self.caller, skill=skill, stat="perception", difficulty=difficulty, quiet=False)
+        if roll < 0:
+            raise HaggleError("You failed to find anyone willing to deal with you at all.")
+        if material in HaggledDeal.VALID_RESOURCES:
+            # resources are worth 500 each
+            value_per_object = 500
+        else:
+            value_per_object = material.value
+        value_we_found = roll * 5000.0
+        # minimum of 1
+        amount_willing_to_deal = max(int(value_we_found / value_per_object), 1)
+        if amount_willing_to_deal > amount:
+            bonus = min(amount_willing_to_deal - amount, 25)
+            self.msg("Due to your success in searching for a deal, haggling rolls will have a bonus of %s." % bonus)
+        return min(amount, amount_willing_to_deal), bonus

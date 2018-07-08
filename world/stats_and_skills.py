@@ -28,7 +28,7 @@ SOCIAL_SKILLS = ("intimidation", "leadership", "manipulation", "seduction", "dip
 GENERAL_SKILLS = ("riddles", "legerdemain", "ride", "investigation",
                   "law", "linguistics", "medicine", "occult",  "stewardship", "theology",
                   "streetwise", "agriculture", "economics", "teaching", "war",
-                  "animal ken", "artwork", "sailing")
+                  "animal ken", "artwork", "sailing", "haggling")
 CRAFTING_SKILLS = ('sewing', 'smithing', 'tanning', 'alchemy', 'woodworking')
 VALID_SKILLS = COMBAT_SKILLS + SOCIAL_SKILLS + GENERAL_SKILLS + CRAFTING_SKILLS
 
