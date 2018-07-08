@@ -24,11 +24,11 @@ VALID_STATS = PHYSICAL_STATS + SOCIAL_STATS + MENTAL_STATS + MAGIC_STATS
 COMBAT_SKILLS = ("athletics", "brawl", "dodge", "archery", "small wpn", "medium wpn",
                  "huge wpn", "stealth", "survival")
 SOCIAL_SKILLS = ("intimidation", "leadership", "manipulation", "seduction", "diplomacy",
-                 "propaganda", "empathy", "etiquette", "performance")
+                 "propaganda", "empathy", "etiquette", "performance", "haggling")
 GENERAL_SKILLS = ("riddles", "legerdemain", "ride", "investigation",
                   "law", "linguistics", "medicine", "occult",  "stewardship", "theology",
                   "streetwise", "agriculture", "economics", "teaching", "war",
-                  "animal ken", "artwork", "sailing", "haggling")
+                  "animal ken", "artwork", "sailing")
 CRAFTING_SKILLS = ('sewing', 'smithing', 'tanning', 'alchemy', 'woodworking')
 VALID_SKILLS = COMBAT_SKILLS + SOCIAL_SKILLS + GENERAL_SKILLS + CRAFTING_SKILLS
 
