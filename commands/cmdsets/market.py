@@ -539,7 +539,8 @@ class CmdHaggle(ArxCommand):
             raise HaggleError("You must provide a material type and a positive amount for the transaction.")
         if material not in HaggledDeal.VALID_RESOURCES:
             try:
-                material = CraftingMaterialType.objects.get(name__iexact=material)
+                material = CraftingMaterialType.objects.exclude(acquisition_modifiers__icontains="nosell")\
+                                                       .get(name__iexact=material)
                 material_identifier = material.id
             except CraftingMaterialType.DoesNotExist:
                 raise HaggleError("No material found for the name '%s'." % material)
