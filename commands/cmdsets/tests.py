@@ -546,7 +546,13 @@ class TestMarketCommands(ArxCommandTest):
         self.call_cmd("/accept", 'You have sold 100 economic resources and gained 44500.0 silver.')
         self.assertEqual(self.assetowner.economic, 0)
         self.assertEqual(self.char1.currency, 49500.0)
-        material = CraftingMaterialType.objects.create(name="testium", value=5000)
+        material = CraftingMaterialType.objects.create(name="testium", value=50000000)
+        self.call_cmd("/findseller testium=10", 'You had trouble finding a deal for such a valuable item. Haggling '
+                                                'rolls will have a penalty of -98.|You found someone willing to sell 1 '
+                                                'testium. You can use /roll to try to negotiate the price.')
+        self.char1.ndb.haggling_deal.post_deal_cleanup()
+        material.value = 5000
+        material.save()
         self.call_cmd("/findseller testium=10", 'Due to your success in searching for a deal, haggling rolls will have'
                                                 ' a bonus of 25.|You found someone willing to sell 10 testium. You can '
                                                 'use /roll to try to negotiate the price.')

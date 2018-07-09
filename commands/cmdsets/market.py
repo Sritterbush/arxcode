@@ -580,9 +580,15 @@ class CmdHaggle(ArxCommand):
         else:
             value_per_object = material.value
         value_we_found = roll * 5000.0
+        value_for_amount = value_we_found / value_per_object
+        if value_for_amount < 1.0:
+            penalty = int((1.0 - value_for_amount) * -100)
+            amount_found = 1
+            self.msg("You had trouble finding a deal for such a valuable item. Haggling rolls will have a penalty of %s." % penalty)
+            return amount_found, penalty
         # minimum of 1
-        amount_willing_to_deal = max(int(ceil(value_we_found / value_per_object)), 1)
-        if amount_willing_to_deal > amount:
-            bonus = min(amount_willing_to_deal - amount, 25)
+        amount_found = max(int(ceil(value_we_found / value_per_object)), 1)
+        if amount_found > amount:
+            bonus = min(amount_found - amount, 25)
             self.msg("Due to your success in searching for a deal, haggling rolls will have a bonus of %s." % bonus)
-        return min(amount, amount_willing_to_deal), bonus
+        return min(amount, amount_found), bonus
