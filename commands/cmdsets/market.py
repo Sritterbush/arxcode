@@ -298,6 +298,8 @@ class HaggledDeal(object):
         # discount_roll will be None if they haven't haggled at all yet
         self.discount_roll = deal[3]
         self.roll_bonus = deal[4]
+        # store cached reference to this object for use in haggle command
+        self.caller.ndb.haggling_deal = self
 
     def accept(self):
         """Accepts the deal"""
@@ -326,6 +328,7 @@ class HaggledDeal(object):
         msg += "{wCurrent %s:{n %s\n" % (noun, self.discount)
         noun = "Value" if self.transaction_type == "sell" else "Cost"
         msg += "{wSilver %s:{n %s" % (noun, self.silver_value)
+        msg += "\n{wRoll Modifier:{n %s" % self.roll_bonus
         return msg
 
     @property
@@ -460,8 +463,8 @@ class CmdHaggle(ArxCommand):
     Usage:
         haggle
         haggle/roll
-        haggle/findbuyer <material>=<amount>
-        haggle/findseller <material>=<amount>
+        haggle/findbuyer <material>[,target]=<amount>[,minimum bonus]
+        haggle/findseller <material>[,target]=<amount>[,minimum bonus]
         haggle/accept
         haggle/decline
 
@@ -472,7 +475,11 @@ class CmdHaggle(ArxCommand):
     so, their reputation will suffer.
 
     Both looking for a deal and negotiating the agreement costs 5 AP per
-    attempt.
+    attempt. A deal can be found for another character to do the haggling
+    roll by specifying an optional target in findbuyer/findseller. If a
+    minimum bonus is specified, the deal will only be sent to them if the
+    search roll gets that bonus or higher, otherwise the deal is discarded.
+    The maximum bonus that can be returned from a search attempt is 25.
 
     Resources can be bought or sold by specifying the type of resource as
     the 'material'.
@@ -492,13 +499,20 @@ class CmdHaggle(ArxCommand):
             return self.caller.ndb.haggling_deal
         if self.caller.db.haggling_deal is None:
             return None
-        self.caller.ndb.haggling_deal = HaggledDeal(self.caller)
-        return self.caller.ndb.haggling_deal
+        return HaggledDeal(self.caller)
 
-    @deal.setter
-    def deal(self, val):
-        self.caller.db.haggling_deal = val
-        self.caller.ndb.haggling_deal = HaggledDeal(self.caller)
+    def send_deal(self, target, deal):
+        """ Sends a deal to the target
+        Args:
+            target: Character we're sending it to
+            deal: tuple that will be built into a HaggledDeal
+        """
+        target.db.haggling_deal = deal
+        deal = HaggledDeal(target)
+        if target != self.caller:
+            msg = "You have been sent a deal that you can choose to haggle by %s." % self.caller
+            msg += "\n%s" % deal.display()
+            target.player_ob.inform(msg, category="Deal Offer")
 
     def func(self):
         """Execute haggle command"""
@@ -529,13 +543,29 @@ class CmdHaggle(ArxCommand):
 
     def find_deal(self):
         """Attempts to find a HaggledDeal for our caller"""
-        if self.deal:
-            raise HaggleError("You already have a deal in progress: please decline it first.\n%s" % self.deal.display())
+        target = self.caller
+        min_bonus = None
+        if len(self.lhslist) > 1:
+            target = target.player.search(self.lhslist[1])
+            if not target:
+                return
+            target = target.char_ob
+        if target.db.haggling_deal:
+            if target == self.caller:
+                err = "You already have a deal in progress: please decline it first.\n%s" % self.deal.display()
+            else:
+                err = "They already have a deal in progress. Ask them to decline it first."
+            raise HaggleError(err)
         try:
-            material, amount = self.lhs, int(self.rhs)
+            material, amount = self.lhslist[0], int(self.rhslist[0])
             if amount < 1:
                 raise ValueError
-        except (TypeError, ValueError):
+            if len(self.rhslist) > 1:
+                try:
+                    min_bonus = min(int(self.rhslist[1]), 25)
+                except ValueError:
+                    raise HaggleError("The optional minimum bonus must be a number.")
+        except (TypeError, ValueError, IndexError):
             raise HaggleError("You must provide a material type and a positive amount for the transaction.")
         if material not in HaggledDeal.VALID_RESOURCES:
             try:
@@ -552,9 +582,17 @@ class CmdHaggle(ArxCommand):
         transaction_type = "buy" if "findseller" in self.switches else "sell"
         their_verb = "sell" if transaction_type == "buy" else "buy"
         amount, roll_bonus = self.search_for_deal_roll(material, amount)
-        self.deal = (transaction_type, material_identifier, amount, 0, roll_bonus)
-        self.msg("You found someone willing to %s %s %s. You can use /roll to try to negotiate the price." %
-                 (their_verb, amount, material))
+        if min_bonus is not None:
+            if roll_bonus < min_bonus:
+                raise HaggleError("The roll bonus of %s was below the minimum of %s, so the deal is cancelled." % (
+                    roll_bonus, min_bonus))
+        self.send_deal(target, (transaction_type, material_identifier, amount, 0, roll_bonus))
+        msg = "You found someone willing to %s %s %s." % (their_verb, amount, material)
+        if target == self.caller:
+            msg += " You can use /roll to try to negotiate the price."
+        else:
+            msg += " You let %s know that a deal is on the way." % target.key
+        self.msg(msg)
 
     def search_for_deal_roll(self, material, amount):
         """Does the roll to search for a deal. Positive roll * 5000 is how

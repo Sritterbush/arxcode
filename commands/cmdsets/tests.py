@@ -521,12 +521,12 @@ class TestMarketCommands(ArxCommandTest):
         self.assertEqual(self.roster_entry.action_points, 90)
         self.call_cmd("/findbuyer economic=200", "You already have a deal in progress: please decline it first.\n"
                                                  "Attempting to buy: 100 economic resources.\nCurrent Discount: 0\n"
-                                                 "Silver Cost: 50000.0")
+                                                 "Silver Cost: 50000.0\nRoll Modifier: 0")
         self.call_cmd("/accept", "You haven't struck a deal yet. You must negotiate the deal before you can accept it.")
         self.call_cmd("/roll", 'You have found a better deal:\nAttempting to buy: 100 economic resources.\n'
-                               'Current Discount: 10\nSilver Cost: 45000.0')
+                               'Current Discount: 10\nSilver Cost: 45000.0\nRoll Modifier: 0')
         self.call_cmd("/roll", 'You failed to find a better deal.\nAttempting to buy: 100 economic resources.\n'
-                               'Current Discount: 10\nSilver Cost: 45000.0')
+                               'Current Discount: 10\nSilver Cost: 45000.0\nRoll Modifier: 0')
         self.assertEqual(self.roster_entry.action_points, 80)
         deal = self.char1.db.haggling_deal
         self.call_cmd("/decline", "You have cancelled the deal.")
@@ -542,7 +542,7 @@ class TestMarketCommands(ArxCommandTest):
                                                  ' a bonus of 25.|You found someone willing to buy 100 economic. '
                                                  'You can use /roll to try to negotiate the price.')
         self.call_cmd("/roll", 'You have found a better deal:\nAttempting to sell: 100 economic resources.\n'
-                               'Current Markup Bonus: 89\nSilver Value: 44500.0')
+                               'Current Markup Bonus: 89\nSilver Value: 44500.0\nRoll Modifier: 25')
         self.call_cmd("/accept", 'You have sold 100 economic resources and gained 44500.0 silver.')
         self.assertEqual(self.assetowner.economic, 0)
         self.assertEqual(self.char1.currency, 49500.0)
@@ -557,7 +557,7 @@ class TestMarketCommands(ArxCommandTest):
                                                 ' a bonus of 25.|You found someone willing to sell 10 testium. You can '
                                                 'use /roll to try to negotiate the price.')
         self.call_cmd("/roll", 'You have found a better deal:\nAttempting to buy: 10 testium.\nCurrent Discount: 79\n'
-                               'Silver Cost: 10500.0')
+                               'Silver Cost: 10500.0\nRoll Modifier: 25')
         deal = list(self.char1.db.haggling_deal)
         self.call_cmd("/accept", "You have bought 10 testium for 10500.0 silver.")
         mats = self.assetowner.materials.get(type__name=material.name)
@@ -571,14 +571,32 @@ class TestMarketCommands(ArxCommandTest):
         self.char1.db.social_rank = 1
         self.assetowner.fame = 500
         self.assetowner.save()
-        self.call_cmd("/roll", 'Engaging in crass mercantile haggling is considered beneath those of high social rank. '
-                               'Fortunately, no one noticed this time.|You failed to find a better deal.\n'
-                               'Attempting to sell: 30 testium.\nCurrent Markup Bonus: 89\nSilver Value: 133500.0')
+        self.call_cmd("/roll",
+                      'Engaging in crass mercantile haggling is considered beneath those of high social rank. '
+                      'Fortunately, no one noticed this time.|You failed to find a better deal.\nAttempting to sell: 30'
+                      ' testium.\nCurrent Markup Bonus: 89\nSilver Value: 133500.0\nRoll Modifier: 25')
         mock_dice_check.return_value = -5
         self.call_cmd("/roll", 'Engaging in crass mercantile haggling is considered beneath those of high social rank. '
                                'Unfortunately, you were noticed and lose 5 fame.|You failed to find a better deal.\n'
-                               'Attempting to sell: 30 testium.\nCurrent Markup Bonus: 89\nSilver Value: 133500.0')
+                               'Attempting to sell: 30 testium.\nCurrent Markup Bonus: 89\nSilver Value: 133500.0'
+                               '\nRoll Modifier: 25')
         self.call_cmd("/accept", 'You have sold 30 testium and gained 133500.0 silver.')
         self.assertEqual(self.assetowner.fame, 495)
         self.assertEqual(mats.amount, 0)
         self.assertEqual(self.char1.currency, 172500.0)
+        mock_dice_check.return_value = 10
+        self.call_cmd("/findseller testium,testaccount2=50,bar", "The optional minimum bonus must be a number.")
+        self.call_cmd("/findseller testium,testaccount2=50,500", 'The roll bonus of 0 was below the minimum of 25, '
+                                                                 'so the deal is cancelled.')
+        mock_dice_check.return_value = 500
+        self.account2.inform = Mock()
+        self.call_cmd("/findseller testium,testaccount2=50,25",
+                      'Due to your success in searching for a deal, haggling rolls will have a bonus of 25.|'
+                      'You found someone willing to sell 50 testium. You let Char2 know that a deal is on the way.')
+        self.assertEqual(self.char2.db.haggling_deal, ('buy', 1, 50, 0, 25))
+        self.account2.inform.assert_called_with('You have been sent a deal that you can choose to haggle by Char.\n'
+                                                '{wAttempting to buy:{n 50 testium.\n{wCurrent Discount:{n 0\n'
+                                                '{wSilver Cost:{n 250000.0\n{wRoll Modifier:{n 25',
+                                                category='Deal Offer')
+        self.call_cmd("/findseller testium,testaccount2=50,25",
+                      "They already have a deal in progress. Ask them to decline it first.")
