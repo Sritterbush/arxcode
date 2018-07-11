@@ -2,7 +2,8 @@
 Commands for petitions app
 """
 from server.utils.arx_utils import ArxCommand
-from world.petitions.models import BrokeredDeal
+from server.utils.exceptions import PayError
+from world.petitions.models import BrokeredSale
 
 
 class CmdPetition(ArxCommand):
@@ -53,32 +54,40 @@ class CmdBroker(ArxCommand):
     key = "broker"
     help_category = "Market"
 
+    class BrokerError(Exception):
+        """Errors when using the broker"""
+        pass
+
     def func(self):
         """Executes broker command"""
-        if not self.args or "search" in self.switches:
-            return self.broker_display()
-        if not self.switches:
-            return self.display_deal_detail()
-        if "buy" in self.switches:
-            return self.make_purchase()
-        if "sell" in self.switches:
-            return self.make_sale_offer()
+        try:
+            if not self.args or "search" in self.switches:
+                return self.broker_display()
+            if not self.switches:
+                return self.display_sale_detail()
+            if "buy" in self.switches:
+                return self.make_purchase()
+            if "sell" in self.switches:
+                return self.make_sale_offer()
+            raise self.BrokerError("Invalid switch.")
+        except (self.BrokerError, PayError) as err:
+            self.msg(err)
 
     def broker_display(self):
         """Displays items for sale on the broker"""
         from server.utils.prettytable import PrettyTable
-        qs = BrokeredDeal.objects.filter(amount__gte=1)
+        qs = BrokeredSale.objects.filter(amount__gte=1)
         if "search" in self.switches and self.args:
             from django.db.models import Q
             args = self.args.lower()
             if args in ("ap", "action points", "action_points"):
-                query = Q(offering_type=BrokeredDeal.ACTION_POINTS)
+                query = Q(offering_type=BrokeredSale.ACTION_POINTS)
             elif "economic" in args:
-                query = Q(offering_type=BrokeredDeal.ECONOMIC)
+                query = Q(offering_type=BrokeredSale.ECONOMIC)
             elif "social" in args:
-                query = Q(offering_type=BrokeredDeal.SOCIAL)
+                query = Q(offering_type=BrokeredSale.SOCIAL)
             elif "military" in args:
-                query = Q(offering_type=BrokeredDeal.MILITARY)
+                query = Q(offering_type=BrokeredSale.MILITARY)
             else:
                 query = Q(crafting_material_type__icontains=args) | Q(owner__player__username__iexact=args)
             qs = qs.filter(query)
@@ -88,11 +97,30 @@ class CmdBroker(ArxCommand):
             table.add_row([deal.id, deal.owner, deal.material_name, deal.price, deal.amount])
         self.msg(str(table))
 
-    def display_deal_detail(self):
-        pass
+    def display_sale_detail(self):
+        """Displays information about a sale"""
+        sale = self.find_brokered_sale_by_id(self.lhs)
+        self.msg(sale.display(self.caller))
 
     def make_purchase(self):
-        pass
+        """Buys some amount from a sale"""
+        sale = self.find_brokered_sale_by_id(self.lhs)
+        try:
+            amount = int(self.rhs)
+            if amount <= 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            raise self.BrokerError("You must provide a positive number as the amount.")
+        dompc = self.caller.player_ob.Dominion
+        sale.make_purchase(dompc, amount)
+        self.msg("You have bought %s %s from %s." % (amount, sale.material_name, sale.owner))
 
     def make_sale_offer(self):
         pass
+
+    def find_brokered_sale_by_id(self, args):
+        """Tries to find a brokered sale with ID that matches args or raises BrokerError"""
+        try:
+            return BrokeredSale.objects.get(id=args)
+        except (BrokeredSale.DoesNotExist, ValueError, TypeError):
+            raise self.BrokerError("Could not find a sale on the broker by the ID %s." % args)

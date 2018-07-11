@@ -5,9 +5,11 @@ from django.db import models
 
 from evennia.utils.idmapper.models import SharedMemoryModel
 
+from server.utils.exceptions import PayError
 
-class BrokeredDeal(SharedMemoryModel):
-    """A deal sitting on the broker, waiting for someone to buy it"""
+
+class BrokeredSale(SharedMemoryModel):
+    """A sale sitting on the broker, waiting for someone to buy it"""
     ACTION_POINTS = 0
     ECONOMIC = 1
     SOCIAL = 2
@@ -30,9 +32,46 @@ class BrokeredDeal(SharedMemoryModel):
             return self.crafting_material_type.name
         return self.get_offering_type_display()
 
+    @property
+    def owner_character(self):
+        """Character object of our owner"""
+        return self.owner.player.char_ob
 
-class BrokeredPurchaseAmount(SharedMemoryModel):
+    def display(self, caller):
+        """
+        Gets a string display of the sale based on caller's privileges
+        Args:
+            caller: Character object, determine if it's our owner to show buyer information
+
+        Returns:
+            string display of the sale
+        """
+        msg = "{wID{n: %s\n" % self.id
+        msg += "{wMaterial{n: %s {wAmount{n: %s {wPrice{n: %s\n" % (self.material_name, self.amount, self.price)
+        amounts = self.purchased_amounts.all()
+        if caller == self.owner_character and amounts:
+            msg += "{wPurchase History:{n\n"
+            msg += ", ".join(ob.display() for ob in amounts)
+        return msg
+
+    def make_purchase(self, buyer, amount):
+        """
+        
+        Args:
+            buyer:
+            amount:
+
+        Returns:
+
+        """
+
+
+class PurchasedAmount(SharedMemoryModel):
     """Details of a purchase by a player"""
-    deal = models.ForeignKey('BrokeredDeal', related_name="purchase_amounts")
-    buyer = models.ForeignKey('dominion.PlayerOrNpc', related_name="purchase_amounts")
+    deal = models.ForeignKey('BrokeredSale', related_name="purchased_amounts")
+    buyer = models.ForeignKey('dominion.PlayerOrNpc', related_name="purchased_amounts")
     amount = models.PositiveIntegerField(default=0)
+
+    def display(self):
+        """Gets string display of the amount purchased and by whom"""
+        return "{} bought {}".format(self.buyer, self.amount)
