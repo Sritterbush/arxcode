@@ -8,15 +8,9 @@ cmdset - this way you can often re-use the commands too.
 """
 
 import random
-from django.conf import settings
 from evennia import CmdSet
 from server.utils.arx_utils import ArxCommand
 
-
-
-#------------------------------------------------------------
-# Commands defined for wearable
-#------------------------------------------------------------
 
 class CmdRoll(ArxCommand):
     """
@@ -31,8 +25,9 @@ class CmdRoll(ArxCommand):
     key = "roll"
     locks = "cmd:all()"
     help_category = "Social"
+
     def func(self):
-        "Implements command"
+        """Implements command"""
         caller = self.caller
         rolls = []
         try:
@@ -40,7 +35,7 @@ class CmdRoll(ArxCommand):
             sides = int(self.rhs)
             if sides <= 0:
                 raise ValueError
-        except ValueError:
+        except (ValueError, TypeError):
             self.msg("Please enter positive numbers for number of dice and sides.")
             return
         if num_dice < 1 or num_dice > 50:
@@ -52,10 +47,9 @@ class CmdRoll(ArxCommand):
         rolls.sort()
         rolls = [str(ob) for ob in rolls]
         caller.msg("You have rolled: %s" % ", ".join(rolls))
-        caller.location.msg_contents("%s has rolled %s %s-sided dice: %s" % (caller.name,
-            num_dice, sides, ", ".join(rolls)), exclude=caller, options={"roll": True})
-        return
-
+        caller.location.msg_contents("%s has rolled %s %s-sided dice: %s" % (caller.name, num_dice, sides,
+                                                                             ", ".join(rolls)),
+                                     exclude=caller, options={"roll": True})
         
 
 class DiceCmdSet(CmdSet):
@@ -75,11 +69,5 @@ class DiceCmdSet(CmdSet):
     duplicates = False
 
     def at_cmdset_creation(self):
-        "Init the cmdset"
+        """Init the cmdset"""
         self.add(CmdRoll())
-
-        
-
-
-
-  
