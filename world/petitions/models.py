@@ -17,6 +17,7 @@ class BrokeredSale(SharedMemoryModel):
     CRAFTING_MATERIALS = 4
     OFFERING_TYPES = ((ACTION_POINTS, "Action Points"), (ECONOMIC, "Economic Resources"), (SOCIAL, "Social Resources"),
                       (MILITARY, "Military Resources"), (CRAFTING_MATERIALS, "Crafting Materials"))
+    RESOURCE_TYPES = ((ECONOMIC, "economic"), (SOCIAL, "social"), (MILITARY, "military"))
     owner = models.ForeignKey("dominion.PlayerOrNpc", related_name="brokered_sales")
     sale_type = models.PositiveSmallIntegerField(default=ACTION_POINTS, choices=OFFERING_TYPES)
     amount = models.PositiveIntegerField(default=0)
@@ -93,7 +94,7 @@ class BrokeredSale(SharedMemoryModel):
         elif self.sale_type == self.CRAFTING_MATERIALS:
             buyer.player.gain_materials(self.crafting_material_type, amount)
         else:  # resources
-            resource_types = {self.ECONOMIC: "economic", self.MILITARY: "military", self.SOCIAL: "social"}
+            resource_types = dict(self.RESOURCE_TYPES)
             resource = resource_types[self.sale_type]
             buyer.player.gain_resources(resource, amount)
 
@@ -108,6 +109,11 @@ class BrokeredSale(SharedMemoryModel):
         self.owner_character.pay_money(-cost)
         self.owner.player.inform("%s has bought %s %s for %s silver." % (buyer, quantity, self.material_name, cost),
                                  category="Broker Sale", append=True)
+
+    def cancel(self):
+        """Refund our owner and delete ourselves"""
+        self.send_goods(self.owner, self.amount)
+        self.delete()
 
 
 class PurchasedAmount(SharedMemoryModel):
