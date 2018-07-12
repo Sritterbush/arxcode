@@ -77,7 +77,7 @@ class MarketCmdSet(CmdSet):
         self.add(CmdMarket())
         self.add(CmdHaggle())
         self.add(CmdBroker())
-        self.add(CmdPetition())
+        # self.add(CmdPetition())
 
 
 # noinspection PyUnresolvedReferences
