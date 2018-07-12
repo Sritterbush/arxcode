@@ -40,8 +40,8 @@ class TestPetitionCommands(ArxCommandTest):
         self.call_cmd("/sell ap=10,-20", "You must provide a positive number as the price.")
         self.call_cmd("/sell ap=10,100", "Action Points must be a factor of 3,"
                                          " since it's divided by 3 when put on sale.")
-        self.call_cmd("/sell ap=12,100", "Created a new sale of 12 Action Points for 100 silver.")
-        self.call_cmd("/sell ap=6,100", "Added 6 to the existing sale of Action Points for 100 silver.")
+        self.call_cmd("/sell ap=12,100", "Created a new sale of 4 Action Points for 100 silver.")
+        self.call_cmd("/sell ap=6,100", "Added 2 to the existing sale of Action Points for 100 silver.")
         self.call_cmd("/sell ap=600,500", "You do not have enough action points to put on sale.")
         self.call_cmd("/sell military=1, 1000", "You do not have enough military resources to put on sale.")
         self.call_cmd("/sell economic=1,1000", "Created a new sale of 1 Economic Resources for 1000 silver.")
@@ -59,7 +59,7 @@ class TestPetitionCommands(ArxCommandTest):
         self.assertEqual(self.assetowner.economic, 3)
         self.call_cmd("/search ap", 'ID Seller       Type          Price Amount \n'
                                     '1  Testaccount2 Action Points 5     15     '
-                                    '4  Testaccount  Action Points 100   18')
+                                    '4  Testaccount  Action Points 100   6')
         self.call_cmd("/search testaccount2", 'ID Seller       Type               Price Amount \n'
                                               '1  Testaccount2 Action Points      5     15     '
                                               '2  Testaccount2 Economic Resources 5     45     '
