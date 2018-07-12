@@ -57,3 +57,10 @@ class TestPetitionCommands(ArxCommandTest):
         self.assertEqual(self.assetowner.economic, 2)
         self.call_cmd("/cancel 5", "You have cancelled the sale.")
         self.assertEqual(self.assetowner.economic, 3)
+        self.call_cmd("/search ap", 'ID Seller       Type          Price Amount \n'
+                                    '1  Testaccount2 Action Points 5     15     '
+                                    '4  Testaccount  Action Points 100   18')
+        self.call_cmd("/search testaccount2", 'ID Seller       Type               Price Amount \n'
+                                              '1  Testaccount2 Action Points      5     15     '
+                                              '2  Testaccount2 Economic Resources 5     45     '
+                                              '3  Testaccount2 testium            5     40')

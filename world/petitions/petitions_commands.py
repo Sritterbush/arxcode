@@ -100,7 +100,8 @@ class CmdBroker(ArxCommand):
                              BrokeredSale.SOCIAL, BrokeredSale.MILITARY):
                 query = Q(sale_type=sale_type)
             else:
-                query = Q(crafting_material_type__icontains=self.args) | Q(owner__player__username__iexact=self.args)
+                query = (Q(crafting_material_type__name__icontains=self.args) |
+                         Q(owner__player__username__iexact=self.args))
             qs = qs.filter(query)
 
         table = PrettyTable(["ID", "Seller", "Type", "Price", "Amount"])
