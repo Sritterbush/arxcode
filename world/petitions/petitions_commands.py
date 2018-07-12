@@ -81,20 +81,20 @@ class CmdBroker(ArxCommand):
             from django.db.models import Q
             args = self.args.lower()
             if args in ("ap", "action points", "action_points"):
-                query = Q(offering_type=BrokeredSale.ACTION_POINTS)
+                query = Q(sale_type=BrokeredSale.ACTION_POINTS)
             elif "economic" in args:
-                query = Q(offering_type=BrokeredSale.ECONOMIC)
+                query = Q(sale_type=BrokeredSale.ECONOMIC)
             elif "social" in args:
-                query = Q(offering_type=BrokeredSale.SOCIAL)
+                query = Q(sale_type=BrokeredSale.SOCIAL)
             elif "military" in args:
-                query = Q(offering_type=BrokeredSale.MILITARY)
+                query = Q(sale_type=BrokeredSale.MILITARY)
             else:
                 query = Q(crafting_material_type__icontains=args) | Q(owner__player__username__iexact=args)
             qs = qs.filter(query)
 
         table = PrettyTable(["ID", "Seller", "Type", "Price", "Amount"])
         for deal in qs:
-            table.add_row([deal.id, deal.owner, deal.material_name, deal.price, deal.amount])
+            table.add_row([deal.id, str(deal.owner), str(deal.material_name), deal.price, deal.amount])
         self.msg(str(table))
 
     def display_sale_detail(self):
@@ -105,17 +105,25 @@ class CmdBroker(ArxCommand):
     def make_purchase(self):
         """Buys some amount from a sale"""
         sale = self.find_brokered_sale_by_id(self.lhs)
+        amount = self.get_amount(self.rhs)
+        dompc = self.caller.player_ob.Dominion
+        cost = sale.make_purchase(dompc, amount)
+        self.msg("You have bought %s %s from %s for %s silver." % (amount, sale.material_name, sale.owner, cost))
+
+    def get_amount(self, args):
+        """Gets a positive number to use as a transaction, or raises a BrokerError"""
         try:
-            amount = int(self.rhs)
+            amount = int(args)
             if amount <= 0:
                 raise ValueError
         except (TypeError, ValueError):
             raise self.BrokerError("You must provide a positive number as the amount.")
-        dompc = self.caller.player_ob.Dominion
-        sale.make_purchase(dompc, amount)
-        self.msg("You have bought %s %s from %s." % (amount, sale.material_name, sale.owner))
+        return amount
 
     def make_sale_offer(self):
+        if len(self.rhslist) != 2:
+            raise self.BrokerError("You must provide a type and an amount to sell.")
+        amount = self.get_amount(self.rhslist[1])
         pass
 
     def find_brokered_sale_by_id(self, args):

@@ -295,6 +295,35 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
             return amt
         return 0
 
+    def pay_materials(self, material_type, amount):
+        """
+        Attempts to pay materials of the given type and amount
+        Args:
+            material_type (CraftingMaterialType): Material type we're paying with
+            amount: amount we're spending
+
+        Returns:
+            False if we were able to spend, True otherwise
+        """
+        from django.core.exceptions import ObjectDoesNotExist
+        assets = self.assets
+        try:
+            if amount < 0:
+                material, _ = assets.materials.get_or_create(type=material_type)
+            else:
+                material = assets.materials.get(type=material_type)
+            if material.amount < amount:
+                return False
+            material.amount -= amount
+            material.save()
+            return True
+        except ObjectDoesNotExist:
+            return False
+
+    def gain_materials(self, material_type, amount):
+        """Similar to gain_resources, call pay_materials with negative amount to gain it"""
+        return self.pay_materials(material_type, -amount)
+
     def pay_action_points(self, amt, can_go_over_cap=False):
         """
         Attempt to pay action points. If we don't have enough,

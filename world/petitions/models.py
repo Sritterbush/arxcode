@@ -18,11 +18,11 @@ class BrokeredSale(SharedMemoryModel):
     OFFERING_TYPES = ((ACTION_POINTS, "Action Points"), (ECONOMIC, "Economic Resources"), (SOCIAL, "Social Resources"),
                       (MILITARY, "Military Resources"), (CRAFTING_MATERIALS, "Crafting Materials"))
     owner = models.ForeignKey("dominion.PlayerOrNpc", related_name="brokered_sales")
-    offering_type = models.PositiveSmallIntegerField(default=ACTION_POINTS, choices=OFFERING_TYPES)
+    sale_type = models.PositiveSmallIntegerField(default=ACTION_POINTS, choices=OFFERING_TYPES)
     amount = models.PositiveIntegerField(default=0)
     price = models.PositiveIntegerField(default=0)
     buyers = models.ManyToManyField("dominion.PlayerOrNpc", related_name="brokered_purchases",
-                                    through="BrokeredPurchaseAmount")
+                                    through="PurchasedAmount")
     crafting_material_type = models.ForeignKey("dominion.CraftingMaterialType", null=True, on_delete=models.CASCADE)
 
     @property
@@ -30,7 +30,7 @@ class BrokeredSale(SharedMemoryModel):
         """Returns the name of what we're offering"""
         if self.crafting_material_type:
             return self.crafting_material_type.name
-        return self.get_offering_type_display()
+        return self.get_sale_type_display()
 
     @property
     def owner_character(self):
@@ -56,14 +56,58 @@ class BrokeredSale(SharedMemoryModel):
 
     def make_purchase(self, buyer, amount):
         """
-        
+        Khajit has wares, if you have coin.
         Args:
-            buyer:
-            amount:
+            buyer (PlayerOrNpc): the buyer
+            amount (int): How much they're buying
 
         Returns:
+            the amount they paid
 
+        Raises:
+            PayError if they can't afford stuff
         """
+        if amount > self.amount:
+            raise PayError("You want to buy %s, but there is only %s for sale." % (amount, self.amount))
+        cost = self.price * amount
+        character = buyer.player.char_ob
+        if cost > character.currency:
+            raise PayError("You cannot afford to pay %s when you only have %s silver." % (cost, character.currency))
+        character.pay_money(cost)
+        self.amount -= amount
+        self.save()
+        self.record_sale(buyer, amount)
+        self.send_goods(buyer, amount)
+        self.pay_owner(buyer, amount, cost)
+        return cost
+
+    def send_goods(self, buyer, amount):
+        """
+        Sends the results of a sale to buyer and records the purchase
+        Args:
+            buyer (PlayerOrNpc): person we send the goods to
+            amount (int): How much we're sending
+        """
+        if self.sale_type == self.ACTION_POINTS:
+            buyer.player.pay_action_points(-amount)
+        elif self.sale_type == self.CRAFTING_MATERIALS:
+            buyer.player.gain_materials(self.crafting_material_type, amount)
+        else:  # resources
+            resource_types = {self.ECONOMIC: "economic", self.MILITARY: "military", self.SOCIAL: "social"}
+            resource = resource_types[self.sale_type]
+            buyer.player.gain_resources(resource, amount)
+
+    def record_sale(self, buyer, amount):
+        """Records a sale"""
+        record, _ = self.purchased_amounts.get_or_create(buyer=buyer)
+        record.amount += amount
+        record.save()
+
+    def pay_owner(self, buyer, quantity, cost):
+        """Pays our owner"""
+        self.owner_character.pay_money(-cost)
+        self.owner.player.inform("%s has bought %s %s for %s silver." % (buyer, quantity, self.material_name, cost),
+                                 category="Broker Sale", append=True)
 
 
 class PurchasedAmount(SharedMemoryModel):
