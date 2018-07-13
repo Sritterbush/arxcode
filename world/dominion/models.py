@@ -3275,7 +3275,7 @@ class Organization(InformMixin, SharedMemoryModel):
                                                                                        self.social_modifier)
         # msg += "{wSpheres of Influence:{n %s\n" % ", ".join("{w%s{n: %s" % (ob.category, ob.rating)
         #                                                     for ob in self.spheres.all())
-        msg += "{wSkills used for work:{n %s\n" % ", ".join(ob.skill for ob in self.work_settings.all())
+        msg += self.display_work_settings()
         clues = self.clues.all()
         if display_clues:
             if clues:
@@ -3288,6 +3288,19 @@ class Organization(InformMixin, SharedMemoryModel):
         if viewing_member:
             msg += "\n{wMember stats for {c%s{n\n" % viewing_member
             msg += viewing_member.display()
+        return msg
+
+    def display_work_settings(self):
+        """Gets table of work settings"""
+        from server.utils.prettytable import PrettyTable
+        work_settings = self.work_settings.all().order_by('resource')
+        msg = "\n{wWork Settings:{n"
+        if not work_settings:
+            return msg + " None found.\n"
+        table = PrettyTable(["{wResource{n", "{wStat{n", "{wSkill{n"])
+        for setting in work_settings:
+            table.add_row([setting.get_resource_display(), setting.stat, setting.skill])
+        msg += "\n" + str(table) + "\n"
         return msg
 
     def __init__(self, *args, **kwargs):
