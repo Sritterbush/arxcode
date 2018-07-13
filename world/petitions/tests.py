@@ -64,3 +64,9 @@ class TestPetitionCommands(ArxCommandTest):
                                               '1  Testaccount2 Action Points      5     15     '
                                               '2  Testaccount2 Economic Resources 5     45     '
                                               '3  Testaccount2 testium            5     40')
+        self.call_cmd("/search resources", 'ID Seller       Type               Price Amount \n'
+                                           '2  Testaccount2 Economic Resources 5     45     '
+                                           '6  Testaccount  Economic Resources 500   2')
+        self.call_cmd("/search materials", 'ID Seller       Type    Price Amount \n'
+                                           '3  Testaccount2 testium 5     40     '
+                                           '7  Testaccount  testium 500   1')

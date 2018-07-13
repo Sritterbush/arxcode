@@ -52,6 +52,10 @@ class CmdBroker(ArxCommand):
     specify the type of resource (economic, social, or military).
     It costs three times as much action points as the amount you
     put on the broker. All prices are per-unit.
+
+    When searching, you can specify the name of a seller, a type
+    of crafting material or resource (umbra, economic, etc), ap,
+    or categories such as 'resources' or 'materials'.
     """
     key = "broker"
     help_category = "Market"
@@ -102,8 +106,13 @@ class CmdBroker(ArxCommand):
                              BrokeredSale.SOCIAL, BrokeredSale.MILITARY):
                 query = Q(sale_type=sale_type)
             else:
-                query = (Q(crafting_material_type__name__icontains=self.args) |
-                         Q(owner__player__username__iexact=self.args))
+                if set(self.args.lower().split()) & {"materials", "mats", "crafting"}:
+                    query = Q(sale_type=BrokeredSale.CRAFTING_MATERIALS)
+                elif "resource" in self.args.lower():
+                    query = Q(sale_type__in=(BrokeredSale.ECONOMIC, BrokeredSale.SOCIAL, BrokeredSale.MILITARY))
+                else:
+                    query = (Q(crafting_material_type__name__icontains=self.args) |
+                             Q(owner__player__username__iexact=self.args))
             qs = qs.filter(query)
 
         table = PrettyTable(["ID", "Seller", "Type", "Price", "Amount"])
