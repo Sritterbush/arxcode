@@ -343,6 +343,10 @@ def post_roster_dompc_cleanup(player):
     for member in dompc.memberships.filter(rank=2):
         member.rank = 3
         member.save()
+    try:
+        dompc.assets.debts.all().delete()
+    except AttributeError:
+        pass
 
 
 def caller_change_field(caller, obj, field, value, field_name=None):
