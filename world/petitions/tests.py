@@ -9,6 +9,7 @@ class TestPetitionCommands(ArxCommandTest):
     def test_cmd_broker(self):
         from world.petitions.models import BrokeredSale
         from world.dominion.models import CraftingMaterialType
+        from web.character.models import PlayerAccount
         mat = CraftingMaterialType.objects.create(name="testium", value=5000)
         sale = BrokeredSale.objects.create(owner=self.dompc2, sale_type=BrokeredSale.ACTION_POINTS, amount=50, price=5)
         self.setup_cmd(petitions_commands.CmdBroker, self.char1)
@@ -17,6 +18,9 @@ class TestPetitionCommands(ArxCommandTest):
         self.call_cmd("/buy 2", "Could not find a sale on the broker by the ID 2.")
         self.call_cmd("/buy 1", "You must provide a positive number as the amount.")
         self.call_cmd("/buy 1=-5", "You must provide a positive number as the amount.")
+        self.call_cmd("/buy 1=100", "You can't buy from an alt.")
+        self.roster_entry.current_account = PlayerAccount.objects.create(email="foo@foo.net")
+        self.roster_entry.save()
         self.call_cmd("/buy 1=100", "You want to buy 100, but there is only 50 for sale.")
         self.call_cmd("/buy 1=25", "You cannot afford to pay 125 when you only have 0.0 silver.")
         self.char1.currency += 20000

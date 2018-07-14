@@ -132,6 +132,11 @@ class CmdBroker(ArxCommand):
         dompc = self.caller.player_ob.Dominion
         if sale.owner == dompc:
             raise self.BrokerError("You can't buy from yourself. Cancel it instead.")
+        try:
+            if sale.owner.player.roster.current_account == self.caller.roster.current_account:
+                raise self.BrokerError("You can't buy from an alt.")
+        except AttributeError:
+            pass
         cost = sale.make_purchase(dompc, amount)
         self.msg("You have bought %s %s from %s for %s silver." % (amount, sale.material_name, sale.owner, cost))
 

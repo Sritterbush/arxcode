@@ -2910,6 +2910,9 @@ class CmdIAmHelping(ArxPlayerCommand):
         if not self.caller.pay_action_points(val):
             self.msg("You do not have enough AP.")
             return
+        if self.caller.roster.current_account == targ.roster.current_account:
+            self.msg("You cannot give AP to an alt.")
+            return
         targ.pay_action_points(-receive_amt)
         self.msg("You have given %s %s AP." % (targ, receive_amt))
         msg = "%s has given you %s AP." % (self.caller, receive_amt)
