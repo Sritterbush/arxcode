@@ -269,7 +269,7 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
             
     def list_actions(self):
         """Prints a table of the actions we've taken"""
-        table = EvTable("ID", "Crisis", "Date", "Attend", "Status")
+        table = EvTable("ID", "Crisis", "Date", "Owner", "Status")
         actions = self.actions_and_invites
         attending = list(actions.filter(Q(dompc=self.dompc, attending=True) | Q(assisting_actions__dompc=self.dompc,
                                                                                 assisting_actions__attending=True)))
@@ -283,10 +283,12 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
                 if action.status == CrisisAction.DRAFT and action.check_unready_assistant(self.dompc):
                     return "|r%s|n" % string
                 return string
-
-            table.add_row(action.id, str(action.crisis)[:30], date, action in attending,
+            is_attending = action in attending
+            id_str = "{w*%s{n" % action.id if is_attending else str(action.id)
+            table.add_row(id_str, str(action.crisis)[:20], date, str(action.dompc),
                           color_unsubmitted(action.get_status_display()))
-        self.msg(table)
+        msg = "\nActions you're attending will be highlighted with {w*{n."
+        self.msg(str(table) + msg)
     
     def send_no_args_msg(self, noun):
         """Sends failure message about what they're missing."""
