@@ -74,3 +74,12 @@ class TestPetitionCommands(ArxCommandTest):
         self.call_cmd("/search materials", 'ID Seller       Type    Price Amount \n'
                                            '3  Testaccount2 testium 5     40     '
                                            '7  Testaccount  testium 500   1')
+        sale8 = BrokeredSale.objects.create(owner=self.dompc, sale_type=BrokeredSale.CRAFTING_MATERIALS,
+                                            crafting_material_type=mat, amount=2, price=50)
+        self.call_cmd("/reprice 3=200", "You can only change the price of your own sales.")
+        self.call_cmd("/reprice 8=-50", "You must provide a positive number as the price.")
+        self.call_cmd("/reprice 8=50", "The new price must be different from the current price.")
+        self.call_cmd("/reprice 8=500", "You have changed the price to 500.")
+        self.assertEqual(sale8.pk, None)
+        sale7 = BrokeredSale.objects.get(id=7)
+        self.assertEqual(sale7.amount, 3)

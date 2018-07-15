@@ -116,6 +116,18 @@ class BrokeredSale(SharedMemoryModel):
         self.send_goods(self.owner, self.amount)
         self.delete()
 
+    def change_price(self, new_price):
+        """Changes the price to new_price. If we have an existing sale by that price, merge with it."""
+        try:
+            other_sale = self.owner.brokered_sales.get(sale_type=self.sale_type, price=new_price,
+                                                       crafting_material_type=self.crafting_material_type)
+            other_sale.amount += self.amount
+            other_sale.save()
+            self.delete()
+        except BrokeredSale.DoesNotExist:
+            self.price = new_price
+            self.save()
+
 
 class PurchasedAmount(SharedMemoryModel):
     """Details of a purchase by a player"""

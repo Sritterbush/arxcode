@@ -44,6 +44,7 @@ class CmdBroker(ArxCommand):
         broker/buy <ID #>=<amount>
         broker/sell <type>=<amount>,<price>
         broker/cancel <ID #>
+        broker/reprice <ID #>=<new price>
 
     Allows you to automatically buy or sell crafting materials or
     more abstract things such as influence with npcs (resources)
@@ -77,6 +78,8 @@ class CmdBroker(ArxCommand):
                 return self.make_sale_offer()
             if "cancel" in self.switches:
                 return self.cancel_sale()
+            if "reprice" in self.switches:
+                return self.change_sale_price()
             raise self.BrokerError("Invalid switch.")
         except (self.BrokerError, PayError) as err:
             self.msg(err)
@@ -197,8 +200,20 @@ class CmdBroker(ArxCommand):
             raise self.BrokerError("Could not find a sale on the broker by the ID %s." % args)
 
     def cancel_sale(self):
+        """Cancels a sale"""
         sale = self.find_brokered_sale_by_id(self.lhs)
         if sale.owner != self.caller.player_ob.Dominion:
             raise self.BrokerError("You can only cancel your own sales.")
         sale.cancel()
         self.msg("You have cancelled the sale.")
+
+    def change_sale_price(self):
+        """Changes the price of a sale"""
+        sale = self.find_brokered_sale_by_id(self.lhs)
+        if sale.owner != self.caller.player_ob.Dominion:
+            raise self.BrokerError("You can only change the price of your own sales.")
+        price = self.get_amount(self.rhs, "price")
+        if price == sale.price:
+            raise self.BrokerError("The new price must be different from the current price.")
+        sale.change_price(price)
+        self.msg("You have changed the price to %s." % price)
