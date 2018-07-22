@@ -272,3 +272,7 @@ class PetitionPost(SharedMemoryModel):
             msg = "{wOOC Note by:{n%s\n" % self.dompc
         msg += self.text + "\n"
         return msg
+
+    @property
+    def player(self):
+        return self.dompc.player
