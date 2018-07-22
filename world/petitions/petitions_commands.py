@@ -100,10 +100,10 @@ class CmdPetition(ArxCommand):
         if "search" in self.switches:
             qs = qs.filter(Q(topic__icontains=self.lhs) | Q(description__icontains=self.lhs))
         signed_up = list(self.caller.dompc.petitions.filter(petitionparticipation__signed_up=True))
-        table = PrettyTable(["ID", "Owner", "Topic", "On"])
-        for ob in qs:
+        table = PrettyTable(["ID", "Owner", "Topic", "Org", "On"])
+        for ob in qs.distinct():
             signed_str = "X" if ob in signed_up else ""
-            table.add_row([ob.id, str(ob.owner), ob.topic, signed_str])
+            table.add_row([ob.id, str(ob.owner), ob.topic, str(ob.organization), signed_str])
         self.msg(str(table))
         self.display_petition_form()
 
