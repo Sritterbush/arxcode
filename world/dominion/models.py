@@ -3318,7 +3318,7 @@ class Organization(InformMixin, SharedMemoryModel):
             try:
                 obj = accessing_obj.player_ob or accessing_obj
                 member = obj.Dominion.memberships.get(deguilded=False, organization=self)
-                return member.rank <= 2
+                return member.rank <= 10
             except (AttributeError, Member.DoesNotExist):
                 return False
         return self.locks.check(accessing_obj, access_type=access_type, default=default)
