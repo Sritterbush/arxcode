@@ -107,6 +107,7 @@ class TestPetitionCommands(ArxCommandTest):
         org.members.create(player=self.dompc, rank=1)
         org.locks.add("admin_petition:rank(2);view_petition:rank(10)")
         self.call_cmd("test org", 'ID Owner        Topic On \n1  Testaccount2 test')
+        self.call_cmd("", 'ID Owner        Topic On \n1  Testaccount2 test')
         self.call_cmd("/assign 1=testaccount2", 'You can only assign members of your organization.')
         self.call_cmd("/assign 1=testaccount", "You have assigned Testaccount to the petition.")
         self.call_cmd("/assign 1=testaccount", 'You have already signed up for this.')

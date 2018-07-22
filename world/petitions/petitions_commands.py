@@ -87,7 +87,11 @@ class CmdPetition(ArxCommand):
                 raise self.PetitionCommandError("You do not have access to view petitions for %s." % org)
             qs = org.petitions.all()
         else:
-            qs = Petition.objects.filter(Q(organization__isnull=True) | Q(dompcs=self.caller.dompc))
+            from world.dominion.models import Organization
+            orgs = Organization.objects.filter(members__deguilded=False).filter(members__player=self.caller.dompc)
+            orgs = [org for org in orgs if org.access(self.caller, "view_petition")]
+            qs = Petition.objects.filter(Q(organization__isnull=True) | Q(dompcs=self.caller.dompc) |
+                                         Q(organization__in=orgs))
         if "old" in self.switches:
             qs = qs.filter(closed=True)
         else:
