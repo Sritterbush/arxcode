@@ -73,11 +73,10 @@ class MarketCmdSet(CmdSet):
         the internal cmdset stack. They will then be able to removed or
         replaced as needed.
         """
-        from world.petitions.petitions_commands import CmdBroker, CmdPetition
+        from world.petitions.petitions_commands import CmdBroker
         self.add(CmdMarket())
         self.add(CmdHaggle())
         self.add(CmdBroker())
-        # self.add(CmdPetition())
 
 
 # noinspection PyUnresolvedReferences

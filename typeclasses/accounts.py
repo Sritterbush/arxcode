@@ -137,6 +137,7 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
             self.msg("{yYou have unresolved tickets assigned to you. Use @job/mine to view them.{n")
             return
         self.check_motd()
+        self.check_petitions()
         # in this mode we should have only one character available. We
         # try to auto-connect to it by calling the @ic command
         # (this relies on player.db._last_puppet being set)
@@ -550,3 +551,13 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
             if org.motd:
                 msg += "|wMessage of the Day for %s:|n %s\n" % (org, org.motd)
         self.msg(msg)
+
+    def check_petitions(self):
+        """Checks if we have any unread petition posts"""
+        try:
+            unread = self.Dominion.petitionparticipation_set.filter(unread_posts=True)
+            if unread:
+                unread_ids = [str(ob.petition.id) for ob in unread]
+                self.msg("{wThe following petitions have unread messages:{n %s" % ", ".join(unread_ids))
+        except AttributeError:
+            pass

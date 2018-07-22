@@ -1,8 +1,13 @@
 """
 Commands for petitions app
 """
+from django.db.models import Q
+
 from server.utils.arx_utils import ArxCommand
-from server.utils.exceptions import PayError
+from server.utils.exceptions import PayError, CommandError
+from server.utils.prettytable import PrettyTable
+from world.petitions.forms import PetitionForm
+from world.petitions.exceptions import PetitionError
 from world.petitions.models import BrokeredSale
 
 
@@ -11,28 +16,233 @@ class CmdPetition(ArxCommand):
     Creates a petition to an org or the market as a whole
 
     Usage:
-    -Viewing/Signups:
+    -Viewing:
         petition [<# to view>]
-        petition/search <keyword>
-        petition/signup <#>
-    -Creation/Deletion:
+        petition[/old] [org name]
+        petition/search <keyword>[=<org name>]
+    -Org admin options
+        petition/assign <#>=<member>
+        petition/remove <#>=<member>
+        petition/close <#>=<message sent to petitioner>
+        petition/reopen <#>
+    -Creation/Submission:
         petition/create [<topic>][=<description>]
         petition/topic <topic>
         petition/desc <description>
-        petition/ooc <ooc notes>
         petition/org <organization>
         petition/submit
-        petition/cancel <#>
+        petition/cancel
+    -Owner/Editing:
+        petition/editdesc <#>=<new desc>
+        petition/edittopic <#>=<new topic>
+    -Anyone with access:
+        petition/signup <#>
+        petition/leave <#>
+        petition/ic_note <#>=<ic note>
+        petition/ooc_note <#>=<ooc note>
 
     Create a petition that is either submitted to an organization or
     posted in the market for signups.
     """
     key = "petition"
-    help_category = "Market"
+    help_category = "Social"
+    list_switches = ("old", "search")
+    anyone_switches = ("signup", "leave", "ic_note", "ooc_note")
+    org_admin_switches = ("assign", "remove")
+    admin_switches = org_admin_switches + ("close", "reopen")
+    creation_switches = ("create", "topic", "desc", "org", "submit", "cancel")
+    owner_switches = ("editdesc", "edittopic")
+
+    class PetitionCommandError(CommandError):
+        """Exception class for Petition Command"""
+        pass
 
     def func(self):
         """Executes petition command"""
-        pass
+        try:
+            if self.check_switches(self.list_switches) or (not self.switches and not self.args.isdigit()):
+                return self.list_petitions()
+            elif not self.switches and self.args.isdigit():
+                return self.display_petition()
+            elif self.check_switches(self.anyone_switches):
+                return self.do_any_access_switches()
+            elif self.check_switches(self.admin_switches):
+                return self.do_admin_switches()
+            elif self.check_switches(self.creation_switches):
+                return self.do_creation_switches()
+            elif self.check_switches(self.owner_switches):
+                return self.do_owner_switches()
+            raise self.PetitionCommandError("Invalid switch.")
+        except (self.PetitionCommandError, PetitionError) as err:
+            self.msg(err)
+
+    def list_petitions(self):
+        """Lists petitions for org/player"""
+        if ("search" in self.switches and self.rhs) or self.args:
+            if self.rhs:
+                org = self.get_org_from_args(self.rhs)
+            else:
+                org = self.get_org_from_args(self.lhs)
+            if not org.access(self.caller, "view_petition"):
+                raise self.PetitionCommandError("You do not have access to view petitions for %s." % org)
+            qs = org.petitions.all()
+        else:
+            qs = self.caller.dompc.petitions.all()
+        if "old" in self.switches:
+            qs = qs.filter(closed=True)
+        else:
+            qs = qs.filter(closed=False)
+        if "search" in self.switches:
+            qs = qs.filter(Q(topic__icontains=self.lhs) | Q(description__icontains=self.lhs))
+        table = PrettyTable(["ID", "Owner", "Topic"])
+        for ob in qs:
+            table.add_row([ob.id, str(ob.owner), ob.topic])
+        self.msg(str(table))
+        self.display_petition_form()
+
+    def display_petition(self):
+        """Displays detail about a petition"""
+        petition = self.get_petition()
+        self.msg(petition.display())
+        petition.mark_posts_read(self.caller.dompc)
+
+    def do_any_access_switches(self):
+        """Commands that anyone who can see the petition can do"""
+        petition = self.get_petition()
+        if "signup" in self.switches:
+            petition.signup(self.caller.dompc)
+            self.msg("You have signed up for this petition.")
+        elif "leave" in self.switches:
+            petition.leave(self.caller.dompc)
+            self.msg("You are no longer signed up for this petition.")
+        else:
+            if not self.rhs:
+                raise self.PetitionCommandError("You must have a message.")
+            if "ic_note" in self.switches:
+                in_character = True
+                msg = "You have posted a message to the petition."
+            else:  # "ooc_note" in self.switches
+                in_character = False
+                msg = "You made an ooc note to the petition."
+            petition.add_post(self.caller.dompc, self.rhs, in_character)
+            self.msg(msg)
+
+    def do_admin_switches(self):
+        """Assign/remove petition from the petition, open or close it"""
+        petition = self.get_petition()
+        if self.check_switches(self.org_admin_switches):
+            from django.core.exceptions import ObjectDoesNotExist
+            if not petition.check_org_access(self.caller.player_ob, "admin_petition"):
+                raise self.PetitionCommandError("That can only be done if the petition is sent to an organization.")
+            player = self.caller.player.search(self.rhs)
+            if not player:
+                return
+            target = player.Dominion
+            verb = "assign" if "assign" in self.switches else "remove"
+            try:
+                member = target.memberships.get(organization=petition.organization)
+                if member.deguilded and verb == "assign":
+                    raise ObjectDoesNotExist
+            except ObjectDoesNotExist:
+                raise self.PetitionCommandError("You can only %s members of your organization." % verb)
+            first_person = target == self.caller.dompc
+            if "assign" in self.switches:
+                petition.signup(target, first_person=first_person)
+                self.msg("You have assigned %s to the petition." % target)
+            else:  # remove them
+                petition.leave(target, first_person=first_person)
+                self.msg("You have removed %s from the petition." % target)
+            return
+        if self.caller.dompc != petition.owner and not petition.check_org_access(self.caller.player, "admin_petition"):
+            raise self.PetitionCommandError("You are not allowed to do that.")
+        if "close" in self.switches:
+            if petition.closed:
+                raise self.PetitionCommandError("It is already closed.")
+            petition.closed = True
+            self.msg("You have closed the petition.")
+        else:  # reopen it
+            if not petition.closed:
+                raise self.PetitionCommandError("It is already open.")
+            petition.closed = False
+            self.msg("You have reopened the petition.")
+        petition.save()
+
+    def do_creation_switches(self):
+        """Handles creation of a new petition"""
+        form = self.caller.db.petition_form
+        if "submit" in self.switches:
+            if not form:
+                raise self.PetitionCommandError("You must create a form first.")
+            form = PetitionForm(form, owner=self.caller.dompc)
+            if not form.is_valid():
+                raise self.PetitionCommandError(form.display_errors())
+            petition = form.save()
+            self.msg("Successfully created petition %s." % petition.id)
+            self.caller.attributes.remove("petition_form")
+        else:
+            if "create" in self.switches:
+                if form:
+                    self.display_petition_form()
+                    raise self.PetitionCommandError("You already are creating a petition.")
+                self.caller.db.petition_form = {'topic': self.lhs or None, 'description': self.rhs}
+            elif "topic" in self.switches:
+                form['topic'] = self.args
+            elif "desc" in self.switches:
+                form['description'] = self.args
+            elif "org" in self.switches:
+                from world.dominion.models import Organization
+                if not self.args:
+                    form['organization'] = None
+                else:
+                    try:
+                        form['organization'] = Organization.objects.get(name__iexact=self.args).id
+                    except (Organization.DoesNotExist, ValueError, TypeError):
+                        raise self.PetitionCommandError("No organization by that name.")
+            self.display_petition_form()
+
+    def do_owner_switches(self):
+        """Owner edit commands"""
+        petition = self.get_petition()
+        if self.caller.dompc != petition.owner:
+            raise self.PetitionCommandError("You must be the owner of the petition to do that.")
+        if not self.rhs:
+            raise self.PetitionCommandError("You must enter text for the description or topic.")
+        if "editdesc" in self.switches:
+            petition.description = self.rhs
+            self.msg("New description: %s" % self.rhs)
+        else:  # edit topic
+            if len(self.rhs) > 120:
+                raise self.PetitionCommandError("Topic is too long.")
+            petition.topic = self.rhs
+            self.msg("New topic: %s" % self.rhs)
+        petition.save()
+
+    def get_org_from_args(self, args):
+        """Gets an organization"""
+        from world.dominion.models import Organization
+        try:
+            return Organization.objects.get(name__iexact=args)
+        except Organization.DoesNotExist:
+            raise self.PetitionCommandError("No organization by the name %s." % args)
+
+    def get_petition(self):
+        """Gets a petition"""
+        from world.petitions.models import Petition
+        try:
+            petition = Petition.objects.get(id=self.lhs)
+        except (Petition.DoesNotExist, ValueError):
+            raise self.PetitionCommandError("No petition by that ID number.")
+        else:
+            if not petition.check_view_access(self.caller.dompc):
+                raise self.PetitionCommandError("You are not allowed to access that petition.")
+            return petition
+
+    def display_petition_form(self):
+        """Displays petition information"""
+        form = self.caller.db.petition_form
+        if not form:
+            return
+        self.msg(PetitionForm(form, owner=self.caller.dompc).display())
 
 
 class CmdBroker(ArxCommand):
@@ -100,10 +310,10 @@ class CmdBroker(ArxCommand):
 
     def broker_display(self):
         """Displays items for sale on the broker"""
-        from server.utils.prettytable import PrettyTable
+
         qs = BrokeredSale.objects.filter(amount__gte=1)
         if "search" in self.switches and self.args:
-            from django.db.models import Q
+
             sale_type = self.get_sale_type()
             if sale_type in (BrokeredSale.ACTION_POINTS, BrokeredSale.ECONOMIC,
                              BrokeredSale.SOCIAL, BrokeredSale.MILITARY):

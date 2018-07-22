@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+from mock import Mock
 
 from server.utils.test_utils import ArxCommandTest
 from world.petitions import petitions_commands
@@ -83,3 +84,55 @@ class TestPetitionCommands(ArxCommandTest):
         self.assertEqual(sale8.pk, None)
         sale7 = BrokeredSale.objects.get(id=7)
         self.assertEqual(sale7.amount, 3)
+
+    def test_cmd_petition(self):
+        from world.petitions.models import Petition, PetitionParticipation
+        from world.dominion.models import Organization
+        self.setup_cmd(petitions_commands.CmdPetition, self.char1)
+        self.call_cmd("", 'ID Owner Topic')
+        self.call_cmd("asdf", "No organization by the name asdf.")
+        self.call_cmd("1", "No petition by that ID number.")
+        pet = Petition.objects.create(topic="test", description="testing")
+        part = PetitionParticipation.objects.create(petition=pet, dompc=self.dompc, is_owner=True)
+        self.call_cmd("1", 'ID: 1  Topic: test\nOwner: Testaccount\nDescription: testing\n\nSignups:')
+        part.dompc = self.dompc2
+        part.save()
+        self.call_cmd("/close 1", "You are not allowed to do that.")
+        org = Organization.objects.create(name='test org')
+        pet.organization = org
+        pet.save()
+        self.call_cmd("1", 'You are not allowed to access that petition.')
+        self.call_cmd("test org", "You do not have access to view petitions for test org.")
+        self.call_cmd("/assign 1=testaccount", "You are not allowed to access that petition.")
+        org.members.create(player=self.dompc, rank=1)
+        org.locks.add("admin_petition:rank(2);view_petition:rank(10)")
+        self.call_cmd("test org", 'ID Owner        Topic \n1  Testaccount2 test')
+        self.call_cmd("/assign 1=testaccount2", 'You can only assign members of your organization.')
+        self.call_cmd("/assign 1=testaccount", "You have assigned Testaccount to the petition.")
+        self.call_cmd("/assign 1=testaccount", 'You have already signed up for this.')
+        self.call_cmd("/remove 1=testaccount2", "You can only remove members of your organization.")
+        self.call_cmd("/remove 1=testaccount", "You have removed Testaccount from the petition.")
+        self.call_cmd("/remove 1=testaccount", "You are not signed up for that petition.")
+        self.assertFalse(pet.closed)
+        self.call_cmd("/close 1", "You have closed the petition.")
+        self.assertTrue(pet.closed)
+        self.call_cmd("/reopen 1", "You have reopened the petition.")
+        self.assertFalse(pet.closed)
+        self.call_cmd("/submit", "You must create a form first.")
+        self.call_cmd("/create", 'Petition Being Created:\nTopic: None\nDescription: None')
+        self.call_cmd("/create", 'Petition Being Created:\nTopic: None\nDescription: None\n|'
+                                 'You already are creating a petition.')
+        self.call_cmd("/submit", 'Please correct the following errors:\n'
+                                 'topic: This field is required.\n'
+                                 'description: This field is required.')
+        self.call_cmd("/org foo", "No organization by that name.")
+        self.call_cmd("/org test org", 'Petition Being Created:\nTopic: None\nDescription: None\nOrganization: test org')
+        self.call_cmd("/org", 'Petition Being Created:\nTopic: None\nDescription: None\n')
+        self.call_cmd("/topic test", 'Petition Being Created:\nTopic: test\nDescription: None\n')
+        self.call_cmd("/desc testing", 'Petition Being Created:\nTopic: test\nDescription: testing\n')
+        self.call_cmd("/submit", "Successfully created petition 2.")
+        self.assertEqual(self.char.db.petition_form, None)
+        self.char.db.petition_form = {'topic': 'test2', 'description': 'testing2', 'organization': org.id}
+        org.inform = Mock()
+        self.call_cmd("/submit", "Successfully created petition 3.")
+        org.inform.assert_called_with('A new petition has been made by Testaccount.', category='Petitions')

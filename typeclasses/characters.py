@@ -1179,3 +1179,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         for ob in self.worn:
             value += ob.armor_resilience
         return int(value)
+
+    @property
+    def dompc(self):
+        """Returns our Dominion object"""
+        return self.player_ob.Dominion

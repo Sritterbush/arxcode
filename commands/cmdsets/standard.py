@@ -121,7 +121,12 @@ try:
     from world.fashion import fashion_commands
 except Exception as err:
     traceback.print_exc()
-    print("<<ERROR>>: Error encountered in condition commands: %s" % err)
+    print("<<ERROR>>: Error encountered in fashion commands: %s" % err)
+try:
+    from world.petitions import petitions_commands
+except Exception as err:
+    traceback.print_exc()
+    print("<<ERROR>>: Error encountered in petition commands: %s" % err)
 from evennia.commands.cmdset import CmdSet
 
 
@@ -242,6 +247,7 @@ class MobileCmdSet(CmdSet):
         self.add(CmdApplyConsumable())
         self.add(gambling.CmdRoll())
         self.add(fashion_commands.CmdFashionModel())
+        self.add(petitions_commands.CmdPetition())
 
 
 class StaffCmdSet(CmdSet):

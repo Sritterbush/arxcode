@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+"""
+Models for Petitions app
+"""
 from __future__ import unicode_literals
 
 from django.db import models
@@ -6,6 +9,7 @@ from django.db import models
 from evennia.utils.idmapper.models import SharedMemoryModel
 
 from server.utils.exceptions import PayError
+from .exceptions import PetitionError
 
 
 class BrokeredSale(SharedMemoryModel):
@@ -138,3 +142,133 @@ class PurchasedAmount(SharedMemoryModel):
     def display(self):
         """Gets string display of the amount purchased and by whom"""
         return "{} bought {}".format(self.buyer, self.amount)
+
+
+class Petition(SharedMemoryModel):
+    """A request for assistance made openly or to an organization"""
+    dompcs = models.ManyToManyField('dominion.PlayerOrNpc', related_name="petitions", through="PetitionParticipation")
+    organization = models.ForeignKey('dominion.Organization', related_name="petitions", blank=True, null=True,
+                                     on_delete=models.CASCADE)
+    closed = models.BooleanField(default=False)
+    topic = models.CharField("Short summary of the petition", max_length=120)
+    description = models.TextField("Description of the petition.")
+
+    @property
+    def owner(self):
+        """Gets first owner, if any"""
+        try:
+            return self.petitionparticipation_set.filter(is_owner=True).first().dompc
+        except AttributeError:
+            pass
+
+    @property
+    def is_public(self):
+        """Whether anyone can see us"""
+        return not self.organization
+
+    def check_view_access(self, dompc):
+        """Whether the petition can be seen"""
+        if self.is_public:
+            return True
+        if dompc == self.owner:
+            return True
+        return self.check_org_access(dompc.player, access_type="view_petition")
+
+    def check_org_access(self, player, access_type):
+        """Checks if the player has access to the org"""
+        try:
+            return self.organization.access(player, access_type)
+        except AttributeError:
+            return False
+
+    def display(self):
+        """String display of the petition"""
+        owner = self.owner
+        participants = self.petitionparticipation_set.filter(signed_up=True)
+        msg = "ID: %s  Topic: %s\n" % (self.id, self.topic)
+        msg += "Owner: %s" % owner
+        if self.organization:
+            msg += "  Organization: %s" % self.organization
+        msg += "\nDescription: %s\n" % self.description
+        msg += "\nSignups: %s" % ", ".join(str(ob) for ob in participants)
+        ic_posts = self.posts.filter(in_character=True)
+        ooc_posts = self.posts.filter(in_character=False)
+        if ic_posts:
+            msg += "\nMessages For this Petition:\n"
+            msg += "\n".join(post.display() for post in ic_posts)
+        if ooc_posts:
+            msg += "\nOOC Notes:\n"
+            msg += "\n".join(post.display() for post in ooc_posts)
+        return msg
+
+    def signup(self, dompc, first_person=True):
+        """Signs up a dompc for this"""
+        if self.petitionparticipation_set.filter(dompc=dompc, signed_up=True).exists():
+            if first_person:
+                raise PetitionError("You have already signed up for this.")
+            else:
+                raise PetitionError("%s has already signed up for this." % dompc)
+        part, _ = self.petitionparticipation_set.get_or_create(dompc=dompc)
+        part.signed_up = True
+        part.save()
+
+    def leave(self, dompc, first_person=True):
+        """Leaves a petition"""
+        try:
+            part = self.petitionparticipation_set.get(dompc=dompc, signed_up=True)
+        except PetitionParticipation.DoesNotExist:
+            if first_person:
+                raise PetitionError("You are not signed up for that petition.")
+            else:
+                raise PetitionError("%s is not signed up for that petition." % dompc)
+        part.signed_up = False
+        part.save()
+
+    def add_post(self, dompc, text, in_character):
+        """Make a new post"""
+        self.posts.create(in_character=in_character, dompc=dompc, text=text)
+        for participant in self.petitionparticipation_set.filter(unread_posts=False).exclude(dompc=dompc):
+            participant.unread_posts = True
+            participant.save()
+            participant.player.msg("{wA new message has been posted to petition %s.{n" % self.id)
+
+    def mark_posts_read(self, dompc):
+        """If dompc is a participant, mark their posts read"""
+        try:
+            participant = self.petitionparticipation_set.get(dompc=dompc)
+            participant.unread_posts = False
+            participant.save()
+        except PetitionParticipation.DoesNotExist:
+            pass
+
+
+class PetitionParticipation(SharedMemoryModel):
+    """A model showing how someone participated in a petition"""
+    petition = models.ForeignKey('Petition')
+    dompc = models.ForeignKey('dominion.PlayerOrNpc')
+    is_owner = models.BooleanField(default=False)
+    signed_up = models.BooleanField(default=False)
+    unread_posts = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('petition', 'dompc')
+
+    def __str__(self):
+        return str(self.dompc)
+
+
+class PetitionPost(SharedMemoryModel):
+    """A model of a message attached to a given petition."""
+    petition = models.ForeignKey('petitions.Petition', related_name="posts")
+    dompc = models.ForeignKey('dominion.PlayerOrNpc', blank=True, null=True)
+    in_character = models.BooleanField(default=True)
+    text = models.TextField(blank=True)
+
+    def display(self):
+        """Display of the post"""
+        if self.in_character:
+            msg = "{wWritten By:{n %s\n" % self.dompc
+        else:
+            msg = "{wOOC Note by:{n%s\n" % self.dompc
+        msg += self.text + "\n"
+        return msg

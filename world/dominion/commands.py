@@ -1824,7 +1824,7 @@ class CmdOrganization(ArxPlayerCommand):
     org_locks = ("edit", "boot", "withdraw", "setrank", "invite",
                  "setruler", "view", "guards", "build", "briefing", 
                  "declarations", "army", "informs", "transactions",
-                 "viewassets", "memberdesc", "motd")
+                 "viewassets", "memberdesc", "motd", "admin_petition", "view_petition")
 
     @staticmethod
     def get_org_and_member(caller, myorgs, args):
