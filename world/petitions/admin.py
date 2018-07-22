@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 from django.contrib import admin
 
-from .models import BrokeredSale, PurchasedAmount
+from .models import BrokeredSale, PurchasedAmount, PetitionParticipation, Petition, PetitionPost
 
 
 class PurchasedAmountInline(admin.TabularInline):
@@ -22,4 +22,27 @@ class BrokeredSaleAdmin(admin.ModelAdmin):
     raw_id_fields = ('owner', 'crafting_material_type',)
 
 
+class PetitionParticipantInline(admin.TabularInline):
+    """Inline for participation in petitions"""
+    model = PetitionParticipation
+    extra = 0
+    raw_id_fields = ('dompc',)
+
+
+class PetitionPostInline(admin.TabularInline):
+    """Inline for posts in petitions"""
+    model = PetitionPost
+    extra = 0
+    raw_id_fields = ('dompc',)
+
+
+class PetitionAdmin(admin.ModelAdmin):
+    """Admin for petitions"""
+    list_display = ('id', 'topic', 'description', 'organization')
+    search_fields = ('id', 'topic', 'description', 'organization__name')
+    raw_id_fields = ('organization',)
+    inlines = (PetitionParticipantInline, PetitionPostInline)
+
+
 admin.site.register(BrokeredSale, BrokeredSaleAdmin)
+admin.site.register(Petition, PetitionAdmin)
