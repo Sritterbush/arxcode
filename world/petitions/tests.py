@@ -89,7 +89,7 @@ class TestPetitionCommands(ArxCommandTest):
         from world.petitions.models import Petition, PetitionParticipation
         from world.dominion.models import Organization
         self.setup_cmd(petitions_commands.CmdPetition, self.char1)
-        self.call_cmd("", 'ID Owner Topic')
+        self.call_cmd("", 'ID Owner Topic On')
         self.call_cmd("asdf", "No organization by the name asdf.")
         self.call_cmd("1", "No petition by that ID number.")
         pet = Petition.objects.create(topic="test", description="testing")
@@ -106,7 +106,7 @@ class TestPetitionCommands(ArxCommandTest):
         self.call_cmd("/assign 1=testaccount", "You are not allowed to access that petition.")
         org.members.create(player=self.dompc, rank=1)
         org.locks.add("admin_petition:rank(2);view_petition:rank(10)")
-        self.call_cmd("test org", 'ID Owner        Topic \n1  Testaccount2 test')
+        self.call_cmd("test org", 'ID Owner        Topic On \n1  Testaccount2 test')
         self.call_cmd("/assign 1=testaccount2", 'You can only assign members of your organization.')
         self.call_cmd("/assign 1=testaccount", "You have assigned Testaccount to the petition.")
         self.call_cmd("/assign 1=testaccount", 'You have already signed up for this.')

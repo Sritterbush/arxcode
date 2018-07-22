@@ -8,7 +8,7 @@ from server.utils.exceptions import PayError, CommandError
 from server.utils.prettytable import PrettyTable
 from world.petitions.forms import PetitionForm
 from world.petitions.exceptions import PetitionError
-from world.petitions.models import BrokeredSale
+from world.petitions.models import BrokeredSale, Petition
 
 
 class CmdPetition(ArxCommand):
@@ -87,16 +87,18 @@ class CmdPetition(ArxCommand):
                 raise self.PetitionCommandError("You do not have access to view petitions for %s." % org)
             qs = org.petitions.all()
         else:
-            qs = self.caller.dompc.petitions.all()
+            qs = Petition.objects.filter(Q(organization__isnull=True) | Q(dompcs=self.caller.dompc))
         if "old" in self.switches:
             qs = qs.filter(closed=True)
         else:
             qs = qs.filter(closed=False)
         if "search" in self.switches:
             qs = qs.filter(Q(topic__icontains=self.lhs) | Q(description__icontains=self.lhs))
-        table = PrettyTable(["ID", "Owner", "Topic"])
+        signed_up = list(self.caller.dompc.petitions.filter(petitionparticipation__signed_up=True))
+        table = PrettyTable(["ID", "Owner", "Topic", "On"])
         for ob in qs:
-            table.add_row([ob.id, str(ob.owner), ob.topic])
+            signed_str = "X" if ob in signed_up else ""
+            table.add_row([ob.id, str(ob.owner), ob.topic, signed_str])
         self.msg(str(table))
         self.display_petition_form()
 
@@ -185,6 +187,8 @@ class CmdPetition(ArxCommand):
                     self.display_petition_form()
                     raise self.PetitionCommandError("You already are creating a petition.")
                 self.caller.db.petition_form = {'topic': self.lhs or None, 'description': self.rhs}
+            elif form is None:
+                raise self.PetitionCommandError("You must use /create first.")
             elif "topic" in self.switches:
                 form['topic'] = self.args
             elif "desc" in self.switches:
@@ -198,6 +202,9 @@ class CmdPetition(ArxCommand):
                         form['organization'] = Organization.objects.get(name__iexact=self.args).id
                     except (Organization.DoesNotExist, ValueError, TypeError):
                         raise self.PetitionCommandError("No organization by that name.")
+            elif "cancel" in self.switches:
+                self.caller.attributes.remove("petition_form")
+                self.msg("Petition form cancelled.")
             self.display_petition_form()
 
     def do_owner_switches(self):
@@ -262,7 +269,8 @@ class CmdBroker(ArxCommand):
     'action points' or 'ap' as the type. To sell or buy resources,
     specify the type of resource (economic, social, or military).
     It costs three times as much action points as the amount you
-    put on the broker. All prices are per-unit.
+    put on the broker. All prices are per-unit. Note that cancelling
+    action points for sale will not refund the full amount.
 
     When searching, you can specify the name of a seller, a type
     of crafting material or resource (umbra, economic, etc), ap,
