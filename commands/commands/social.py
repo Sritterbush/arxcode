@@ -2734,6 +2734,7 @@ class CmdRoomTitle(ArxCommand):
     it.
     """
     key = "+roomtitle"
+    aliases = ["room_title"]
     locks = "cmd:all()"
     help_category = "Social"
 
