@@ -3314,6 +3314,13 @@ class Organization(InformMixin, SharedMemoryModel):
         access_type - type of access sought
         default - what to return if no lock of access_type was found
         """
+        if access_type not in self.locks.locks.keys():
+            try:
+                obj = accessing_obj.player_ob or accessing_obj
+                member = obj.Dominion.memberships.get(deguilded=False, organization=self)
+                return member.rank <= 2
+            except (AttributeError, Member.DoesNotExist):
+                return False
         return self.locks.check(accessing_obj, access_type=access_type, default=default)
 
     def msg(self, message, prefix=True, *args, **kwargs):

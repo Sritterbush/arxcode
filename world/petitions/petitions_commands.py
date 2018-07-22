@@ -46,6 +46,7 @@ class CmdPetition(ArxCommand):
     """
     key = "petition"
     help_category = "Social"
+    aliases = ["petitions"]
     list_switches = ("old", "search")
     anyone_switches = ("signup", "leave", "ic_note", "ooc_note")
     org_admin_switches = ("assign", "remove")
