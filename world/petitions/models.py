@@ -256,6 +256,10 @@ class PetitionParticipation(SharedMemoryModel):
     def __str__(self):
         return str(self.dompc)
 
+    @property
+    def player(self):
+        return self.dompc.player
+
 
 class PetitionPost(SharedMemoryModel):
     """A model of a message attached to a given petition."""
@@ -272,7 +276,3 @@ class PetitionPost(SharedMemoryModel):
             msg = "{wOOC Note by:{n%s\n" % self.dompc
         msg += self.text + "\n"
         return msg
-
-    @property
-    def player(self):
-        return self.dompc.player

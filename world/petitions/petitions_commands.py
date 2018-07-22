@@ -133,7 +133,7 @@ class CmdPetition(ArxCommand):
         if self.check_switches(self.org_admin_switches):
             from django.core.exceptions import ObjectDoesNotExist
             if not petition.check_org_access(self.caller.player_ob, "admin_petition"):
-                raise self.PetitionCommandError("That can only be done if the petition is sent to an organization.")
+                raise self.PetitionCommandError("You don't have admin_petition access to that petition.")
             player = self.caller.player.search(self.rhs)
             if not player:
                 return
