@@ -1271,6 +1271,7 @@ class CmdCalendar(ArxPlayerCommand):
         @cal
         @cal/list
         @cal <event number>
+    Creation:
         @cal/create <name>
         @cal/desc <description>
         @cal/date <date>
@@ -1280,9 +1281,12 @@ class CmdCalendar(ArxPlayerCommand):
         @cal/private
         @cal/addhost <playername>
         @cal/addgm <playername>
+        @cal/addinvitation <playername>
+        @cal/addorg
         @cal/roomdesc <description>
         @cal/abort
         @cal/submit
+    Admin:
         @cal/invite <event number>=<player>[,player2,...]
         @cal/uninvite <event number>=<player>[,player2,...]
         @cal/starteventearly <event number>[=here]
@@ -1629,7 +1633,12 @@ class CmdCalendar(ArxPlayerCommand):
             caller.msg("Reminder - please only add a GM for an event if it's an actual player-run plot. Tagging a "
                        "social event as a PRP is strictly prohibited. If you tagged this as a PRP in error, use "
                        "addgm with no arguments to remove GMs.")
+            hosts = proj[5] or []
+            if gm in hosts:
+                hosts.remove(gm)
+                caller.msg("Upgraded %s from a host to a GM." % gm)
             proj[8] = gms
+            proj[5] = hosts
             caller.ndb.event_creation = proj
             return
         if "create" in self.switches:
@@ -1646,8 +1655,8 @@ class CmdCalendar(ArxPlayerCommand):
             return
         if "submit" in self.switches:
             name, date, loc, desc, public, hosts, largesse, room_desc, gms, plotroom = proj
-            if not (name and date and desc and hosts):
-                caller.msg("Name, date, desc, and hosts must be defined before you submit.")
+            if not (name and date and desc and (hosts or gms)):
+                caller.msg("Name, date, desc, and hosts/gms must be defined before you submit.")
                 caller.msg(self.display_project(proj), options={'box': True})
                 return
             if not largesse:
@@ -1680,17 +1689,16 @@ class CmdCalendar(ArxPlayerCommand):
                                            public_event=public, celebration_tier=cel_lvl,
                                            room_desc=room_desc, plotroom=plotroom, gm_event=gm_event)
             for host in hosts:
-                event.hosts.add(host)
+                main_host = host.player == caller
                 player = host.player
-                if player != caller:
+                event.add_host(host, main_host=main_host)
+                if not main_host:
                     msg = "You have been invited to host {c%s{n." % event.name
                     msg += "\nFor details about this event, use {w@cal %s{n" % event.id
                     player.inform(msg, category="Invitation", append=False)
             for gm in gms:
-                event.gms.add(gm)
+                event.add_gm(gm)
             post = self.display_project(proj)
-            # mark as main host with a tag
-            event.tag_obj(caller)
             caller.ndb.event_creation = None
             caller.msg("New event created: %s at %s." % (event.name, date.strftime("%x %X")))
             inform_staff("New event created by %s: %s, scheduled for %s." % (caller, event.name,

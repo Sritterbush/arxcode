@@ -460,6 +460,22 @@ class PlayerOrNpc(SharedMemoryModel):
         except AttributeError:
             pass
 
+    @property
+    def events_hosted(self):
+        """Events we acted as a host for"""
+        return self.events.filter(pc_event_participation__status__in=(PCEventParticipation.HOST,
+                                                                      PCEventParticipation.MAIN_HOST))
+
+    @property
+    def events_gmd(self):
+        """Events we GM'd"""
+        return self.events.filter(pc_event_participation__status=PCEventParticipation.GM)
+
+    @property
+    def events_attended(self):
+        """Events we were a guest at or invited to attend"""
+        return self.events.filter(pc_event_participation__status=PCEventParticipation.GUEST)
+
 
 class AssetOwner(SharedMemoryModel):
     """
@@ -5319,14 +5335,13 @@ class RPEvent(SharedMemoryModel):
         (MODERATELY_ELEVATED_RISK, "Moderately Elevated Risk"), (HIGHLY_ELEVATED_RISK, "Highly Elevated Risk"),
         (VERY_HIGH_RISK, "Very High Risk"), (EXTREME_RISK, "Extreme Risk"), (SUICIDAL_RISK, "Suicidal Risk"),
         )
-    hosts = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_hosted', db_index=True)
+    dompcs = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events', through='PCEventParticipation')
+    orgs = models.ManyToManyField('Organization', blank=True, related_name='events', through='OrgEventParticipation')
     name = models.CharField(max_length=255, db_index=True)
     desc = models.TextField(blank=True, null=True)
     location = models.ForeignKey('objects.ObjectDB', blank=True, null=True, related_name='events_held',
                                  on_delete=models.SET_NULL)
     date = models.DateTimeField(blank=True, null=True)
-    participants = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_attended', db_index=True)
-    gms = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_gmd', db_index=True)
     celebration_tier = models.PositiveSmallIntegerField(choices=LARGESSE_CHOICES, default=NONE)
     gm_event = models.BooleanField(default=False, blank=False)
     public_event = models.BooleanField(default=True, blank=True)
@@ -5390,6 +5405,22 @@ class RPEvent(SharedMemoryModel):
         self.save()
         return
 
+    @property
+    def hosts(self):
+        """Our host or main host"""
+        return self.dompcs.filter(event_participation__status__in=(PCEventParticipation.HOST,
+                                                                   PCEventParticipation.MAIN_HOST))
+
+    @property
+    def participants(self):
+        """Any guest who was invited/attended"""
+        return self.dompcs.filter(event_participation__status=PCEventParticipation.GUEST)
+
+    @property
+    def gms(self):
+        """GMs for GM Events or PRPs"""
+        return self.dompcs.filter(event_participation__status=PCEventParticipation.GM)
+
     def display(self):
         """Returns string display for event"""
         msg = "{wName:{n %s\n" % self.name
@@ -5400,7 +5431,6 @@ class RPEvent(SharedMemoryModel):
             # prevent seeing names of invites once a private event has started
             if self.date > datetime.now():
                 msg += "{wInvited:{n %s\n" % ", ".join(str(ob) for ob in self.participants.all())
-
         location_name = self.location if self.location else \
             (self.plotroom.ansi_name() if self.plotroom else "None")
         msg += "{wLocation:{n %s\n" % location_name
@@ -5467,14 +5497,10 @@ class RPEvent(SharedMemoryModel):
     @property
     def main_host(self):
         """Returns who the main host was"""
-        from typeclasses.accounts import Account
-        try:
-            return Account.objects.get(db_tags__db_key=self.tagkey)
-        except (Account.DoesNotExist, Account.MultipleObjectsReturned):
-            try:
-                return self.hosts.first().player
-            except (PlayerOrNpc.DoesNotExist, AttributeError):
-                return None
+        hosts = self.dompcs.filter(event_participation__status=PCEventParticipation.MAIN_HOST)
+        if self.gm_event:
+            return self.gms.first() or hosts.first()
+        return hosts.first()
 
     def tag_obj(self, obj):
         """Attaches a tag to obj about this event"""
@@ -5491,9 +5517,52 @@ class RPEvent(SharedMemoryModel):
         return reverse('dominion:display_event', kwargs={'pk': self.id})
 
     @property
-    def characters(self):
-        """Returns set of all PlayerOrNpc objects involved with the event"""
-        return set(self.gms.all() | self.hosts.all() | self.participants.all())
+    def attended(self):
+        """List of dompcs who attended our event, cached to avoid query with every message"""
+        if hasattr(self, '_cached_attendance'):
+            return self._cached_attendance
+        self._cached_attendance = list(self.dompcs.filter(event_participation__attended=True))
+        return self._cached_attendance
+
+    def record_attendance(self, dompc):
+        """Records that dompc attended the event"""
+        if hasattr(self, '_cached_attendance'):
+            del self._cached_attendance
+        part, _ = self.pc_event_participation.get_or_create(dompc=dompc)
+        part.attended = True
+        part.save()
+
+    def add_host(self, dompc, main_host=False):
+        """Adds a host for the event"""
+        part, _ = self.pc_event_participation.get_or_create(dompc=dompc)
+        status = PCEventParticipation.MAIN_HOST if main_host else PCEventParticipation.HOST
+        part.status = status
+        part.save()
+
+    def add_gm(self, dompc):
+        """Adds a gm for the event"""
+        part, _ = self.pc_event_participation.get_or_create(dompc=dompc)
+        part.status = PCEventParticipation.GM
+        part.save()
+
+
+class PCEventParticipation(SharedMemoryModel):
+    """A PlayerOrNPC participating in an event"""
+    MAIN_HOST = 0
+    HOST = 1
+    GM = 2
+    GUEST = 3
+    STATUS_CHOICES = ((MAIN_HOST, "Main Host"), (HOST, "Host"), (GM, "GM"), (GUEST, "Guest"))
+    dompc = models.ForeignKey('PlayerOrNpc', related_name="event_participation")
+    event = models.ForeignKey('RPEvent', related_name="pc_event_participation")
+    status = models.PositiveSmallIntegerField(choices=STATUS_CHOICES, default=GUEST)
+    attended = models.BooleanField(default=False)
+
+
+class OrgEventParticipation(SharedMemoryModel):
+    """An org participating in an event"""
+    org = models.ForeignKey("Organization", related_name="event_participation")
+    event = models.ForeignKey("RPEvent", related_name="org_event_participation")
 
 
 class InfluenceCategory(SharedMemoryModel):
