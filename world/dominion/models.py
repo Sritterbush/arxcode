@@ -5558,9 +5558,7 @@ class RPEvent(SharedMemoryModel):
             OrgEventParticipation.DoesNotExist if the org is not invited.
         """
         part = self.org_event_participation.get(org=org)
-        base = (part.social + 1) * (self.celebration_tier + 1)
-        mult = base / 2000.0
-        return mult, base
+        return (part.social + 1) * (5 + (2 * self.celebration_tier))
 
 
 class PCEventParticipation(SharedMemoryModel):

@@ -1936,13 +1936,12 @@ class CmdPraise(ArxPlayerCommand):
                 raise self.PraiseError("No organization by that name.")
             from django.core.exceptions import ObjectDoesNotExist
             try:
-                mult, minimum = caller.char_ob.location.event.get_sponsor_praise_values(targ)
+                base = caller.char_ob.location.event.get_sponsor_praise_value(targ)
             except (AttributeError, ObjectDoesNotExist):
                 raise self.PraiseError("There is no event going on that has %s as a sponsor." % targ)
             targ = targ.assets
         else:
-            mult = 1
-            minimum = self.MIN_VALUE
+            base = 0
             targ = caller.search(self.lhslist[0])
             if not targ:
                 return
@@ -1979,7 +1978,7 @@ class CmdPraise(ArxPlayerCommand):
         from server.utils.arx_utils import get_week
         if not caller.pay_action_points(1):
             raise self.PraiseError("You cannot muster the energy to praise someone at this time.")
-        amount = self.do_praise_roll(mult, minimum) * to_use
+        amount = self.do_praise_roll(base) * to_use
         praise = PraiseOrCondemn.objects.create(praiser=caller.Dominion, target=targ, number_used=to_use,
                                                 message=self.rhs or "", week=get_week(), value=amount)
         praise.do_prestige_adjustment()
@@ -1989,12 +1988,12 @@ class CmdPraise(ArxPlayerCommand):
         reasons = ": %s" % self.rhs if self.rhs else "."
         char.location.msg_contents("%s is overheard %s %s%s" % (char.name, self.verbing, name, reasons), exclude=char)
 
-    def do_praise_roll(self, mult, minimum):
+    def do_praise_roll(self, base=0):
         """(charm+propaganda at difficulty 15=x, where x >0), x* ((40*prestige mod)+# of social resources)"""
         roll = do_dice_check(self.caller.char_ob, stat='charm', skill='propaganda')
         roll *= int(self.caller.Dominion.assets.prestige_mod)
-        roll = int(roll * mult)
-        return max(roll, minimum)
+        roll += base
+        return max(roll, self.MIN_VALUE)
 
     def get_max_praises(self):
         """Calculates how many praises character has"""
