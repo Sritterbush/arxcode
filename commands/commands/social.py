@@ -1616,7 +1616,7 @@ class CmdCalendar(ArxPlayerCommand):
             try:
                 gm = gm.Dominion
             except AttributeError:
-                char = gm.db.char_ob
+                char = gm.char_ob
                 if not char:
                     caller.msg("GM does not have a character.")
                     return
@@ -1633,12 +1633,7 @@ class CmdCalendar(ArxPlayerCommand):
             caller.msg("Reminder - please only add a GM for an event if it's an actual player-run plot. Tagging a "
                        "social event as a PRP is strictly prohibited. If you tagged this as a PRP in error, use "
                        "addgm with no arguments to remove GMs.")
-            hosts = proj[5] or []
-            if gm in hosts:
-                hosts.remove(gm)
-                caller.msg("Upgraded %s from a host to a GM." % gm)
             proj[8] = gms
-            proj[5] = hosts
             caller.ndb.event_creation = proj
             return
         if "create" in self.switches:

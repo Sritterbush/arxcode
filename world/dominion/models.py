@@ -5419,7 +5419,7 @@ class RPEvent(SharedMemoryModel):
     @property
     def gms(self):
         """GMs for GM Events or PRPs"""
-        return self.dompcs.filter(event_participation__status=PCEventParticipation.GM)
+        return self.dompcs.filter(event_participation__gm=True)
 
     def display(self):
         """Returns string display for event"""
@@ -5497,10 +5497,7 @@ class RPEvent(SharedMemoryModel):
     @property
     def main_host(self):
         """Returns who the main host was"""
-        hosts = self.dompcs.filter(event_participation__status=PCEventParticipation.MAIN_HOST)
-        if self.gm_event:
-            return self.gms.first() or hosts.first()
-        return hosts.first()
+        return self.dompcs.filter(event_participation__status=PCEventParticipation.MAIN_HOST).first()
 
     def tag_obj(self, obj):
         """Attaches a tag to obj about this event"""
@@ -5542,7 +5539,7 @@ class RPEvent(SharedMemoryModel):
     def add_gm(self, dompc):
         """Adds a gm for the event"""
         part, _ = self.pc_event_participation.get_or_create(dompc=dompc)
-        part.status = PCEventParticipation.GM
+        part.gm = True
         part.save()
 
 
@@ -5550,12 +5547,12 @@ class PCEventParticipation(SharedMemoryModel):
     """A PlayerOrNPC participating in an event"""
     MAIN_HOST = 0
     HOST = 1
-    GM = 2
-    GUEST = 3
+    GUEST = 2
     STATUS_CHOICES = ((MAIN_HOST, "Main Host"), (HOST, "Host"), (GM, "GM"), (GUEST, "Guest"))
     dompc = models.ForeignKey('PlayerOrNpc', related_name="event_participation")
     event = models.ForeignKey('RPEvent', related_name="pc_event_participation")
     status = models.PositiveSmallIntegerField(choices=STATUS_CHOICES, default=GUEST)
+    gm = models.BooleanField(default=False)
     attended = models.BooleanField(default=False)
 
 
