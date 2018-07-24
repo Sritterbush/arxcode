@@ -3307,6 +3307,11 @@ class Organization(InformMixin, SharedMemoryModel):
         super(Organization, self).__init__(*args, **kwargs)
         self.locks = LockHandler(self)
 
+    @property
+    def default_access_rank(self):
+        """What rank to default to if they don't set permission"""
+        return 2 if self.secret else 10
+
     def access(self, accessing_obj, access_type='read', default=False):
         """
         Determines if another object has permission to access.
@@ -3318,7 +3323,7 @@ class Organization(InformMixin, SharedMemoryModel):
             try:
                 obj = accessing_obj.player_ob or accessing_obj
                 member = obj.Dominion.memberships.get(deguilded=False, organization=self)
-                return member.rank <= 10
+                return member.rank <= self.default_access_rank
             except (AttributeError, Member.DoesNotExist):
                 return False
         return self.locks.check(accessing_obj, access_type=access_type, default=default)

@@ -1852,7 +1852,7 @@ class CmdOrganization(ArxPlayerCommand):
                 if len(olock) > 1:
                     olock = olock[1].strip()
             else:
-                olock = "rank(10)"
+                olock = "rank(%s)" % org.default_access_rank
             table.add_row([lock, olock])
         caller.msg(table, options={'box': True})
 
