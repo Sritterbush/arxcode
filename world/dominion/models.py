@@ -839,7 +839,7 @@ class PraiseOrCondemn(SharedMemoryModel):
     a character's prestige.
     """
     praiser = models.ForeignKey('PlayerOrNpc', related_name='praises_given')
-    target = models.ForeignKey('PlayerOrNpc', related_name='praises_received')
+    target = models.ForeignKey('AssetOwner', related_name='praises_received')
     message = models.TextField(blank=True)
     week = models.PositiveSmallIntegerField(default=0, blank=0)
     db_date_created = models.DateTimeField(auto_now_add=True)
@@ -854,7 +854,7 @@ class PraiseOrCondemn(SharedMemoryModel):
 
     def do_prestige_adjustment(self):
         """Adjusts the prestige of the target after they're praised."""
-        self.target.assets.adjust_prestige(self.value)
+        self.target.adjust_prestige(self.value)
         msg = "%s has %s you. " % (self.praiser, self.verb)
         msg += "Your prestige has been adjusted by %s." % self.value
         self.target.inform(msg, category=self.verb.capitalize())
@@ -3323,6 +3323,11 @@ class Organization(InformMixin, SharedMemoryModel):
         super(Organization, self).__init__(*args, **kwargs)
         self.locks = LockHandler(self)
 
+    @property
+    def default_access_rank(self):
+        """What rank to default to if they don't set permission"""
+        return 2 if self.secret else 10
+
     def access(self, accessing_obj, access_type='read', default=False):
         """
         Determines if another object has permission to access.
@@ -3334,7 +3339,7 @@ class Organization(InformMixin, SharedMemoryModel):
             try:
                 obj = accessing_obj.player_ob or accessing_obj
                 member = obj.Dominion.memberships.get(deguilded=False, organization=self)
-                return member.rank <= 10
+                return member.rank <= self.default_access_rank
             except (AttributeError, Member.DoesNotExist):
                 return False
         return self.locks.check(accessing_obj, access_type=access_type, default=default)
@@ -5542,13 +5547,28 @@ class RPEvent(SharedMemoryModel):
         part.gm = True
         part.save()
 
+    def get_sponsor_praise_values(self, org):
+        """
+        Gets the multiplier and minimum for an organization sponsor of this event
+        Args:
+            org: Organization that's invited to the event
+        Returns:
+            A muliplier (float) for praises, and a minimum value for each praise.
+        Raises:
+            OrgEventParticipation.DoesNotExist if the org is not invited.
+        """
+        part = self.org_event_participation.get(org=org)
+        base = (part.social + 1) * (self.celebration_tier + 1)
+        mult = base / 2000.0
+        return mult, base
+
 
 class PCEventParticipation(SharedMemoryModel):
     """A PlayerOrNPC participating in an event"""
     MAIN_HOST = 0
     HOST = 1
     GUEST = 2
-    STATUS_CHOICES = ((MAIN_HOST, "Main Host"), (HOST, "Host"), (GM, "GM"), (GUEST, "Guest"))
+    STATUS_CHOICES = ((MAIN_HOST, "Main Host"), (HOST, "Host"), (GUEST, "Guest"))
     dompc = models.ForeignKey('PlayerOrNpc', related_name="event_participation")
     event = models.ForeignKey('RPEvent', related_name="pc_event_participation")
     status = models.PositiveSmallIntegerField(choices=STATUS_CHOICES, default=GUEST)
@@ -5560,6 +5580,7 @@ class OrgEventParticipation(SharedMemoryModel):
     """An org participating in an event"""
     org = models.ForeignKey("Organization", related_name="event_participation")
     event = models.ForeignKey("RPEvent", related_name="org_event_participation")
+    social = models.PositiveSmallIntegerField("Social Resources spent by the Org Sponsor", default=0)
 
 
 class InfluenceCategory(SharedMemoryModel):

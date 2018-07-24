@@ -1887,11 +1887,17 @@ class CmdPraise(ArxPlayerCommand):
     Usage:
         praise <character>[,<num praises>][=<message>]
         praise/all <character>[=<message>]
+        praise/org <org>[,<num praises>][=<message>]
 
     Praises a character, increasing their prestige. Your number
     of praises per week are based on your social rank and skills.
     Using praise with no arguments lists your praises. Costs 1 AP
     regardless of how many praises are used.
+
+    Praises for orgs work a little differently. It may only be used
+    for an organization sponsoring an event while you are in attendance,
+    and the amount gained is based on the largesse of the event and the
+    social resources spent by the organization.
     """
     key = "praise"
     locks = "cmd:all()"
@@ -1902,38 +1908,60 @@ class CmdPraise(ArxPlayerCommand):
     verbing = "praising"
     MIN_VALUE = 10
 
+    class PraiseError(Exception):
+        """Errors when praising"""
+        pass
+
     def func(self):
         """Execute command."""
+        try:
+            if not self.lhs:
+                self.msg(self.display_praises(), options={'box': True})
+                return
+            self.do_praise()
+        except self.PraiseError as err:
+            self.msg(err)
+
+    def do_praise(self):
+        """Executes a praise"""
         caller = self.caller
-        if not self.lhs:
-            caller.msg(self.display_praises(), options={'box': True})
-            return
         # don't you dare judge us for having thought of this
         if self.cmdstring == "praise" and self.lhs.lower() == "the sun":
             caller.msg("Thank you for your jolly cooperation. Heresy averted.")
             return
-        targ = caller.search(self.lhslist[0])
-        if not targ:
-            return
-        try:
-            name = targ.char_ob.roster.roster.name
-            if not name or name.lower() == "incomplete" or not targ.Dominion.assets:
-                raise AttributeError
-        except AttributeError:
-            caller.msg("No character found by '%s'." % self.lhslist[0])
-            return
-        account = caller.roster.current_account
-        if account == targ.roster.current_account:
-            caller.msg("You cannot %s yourself." % self.verb)
-            return
-        if targ.is_staff:
-            caller.msg("Staff don't need your %s." % self.attr)
-            return
+        if "org" in self.switches:
+            try:
+                targ = Organization.objects.get(name__iexact=self.lhslist[0])
+            except Organization.DoesNotExist:
+                raise self.PraiseError("No organization by that name.")
+            from django.core.exceptions import ObjectDoesNotExist
+            try:
+                mult, minimum = caller.char_ob.location.event.get_sponsor_praise_values(targ)
+            except (AttributeError, ObjectDoesNotExist):
+                raise self.PraiseError("There is no event going on that has %s as a sponsor." % targ)
+            targ = targ.assets
+        else:
+            mult = 1
+            minimum = self.MIN_VALUE
+            targ = caller.search(self.lhslist[0])
+            if not targ:
+                return
+            try:
+                name = targ.char_ob.roster.roster.name
+                if not name or name.lower() == "incomplete" or not targ.Dominion.assets:
+                    raise AttributeError
+            except AttributeError:
+                raise self.PraiseError("No character found by '%s'." % self.lhslist[0])
+            account = caller.roster.current_account
+            if account == targ.roster.current_account:
+                raise self.PraiseError("You cannot %s yourself." % self.verb)
+            if targ.is_staff:
+                raise self.PraiseError("Staff don't need your %s." % self.attr)
+            targ = targ.Dominion.assets
         char = caller.char_ob
         current_used = self.current_used
         if current_used >= self.get_max_praises():
-            caller.msg("You have already used all your %s for the week." % self.attr)
-            return
+            raise self.PraiseError("You have already used all your %s for the week." % self.attr)
         if len(self.lhslist) > 1:
             try:
                 to_use = int(self.lhslist[1])
@@ -1942,35 +1970,31 @@ class CmdPraise(ArxPlayerCommand):
                 if to_use > self.get_actions_remaining():
                     raise ValueError
             except ValueError:
-                self.msg("The number of praises used must be a positive number, and less than your max praises.")
-                return
+                raise self.PraiseError("The number of praises used must be a positive number, "
+                                       "and less than your max praises.")
         else:
             to_use = 1 if "all" not in self.switches else self.get_actions_remaining()
         current_used += to_use
         from world.dominion.models import PraiseOrCondemn
         from server.utils.arx_utils import get_week
         if not caller.pay_action_points(1):
-            self.msg("You cannot muster the energy to praise someone at this time.")
-            return
-        amount = self.do_praise_roll() * to_use
-        praise = PraiseOrCondemn.objects.create(praiser=caller.Dominion, target=targ.Dominion, number_used=to_use,
+            raise self.PraiseError("You cannot muster the energy to praise someone at this time.")
+        amount = self.do_praise_roll(mult, minimum) * to_use
+        praise = PraiseOrCondemn.objects.create(praiser=caller.Dominion, target=targ, number_used=to_use,
                                                 message=self.rhs or "", week=get_week(), value=amount)
         praise.do_prestige_adjustment()
+        name = str(targ).capitalize()
         caller.msg("You %s the actions of %s. You have %s %s remaining." %
-                   (self.verb, targ, self.get_actions_remaining(), self.attr)
-                   )
+                   (self.verb, name, self.get_actions_remaining(), self.attr))
         reasons = ": %s" % self.rhs if self.rhs else "."
-        char.location.msg_contents("%s is overheard %s %s%s" % (char.name, self.verbing, targ.key.capitalize(),
-                                                                reasons),
-                                   exclude=char)
+        char.location.msg_contents("%s is overheard %s %s%s" % (char.name, self.verbing, name, reasons), exclude=char)
 
-    def do_praise_roll(self):
+    def do_praise_roll(self, mult, minimum):
         """(charm+propaganda at difficulty 15=x, where x >0), x* ((40*prestige mod)+# of social resources)"""
         roll = do_dice_check(self.caller.char_ob, stat='charm', skill='propaganda')
         roll *= int(self.caller.Dominion.assets.prestige_mod)
-        if roll < self.MIN_VALUE:
-            roll = self.MIN_VALUE
-        return roll
+        roll = int(roll * mult)
+        return max(roll, minimum)
 
     def get_max_praises(self):
         """Calculates how many praises character has"""
