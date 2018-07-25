@@ -18,7 +18,7 @@ class CmdPetition(ArxCommand):
     Usage:
     -Viewing:
         petition [<# to view>]
-        petition[/old] [org name]
+        petition[/old][/onlyorgs] [org name]
         petition/search <keyword>[=<org name>]
     -Org admin options
         petition/assign <#>=<member>
@@ -47,7 +47,7 @@ class CmdPetition(ArxCommand):
     key = "petition"
     help_category = "Social"
     aliases = ["petitions"]
-    list_switches = ("old", "search")
+    list_switches = ("old", "search", "onlyorgs")
     anyone_switches = ("signup", "leave", "ic_note", "ooc_note")
     org_admin_switches = ("assign", "remove")
     admin_switches = org_admin_switches + ("close", "reopen")
@@ -91,8 +91,10 @@ class CmdPetition(ArxCommand):
             from world.dominion.models import Organization
             orgs = Organization.objects.filter(members__deguilded=False).filter(members__player=self.caller.dompc)
             orgs = [org for org in orgs if org.access(self.caller, "view_petition")]
-            qs = Petition.objects.filter(Q(organization__isnull=True) | Q(dompcs=self.caller.dompc) |
-                                         Q(organization__in=orgs))
+            query = Q(organization__in=orgs)
+            if "onlyorgs" not in self.switches:
+                query = query | Q(organization__isnull=True) | Q(dompcs=self.caller.dompc)
+            qs = Petition.objects.filter(query)
         if "old" in self.switches:
             qs = qs.filter(closed=True)
         else:
@@ -103,7 +105,7 @@ class CmdPetition(ArxCommand):
         table = PrettyTable(["ID", "Owner", "Topic", "Org", "On"])
         for ob in qs.distinct():
             signed_str = "X" if ob in signed_up else ""
-            table.add_row([ob.id, str(ob.owner), ob.topic, str(ob.organization), signed_str])
+            table.add_row([ob.id, str(ob.owner), ob.topic[:30], str(ob.organization), signed_str])
         self.msg(str(table))
         self.display_petition_form()
 
