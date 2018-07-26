@@ -24,6 +24,7 @@ from typeclasses.characters import Character
 from typeclasses.rooms import ArxRoom
 from web.character.models import AccountHistory, FirstContact
 from world.dominion import setup_utils
+from world.dominion.forms import RPEventCreateForm
 from world.dominion.models import (RPEvent, Agent, CraftingMaterialType, CraftingMaterials,
                                    AssetOwner, Renown, Reputation, Member, PlotRoom,
                                    PlayerOrNpc, Organization, InfluenceCategory)
@@ -1287,7 +1288,10 @@ class CmdCalendar(ArxPlayerCommand):
         @cal/host <playername>[=<event ID>]
         @cal/gm <playername>[=<event ID>]
         @cal/invite <player or org name>[,player or org name][=<event ID>]
+        @cal/uninvite <player or org name>[,player or org name][=<event ID>]
         @cal/roomdesc <description>[=<event ID>]
+        @cal/risk <risk value>[=<event ID>]
+        @cal/action <action ID #>[=<event ID>]
     In-Progress Controls:
         @cal/join <event number>
         @cal/movehere <event number>
@@ -1327,19 +1331,19 @@ class CmdCalendar(ArxPlayerCommand):
         pass
 
     display_switches = ("old", "list")
-    view_join_or_sponsor_switches = ("comments", "join", "sponsor")
-    attribute_switches = ("plotroom", "roomdesc", "host", "gm", "invite", "uninvite", "location",
-                          "desc", "date", "private")
+    target_event_switches = ("comments", "join", "sponsor")
     form_switches = ("create", "abort", "submit")
-    in_progress_switches = ("join", "movehere", "endevent")
+    attribute_switches = ("plotroom", "roomdesc", "host", "gm", "invite", "uninvite", "location",
+                          "desc", "date", "private", "risk", "action")
+    in_progress_switches = ("movehere", "endevent")
 
     def func(self):
         """Execute command."""
         try:
             if not self.args and (not self.switches or self.check_switches(self.display_switches)):
                 return self.do_display_switches()
-            if not self.switches or self.check_switches(self.view_join_or_sponsor_switches):
-                return self.do_view_join_or_sponsor_switches()
+            if not self.switches or self.check_switches(self.target_event_switches):
+                return self.do_target_event_switches()
             caller = self.caller
             char = caller.char_ob
             dompc = caller.Dominion
@@ -1533,6 +1537,8 @@ class CmdCalendar(ArxPlayerCommand):
                 caller.ndb.event_creation = proj
                 return
             if "submit" in self.switches:
+                event = RPEventCreateForm(data=proj[0], owner=self.caller.Dominion, hosts=proj[1], gms=proj[2],
+                                          orgs=proj[3], invites=proj[3])
                 name, date, loc, desc, public, hosts, largesse, room_desc, gms, plotroom = proj
                 if not (name and date and desc and (hosts or gms)):
                     caller.msg("Name, date, desc, and hosts/gms must be defined before you submit.")
@@ -1820,59 +1826,61 @@ class CmdCalendar(ArxPlayerCommand):
         mssg += "{wRoom Desc:{n %s\n" % roomdesc
         return mssg
 
-    def do_view_join_or_sponsor_switches(self):
+    def do_target_event_switches(self):
+        """Interact with events owned by other players"""
         caller = self.caller
-        if not self.switches or "comments" in self.switches or "join" in self.switches:
-            lhslist = self.lhs.split("/")
-            if len(lhslist) > 1:
-                lhs = lhslist[0]
-                rhs = lhslist[1]
-            else:
-                lhs = self.lhs
-                rhs = self.rhs
-            try:
-                event = RPEvent.objects.get(id=int(lhs))
-            except ValueError:
-                caller.msg("Event must be a number.")
+        lhslist = self.lhs.split("/")
+        if len(lhslist) > 1:
+            lhs = lhslist[0]
+            rhs = lhslist[1]
+        else:
+            lhs = self.lhs
+            rhs = self.rhs
+        event = self.get_event_from_args(lhs)
+        if "join" in self.switches:
+            diff = time_from_now(event.date).total_seconds()
+            if diff > 3600:
+                caller.msg("You cannot join the event until closer to the start time.")
                 return
-            except RPEvent.DoesNotExist:
-                caller.msg("No event found by that number.")
+            if event.plotroom is None:
+                caller.msg("That event takes place on the normal grid, so you can just walk there.")
                 return
-            if not event.can_view(caller):
-                caller.msg("You can't view this event.")
+            if event.location is None:
+                caller.msg("That event has no location to join.")
                 return
-            if "join" in self.switches:
-                diff = time_from_now(event.date).total_seconds()
-                if diff > 3600:
-                    caller.msg("You cannot join the event until closer to the start time.")
-                    return
-                if event.plotroom is None:
-                    caller.msg("That event takes place on the normal grid, so you can just walk there.")
-                    return
-                if event.location is None:
-                    caller.msg("That event has no location to join.")
-                    return
-                caller.msg("Moving you to the event location.")
-                mapping = {'secret': True}
-                caller.char_ob.move_to(event.location, mapping=mapping)
-            # display info on a given event
-            if not rhs:
-                caller.msg(event.display(), options={'box': True})
-                return
-            try:
-                num = int(rhs)
-                if num < 1:
-                    raise ValueError
-                comments = list(event.comments.filter(
-                    db_tags__db_key="white_journal").order_by('-db_date_created'))
-                caller.msg(caller.char_ob.messages.disp_entry(comments[num - 1]))
-                return
-            except (ValueError, TypeError):
-                caller.msg("Must leave a positive number for a comment.")
-                return
-            except IndexError:
-                caller.msg("No entry by that number.")
-                return
+            caller.msg("Moving you to the event location.")
+            mapping = {'secret': True}
+            caller.char_ob.move_to(event.location, mapping=mapping)
+        # display info on a given event
+        if not rhs:
+            caller.msg(event.display(), options={'box': True})
+            return
+        try:
+            num = int(rhs)
+            if num < 1:
+                raise ValueError
+            comments = list(event.comments.filter(
+                db_tags__db_key="white_journal").order_by('-db_date_created'))
+            caller.msg(caller.char_ob.messages.disp_entry(comments[num - 1]))
+            return
+        except (ValueError, TypeError):
+            caller.msg("Must leave a positive number for a comment.")
+            return
+        except IndexError:
+            caller.msg("No entry by that number.")
+            return
+
+    def get_event_from_args(self, args):
+        """Gets an event by args"""
+        try:
+            event = RPEvent.objects.get(id=int(args))
+        except ValueError:
+            raise self.CalCmdError("Event must be a number.")
+        except RPEvent.DoesNotExist:
+            raise self.CalCmdError("No event found by that number.")
+        if not event.can_view(self.caller):
+            raise self.CalCmdError("You can't view this event.")
+        return event
 
 
 class CmdPraise(ArxPlayerCommand):
