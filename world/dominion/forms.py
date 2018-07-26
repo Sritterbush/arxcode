@@ -77,9 +77,8 @@ class RPEventCreateForm(forms.ModelForm):
 
     def display(self):
         """Returns a game-friend display string"""
-        msg = "{wEvent Being Created:\n"
-        msg += "{wName:{n %s\n" % self.data.get('name')
-        msg += "{wPublic:{n %s\n" % self.data.get('public_event', True)
+        msg = "{wName:{n %s\n" % self.data.get('name')
+        msg += "{wPublic:{n %s\n" % "Public" if self.data.get('public_event', True) else "Private"
         msg += "{wDescription:{n %s\n" % self.data.get('desc')
         msg += "{wDate:{n %s\n" % self.data.get('date')
         msg += "{wLocation:{n %s\n" % self.data.get('location')

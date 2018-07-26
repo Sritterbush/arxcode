@@ -1326,23 +1326,27 @@ class CmdCalendar(ArxPlayerCommand):
                           "desc", "date", "private", "risk", "action")
     in_progress_switches = ("movehere", "endevent")
 
+    @property
+    def form(self):
+        """Returns the RPEventCreateForm for the caller"""
+        proj = self.caller.ndb.event_creation
+        if not proj:
+            return
+        return RPEventCreateForm(proj[0], owner=self.caller.Dominion, hosts=proj[1], invites=proj[2],
+                                 org_invites=proj[3], gms=proj[4])
+
     def func(self):
         """Execute command."""
         try:
+            caller = self.caller
             if not self.args and (not self.switches or self.check_switches(self.display_switches)):
                 return self.do_display_switches()
             if not self.switches or self.check_switches(self.target_event_switches):
                 return self.do_target_event_switches()
-            caller = self.caller
-            char = caller.char_ob
-            dompc = caller.Dominion
             if "abort" in self.switches:
                 caller.ndb.event_creation = None
                 self.msg("Event creation cancelled.")
                 return
-
-            # at this point, we may be trying to update our project. Set defaults.
-            proj = caller.ndb.event_creation or [{}, [], [], []]
             if 'largesse' in self.switches:
                 from server.utils.arx_utils import dict_from_choices_field
                 largesse_types = dict_from_choices_field(RPEvent, "LARGESSE_CHOICES", include_uppercase=False)
@@ -1520,45 +1524,30 @@ class CmdCalendar(ArxPlayerCommand):
                 return
             if "create" in self.switches:
                 if RPEvent.objects.filter(name__iexact=self.lhs):
-                    caller.msg("There is already an event by that name. Choose a different name," +
-                               " or add a number if it's a sequel event.")
+                    self.msg("There is already an event by that name. Choose a different name," +
+                             " or add a number if it's a sequel event.")
                     return
-                proj = [self.lhs, proj[1], proj[2], proj[3], proj[4], [dompc] if dompc not in proj[5] else proj[5], proj[6],
-                        proj[7], proj[8], proj[9]]
-                caller.msg("{wStarting project. It will not be saved until you submit it. " +
-                           "Does not persist through logout/server reload.{n")
-                caller.msg(self.display_project(proj), options={'box': True})
-                caller.ndb.event_creation = proj
+                proj = [{}, [], [], [], []]
+                self.caller.ndb.event_creation = proj
+                self.msg("{wStarting project. It will not be saved until you submit it. " +
+                         "Does not persist through logout/server reload.{n")
+                self.msg(self.form.display(), options={'box': True})
                 return
             if "submit" in self.switches:
-                form = RPEventCreateForm(data=proj[0], owner=self.caller.Dominion, hosts=proj[1], gms=proj[2],
-                                         org_invites=proj[3], invites=proj[4])
+                form = self.form
                 if not form.is_valid():
                     raise self.CalCmdError(form.display_errors())
                 if form.cost:
                     self.msg("You pay %s coins for the event." % form.cost)
                 form.save()
-                gm_event = False
-                if any([gm.player.is_staff or gm.player.check_permstring("builder") for gm in gms]):
-                    gm_event = True
                 event = form.save()
-
-                post = self.display_project(proj)
-                caller.ndb.event_creation = None
-                caller.msg("New event created: %s at %s." % (event.name, date.strftime("%x %X")))
-                inform_staff("New event created by %s: %s, scheduled for %s." % (caller, event.name,
-                                                                                 date.strftime("%x %X")))
-
+                self.caller.ndb.event_creation = None
+                self.msg("New event created: %s at %s." % (event.name, event.date.strftime("%x %X")))
+                inform_staff("New event created by %s: %s, scheduled for %s." % (self.caller, event.name,
+                                                                                 event.date.strftime("%x %X")))
                 return
             # both starting an event and ending one requires a Dominion object
-            try:
-                dompc = caller.Dominion
-            except AttributeError:
-                char = caller.char_ob
-                if not char:
-                    caller.msg("You have no character, which is required to set up Dominion.")
-                    return
-                dompc = setup_utils.setup_dom_for_char(char)
+            dompc = self.caller.Dominion
             if "toggleprivate" in self.switches:
                 qs = dompc.events_hosted.all()
                 try:
@@ -1574,15 +1563,15 @@ class CmdCalendar(ArxPlayerCommand):
             # get the events they're hosting
             events = dompc.events_hosted.filter(finished=False)
             if not events:
-                caller.msg("You are not hosting any events that have yet to occur. If you are currently designing "
-                           "an event, submit it first.")
+                self.msg("You are not hosting any events that have yet to occur. If you are currently designing "
+                         "an event, submit it first.")
                 return
             # make sure caller input an integer
             try:
                 eventid = int(self.lhs)
             except (ValueError, TypeError):
-                caller.msg("You must supply a number for an event.")
-                caller.msg(self.display_events(events), options={'box': True})
+                self.msg("You must supply a number for an event.")
+                self.msg(self.display_events(events), options={'box': True})
                 return
             # get the script that manages events
             event_manager = ScriptDB.objects.get(db_key="Event Manager")
@@ -1590,13 +1579,13 @@ class CmdCalendar(ArxPlayerCommand):
             try:
                 event = events.get(id=eventid)
             except RPEvent.DoesNotExist:
-                caller.msg("You are not hosting any event by that number. Your events:")
-                caller.msg(self.display_events(events), options={'box': True})
+                self.msg("You are not hosting any event by that number. Your events:")
+                self.msg(self.display_events(events), options={'box': True})
                 return
             if "invite" in self.switches:
                 invited = []
                 for arg in self.rhslist:
-                    targ = caller.search(arg)
+                    targ = self.caller.search(arg)
                     if not targ:
                         continue
                     pc = targ.Dominion
@@ -1613,7 +1602,7 @@ class CmdCalendar(ArxPlayerCommand):
             if "uninvite" in self.switches:
                 uninvited = []
                 for arg in self.rhslist:
-                    targ = caller.search(arg)
+                    targ = self.caller.search(arg)
                     if not targ:
                         continue
                     pc = targ.Dominion
@@ -1637,34 +1626,34 @@ class CmdCalendar(ArxPlayerCommand):
                 return
             if "endevent" in self.switches:
                 event_manager.finish_event(event)
-                caller.msg("You have ended the event.")
+                self.msg("You have ended the event.")
                 return
             if "reschedule" in self.switches:
                 try:
                     date = datetime.strptime(self.rhs, "%m/%d/%y %H:%M")
                 except ValueError:
-                    caller.msg("Date did not match 'mm/dd/yy hh:mm' format.")
-                    caller.msg("You entered: %s" % self.rhs)
+                    self.msg("Date did not match 'mm/dd/yy hh:mm' format.")
+                    self.msg("You entered: %s" % self.rhs)
                     return
                 now = datetime.now()
                 if date < now:
-                    caller.msg("You cannot schedule an event for the past.")
+                    self.msg("You cannot schedule an event for the past.")
                     return
                 if event.date < now:
                     self.msg("You cannot reschedule an event that's already started.")
                     return
                 event.date = date
                 event.save()
-                caller.msg("Event now scheduled for %s." % date)
+                self.msg("Event now scheduled for %s." % date)
                 event_manager.reschedule_event(event)
                 return
             if "changeroomdesc" in self.switches:
                 event.room_desc = self.rhs
                 event.save()
-                caller.msg("Event's room desc is now:\n%s" % self.rhs)
+                self.msg("Event's room desc is now:\n%s" % self.rhs)
                 return
             if "movehere" in self.switches:
-                loc = caller.db.char_ob.location
+                loc = self.caller.db.char_ob.location
                 event_manager.move_event(event, loc)
                 self.msg("Event moved to your room.")
                 return
@@ -1672,7 +1661,7 @@ class CmdCalendar(ArxPlayerCommand):
                 try:
                     callernpc = PlayerOrNpc.objects.get(player=self.caller)
                 except PlayerOrNpc.DoesNotExist:
-                    caller.msg("You seem to be missing a valid Dominion object!")
+                    self.msg("You seem to be missing a valid Dominion object!")
                     return
 
                 try:
@@ -1703,28 +1692,15 @@ class CmdCalendar(ArxPlayerCommand):
 
             if "cancel" in self.switches:
                 if event.id in event_manager.db.active_events:
-                    caller.msg("You must /end an active event.")
+                    self.msg("You must /end an active event.")
                     return
-                cel_tier = event.celebration_tier
-                if cel_tier == 1:
-                    rating = 'common'
-                elif cel_tier == 2:
-                    rating = 'refined'
-                elif cel_tier == 3:
-                    rating = 'grand'
-                elif cel_tier == 4:
-                    rating = 'extravagant'
-                elif cel_tier == 5:
-                    rating = 'legendary'
-                else:
-                    rating = 'none'
-                cost = costs.get(rating, (0, 0))[0]
-                caller.db.char_ob.pay_money(-cost)
+                cost = event.cost
+                self.caller.char_ob.pay_money(-cost)
                 inform_staff("%s event has been cancelled." % str(event))
                 event_manager.cancel_event(event)
-                caller.msg("You have cancelled the event.")
+                self.msg("You have cancelled the event.")
                 return
-            caller.msg("Invalid switch.")
+            self.msg("Invalid switch.")
         except self.CalCmdError as err:
             self.msg(err)
 

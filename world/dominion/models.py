@@ -5363,6 +5363,11 @@ class RPEvent(SharedMemoryModel):
             prestige /= 2
         return prestige
 
+    @property
+    def cost(self):
+        """Silver cost of the event"""
+        return dict(self.LARGESSE_VALUES)[self.celebration_tier][0]
+
     def can_view(self, player):
         """Who can view this RPEvent"""
         if self.public_event:
