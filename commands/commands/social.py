@@ -1275,27 +1275,19 @@ class CmdCalendar(ArxPlayerCommand):
         @cal/comments <event number>=<comment number>
     Creation:
         @cal/create <name>
-        @cal/desc <description>
-        @cal/date <date>
-        @cal/largesse <level>
-        @cal/location [<room name, otherwise room you're in>]
-        @cal/plotroom [<plot room ID>]
-        @cal/private
-        @cal/addhost <playername>
-        @cal/addgm <playername>
-        @cal/invite <player or org name>[,player or org name]
-        @cal/roomdesc <description>
         @cal/abort
         @cal/submit
-    Editing:
-        @cal/invite <event number>=<player>[,player2,...]
-        @cal/uninvite <event number>=<player>[,player2,...]
-        @cal/starteventearly <event number>[=here]
-        @cal/reschedule <event number>=<new date>
-        @cal/cancel <event number>
-        @cal/changeplotroom <event number>=<ID>
-        @cal/changeroomdesc <event number>=<new desc>
-        @cal/toggleprivate <event number>
+    Creation or Editing:
+        @cal/desc <description>[=<event ID>]
+        @cal/date <date>[=<event ID>]
+        @cal/largesse <level>[=<event ID>]
+        @cal/location [<room name, otherwise room you're in>][=<event ID>]
+        @cal/plotroom [<plot room ID>][=<event ID>]
+        @cal/private <on or off>[=<event ID>]
+        @cal/host <playername>[=<event ID>]
+        @cal/gm <playername>[=<event ID>]
+        @cal/invite <player or org name>[,player or org name][=<event ID>]
+        @cal/roomdesc <description>[=<event ID>]
     In-Progress Controls:
         @cal/join <event number>
         @cal/movehere <event number>
@@ -1336,6 +1328,10 @@ class CmdCalendar(ArxPlayerCommand):
 
     display_switches = ("old", "list")
     view_join_or_sponsor_switches = ("comments", "join", "sponsor")
+    attribute_switches = ("plotroom", "roomdesc", "host", "gm", "invite", "uninvite", "location",
+                          "desc", "date", "private")
+    form_switches = ("create", "abort", "submit")
+    in_progress_switches = ("join", "movehere", "endevent")
 
     def func(self):
         """Execute command."""
