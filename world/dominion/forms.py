@@ -2,6 +2,8 @@
 Forms for Dominion
 """
 from django import forms
+
+from server.utils.exceptions import PayError
 from world.dominion.models import RPEvent
 
 
@@ -34,10 +36,27 @@ class RPEventCreateForm(forms.ModelForm):
         self.fields['desc'].required = True
         self.fields['date'].required = True
 
+    @property
+    def cost(self):
+        """Returns the amount of money needed for validation"""
+        return dict(RPEvent.LARGESSE_CHOICES)[self.data.get('celebration_tier', 0)]
+
+    def pay_costs(self):
+        """Pays costs or adds an error"""
+        try:
+            self.owner.player.char_ob.pay_money(self.cost)
+        except PayError:
+            self.add_error('celebration_tier', "You cannot afford to pay the cost of %s." % self.cost)
+
+    def clean(self):
+        """Validates that we can pay for things. Any special validation should be here"""
+        cleaned_data = super(RPEventCreateForm, self).clean()
+        self.pay_costs()
+        return cleaned_data
+
     def save(self, commit=True):
         """Saves the instance and adds the form's owner as the owner of the petition"""
         event = super(RPEventCreateForm, self).save(commit)
-        # TODO setup the orgparticipation and playerparticipation models
         for host in self.hosts:
             event.add_host(host)
         for gm in self.gms:
@@ -70,7 +89,5 @@ class RPEventCreateForm(forms.ModelForm):
     def display_errors(self):
         """Returns a game-friendly errors string"""
         msg = "Please correct the following errors:\n"
-        msg += "\n".join("%s: %s" % (field,
-                                     ", ".join(str(err.args[0]) for err in errs))
-                         for field, errs in self.errors.as_data().items())
+        msg += "\n".join("%s: %s" % (field, ", ".join(errs)) for field, errs in self.errors.items())
         return msg
