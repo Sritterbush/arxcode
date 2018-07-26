@@ -39,7 +39,7 @@ class RPEventCreateForm(forms.ModelForm):
     @property
     def cost(self):
         """Returns the amount of money needed for validation"""
-        return dict(RPEvent.LARGESSE_CHOICES)[self.data.get('celebration_tier', 0)]
+        return dict(RPEvent.LARGESSE_VALUES)[self.data.get('celebration_tier', 0)][0]
 
     def pay_costs(self):
         """Pays costs or adds an error"""
@@ -65,11 +65,18 @@ class RPEventCreateForm(forms.ModelForm):
             event.add_guest(pc_invite)
         for org in self.org_invites:
             event.invite_org(org)
+        self.post_event(event)
         return event
+
+    def post_event(self, event):
+        """Makes a post of this event"""
+        from evennia.scripts.models import ScriptDB
+        if event.public_event:
+            event_manager = ScriptDB.objects.get(db_key="Event Manager")
+            event_manager.post_event(event, self.owner.player, self.display())
 
     def display(self):
         """Returns a game-friend display string"""
-        from world.dominion.models import Organization
         msg = "{wEvent Being Created:\n"
         msg += "{wName:{n %s\n" % self.data.get('name')
         msg += "{wPublic:{n %s\n" % self.data.get('public_event', True)

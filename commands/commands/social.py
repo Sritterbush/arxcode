@@ -1253,17 +1253,6 @@ class CmdMessenger(ArxCommand):
         return
 
 
-largesse_types = ('none', 'common', 'refined', 'grand', 'extravagant', 'legendary')
-costs = {
-    'none': (0, 0),
-    'common': (100, 1000),
-    'refined': (1000, 5000),
-    'grand': (10000, 20000),
-    'extravagant': (100000, 100000),
-    'legendary': (500000, 400000)
-    }
-
-
 class CmdCalendar(ArxPlayerCommand):
     """
     @cal
@@ -1353,24 +1342,29 @@ class CmdCalendar(ArxPlayerCommand):
                 return
 
             # at this point, we may be trying to update our project. Set defaults.
-            proj = caller.ndb.event_creation or [None, None, None, None, True, [], None, None, [], None]
+            proj = caller.ndb.event_creation or [{}, [], [], []]
             if 'largesse' in self.switches:
+                from server.utils.arx_utils import dict_from_choices_field
+                largesse_types = dict_from_choices_field(RPEvent, "LARGESSE_CHOICES", include_uppercase=False)
+                costs = dict(RPEvent.LARGESSE_VALUES)
                 if not self.args:
                     table = PrettyTable(['level', 'cost', 'prestige'])
-                    for key in largesse_types:
-                        table.add_row([key, costs[key][0], costs[key][1]])
+                    for key in costs:
+                        name = largesse_types[key]
+                        table.add_row([name, costs[key][0], costs[key][1]])
                     caller.msg(table, options={'box': True})
                     return
                 args = self.args.lower()
                 if args not in largesse_types:
                     caller.msg("Argument needs to be in %s." % ", ".join(ob for ob in largesse_types))
                     return
-                cost = costs[args][0]
+                cel_tier = largesse_types[args]
+                cost = costs[cel_tier][0]
                 currency = caller.char_ob.db.currency
                 if currency < cost:
                     caller.msg("That requires %s to buy. You have %s." % (cost, currency))
                     return
-                proj[6] = args
+                proj[0]['celebration_tier'] = cel_tier
                 caller.ndb.proj = proj
                 caller.msg("Largesse level set to %s for %s." % (args, cost))
                 return
@@ -1539,58 +1533,22 @@ class CmdCalendar(ArxPlayerCommand):
             if "submit" in self.switches:
                 form = RPEventCreateForm(data=proj[0], owner=self.caller.Dominion, hosts=proj[1], gms=proj[2],
                                          org_invites=proj[3], invites=proj[4])
-                name, date, loc, desc, public, hosts, largesse, room_desc, gms, plotroom = proj
-                if not (name and date and desc and (hosts or gms)):
-                    caller.msg("Name, date, desc, and hosts/gms must be defined before you submit.")
-                    caller.msg(self.display_project(proj), options={'box': True})
-                    return
-                if not largesse:
-                    cel_lvl = 0
-                elif largesse.lower() == 'common':
-                    cel_lvl = 1
-                elif largesse.lower() == 'refined':
-                    cel_lvl = 2
-                elif largesse.lower() == 'grand':
-                    cel_lvl = 3
-                elif largesse.lower() == 'extravagant':
-                    cel_lvl = 4
-                elif largesse.lower() == 'legendary':
-                    cel_lvl = 5
-                else:
-                    caller.msg("That is not a valid type of largesse.")
-                    caller.msg("It must be 'common', 'refined', 'grand', 'extravagant', or 'legendary.'")
-                    return
-                cost = costs.get(largesse, (0, 0))[0]
-                if cost > caller.char_ob.db.currency:
-                    caller.msg("The largesse level set requires %s, you have %s." % (cost, caller.db.currency))
-                    return
-                else:
-                    caller.char_ob.pay_money(cost)
-                    caller.msg("You pay %s coins for the event." % cost)
+                if not form.is_valid():
+                    raise self.CalCmdError(form.display_errors())
+                if form.cost:
+                    self.msg("You pay %s coins for the event." % form.cost)
+                form.save()
                 gm_event = False
                 if any([gm.player.is_staff or gm.player.check_permstring("builder") for gm in gms]):
                     gm_event = True
-                event = RPEvent.objects.create(name=name, date=date, desc=desc, location=loc,
-                                               public_event=public, celebration_tier=cel_lvl,
-                                               room_desc=room_desc, plotroom=plotroom, gm_event=gm_event)
-                for host in hosts:
-                    main_host = host.player == caller
-                    player = host.player
-                    event.add_host(host, main_host=main_host)
-                    if not main_host:
-                        msg = "You have been invited to host {c%s{n." % event.name
-                        msg += "\nFor details about this event, use {w@cal %s{n" % event.id
-                        player.inform(msg, category="Invitation", append=False)
-                for gm in gms:
-                    event.add_gm(gm)
+                event = form.save()
+
                 post = self.display_project(proj)
                 caller.ndb.event_creation = None
                 caller.msg("New event created: %s at %s." % (event.name, date.strftime("%x %X")))
                 inform_staff("New event created by %s: %s, scheduled for %s." % (caller, event.name,
                                                                                  date.strftime("%x %X")))
-                if event.public_event:
-                    event_manager = ScriptDB.objects.get(db_key="Event Manager")
-                    event_manager.post_event(event, caller, post)
+
                 return
             # both starting an event and ending one requires a Dominion object
             try:

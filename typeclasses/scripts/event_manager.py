@@ -267,8 +267,7 @@ class EventManager(Script):
 
     @staticmethod
     def do_awards(event):
-        participants = list(event.participants.all())
-        qualified_hosts = [ob for ob in event.hosts.all() if ob in participants]
+        qualified_hosts = [ob for ob in event.hosts if ob in event.attended]
         if not qualified_hosts:
             main_host = event.main_host
             if main_host:
@@ -284,9 +283,10 @@ class EventManager(Script):
             except (AttributeError, ValueError, TypeError):
                 pass
             # award prestige
-            if not host.assets or not event.celebration_tier:
+            try:
+                host.assets.adjust_prestige(event.prestige/len(qualified_hosts))
+            except (AttributeError, ValueError, TypeError):
                 continue
-            host.assets.adjust_prestige(event.prestige/len(qualified_hosts))
 
     def cancel_event(self, event):
         if event.id in self.db.pending_start:

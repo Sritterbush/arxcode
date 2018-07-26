@@ -504,12 +504,13 @@ def broadcast_msg_and_post(msg, caller, episode_name=None):
     bboard.bb_post(poster_obj=caller, msg=post_msg, subject=subject, poster_name="Story")
 
 
-def dict_from_choices_field(cls, field_name):
+def dict_from_choices_field(cls, field_name, include_uppercase=True):
     """Gets a dict from a Choices tuple in a model"""
     choices_tuple = getattr(cls, field_name)
     lower_case_dict = {string.lower(): integer for integer, string in choices_tuple}
-    upper_case_dict = {string.capitalize(): integer for integer, string in choices_tuple}
-    lower_case_dict.update(upper_case_dict)
+    if include_uppercase:
+        upper_case_dict = {string.capitalize(): integer for integer, string in choices_tuple}
+        lower_case_dict.update(upper_case_dict)
     return lower_case_dict
 
 

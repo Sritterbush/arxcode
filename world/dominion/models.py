@@ -5313,14 +5313,11 @@ class RPEvent(SharedMemoryModel):
     EXTRAVAGANT = 4
     LEGENDARY = 5
 
-    LARGESSE_CHOICES = (
-        (NONE, 'Small'),
-        (COMMON, 'Average'),
-        (REFINED, 'Refined'),
-        (GRAND, 'Grand'),
-        (EXTRAVAGANT, 'Extravagant'),
-        (LEGENDARY, 'Legendary'),
-        )
+    LARGESSE_CHOICES = ((NONE, 'Small'), (COMMON, 'Average'), (REFINED, 'Refined'), (GRAND, 'Grand'),
+        (EXTRAVAGANT, 'Extravagant'), (LEGENDARY, 'Legendary'),)
+    # costs and prestige awards
+    LARGESSE_VALUES = ((NONE, (0, 0)), (COMMON, (100, 1000)), (REFINED, (1000, 5000)), (GRAND, (10000, 20000)),
+                       (EXTRAVAGANT, (100000, 100000)), (LEGENDARY, (500000, 400000)))
 
     NO_RISK = 0
     MINIMAL_RISK = 1
@@ -5361,17 +5358,7 @@ class RPEvent(SharedMemoryModel):
     def prestige(self):
         """Prestige granted by RP Event"""
         cel_level = self.celebration_tier
-        prestige = 0
-        if cel_level == 1:
-            prestige = 1000
-        elif cel_level == 2:
-            prestige = 5000
-        elif cel_level == 3:
-            prestige = 20000
-        elif cel_level == 4:
-            prestige = 100000
-        elif cel_level == 5:
-            prestige = 400000
+        prestige = dict(self.LARGESSE_VALUES)[cel_level][1]
         if not self.public_event:
             prestige /= 2
         return prestige
@@ -5546,6 +5533,9 @@ class RPEvent(SharedMemoryModel):
     def add_guest(self, dompc):
         """Adds a guest to the event"""
         self.invite_dompc(dompc, 'status', PCEventParticipation.GUEST)
+        if not self.gm_event and (dompc.player.is_staff or dompc.player.check_permstring("builders")):
+            self.gm_event = True
+            self.save()
 
     def invite_dompc(self, dompc, field, value):
         """Invites a dompc to be a host, gm, or guest"""
@@ -5597,7 +5587,8 @@ class PCEventParticipation(SharedMemoryModel):
                 msg = "You have been invited to GM"
             else:
                 msg = "You have been invited to be a %s" % self.get_status_display()
-            msg += " at %s." % self.event
+            msg += " at {c%s.{n" % self.event
+            msg += "\nFor details about this event, use {w@cal %s{n" % self.event.id
             self.dompc.inform(msg, category="Event Invitations")
 
 
