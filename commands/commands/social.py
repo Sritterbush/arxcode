@@ -1537,8 +1537,8 @@ class CmdCalendar(ArxPlayerCommand):
                 caller.ndb.event_creation = proj
                 return
             if "submit" in self.switches:
-                event = RPEventCreateForm(data=proj[0], owner=self.caller.Dominion, hosts=proj[1], gms=proj[2],
-                                          orgs=proj[3], invites=proj[3])
+                form = RPEventCreateForm(data=proj[0], owner=self.caller.Dominion, hosts=proj[1], gms=proj[2],
+                                         org_invites=proj[3], invites=proj[4])
                 name, date, loc, desc, public, hosts, largesse, room_desc, gms, plotroom = proj
                 if not (name and date and desc and (hosts or gms)):
                     caller.msg("Name, date, desc, and hosts/gms must be defined before you submit.")

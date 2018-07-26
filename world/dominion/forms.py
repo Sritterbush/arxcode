@@ -28,6 +28,7 @@ class RPEventCreateForm(forms.ModelForm):
         self.owner = kwargs.pop('owner')
         self.hosts = kwargs.pop('hosts', [])
         self.invites = kwargs.pop('invites', [])
+        self.org_invites = kwargs.pop('org_invites', [])
         self.gms = kwargs.pop('gms', [])
         super(RPEventCreateForm, self).__init__(*args, **kwargs)
         self.fields['desc'].required = True
@@ -37,6 +38,14 @@ class RPEventCreateForm(forms.ModelForm):
         """Saves the instance and adds the form's owner as the owner of the petition"""
         event = super(RPEventCreateForm, self).save(commit)
         # TODO setup the orgparticipation and playerparticipation models
+        for host in self.hosts:
+            event.add_host(host)
+        for gm in self.gms:
+            event.add_gm(gm)
+        for pc_invite in self.invites:
+            event.add_guest(pc_invite)
+        for org in self.org_invites:
+            event.invite_org(org)
         return event
 
     def display(self):

@@ -5536,16 +5536,28 @@ class RPEvent(SharedMemoryModel):
 
     def add_host(self, dompc, main_host=False):
         """Adds a host for the event"""
-        part, _ = self.pc_event_participation.get_or_create(dompc=dompc)
         status = PCEventParticipation.MAIN_HOST if main_host else PCEventParticipation.HOST
-        part.status = status
-        part.save()
+        self.invite_dompc(dompc, 'status', status)
 
     def add_gm(self, dompc):
         """Adds a gm for the event"""
+        self.invite_dompc(dompc, 'gm', True)
+
+    def add_guest(self, dompc):
+        """Adds a guest to the event"""
+        self.invite_dompc(dompc, 'status', PCEventParticipation.GUEST)
+
+    def invite_dompc(self, dompc, field, value):
+        """Invites a dompc to be a host, gm, or guest"""
         part, _ = self.pc_event_participation.get_or_create(dompc=dompc)
-        part.gm = True
+        setattr(part, field, value)
         part.save()
+        self.invite_participant(part)
+
+    def invite_org(self, org):
+        """Invites an org to attend or sponsor the event"""
+        part, _ = self.org_event_participation.get_or_create(org=org)
+        self.invite_participant(org)
 
     def get_sponsor_praise_values(self, org):
         """
@@ -5560,6 +5572,11 @@ class RPEvent(SharedMemoryModel):
         part = self.org_event_participation.get(org=org)
         return (part.social + 1) * (5 + (2 * self.celebration_tier))
 
+    def invite_participant(self, participant):
+        """Sends an invitation if we're not finished"""
+        if not self.finished:
+            participant.invite()
+
 
 class PCEventParticipation(SharedMemoryModel):
     """A PlayerOrNPC participating in an event"""
@@ -5573,12 +5590,26 @@ class PCEventParticipation(SharedMemoryModel):
     gm = models.BooleanField(default=False)
     attended = models.BooleanField(default=False)
 
+    def invite(self):
+        """Sends an invitation to someone if we're not a main host"""
+        if self.status != self.MAIN_HOST:
+            if self.gm:
+                msg = "You have been invited to GM"
+            else:
+                msg = "You have been invited to be a %s" % self.get_status_display()
+            msg += " at %s." % self.event
+            self.dompc.inform(msg, category="Event Invitations")
+
 
 class OrgEventParticipation(SharedMemoryModel):
     """An org participating in an event"""
     org = models.ForeignKey("Organization", related_name="event_participation")
     event = models.ForeignKey("RPEvent", related_name="org_event_participation")
     social = models.PositiveSmallIntegerField("Social Resources spent by the Org Sponsor", default=0)
+
+    def invite(self):
+        """Informs the org of their invitation"""
+        self.org.inform("Your organization has been invited to attend %s." % self.event, category="Event Invitations")
 
 
 class InfluenceCategory(SharedMemoryModel):
