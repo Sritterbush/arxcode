@@ -1501,36 +1501,9 @@ class CmdCalendar(ArxPlayerCommand):
         if "gm" in self.switches:
             return self.add_or_remove_gm(event)
         if "invite" in self.switches:
-            invited = []
-            for arg in self.rhslist:
-                targ = self.caller.search(arg)
-                if not targ:
-                    continue
-                pc = targ.Dominion
-                if pc in event.participants.all():
-                    self.msg("%s is already invited to attend." % pc)
-                    continue
-                event.participants.add(pc)
-                invited.append(str(pc))
-                msg = "You have been invited to attend {c%s{n." % event.name
-                msg += "\nFor details about this event, use {w@cal %s{n" % event.id
-                targ.inform(msg, category="Invitation", append=False)
-            self.msg("{wInvited {c%s{w to attend %s." % (", ".join(invited), event))
-            return
+            return self.invite_org_or_player(event)
         if "uninvite" in self.switches:
-            uninvited = []
-            for arg in self.rhslist:
-                targ = self.caller.search(arg)
-                if not targ:
-                    continue
-                pc = targ.Dominion
-                if pc not in event.participants.all():
-                    self.msg("%s is already not invited to attend." % pc)
-                    continue
-                event.participants.remove(pc)
-                uninvited.append(str(pc))
-            self.msg("{wUninvited {c%s{w from attending %s." % (", ".join(uninvited), event))
-            return
+            return self.uninvite_org_or_player(event)
 
     def do_in_progress_switches(self):
         """Change event in progress"""
@@ -1768,6 +1741,55 @@ class CmdCalendar(ArxPlayerCommand):
                     self.caller.ndb.event_creation['invites'].remove(gm.id)
                 msg = add_msg % gm
         self.msg(msg)
+
+    def invite_org_or_player(self, event):
+        """Invites an organization or player to an event"""
+        org = None
+        pc = None
+        try:
+            org = Organization.objects.get(name__iexact=self.lhs)
+        except Organization.DoesNotExist:
+            pc = self.caller.search(self.lhs)
+            if not pc:
+                raise self.CalCmdError("Could not find an organization or player by that name.")
+        if event:
+            if org:
+                if org in event.orgs:
+                    raise self.CalCmdError("That organization is already invited.")
+                event.invite_org(org)
+            else:
+                if pc in event.dompcs.all():
+                    raise self.CalCmdError("They are already invited.")
+                event.add_guest(pc)
+        else:
+            proj = self.caller.ndb.event_creation
+            if org:
+                if org.id in proj['org_invites']:
+                    raise self.CalCmdError("That organization is already invited.")
+                proj['org_invites'].append(org.id)
+            else:
+                if pc.id in proj['hosts'] or pc.id in proj['gms']:
+                    raise self.CalCmdError("They are already invited to host or gm.")
+                if pc.id in proj['invites']:
+                    raise self.CalCmdError("They are already invited.")
+                proj['invites'].append(pc.id)
+        self.msg("{wInvited {c%s{w to attend." % (pc or org))
+
+    def uninvite_org_or_player(self, event):
+        """Uninvites an organization or player from an event"""
+        uninvited = []
+        for arg in self.rhslist:
+            targ = self.caller.search(arg)
+            if not targ:
+                continue
+            pc = targ.Dominion
+            if pc not in event.participants.all():
+                self.msg("%s is already not invited to attend." % pc)
+                continue
+            event.participants.remove(pc)
+            uninvited.append(str(pc))
+        self.msg("{wUninvited {c%s{w from attending %s." % (", ".join(uninvited), event))
+        return
 
 
 class CmdPraise(ArxPlayerCommand):
