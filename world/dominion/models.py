@@ -5382,6 +5382,8 @@ class RPEvent(SharedMemoryModel):
         """Who can run admin commands for this event"""
         if player.check_permstring("builders"):
             return True
+        if self.gm_event:
+            return False
         try:
             dompc = player.Dominion
             if not dompc:
@@ -5543,9 +5545,21 @@ class RPEvent(SharedMemoryModel):
         status = PCEventParticipation.MAIN_HOST if main_host else PCEventParticipation.HOST
         self.invite_dompc(dompc, 'status', status)
 
+    def change_host_to_guest(self, dompc):
+        """Changes a host to a guest"""
+        part = self.pc_event_participation.get(dompc=dompc)
+        part.status = PCEventParticipation.GUEST
+        part.save()
+
     def add_gm(self, dompc):
         """Adds a gm for the event"""
         self.invite_dompc(dompc, 'gm', True)
+
+    def untag_gm(self, dompc):
+        """Removes GM tag from a participant"""
+        part = self.pc_event_participation.get(dompc=dompc)
+        part.gm = False
+        part.save()
 
     def add_guest(self, dompc):
         """Adds a guest to the event"""

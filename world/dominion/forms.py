@@ -79,7 +79,10 @@ class RPEventCreateForm(forms.ModelForm):
 
     def pay_costs(self):
         """Pays the costs of the event"""
-        self.owner.player.char_ob.pay_money(self.cost)
+        cost = self.cost
+        if cost:
+            self.owner.player.char_ob.pay_money(cost)
+            self.owner.player.msg("You pay %s coins for the event." % cost)
 
     def post_event(self, event):
         """Makes a post of this event"""
