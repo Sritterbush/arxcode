@@ -1336,8 +1336,7 @@ class CmdCalendar(ArxPlayerCommand):
         proj = self.caller.ndb.event_creation
         if not proj:
             return
-        return RPEventCreateForm(proj[0], owner=self.caller.Dominion, hosts=proj[1], invites=proj[2],
-                                 org_invites=proj[3], gms=proj[4])
+        return RPEventCreateForm(proj, owner=self.caller.Dominion)
 
     @property
     def event_manager(self):
@@ -1360,309 +1359,6 @@ class CmdCalendar(ArxPlayerCommand):
                 return self.do_in_progress_switches()
             if self.check_switches(self.admin_switches):
                 return self.do_admin_switches()
-            
-            if 'largesse' in self.switches:
-                from server.utils.arx_utils import dict_from_choices_field
-                largesse_types = dict_from_choices_field(RPEvent, "LARGESSE_CHOICES", include_uppercase=False)
-                costs = dict(RPEvent.LARGESSE_VALUES)
-                if not self.args:
-                    table = PrettyTable(['level', 'cost', 'prestige'])
-                    for key in costs:
-                        name = largesse_types[key]
-                        table.add_row([name, costs[key][0], costs[key][1]])
-                    caller.msg(table, options={'box': True})
-                    return
-                args = self.args.lower()
-                if args not in largesse_types:
-                    caller.msg("Argument needs to be in %s." % ", ".join(ob for ob in largesse_types))
-                    return
-                cel_tier = largesse_types[args]
-                cost = costs[cel_tier][0]
-                currency = caller.char_ob.db.currency
-                if currency < cost:
-                    caller.msg("That requires %s to buy. You have %s." % (cost, currency))
-                    return
-                proj[0]['celebration_tier'] = cel_tier
-                caller.ndb.proj = proj
-                caller.msg("Largesse level set to %s for %s." % (args, cost))
-                return
-            if "date" in self.switches:
-                try:
-                    date = datetime.strptime(self.lhs, "%m/%d/%y %H:%M")
-                except ValueError:
-                    caller.msg("Date did not match 'mm/dd/yy hh:mm' format.")
-                    caller.msg("You entered: %s" % self.lhs)
-                    return
-                now = datetime.now()
-                if date < now:
-                    caller.msg("You cannot make an event for the past.")
-                    return
-                proj[1] = date
-                caller.ndb.proj = proj
-                caller.msg("Date set to %s." % date.strftime("%x %X"))
-                caller.msg("Current time is %s for comparison." % (datetime.now().strftime("%x %X")))
-                offset = timedelta(hours=2)
-                count = RPEvent.objects.filter(date__lte=date+offset, date__gte=date-offset).count()
-                caller.msg("Number of events within 2 hours of that date: %s" % count)
-                return
-            if "location" in self.switches:
-                if self.lhs:
-                    try:
-                        try:
-                            room = ObjectDB.objects.get(db_typeclass_path=settings.BASE_ROOM_TYPECLASS,
-                                                        db_key__iexact=self.lhs)
-                        except ObjectDB.DoesNotExist:
-                            room = ObjectDB.objects.get(db_typeclass_path=settings.BASE_ROOM_TYPECLASS,
-                                                        db_key__icontains=self.lhs)
-                    except (ObjectDB.DoesNotExist, ObjectDB.MultipleObjectsReturned):
-                        caller.msg("Could not find a unique match for %s." % self.lhs)
-                        return
-                else:
-                    if not caller.character:
-                        caller.msg("You must be in a room to mark it as the event location.")
-                        return
-                    room = caller.character.location
-                if not room:
-                    caller.msg("No room found.")
-                    return
-                proj[2] = room
-                proj[9] = None
-                caller.ndb.event_creation = proj
-                caller.msg("Room set to %s." % room.name)
-                return
-            if "desc" in self.switches:
-                proj[3] = self.lhs
-                caller.ndb.event_creation = proj
-                caller.msg("Desc of event set to:\n%s" % self.lhs)
-                return
-            if "roomdesc" in self.switches:
-                proj[7] = self.lhs
-                caller.ndb.event_creation = proj
-                caller.msg("Room desc of event set to:\n%s" % self.lhs)
-                return
-            if "plotroom" in self.switches:
-                if self.lhs:
-                    try:
-                        callernpc = PlayerOrNpc.objects.get(player=self.caller)
-                    except PlayerOrNpc.DoesNotExist:
-                        caller.msg("You seem to be missing a valid Dominion object!")
-                        return
-
-                    try:
-                        room_id = int(self.lhs)
-                        plotrooms = PlotRoom.objects.filter(Q(id=room_id)
-                                                            & (Q(creator=callernpc) | Q(public=True)))
-                    except ValueError:
-                        plotrooms = PlotRoom.objects.filter(Q(name__icontains=self.lhs)
-                                                            & (Q(creator=callernpc) | Q(public=True)))
-
-                    if not plotrooms:
-                        caller.msg("No plotrooms found matching %s" % self.lhs)
-                        return
-
-                    if len(plotrooms) > 1:
-                        caller.msg("Found multiple rooms matching %s:" % self.lhs)
-                        for room in plotrooms:
-                            caller.msg("  %d: %s (%s)" % (room.id, room.name, room.get_detailed_region_name()))
-                        return
-
-                    proj[9] = plotrooms[0]
-                    proj[2] = None
-                    caller.msg("Plot room for event set to %d: %s" % (proj[9].id, proj[9].ansi_name()))
-                else:
-                    proj[9] = None
-                    caller.msg("Plot room for event cleared.")
-                caller.ndb.event_creation = proj
-                return
-            if "private" in self.switches:
-                proj[4] = not proj[4]
-                caller.ndb.event_creation = proj
-                caller.msg("Public is now set to: %s" % proj[4])
-                return
-            if "addhost" in self.switches:
-                hosts = proj[5] or []
-                host = caller.search(self.lhs)
-                if not host:
-                    return
-                if host in hosts:
-                    caller.msg("Host is already listed.")
-                    return
-                try:
-                    host = host.Dominion
-                except AttributeError:
-                    char = host.db.char_ob
-                    if not char:
-                        caller.msg("Host does not have a character.")
-                        return
-                    host = setup_utils.setup_dom_for_char(char)
-                hosts.append(host)
-                caller.msg("%s added to hosts." % host)
-                caller.msg("Hosts are: %s" % ", ".join(str(host) for host in hosts))
-                proj[5] = hosts
-                caller.ndb.event_creation = proj
-                return
-            if "addgm" in self.switches:
-                gms = proj[8] or []
-                if self.lhs:
-                    gm = caller.search(self.lhs)
-                else:  # no args, remove GMs
-                    gms = []
-                    proj[8] = gms
-                    caller.ndb.event_creation = proj
-                    self.msg("GMs removed.")
-                    return
-                if not gm:
-                    return
-                try:
-                    gm = gm.Dominion
-                except AttributeError:
-                    char = gm.char_ob
-                    if not char:
-                        caller.msg("GM does not have a character.")
-                        return
-                    gm = setup_utils.setup_dom_for_char(char)
-                if gm in gms:
-                    caller.msg("GM is already listed.")
-                    return
-                if len(gms) >= 2:
-                    self.msg("Please limit yourself to one or two designated GMs.")
-                    return
-                gms.append(gm)
-                caller.msg("%s added to GMs." % gm)
-                caller.msg("GMs are: %s" % ", ".join(str(gm) for gm in gms))
-                caller.msg("Reminder - please only add a GM for an event if it's an actual player-run plot. Tagging a "
-                           "social event as a PRP is strictly prohibited. If you tagged this as a PRP in error, use "
-                           "addgm with no arguments to remove GMs.")
-                proj[8] = gms
-                caller.ndb.event_creation = proj
-                return
-            
-            # both starting an event and ending one requires a Dominion object
-            dompc = self.caller.Dominion
-            if "toggleprivate" in self.switches:
-                qs = dompc.events_hosted.all()
-                try:
-                    event = qs.get(id=int(self.args))
-                except (RPEvent.DoesNotExist, ValueError, TypeError):
-                    self.msg("You have not hosted an event by that number.")
-                    self.msg(self.display_events(qs))
-                    return
-                event.public_event = not event.public_event
-                event.save()
-                self.msg("%s's public status has been set to %s." % (event, event.public_event))
-                return
-            # get the events they're hosting
-            events = dompc.events_hosted.filter(finished=False)
-            if not events:
-                self.msg("You are not hosting any events that have yet to occur. If you are currently designing "
-                         "an event, submit it first.")
-                return
-            # make sure caller input an integer
-            try:
-                eventid = int(self.lhs)
-            except (ValueError, TypeError):
-                self.msg("You must supply a number for an event.")
-                self.msg(self.display_events(events), options={'box': True})
-                return
-            # get the script that manages events
-
-            # try to get event matching caller's input
-            try:
-                event = events.get(id=eventid)
-            except RPEvent.DoesNotExist:
-                self.msg("You are not hosting any event by that number. Your events:")
-                self.msg(self.display_events(events), options={'box': True})
-                return
-            if "invite" in self.switches:
-                invited = []
-                for arg in self.rhslist:
-                    targ = self.caller.search(arg)
-                    if not targ:
-                        continue
-                    pc = targ.Dominion
-                    if pc in event.participants.all():
-                        self.msg("%s is already invited to attend." % pc)
-                        continue
-                    event.participants.add(pc)
-                    invited.append(str(pc))
-                    msg = "You have been invited to attend {c%s{n." % event.name
-                    msg += "\nFor details about this event, use {w@cal %s{n" % event.id
-                    targ.inform(msg, category="Invitation", append=False)
-                self.msg("{wInvited {c%s{w to attend %s." % (", ".join(invited), event))
-                return
-            if "uninvite" in self.switches:
-                uninvited = []
-                for arg in self.rhslist:
-                    targ = self.caller.search(arg)
-                    if not targ:
-                        continue
-                    pc = targ.Dominion
-                    if pc not in event.participants.all():
-                        self.msg("%s is already not invited to attend." % pc)
-                        continue
-                    event.participants.remove(pc)
-                    uninvited.append(str(pc))
-                self.msg("{wUninvited {c%s{w from attending %s." % (", ".join(uninvited), event))
-                return
-
-
-            if "reschedule" in self.switches:
-                try:
-                    date = datetime.strptime(self.rhs, "%m/%d/%y %H:%M")
-                except ValueError:
-                    self.msg("Date did not match 'mm/dd/yy hh:mm' format.")
-                    self.msg("You entered: %s" % self.rhs)
-                    return
-                now = datetime.now()
-                if date < now:
-                    self.msg("You cannot schedule an event for the past.")
-                    return
-                if event.date < now:
-                    self.msg("You cannot reschedule an event that's already started.")
-                    return
-                event.date = date
-                event.save()
-                self.msg("Event now scheduled for %s." % date)
-                self.event_manager.reschedule_event(event)
-                return
-            if "changeroomdesc" in self.switches:
-                event.room_desc = self.rhs
-                event.save()
-                self.msg("Event's room desc is now:\n%s" % self.rhs)
-                return
-
-            if "changeplotroom" in self.switches:
-                try:
-                    callernpc = PlayerOrNpc.objects.get(player=self.caller)
-                except PlayerOrNpc.DoesNotExist:
-                    self.msg("You seem to be missing a valid Dominion object!")
-                    return
-
-                try:
-                    room_id = int(self.rhs)
-                    plotrooms = PlotRoom.objects.filter(Q(id=room_id)
-                                                        & (Q(creator=callernpc) | Q(public=True)))
-                except ValueError:
-                    plotrooms = PlotRoom.objects.filter(Q(name__icontains=self.rhs)
-                                                        & (Q(creator=callernpc) | Q(public=True)))
-
-                if not plotrooms:
-                    self.msg("No plotrooms found matching %s" % self.rhs)
-                    return
-
-                if len(plotrooms) > 1:
-                    self.msg("Found multiple rooms matching %s:" % self.rhs)
-                    for room in plotrooms:
-                        self.msg("  %d: %s (%s)" % (room.id, room.name, room.get_detailed_region_name()))
-                    return
-
-                # TODO: This probably needs to check if the event is currently running.
-                event.location = None
-                event.plotroom = plotrooms[0]
-                event.save()
-                self.msg("Moved event to plot room |w%s|n (in %s)." % (plotrooms[0].name,
-                                                                       plotrooms[0].get_detailed_region_name()))
-                return
             self.msg("Invalid switch.")
         except self.CalCmdError as err:
             self.msg(err)
@@ -1671,7 +1367,7 @@ class CmdCalendar(ArxPlayerCommand):
         """Displays our project if we have one"""
         proj = self.caller.ndb.event_creation
         if not self.args and not self.switches and proj:
-            self.msg("{wEvent you're creating:\n%s" % self.display_project(proj), options={'box': True})
+            self.display_project()
             return
         if self.caller.check_permstring("builders"):
             qs = RPEvent.objects.all()
@@ -1697,31 +1393,6 @@ class CmdCalendar(ArxPlayerCommand):
             public = "Public" if event.public_event else "Not Public"
             table.add_row([event.id, event.name[:25], event.date.strftime("%x %H:%M"), host, public])
         return table
-
-    @staticmethod
-    def display_project(proj):
-        """proj is [name, date, location, desc, public, hosts, largesse]"""
-        name = proj[0] or "None"
-        date = proj[1].strftime("%x %X") if proj[1] else "No date yet"
-        loc = proj[2].name if proj[2] else ("%s (plot room)" % proj[9].ansi_name() if proj[9] else "No location set.")
-        desc = proj[3] or "No description set yet"
-        pub = "Public" if proj[4] else "Not Public"
-        hosts = proj[5] or []
-        largesse = proj[6] or 0
-        roomdesc = proj[7] or ""
-        gms = proj[8] or []
-        hosts = ", ".join(str(ob) for ob in hosts)
-        gms = ", ".join(str(ob) for ob in gms)
-        mssg = "{wEvent name:{n %s\n" % name
-        mssg += "{wGMs:{n %s\n" % gms
-        mssg += "{wDate:{n %s\n" % date
-        mssg += "{wLocation:{n %s\n" % loc
-        mssg += "{wDesc:{n %s\n" % desc
-        mssg += "{wPublic:{n %s\n" % pub
-        mssg += "{wHosts:{n %s\n" % hosts
-        mssg += "{wLargesse:{n %s\n" % largesse
-        mssg += "{wRoom Desc:{n %s\n" % roomdesc
-        return mssg
 
     def do_target_event_switches(self):
         """Interact with events owned by other players"""
@@ -1791,7 +1462,7 @@ class CmdCalendar(ArxPlayerCommand):
                 self.msg("There is already an event by that name. Choose a different name," +
                          " or add a number if it's a sequel event.")
                 return
-            proj = [{}, [], [], [], []]
+            proj = {}
             self.caller.ndb.event_creation = proj
             self.msg("{wStarting project. It will not be saved until you submit it. " +
                      "Does not persist through logout/server reload.{n")
@@ -1810,7 +1481,266 @@ class CmdCalendar(ArxPlayerCommand):
                                                                              event.date.strftime("%x %X")))
 
     def do_attribute_switches(self):
-        pass
+        """Sets a value for the form or changes an existing event's attribute"""
+        event = None
+        if self.rhs:
+            event = self.get_event_from_args(self.rhs, check_admin=True)
+        lhs = self.lhs.lower()
+        if 'largesse' in self.switches:
+            return self.set_largesse(event, lhs)
+        if "date" in self.switches:
+            return self.set_date(lhs, event)
+        if "location" in self.switches:
+            if self.lhs:
+                try:
+                    try:
+                        room = ObjectDB.objects.get(db_typeclass_path=settings.BASE_ROOM_TYPECLASS,
+                                                    db_key__iexact=self.lhs)
+                    except ObjectDB.DoesNotExist:
+                        room = ObjectDB.objects.get(db_typeclass_path=settings.BASE_ROOM_TYPECLASS,
+                                                    db_key__icontains=self.lhs)
+                except (ObjectDB.DoesNotExist, ObjectDB.MultipleObjectsReturned):
+                    caller.msg("Could not find a unique match for %s." % self.lhs)
+                    return
+            else:
+                if not caller.character:
+                    caller.msg("You must be in a room to mark it as the event location.")
+                    return
+                room = caller.character.location
+            if not room:
+                caller.msg("No room found.")
+                return
+            proj[2] = room
+            proj[9] = None
+            caller.ndb.event_creation = proj
+            caller.msg("Room set to %s." % room.name)
+            return
+        if "desc" in self.switches:
+            proj[3] = self.lhs
+            caller.ndb.event_creation = proj
+            caller.msg("Desc of event set to:\n%s" % self.lhs)
+            return
+        if "roomdesc" in self.switches:
+            proj[7] = self.lhs
+            caller.ndb.event_creation = proj
+            caller.msg("Room desc of event set to:\n%s" % self.lhs)
+            return
+        if "plotroom" in self.switches:
+            if self.lhs:
+                try:
+                    callernpc = PlayerOrNpc.objects.get(player=self.caller)
+                except PlayerOrNpc.DoesNotExist:
+                    caller.msg("You seem to be missing a valid Dominion object!")
+                    return
+
+                try:
+                    room_id = int(self.lhs)
+                    plotrooms = PlotRoom.objects.filter(Q(id=room_id)
+                                                        & (Q(creator=callernpc) | Q(public=True)))
+                except ValueError:
+                    plotrooms = PlotRoom.objects.filter(Q(name__icontains=self.lhs)
+                                                        & (Q(creator=callernpc) | Q(public=True)))
+
+                if not plotrooms:
+                    caller.msg("No plotrooms found matching %s" % self.lhs)
+                    return
+
+                if len(plotrooms) > 1:
+                    caller.msg("Found multiple rooms matching %s:" % self.lhs)
+                    for room in plotrooms:
+                        caller.msg("  %d: %s (%s)" % (room.id, room.name, room.get_detailed_region_name()))
+                    return
+
+                proj[9] = plotrooms[0]
+                proj[2] = None
+                caller.msg("Plot room for event set to %d: %s" % (proj[9].id, proj[9].ansi_name()))
+            else:
+                proj[9] = None
+                caller.msg("Plot room for event cleared.")
+            caller.ndb.event_creation = proj
+            return
+        if "private" in self.switches:
+            proj[4] = not proj[4]
+            caller.ndb.event_creation = proj
+            caller.msg("Public is now set to: %s" % proj[4])
+            return
+        if "addhost" in self.switches:
+            hosts = proj[5] or []
+            host = caller.search(self.lhs)
+            if not host:
+                return
+            if host in hosts:
+                caller.msg("Host is already listed.")
+                return
+            try:
+                host = host.Dominion
+            except AttributeError:
+                char = host.db.char_ob
+                if not char:
+                    caller.msg("Host does not have a character.")
+                    return
+                host = setup_utils.setup_dom_for_char(char)
+            hosts.append(host)
+            caller.msg("%s added to hosts." % host)
+            caller.msg("Hosts are: %s" % ", ".join(str(host) for host in hosts))
+            proj[5] = hosts
+            caller.ndb.event_creation = proj
+            return
+        if "addgm" in self.switches:
+            gms = proj[8] or []
+            if self.lhs:
+                gm = caller.search(self.lhs)
+            else:  # no args, remove GMs
+                gms = []
+                proj[8] = gms
+                caller.ndb.event_creation = proj
+                self.msg("GMs removed.")
+                return
+            if not gm:
+                return
+            try:
+                gm = gm.Dominion
+            except AttributeError:
+                char = gm.char_ob
+                if not char:
+                    caller.msg("GM does not have a character.")
+                    return
+                gm = setup_utils.setup_dom_for_char(char)
+            if gm in gms:
+                caller.msg("GM is already listed.")
+                return
+            if len(gms) >= 2:
+                self.msg("Please limit yourself to one or two designated GMs.")
+                return
+            gms.append(gm)
+            caller.msg("%s added to GMs." % gm)
+            caller.msg("GMs are: %s" % ", ".join(str(gm) for gm in gms))
+            caller.msg("Reminder - please only add a GM for an event if it's an actual player-run plot. Tagging a "
+                       "social event as a PRP is strictly prohibited. If you tagged this as a PRP in error, use "
+                       "addgm with no arguments to remove GMs.")
+            proj[8] = gms
+            caller.ndb.event_creation = proj
+            return
+
+        # both starting an event and ending one requires a Dominion object
+        dompc = self.caller.Dominion
+        if "toggleprivate" in self.switches:
+            qs = dompc.events_hosted.all()
+            try:
+                event = qs.get(id=int(self.args))
+            except (RPEvent.DoesNotExist, ValueError, TypeError):
+                self.msg("You have not hosted an event by that number.")
+                self.msg(self.display_events(qs))
+                return
+            event.public_event = not event.public_event
+            event.save()
+            self.msg("%s's public status has been set to %s." % (event, event.public_event))
+            return
+        # get the events they're hosting
+        events = dompc.events_hosted.filter(finished=False)
+        if not events:
+            self.msg("You are not hosting any events that have yet to occur. If you are currently designing "
+                     "an event, submit it first.")
+            return
+        # make sure caller input an integer
+        try:
+            eventid = int(self.lhs)
+        except (ValueError, TypeError):
+            self.msg("You must supply a number for an event.")
+            self.msg(self.display_events(events), options={'box': True})
+            return
+        # get the script that manages events
+
+        # try to get event matching caller's input
+        try:
+            event = events.get(id=eventid)
+        except RPEvent.DoesNotExist:
+            self.msg("You are not hosting any event by that number. Your events:")
+            self.msg(self.display_events(events), options={'box': True})
+            return
+        if "invite" in self.switches:
+            invited = []
+            for arg in self.rhslist:
+                targ = self.caller.search(arg)
+                if not targ:
+                    continue
+                pc = targ.Dominion
+                if pc in event.participants.all():
+                    self.msg("%s is already invited to attend." % pc)
+                    continue
+                event.participants.add(pc)
+                invited.append(str(pc))
+                msg = "You have been invited to attend {c%s{n." % event.name
+                msg += "\nFor details about this event, use {w@cal %s{n" % event.id
+                targ.inform(msg, category="Invitation", append=False)
+            self.msg("{wInvited {c%s{w to attend %s." % (", ".join(invited), event))
+            return
+        if "uninvite" in self.switches:
+            uninvited = []
+            for arg in self.rhslist:
+                targ = self.caller.search(arg)
+                if not targ:
+                    continue
+                pc = targ.Dominion
+                if pc not in event.participants.all():
+                    self.msg("%s is already not invited to attend." % pc)
+                    continue
+                event.participants.remove(pc)
+                uninvited.append(str(pc))
+            self.msg("{wUninvited {c%s{w from attending %s." % (", ".join(uninvited), event))
+            return
+
+        if "reschedule" in self.switches:
+            try:
+                date = datetime.strptime(self.rhs, "%m/%d/%y %H:%M")
+            except ValueError:
+                self.msg("Date did not match 'mm/dd/yy hh:mm' format.")
+                self.msg("You entered: %s" % self.rhs)
+                return
+            now = datetime.now()
+            if date < now:
+                self.msg("You cannot schedule an event for the past.")
+                return
+
+            return
+        if "changeroomdesc" in self.switches:
+            event.room_desc = self.rhs
+            event.save()
+            self.msg("Event's room desc is now:\n%s" % self.rhs)
+            return
+
+        if "changeplotroom" in self.switches:
+            try:
+                callernpc = PlayerOrNpc.objects.get(player=self.caller)
+            except PlayerOrNpc.DoesNotExist:
+                self.msg("You seem to be missing a valid Dominion object!")
+                return
+
+            try:
+                room_id = int(self.rhs)
+                plotrooms = PlotRoom.objects.filter(Q(id=room_id)
+                                                    & (Q(creator=callernpc) | Q(public=True)))
+            except ValueError:
+                plotrooms = PlotRoom.objects.filter(Q(name__icontains=self.rhs)
+                                                    & (Q(creator=callernpc) | Q(public=True)))
+
+            if not plotrooms:
+                self.msg("No plotrooms found matching %s" % self.rhs)
+                return
+
+            if len(plotrooms) > 1:
+                self.msg("Found multiple rooms matching %s:" % self.rhs)
+                for room in plotrooms:
+                    self.msg("  %d: %s (%s)" % (room.id, room.name, room.get_detailed_region_name()))
+                return
+
+            # TODO: This probably needs to check if the event is currently running.
+            event.location = None
+            event.plotroom = plotrooms[0]
+            event.save()
+            self.msg("Moved event to plot room |w%s|n (in %s)." % (plotrooms[0].name,
+                                                                   plotrooms[0].get_detailed_region_name()))
+            return
 
     def do_in_progress_switches(self):
         """Change event in progress"""
@@ -1824,6 +1754,7 @@ class CmdCalendar(ArxPlayerCommand):
             self.msg("You have ended the event.")
 
     def do_admin_switches(self):
+        """Starts an event or cancels it"""
         event = self.get_event_from_args(self.lhs, check_admin=True)
         if "cancel" in self.switches:
             if event.id in self.event_manager.db.active_events:
@@ -1844,6 +1775,76 @@ class CmdCalendar(ArxPlayerCommand):
             else:
                 self.event_manager.start_event(event)
             self.msg("You have started the event.")
+
+    def display_project(self):
+        """Sends a string display of a project"""
+        form = self.form
+        msg = "{wEvent you're creating:{n\n"
+        if not form:
+            msg += "None currently."
+            return
+        else:
+            msg += form.display()
+        self.msg(msg, options={'box': True})
+
+    def set_form_or_event_attribute(self, param, value, event=None):
+        """Sets an attribute in an event or creation form"""
+        if event:
+            setattr(event, param, value)
+            event.save()
+        else:
+            proj = self.caller.ndb.event_creation or {}
+            proj[param] = value
+            self.caller.ndb.event_creation = proj
+
+    def set_date(self, lhs, event=None):
+        """Sets a date for an event"""
+        try:
+            date = datetime.strptime(self.lhs, "%m/%d/%y %H:%M")
+        except ValueError:
+            raise self.CalCmdError("Date did not match 'mm/dd/yy hh:mm' format. You entered: %s" % self.lhs)
+        now = datetime.now()
+        if date < now:
+            raise self.CalCmdError("You cannot make an event for the past.")
+        if event.date < now:
+            raise self.CalCmdError("You cannot reschedule an event that's already started.")
+        self.set_form_or_event_attribute('date', date, event)
+        self.msg("Date set to %s." % date.strftime("%x %X"))
+        if event:
+            self.event_manager.reschedule_event(event)
+        self.msg("Current time is %s for comparison." % (datetime.now().strftime("%x %X")))
+        offset = timedelta(hours=2)
+        count = RPEvent.objects.filter(date__lte=date + offset, date__gte=date - offset).count()
+        self.msg("Number of events within 2 hours of that date: %s" % count)
+
+    def set_largesse(self, lhs, event=None):
+        """Sets largesse for an event"""
+        from server.utils.arx_utils import dict_from_choices_field
+        largesse_types = dict_from_choices_field(RPEvent, "LARGESSE_CHOICES", include_uppercase=False)
+        costs = dict(RPEvent.LARGESSE_VALUES)
+        if not lhs:
+            table = PrettyTable(['level', 'cost', 'prestige'])
+            for key in costs:
+                name = largesse_types[key]
+                table.add_row([name, costs[key][0], costs[key][1]])
+            self.msg(table, options={'box': True})
+            return
+        if lhs not in largesse_types:
+            self.msg("Argument needs to be in %s." % ", ".join(ob for ob in largesse_types))
+            return
+        cel_tier = largesse_types[lhs]
+        cost = costs[cel_tier][0]
+        if event:
+            new_cost = cost
+            cost = new_cost - event.cost
+        currency = self.caller.char_ob.currency
+        if currency < cost:
+            self.caller.msg("That requires %s to buy. You have %s." % (cost, currency))
+            return
+        self.set_form_or_event_attribute("celebration_tier", cel_tier, event)
+        self.msg("Largesse level set to %s for %s." % (lhs, cost))
+        if event:
+            self.caller.char_ob.pay_money(cost)
 
 
 class CmdPraise(ArxPlayerCommand):
