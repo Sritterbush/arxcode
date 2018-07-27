@@ -5378,6 +5378,18 @@ class RPEvent(SharedMemoryModel):
         if dom in self.gms.all() or dom in self.hosts.all() or dom in self.participants.all():
             return True
 
+    def can_admin(self, player):
+        """Who can run admin commands for this event"""
+        if player.check_permstring("builders"):
+            return True
+        try:
+            dompc = player.Dominion
+            if not dompc:
+                return False
+            return dompc == self.main_host
+        except AttributeError:
+            return False
+
     def create_room(self):
         """Creates a temp room for this RPEvent's plotroom"""
         if self.location:
