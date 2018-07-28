@@ -16,7 +16,6 @@ from django.db.models import F
 def store_previous_target_asset_owners_in_temp_field(apps, schema_editor):
     """Stores all previous target's assetowners in the temporary field we created"""
     PraiseOrCondemn = apps.get_model("dominion", "PraiseOrCondemn")
-    AssetOwner = apps.get_model("dominion", "AssetOwner")
     for ob in PraiseOrCondemn.objects.all():
         ob.temporary = ob.target.assets
         ob.save()
@@ -33,7 +32,6 @@ def populate_participants(apps, schema_editor):
     Host = apps.get_model("dominion", "RPEvent_hosts")
     GM = apps.get_model("dominion", "RPEvent_gms")
     Participant = apps.get_model("dominion", "RPEvent_participants")
-    RPEvent = apps.get_model("dominion", "RPEvent")
     PCEventParticipation = apps.get_model("dominion", "PCEventParticipation")
     parts = {}
     current_event = None
@@ -42,6 +40,7 @@ def populate_participants(apps, schema_editor):
         # the first host for each event is marked as the main host
         if event != current_event:
             current_event = event
+            # You can't look up class variables on a model in a migration, so we have to use ugly integer values
             status = 0
         else:
             status = 1
