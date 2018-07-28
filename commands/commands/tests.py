@@ -355,9 +355,10 @@ class SocialTests(ArxCommandTest):
         self.char1.tags.remove("no_messengers")
         self.call_cmd("testaccount=hiya", "You dispatch a messenger to Char with the following message:\n\n'hiya'")
 
+    @patch("world.dominion.models.get_week")
     @patch.object(social, "inform_staff")
     @patch.object(social, "datetime")
-    def test_cmd_rpevent(self, mock_datetime, mock_inform_staff):
+    def test_cmd_rpevent(self, mock_datetime, mock_inform_staff, mock_get_week):
         from evennia.utils.create import create_script
         from typeclasses.scripts.event_manager import EventManager
         script = create_script(typeclass=EventManager, key="Event Manager")
@@ -365,6 +366,7 @@ class SocialTests(ArxCommandTest):
         now = datetime.now()
         mock_datetime.strptime = datetime.strptime
         mock_datetime.now = Mock(return_value=now)
+        mock_get_week.return_value = 1
         self.setup_cmd(social.CmdCalendar, self.account1)
         self.call_cmd("/create test_event", 'Starting project. It will not be saved until you submit it.'
                                             ' Does not persist through logout/server reload.|'
@@ -375,17 +377,16 @@ class SocialTests(ArxCommandTest):
                                  'Date: This field is required.\n'
                                  'Name: test_event\nMain Host: Testaccount\nPublic: Public\n'
                                  'Description: test description\nDate: None\nLocation: None\nLargesse: Small')
-        self.call_cmd("/date 26:35 sdf", "Date did not match 'mm/dd/yy hh:mm' format.|You entered: 26:35 sdf")
+        self.call_cmd("/date 26:35 sdf", "Date did not match 'mm/dd/yy hh:mm' format. You entered: 26:35 sdf")
         self.call_cmd("/date 1/1/01 12:35", "You cannot make an event for the past.")
         datestr = now.strftime("%x %X")
         self.call_cmd("/date 12/12/30 12:00", ('Date set to 12/12/30 12:00:00.|' +
                                                ('Current time is {} for comparison.|'.format(datestr)) +
                                                'Number of events within 2 hours of that date: 0'))
-        self.call_cmd("/gm testaccount", "Testaccount added to GMs.|GMs are: Testaccount|"
-                                            "Reminder - please only add a GM for an event if it's an actual "
-                                            "player-run plot. Tagging a social event as a PRP is strictly prohibited. "
-                                            "If you tagged this as a PRP in error, use addgm with no arguments to "
-                                            "remove GMs.")
+        self.call_cmd("/gm testaccount", "Testaccount is now marked as a gm.\n"
+                                         "Reminder - please only add a GM for an event if it's an actual "
+                                         "player-run plot. Tagging a social event as a PRP is strictly prohibited. "
+                                         "If you tagged this as a PRP in error, use gm on them again to remove them.")
         self.char1.db.currency = -1.0
         self.call_cmd("/largesse grand", 'That requires 10000 to buy. You have -1.0.')
         self.char1.db.currency = 10000
@@ -396,10 +397,10 @@ class SocialTests(ArxCommandTest):
         event = RPEvent.objects.get(name="test_event")
         self.assertTrue(event.gm_event)
         script.post_event.assert_called_with(event, self.account,
-                                             '{wEvent name:{n test_event\n{wGMs:{n Testaccount\n{wDate:{n 12/12/30 '
-                                             '12:00:00\n{wLocation:{n No location set.\n{wDesc:{n test description\n'
-                                             '{wPublic:{n Public\n{wHosts:{n Testaccount\n{wLargesse:{n grand\n'
-                                             '{wRoom Desc:{n \n')
+                                             '{wName:{n test_event\n{wMain Host:{n Testaccount\n{wPublic:{n Public\n'
+                                             '{wDescription:{n test description\n{wDate:{n 2030-12-12 12:00:00\n'
+                                             '{wLocation:{n None\n{wLargesse:{n Grand\n{wGMs:{n Testaccount\n'
+                                             '{wRisk:{n Normal Risk\n')
         mock_inform_staff.assert_called_with('New event created by Testaccount: test_event, '
                                              'scheduled for 12/12/30 12:00:00.')
 

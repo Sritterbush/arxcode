@@ -5554,6 +5554,9 @@ class RPEvent(SharedMemoryModel):
     def add_gm(self, dompc, send_inform=True):
         """Adds a gm for the event"""
         self.invite_dompc(dompc, 'gm', True, send_inform)
+        if not self.gm_event and (dompc.player.is_staff or dompc.player.check_permstring("builders")):
+            self.gm_event = True
+            self.save()
 
     def untag_gm(self, dompc):
         """Removes GM tag from a participant"""
@@ -5564,9 +5567,6 @@ class RPEvent(SharedMemoryModel):
     def add_guest(self, dompc, send_inform=True):
         """Adds a guest to the event"""
         self.invite_dompc(dompc, 'status', PCEventParticipation.GUEST, send_inform)
-        if not self.gm_event and (dompc.player.is_staff or dompc.player.check_permstring("builders")):
-            self.gm_event = True
-            self.save()
 
     def invite_dompc(self, dompc, field, value, send_inform=True):
         """Invites a dompc to be a host, gm, or guest"""

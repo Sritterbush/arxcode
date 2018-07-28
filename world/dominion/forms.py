@@ -50,26 +50,6 @@ class RPEventCreateForm(forms.ModelForm):
         self.check_costs()
         return cleaned_data
 
-    def clean_risk(self):
-        """Checks values of risk field"""
-        try:
-            risk = int(self.cleaned_data['risk'])
-            if risk < 0 or risk > 10:
-                raise ValueError
-        except (TypeError, ValueError):
-            return RPEvent.NORMAL_RISK
-        return risk
-
-    def clean_celebration_tier(self):
-        """Checks value of largesse"""
-        try:
-            tier = int(self.cleaned_data['celebration_tier'])
-            if tier < RPEvent.NONE or tier > RPEvent.LEGENDARY:
-                raise ValueError
-        except (TypeError, ValueError):
-            return RPEvent.NONE
-        return tier
-
     def check_costs(self):
         """Checks if we can pay, if not, adds an error"""
         if self.cost > self.owner.player.char_ob.currency:
@@ -86,6 +66,7 @@ class RPEventCreateForm(forms.ModelForm):
     def save(self, commit=True):
         """Saves the instance and adds the form's owner as the owner of the petition"""
         event = super(RPEventCreateForm, self).save(commit)
+        event.add_host(self.owner, main_host=True)
         for host in self.cleaned_data.get('hosts', []):
             event.add_host(host)
         for gm in self.cleaned_data.get('gms', []):
@@ -108,6 +89,7 @@ class RPEventCreateForm(forms.ModelForm):
     def post_event(self, event):
         """Makes a post of this event"""
         from evennia.scripts.models import ScriptDB
+        print("public_event is %r" % event.public_event)
         if event.public_event:
             event_manager = ScriptDB.objects.get(db_key="Event Manager")
             event_manager.post_event(event, self.owner.player, self.display())

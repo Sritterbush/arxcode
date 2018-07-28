@@ -1327,7 +1327,7 @@ class CmdCalendar(ArxPlayerCommand):
     target_event_switches = ("comments", "join", "sponsor")
     form_switches = ("create", "abort", "submit")
     attribute_switches = ("plotroom", "roomdesc", "host", "gm", "invite", "uninvite", "location",
-                          "desc", "date", "private", "risk", "action", "reschedule")
+                          "desc", "date", "private", "risk", "action", "reschedule", "largesse")
     admin_switches = ("cancel", "starteventearly")
     in_progress_switches = ("movehere", "endevent")
 
@@ -1480,7 +1480,10 @@ class CmdCalendar(ArxPlayerCommand):
                 self.msg("There is already an event by that name. Choose a different name," +
                          " or add a number if it's a sequel event.")
                 return
-            proj = {'hosts': [], 'gms': [], 'org_invites': [], 'invites': [], 'name': self.lhs}
+            defaults = RPEvent()
+            proj = {'hosts': [], 'gms': [], 'org_invites': [], 'invites': [], 'name': self.lhs,
+                    'public_event': defaults.public_event, 'risk': defaults.risk,
+                    'celebration_tier': defaults.celebration_tier}
             self.caller.ndb.event_creation = proj
             self.msg("{wStarting project. It will not be saved until you submit it. " +
                      "Does not persist through logout/server reload.{n")
@@ -1489,7 +1492,6 @@ class CmdCalendar(ArxPlayerCommand):
             form = self.form
             if not form.is_valid():
                 raise self.CalCmdError(form.display_errors() + "\n" + form.display())
-            form.save()
             event = form.save()
             self.caller.ndb.event_creation = None
             self.msg("New event created: %s at %s." % (event.name, event.date.strftime("%x %X")))
@@ -1594,7 +1596,7 @@ class CmdCalendar(ArxPlayerCommand):
         now = datetime.now()
         if date < now:
             raise self.CalCmdError("You cannot make an event for the past.")
-        if event.date < now:
+        if event and event.date < now:
             raise self.CalCmdError("You cannot reschedule an event that's already started.")
         self.set_form_or_event_attribute('date', date, event)
         self.msg("Date set to %s." % date.strftime("%x %X"))
@@ -1703,7 +1705,7 @@ class CmdCalendar(ArxPlayerCommand):
             public = True
         else:
             raise self.CalCmdError("Private must be set to either 'on' or 'off'.")
-        self.set_form_or_event_attribute("public", public, event)
+        self.set_form_or_event_attribute("public_event", public, event)
         self.msg("Public is now set to: %s" % public)
 
     def add_or_remove_host(self, event):
