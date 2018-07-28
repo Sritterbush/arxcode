@@ -1480,7 +1480,7 @@ class CmdCalendar(ArxPlayerCommand):
                 self.msg("There is already an event by that name. Choose a different name," +
                          " or add a number if it's a sequel event.")
                 return
-            proj = {'hosts': [], 'gms': [], 'org_invites': [], 'invites': []}
+            proj = {'hosts': [], 'gms': [], 'org_invites': [], 'invites': [], 'name': self.lhs}
             self.caller.ndb.event_creation = proj
             self.msg("{wStarting project. It will not be saved until you submit it. " +
                      "Does not persist through logout/server reload.{n")
@@ -1488,7 +1488,7 @@ class CmdCalendar(ArxPlayerCommand):
         elif "submit" in self.switches:
             form = self.form
             if not form.is_valid():
-                raise self.CalCmdError(form.display_errors())
+                raise self.CalCmdError(form.display_errors() + "\n" + form.display())
             form.save()
             event = form.save()
             self.caller.ndb.event_creation = None
@@ -1525,6 +1525,8 @@ class CmdCalendar(ArxPlayerCommand):
             return self.uninvite_org_or_player(event)
         if "action" in self.switches:
             return self.set_crisis_action(event)
+        if "risk" in self.switches:
+            return self.set_risk(event)
 
     def do_in_progress_switches(self):
         """Change event in progress"""
@@ -1849,6 +1851,19 @@ class CmdCalendar(ArxPlayerCommand):
                 actions.append(action.id)
                 msg = "Action added."
         self.msg(msg)
+
+    def set_risk(self, event):
+        """Sets risk for an rpevent"""
+        if not self.caller.check_permstring("builders"):
+            raise self.CalCmdError("Only GMs can set the risk of an event.")
+        try:
+            risk = int(self.lhs)
+            if risk > 10 or risk < 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            raise self.CalCmdError("Risk must be between 0 and 10.")
+        self.set_form_or_event_attribute("risk", risk, event)
+        self.msg("Risk is now set to: %s" % risk)
 
 
 class CmdPraise(ArxPlayerCommand):

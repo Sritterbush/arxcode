@@ -366,22 +366,22 @@ class SocialTests(ArxCommandTest):
         mock_datetime.strptime = datetime.strptime
         mock_datetime.now = Mock(return_value=now)
         self.setup_cmd(social.CmdCalendar, self.account1)
-        self.call_cmd("/create test_event", 'Starting project. It will not be saved until you submit it. Does not '
-                                            'persist through logout/server reload.|Event name: test_event\nGMs: \n'
-                                            'Date: No date yet\nLocation: No location set.\n'
-                                            'Desc: No description set yet\nPublic: Public\nHosts: Testaccount\n'
-                                            'Largesse: 0\nRoom Desc:')
+        self.call_cmd("/create test_event", 'Starting project. It will not be saved until you submit it.'
+                                            ' Does not persist through logout/server reload.|'
+                                            'Name: test_event\nMain Host: Testaccount\nPublic: Public\n'
+                                            'Description: None\nDate: None\nLocation: None\nLargesse: Small')
         self.call_cmd("/desc test description", 'Desc of event set to:\ntest description')
-        self.call_cmd('/submit', 'Name, date, desc, and hosts must be defined before you submit.|'
-                                 'Event name: test_event\nGMs: \nDate: No date yet\nLocation: No location set.\n'
-                                 'Desc: test description\nPublic: Public\nHosts: Testaccount\nLargesse: 0\nRoom Desc:')
+        self.call_cmd('/submit', 'Please correct the following errors:\n'
+                                 'Date: This field is required.\n'
+                                 'Name: test_event\nMain Host: Testaccount\nPublic: Public\n'
+                                 'Description: test description\nDate: None\nLocation: None\nLargesse: Small')
         self.call_cmd("/date 26:35 sdf", "Date did not match 'mm/dd/yy hh:mm' format.|You entered: 26:35 sdf")
         self.call_cmd("/date 1/1/01 12:35", "You cannot make an event for the past.")
         datestr = now.strftime("%x %X")
         self.call_cmd("/date 12/12/30 12:00", ('Date set to 12/12/30 12:00:00.|' +
                                                ('Current time is {} for comparison.|'.format(datestr)) +
                                                'Number of events within 2 hours of that date: 0'))
-        self.call_cmd("/addgm testaccount", "Testaccount added to GMs.|GMs are: Testaccount|"
+        self.call_cmd("/gm testaccount", "Testaccount added to GMs.|GMs are: Testaccount|"
                                             "Reminder - please only add a GM for an event if it's an actual "
                                             "player-run plot. Tagging a social event as a PRP is strictly prohibited. "
                                             "If you tagged this as a PRP in error, use addgm with no arguments to "

@@ -5344,7 +5344,7 @@ class RPEvent(SharedMemoryModel):
     location = models.ForeignKey('objects.ObjectDB', blank=True, null=True, related_name='events_held',
                                  on_delete=models.SET_NULL)
     date = models.DateTimeField(blank=True, null=True)
-    celebration_tier = models.PositiveSmallIntegerField(choices=LARGESSE_CHOICES, default=NONE)
+    celebration_tier = models.PositiveSmallIntegerField(choices=LARGESSE_CHOICES, default=NONE, blank=True)
     gm_event = models.BooleanField(default=False)
     public_event = models.BooleanField(default=True)
     finished = models.BooleanField(default=False)
@@ -5352,7 +5352,7 @@ class RPEvent(SharedMemoryModel):
     room_desc = models.TextField(blank=True, null=True)
     actions = models.ManyToManyField("CrisisAction", blank=True, related_name="events")
     plotroom = models.ForeignKey('PlotRoom', blank=True, null=True, related_name='events_held_here')
-    risk = models.PositiveSmallIntegerField(choices=RISK_CHOICES, default=NORMAL_RISK)
+    risk = models.PositiveSmallIntegerField(choices=RISK_CHOICES, default=NORMAL_RISK, blank=True)
 
     @property
     def prestige(self):
@@ -5540,10 +5540,10 @@ class RPEvent(SharedMemoryModel):
         part.attended = True
         part.save()
 
-    def add_host(self, dompc, main_host=False):
+    def add_host(self, dompc, main_host=False, send_inform=True):
         """Adds a host for the event"""
         status = PCEventParticipation.MAIN_HOST if main_host else PCEventParticipation.HOST
-        self.invite_dompc(dompc, 'status', status)
+        self.invite_dompc(dompc, 'status', status, send_inform)
 
     def change_host_to_guest(self, dompc):
         """Changes a host to a guest"""
@@ -5551,9 +5551,9 @@ class RPEvent(SharedMemoryModel):
         part.status = PCEventParticipation.GUEST
         part.save()
 
-    def add_gm(self, dompc):
+    def add_gm(self, dompc, send_inform=True):
         """Adds a gm for the event"""
-        self.invite_dompc(dompc, 'gm', True)
+        self.invite_dompc(dompc, 'gm', True, send_inform)
 
     def untag_gm(self, dompc):
         """Removes GM tag from a participant"""
@@ -5561,19 +5561,20 @@ class RPEvent(SharedMemoryModel):
         part.gm = False
         part.save()
 
-    def add_guest(self, dompc):
+    def add_guest(self, dompc, send_inform=True):
         """Adds a guest to the event"""
-        self.invite_dompc(dompc, 'status', PCEventParticipation.GUEST)
+        self.invite_dompc(dompc, 'status', PCEventParticipation.GUEST, send_inform)
         if not self.gm_event and (dompc.player.is_staff or dompc.player.check_permstring("builders")):
             self.gm_event = True
             self.save()
 
-    def invite_dompc(self, dompc, field, value):
+    def invite_dompc(self, dompc, field, value, send_inform=True):
         """Invites a dompc to be a host, gm, or guest"""
         part, _ = self.pc_event_participation.get_or_create(dompc=dompc)
         setattr(part, field, value)
         part.save()
-        self.invite_participant(part)
+        if send_inform:
+            self.invite_participant(part)
 
     def invite_org(self, org):
         """Invites an org to attend or sponsor the event"""

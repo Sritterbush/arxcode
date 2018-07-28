@@ -20,10 +20,10 @@ class RPEventCommentForm(forms.Form):
 
 class RPEventCreateForm(forms.ModelForm):
     """Form for creating a RPEvent. We'll actually try using it in commands for validation"""
-    hosts = forms.ModelMultipleChoiceField(queryset=PlayerOrNpc.objects.all())
-    invites = forms.ModelMultipleChoiceField(queryset=PlayerOrNpc.objects.all())
-    gms = forms.ModelMultipleChoiceField(queryset=PlayerOrNpc.objects.all())
-    org_invites = forms.ModelMultipleChoiceField(queryset=Organization.objects.all())
+    hosts = forms.ModelMultipleChoiceField(queryset=PlayerOrNpc.objects.all(), required=False)
+    invites = forms.ModelMultipleChoiceField(queryset=PlayerOrNpc.objects.all(), required=False)
+    gms = forms.ModelMultipleChoiceField(queryset=PlayerOrNpc.objects.all(), required=False)
+    org_invites = forms.ModelMultipleChoiceField(queryset=Organization.objects.all(), required=False)
 
     class Meta:
         """Meta options for setting up the form"""
@@ -50,6 +50,26 @@ class RPEventCreateForm(forms.ModelForm):
         self.check_costs()
         return cleaned_data
 
+    def clean_risk(self):
+        """Checks values of risk field"""
+        try:
+            risk = int(self.cleaned_data['risk'])
+            if risk < 0 or risk > 10:
+                raise ValueError
+        except (TypeError, ValueError):
+            return RPEvent.NORMAL_RISK
+        return risk
+
+    def clean_celebration_tier(self):
+        """Checks value of largesse"""
+        try:
+            tier = int(self.cleaned_data['celebration_tier'])
+            if tier < RPEvent.NONE or tier > RPEvent.LEGENDARY:
+                raise ValueError
+        except (TypeError, ValueError):
+            return RPEvent.NONE
+        return tier
+
     def check_costs(self):
         """Checks if we can pay, if not, adds an error"""
         if self.cost > self.owner.player.char_ob.currency:
@@ -61,7 +81,7 @@ class RPEventCreateForm(forms.ModelForm):
         risk = self.cleaned_data.get('risk', RPEvent.NORMAL_RISK)
         if not any(gm for gm in gms if gm.player.is_staff or gm.player.check_permstring("builders")):
             if risk != RPEvent.NORMAL_RISK:
-                self.add_error('risk', "Risk cannot be altered without a staff member as GM.")
+                self.add_error('risk', "Risk cannot be altered without a staff member as GM. Set to: %r" % risk)
 
     def save(self, commit=True):
         """Saves the instance and adds the form's owner as the owner of the petition"""
@@ -121,6 +141,11 @@ class RPEventCreateForm(forms.ModelForm):
 
     def display_errors(self):
         """Returns a game-friendly errors string"""
+        def format_name(field_name):
+            """Formats field names for error display"""
+            if field_name == "celebration_tier":
+                return "{wLargesse{n"
+            return "{w%s{n" % field_name.capitalize()
         msg = "Please correct the following errors:\n"
-        msg += "\n".join("%s: %s" % (field, ", ".join(errs)) for field, errs in self.errors.items())
+        msg += "\n".join("%s: {r%s{n" % (format_name(field), ", ".join(errs)) for field, errs in self.errors.items())
         return msg

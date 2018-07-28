@@ -31,7 +31,7 @@ class CombatCommandsTests(ArxCommandTest):
         self.room1.start_event_logging(event)
         self.caller = self.char2
         self.call_cmd("/gmallow char=10", "This may only be used by the GM of an event.")
-        event.gms.add(self.dompc2)
+        event.add_gm(self.dompc2, send_inform=False)
         self.call_cmd("char2", "There is an event here and you have not been granted GM permission to use +heal.")
         self.call_cmd("/gmallow char=10", "You have allowed Char to use +heal, with a bonus to their roll of 10.")
         self.assertEqual(self.char1.ndb.healing_gm_allow, 10)
