@@ -419,6 +419,16 @@ class SocialTests(ArxCommandTest):
         assets.save()
         self.call_cmd("/sponsor test org,200=1", "test org is now sponsoring test_event for 200 social resources.")
         self.assertEqual(assets.social, 0)
+        self.call_cmd("/uninvite testaccount2=2", "No event found by that number.")
+        self.call_cmd("/uninvite testaccount2=1", "Removed Testaccount2's invitation.")
+        self.call_cmd("/uninvite testaccount2=1", "They are not invited.")
+        self.call_cmd("/invite testaccount2=1", "Invited Testaccount2 to attend.")
+        self.call_cmd("/invite testaccount2=1", "They are already invited.")
+        self.call_cmd("/uninvite test org=1", "Removed test org's invitation.")
+        self.call_cmd("/uninvite test org=1", "That organization is not invited.")
+        self.call_cmd("/invite test org=1", 'test org has new @informs. Use @informs/org test org/1 to read them.|'
+                                            'Invited test org to attend.')
+        self.call_cmd("/invite test org=1", 'That organization is already invited.')
 
     @patch("world.dominion.models.get_week")
     @patch("server.utils.arx_utils.get_week")

@@ -1805,8 +1805,9 @@ class CmdCalendar(ArxPlayerCommand):
         try:
             org = Organization.objects.get(name__iexact=self.lhs)
         except Organization.DoesNotExist:
-            pc = self.caller.search(self.lhs)
-            if not pc:
+            try:
+                pc = self.caller.search(self.lhs).Dominion
+            except AttributeError:
                 raise self.CalCmdError("Could not find an organization or player by that name.")
         return org, pc
 
