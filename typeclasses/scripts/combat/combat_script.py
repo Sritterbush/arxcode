@@ -288,10 +288,8 @@ class CombatManager(BaseScript):
         self.remove_observer(character)
         self.send_intro_message(character)
         # add combat state to list of combatants
-        state = CombatantStateHandler(character, self)
-        self.ndb.combatants.append(state)
-        if reset:
-            state.reset()
+        if character not in self.characters_in_combat:
+            CombatantStateHandler(character, self, reset=reset)
         if character == adder:
             return "{rYou have entered combat.{n"
         # if we have an adder, they're fighting one another. set targets
@@ -304,6 +302,19 @@ class CombatManager(BaseScript):
             adder_state.setup_attacks()
             cdata.state.setup_attacks()
         return "You have added %s to a fight." % character.name
+
+    @property
+    def characters_in_combat(self):
+        """Returns characters from our combat states"""
+        return [ob.character for ob in self.ndb.combatants]
+
+    def register_state(self, state):
+        """
+        Stores reference to a CombatantStateHandler in self.ndb.combatants. Called by CombatantStateHandler's init,
+        done this way to avoid possible infinite recursion
+        """
+        if state not in self.ndb.combatants:
+            self.ndb.combatants.append(state)
 
     def finish_initialization(self):
         """
