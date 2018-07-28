@@ -10,7 +10,7 @@ from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister
                      OrgRelationship, Reputation, TaskSupporter, InfluenceCategory,
                      Renown, SphereOfInfluence, TaskRequirement, ClueForOrg, ActionOOCQuestion,
                      PlotRoom, Landmark, Shardhaven, ShardhavenType, ShardhavenClue, ShardhavenDiscovery,
-                     Honorific, Propriety)
+                     Honorific, Propriety, PCEventParticipation, OrgEventParticipation)
 
 from web.help_topics.templatetags.app_filters import mush_to_html
 
@@ -203,13 +203,27 @@ class RecipeAdmin(DomAdmin):
     filter_horizontal = ['known_by', 'primary_materials', 'secondary_materials', 'tertiary_materials']
 
 
+class PCEventParticipantInline(admin.TabularInline):
+    """PlayerOrNpcs in an RPEvent"""
+    model = PCEventParticipation
+    extra = 0
+    raw_id_fields = ('dompc',)
+
+
+class OrgEventParticipantInline(admin.TabularInline):
+    """Orgs in an RPEvent"""
+    model = OrgEventParticipation
+    extra = 0
+    raw_id_fields = ('org',)
+
+
 class EventAdmin(DomAdmin):
     """Admin for RP Events/PRPs/GM Events"""
     list_display = ('id', 'name', 'date')
-    search_fields = ['name', 'hosts__player__username', 'participants__player__username', 'gms__player__username']
+    search_fields = ['name', 'dompcs__username', 'orgs__name']
     ordering = ['date']
     raw_id_fields = ('location', 'actions', 'plotroom')
-    filter_horizontal = ['hosts', 'participants', 'gms']
+    inlines = (PCEventParticipantInline, OrgEventParticipantInline)
 
 
 class SendTransactionInline(admin.TabularInline):

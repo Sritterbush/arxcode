@@ -29,13 +29,14 @@ class RPEventCreateForm(forms.ModelForm):
         """Meta options for setting up the form"""
         model = RPEvent
         fields = ['location', 'plotroom', 'desc', 'date', 'celebration_tier', 'name', 'room_desc', 'risk',
-                  'public_event']
+                  'public_event', 'actions']
 
     def __init__(self, *args, **kwargs):
         self.owner = kwargs.pop('owner')
         super(RPEventCreateForm, self).__init__(*args, **kwargs)
         self.fields['desc'].required = True
         self.fields['date'].required = True
+        self.fields['actions'].queryset = self.owner.actions.all()
 
     @property
     def cost(self):
@@ -113,6 +114,9 @@ class RPEventCreateForm(forms.ModelForm):
         invites = PlayerOrNpc.objects.filter(id__in=self.data.get('invites', []))
         if invites:
             msg += "{wInvitations:{n %s\n" % ", ".join(str(ob) for ob in invites)
+        actions = self.data.get('actions', [])
+        if actions:
+            msg += "{wRelated Actions:{n %s\n" % ", ".join(str(ob) for ob in actions)
         return msg
 
     def display_errors(self):

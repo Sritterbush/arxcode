@@ -18,16 +18,16 @@ from evennia.utils.utils import make_iter
 from evennia.scripts.models import ScriptDB
 
 from commands.commands.roster import format_header
+from server.utils.exceptions import PayError
 from server.utils.prettytable import PrettyTable
 from server.utils.arx_utils import inform_staff, time_from_now
 from typeclasses.characters import Character
 from typeclasses.rooms import ArxRoom
 from web.character.models import AccountHistory, FirstContact
-from world.dominion import setup_utils
 from world.dominion.forms import RPEventCreateForm
 from world.dominion.models import (RPEvent, Agent, CraftingMaterialType, CraftingMaterials,
                                    AssetOwner, Renown, Reputation, Member, PlotRoom,
-                                   PlayerOrNpc, Organization, InfluenceCategory)
+                                   Organization, InfluenceCategory, CrisisAction)
 from world.msgs.models import Journal, Messenger
 from world.msgs.managers import reload_model_as_proxy
 from world.stats_and_skills import do_dice_check
@@ -1276,18 +1276,19 @@ class CmdCalendar(ArxPlayerCommand):
         @cal/private <on or off>[=<event ID>]
         @cal/host <playername>[=<event ID>]
         @cal/gm <playername>[=<event ID>]
-        @cal/invite <player or org name>[,player or org name][=<event ID>]
-        @cal/uninvite <player or org name>[,player or org name][=<event ID>]
+        @cal/invite <player or org name>[=<event ID>]
+        @cal/uninvite <player or org name>[=<event ID>]
         @cal/roomdesc <description>[=<event ID>]
         @cal/risk <risk value>[=<event ID>]
         @cal/action <action ID #>[=<event ID>]
     Admin:
         @cal/starteventearly <event ID>
         @cal/cancel <event ID>
-    In-Progress Controls:
-        @cal/join <event number>
-        @cal/movehere <event number>
-        @cal/endevent <event number>
+        @cal/endevent <event ID>
+        @cal/movehere <event ID>
+    Interaction:
+        @cal/join <event ID>
+        @cal/sponsor <org>,<social resources>=<event ID>
 
     Creates or displays information about events. date should be
     in the format of 'MM/DD/YY HR:MN'. /private toggles whether the
@@ -1359,7 +1360,7 @@ class CmdCalendar(ArxPlayerCommand):
             if self.check_switches(self.admin_switches):
                 return self.do_admin_switches()
             raise self.CalCmdError("Invalid switch.")
-        except self.CalCmdError as err:
+        except (self.CalCmdError, PayError) as err:
             self.msg(err)
 
     def do_display_switches(self):
@@ -1404,6 +1405,24 @@ class CmdCalendar(ArxPlayerCommand):
             lhs = self.lhs
             rhs = self.rhs
         event = self.get_event_from_args(lhs)
+        if "sponsor" in self.switches:
+            try:
+                org = Organization.objects.get(name__iexact=lhs)
+            except Organization.DoesNotExist:
+                raise self.CalCmdError("No Organization by that name.")
+            if not org.access(self.caller, "withdraw"):
+                raise self.CalCmdError("You do not have permission to spend funds for %s." % org)
+            if event.finished:
+                raise self.CalCmdError("Try as you might, you cannot alter the past.")
+            try:
+                amount = int(self.lhslist[1])
+                if amount < 1:
+                    raise ValueError
+            except (TypeError, ValueError):
+                raise self.CalCmdError("You must provide a positive number of social resources to add.")
+            sponsoring = event.add_sponsorship(org, amount)
+            self.msg("%s is now sponsoring %s for %d social resources." % (org, event, sponsoring.social))
+            return
         if "join" in self.switches:
             diff = time_from_now(event.date).total_seconds()
             if diff > 3600:
@@ -1504,6 +1523,8 @@ class CmdCalendar(ArxPlayerCommand):
             return self.invite_org_or_player(event)
         if "uninvite" in self.switches:
             return self.uninvite_org_or_player(event)
+        if "action" in self.switches:
+            return self.set_crisis_action(event)
 
     def do_in_progress_switches(self):
         """Change event in progress"""
@@ -1744,17 +1765,10 @@ class CmdCalendar(ArxPlayerCommand):
 
     def invite_org_or_player(self, event):
         """Invites an organization or player to an event"""
-        org = None
-        pc = None
-        try:
-            org = Organization.objects.get(name__iexact=self.lhs)
-        except Organization.DoesNotExist:
-            pc = self.caller.search(self.lhs)
-            if not pc:
-                raise self.CalCmdError("Could not find an organization or player by that name.")
+        org, pc = self.get_org_or_dompc()
         if event:
             if org:
-                if org in event.orgs:
+                if org in event.orgs.all():
                     raise self.CalCmdError("That organization is already invited.")
                 event.invite_org(org)
             else:
@@ -1775,21 +1789,66 @@ class CmdCalendar(ArxPlayerCommand):
                 proj['invites'].append(pc.id)
         self.msg("{wInvited {c%s{w to attend." % (pc or org))
 
+    def get_org_or_dompc(self):
+        """Gets org or a dompc based on name"""
+        org = None
+        pc = None
+        try:
+            org = Organization.objects.get(name__iexact=self.lhs)
+        except Organization.DoesNotExist:
+            pc = self.caller.search(self.lhs)
+            if not pc:
+                raise self.CalCmdError("Could not find an organization or player by that name.")
+        return org, pc
+
     def uninvite_org_or_player(self, event):
-        """Uninvites an organization or player from an event"""
-        uninvited = []
-        for arg in self.rhslist:
-            targ = self.caller.search(arg)
-            if not targ:
-                continue
-            pc = targ.Dominion
-            if pc not in event.participants.all():
-                self.msg("%s is already not invited to attend." % pc)
-                continue
-            event.participants.remove(pc)
-            uninvited.append(str(pc))
-        self.msg("{wUninvited {c%s{w from attending %s." % (", ".join(uninvited), event))
-        return
+        """Removes an organization or player from an event"""
+        org, pc = self.get_org_or_dompc()
+        if event:
+            if org:
+                if org not in event.orgs.all():
+                    raise self.CalCmdError("That organization is not invited.")
+                event.remove_org(org)
+            else:
+                if pc not in event.dompcs.all():
+                    raise self.CalCmdError("They are not invited.")
+                event.remove_guest(pc)
+        else:
+            proj = self.caller.ndb.event_creation
+            if org:
+                if org.id not in proj['org_invites']:
+                    raise self.CalCmdError("That organization is not invited.")
+                proj['org_invites'].remove(org.id)
+            else:
+                if pc.id in proj['hosts'] or pc.id in proj['gms']:
+                    raise self.CalCmdError("Remove them as a host or gm first.")
+                if pc.id not in proj['invites']:
+                    raise self.CalCmdError("They are not invited.")
+                proj['invites'].remove(pc.id)
+        self.msg("{wRemoved {c%s{w's invitation." % (pc or org))
+
+    def set_crisis_action(self, event):
+        """Sets crisis actions for an event"""
+        try:
+            action = self.caller.Dominion.actions.get(id=self.lhs)
+        except (CrisisAction.DoesNotExist, ValueError, TypeError):
+            raise self.CalCmdError("You can only add or remove actions you own.")
+        if event:
+            if action in event.actions.all():
+                event.actions.remove(action)
+                msg = "Action removed."
+            else:
+                event.actions.add(action)
+                msg = "Action added."
+        else:
+            actions = self.caller.ndb.event_creation.setdefault('actions', [])
+            if action.id in actions:
+                actions.remove(action.id)
+                msg = "Action removed."
+            else:
+                actions.append(action.id)
+                msg = "Action added."
+        self.msg(msg)
 
 
 class CmdPraise(ArxPlayerCommand):

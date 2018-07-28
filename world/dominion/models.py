@@ -5598,6 +5598,30 @@ class RPEvent(SharedMemoryModel):
         if not self.finished:
             participant.invite()
 
+    def add_sponsorship(self, org, amount):
+        """Adds social resources to an org's sponsorship"""
+        part, _ = self.org_event_participation.get(org=org)
+        if org.assets.social < amount:
+            raise PayError("%s does not have enough social resources." % org)
+        org.assets.social -= amount
+        part.social += amount
+        part.save()
+        org.assets.save()
+        return part
+
+    def remove_guest(self, dompc):
+        """Removes a record of guest's attendance"""
+        part = self.pc_event_participation.get(dompc=dompc)
+        part.delete()
+
+    def remove_org(self, org):
+        """Removes org's invitation"""
+        part = self.org_event_participation.get(org=org)
+        if self.date > datetime.now():
+            org.assets.social += part.social
+            org.assets.save()
+        part.delete()
+
 
 class PCEventParticipation(SharedMemoryModel):
     """A PlayerOrNPC participating in an event"""
