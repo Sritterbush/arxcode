@@ -2,7 +2,7 @@
 Tests for different general commands. Tests for other command sets or for different apps can be found elsewhere.
 """
 
-from mock import Mock, patch
+from mock import Mock, patch, PropertyMock
 from datetime import datetime, timedelta
 
 from server.utils.test_utils import ArxCommandTest
@@ -265,6 +265,7 @@ class OverridesTests(ArxCommandTest):
         self.call_cmd("asdf", "Players:\n\nPlayer name Fealty Idle \n\nShowing 0 out of 1 unique account logged in.")
 
 
+# noinspection PyUnresolvedReferences
 class RosterTests(ArxCommandTest):
     def setUp(self):
         """Adds rosters and an announcement board"""
@@ -354,53 +355,116 @@ class SocialTests(ArxCommandTest):
         self.char1.tags.remove("no_messengers")
         self.call_cmd("testaccount=hiya", "You dispatch a messenger to Char with the following message:\n\n'hiya'")
 
+    @patch("world.dominion.models.get_week")
     @patch.object(social, "inform_staff")
     @patch.object(social, "datetime")
-    def test_cmd_rpevent(self, mock_datetime, mock_inform_staff):
+    def test_cmd_rpevent(self, mock_datetime, mock_inform_staff, mock_get_week):
         from evennia.utils.create import create_script
         from typeclasses.scripts.event_manager import EventManager
+        from world.dominion.models import Organization, AssetOwner
         script = create_script(typeclass=EventManager, key="Event Manager")
         script.post_event = Mock()
         now = datetime.now()
         mock_datetime.strptime = datetime.strptime
         mock_datetime.now = Mock(return_value=now)
+        mock_get_week.return_value = 1
         self.setup_cmd(social.CmdCalendar, self.account1)
-        self.call_cmd("/create test_event", 'Starting project. It will not be saved until you submit it. Does not '
-                                            'persist through logout/server reload.|Event name: test_event\nGMs: \n'
-                                            'Date: No date yet\nLocation: No location set.\n'
-                                            'Desc: No description set yet\nPublic: Public\nHosts: Testaccount\n'
-                                            'Largesse: 0\nRoom Desc:')
+        self.call_cmd("/create test_event", 'Starting project. It will not be saved until you submit it.'
+                                            ' Does not persist through logout/server reload.|'
+                                            'Name: test_event\nMain Host: Testaccount\nPublic: Public\n'
+                                            'Description: None\nDate: None\nLocation: None\nLargesse: Small')
         self.call_cmd("/desc test description", 'Desc of event set to:\ntest description')
-        self.call_cmd('/submit', 'Name, date, desc, and hosts must be defined before you submit.|'
-                                 'Event name: test_event\nGMs: \nDate: No date yet\nLocation: No location set.\n'
-                                 'Desc: test description\nPublic: Public\nHosts: Testaccount\nLargesse: 0\nRoom Desc:')
-        self.call_cmd("/date 26:35 sdf", "Date did not match 'mm/dd/yy hh:mm' format.|You entered: 26:35 sdf")
+        self.call_cmd('/submit', 'Please correct the following errors:\n'
+                                 'Date: This field is required.\n'
+                                 'Name: test_event\nMain Host: Testaccount\nPublic: Public\n'
+                                 'Description: test description\nDate: None\nLocation: None\nLargesse: Small')
+        self.call_cmd("/date 26:35 sdf", "Date did not match 'mm/dd/yy hh:mm' format. You entered: 26:35 sdf")
         self.call_cmd("/date 1/1/01 12:35", "You cannot make an event for the past.")
         datestr = now.strftime("%x %X")
         self.call_cmd("/date 12/12/30 12:00", ('Date set to 12/12/30 12:00:00.|' +
                                                ('Current time is {} for comparison.|'.format(datestr)) +
                                                'Number of events within 2 hours of that date: 0'))
-        self.call_cmd("/addgm testaccount", "Testaccount added to GMs.|GMs are: Testaccount|"
-                                            "Reminder - please only add a GM for an event if it's an actual "
-                                            "player-run plot. Tagging a social event as a PRP is strictly prohibited. "
-                                            "If you tagged this as a PRP in error, use addgm with no arguments to "
-                                            "remove GMs.")
+        self.call_cmd("/gm testaccount", "Testaccount is now marked as a gm.\n"
+                                         "Reminder - please only add a GM for an event if it's an actual "
+                                         "player-run plot. Tagging a social event as a PRP is strictly prohibited. "
+                                         "If you tagged this as a PRP in error, use gm on them again to remove them.")
         self.char1.db.currency = -1.0
         self.call_cmd("/largesse grand", 'That requires 10000 to buy. You have -1.0.')
         self.char1.db.currency = 10000
         self.call_cmd("/largesse grand", "Largesse level set to grand for 10000.")
+        org = Organization.objects.create(name="test org")
+        self.call_cmd("/invite test org", 'Invited test org to attend.')
+        self.call_cmd("/invite testaccount2", "Invited Testaccount2 to attend.")
         self.call_cmd('/submit', 'You pay 10000 coins for the event.|'
                                  'New event created: test_event at 12/12/30 12:00:00.')
         self.assertEqual(self.char1.db.currency, 0)
         event = RPEvent.objects.get(name="test_event")
         self.assertTrue(event.gm_event)
+        self.assertEqual(org.events.first(), event)
+        self.assertEqual(self.dompc2.events.first(), event)
         script.post_event.assert_called_with(event, self.account,
-                                             '{wEvent name:{n test_event\n{wGMs:{n Testaccount\n{wDate:{n 12/12/30 '
-                                             '12:00:00\n{wLocation:{n No location set.\n{wDesc:{n test description\n'
-                                             '{wPublic:{n Public\n{wHosts:{n Testaccount\n{wLargesse:{n grand\n'
-                                             '{wRoom Desc:{n \n')
+                                             '{wName:{n test_event\n{wMain Host:{n Testaccount\n{wPublic:{n Public\n'
+                                             '{wDescription:{n test description\n{wDate:{n 2030-12-12 12:00:00\n'
+                                             '{wLocation:{n None\n{wLargesse:{n Grand\n{wGMs:{n Testaccount\n'
+                                             '{wRisk:{n Normal Risk\n{wInvitations:{n Testaccount2\n')
         mock_inform_staff.assert_called_with('New event created by Testaccount: test_event, '
                                              'scheduled for 12/12/30 12:00:00.')
+        self.call_cmd("/sponsor test org,200=1", "You do not have permission to spend funds for test org.")
+        org.locks.add("withdraw:rank(10)")
+        org.save()
+        org.members.create(player=self.dompc, rank=1)
+        assets = AssetOwner.objects.create(organization_owner=org)
+        self.call_cmd("/sponsor test org,200=1", 'test org does not have enough social resources.')
+        assets.social = 200
+        assets.save()
+        self.call_cmd("/sponsor test org,200=1", "test org is now sponsoring test_event for 200 social resources.")
+        self.assertEqual(assets.social, 0)
+
+    @patch("world.dominion.models.get_week")
+    @patch("server.utils.arx_utils.get_week")
+    @patch.object(social, "do_dice_check")
+    def test_cmd_praise(self, mock_dice_check, mock_get_week, mock_dom_get_week):
+        from web.character.models import PlayerAccount
+        from world.dominion.models import Organization, AssetOwner, RPEvent
+        self.roster_entry.current_account = PlayerAccount.objects.create(email="asdf@asdf.com")
+        self.roster_entry.save()
+        self.setup_cmd(social.CmdPraise, self.account)
+        mock_get_week.return_value = 1
+        mock_dom_get_week.return_value = 1
+        self.assertEqual(self.account.get_current_praises_and_condemns().count(), 0)
+        self.call_cmd("testaccount2", "You have already used all your praises for the week.")
+        # property mocks have to be reset at the end, or screws up other tests
+        old = type(self.char1).social_clout
+        prop_mock = PropertyMock(return_value=10)
+        type(self.char1).social_clout = prop_mock
+        mock_dice_check.return_value = 50
+        self.call_cmd("testaccount2,-2=hi", "The number of praises used must be a positive number, "
+                                            "and less than your max praises.")
+        self.call_cmd("testaccount2,99=hi", "The number of praises used must be a positive number, "
+                                            "and less than your max praises.")
+        self.account2.inform = Mock()
+        self.call_cmd("/all testaccount2=hi", 'You use 1 action points and have 99 remaining this week.|'
+                                              'You praise the actions of Testaccount2. You have 0 praises remaining.')
+        self.account2.inform.assert_called_with('Testaccount has praised you. Your prestige has been adjusted by 90.',
+                                                append=False, category='Praised', week=1)
+        self.assertEqual(self.assetowner2.fame, 90)
+        self.assertEqual(self.account.get_current_praises_and_condemns().count(), 1)
+        org = Organization.objects.create(name="test org")
+        org.inform = Mock()
+        org_assets = AssetOwner.objects.create(organization_owner=org)
+        self.call_cmd("/org foo", "No organization by that name.")
+        self.call_cmd("/org test org", 'There is no event going on that has test org as a sponsor.')
+        event = RPEvent.objects.create(name="test event", location=self.room)
+        self.room.db.current_event = event.id
+        event.org_event_participation.create(org=org, social=50)
+        prop_mock.return_value = 50
+        self.call_cmd("/org test org,40=hi2u", 'You use 1 action points and have 98 remaining this week.|'
+                                               'You praise the actions of Test org. You have 0 praises remaining.')
+        org.inform.assert_called_with('Testaccount has praised you. Your prestige has been adjusted by 10200.',
+                                      append=False, category='Praised', week=1)
+        self.assertEqual(org_assets.fame, 10200)
+        # cleanup property mock
+        type(self.char1).social_clout = old
 
 
 # noinspection PyUnresolvedReferences

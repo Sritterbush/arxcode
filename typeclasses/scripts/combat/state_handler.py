@@ -83,8 +83,9 @@ class CombatantStateHandler(object):
     """
     Stores information about a character's participation in a fight.
     """
-    def __init__(self, character, combat):
+    def __init__(self, character, combat, reset=True):
         self.combat = combat
+        combat.register_state(self)
         self.combat_handler = character.combat
         # also give combat_handler a reference to us stored in 'state'
         self.combat_handler.state = self
@@ -142,6 +143,8 @@ class CombatantStateHandler(object):
         self.prevent_surrender_list = []
         self.automated_override = False
         self.recent_actions = []
+        if reset:
+            self.reset()
 
     def __str__(self):
         return self.combat_handler.name
@@ -594,7 +597,7 @@ class CombatantStateHandler(object):
             return
         if not guard.conscious:
             return
-        if guard not in combat.ndb.combatants:
+        if guard not in combat.characters_in_combat:
             combat.add_combatant(guard)
             guard.msg("{rYou enter combat to protect %s.{n" % protected.name)
         if guard not in self.defenders:
@@ -624,7 +627,7 @@ class CombatantStateHandler(object):
         """
         Returns list of defenders of a target.
         """
-        return [ob for ob in self.defenders if ob.combat.state.can_act]
+        return [ob for ob in self.defenders if ob.combat.state and ob.combat.state.can_act]
 
     def clear_blocked_by_list(self):
         """

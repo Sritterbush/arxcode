@@ -560,9 +560,9 @@ class WeeklyEvents(RunDateMixin, Script):
             rank_order = sorted(rank_order, key=lambda x: x.prestige, reverse=True)
             for tup in sorted_changes:
                 # get our prestige ranking compared to others
-                dompc = tup[0]
+                owner = tup[0]
                 try:
-                    rank = rank_order.index(dompc.assets) + 1
+                    rank = rank_order.index(owner) + 1
                 except ValueError:
                     # they rostered mid-week or whatever, skip them
                     continue
@@ -570,7 +570,7 @@ class WeeklyEvents(RunDateMixin, Script):
                 amt = tup[1]
                 if amt > 0:
                     amt = "+%s" % amt
-                table.add_row(dompc, amt, rank)
+                table.add_row(owner, amt, rank)
             prestige_msg += "\n\n"
             prestige_msg += "{wTop Prestige Changes{n".center(72)
             prestige_msg = "%s\n%s" % (prestige_msg, str(table).lstrip())

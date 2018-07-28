@@ -988,6 +988,9 @@ class CmdGuards(ArxCommand):
                 return
             # if they're only one square away
             loc = guard.location or guard.db.docked
+            if not guard.db.guarding:
+                self.msg("They are unassigned.")
+                return
             if loc and caller.location == loc:
                 guard.summon()
                 return

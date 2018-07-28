@@ -135,8 +135,8 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
         self.attributes.remove("pending_messages")
         if self.assigned_to.filter(status=1, priority__lte=5):
             self.msg("{yYou have unresolved tickets assigned to you. Use @job/mine to view them.{n")
-            return
         self.check_motd()
+        self.check_petitions()
         # in this mode we should have only one character available. We
         # try to auto-connect to it by calling the @ic command
         # (this relies on player.db._last_puppet being set)
@@ -294,6 +294,35 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
         if self.pay_resources(rtype, -amt):
             return amt
         return 0
+
+    def pay_materials(self, material_type, amount):
+        """
+        Attempts to pay materials of the given type and amount
+        Args:
+            material_type (CraftingMaterialType): Material type we're paying with
+            amount: amount we're spending
+
+        Returns:
+            False if we were able to spend, True otherwise
+        """
+        from django.core.exceptions import ObjectDoesNotExist
+        assets = self.assets
+        try:
+            if amount < 0:
+                material, _ = assets.materials.get_or_create(type=material_type)
+            else:
+                material = assets.materials.get(type=material_type)
+            if material.amount < amount:
+                return False
+            material.amount -= amount
+            material.save()
+            return True
+        except ObjectDoesNotExist:
+            return False
+
+    def gain_materials(self, material_type, amount):
+        """Similar to gain_resources, call pay_materials with negative amount to gain it"""
+        return self.pay_materials(material_type, -amount)
 
     def pay_action_points(self, amt, can_go_over_cap=False):
         """
@@ -521,3 +550,13 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
             if org.motd:
                 msg += "|wMessage of the Day for %s:|n %s\n" % (org, org.motd)
         self.msg(msg)
+
+    def check_petitions(self):
+        """Checks if we have any unread petition posts"""
+        try:
+            unread = self.Dominion.petitionparticipation_set.filter(unread_posts=True)
+            if unread:
+                unread_ids = [str(ob.petition.id) for ob in unread]
+                self.msg("{wThe following petitions have unread messages:{n %s" % ", ".join(unread_ids))
+        except AttributeError:
+            pass

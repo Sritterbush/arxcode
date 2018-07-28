@@ -288,10 +288,8 @@ class CombatManager(BaseScript):
         self.remove_observer(character)
         self.send_intro_message(character)
         # add combat state to list of combatants
-        state = CombatantStateHandler(character, self)
-        self.ndb.combatants.append(state)
-        if reset:
-            state.reset()
+        if character not in self.characters_in_combat:
+            CombatantStateHandler(character, self, reset=reset)
         if character == adder:
             return "{rYou have entered combat.{n"
         # if we have an adder, they're fighting one another. set targets
@@ -304,6 +302,19 @@ class CombatManager(BaseScript):
             adder_state.setup_attacks()
             cdata.state.setup_attacks()
         return "You have added %s to a fight." % character.name
+
+    @property
+    def characters_in_combat(self):
+        """Returns characters from our combat states"""
+        return [ob.character for ob in self.ndb.combatants]
+
+    def register_state(self, state):
+        """
+        Stores reference to a CombatantStateHandler in self.ndb.combatants. Called by CombatantStateHandler's init,
+        done this way to avoid possible infinite recursion
+        """
+        if state not in self.ndb.combatants:
+            self.ndb.combatants.append(state)
 
     def finish_initialization(self):
         """
@@ -452,13 +463,11 @@ class CombatManager(BaseScript):
         we're in phase one.
         """
         state = character.combat.state
+        self.clear_lists_of_character(character)
         if state in self.ndb.combatants:
             self.ndb.combatants.remove(state)
-        if character in self.ndb.fleeing:
-            self.ndb.fleeing.remove(character)
-        if character in self.ndb.afk_check:
-            self.ndb.afk_check.remove(character)
-        state.leave_combat()
+        if state:
+            state.leave_combat()
         # if we're already shutting down, avoid redundant messages
         if len(self.ndb.combatants) < 2 and not in_shutdown:
             # We weren't shutting down and don't have enough fighters to continue. end the fight.
@@ -473,6 +482,15 @@ class CombatManager(BaseScript):
                 return
             if self.ndb.active_character == character:
                 self.next_character_turn()
+
+    def clear_lists_of_character(self, character):
+        """Removes a character from any of the lists they might be in"""
+        if character in self.ndb.fleeing:
+            self.ndb.fleeing.remove(character)
+        if character in self.ndb.afk_check:
+            self.ndb.afk_check.remove(character)
+        if character in self.ndb.surrender_list:
+            self.ndb.surrender_list.remove(character)
 
     def add_observer(self, character):
         """

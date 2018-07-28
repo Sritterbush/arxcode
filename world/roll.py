@@ -132,7 +132,8 @@ class Roll(object):
         # flat modifier is after crits/botches, but before a flubbed result
         result += self.flat_modifier
         if self.flub:
-            surrender = randint(-15, -1)
+            rand_cap = max(1, min(len(rolls) * 5, self.difficulty))
+            surrender = randint(1, rand_cap) - self.difficulty
             if result > surrender:
                 result = surrender
         self.result = result

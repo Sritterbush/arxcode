@@ -18,17 +18,19 @@ from evennia.utils.utils import make_iter
 from evennia.scripts.models import ScriptDB
 
 from commands.commands.roster import format_header
+from server.utils.exceptions import PayError
 from server.utils.prettytable import PrettyTable
 from server.utils.arx_utils import inform_staff, time_from_now
 from typeclasses.characters import Character
 from typeclasses.rooms import ArxRoom
 from web.character.models import AccountHistory, FirstContact
-from world.dominion import setup_utils
+from world.dominion.forms import RPEventCreateForm
 from world.dominion.models import (RPEvent, Agent, CraftingMaterialType, CraftingMaterials,
                                    AssetOwner, Renown, Reputation, Member, PlotRoom,
-                                   PlayerOrNpc, Organization, InfluenceCategory)
+                                   Organization, InfluenceCategory, CrisisAction)
 from world.msgs.models import Journal, Messenger
 from world.msgs.managers import reload_model_as_proxy
+from world.stats_and_skills import do_dice_check
 
 
 def char_name(character_object, verbose_where=False, watch_list=None):
@@ -1251,17 +1253,6 @@ class CmdMessenger(ArxCommand):
         return
 
 
-largesse_types = ('none', 'common', 'refined', 'grand', 'extravagant', 'legendary')
-costs = {
-    'none': (0, 0),
-    'common': (100, 1000),
-    'refined': (1000, 5000),
-    'grand': (10000, 20000),
-    'extravagant': (100000, 100000),
-    'legendary': (500000, 400000)
-    }
-
-
 class CmdCalendar(ArxPlayerCommand):
     """
     @cal
@@ -1270,31 +1261,34 @@ class CmdCalendar(ArxPlayerCommand):
         @cal
         @cal/list
         @cal <event number>
-        @cal/create <name>
-        @cal/desc <description>
-        @cal/date <date>
-        @cal/largesse <level>
-        @cal/location [<room name, otherwise room you're in>]
-        @cal/plotroom [<plot room ID>]
-        @cal/private
-        @cal/addhost <playername>
-        @cal/addgm <playername>
-        @cal/roomdesc <description>
-        @cal/abort
-        @cal/submit
-        @cal/invite <event number>=<player>[,player2,...]
-        @cal/uninvite <event number>=<player>[,player2,...]
-        @cal/starteventearly <event number>[=here]
-        @cal/endevent <event number>
-        @cal/reschedule <event number>=<new date>
-        @cal/cancel <event number>
-        @cal/join <event number>
-        @cal/movehere <event number>
-        @cal/changeplotroom <event number>=<ID>
-        @cal/changeroomdesc <event number>=<new desc>
-        @cal/toggleprivate <event number>
         @cal/old
         @cal/comments <event number>=<comment number>
+    Creation:
+        @cal/create <name>
+        @cal/abort
+        @cal/submit
+    Creation or Editing:
+        @cal/desc <description>[=<event ID>]
+        @cal/date <date>[=<event ID>]
+        @cal/largesse <level>[=<event ID>]
+        @cal/location [<room name, otherwise room you're in>][=<event ID>]
+        @cal/plotroom [<plot room ID>][=<event ID>]
+        @cal/private <on or off>[=<event ID>]
+        @cal/host <playername>[=<event ID>]
+        @cal/gm <playername>[=<event ID>]
+        @cal/invite <player or org name>[=<event ID>]
+        @cal/uninvite <player or org name>[=<event ID>]
+        @cal/roomdesc <description>[=<event ID>]
+        @cal/risk <risk value>[=<event ID>]
+        @cal/action <action ID #>[=<event ID>]
+    Admin:
+        @cal/starteventearly <event ID>
+        @cal/cancel <event ID>
+        @cal/endevent <event ID>
+        @cal/movehere <event ID>
+    Interaction:
+        @cal/join <event ID>
+        @cal/sponsor <org>,<social resources>=<event ID>
 
     Creates or displays information about events. date should be
     in the format of 'MM/DD/YY HR:MN'. /private toggles whether the
@@ -1325,6 +1319,70 @@ class CmdCalendar(ArxPlayerCommand):
     aliases = ["+event", "+events", "@calendar"]
     help_category = "Social"
 
+    class CalCmdError(Exception):
+        """Errors for this command"""
+        pass
+
+    display_switches = ("old", "list")
+    target_event_switches = ("comments", "join", "sponsor")
+    form_switches = ("create", "abort", "submit")
+    attribute_switches = ("plotroom", "roomdesc", "host", "gm", "invite", "uninvite", "location",
+                          "desc", "date", "private", "risk", "action", "reschedule", "largesse")
+    admin_switches = ("cancel", "starteventearly")
+    in_progress_switches = ("movehere", "endevent")
+
+    @property
+    def form(self):
+        """Returns the RPEventCreateForm for the caller"""
+        proj = self.caller.ndb.event_creation
+        if not proj:
+            return
+        return RPEventCreateForm(proj, owner=self.caller.Dominion)
+
+    @property
+    def event_manager(self):
+        """Returns the script for tracking/updating events"""
+        return ScriptDB.objects.get(db_key="Event Manager")
+
+    def func(self):
+        """Execute command."""
+        try:
+            if not self.args and (not self.switches or self.check_switches(self.display_switches)):
+                return self.do_display_switches()
+            if not self.switches or self.check_switches(self.target_event_switches):
+                return self.do_target_event_switches()
+            if self.check_switches(self.form_switches):
+                return self.do_form_switches()
+            if self.check_switches(self.attribute_switches):
+                return self.do_attribute_switches()
+            if self.check_switches(self.in_progress_switches):
+                return self.do_in_progress_switches()
+            if self.check_switches(self.admin_switches):
+                return self.do_admin_switches()
+            raise self.CalCmdError("Invalid switch.")
+        except (self.CalCmdError, PayError) as err:
+            self.msg(err)
+
+    def do_display_switches(self):
+        """Displays our project if we have one"""
+        proj = self.caller.ndb.event_creation
+        if not self.args and not self.switches and proj:
+            self.display_project()
+            return
+        if self.caller.check_permstring("builders"):
+            qs = RPEvent.objects.all()
+        else:
+            qs = RPEvent.objects.filter(Q(public_event=True) | Q(dompcs=self.caller.Dominion))
+        if "old" in self.switches:  # display finished events
+            finished = qs.filter(finished=True).distinct().order_by('-date')
+            from server.utils import arx_more
+            table = self.display_events(finished)
+            arx_more.msg(self.caller, "{wOld events:\n%s" % table, justify_kwargs=False)
+        else:  # display upcoming events
+            unfinished = qs.filter(finished=False).distinct().order_by('date')
+            table = self.display_events(unfinished)
+            self.msg("{wUpcoming events:\n%s" % table, options={'box': True})
+
     @staticmethod
     def display_events(events):
         """Displays table of events"""
@@ -1336,544 +1394,483 @@ class CmdCalendar(ArxPlayerCommand):
             table.add_row([event.id, event.name[:25], event.date.strftime("%x %H:%M"), host, public])
         return table
 
-    @staticmethod
-    def display_project(proj):
-        """proj is [name, date, location, desc, public, hosts, largesse]"""
-        name = proj[0] or "None"
-        date = proj[1].strftime("%x %X") if proj[1] else "No date yet"
-        loc = proj[2].name if proj[2] else ("%s (plot room)" % proj[9].ansi_name() if proj[9] else "No location set.")
-        desc = proj[3] or "No description set yet"
-        pub = "Public" if proj[4] else "Not Public"
-        hosts = proj[5] or []
-        largesse = proj[6] or 0
-        roomdesc = proj[7] or ""
-        gms = proj[8] or []
-        hosts = ", ".join(str(ob) for ob in hosts)
-        gms = ", ".join(str(ob) for ob in gms)
-        mssg = "{wEvent name:{n %s\n" % name
-        mssg += "{wGMs:{n %s\n" % gms
-        mssg += "{wDate:{n %s\n" % date
-        mssg += "{wLocation:{n %s\n" % loc
-        mssg += "{wDesc:{n %s\n" % desc
-        mssg += "{wPublic:{n %s\n" % pub
-        mssg += "{wHosts:{n %s\n" % hosts
-        mssg += "{wLargesse:{n %s\n" % largesse
-        mssg += "{wRoom Desc:{n %s\n" % roomdesc
-        return mssg
-
-    def func(self):
-        """Execute command."""
+    def do_target_event_switches(self):
+        """Interact with events owned by other players"""
         caller = self.caller
-        char = caller.char_ob
-        if not char:
-            caller.msg("You have no character object.")
-            return
-        if not hasattr(caller, 'Dominion') and char:
-            setup_utils.setup_dom_for_char(char)
-        dompc = caller.Dominion
-        # check if we have a project
-        proj = caller.ndb.event_creation
-        if not self.args and not self.switches:
-            if proj:
-                caller.msg("{wEvent you're creating:\n%s" % self.display_project(proj), options={'box': True})
-                return
-            else:
-                # if we don't have a project, just display upcoming events
-                self.switches.append("list")
-        if "abort" in self.switches:
-            caller.ndb.event_creation = None
-            self.msg("Event creation cancelled.")
-            return
-        if not self.switches or "comments" in self.switches or "join" in self.switches:
-            lhslist = self.lhs.split("/")
-            if len(lhslist) > 1:
-                lhs = lhslist[0]
-                rhs = lhslist[1]
-            else:
-                lhs = self.lhs
-                rhs = self.rhs
+        lhslist = self.lhs.split("/")
+        if len(lhslist) > 1:
+            lhs = lhslist[0]
+            rhs = lhslist[1]
+        else:
+            lhs = self.lhs
+            rhs = self.rhs
+        if "sponsor" in self.switches:
+            from django.core.exceptions import ObjectDoesNotExist
+            event = self.get_event_from_args(self.rhs)
             try:
-                event = RPEvent.objects.get(id=int(lhs))
-            except ValueError:
-                caller.msg("Event must be a number.")
-                return
-            except RPEvent.DoesNotExist:
-                caller.msg("No event found by that number.")
-                return
-            if not event.can_view(caller):
-                caller.msg("You can't view this event.")
-                return
-            # display info on a given event
-            if not rhs:
-                if "join" in self.switches:
-                    diff = time_from_now(event.date).total_seconds()
-                    if diff > 3600:
-                        caller.msg("You cannot join the event until closer to the start time.")
-                        return
-                    if event.plotroom is None:
-                        caller.msg("That event takes place on the normal grid, so you can just walk there.")
-                        return
-                    if event.location is None:
-                        caller.msg("That event has no location to join.")
-                        return
-                    caller.msg("Moving you to the event location.")
-                    mapping = {'secret': True}
-                    caller.db.char_ob.move_to(event.location, mapping=mapping)
-                else:
-                    caller.msg(event.display(), options={'box': True})
-                return
+                org = Organization.objects.get(name__iexact=self.lhslist[0])
+            except Organization.DoesNotExist:
+                raise self.CalCmdError("No Organization by that name.")
+            if not org.access(self.caller, "withdraw"):
+                raise self.CalCmdError("You do not have permission to spend funds for %s." % org)
+            if event.finished:
+                raise self.CalCmdError("Try as you might, you cannot alter the past.")
             try:
-                num = int(rhs)
-                if num < 1:
+                amount = int(self.lhslist[1])
+                if amount < 1:
                     raise ValueError
-                comments = list(event.comments.filter(
-                    db_tags__db_key="white_journal").order_by('-db_date_created'))
-                caller.msg(char.messages.disp_entry(comments[num - 1]))
-                return
-            except (ValueError, TypeError):
-                caller.msg("Must leave a positive number for a comment.")
-                return
-            except IndexError:
-                caller.msg("No entry by that number.")
-                return
-        if "list" in self.switches:
-            # display upcoming events
-            if caller.check_permstring("builders"):
-                unfinished = RPEvent.objects.filter(finished=False).order_by('date')
-            else:
-                unfinished = RPEvent.objects.filter(Q(finished=False) & Q(Q(public_event=True) | Q(participants=dompc)
-                                                                          | Q(gms=dompc) | Q(hosts=dompc))
-                                                    ).distinct().order_by('date')
-            table = self.display_events(unfinished)
-            caller.msg("{wUpcoming events:\n%s" % table, options={'box': True})
-            return
-        if "old" in self.switches:
-            # display finished events
-            from server.utils import arx_more
-            if caller.check_permstring("builders"):
-                finished = RPEvent.objects.filter(finished=True).order_by('-date')
-            else:
-                finished = RPEvent.objects.filter(Q(finished=True) & Q(Q(public_event=True) | Q(participants=dompc)
-                                                                       | Q(gms=dompc) | Q(hosts=dompc))
-                                                  ).distinct().order_by('-date')
-            table = self.display_events(finished)
-            arx_more.msg(caller, "{wOld events:\n%s" % table, justify_kwargs=False)
-            return
-        # at this point, we may be trying to update our project. Set defaults.
-        proj = caller.ndb.event_creation or [None, None, None, None, True, [], None, None, [], None]
-        if 'largesse' in self.switches:
-            if not self.args:
-                table = PrettyTable(['level', 'cost', 'prestige'])
-                for key in largesse_types:
-                    table.add_row([key, costs[key][0], costs[key][1]])
-                caller.msg(table, options={'box': True})
-                return
-            args = self.args.lower()
-            if args not in largesse_types:
-                caller.msg("Argument needs to be in %s." % ", ".join(ob for ob in largesse_types))
-                return
-            cost = costs[args][0]
-            currency = caller.char_ob.db.currency
-            if currency < cost:
-                caller.msg("That requires %s to buy. You have %s." % (cost, currency))
-                return
-            proj[6] = args
-            caller.ndb.proj = proj
-            caller.msg("Largesse level set to %s for %s." % (args, cost))
-            return
-        if "date" in self.switches:
+            except (TypeError, ValueError):
+                raise self.CalCmdError("You must provide a positive number of social resources to add.")
             try:
-                date = datetime.strptime(self.lhs, "%m/%d/%y %H:%M")
-            except ValueError:
-                caller.msg("Date did not match 'mm/dd/yy hh:mm' format.")
-                caller.msg("You entered: %s" % self.lhs)
-                return
-            now = datetime.now()
-            if date < now:
-                caller.msg("You cannot make an event for the past.")
-                return
-            proj[1] = date
-            caller.ndb.proj = proj
-            caller.msg("Date set to %s." % date.strftime("%x %X"))
-            caller.msg("Current time is %s for comparison." % (datetime.now().strftime("%x %X")))
-            offset = timedelta(hours=2)
-            count = RPEvent.objects.filter(date__lte=date+offset, date__gte=date-offset).count()
-            caller.msg("Number of events within 2 hours of that date: %s" % count)
+                sponsoring = event.add_sponsorship(org, amount)
+            except ObjectDoesNotExist:
+                raise self.CalCmdError("You must be invited before you can sponsor.")
+            self.msg("%s is now sponsoring %s for %d social resources." % (org, event, sponsoring.social))
             return
-        if "location" in self.switches:
-            if self.lhs:
-                try:
-                    try:
-                        room = ObjectDB.objects.get(db_typeclass_path=settings.BASE_ROOM_TYPECLASS,
-                                                    db_key__iexact=self.lhs)
-                    except ObjectDB.DoesNotExist:
-                        room = ObjectDB.objects.get(db_typeclass_path=settings.BASE_ROOM_TYPECLASS,
-                                                    db_key__icontains=self.lhs)
-                except (ObjectDB.DoesNotExist, ObjectDB.MultipleObjectsReturned):
-                    caller.msg("Could not find a unique match for %s." % self.lhs)
-                    return
-            else:
-                if not caller.character:
-                    caller.msg("You must be in a room to mark it as the event location.")
-                    return
-                room = caller.character.location
-            if not room:
-                caller.msg("No room found.")
+        event = self.get_event_from_args(lhs)
+        if "join" in self.switches:
+            diff = time_from_now(event.date).total_seconds()
+            if diff > 3600:
+                caller.msg("You cannot join the event until closer to the start time.")
                 return
-            proj[2] = room
-            proj[9] = None
-            caller.ndb.event_creation = proj
-            caller.msg("Room set to %s." % room.name)
+            if event.plotroom is None:
+                caller.msg("That event takes place on the normal grid, so you can just walk there.")
+                return
+            if event.location is None:
+                caller.msg("That event has no location to join.")
+                return
+            caller.msg("Moving you to the event location.")
+            mapping = {'secret': True}
+            caller.char_ob.move_to(event.location, mapping=mapping)
+        # display info on a given event
+        if not rhs:
+            caller.msg(event.display(), options={'box': True})
             return
-        if "desc" in self.switches:
-            proj[3] = self.lhs
-            caller.ndb.event_creation = proj
-            caller.msg("Desc of event set to:\n%s" % self.lhs)
-            return
-        if "roomdesc" in self.switches:
-            proj[7] = self.lhs
-            caller.ndb.event_creation = proj
-            caller.msg("Room desc of event set to:\n%s" % self.lhs)
-            return
-        if "plotroom" in self.switches:
-            if self.lhs:
-                try:
-                    callernpc = PlayerOrNpc.objects.get(player=self.caller)
-                except PlayerOrNpc.DoesNotExist:
-                    caller.msg("You seem to be missing a valid Dominion object!")
-                    return
-
-                try:
-                    room_id = int(self.lhs)
-                    plotrooms = PlotRoom.objects.filter(Q(id=room_id)
-                                                        & (Q(creator=callernpc) | Q(public=True)))
-                except ValueError:
-                    plotrooms = PlotRoom.objects.filter(Q(name__icontains=self.lhs)
-                                                        & (Q(creator=callernpc) | Q(public=True)))
-
-                if not plotrooms:
-                    caller.msg("No plotrooms found matching %s" % self.lhs)
-                    return
-
-                if len(plotrooms) > 1:
-                    caller.msg("Found multiple rooms matching %s:" % self.lhs)
-                    for room in plotrooms:
-                        caller.msg("  %d: %s (%s)" % (room.id, room.name, room.get_detailed_region_name()))
-                    return
-
-                proj[9] = plotrooms[0]
-                proj[2] = None
-                caller.msg("Plot room for event set to %d: %s" % (proj[9].id, proj[9].ansi_name()))
-            else:
-                proj[9] = None
-                caller.msg("Plot room for event cleared.")
-            caller.ndb.event_creation = proj
-            return
-        if "private" in self.switches:
-            proj[4] = not proj[4]
-            caller.ndb.event_creation = proj
-            caller.msg("Public is now set to: %s" % proj[4])
-            return
-        if "addhost" in self.switches:
-            hosts = proj[5] or []
-            host = caller.search(self.lhs)
-            if not host:
-                return
-            if host in hosts:
-                caller.msg("Host is already listed.")
-                return
-            try:
-                host = host.Dominion
-            except AttributeError:
-                char = host.db.char_ob
-                if not char:
-                    caller.msg("Host does not have a character.")
-                    return
-                host = setup_utils.setup_dom_for_char(char)
-            hosts.append(host)
-            caller.msg("%s added to hosts." % host)
-            caller.msg("Hosts are: %s" % ", ".join(str(host) for host in hosts))
-            proj[5] = hosts
-            caller.ndb.event_creation = proj
-            return
-        if "addgm" in self.switches:
-            gms = proj[8] or []
-            if self.lhs:
-                gm = caller.search(self.lhs)
-            else:  # no args, remove GMs
-                gms = []
-                proj[8] = gms
-                caller.ndb.event_creation = proj
-                self.msg("GMs removed.")
-                return
-            if not gm:
-                return
-            try:
-                gm = gm.Dominion
-            except AttributeError:
-                char = gm.db.char_ob
-                if not char:
-                    caller.msg("GM does not have a character.")
-                    return
-                gm = setup_utils.setup_dom_for_char(char)
-            if gm in gms:
-                caller.msg("GM is already listed.")
-                return
-            if len(gms) >= 2:
-                self.msg("Please limit yourself to one or two designated GMs.")
-                return
-            gms.append(gm)
-            caller.msg("%s added to GMs." % gm)
-            caller.msg("GMs are: %s" % ", ".join(str(gm) for gm in gms))
-            caller.msg("Reminder - please only add a GM for an event if it's an actual player-run plot. Tagging a "
-                       "social event as a PRP is strictly prohibited. If you tagged this as a PRP in error, use "
-                       "addgm with no arguments to remove GMs.")
-            proj[8] = gms
-            caller.ndb.event_creation = proj
-            return
-        if "create" in self.switches:
-            if RPEvent.objects.filter(name__iexact=self.lhs):
-                caller.msg("There is already an event by that name. Choose a different name," +
-                           " or add a number if it's a sequel event.")
-                return
-            proj = [self.lhs, proj[1], proj[2], proj[3], proj[4], [dompc] if dompc not in proj[5] else proj[5], proj[6],
-                    proj[7], proj[8], proj[9]]
-            caller.msg("{wStarting project. It will not be saved until you submit it. " +
-                       "Does not persist through logout/server reload.{n")
-            caller.msg(self.display_project(proj), options={'box': True})
-            caller.ndb.event_creation = proj
-            return
-        if "submit" in self.switches:
-            name, date, loc, desc, public, hosts, largesse, room_desc, gms, plotroom = proj
-            if not (name and date and desc and hosts):
-                caller.msg("Name, date, desc, and hosts must be defined before you submit.")
-                caller.msg(self.display_project(proj), options={'box': True})
-                return
-            if not largesse:
-                cel_lvl = 0
-            elif largesse.lower() == 'common':
-                cel_lvl = 1
-            elif largesse.lower() == 'refined':
-                cel_lvl = 2
-            elif largesse.lower() == 'grand':
-                cel_lvl = 3
-            elif largesse.lower() == 'extravagant':
-                cel_lvl = 4
-            elif largesse.lower() == 'legendary':
-                cel_lvl = 5
-            else:
-                caller.msg("That is not a valid type of largesse.")
-                caller.msg("It must be 'common', 'refined', 'grand', 'extravagant', or 'legendary.'")
-                return
-            cost = costs.get(largesse, (0, 0))[0]
-            if cost > caller.char_ob.db.currency:
-                caller.msg("The largesse level set requires %s, you have %s." % (cost, caller.db.currency))
-                return
-            else:
-                caller.char_ob.pay_money(cost)
-                caller.msg("You pay %s coins for the event." % cost)
-            gm_event = False
-            if any([gm.player.is_staff or gm.player.check_permstring("builder") for gm in gms]):
-                gm_event = True
-            event = RPEvent.objects.create(name=name, date=date, desc=desc, location=loc,
-                                           public_event=public, celebration_tier=cel_lvl,
-                                           room_desc=room_desc, plotroom=plotroom, gm_event=gm_event)
-            for host in hosts:
-                event.hosts.add(host)
-                player = host.player
-                if player != caller:
-                    msg = "You have been invited to host {c%s{n." % event.name
-                    msg += "\nFor details about this event, use {w@cal %s{n" % event.id
-                    player.inform(msg, category="Invitation", append=False)
-            for gm in gms:
-                event.gms.add(gm)
-            post = self.display_project(proj)
-            # mark as main host with a tag
-            event.tag_obj(caller)
-            caller.ndb.event_creation = None
-            caller.msg("New event created: %s at %s." % (event.name, date.strftime("%x %X")))
-            inform_staff("New event created by %s: %s, scheduled for %s." % (caller, event.name,
-                                                                             date.strftime("%x %X")))
-            if event.public_event:
-                event_manager = ScriptDB.objects.get(db_key="Event Manager")
-                event_manager.post_event(event, caller, post)
-            return
-        # both starting an event and ending one requires a Dominion object
         try:
-            dompc = caller.Dominion
-        except AttributeError:
-            char = caller.char_ob
-            if not char:
-                caller.msg("You have no character, which is required to set up Dominion.")
-                return
-            dompc = setup_utils.setup_dom_for_char(char)
-        if "toggleprivate" in self.switches:
-            qs = dompc.events_hosted.all()
-            try:
-                event = qs.get(id=int(self.args))
-            except (RPEvent.DoesNotExist, ValueError, TypeError):
-                self.msg("You have not hosted an event by that number.")
-                self.msg(self.display_events(qs))
-                return
-            event.public_event = not event.public_event
-            event.save()
-            self.msg("%s's public status has been set to %s." % (event, event.public_event))
+            num = int(rhs)
+            if num < 1:
+                raise ValueError
+            comments = list(event.comments.filter(
+                db_tags__db_key="white_journal").order_by('-db_date_created'))
+            caller.msg(caller.char_ob.messages.disp_entry(comments[num - 1]))
             return
-        # get the events they're hosting
-        events = dompc.events_hosted.filter(finished=False)
-        if not events:
-            caller.msg("You are not hosting any events that have yet to occur. If you are currently designing "
-                       "an event, submit it first.")
-            return
-        # make sure caller input an integer
-        try:
-            eventid = int(self.lhs)
         except (ValueError, TypeError):
-            caller.msg("You must supply a number for an event.")
-            caller.msg(self.display_events(events), options={'box': True})
+            caller.msg("Must leave a positive number for a comment.")
             return
-        # get the script that manages events
-        event_manager = ScriptDB.objects.get(db_key="Event Manager")
-        # try to get event matching caller's input
+        except IndexError:
+            caller.msg("No entry by that number.")
+            return
+
+    def get_event_from_args(self, args, check_admin=False):
+        """Gets an event by args"""
         try:
-            event = events.get(id=eventid)
+            event = RPEvent.objects.get(id=int(args))
+        except ValueError:
+            raise self.CalCmdError("Event must be a number.")
         except RPEvent.DoesNotExist:
-            caller.msg("You are not hosting any event by that number. Your events:")
-            caller.msg(self.display_events(events), options={'box': True})
-            return
+            raise self.CalCmdError("No event found by that number.")
+        if not event.can_view(self.caller):
+            raise self.CalCmdError("You can't view this event.")
+        if check_admin and not event.can_admin(self.caller):
+            raise self.CalCmdError("You do not have permission to change that event.")
+        return event
+
+    def do_form_switches(self):
+        """Handles form switches"""
+        if "abort" in self.switches:
+            self.caller.ndb.event_creation = None
+            self.msg("Event creation cancelled.")
+        elif "create" in self.switches:
+            if RPEvent.objects.filter(name__iexact=self.lhs):
+                self.msg("There is already an event by that name. Choose a different name," +
+                         " or add a number if it's a sequel event.")
+                return
+            defaults = RPEvent()
+            proj = {'hosts': [], 'gms': [], 'org_invites': [], 'invites': [], 'name': self.lhs,
+                    'public_event': defaults.public_event, 'risk': defaults.risk,
+                    'celebration_tier': defaults.celebration_tier}
+            self.caller.ndb.event_creation = proj
+            self.msg("{wStarting project. It will not be saved until you submit it. " +
+                     "Does not persist through logout/server reload.{n")
+            self.msg(self.form.display(), options={'box': True})
+        elif "submit" in self.switches:
+            form = self.form
+            if not form.is_valid():
+                raise self.CalCmdError(form.display_errors() + "\n" + form.display())
+            event = form.save()
+            self.caller.ndb.event_creation = None
+            self.msg("New event created: %s at %s." % (event.name, event.date.strftime("%x %X")))
+            inform_staff("New event created by %s: %s, scheduled for %s." % (self.caller, event.name,
+                                                                             event.date.strftime("%x %X")))
+
+    def do_attribute_switches(self):
+        """Sets a value for the form or changes an existing event's attribute"""
+        event = None
+        if self.rhs:
+            event = self.get_event_from_args(self.rhs, check_admin=True)
+        if 'largesse' in self.switches:
+            return self.set_largesse(event)
+        if "date" in self.switches or "reschedule" in self.switches:
+            return self.set_date(event)
+        if "location" in self.switches:
+            return self.set_location(event)
+        if "desc" in self.switches:
+            return self.set_event_desc(event)
+        if "roomdesc" in self.switches:
+            return self.set_room_desc(event)
+        if "plotroom" in self.switches:
+            return self.set_plotroom(event)
+        if "private" in self.switches:
+            return self.set_private(event)
+        if "host" in self.switches:
+            return self.add_or_remove_host(event)
+        if "gm" in self.switches:
+            return self.add_or_remove_gm(event)
         if "invite" in self.switches:
-            invited = []
-            for arg in self.rhslist:
-                targ = caller.search(arg)
-                if not targ:
-                    continue
-                pc = targ.Dominion
-                if pc in event.participants.all():
-                    self.msg("%s is already invited to attend." % pc)
-                    continue
-                event.participants.add(pc)
-                invited.append(str(pc))
-                msg = "You have been invited to attend {c%s{n." % event.name
-                msg += "\nFor details about this event, use {w@cal %s{n" % event.id
-                targ.inform(msg, category="Invitation", append=False)
-            self.msg("{wInvited {c%s{w to attend %s." % (", ".join(invited), event))
-            return
+            return self.invite_org_or_player(event)
         if "uninvite" in self.switches:
-            uninvited = []
-            for arg in self.rhslist:
-                targ = caller.search(arg)
-                if not targ:
-                    continue
-                pc = targ.Dominion
-                if pc not in event.participants.all():
-                    self.msg("%s is already not invited to attend." % pc)
-                    continue
-                event.participants.remove(pc)
-                uninvited.append(str(pc))
-            self.msg("{wUninvited {c%s{w from attending %s." % (", ".join(uninvited), event))
-            return
-        if "starteventearly" in self.switches:
+            return self.uninvite_org_or_player(event)
+        if "action" in self.switches:
+            return self.set_crisis_action(event)
+        if "risk" in self.switches:
+            return self.set_risk(event)
+
+    def do_in_progress_switches(self):
+        """Change event in progress"""
+        event = self.get_event_from_args(self.lhs, check_admin=True)
+        if "movehere" in self.switches:
+            loc = self.caller.db.char_ob.location
+            self.event_manager.move_event(event, loc)
+            self.msg("Event moved to your room.")
+        elif "endevent" in self.switches:
+            self.event_manager.finish_event(event)
+            self.msg("You have ended the event.")
+
+    def do_admin_switches(self):
+        """Starts an event or cancels it"""
+        event = self.get_event_from_args(self.lhs, check_admin=True)
+        if "cancel" in self.switches:
+            if event.id in self.event_manager.db.active_events:
+                self.msg("You must /end an active event.")
+                return
+            cost = event.cost
+            self.caller.char_ob.pay_money(-cost)
+            inform_staff("%s event has been cancelled." % str(event))
+            self.event_manager.cancel_event(event)
+            self.msg("You have cancelled the event.")
+        elif "starteventearly" in self.switches:
             if self.rhs and self.rhs.lower() == "here":
                 loc = self.caller.db.char_ob.location
                 if not loc:
                     self.msg("You do not currently have a location.")
                     return
-                event_manager.start_event(event, location=loc)
+                self.event_manager.start_event(event, location=loc)
             else:
-                event_manager.start_event(event)
-            caller.msg("You have started the event.")
-            return
-        if "endevent" in self.switches:
-            event_manager.finish_event(event)
-            caller.msg("You have ended the event.")
-            return
-        if "reschedule" in self.switches:
-            try:
-                date = datetime.strptime(self.rhs, "%m/%d/%y %H:%M")
-            except ValueError:
-                caller.msg("Date did not match 'mm/dd/yy hh:mm' format.")
-                caller.msg("You entered: %s" % self.rhs)
-                return
-            now = datetime.now()
-            if date < now:
-                caller.msg("You cannot schedule an event for the past.")
-                return
-            if event.date < now:
-                self.msg("You cannot reschedule an event that's already started.")
-                return
-            event.date = date
-            event.save()
-            caller.msg("Event now scheduled for %s." % date)
-            event_manager.reschedule_event(event)
-            return
-        if "changeroomdesc" in self.switches:
-            event.room_desc = self.rhs
-            event.save()
-            caller.msg("Event's room desc is now:\n%s" % self.rhs)
-            return
-        if "movehere" in self.switches:
-            loc = caller.db.char_ob.location
-            event_manager.move_event(event, loc)
-            self.msg("Event moved to your room.")
-            return
-        if "changeplotroom" in self.switches:
-            try:
-                callernpc = PlayerOrNpc.objects.get(player=self.caller)
-            except PlayerOrNpc.DoesNotExist:
-                caller.msg("You seem to be missing a valid Dominion object!")
-                return
+                self.event_manager.start_event(event)
+            self.msg("You have started the event.")
 
+    def display_project(self):
+        """Sends a string display of a project"""
+        form = self.form
+        msg = "{wEvent you're creating:{n\n"
+        if not form:
+            msg += "None currently."
+            return
+        else:
+            msg += form.display()
+        self.msg(msg, options={'box': True})
+
+    def set_form_or_event_attribute(self, param, value, event=None):
+        """Sets an attribute in an event or creation form"""
+        if event:
+            setattr(event, param, value)
+            event.save()
+        else:
+            proj = self.caller.ndb.event_creation
+            if not proj:
+                raise self.CalCmdError("You must /create to start a project, or specify an event you want to change.")
+            proj[param] = value
+            self.caller.ndb.event_creation = proj
+
+    def set_date(self, event=None):
+        """Sets a date for an event"""
+        try:
+            date = datetime.strptime(self.lhs, "%m/%d/%y %H:%M")
+        except ValueError:
+            raise self.CalCmdError("Date did not match 'mm/dd/yy hh:mm' format. You entered: %s" % self.lhs)
+        now = datetime.now()
+        if date < now:
+            raise self.CalCmdError("You cannot make an event for the past.")
+        if event and event.date < now:
+            raise self.CalCmdError("You cannot reschedule an event that's already started.")
+        self.set_form_or_event_attribute('date', date, event)
+        self.msg("Date set to %s." % date.strftime("%x %X"))
+        if event:
+            self.event_manager.reschedule_event(event)
+        self.msg("Current time is %s for comparison." % (datetime.now().strftime("%x %X")))
+        offset = timedelta(hours=2)
+        count = RPEvent.objects.filter(date__lte=date + offset, date__gte=date - offset).count()
+        self.msg("Number of events within 2 hours of that date: %s" % count)
+
+    def set_largesse(self, event=None):
+        """Sets largesse for an event"""
+        from server.utils.arx_utils import dict_from_choices_field
+        largesse_types = dict_from_choices_field(RPEvent, "LARGESSE_CHOICES", include_uppercase=False)
+        costs = dict(RPEvent.LARGESSE_VALUES)
+        lhs = self.lhs.lower()
+        if not lhs:
+            table = PrettyTable(['level', 'cost', 'prestige'])
+            for key in costs:
+                name = largesse_types[key]
+                table.add_row([name, costs[key][0], costs[key][1]])
+            self.msg(table, options={'box': True})
+            return
+        if lhs not in largesse_types:
+            self.msg("Argument needs to be in %s." % ", ".join(ob for ob in largesse_types))
+            return
+        cel_tier = largesse_types[lhs]
+        cost = costs[cel_tier][0]
+        if event:
+            new_cost = cost
+            cost = new_cost - event.cost
+        currency = self.caller.char_ob.currency
+        if currency < cost:
+            self.caller.msg("That requires %s to buy. You have %s." % (cost, currency))
+            return
+        self.set_form_or_event_attribute("celebration_tier", cel_tier, event)
+        self.msg("Largesse level set to %s for %s." % (lhs, cost))
+        if event:
+            self.caller.char_ob.pay_money(cost)
+
+    def set_location(self, event=None):
+        """Sets location for form or an event"""
+        if self.lhs:
             try:
-                room_id = int(self.rhs)
+                try:
+                    room = ArxRoom.objects.get(db_key__iexact=self.lhs)
+                except ArxRoom.DoesNotExist:
+                    room = ArxRoom.objects.get(db_key__icontains=self.lhs)
+            except (ArxRoom.DoesNotExist, ArxRoom.MultipleObjectsReturned):
+                raise self.CalCmdError("Could not find a unique match for %s." % self.lhs)
+        else:
+            if not self.caller.character:
+                raise self.CalCmdError("You must be in a room to mark it as the event location.")
+            room = self.caller.character.location
+        if not room:
+            raise self.CalCmdError("No room found.")
+        self.set_form_or_event_attribute("location", room, event)
+        self.msg("Room set to %s." % room)
+
+    def set_event_desc(self, event):
+        """Sets description of an event"""
+        self.set_form_or_event_attribute("desc", self.lhs, event)
+        self.msg("Desc of event set to:\n%s" % self.lhs)
+
+    def set_room_desc(self, event):
+        """Sets description appended to event's location"""
+        self.set_form_or_event_attribute("room_desc", self.lhs, event)
+        self.msg("Room desc of event set to:\n%s" % self.lhs)
+
+    def set_plotroom(self, event):
+        """Sets the virtual 'plotroom' for an event, if any."""
+        if self.lhs:
+            dompc = self.caller.Dominion
+            try:
+                room_id = int(self.lhs)
                 plotrooms = PlotRoom.objects.filter(Q(id=room_id)
-                                                    & (Q(creator=callernpc) | Q(public=True)))
+                                                    & (Q(creator=dompc) | Q(public=True)))
             except ValueError:
-                plotrooms = PlotRoom.objects.filter(Q(name__icontains=self.rhs)
-                                                    & (Q(creator=callernpc) | Q(public=True)))
+                plotrooms = PlotRoom.objects.filter(Q(name__icontains=self.lhs)
+                                                    & (Q(creator=dompc) | Q(public=True)))
 
             if not plotrooms:
-                self.msg("No plotrooms found matching %s" % self.rhs)
-                return
+                raise self.CalCmdError("No plotrooms found matching %s" % self.lhs)
 
             if len(plotrooms) > 1:
-                self.msg("Found multiple rooms matching %s:" % self.rhs)
+                msg = "Found multiple rooms matching %s:" % self.lhs
                 for room in plotrooms:
-                    self.msg("  %d: %s (%s)" % (room.id, room.name, room.get_detailed_region_name()))
-                return
+                    msg += "  %d: %s (%s)" % (room.id, room.name, room.get_detailed_region_name())
+                raise self.CalCmdError(msg)
+            plotroom = plotrooms[0]
+            self.set_form_or_event_attribute("plotroom", plotroom, event)
+            msg = "Plot room for event set to %d: %s (in %s)\n" % (plotroom, plotroom.ansi_name(),
+                                                                   plotroom.get_detailed_region_name())
+            msg += "If you wish to remove the plotroom later, use this command with no left-hand-side argument."
+            self.msg(msg)
+        else:
+            self.set_form_or_event_attribute("plotroom", None, event)
+            self.msg("Plot room for event cleared.")
 
-            # TODO: This probably needs to check if the event is currently running.
-            event.location = None
-            event.plotroom = plotrooms[0]
-            event.save()
-            self.msg("Moved event to plot room |w%s|n (in %s)." % (plotrooms[0].name,
-                                                                   plotrooms[0].get_detailed_region_name()))
+    def set_private(self, event):
+        """Sets whether an event is private or public"""
+        args = self.lhs.lower()
+        if args == "on":
+            public = False
+        elif args == "off":
+            public = True
+        else:
+            raise self.CalCmdError("Private must be set to either 'on' or 'off'.")
+        self.set_form_or_event_attribute("public_event", public, event)
+        self.msg("Public is now set to: %s" % public)
+
+    def add_or_remove_host(self, event):
+        """Adds a host or changes them to a regular guest"""
+        host = self.caller.search(self.lhs)
+        if not host:
             return
-
-        if "cancel" in self.switches:
-            if event.id in event_manager.db.active_events:
-                caller.msg("You must /end an active event.")
-                return
-            cel_tier = event.celebration_tier
-            if cel_tier == 1:
-                rating = 'common'
-            elif cel_tier == 2:
-                rating = 'refined'
-            elif cel_tier == 3:
-                rating = 'grand'
-            elif cel_tier == 4:
-                rating = 'extravagant'
-            elif cel_tier == 5:
-                rating = 'legendary'
+        if event:
+            if host in event.hosts:
+                event.change_host_to_guest(host)
+                msg = "Changed host to a regular guest. Use /uninvite to remove them completely."
             else:
-                rating = 'none'
-            cost = costs.get(rating, (0, 0))[0]
-            caller.db.char_ob.pay_money(-cost)
-            inform_staff("%s event has been cancelled." % str(event))
-            event_manager.cancel_event(event)
-            caller.msg("You have cancelled the event.")
-            return
+                event.add_host(host)
+                msg = "%s added to hosts." % host
+        else:
+            hosts = self.caller.ndb.event_creation['hosts']
+            if host.id in hosts:
+                hosts.remove(host.id)
+                if host.id not in self.caller.ndb.event_creation['invites']:
+                    self.caller.ndb.event_creation['invites'].append(host.id)
+                msg = "Changed host to a regular guest. Use /uninvite to remove them completely."
+            else:
+                hosts.append(host.id)
+                if host.id in self.caller.ndb.event_creation['invites']:
+                    self.caller.ndb.event_creation['invites'].remove(host.id)
+                msg = "%s added to hosts." % host
+        self.msg(msg)
 
-        caller.msg("Invalid switch.")
+    def add_or_remove_gm(self, event):
+        """Adds a gm or strips gm tag from them"""
+        gm = self.caller.search(self.lhs)
+        if not gm:
+            return
+        add_msg = "%s is now marked as a gm.\n"
+        add_msg += "Reminder - please only add a GM for an event if it's an actual player-run plot. Tagging a "
+        add_msg += "social event as a PRP is strictly prohibited. If you tagged this as a PRP in error, use "
+        add_msg += "gm on them again to remove them."
+        if event:
+            if gm in event.gms:
+                event.untag_gm(gm)
+                msg = "%s is no longer marked as a gm. Use /uninvite to remove them completely." % gm
+            else:
+                if len(event.gms) >= 2:
+                    raise self.CalCmdError("Please limit yourself to one or two designated GMs.")
+                event.add_gm(gm)
+                msg = add_msg % gm
+        else:
+            gms = self.caller.ndb.event_creation['gms']
+            if gm.id in gms:
+                msg = "%s is no longer marked as a gm. Use /uninvite to remove them completely." % gm
+                if gm.id not in self.caller.ndb.event_creation['invites']:
+                    self.caller.ndb.event_creation['invites'].append(gm.id)
+            else:
+                if len(gms) >= 2:
+                    raise self.CalCmdError("Please limit yourself to one or two designated GMs.")
+                gms.append(gm.id)
+                if gm.id in self.caller.ndb.event_creation['invites']:
+                    self.caller.ndb.event_creation['invites'].remove(gm.id)
+                msg = add_msg % gm
+        self.msg(msg)
+
+    def invite_org_or_player(self, event):
+        """Invites an organization or player to an event"""
+        org, pc = self.get_org_or_dompc()
+        if event:
+            if org:
+                if org in event.orgs.all():
+                    raise self.CalCmdError("That organization is already invited.")
+                event.invite_org(org)
+            else:
+                if pc in event.dompcs.all():
+                    raise self.CalCmdError("They are already invited.")
+                event.add_guest(pc)
+        else:
+            proj = self.caller.ndb.event_creation
+            if org:
+                if org.id in proj['org_invites']:
+                    raise self.CalCmdError("That organization is already invited.")
+                proj['org_invites'].append(org.id)
+            else:
+                if pc.id in proj['hosts'] or pc.id in proj['gms']:
+                    raise self.CalCmdError("They are already invited to host or gm.")
+                if pc.id in proj['invites']:
+                    raise self.CalCmdError("They are already invited.")
+                proj['invites'].append(pc.id)
+        self.msg("{wInvited {c%s{w to attend." % (pc or org))
+
+    def get_org_or_dompc(self):
+        """Gets org or a dompc based on name"""
+        org = None
+        pc = None
+        try:
+            org = Organization.objects.get(name__iexact=self.lhs)
+        except Organization.DoesNotExist:
+            pc = self.caller.search(self.lhs)
+            if not pc:
+                raise self.CalCmdError("Could not find an organization or player by that name.")
+        return org, pc
+
+    def uninvite_org_or_player(self, event):
+        """Removes an organization or player from an event"""
+        org, pc = self.get_org_or_dompc()
+        if event:
+            if org:
+                if org not in event.orgs.all():
+                    raise self.CalCmdError("That organization is not invited.")
+                event.remove_org(org)
+            else:
+                if pc not in event.dompcs.all():
+                    raise self.CalCmdError("They are not invited.")
+                event.remove_guest(pc)
+        else:
+            proj = self.caller.ndb.event_creation
+            if org:
+                if org.id not in proj['org_invites']:
+                    raise self.CalCmdError("That organization is not invited.")
+                proj['org_invites'].remove(org.id)
+            else:
+                if pc.id in proj['hosts'] or pc.id in proj['gms']:
+                    raise self.CalCmdError("Remove them as a host or gm first.")
+                if pc.id not in proj['invites']:
+                    raise self.CalCmdError("They are not invited.")
+                proj['invites'].remove(pc.id)
+        self.msg("{wRemoved {c%s{w's invitation." % (pc or org))
+
+    def set_crisis_action(self, event):
+        """Sets crisis actions for an event"""
+        try:
+            action = self.caller.Dominion.actions.get(id=self.lhs)
+        except (CrisisAction.DoesNotExist, ValueError, TypeError):
+            raise self.CalCmdError("You can only add or remove actions you own.")
+        if event:
+            if action in event.actions.all():
+                event.actions.remove(action)
+                msg = "Action removed."
+            else:
+                event.actions.add(action)
+                msg = "Action added."
+        else:
+            actions = self.caller.ndb.event_creation.setdefault('actions', [])
+            if action.id in actions:
+                actions.remove(action.id)
+                msg = "Action removed."
+            else:
+                actions.append(action.id)
+                msg = "Action added."
+        self.msg(msg)
+
+    def set_risk(self, event):
+        """Sets risk for an rpevent"""
+        if not self.caller.check_permstring("builders"):
+            raise self.CalCmdError("Only GMs can set the risk of an event.")
+        try:
+            risk = int(self.lhs)
+            if risk > 10 or risk < 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            raise self.CalCmdError("Risk must be between 0 and 10.")
+        self.set_form_or_event_attribute("risk", risk, event)
+        self.msg("Risk is now set to: %s" % risk)
 
 
 class CmdPraise(ArxPlayerCommand):
@@ -1883,11 +1880,17 @@ class CmdPraise(ArxPlayerCommand):
     Usage:
         praise <character>[,<num praises>][=<message>]
         praise/all <character>[=<message>]
+        praise/org <org>[,<num praises>][=<message>]
 
     Praises a character, increasing their prestige. Your number
     of praises per week are based on your social rank and skills.
     Using praise with no arguments lists your praises. Costs 1 AP
     regardless of how many praises are used.
+
+    Praises for orgs work a little differently. It may only be used
+    for an organization sponsoring an event while you are in attendance,
+    and the amount gained is based on the largesse of the event and the
+    social resources spent by the organization.
     """
     key = "praise"
     locks = "cmd:all()"
@@ -1898,38 +1901,59 @@ class CmdPraise(ArxPlayerCommand):
     verbing = "praising"
     MIN_VALUE = 10
 
+    class PraiseError(Exception):
+        """Errors when praising"""
+        pass
+
     def func(self):
         """Execute command."""
+        try:
+            if not self.lhs:
+                self.msg(self.display_praises(), options={'box': True})
+                return
+            self.do_praise()
+        except self.PraiseError as err:
+            self.msg(err)
+
+    def do_praise(self):
+        """Executes a praise"""
         caller = self.caller
-        if not self.lhs:
-            caller.msg(self.display_praises(), options={'box': True})
-            return
         # don't you dare judge us for having thought of this
         if self.cmdstring == "praise" and self.lhs.lower() == "the sun":
             caller.msg("Thank you for your jolly cooperation. Heresy averted.")
             return
-        targ = caller.search(self.lhslist[0])
-        if not targ:
-            return
-        try:
-            name = targ.char_ob.roster.roster.name
-            if not name or name.lower() == "incomplete" or not targ.Dominion.assets:
-                raise AttributeError
-        except AttributeError:
-            caller.msg("No character found by '%s'." % self.lhslist[0])
-            return
-        account = caller.roster.current_account
-        if account == targ.roster.current_account:
-            caller.msg("You cannot %s yourself." % self.verb)
-            return
-        if targ.is_staff:
-            caller.msg("Staff don't need your %s." % self.attr)
-            return
+        if "org" in self.switches:
+            try:
+                targ = Organization.objects.get(name__iexact=self.lhslist[0])
+            except Organization.DoesNotExist:
+                raise self.PraiseError("No organization by that name.")
+            from django.core.exceptions import ObjectDoesNotExist
+            try:
+                base = caller.char_ob.location.event.get_sponsor_praise_value(targ)
+            except (AttributeError, ObjectDoesNotExist):
+                raise self.PraiseError("There is no event going on that has %s as a sponsor." % targ)
+            targ = targ.assets
+        else:
+            base = 0
+            targ = caller.search(self.lhslist[0])
+            if not targ:
+                return
+            try:
+                name = targ.char_ob.roster.roster.name
+                if not name or name.lower() == "incomplete" or not targ.Dominion.assets:
+                    raise AttributeError
+            except AttributeError:
+                raise self.PraiseError("No character found by '%s'." % self.lhslist[0])
+            account = caller.roster.current_account
+            if account == targ.roster.current_account:
+                raise self.PraiseError("You cannot %s yourself." % self.verb)
+            if targ.is_staff:
+                raise self.PraiseError("Staff don't need your %s." % self.attr)
+            targ = targ.Dominion.assets
         char = caller.char_ob
         current_used = self.current_used
         if current_used >= self.get_max_praises():
-            caller.msg("You have already used all your %s for the week." % self.attr)
-            return
+            raise self.PraiseError("You have already used all your %s for the week." % self.attr)
         if len(self.lhslist) > 1:
             try:
                 to_use = int(self.lhslist[1])
@@ -1938,36 +1962,31 @@ class CmdPraise(ArxPlayerCommand):
                 if to_use > self.get_actions_remaining():
                     raise ValueError
             except ValueError:
-                self.msg("The number of praises used must be a positive number, and less than your max praises.")
-                return
+                raise self.PraiseError("The number of praises used must be a positive number, "
+                                       "and less than your max praises.")
         else:
             to_use = 1 if "all" not in self.switches else self.get_actions_remaining()
         current_used += to_use
         from world.dominion.models import PraiseOrCondemn
         from server.utils.arx_utils import get_week
         if not caller.pay_action_points(1):
-            self.msg("You cannot muster the energy to praise someone at this time.")
-            return
-        amount = self.do_praise_roll() * to_use
-        praise = PraiseOrCondemn.objects.create(praiser=caller.Dominion, target=targ.Dominion, number_used=to_use,
+            raise self.PraiseError("You cannot muster the energy to praise someone at this time.")
+        amount = self.do_praise_roll(base) * to_use
+        praise = PraiseOrCondemn.objects.create(praiser=caller.Dominion, target=targ, number_used=to_use,
                                                 message=self.rhs or "", week=get_week(), value=amount)
         praise.do_prestige_adjustment()
+        name = str(targ).capitalize()
         caller.msg("You %s the actions of %s. You have %s %s remaining." %
-                   (self.verb, targ, self.get_actions_remaining(), self.attr)
-                   )
+                   (self.verb, name, self.get_actions_remaining(), self.attr))
         reasons = ": %s" % self.rhs if self.rhs else "."
-        char.location.msg_contents("%s is overheard %s %s%s" % (char.name, self.verbing, targ.key.capitalize(),
-                                                                reasons),
-                                   exclude=char)
+        char.location.msg_contents("%s is overheard %s %s%s" % (char.name, self.verbing, name, reasons), exclude=char)
 
-    def do_praise_roll(self):
+    def do_praise_roll(self, base=0):
         """(charm+propaganda at difficulty 15=x, where x >0), x* ((40*prestige mod)+# of social resources)"""
-        from world.stats_and_skills import do_dice_check
         roll = do_dice_check(self.caller.char_ob, stat='charm', skill='propaganda')
         roll *= int(self.caller.Dominion.assets.prestige_mod)
-        if roll < self.MIN_VALUE:
-            roll = self.MIN_VALUE
-        return roll
+        roll += base
+        return max(roll, self.MIN_VALUE)
 
     def get_max_praises(self):
         """Calculates how many praises character has"""
@@ -2734,6 +2753,7 @@ class CmdRoomTitle(ArxCommand):
     it.
     """
     key = "+roomtitle"
+    aliases = ["room_title"]
     locks = "cmd:all()"
     help_category = "Social"
 
@@ -2910,6 +2930,9 @@ class CmdIAmHelping(ArxPlayerCommand):
         if not self.caller.pay_action_points(val):
             self.msg("You do not have enough AP.")
             return
+        if self.caller.roster.current_account == targ.roster.current_account:
+            self.msg("You cannot give AP to an alt.")
+            return
         targ.pay_action_points(-receive_amt)
         self.msg("You have given %s %s AP." % (targ, receive_amt))
         msg = "%s has given you %s AP." % (self.caller, receive_amt)
@@ -3023,9 +3046,9 @@ class CmdFirstImpression(ArxCommand):
     An award for a first RP scene with another player
 
     Usage:
-        +firstimpression <character>
+        +firstimpression[/previous] <character>
         +firstimpression <character>=<summary of the RP Scene>
-        +firstimpression/list
+        +firstimpression/list[/previous]
         +firstimpression/here
         +firstimpression/outstanding
         +firstimpression/quiet <character>=<summary>
@@ -3033,7 +3056,7 @@ class CmdFirstImpression(ArxCommand):
         +firstimpression/all <character>=<summary>
         +firstimpression/toggleprivate <character>
         +firstimpression/share <character>[=-1, -2, etc]
-        +firstimpressions/mine
+        +firstimpressions/mine[/previous]
         +firstimpression/publish <character>[=-1, -2, etc]
 
     This allows you to claim an xp reward for the first time you
@@ -3068,6 +3091,9 @@ class CmdFirstImpression(ArxCommand):
     was played by a previous character, you must specify a negative number.
     For example, '+firstimpression/publish bob=-1' is for the previous player
     of Bob who wrote a first impression of you.
+
+    To see firstimpressions written by or on a previous version of your
+    character, use the /previous switch.
     """
     key = "+firstimpression"
     help_category = "Social"
@@ -3076,17 +3102,24 @@ class CmdFirstImpression(ArxCommand):
     @property
     def imps_of_me(self):
         """Retrieves impressions of us, in our current incarnation"""
-        return self.caller.roster.accounthistory_set.last().received_contacts.all()
+        return self.caller.roster.impressions_of_me
 
     @property
     def imps_by_me(self):
         """Retrieves impressions we have written, as our current incarnation"""
         return self.caller.roster.accounthistory_set.last().initiated_contacts.all()
 
+    @property
+    def previous_imps_by_me(self):
+        """Retrieves impressions written by previous incarnations"""
+        return FirstContact.objects.filter(from_account__in=self.caller.roster.previous_history)
+
     def list_valid(self):
         """Sends msg to caller of list of characters they can make firstimpression of"""
         contacts = AccountHistory.objects.claimed_impressions(self.caller.roster)
         if "list" in self.switches:
+            if "previous" in self.switches:
+                contacts = AccountHistory.objects.filter(contacted_by__in=self.caller.roster.previous_history)
             self.msg("{wCharacters you have written first impressions of:{n %s" % ", ".join(
                 str(ob.entry) for ob in contacts))
             return
@@ -3114,14 +3147,22 @@ class CmdFirstImpression(ArxCommand):
                 if not player:
                     return
                 by_str = " by %s" % self.args.capitalize()
-            self.msg("{wFirst impressions written of you so far%s:{n" % by_str)
-            self.msg(self.caller.roster.get_impressions_str(player=player))
+            if "previous" in self.switches:
+                msg = "{wFirst impressions written on previous versions of this character%s:{n\n" % by_str
+            else:
+                msg = "{wFirst impressions written of you so far%s:{n\n" % by_str
+            msg += self.caller.roster.get_impressions_str(player=player, previous="previous" in self.switches)
+            self.msg(msg)
             return
         if not self.args:
             self.list_valid()
             return
-        if not self.switches and not self.rhs:
-            history = self.imps_by_me.filter(to_account__entry__player__username__iexact=self.args)
+        if (not self.switches or "previous" in self.switches) and not self.rhs:
+            if "previous" in self.switches:
+                qs = self.previous_imps_by_me
+            else:
+                qs = self.imps_by_me
+            history = qs.filter(to_account__entry__player__username__iexact=self.args)
             if not history:
                 self.msg("{wNo history found for %s. Use with no arguments to see a list of valid chars.{n" % self.args)
                 return

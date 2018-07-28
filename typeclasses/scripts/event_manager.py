@@ -105,7 +105,7 @@ class EventManager(Script):
             SESSIONS.announce_all(announce_msg)
         else:
             announce_msg = "{y(Private Message) " + announce_msg
-            for ob in event.characters:
+            for ob in event.dompcs.all():
                 try:
                     ob.player.msg(announce_msg)
                 except AttributeError:
@@ -125,12 +125,12 @@ class EventManager(Script):
             return loc
         gms = event.gms.filter(player__db_is_connected=True)
         for gm in gms:
-            loc = gm.player.db.char_ob.location
+            loc = gm.player.char_ob.location
             if loc:
                 return loc
         else:
             try:
-                loc = event.main_host.db.char_ob.location
+                loc = event.main_host.player.char_ob.location
             except AttributeError:
                 pass
         return loc
@@ -243,11 +243,12 @@ class EventManager(Script):
             log.write(msg)
         except Exception:
             traceback.print_exc()
-        if sender and sender.player and hasattr(sender.player, 'Dominion'):
+        try:
             dompc = sender.player.Dominion
-            if dompc not in event.participants.all():
-                event.participants.add(dompc)
-        event.save()
+            if dompc not in event.attended:
+                event.record_attendance(dompc)
+        except AttributeError:
+            pass
 
     def add_gmnote(self, eventid, msg):
         msg = parse_ansi(msg, strip_ansi=True)
@@ -266,8 +267,7 @@ class EventManager(Script):
 
     @staticmethod
     def do_awards(event):
-        participants = list(event.participants.all())
-        qualified_hosts = [ob for ob in event.hosts.all() if ob in participants]
+        qualified_hosts = [ob for ob in event.hosts if ob in event.attended]
         if not qualified_hosts:
             main_host = event.main_host
             if main_host:
@@ -283,9 +283,10 @@ class EventManager(Script):
             except (AttributeError, ValueError, TypeError):
                 pass
             # award prestige
-            if not host.assets or not event.celebration_tier:
+            try:
+                host.assets.adjust_prestige(event.prestige/len(qualified_hosts))
+            except (AttributeError, ValueError, TypeError):
                 continue
-            host.assets.adjust_prestige(event.prestige/len(qualified_hosts))
 
     def cancel_event(self, event):
         if event.id in self.db.pending_start:

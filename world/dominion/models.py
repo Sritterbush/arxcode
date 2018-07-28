@@ -460,6 +460,22 @@ class PlayerOrNpc(SharedMemoryModel):
         except AttributeError:
             pass
 
+    @property
+    def events_hosted(self):
+        """Events we acted as a host for"""
+        return self.events.filter(pc_event_participation__status__in=(PCEventParticipation.HOST,
+                                                                      PCEventParticipation.MAIN_HOST))
+
+    @property
+    def events_gmd(self):
+        """Events we GM'd"""
+        return self.events.filter(pc_event_participation__status=PCEventParticipation.GM)
+
+    @property
+    def events_attended(self):
+        """Events we were a guest at or invited to attend"""
+        return self.events.filter(pc_event_participation__status=PCEventParticipation.GUEST)
+
 
 class AssetOwner(SharedMemoryModel):
     """
@@ -823,7 +839,7 @@ class PraiseOrCondemn(SharedMemoryModel):
     a character's prestige.
     """
     praiser = models.ForeignKey('PlayerOrNpc', related_name='praises_given')
-    target = models.ForeignKey('PlayerOrNpc', related_name='praises_received')
+    target = models.ForeignKey('AssetOwner', related_name='praises_received')
     message = models.TextField(blank=True)
     week = models.PositiveSmallIntegerField(default=0, blank=0)
     db_date_created = models.DateTimeField(auto_now_add=True)
@@ -838,10 +854,10 @@ class PraiseOrCondemn(SharedMemoryModel):
 
     def do_prestige_adjustment(self):
         """Adjusts the prestige of the target after they're praised."""
-        self.target.assets.adjust_prestige(self.value)
+        self.target.adjust_prestige(self.value)
         msg = "%s has %s you. " % (self.praiser, self.verb)
         msg += "Your prestige has been adjusted by %s." % self.value
-        self.target.inform(msg)
+        self.target.inform(msg, category=self.verb.capitalize())
 
 
 class CharitableDonation(SharedMemoryModel):
@@ -3275,7 +3291,7 @@ class Organization(InformMixin, SharedMemoryModel):
                                                                                        self.social_modifier)
         # msg += "{wSpheres of Influence:{n %s\n" % ", ".join("{w%s{n: %s" % (ob.category, ob.rating)
         #                                                     for ob in self.spheres.all())
-        msg += "{wSkills used for work:{n %s\n" % ", ".join(ob.skill for ob in self.work_settings.all())
+        msg += self.display_work_settings()
         clues = self.clues.all()
         if display_clues:
             if clues:
@@ -3290,9 +3306,27 @@ class Organization(InformMixin, SharedMemoryModel):
             msg += viewing_member.display()
         return msg
 
+    def display_work_settings(self):
+        """Gets table of work settings"""
+        from server.utils.prettytable import PrettyTable
+        work_settings = self.work_settings.all().order_by('resource')
+        msg = "\n{wWork Settings:{n"
+        if not work_settings:
+            return msg + " None found.\n"
+        table = PrettyTable(["{wResource{n", "{wStat{n", "{wSkill{n"])
+        for setting in work_settings:
+            table.add_row([setting.get_resource_display(), setting.stat, setting.skill])
+        msg += "\n" + str(table) + "\n"
+        return msg
+
     def __init__(self, *args, **kwargs):
         super(Organization, self).__init__(*args, **kwargs)
         self.locks = LockHandler(self)
+
+    @property
+    def default_access_rank(self):
+        """What rank to default to if they don't set permission"""
+        return 2 if self.secret else 10
 
     def access(self, accessing_obj, access_type='read', default=False):
         """
@@ -3301,6 +3335,13 @@ class Organization(InformMixin, SharedMemoryModel):
         access_type - type of access sought
         default - what to return if no lock of access_type was found
         """
+        if access_type not in self.locks.locks.keys():
+            try:
+                obj = accessing_obj.player_ob or accessing_obj
+                member = obj.Dominion.memberships.get(deguilded=False, organization=self)
+                return member.rank <= self.default_access_rank
+            except (AttributeError, Member.DoesNotExist):
+                return False
         return self.locks.check(accessing_obj, access_type=access_type, default=default)
 
     def msg(self, message, prefix=True, *args, **kwargs):
@@ -5272,14 +5313,11 @@ class RPEvent(SharedMemoryModel):
     EXTRAVAGANT = 4
     LEGENDARY = 5
 
-    LARGESSE_CHOICES = (
-        (NONE, 'Small'),
-        (COMMON, 'Average'),
-        (REFINED, 'Refined'),
-        (GRAND, 'Grand'),
-        (EXTRAVAGANT, 'Extravagant'),
-        (LEGENDARY, 'Legendary'),
-        )
+    LARGESSE_CHOICES = ((NONE, 'Small'), (COMMON, 'Average'), (REFINED, 'Refined'), (GRAND, 'Grand'),
+        (EXTRAVAGANT, 'Extravagant'), (LEGENDARY, 'Legendary'),)
+    # costs and prestige awards
+    LARGESSE_VALUES = ((NONE, (0, 0)), (COMMON, (100, 1000)), (REFINED, (1000, 5000)), (GRAND, (10000, 20000)),
+                       (EXTRAVAGANT, (100000, 100000)), (LEGENDARY, (500000, 400000)))
 
     NO_RISK = 0
     MINIMAL_RISK = 1
@@ -5299,42 +5337,36 @@ class RPEvent(SharedMemoryModel):
         (MODERATELY_ELEVATED_RISK, "Moderately Elevated Risk"), (HIGHLY_ELEVATED_RISK, "Highly Elevated Risk"),
         (VERY_HIGH_RISK, "Very High Risk"), (EXTREME_RISK, "Extreme Risk"), (SUICIDAL_RISK, "Suicidal Risk"),
         )
-    hosts = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_hosted', db_index=True)
+    dompcs = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events', through='PCEventParticipation')
+    orgs = models.ManyToManyField('Organization', blank=True, related_name='events', through='OrgEventParticipation')
     name = models.CharField(max_length=255, db_index=True)
     desc = models.TextField(blank=True, null=True)
     location = models.ForeignKey('objects.ObjectDB', blank=True, null=True, related_name='events_held',
                                  on_delete=models.SET_NULL)
     date = models.DateTimeField(blank=True, null=True)
-    participants = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_attended', db_index=True)
-    gms = models.ManyToManyField('PlayerOrNpc', blank=True, related_name='events_gmd', db_index=True)
-    celebration_tier = models.PositiveSmallIntegerField(choices=LARGESSE_CHOICES, default=NONE)
-    gm_event = models.BooleanField(default=False, blank=False)
-    public_event = models.BooleanField(default=True, blank=True)
-    finished = models.BooleanField(default=False, blank=False)
+    celebration_tier = models.PositiveSmallIntegerField(choices=LARGESSE_CHOICES, default=NONE, blank=True)
+    gm_event = models.BooleanField(default=False)
+    public_event = models.BooleanField(default=True)
+    finished = models.BooleanField(default=False)
     results = models.TextField(blank=True, null=True)
     room_desc = models.TextField(blank=True, null=True)
     actions = models.ManyToManyField("CrisisAction", blank=True, related_name="events")
     plotroom = models.ForeignKey('PlotRoom', blank=True, null=True, related_name='events_held_here')
-    risk = models.PositiveSmallIntegerField(choices=RISK_CHOICES, default=NORMAL_RISK)
+    risk = models.PositiveSmallIntegerField(choices=RISK_CHOICES, default=NORMAL_RISK, blank=True)
 
     @property
     def prestige(self):
         """Prestige granted by RP Event"""
         cel_level = self.celebration_tier
-        prestige = 0
-        if cel_level == 1:
-            prestige = 1000
-        elif cel_level == 2:
-            prestige = 5000
-        elif cel_level == 3:
-            prestige = 20000
-        elif cel_level == 4:
-            prestige = 100000
-        elif cel_level == 5:
-            prestige = 400000
+        prestige = dict(self.LARGESSE_VALUES)[cel_level][1]
         if not self.public_event:
             prestige /= 2
         return prestige
+
+    @property
+    def cost(self):
+        """Silver cost of the event"""
+        return dict(self.LARGESSE_VALUES)[self.celebration_tier][0]
 
     def can_view(self, player):
         """Who can view this RPEvent"""
@@ -5345,6 +5377,20 @@ class RPEvent(SharedMemoryModel):
         dom = player.Dominion
         if dom in self.gms.all() or dom in self.hosts.all() or dom in self.participants.all():
             return True
+
+    def can_admin(self, player):
+        """Who can run admin commands for this event"""
+        if player.check_permstring("builders"):
+            return True
+        if self.gm_event:
+            return False
+        try:
+            dompc = player.Dominion
+            if not dompc:
+                return False
+            return dompc == self.main_host
+        except AttributeError:
+            return False
 
     def create_room(self):
         """Creates a temp room for this RPEvent's plotroom"""
@@ -5370,6 +5416,22 @@ class RPEvent(SharedMemoryModel):
         self.save()
         return
 
+    @property
+    def hosts(self):
+        """Our host or main host"""
+        return self.dompcs.filter(event_participation__status__in=(PCEventParticipation.HOST,
+                                                                   PCEventParticipation.MAIN_HOST))
+
+    @property
+    def participants(self):
+        """Any guest who was invited/attended"""
+        return self.dompcs.filter(event_participation__status=PCEventParticipation.GUEST)
+
+    @property
+    def gms(self):
+        """GMs for GM Events or PRPs"""
+        return self.dompcs.filter(event_participation__gm=True)
+
     def display(self):
         """Returns string display for event"""
         msg = "{wName:{n %s\n" % self.name
@@ -5380,7 +5442,6 @@ class RPEvent(SharedMemoryModel):
             # prevent seeing names of invites once a private event has started
             if self.date > datetime.now():
                 msg += "{wInvited:{n %s\n" % ", ".join(str(ob) for ob in self.participants.all())
-
         location_name = self.location if self.location else \
             (self.plotroom.ansi_name() if self.plotroom else "None")
         msg += "{wLocation:{n %s\n" % location_name
@@ -5447,14 +5508,7 @@ class RPEvent(SharedMemoryModel):
     @property
     def main_host(self):
         """Returns who the main host was"""
-        from typeclasses.accounts import Account
-        try:
-            return Account.objects.get(db_tags__db_key=self.tagkey)
-        except (Account.DoesNotExist, Account.MultipleObjectsReturned):
-            try:
-                return self.hosts.first().player
-            except (PlayerOrNpc.DoesNotExist, AttributeError):
-                return None
+        return self.dompcs.filter(event_participation__status=PCEventParticipation.MAIN_HOST).first()
 
     def tag_obj(self, obj):
         """Attaches a tag to obj about this event"""
@@ -5471,9 +5525,138 @@ class RPEvent(SharedMemoryModel):
         return reverse('dominion:display_event', kwargs={'pk': self.id})
 
     @property
-    def characters(self):
-        """Returns set of all PlayerOrNpc objects involved with the event"""
-        return set(self.gms.all() | self.hosts.all() | self.participants.all())
+    def attended(self):
+        """List of dompcs who attended our event, cached to avoid query with every message"""
+        if hasattr(self, '_cached_attendance'):
+            return self._cached_attendance
+        self._cached_attendance = list(self.dompcs.filter(event_participation__attended=True))
+        return self._cached_attendance
+
+    def record_attendance(self, dompc):
+        """Records that dompc attended the event"""
+        if hasattr(self, '_cached_attendance'):
+            del self._cached_attendance
+        part, _ = self.pc_event_participation.get_or_create(dompc=dompc)
+        part.attended = True
+        part.save()
+
+    def add_host(self, dompc, main_host=False, send_inform=True):
+        """Adds a host for the event"""
+        status = PCEventParticipation.MAIN_HOST if main_host else PCEventParticipation.HOST
+        self.invite_dompc(dompc, 'status', status, send_inform)
+
+    def change_host_to_guest(self, dompc):
+        """Changes a host to a guest"""
+        part = self.pc_event_participation.get(dompc=dompc)
+        part.status = PCEventParticipation.GUEST
+        part.save()
+
+    def add_gm(self, dompc, send_inform=True):
+        """Adds a gm for the event"""
+        self.invite_dompc(dompc, 'gm', True, send_inform)
+        if not self.gm_event and (dompc.player.is_staff or dompc.player.check_permstring("builders")):
+            self.gm_event = True
+            self.save()
+
+    def untag_gm(self, dompc):
+        """Removes GM tag from a participant"""
+        part = self.pc_event_participation.get(dompc=dompc)
+        part.gm = False
+        part.save()
+
+    def add_guest(self, dompc, send_inform=True):
+        """Adds a guest to the event"""
+        self.invite_dompc(dompc, 'status', PCEventParticipation.GUEST, send_inform)
+
+    def invite_dompc(self, dompc, field, value, send_inform=True):
+        """Invites a dompc to be a host, gm, or guest"""
+        part, _ = self.pc_event_participation.get_or_create(dompc=dompc)
+        setattr(part, field, value)
+        part.save()
+        if send_inform:
+            self.invite_participant(part)
+
+    def invite_org(self, org):
+        """Invites an org to attend or sponsor the event"""
+        part, _ = self.org_event_participation.get_or_create(org=org)
+        self.invite_participant(part)
+
+    def get_sponsor_praise_value(self, org):
+        """
+        Gets the multiplier and minimum for an organization sponsor of this event
+        Args:
+            org: Organization that's invited to the event
+        Returns:
+            A muliplier (float) for praises, and a minimum value for each praise.
+        Raises:
+            OrgEventParticipation.DoesNotExist if the org is not invited.
+        """
+        part = self.org_event_participation.get(org=org)
+        return (part.social + 1) * (5 + (2 * self.celebration_tier))
+
+    def invite_participant(self, participant):
+        """Sends an invitation if we're not finished"""
+        if not self.finished:
+            participant.invite()
+
+    def add_sponsorship(self, org, amount):
+        """Adds social resources to an org's sponsorship"""
+        part = self.org_event_participation.get(org=org)
+        if org.assets.social < amount:
+            raise PayError("%s does not have enough social resources." % org)
+        org.assets.social -= amount
+        part.social += amount
+        part.save()
+        org.assets.save()
+        return part
+
+    def remove_guest(self, dompc):
+        """Removes a record of guest's attendance"""
+        part = self.pc_event_participation.get(dompc=dompc)
+        part.delete()
+
+    def remove_org(self, org):
+        """Removes org's invitation"""
+        part = self.org_event_participation.get(org=org)
+        if self.date > datetime.now():
+            org.assets.social += part.social
+            org.assets.save()
+        part.delete()
+
+
+class PCEventParticipation(SharedMemoryModel):
+    """A PlayerOrNPC participating in an event"""
+    MAIN_HOST = 0
+    HOST = 1
+    GUEST = 2
+    STATUS_CHOICES = ((MAIN_HOST, "Main Host"), (HOST, "Host"), (GUEST, "Guest"))
+    dompc = models.ForeignKey('PlayerOrNpc', related_name="event_participation")
+    event = models.ForeignKey('RPEvent', related_name="pc_event_participation")
+    status = models.PositiveSmallIntegerField(choices=STATUS_CHOICES, default=GUEST)
+    gm = models.BooleanField(default=False)
+    attended = models.BooleanField(default=False)
+
+    def invite(self):
+        """Sends an invitation to someone if we're not a main host"""
+        if self.status != self.MAIN_HOST:
+            if self.gm:
+                msg = "You have been invited to GM"
+            else:
+                msg = "You have been invited to be a %s" % self.get_status_display()
+            msg += " at {c%s.{n" % self.event
+            msg += "\nFor details about this event, use {w@cal %s{n" % self.event.id
+            self.dompc.inform(msg, category="Event Invitations")
+
+
+class OrgEventParticipation(SharedMemoryModel):
+    """An org participating in an event"""
+    org = models.ForeignKey("Organization", related_name="event_participation")
+    event = models.ForeignKey("RPEvent", related_name="org_event_participation")
+    social = models.PositiveSmallIntegerField("Social Resources spent by the Org Sponsor", default=0)
+
+    def invite(self):
+        """Informs the org of their invitation"""
+        self.org.inform("Your organization has been invited to attend %s." % self.event, category="Event Invitations")
 
 
 class InfluenceCategory(SharedMemoryModel):

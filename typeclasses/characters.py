@@ -627,25 +627,6 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
                 spam.append(self)
                 watcher.ndb.journal_spam = spam
 
-    @property
-    def social_value(self):
-        """Value used for calculating support based on social stats/skills
-
-            returns: int
-        """
-        total = 0
-        try:
-            from world.stats_and_skills import SOCIAL_SKILLS
-            total += self.db.charm * 3
-            total += self.db.intellect
-            total += self.db.command
-            total += self.db.composure
-            skills = self.db.skills
-            total += sum(skills.get(attr, 0) for attr in SOCIAL_SKILLS) * 2
-            return total / 3
-        except (TypeError, ValueError, AttributeError):
-            return total / 3
-
     def _get_max_support(self):
         try:
             dompc = self.player_ob.Dominion
@@ -656,7 +637,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
                 remaining += ren.level
         except (TypeError, AttributeError, ValueError):
             return 0
-        interval = self.social_value
+        interval = self.social_clout
         multiplier = 1.0
         total = 0
         if interval <= 0:
@@ -677,7 +658,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         total = 0
         my_skills = self.db.skills or {}
         skills_used = {"diplomacy": 2, "empathy": 2, "seduction": 2, "etiquette": 2, "manipulation": 2, "propaganda": 2,
-                       "intimidation": 1, "leadership": 1, "streetwise": 1, "performance": 1}
+                       "intimidation": 1, "leadership": 1, "streetwise": 1, "performance": 1, "haggling": 1}
         stats_used = {"charm": 2, "composure": 1, "command": 1}
         for skill, exponent in skills_used.items():
             total += pow(my_skills.get(skill, 0), exponent)
@@ -1198,3 +1179,8 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         for ob in self.worn:
             value += ob.armor_resilience
         return int(value)
+
+    @property
+    def dompc(self):
+        """Returns our Dominion object"""
+        return self.player_ob.Dominion

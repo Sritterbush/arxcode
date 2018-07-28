@@ -934,7 +934,9 @@ class CmdGMEvent(ArxCommand):
             self.caller.attributes.remove("gm_event_form")
             return
         if "stop" in self.switches:
-            events = self.caller.player_ob.Dominion.events_gmd.filter(finished=False, gm_event=True)
+            from datetime import datetime
+            now = datetime.now()
+            events = self.caller.player_ob.Dominion.events_gmd.filter(finished=False, gm_event=True, date__lte=now)
             if not events:
                 self.msg("You are not currently GMing any events.")
                 return

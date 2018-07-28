@@ -493,6 +493,7 @@ class CmdAdminRoster(ArxPlayerCommand):
                 except AccountHistory.MultipleObjectsReturned:
                     history = AccountHistory.objects.filter(account=current, entry=entry).last()
                 entry.current_account = None
+                entry.action_points = 100
                 date = datetime.now()
                 history.end_date = date
                 if not history.gm_notes and self.rhs:
