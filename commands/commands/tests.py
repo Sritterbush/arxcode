@@ -361,6 +361,7 @@ class SocialTests(ArxCommandTest):
     def test_cmd_rpevent(self, mock_datetime, mock_inform_staff, mock_get_week):
         from evennia.utils.create import create_script
         from typeclasses.scripts.event_manager import EventManager
+        from world.dominion.models import Organization
         script = create_script(typeclass=EventManager, key="Event Manager")
         script.post_event = Mock()
         now = datetime.now()
@@ -391,16 +392,21 @@ class SocialTests(ArxCommandTest):
         self.call_cmd("/largesse grand", 'That requires 10000 to buy. You have -1.0.')
         self.char1.db.currency = 10000
         self.call_cmd("/largesse grand", "Largesse level set to grand for 10000.")
+        org = Organization.objects.create(name="test org")
+        self.call_cmd("/invite test org", 'Invited test org to attend.')
+        self.call_cmd("/invite testaccount2", "Invited Testaccount2 to attend.")
         self.call_cmd('/submit', 'You pay 10000 coins for the event.|'
                                  'New event created: test_event at 12/12/30 12:00:00.')
         self.assertEqual(self.char1.db.currency, 0)
         event = RPEvent.objects.get(name="test_event")
         self.assertTrue(event.gm_event)
+        self.assertEqual(org.events.first(), event)
+        self.assertEqual(self.dompc2.events.first(), event)
         script.post_event.assert_called_with(event, self.account,
                                              '{wName:{n test_event\n{wMain Host:{n Testaccount\n{wPublic:{n Public\n'
                                              '{wDescription:{n test description\n{wDate:{n 2030-12-12 12:00:00\n'
                                              '{wLocation:{n None\n{wLargesse:{n Grand\n{wGMs:{n Testaccount\n'
-                                             '{wRisk:{n Normal Risk\n')
+                                             '{wRisk:{n Normal Risk\n{wInvitations:{n Testaccount2\n')
         mock_inform_staff.assert_called_with('New event created by Testaccount: test_event, '
                                              'scheduled for 12/12/30 12:00:00.')
 
