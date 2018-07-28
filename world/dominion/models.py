@@ -5579,7 +5579,7 @@ class RPEvent(SharedMemoryModel):
     def invite_org(self, org):
         """Invites an org to attend or sponsor the event"""
         part, _ = self.org_event_participation.get_or_create(org=org)
-        self.invite_participant(org)
+        self.invite_participant(part)
 
     def get_sponsor_praise_value(self, org):
         """
