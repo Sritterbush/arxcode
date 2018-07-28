@@ -452,13 +452,11 @@ class CombatManager(BaseScript):
         we're in phase one.
         """
         state = character.combat.state
+        self.clear_lists_of_character(character)
         if state in self.ndb.combatants:
             self.ndb.combatants.remove(state)
-        if character in self.ndb.fleeing:
-            self.ndb.fleeing.remove(character)
-        if character in self.ndb.afk_check:
-            self.ndb.afk_check.remove(character)
-        state.leave_combat()
+        if state:
+            state.leave_combat()
         # if we're already shutting down, avoid redundant messages
         if len(self.ndb.combatants) < 2 and not in_shutdown:
             # We weren't shutting down and don't have enough fighters to continue. end the fight.
@@ -473,6 +471,15 @@ class CombatManager(BaseScript):
                 return
             if self.ndb.active_character == character:
                 self.next_character_turn()
+
+    def clear_lists_of_character(self, character):
+        """Removes a character from any of the lists they might be in"""
+        if character in self.ndb.fleeing:
+            self.ndb.fleeing.remove(character)
+        if character in self.ndb.afk_check:
+            self.ndb.afk_check.remove(character)
+        if character in self.ndb.surrender_list:
+            self.ndb.surrender_list.remove(character)
 
     def add_observer(self, character):
         """
