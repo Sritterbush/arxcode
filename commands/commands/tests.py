@@ -361,7 +361,7 @@ class SocialTests(ArxCommandTest):
     def test_cmd_rpevent(self, mock_datetime, mock_inform_staff, mock_get_week):
         from evennia.utils.create import create_script
         from typeclasses.scripts.event_manager import EventManager
-        from world.dominion.models import Organization
+        from world.dominion.models import Organization, AssetOwner
         script = create_script(typeclass=EventManager, key="Event Manager")
         script.post_event = Mock()
         now = datetime.now()
@@ -409,6 +409,16 @@ class SocialTests(ArxCommandTest):
                                              '{wRisk:{n Normal Risk\n{wInvitations:{n Testaccount2\n')
         mock_inform_staff.assert_called_with('New event created by Testaccount: test_event, '
                                              'scheduled for 12/12/30 12:00:00.')
+        self.call_cmd("/sponsor test org,200=1", "You do not have permission to spend funds for test org.")
+        org.locks.add("withdraw:rank(10)")
+        org.save()
+        org.members.create(player=self.dompc, rank=1)
+        assets = AssetOwner.objects.create(organization_owner=org)
+        self.call_cmd("/sponsor test org,200=1", 'test org does not have enough social resources.')
+        assets.social = 200
+        assets.save()
+        self.call_cmd("/sponsor test org,200=1", "test org is now sponsoring test_event for 200 social resources.")
+        self.assertEqual(assets.social, 0)
 
     @patch("world.dominion.models.get_week")
     @patch("server.utils.arx_utils.get_week")

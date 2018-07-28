@@ -1404,10 +1404,11 @@ class CmdCalendar(ArxPlayerCommand):
         else:
             lhs = self.lhs
             rhs = self.rhs
-        event = self.get_event_from_args(lhs)
         if "sponsor" in self.switches:
+            from django.core.exceptions import ObjectDoesNotExist
+            event = self.get_event_from_args(self.rhs)
             try:
-                org = Organization.objects.get(name__iexact=lhs)
+                org = Organization.objects.get(name__iexact=self.lhslist[0])
             except Organization.DoesNotExist:
                 raise self.CalCmdError("No Organization by that name.")
             if not org.access(self.caller, "withdraw"):
@@ -1420,9 +1421,13 @@ class CmdCalendar(ArxPlayerCommand):
                     raise ValueError
             except (TypeError, ValueError):
                 raise self.CalCmdError("You must provide a positive number of social resources to add.")
-            sponsoring = event.add_sponsorship(org, amount)
+            try:
+                sponsoring = event.add_sponsorship(org, amount)
+            except ObjectDoesNotExist:
+                raise self.CalCmdError("You must be invited before you can sponsor.")
             self.msg("%s is now sponsoring %s for %d social resources." % (org, event, sponsoring.social))
             return
+        event = self.get_event_from_args(lhs)
         if "join" in self.switches:
             diff = time_from_now(event.date).total_seconds()
             if diff > 3600:

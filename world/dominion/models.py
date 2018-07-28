@@ -5601,7 +5601,7 @@ class RPEvent(SharedMemoryModel):
 
     def add_sponsorship(self, org, amount):
         """Adds social resources to an org's sponsorship"""
-        part, _ = self.org_event_participation.get(org=org)
+        part = self.org_event_participation.get(org=org)
         if org.assets.social < amount:
             raise PayError("%s does not have enough social resources." % org)
         org.assets.social -= amount
