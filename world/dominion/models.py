@@ -5581,7 +5581,7 @@ class RPEvent(SharedMemoryModel):
         part, _ = self.org_event_participation.get_or_create(org=org)
         self.invite_participant(org)
 
-    def get_sponsor_praise_values(self, org):
+    def get_sponsor_praise_value(self, org):
         """
         Gets the multiplier and minimum for an organization sponsor of this event
         Args:

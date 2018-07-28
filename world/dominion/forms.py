@@ -89,7 +89,6 @@ class RPEventCreateForm(forms.ModelForm):
     def post_event(self, event):
         """Makes a post of this event"""
         from evennia.scripts.models import ScriptDB
-        print("public_event is %r" % event.public_event)
         if event.public_event:
             event_manager = ScriptDB.objects.get(db_key="Event Manager")
             event_manager.post_event(event, self.owner.player, self.display())

@@ -409,6 +409,7 @@ class SocialTests(ArxCommandTest):
     @patch.object(social, "do_dice_check")
     def test_cmd_praise(self, mock_dice_check, mock_get_week, mock_dom_get_week):
         from web.character.models import PlayerAccount
+        from world.dominion.models import Organization, AssetOwner, RPEvent
         self.roster_entry.current_account = PlayerAccount.objects.create(email="asdf@asdf.com")
         self.roster_entry.save()
         self.setup_cmd(social.CmdPraise, self.account)
@@ -418,7 +419,8 @@ class SocialTests(ArxCommandTest):
         self.call_cmd("testaccount2", "You have already used all your praises for the week.")
         # property mocks have to be reset at the end, or screws up other tests
         old = type(self.char1).social_clout
-        type(self.char1).social_clout = PropertyMock(return_value=10)
+        prop_mock = PropertyMock(return_value=10)
+        type(self.char1).social_clout = prop_mock
         mock_dice_check.return_value = 50
         self.call_cmd("testaccount2,-2=hi", "The number of praises used must be a positive number, "
                                             "and less than your max praises.")
@@ -431,6 +433,20 @@ class SocialTests(ArxCommandTest):
                                                 append=False, category='Praised', week=1)
         self.assertEqual(self.assetowner2.fame, 90)
         self.assertEqual(self.account.get_current_praises_and_condemns().count(), 1)
+        org = Organization.objects.create(name="test org")
+        org.inform = Mock()
+        org_assets = AssetOwner.objects.create(organization_owner=org)
+        self.call_cmd("/org foo", "No organization by that name.")
+        self.call_cmd("/org test org", 'There is no event going on that has test org as a sponsor.')
+        event = RPEvent.objects.create(name="test event", location=self.room)
+        self.room.db.current_event = event.id
+        event.org_event_participation.create(org=org, social=50)
+        prop_mock.return_value = 50
+        self.call_cmd("/org test org,40=hi2u", 'You use 1 action points and have 98 remaining this week.|'
+                                               'You praise the actions of Test org. You have 0 praises remaining.')
+        org.inform.assert_called_with('Testaccount has praised you. Your prestige has been adjusted by 10200.',
+                                      append=False, category='Praised', week=1)
+        self.assertEqual(org_assets.fame, 10200)
         # cleanup property mock
         type(self.char1).social_clout = old
 
