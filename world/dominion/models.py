@@ -469,7 +469,7 @@ class PlayerOrNpc(SharedMemoryModel):
     @property
     def events_gmd(self):
         """Events we GM'd"""
-        return self.events.filter(pc_event_participation__status=PCEventParticipation.GM)
+        return self.events.filter(pc_event_participation__gm=True)
 
     @property
     def events_attended(self):

@@ -1741,8 +1741,9 @@ class CmdCalendar(ArxPlayerCommand):
 
     def add_or_remove_gm(self, event):
         """Adds a gm or strips gm tag from them"""
-        gm = self.caller.search(self.lhs)
-        if not gm:
+        try:
+            gm = self.caller.search(self.lhs).Dominion
+        except AttributeError:
             return
         add_msg = "%s is now marked as a gm.\n"
         add_msg += "Reminder - please only add a GM for an event if it's an actual player-run plot. Tagging a "
