@@ -1715,8 +1715,9 @@ class CmdCalendar(ArxPlayerCommand):
 
     def add_or_remove_host(self, event):
         """Adds a host or changes them to a regular guest"""
-        host = self.caller.search(self.lhs)
-        if not host:
+        try:
+            host = self.caller.search(self.lhs).Dominion
+        except AttributeError:
             return
         if event:
             if host in event.hosts:
