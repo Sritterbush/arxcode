@@ -2,6 +2,7 @@
 Forms for Dominion
 """
 from django import forms
+from django.db.models import Q
 
 from typeclasses.rooms import ArxRoom
 from world.dominion.models import RPEvent, Organization, PlayerOrNpc, PlotRoom
@@ -21,7 +22,8 @@ class RPEventCommentForm(forms.Form):
 
 class RPEventCreateForm(forms.ModelForm):
     """Form for creating a RPEvent. We'll actually try using it in commands for validation"""
-    player_queryset = PlayerOrNpc.objects.filter(player__roster__roster__name="Active").order_by('player__username')
+    player_queryset = PlayerOrNpc.objects.filter(Q(player__roster__roster__name="Active") |
+                                                 Q(player__is_staff=True)).distinct().order_by('player__username')
     room_name = forms.CharField(required=False, help_text="Location")
     hosts = forms.ModelMultipleChoiceField(queryset=player_queryset, required=False)
     invites = forms.ModelMultipleChoiceField(queryset=player_queryset, required=False)
