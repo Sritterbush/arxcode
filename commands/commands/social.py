@@ -1276,7 +1276,7 @@ class CmdCalendar(ArxPlayerCommand):
         @cal/private <on or off>[=<event ID>]
         @cal/host <playername>[=<event ID>]
         @cal/gm <playername>[=<event ID>]
-        @cal/invite <player or org name>[=<event ID>]
+        @cal/invite <player or org name>[,name,...][=<event ID>]
         @cal/uninvite <player or org name>[=<event ID>]
         @cal/roomdesc <description>[=<event ID>]
         @cal/risk <risk value>[=<event ID>]
@@ -1781,46 +1781,47 @@ class CmdCalendar(ArxPlayerCommand):
 
     def invite_org_or_player(self, event):
         """Invites an organization or player to an event"""
-        org, pc = self.get_org_or_dompc()
-        if event:
-            if org:
-                if org in event.orgs.all():
-                    raise self.CalCmdError("That organization is already invited.")
-                event.invite_org(org)
+        for arg in self.lhslist:
+            org, pc = self.get_org_or_dompc(arg)
+            if event:
+                if org:
+                    if org in event.orgs.all():
+                        raise self.CalCmdError("That organization is already invited.")
+                    event.invite_org(org)
+                else:
+                    if pc in event.dompcs.all():
+                        raise self.CalCmdError("They are already invited.")
+                    event.add_guest(pc)
             else:
-                if pc in event.dompcs.all():
-                    raise self.CalCmdError("They are already invited.")
-                event.add_guest(pc)
-        else:
-            proj = self.caller.ndb.event_creation
-            if org:
-                if org.id in proj['org_invites']:
-                    raise self.CalCmdError("That organization is already invited.")
-                proj['org_invites'].append(org.id)
-            else:
-                if pc.id in proj['hosts'] or pc.id in proj['gms']:
-                    raise self.CalCmdError("They are already invited to host or gm.")
-                if pc.id in proj['invites']:
-                    raise self.CalCmdError("They are already invited.")
-                proj['invites'].append(pc.id)
-        self.msg("{wInvited {c%s{w to attend." % (pc or org))
+                proj = self.caller.ndb.event_creation
+                if org:
+                    if org.id in proj['org_invites']:
+                        raise self.CalCmdError("That organization is already invited.")
+                    proj['org_invites'].append(org.id)
+                else:
+                    if pc.id in proj['hosts'] or pc.id in proj['gms']:
+                        raise self.CalCmdError("They are already invited to host or gm.")
+                    if pc.id in proj['invites']:
+                        raise self.CalCmdError("They are already invited.")
+                    proj['invites'].append(pc.id)
+            self.msg("{wInvited {c%s{w to attend." % (pc or org))
 
-    def get_org_or_dompc(self):
+    def get_org_or_dompc(self, args):
         """Gets org or a dompc based on name"""
         org = None
         pc = None
         try:
-            org = Organization.objects.get(name__iexact=self.lhs)
+            org = Organization.objects.get(name__iexact=args)
         except Organization.DoesNotExist:
             try:
-                pc = self.caller.search(self.lhs).Dominion
+                pc = self.caller.search(args).Dominion
             except AttributeError:
                 raise self.CalCmdError("Could not find an organization or player by that name.")
         return org, pc
 
     def uninvite_org_or_player(self, event):
         """Removes an organization or player from an event"""
-        org, pc = self.get_org_or_dompc()
+        org, pc = self.get_org_or_dompc(self.lhs)
         if event:
             if org:
                 if org not in event.orgs.all():
