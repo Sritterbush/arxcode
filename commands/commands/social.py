@@ -1497,6 +1497,8 @@ class CmdCalendar(ArxPlayerCommand):
             self.msg(self.form.display(), options={'box': True})
         elif "submit" in self.switches:
             form = self.form
+            if not form:
+                raise self.CalCmdError("You must /create a form first.")
             if not form.is_valid():
                 raise self.CalCmdError(form.display_errors() + "\n" + form.display())
             event = form.save()
@@ -1621,9 +1623,10 @@ class CmdCalendar(ArxPlayerCommand):
         costs = dict(RPEvent.LARGESSE_VALUES)
         lhs = self.lhs.lower()
         if not lhs:
-            table = PrettyTable(['level', 'cost', 'prestige'])
+            table = PrettyTable(['{wLevel{n', '{wCost{n', '{wPrestige{n'])
+            choices = dict(RPEvent.LARGESSE_CHOICES)
             for key in costs:
-                name = largesse_types[key]
+                name = choices[key]
                 table.add_row([name, costs[key][0], costs[key][1]])
             self.msg(table, options={'box': True})
             return
@@ -1646,7 +1649,7 @@ class CmdCalendar(ArxPlayerCommand):
 
     def set_location(self, event=None):
         """Sets location for form or an event"""
-        if self.lhs:
+        if self.lhs and self.lhs.lower() != "here":
             try:
                 try:
                     room = ArxRoom.objects.get(db_key__iexact=self.lhs)
@@ -1660,7 +1663,7 @@ class CmdCalendar(ArxPlayerCommand):
             room = self.caller.character.location
         if not room:
             raise self.CalCmdError("No room found.")
-        self.set_form_or_event_attribute("location", room, event)
+        self.set_form_or_event_attribute("location", room.id, event)
         self.msg("Room set to %s." % room)
 
     def set_event_desc(self, event):
@@ -1694,7 +1697,7 @@ class CmdCalendar(ArxPlayerCommand):
                     msg += "  %d: %s (%s)" % (room.id, room.name, room.get_detailed_region_name())
                 raise self.CalCmdError(msg)
             plotroom = plotrooms[0]
-            self.set_form_or_event_attribute("plotroom", plotroom, event)
+            self.set_form_or_event_attribute("plotroom", plotroom.id, event)
             msg = "Plot room for event set to %d: %s (in %s)\n" % (plotroom, plotroom.ansi_name(),
                                                                    plotroom.get_detailed_region_name())
             msg += "If you wish to remove the plotroom later, use this command with no left-hand-side argument."

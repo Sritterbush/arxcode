@@ -3,7 +3,8 @@ Forms for Dominion
 """
 from django import forms
 
-from world.dominion.models import RPEvent, Organization, PlayerOrNpc
+from typeclasses.rooms import ArxRoom
+from world.dominion.models import RPEvent, Organization, PlayerOrNpc, PlotRoom
 
 
 class RPEventCommentForm(forms.Form):
@@ -103,7 +104,14 @@ class RPEventCreateForm(forms.ModelForm):
         msg += "{wPublic:{n %s\n" % "Public" if self.data.get('public_event', True) else "Private"
         msg += "{wDescription:{n %s\n" % self.data.get('desc')
         msg += "{wDate:{n %s\n" % self.data.get('date')
-        msg += "{wLocation:{n %s\n" % self.data.get('location')
+        location = self.data.get('location')
+        if location:
+            location = ArxRoom.objects.get(id=location)
+        msg += "{wLocation:{n %s\n" % location
+        plotroom = self.data.get('plotroom')
+        if plotroom:
+            plotroom = Plotroom.objects.get(id=plotroom)
+            msg += "{wPlotroom:{n %s\n" % plotroom
         msg += "{wLargesse:{n %s\n" % dict(RPEvent.LARGESSE_CHOICES).get(self.data.get('celebration_tier', 0))
         gms = PlayerOrNpc.objects.filter(id__in=self.data.get('gms', []))
         if gms:
