@@ -1,19 +1,19 @@
 """
 Views related to the Dominion app
 """
-from django.views.generic import ListView, DetailView
+from django.views.generic import ListView, DetailView, CreateView
 from .models import RPEvent, AssignedTask, Crisis, Land, Domain, Organization
-from django.views.decorators.cache import never_cache
-from .forms import RPEventCommentForm
+from .forms import RPEventCommentForm, RPEventCreateForm
 from django.http import HttpResponseRedirect, HttpResponse
 from django.http import Http404
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.urlresolvers import reverse
 from django.shortcuts import get_object_or_404, render
 from django.db.models import Q
 from django.template.loader import render_to_string
 from server.utils.view_mixins import LimitPageMixin
 from PIL import Image, ImageDraw, ImageFont
-from graphviz import Graph, Digraph
+from graphviz import Graph
 from math import trunc
 import os.path
 
@@ -119,6 +119,23 @@ class RPEventDetailView(DetailView):
         context['can_view'] = can_view
         context['page_title'] = str(self.get_object())
         return context
+
+
+class RPEventCreateView(LoginRequiredMixin, CreateView):
+    """Create view for RPEvents"""
+    model = RPEvent
+    form_class = RPEventCreateForm
+
+    def get_form_kwargs(self):
+        kwargs = super(RPEventCreateView, self).get_form_kwargs()
+        try:
+            kwargs['owner'] = self.request.user.Dominion
+        except AttributeError:
+            raise Http404
+        return kwargs
+
+    def get_success_url(self):
+        return reverse("dominion:list_events")
 
 
 class CrisisDetailView(DetailView):

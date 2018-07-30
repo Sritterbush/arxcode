@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% load app_filters %}
+{% block content %}
+    {% if form.errors %}
+        {{ form.errors }}
+    {% endif %}
+    <form method="post">{% csrf_token %}
+    {{ form.as_p }}
+    <input type="submit" value="Save" />
+</form>
+{% endblock %}

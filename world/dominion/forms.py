@@ -21,10 +21,12 @@ class RPEventCommentForm(forms.Form):
 
 class RPEventCreateForm(forms.ModelForm):
     """Form for creating a RPEvent. We'll actually try using it in commands for validation"""
-    hosts = forms.ModelMultipleChoiceField(queryset=PlayerOrNpc.objects.all(), required=False)
-    invites = forms.ModelMultipleChoiceField(queryset=PlayerOrNpc.objects.all(), required=False)
-    gms = forms.ModelMultipleChoiceField(queryset=PlayerOrNpc.objects.all(), required=False)
-    org_invites = forms.ModelMultipleChoiceField(queryset=Organization.objects.all(), required=False)
+    hosts = forms.ModelMultipleChoiceField(queryset=PlayerOrNpc.objects.all(), required=False, widget=forms.HiddenInput())
+    invites = forms.ModelMultipleChoiceField(queryset=PlayerOrNpc.objects.all(), required=False, widget=forms.HiddenInput())
+    gms = forms.ModelMultipleChoiceField(queryset=PlayerOrNpc.objects.all(), required=False, widget=forms.HiddenInput())
+    org_invites = forms.ModelMultipleChoiceField(queryset=Organization.objects.all(), required=False, widget=forms.HiddenInput())
+    location = forms.ModelChoiceField(queryset=ArxRoom.objects.all(), widget=forms.HiddenInput(), required=False)
+    room_name = forms.CharField(required=False, help_text="Location")
 
     class Meta:
         """Meta options for setting up the form"""
@@ -42,7 +44,10 @@ class RPEventCreateForm(forms.ModelForm):
     @property
     def cost(self):
         """Returns the amount of money needed for validation"""
-        return dict(RPEvent.LARGESSE_VALUES)[self.data.get('celebration_tier', 0)][0]
+        try:
+            return dict(RPEvent.LARGESSE_VALUES)[int(self.data.get('celebration_tier', 0))][0]
+        except (KeyError, TypeError, ValueError):
+            self.add_error('celebration_tier', "Invalid largesse value.")
 
     def clean(self):
         """Validates that we can pay for things. Any special validation should be here"""
@@ -50,6 +55,20 @@ class RPEventCreateForm(forms.ModelForm):
         self.check_risk()
         self.check_costs()
         return cleaned_data
+
+    def clean_location(self):
+        room_name = self.data.get('room_name')
+        if room_name:
+            try:
+                try:
+                    room = ArxRoom.objects.get(db_key__icontains=room_name)
+                except ArxRoom.MultipleObjectsReturned:
+                    room = ArxRoom.objects.get(db_key__iexact=room_name)
+            except ArxRoom.DoesNotExist:
+                self.add_error('room_name', "No unique match for a room by that name.")
+                return super(RPEventCreateForm, self).clean_location()
+            return room
+        return super(RPEventCreateForm, self).clean_location()
 
     def check_costs(self):
         """Checks if we can pay, if not, adds an error"""
