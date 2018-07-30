@@ -21,17 +21,19 @@ class RPEventCommentForm(forms.Form):
 
 class RPEventCreateForm(forms.ModelForm):
     """Form for creating a RPEvent. We'll actually try using it in commands for validation"""
-    hosts = forms.ModelMultipleChoiceField(queryset=PlayerOrNpc.objects.all(), required=False, widget=forms.HiddenInput())
-    invites = forms.ModelMultipleChoiceField(queryset=PlayerOrNpc.objects.all(), required=False, widget=forms.HiddenInput())
-    gms = forms.ModelMultipleChoiceField(queryset=PlayerOrNpc.objects.all(), required=False, widget=forms.HiddenInput())
-    org_invites = forms.ModelMultipleChoiceField(queryset=Organization.objects.all(), required=False, widget=forms.HiddenInput())
-    location = forms.ModelChoiceField(queryset=ArxRoom.objects.all(), widget=forms.HiddenInput(), required=False)
+    player_queryset = PlayerOrNpc.objects.filter(player__roster__roster__name="Active").order_by('player__username')
     room_name = forms.CharField(required=False, help_text="Location")
+    hosts = forms.ModelMultipleChoiceField(queryset=player_queryset, required=False)
+    invites = forms.ModelMultipleChoiceField(queryset=player_queryset, required=False)
+    gms = forms.ModelMultipleChoiceField(queryset=player_queryset, required=False)
+    org_invites = forms.ModelMultipleChoiceField(queryset=Organization.objects.filter(members__isnull=False).distinct(),
+                                                 required=False)
+    location = forms.ModelChoiceField(queryset=ArxRoom.objects.all(), widget=forms.HiddenInput(), required=False)
 
     class Meta:
         """Meta options for setting up the form"""
         model = RPEvent
-        fields = ['location', 'plotroom', 'desc', 'date', 'celebration_tier', 'name', 'room_desc', 'risk',
+        fields = ['name', 'desc', 'date', 'room_desc', 'location', 'plotroom', 'celebration_tier', 'risk',
                   'public_event', 'actions']
 
     def __init__(self, *args, **kwargs):
@@ -54,9 +56,22 @@ class RPEventCreateForm(forms.ModelForm):
         cleaned_data = super(RPEventCreateForm, self).clean()
         self.check_risk()
         self.check_costs()
+        self.check_location_or_plotroom()
         return cleaned_data
 
+    def clean_date(self):
+        """Validates our date. ValiDATES, get it? Get it?"""
+        from datetime import datetime
+        date = self.cleaned_data['date']
+        if date < datetime.now():
+            self.add_error("date", "You cannot add a date for the past.")
+        return date
+
     def clean_location(self):
+        """Use room name if we don't have a location defined"""
+        location = self.cleaned_data.get('location')
+        if location:
+            return location
         room_name = self.data.get('room_name')
         if room_name:
             try:
@@ -66,9 +81,8 @@ class RPEventCreateForm(forms.ModelForm):
                     room = ArxRoom.objects.get(db_key__iexact=room_name)
             except ArxRoom.DoesNotExist:
                 self.add_error('room_name', "No unique match for a room by that name.")
-                return super(RPEventCreateForm, self).clean_location()
-            return room
-        return super(RPEventCreateForm, self).clean_location()
+            else:
+                return room
 
     def check_costs(self):
         """Checks if we can pay, if not, adds an error"""
@@ -83,16 +97,25 @@ class RPEventCreateForm(forms.ModelForm):
             if risk != RPEvent.NORMAL_RISK:
                 self.add_error('risk', "Risk cannot be altered without a staff member as GM. Set to: %r" % risk)
 
+    def check_location_or_plotroom(self):
+        """Checks to make sure either a location or plotroom is defined."""
+        if not (self.cleaned_data.get('location') or self.cleaned_data.get('plotroom')):
+            self.add_error('plotroom', "You must give either a location or a plot room.")
+
     def save(self, commit=True):
         """Saves the instance and adds the form's owner as the owner of the petition"""
         event = super(RPEventCreateForm, self).save(commit)
         event.add_host(self.owner, main_host=True)
-        for host in self.cleaned_data.get('hosts', []):
+        hosts = self.cleaned_data.get('hosts', [])
+        for host in hosts:
             event.add_host(host)
-        for gm in self.cleaned_data.get('gms', []):
+        gms = self.cleaned_data.get('gms', [])
+        for gm in gms:
             event.add_gm(gm)
-        for pc_invite in self.cleaned_data.get('invites', []):
-            event.add_guest(pc_invite)
+        invites = self.cleaned_data.get('invites', [])
+        for pc_invite in invites:
+            if pc_invite not in hosts and pc_invite not in gms:
+                event.add_guest(pc_invite)
         for org in self.cleaned_data.get('org_invites', []):
             event.invite_org(org)
         self.pay_costs()
@@ -129,7 +152,7 @@ class RPEventCreateForm(forms.ModelForm):
         msg += "{wLocation:{n %s\n" % location
         plotroom = self.data.get('plotroom')
         if plotroom:
-            plotroom = Plotroom.objects.get(id=plotroom)
+            plotroom = PlotRoom.objects.get(id=plotroom)
             msg += "{wPlotroom:{n %s\n" % plotroom
         msg += "{wLargesse:{n %s\n" % dict(RPEvent.LARGESSE_CHOICES).get(self.data.get('celebration_tier', 0))
         gms = PlayerOrNpc.objects.filter(id__in=self.data.get('gms', []))
