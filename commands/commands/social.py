@@ -1461,7 +1461,7 @@ class CmdCalendar(ArxPlayerCommand):
             caller.msg("No entry by that number.")
             return
 
-    def get_event_from_args(self, args, check_admin=False):
+    def get_event_from_args(self, args, check_admin=False, check_host=False):
         """Gets an event by args"""
         try:
             event = RPEvent.objects.get(id=int(args))
@@ -1471,6 +1471,8 @@ class CmdCalendar(ArxPlayerCommand):
             raise self.CalCmdError("No event found by that number.")
         if not event.can_view(self.caller):
             raise self.CalCmdError("You can't view this event.")
+        if check_host and not event.can_end_or_move(self.caller):
+            raise self.CalCmdError("You do not have permission to move or end the event.")
         if check_admin and not event.can_admin(self.caller):
             raise self.CalCmdError("You do not have permission to change that event.")
         return event
@@ -1537,7 +1539,7 @@ class CmdCalendar(ArxPlayerCommand):
 
     def do_in_progress_switches(self):
         """Change event in progress"""
-        event = self.get_event_from_args(self.lhs, check_admin=True)
+        event = self.get_event_from_args(self.lhs, check_host=True)
         if "movehere" in self.switches:
             loc = self.caller.db.char_ob.location
             self.event_manager.move_event(event, loc)

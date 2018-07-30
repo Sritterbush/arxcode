@@ -5378,6 +5378,10 @@ class RPEvent(SharedMemoryModel):
         if dom in self.gms.all() or dom in self.hosts.all() or dom in self.participants.all():
             return True
 
+    def can_end_or_move(self, player):
+        dompc = player.Dominion
+        return self.can_admin(player) or dompc in self.hosts.all() or dompc in self.gms.all()
+
     def can_admin(self, player):
         """Who can run admin commands for this event"""
         if player.check_permstring("builders"):
