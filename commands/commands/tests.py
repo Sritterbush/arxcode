@@ -384,6 +384,7 @@ class SocialTests(ArxCommandTest):
         self.call_cmd("/desc test description", 'Desc of event set to:\ntest description')
         self.call_cmd('/submit', 'Please correct the following errors:\n'
                                  'Date: This field is required.\n'
+                                 'Plotroom: You must give either a location or a plot room.\n'
                                  'Name: test_event\nMain Host: Testaccount\nPublic: Public\n'
                                  'Description: test description\nDate: None\nLocation: None\nLargesse: Small')
         self.call_cmd("/date 26:35 sdf", "Date did not match 'mm/dd/yy hh:mm' format. You entered: 26:35 sdf")
@@ -401,6 +402,7 @@ class SocialTests(ArxCommandTest):
         self.char1.db.currency = 10000
         self.call_cmd("/largesse grand", "Largesse level set to grand for 10000.")
         org = Organization.objects.create(name="test org")
+        org.members.create(player=self.dompc2, rank=10)
         self.call_cmd("/invite test org", 'Invited test org to attend.')
         self.call_cmd("/invite testaccount2", "Invited Testaccount2 to attend.")
         self.call_cmd("/location here", 'Room set to Room.')
