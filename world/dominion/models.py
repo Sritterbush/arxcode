@@ -480,6 +480,9 @@ class PlayerOrNpc(SharedMemoryModel):
     def num_fealties(self):
         """How many distinct fealties we're a part of."""
         no_fealties = self.current_orgs.filter(fealty__isnull=True).count()
+        discipleships = self.current_orgs.filter(category__iexact="discipleship").count() - 1
+        if discipleships > 0:
+            no_fealties += discipleships
         return Fealty.objects.filter(orgs=self.current_orgs).distinct().count() + no_fealties
 
 
@@ -5334,7 +5337,7 @@ class RPEvent(SharedMemoryModel):
     LEGENDARY = 5
 
     LARGESSE_CHOICES = ((NONE, 'Small'), (COMMON, 'Average'), (REFINED, 'Refined'), (GRAND, 'Grand'),
-        (EXTRAVAGANT, 'Extravagant'), (LEGENDARY, 'Legendary'),)
+                        (EXTRAVAGANT, 'Extravagant'), (LEGENDARY, 'Legendary'),)
     # costs and prestige awards
     LARGESSE_VALUES = ((NONE, (0, 0)), (COMMON, (100, 1000)), (REFINED, (1000, 5000)), (GRAND, (10000, 20000)),
                        (EXTRAVAGANT, (100000, 100000)), (LEGENDARY, (500000, 400000)))
@@ -5399,6 +5402,7 @@ class RPEvent(SharedMemoryModel):
             return True
 
     def can_end_or_move(self, player):
+        """Whether an in-progress event can be stopped or moved by a host"""
         dompc = player.Dominion
         return self.can_admin(player) or dompc in self.hosts.all() or dompc in self.gms.all()
 
