@@ -60,7 +60,7 @@ from evennia.locks.lockhandler import LockHandler
 from evennia.utils.utils import lazy_property
 from evennia.utils import create
 from django.db import models
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.conf import settings
 from django.core.urlresolvers import reverse
 
@@ -480,9 +480,11 @@ class PlayerOrNpc(SharedMemoryModel):
     def num_fealties(self):
         """How many distinct fealties we're a part of."""
         no_fealties = self.current_orgs.filter(fealty__isnull=True).count()
-        discipleships = self.current_orgs.filter(category__iexact="discipleship").count() - 1
-        if discipleships > 0:
-            no_fealties += discipleships
+        query = Q()
+        for category in Organization.CATEGORIES_WITH_FEALTY_PENALTIES:
+            query |= Q(category__iexact=category)
+        redundancies = self.current_orgs.filter(query).values_list('category').annotate(num=Count('category') - 1)
+        no_fealties += sum(ob[1] for ob in redundancies)
         return Fealty.objects.filter(orgs=self.current_orgs).distinct().count() + no_fealties
 
 
@@ -3134,6 +3136,9 @@ class Fealty(SharedMemoryModel):
     class Meta:
         verbose_name_plural = "Fealties"
 
+    def __str__(self):
+        return self.name
+
 
 class Organization(InformMixin, SharedMemoryModel):
     """
@@ -3143,6 +3148,7 @@ class Organization(InformMixin, SharedMemoryModel):
     can substitute for an object as an asset holder. This allows them to
     have their own money, incomes, debts, etc.
     """
+    CATEGORIES_WITH_FEALTY_PENALTIES = ("Law", "Discipleship")
     name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
     desc = models.TextField(blank=True, null=True)
     category = models.CharField(blank=True, null=True, default="noble", max_length=255)

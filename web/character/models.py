@@ -282,7 +282,7 @@ class RosterEntry(SharedMemoryModel):
     @property
     def max_action_points(self):
         """Maximum action points we're allowed"""
-        return 300 - self.action_point_penalty
+        return 300
 
     @property
     def action_point_regen(self):
@@ -306,6 +306,7 @@ class RosterEntry(SharedMemoryModel):
         for instance in cls.get_all_cached_instances():
             if hasattr(instance, 'cached_ap_penalty'):
                 del instance.cached_ap_penalty
+
 
 class Story(SharedMemoryModel):
     """An overall storyline for the game. It can be divided into chapters, which have their own episodes."""
