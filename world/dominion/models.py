@@ -476,6 +476,12 @@ class PlayerOrNpc(SharedMemoryModel):
         """Events we were a guest at or invited to attend"""
         return self.events.filter(pc_event_participation__status=PCEventParticipation.GUEST)
 
+    @property
+    def num_fealties(self):
+        """How many distinct fealties we're a part of."""
+        no_fealties = self.current_orgs.filter(fealty__isnull=True).count()
+        return Fealty.objects.filter(orgs=self.current_orgs).distinct().count() + no_fealties
+
 
 class AssetOwner(SharedMemoryModel):
     """
@@ -3116,6 +3122,16 @@ class Reputation(SharedMemoryModel):
         unique_together = ('player', 'organization')
 
 
+class Fealty(SharedMemoryModel):
+    """
+    Represents the loyalty of different organizations for grouping them together.
+    """
+    name = models.CharField(unique=True, max_length=200)
+
+    class Meta:
+        verbose_name_plural = "Fealties"
+
+
 class Organization(InformMixin, SharedMemoryModel):
     """
     An in-game entity, which may contain both player characters and
@@ -3127,6 +3143,7 @@ class Organization(InformMixin, SharedMemoryModel):
     name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
     desc = models.TextField(blank=True, null=True)
     category = models.CharField(blank=True, null=True, default="noble", max_length=255)
+    fealty = models.ForeignKey("Fealty", blank=True, null=True, related_name="orgs")
     # In a RP game, titles are IMPORTANT. And we need to divide them by gender.
     rank_1_male = models.CharField(default="Prince", blank=True, null=True, max_length=255)
     rank_1_female = models.CharField(default="Princess", blank=True, null=True, max_length=255)
@@ -3394,6 +3411,9 @@ class Organization(InformMixin, SharedMemoryModel):
             self.assets.clear_cache()
         except (AttributeError, ValueError, TypeError):
             pass
+        # make sure that any cached AP modifiers based on Org fealties are invalidated
+        from web.character.models import RosterEntry
+        RosterEntry.clear_ap_cache_in_cached_instances()
 
     def get_absolute_url(self):
         """Returns URL of the org webpage"""

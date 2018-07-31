@@ -178,11 +178,12 @@ class WeeklyEvents(RunDateMixin, Script):
         qs = Account.objects.filter(roster__roster__name="Active").distinct()
         for ob in qs:
             current = ob.roster.action_points
-            increment = 0
-            if 99 < current < 200:
-                increment = 200 - current
-            elif current < 100:
-                increment = 100
+            max_ap = ob.roster.max_action_points
+            regen = ob.roster.action_point_regen
+            if (current + regen) > max_ap:
+                increment = max_ap - current
+            else:
+                increment = regen
             if increment:
                 ob.pay_action_points(-increment)
 
