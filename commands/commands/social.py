@@ -1465,7 +1465,7 @@ class CmdCalendar(ArxPlayerCommand):
         """Gets an event by args"""
         try:
             event = RPEvent.objects.get(id=int(args))
-        except ValueError:
+        except (ValueError, TypeError):
             raise self.CalCmdError("Event must be a number.")
         except RPEvent.DoesNotExist:
             raise self.CalCmdError("No event found by that number.")
