@@ -660,8 +660,13 @@ class HonorificAdmin(DomAdmin):
 
 class FealtyAdmin(DomAdmin):
     """Admin for Fealties"""
-    list_display = ('name',)
+    list_display = ('name', 'org_names')
     search_fields = ('name', 'orgs__name')
+
+    @staticmethod
+    def org_names(obj):
+        """Get names of organizations for this fealty"""
+        return ", ".join(str(ob) for ob in obj.orgs.all())
 
 
 # Register your models here.
