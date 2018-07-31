@@ -994,12 +994,12 @@ class CmdInvestigate(InvestigationFormCommand):
             if "changetopic" in self.switches:
                 ob.topic = self.rhs
                 ob.save()
-                caller.msg("New topic is now %s." % self.args)
+                caller.msg("New topic is now %s." % self.rhs)
                 return
             if "changestory" in self.switches:
                 ob.actions = self.rhs
                 ob.save()
-                caller.msg("The new story of your investigation is:\n%s" % self.args)
+                caller.msg("The new story of your investigation is:\n%s" % self.rhs)
                 return
             if "changestat" in self.switches:
                 if self.rhs not in VALID_STATS:
@@ -1007,7 +1007,7 @@ class CmdInvestigate(InvestigationFormCommand):
                     return
                 ob.stat_used = self.rhs
                 ob.save()
-                caller.msg("The new stat is: %s" % self.args)
+                caller.msg("The new stat is: %s" % self.rhs)
                 return
             if "changeskill" in self.switches:
 
@@ -1016,7 +1016,7 @@ class CmdInvestigate(InvestigationFormCommand):
                     return
                 ob.skill_used = self.rhs
                 ob.save()
-                caller.msg("The new skill is: %s" % self.args)
+                caller.msg("The new skill is: %s" % self.rhs)
                 return
             if "requesthelp" in self.switches:
                 from typeclasses.characters import Character

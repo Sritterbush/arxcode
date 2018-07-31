@@ -1424,7 +1424,7 @@ class CmdCalendar(ArxPlayerCommand):
             try:
                 sponsoring = event.add_sponsorship(org, amount)
             except ObjectDoesNotExist:
-                raise self.CalCmdError("You must be invited before you can sponsor.")
+                raise self.CalCmdError("The organization must be invited before they can sponsor.")
             self.msg("%s is now sponsoring %s for %d social resources." % (org, event, sponsoring.social))
             return
         event = self.get_event_from_args(lhs)
