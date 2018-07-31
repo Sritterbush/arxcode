@@ -485,7 +485,7 @@ class PlayerOrNpc(SharedMemoryModel):
             query |= Q(category__iexact=category)
         redundancies = self.current_orgs.filter(query).values_list('category').annotate(num=Count('category') - 1)
         no_fealties += sum(ob[1] for ob in redundancies)
-        return Fealty.objects.filter(orgs=self.current_orgs).distinct().count() + no_fealties
+        return Fealty.objects.filter(orgs__in=self.current_orgs).distinct().count() + no_fealties
 
 
 class AssetOwner(SharedMemoryModel):
