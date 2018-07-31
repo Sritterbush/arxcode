@@ -97,9 +97,9 @@ class OrgListFilter(admin.SimpleListFilter):
 
 class OrgAdmin(DomAdmin):
     """Admin for organizations"""
-    list_display = ('id', 'name', 'category')
+    list_display = ('id', 'name', 'category', 'fealty')
     ordering = ['name']
-    search_fields = ['name', 'category', 'members__player__player__username']
+    search_fields = ['name', 'category', 'members__player__player__username', 'fealty__name']
     list_filter = (OrgListFilter,)
     filter_horizontal = ("theories",)
     # omit unused fields for now
