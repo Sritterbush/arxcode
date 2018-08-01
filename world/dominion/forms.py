@@ -24,12 +24,12 @@ class RPEventCreateForm(forms.ModelForm):
     """Form for creating a RPEvent. We'll actually try using it in commands for validation"""
     player_queryset = PlayerOrNpc.objects.filter(Q(player__roster__roster__name="Active") |
                                                  Q(player__is_staff=True)).distinct().order_by('player__username')
+    org_queryset = Organization.objects.filter(members__isnull=False).distinct().order_by('name')
     room_name = forms.CharField(required=False, help_text="Location")
     hosts = forms.ModelMultipleChoiceField(queryset=player_queryset, required=False)
     invites = forms.ModelMultipleChoiceField(queryset=player_queryset, required=False)
     gms = forms.ModelMultipleChoiceField(queryset=player_queryset, required=False)
-    org_invites = forms.ModelMultipleChoiceField(queryset=Organization.objects.filter(members__isnull=False).distinct(),
-                                                 required=False)
+    org_invites = forms.ModelMultipleChoiceField(queryset=org_queryset, required=False)
     location = forms.ModelChoiceField(queryset=ArxRoom.objects.all(), widget=forms.HiddenInput(), required=False)
 
     class Meta:
@@ -44,6 +44,9 @@ class RPEventCreateForm(forms.ModelForm):
         self.fields['desc'].required = True
         self.fields['date'].required = True
         self.fields['actions'].queryset = self.owner.actions.all()
+        if not self.owner.player.is_staff:
+            current_orgs = [ob.id for ob in self.owner.current_orgs]
+            self.fields['org_invites'].queryset = self.org_queryset.filter(Q(secret=False) | Q(id__in=current_orgs))
 
     @property
     def cost(self):
