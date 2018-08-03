@@ -5476,6 +5476,9 @@ class RPEvent(SharedMemoryModel):
             # prevent seeing names of invites once a private event has started
             if self.date > datetime.now():
                 msg += "{wInvited:{n %s\n" % ", ".join(str(ob) for ob in self.participants.all())
+        orgs = self.orgs.all()
+        if orgs:
+            msg += "{wOrgs:{n %s\n" % ", ".join(str(ob) for ob in orgs)
         location_name = self.location if self.location else \
             (self.plotroom.ansi_name() if self.plotroom else "None")
         msg += "{wLocation:{n %s\n" % location_name
