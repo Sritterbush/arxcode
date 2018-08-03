@@ -1512,6 +1512,10 @@ class CmdCalendar(ArxPlayerCommand):
         event = None
         if self.rhs:
             event = self.get_event_from_args(self.rhs, check_admin=True)
+        else:
+            proj = self.caller.ndb.event_creation
+            if not proj:
+                raise self.CalCmdError("You must use /create first or specify an event.")
         if 'largesse' in self.switches:
             return self.set_largesse(event)
         if "date" in self.switches or "reschedule" in self.switches:
@@ -1698,7 +1702,7 @@ class CmdCalendar(ArxPlayerCommand):
                 raise self.CalCmdError(msg)
             plotroom = plotrooms[0]
             self.set_form_or_event_attribute("plotroom", plotroom.id, event)
-            msg = "Plot room for event set to %d: %s (in %s)\n" % (plotroom, plotroom.ansi_name(),
+            msg = "Plot room for event set to %s: %s (in %s)\n" % (plotroom, plotroom.ansi_name(),
                                                                    plotroom.get_detailed_region_name())
             msg += "If you wish to remove the plotroom later, use this command with no left-hand-side argument."
             self.msg(msg)
@@ -1794,6 +1798,8 @@ class CmdCalendar(ArxPlayerCommand):
                     event.add_guest(pc)
             else:
                 proj = self.caller.ndb.event_creation
+                if not proj:
+                    raise self.CalCmdError("You must use /create first or specify an event.")
                 if org:
                     if org.id in proj['org_invites']:
                         raise self.CalCmdError("That organization is already invited.")
