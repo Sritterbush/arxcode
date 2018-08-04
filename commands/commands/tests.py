@@ -369,13 +369,22 @@ class SocialTests(ArxCommandTest):
         mock_datetime.now = Mock(return_value=now)
         mock_get_week.return_value = 1
         self.setup_cmd(social.CmdCalendar, self.account1)
+        self.call_cmd("/submit", "You must /create a form first.")
         self.call_cmd("/create test_event", 'Starting project. It will not be saved until you submit it.'
                                             ' Does not persist through logout/server reload.|'
                                             'Name: test_event\nMain Host: Testaccount\nPublic: Public\n'
                                             'Description: None\nDate: None\nLocation: None\nLargesse: Small')
+        self.call_cmd("/largesse", 'Level       Cost   Prestige \n'
+                                   'Small       0      0        '
+                                   'Average     100    1000     '
+                                   'Refined     1000   5000     '
+                                   'Grand       10000  20000    '
+                                   'Extravagant 100000 100000   '
+                                   'Legendary   500000 400000')
         self.call_cmd("/desc test description", 'Desc of event set to:\ntest description')
         self.call_cmd('/submit', 'Please correct the following errors:\n'
                                  'Date: This field is required.\n'
+                                 'Plotroom: You must give either a location or a plot room.\n'
                                  'Name: test_event\nMain Host: Testaccount\nPublic: Public\n'
                                  'Description: test description\nDate: None\nLocation: None\nLargesse: Small')
         self.call_cmd("/date 26:35 sdf", "Date did not match 'mm/dd/yy hh:mm' format. You entered: 26:35 sdf")
@@ -393,8 +402,12 @@ class SocialTests(ArxCommandTest):
         self.char1.db.currency = 10000
         self.call_cmd("/largesse grand", "Largesse level set to grand for 10000.")
         org = Organization.objects.create(name="test org")
+        org.members.create(player=self.dompc2, rank=10)
         self.call_cmd("/invite test org", 'Invited test org to attend.')
         self.call_cmd("/invite testaccount2", "Invited Testaccount2 to attend.")
+        self.call_cmd("/location here", 'Room set to Room.')
+        self.call_cmd("/location room2", 'Room set to Room2.')
+        self.call_cmd("/location", 'Room set to Room.')
         self.call_cmd('/submit', 'You pay 10000 coins for the event.|'
                                  'New event created: test_event at 12/12/30 12:00:00.')
         self.assertEqual(self.char1.db.currency, 0)
@@ -402,10 +415,11 @@ class SocialTests(ArxCommandTest):
         self.assertTrue(event.gm_event)
         self.assertEqual(org.events.first(), event)
         self.assertEqual(self.dompc2.events.first(), event)
+        self.assertEqual(event.location, self.room)
         script.post_event.assert_called_with(event, self.account,
                                              '{wName:{n test_event\n{wMain Host:{n Testaccount\n{wPublic:{n Public\n'
                                              '{wDescription:{n test description\n{wDate:{n 2030-12-12 12:00:00\n'
-                                             '{wLocation:{n None\n{wLargesse:{n Grand\n{wGMs:{n Testaccount\n'
+                                             '{wLocation:{n Room\n{wLargesse:{n Grand\n{wGMs:{n Testaccount\n'
                                              '{wRisk:{n Normal Risk\n{wInvitations:{n Testaccount2\n')
         mock_inform_staff.assert_called_with('New event created by Testaccount: test_event, '
                                              'scheduled for 12/12/30 12:00:00.')
@@ -419,6 +433,19 @@ class SocialTests(ArxCommandTest):
         assets.save()
         self.call_cmd("/sponsor test org,200=1", "test org is now sponsoring test_event for 200 social resources.")
         self.assertEqual(assets.social, 0)
+        self.call_cmd("/uninvite testaccount2=2", "No event found by that number.")
+        self.call_cmd("/uninvite testaccount2=1", "Removed Testaccount2's invitation.")
+        self.call_cmd("/uninvite testaccount2=1", "They are not invited.")
+        self.call_cmd("/invite testaccount2=1", "Invited Testaccount2 to attend.")
+        self.call_cmd("/invite testaccount2=1", "They are already invited.")
+        self.call_cmd("/uninvite test org=1", "Removed test org's invitation.")
+        self.call_cmd("/uninvite test org=1", "That organization is not invited.")
+        self.call_cmd("/invite test org=1", 'test org has new @informs. Use @informs/org test org/1 to read them.|'
+                                            'Invited test org to attend.')
+        self.call_cmd("/invite test org=1", 'That organization is already invited.')
+        self.call_cmd("1", 'Name: test_event\nHosts: Testaccount\nGMs: Testaccount\nOrgs: test org\nLocation: Room\n'
+                           'Event Scale: Grand\nDate: 12/12/30 12:00\nDesc:\ntest description\n'
+                           'Event Page: http://play.arxgame.org/dom/cal/detail/1/')
 
     @patch("world.dominion.models.get_week")
     @patch("server.utils.arx_utils.get_week")

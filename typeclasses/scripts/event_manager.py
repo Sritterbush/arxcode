@@ -271,7 +271,7 @@ class EventManager(Script):
         if not qualified_hosts:
             main_host = event.main_host
             if main_host:
-                qualified_hosts = [main_host.Dominion]
+                qualified_hosts = [main_host]
         for host in qualified_hosts:
             if not host.player:
                 continue

@@ -147,6 +147,8 @@ class CmdInventory(ArxCommand):
             string = "{w%s carrying (%s{w):%s" % (basemsg, volume, items)
         xp = char.db.xp or 0
         ap = 0
+        max_ap = 0
+        ap_regen = 0
         try:
             # correct possible synchronization errors
             if char.roster.action_points != char.player_ob.roster.action_points or char.ndb.stale_ap:
@@ -154,15 +156,18 @@ class CmdInventory(ArxCommand):
                 char.player_ob.roster.refresh_from_db(fields=("action_points",))
                 char.ndb.stale_ap = False
             ap = char.player_ob.roster.action_points
+            ap_regen = char.player_ob.roster.action_point_regen
+            max_ap = char.player_ob.roster.max_action_points
         except AttributeError:
             pass
-        self.caller.msg("\n{w%s currently %s {c%s {wxp and {c%s{w ap." % ("You" if not show_other else char.key,
-                                                                          "have" if not show_other else 'has',
-                                                                          xp, ap))
-        self.caller.msg(string)
+        msg = "\n{w%s currently %s {c%s {wxp and {c%s{w ap.\n" % ("You" if not show_other else char.key,
+                                                                  "have" if not show_other else 'has',
+                                                                  xp, ap)
+        msg += "{wMaximum AP:{n %s  {wWeekly AP Gain:{n %s\n" % (max_ap, ap_regen)
+        msg += string
         if hasattr(player, 'Dominion') and hasattr(player.Dominion, 'assets'):
             vault = player.Dominion.assets.vault
-            msg = "{wBank Account:{n %s silver coins" % vault
+            msg += "\n{wBank Account:{n %s silver coins" % vault
             assets = player.Dominion.assets
             econ = player.Dominion.assets.economic
             soc = player.Dominion.assets.social
@@ -175,7 +180,7 @@ class CmdInventory(ArxCommand):
             msg += "\n{w||__ Propriety:{n %-10s" % assets.propriety
             mats = player.Dominion.assets.materials.filter(amount__gte=1)
             msg += "\n{wMaterials:{n %s" % ", ".join(str(ob) for ob in mats)
-            self.msg(msg)
+        self.msg(msg)
 
 
 class CmdGet(ArxCommand):

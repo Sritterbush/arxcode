@@ -279,6 +279,34 @@ class RosterEntry(SharedMemoryModel):
                 self.profile_picture = None
         return super(RosterEntry, self).save(*args, **kwargs)
 
+    @property
+    def max_action_points(self):
+        """Maximum action points we're allowed"""
+        return 300
+
+    @property
+    def action_point_regen(self):
+        """How many action points we get back in a week."""
+        return 150 - self.action_point_penalty
+
+    @property
+    def action_point_penalty(self):
+        """AP penalty from our number of fealties"""
+        if hasattr(self, 'cached_ap_penalty'):
+            return self.cached_ap_penalty
+        try:
+            self.cached_ap_penalty = 10 * self.player.Dominion.num_fealties
+        except AttributeError:
+            self.cached_ap_penalty = 0
+        return self.cached_ap_penalty
+
+    @classmethod
+    def clear_ap_cache_in_cached_instances(cls):
+        """Invalidate cached_ap_penalty in all cached RosterEntries when Fealty chain changes. Won't happen often."""
+        for instance in cls.get_all_cached_instances():
+            if hasattr(instance, 'cached_ap_penalty'):
+                del instance.cached_ap_penalty
+
 
 class Story(SharedMemoryModel):
     """An overall storyline for the game. It can be divided into chapters, which have their own episodes."""

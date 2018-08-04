@@ -1276,7 +1276,7 @@ class CmdCalendar(ArxPlayerCommand):
         @cal/private <on or off>[=<event ID>]
         @cal/host <playername>[=<event ID>]
         @cal/gm <playername>[=<event ID>]
-        @cal/invite <player or org name>[=<event ID>]
+        @cal/invite <player or org name>[,name,...][=<event ID>]
         @cal/uninvite <player or org name>[=<event ID>]
         @cal/roomdesc <description>[=<event ID>]
         @cal/risk <risk value>[=<event ID>]
@@ -1424,7 +1424,7 @@ class CmdCalendar(ArxPlayerCommand):
             try:
                 sponsoring = event.add_sponsorship(org, amount)
             except ObjectDoesNotExist:
-                raise self.CalCmdError("You must be invited before you can sponsor.")
+                raise self.CalCmdError("The organization must be invited before they can sponsor.")
             self.msg("%s is now sponsoring %s for %d social resources." % (org, event, sponsoring.social))
             return
         event = self.get_event_from_args(lhs)
@@ -1461,16 +1461,18 @@ class CmdCalendar(ArxPlayerCommand):
             caller.msg("No entry by that number.")
             return
 
-    def get_event_from_args(self, args, check_admin=False):
+    def get_event_from_args(self, args, check_admin=False, check_host=False):
         """Gets an event by args"""
         try:
             event = RPEvent.objects.get(id=int(args))
-        except ValueError:
+        except (ValueError, TypeError):
             raise self.CalCmdError("Event must be a number.")
         except RPEvent.DoesNotExist:
             raise self.CalCmdError("No event found by that number.")
         if not event.can_view(self.caller):
             raise self.CalCmdError("You can't view this event.")
+        if check_host and not event.can_end_or_move(self.caller):
+            raise self.CalCmdError("You do not have permission to move or end the event.")
         if check_admin and not event.can_admin(self.caller):
             raise self.CalCmdError("You do not have permission to change that event.")
         return event
@@ -1495,6 +1497,8 @@ class CmdCalendar(ArxPlayerCommand):
             self.msg(self.form.display(), options={'box': True})
         elif "submit" in self.switches:
             form = self.form
+            if not form:
+                raise self.CalCmdError("You must /create a form first.")
             if not form.is_valid():
                 raise self.CalCmdError(form.display_errors() + "\n" + form.display())
             event = form.save()
@@ -1508,6 +1512,10 @@ class CmdCalendar(ArxPlayerCommand):
         event = None
         if self.rhs:
             event = self.get_event_from_args(self.rhs, check_admin=True)
+        else:
+            proj = self.caller.ndb.event_creation
+            if not proj:
+                raise self.CalCmdError("You must use /create first or specify an event.")
         if 'largesse' in self.switches:
             return self.set_largesse(event)
         if "date" in self.switches or "reschedule" in self.switches:
@@ -1537,7 +1545,7 @@ class CmdCalendar(ArxPlayerCommand):
 
     def do_in_progress_switches(self):
         """Change event in progress"""
-        event = self.get_event_from_args(self.lhs, check_admin=True)
+        event = self.get_event_from_args(self.lhs, check_host=True)
         if "movehere" in self.switches:
             loc = self.caller.db.char_ob.location
             self.event_manager.move_event(event, loc)
@@ -1619,9 +1627,10 @@ class CmdCalendar(ArxPlayerCommand):
         costs = dict(RPEvent.LARGESSE_VALUES)
         lhs = self.lhs.lower()
         if not lhs:
-            table = PrettyTable(['level', 'cost', 'prestige'])
+            table = PrettyTable(['{wLevel{n', '{wCost{n', '{wPrestige{n'])
+            choices = dict(RPEvent.LARGESSE_CHOICES)
             for key in costs:
-                name = largesse_types[key]
+                name = choices[key]
                 table.add_row([name, costs[key][0], costs[key][1]])
             self.msg(table, options={'box': True})
             return
@@ -1644,7 +1653,7 @@ class CmdCalendar(ArxPlayerCommand):
 
     def set_location(self, event=None):
         """Sets location for form or an event"""
-        if self.lhs:
+        if self.lhs and self.lhs.lower() != "here":
             try:
                 try:
                     room = ArxRoom.objects.get(db_key__iexact=self.lhs)
@@ -1658,7 +1667,7 @@ class CmdCalendar(ArxPlayerCommand):
             room = self.caller.character.location
         if not room:
             raise self.CalCmdError("No room found.")
-        self.set_form_or_event_attribute("location", room, event)
+        self.set_form_or_event_attribute("location", room.id, event)
         self.msg("Room set to %s." % room)
 
     def set_event_desc(self, event):
@@ -1692,8 +1701,8 @@ class CmdCalendar(ArxPlayerCommand):
                     msg += "  %d: %s (%s)" % (room.id, room.name, room.get_detailed_region_name())
                 raise self.CalCmdError(msg)
             plotroom = plotrooms[0]
-            self.set_form_or_event_attribute("plotroom", plotroom, event)
-            msg = "Plot room for event set to %d: %s (in %s)\n" % (plotroom, plotroom.ansi_name(),
+            self.set_form_or_event_attribute("plotroom", plotroom.id, event)
+            msg = "Plot room for event set to %s: %s (in %s)\n" % (plotroom, plotroom.ansi_name(),
                                                                    plotroom.get_detailed_region_name())
             msg += "If you wish to remove the plotroom later, use this command with no left-hand-side argument."
             self.msg(msg)
@@ -1715,8 +1724,9 @@ class CmdCalendar(ArxPlayerCommand):
 
     def add_or_remove_host(self, event):
         """Adds a host or changes them to a regular guest"""
-        host = self.caller.search(self.lhs)
-        if not host:
+        try:
+            host = self.caller.search(self.lhs).Dominion
+        except AttributeError:
             return
         if event:
             if host in event.hosts:
@@ -1741,8 +1751,9 @@ class CmdCalendar(ArxPlayerCommand):
 
     def add_or_remove_gm(self, event):
         """Adds a gm or strips gm tag from them"""
-        gm = self.caller.search(self.lhs)
-        if not gm:
+        try:
+            gm = self.caller.search(self.lhs).Dominion
+        except AttributeError:
             return
         add_msg = "%s is now marked as a gm.\n"
         add_msg += "Reminder - please only add a GM for an event if it's an actual player-run plot. Tagging a "
@@ -1774,45 +1785,49 @@ class CmdCalendar(ArxPlayerCommand):
 
     def invite_org_or_player(self, event):
         """Invites an organization or player to an event"""
-        org, pc = self.get_org_or_dompc()
-        if event:
-            if org:
-                if org in event.orgs.all():
-                    raise self.CalCmdError("That organization is already invited.")
-                event.invite_org(org)
+        for arg in self.lhslist:
+            org, pc = self.get_org_or_dompc(arg)
+            if event:
+                if org:
+                    if org in event.orgs.all():
+                        raise self.CalCmdError("That organization is already invited.")
+                    event.invite_org(org)
+                else:
+                    if pc in event.dompcs.all():
+                        raise self.CalCmdError("They are already invited.")
+                    event.add_guest(pc)
             else:
-                if pc in event.dompcs.all():
-                    raise self.CalCmdError("They are already invited.")
-                event.add_guest(pc)
-        else:
-            proj = self.caller.ndb.event_creation
-            if org:
-                if org.id in proj['org_invites']:
-                    raise self.CalCmdError("That organization is already invited.")
-                proj['org_invites'].append(org.id)
-            else:
-                if pc.id in proj['hosts'] or pc.id in proj['gms']:
-                    raise self.CalCmdError("They are already invited to host or gm.")
-                if pc.id in proj['invites']:
-                    raise self.CalCmdError("They are already invited.")
-                proj['invites'].append(pc.id)
-        self.msg("{wInvited {c%s{w to attend." % (pc or org))
+                proj = self.caller.ndb.event_creation
+                if not proj:
+                    raise self.CalCmdError("You must use /create first or specify an event.")
+                if org:
+                    if org.id in proj['org_invites']:
+                        raise self.CalCmdError("That organization is already invited.")
+                    proj['org_invites'].append(org.id)
+                else:
+                    if pc.id in proj['hosts'] or pc.id in proj['gms']:
+                        raise self.CalCmdError("They are already invited to host or gm.")
+                    if pc.id in proj['invites']:
+                        raise self.CalCmdError("They are already invited.")
+                    proj['invites'].append(pc.id)
+            self.msg("{wInvited {c%s{w to attend." % (pc or org))
 
-    def get_org_or_dompc(self):
+    def get_org_or_dompc(self, args):
         """Gets org or a dompc based on name"""
         org = None
         pc = None
         try:
-            org = Organization.objects.get(name__iexact=self.lhs)
+            org = Organization.objects.get(name__iexact=args)
         except Organization.DoesNotExist:
-            pc = self.caller.search(self.lhs)
-            if not pc:
+            try:
+                pc = self.caller.search(args).Dominion
+            except AttributeError:
                 raise self.CalCmdError("Could not find an organization or player by that name.")
         return org, pc
 
     def uninvite_org_or_player(self, event):
         """Removes an organization or player from an event"""
-        org, pc = self.get_org_or_dompc()
+        org, pc = self.get_org_or_dompc(self.lhs)
         if event:
             if org:
                 if org not in event.orgs.all():

@@ -520,7 +520,7 @@ class CmdManageRoom(ArxCommand):
             targ = self.caller.player.search(self.lhs)
             if not targ:
                 return
-            targ = targ.db.char_ob
+            targ = targ.char_ob
             if "addbouncer" in self.switches:
                 loc.add_bouncer(targ)
                 self.msg("%s is now a bouncer." % targ)
@@ -552,6 +552,9 @@ class CmdManageRoom(ArxCommand):
                     return
                 if not exit_obj.can_traverse(targ):
                     self.msg("They cannot move through that exit.")
+                    return
+                if targ.location != self.caller.location:
+                    self.msg("They aren't here.")
                     return
                 exit_obj.at_traverse(targ, exit_obj.destination)
                 self.msg("You have kicked out %s." % targ)

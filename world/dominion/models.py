@@ -60,7 +60,7 @@ from evennia.locks.lockhandler import LockHandler
 from evennia.utils.utils import lazy_property
 from evennia.utils import create
 from django.db import models
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.conf import settings
 from django.core.urlresolvers import reverse
 
@@ -469,12 +469,23 @@ class PlayerOrNpc(SharedMemoryModel):
     @property
     def events_gmd(self):
         """Events we GM'd"""
-        return self.events.filter(pc_event_participation__status=PCEventParticipation.GM)
+        return self.events.filter(pc_event_participation__gm=True)
 
     @property
     def events_attended(self):
         """Events we were a guest at or invited to attend"""
         return self.events.filter(pc_event_participation__status=PCEventParticipation.GUEST)
+
+    @property
+    def num_fealties(self):
+        """How many distinct fealties we're a part of."""
+        no_fealties = self.current_orgs.filter(fealty__isnull=True).count()
+        query = Q()
+        for category in Organization.CATEGORIES_WITH_FEALTY_PENALTIES:
+            query |= Q(category__iexact=category)
+        redundancies = self.current_orgs.filter(query).values_list('category').annotate(num=Count('category') - 1)
+        no_fealties += sum(ob[1] for ob in redundancies)
+        return Fealty.objects.filter(orgs__in=self.current_orgs).distinct().count() + no_fealties
 
 
 class AssetOwner(SharedMemoryModel):
@@ -3116,6 +3127,19 @@ class Reputation(SharedMemoryModel):
         unique_together = ('player', 'organization')
 
 
+class Fealty(SharedMemoryModel):
+    """
+    Represents the loyalty of different organizations for grouping them together.
+    """
+    name = models.CharField(unique=True, max_length=200)
+
+    class Meta:
+        verbose_name_plural = "Fealties"
+
+    def __str__(self):
+        return self.name
+
+
 class Organization(InformMixin, SharedMemoryModel):
     """
     An in-game entity, which may contain both player characters and
@@ -3124,9 +3148,11 @@ class Organization(InformMixin, SharedMemoryModel):
     can substitute for an object as an asset holder. This allows them to
     have their own money, incomes, debts, etc.
     """
+    CATEGORIES_WITH_FEALTY_PENALTIES = ("Law", "Discipleship")
     name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
     desc = models.TextField(blank=True, null=True)
     category = models.CharField(blank=True, null=True, default="noble", max_length=255)
+    fealty = models.ForeignKey("Fealty", blank=True, null=True, related_name="orgs")
     # In a RP game, titles are IMPORTANT. And we need to divide them by gender.
     rank_1_male = models.CharField(default="Prince", blank=True, null=True, max_length=255)
     rank_1_female = models.CharField(default="Princess", blank=True, null=True, max_length=255)
@@ -3394,6 +3420,9 @@ class Organization(InformMixin, SharedMemoryModel):
             self.assets.clear_cache()
         except (AttributeError, ValueError, TypeError):
             pass
+        # make sure that any cached AP modifiers based on Org fealties are invalidated
+        from web.character.models import RosterEntry
+        RosterEntry.clear_ap_cache_in_cached_instances()
 
     def get_absolute_url(self):
         """Returns URL of the org webpage"""
@@ -5314,7 +5343,7 @@ class RPEvent(SharedMemoryModel):
     LEGENDARY = 5
 
     LARGESSE_CHOICES = ((NONE, 'Small'), (COMMON, 'Average'), (REFINED, 'Refined'), (GRAND, 'Grand'),
-        (EXTRAVAGANT, 'Extravagant'), (LEGENDARY, 'Legendary'),)
+                        (EXTRAVAGANT, 'Extravagant'), (LEGENDARY, 'Legendary'),)
     # costs and prestige awards
     LARGESSE_VALUES = ((NONE, (0, 0)), (COMMON, (100, 1000)), (REFINED, (1000, 5000)), (GRAND, (10000, 20000)),
                        (EXTRAVAGANT, (100000, 100000)), (LEGENDARY, (500000, 400000)))
@@ -5377,6 +5406,11 @@ class RPEvent(SharedMemoryModel):
         dom = player.Dominion
         if dom in self.gms.all() or dom in self.hosts.all() or dom in self.participants.all():
             return True
+
+    def can_end_or_move(self, player):
+        """Whether an in-progress event can be stopped or moved by a host"""
+        dompc = player.Dominion
+        return self.can_admin(player) or dompc in self.hosts.all() or dompc in self.gms.all()
 
     def can_admin(self, player):
         """Who can run admin commands for this event"""
@@ -5442,6 +5476,9 @@ class RPEvent(SharedMemoryModel):
             # prevent seeing names of invites once a private event has started
             if self.date > datetime.now():
                 msg += "{wInvited:{n %s\n" % ", ".join(str(ob) for ob in self.participants.all())
+        orgs = self.orgs.all()
+        if orgs:
+            msg += "{wOrgs:{n %s\n" % ", ".join(str(ob) for ob in orgs)
         location_name = self.location if self.location else \
             (self.plotroom.ansi_name() if self.plotroom else "None")
         msg += "{wLocation:{n %s\n" % location_name

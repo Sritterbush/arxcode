@@ -926,8 +926,8 @@ class CmdGMEvent(ArxCommand):
             dompc = self.caller.player_ob.Dominion
             event = RPEvent.objects.create(name=name, date=date, desc=desc, location=loc,
                                            public_event=False, celebration_tier=0, gm_event=True)
-            event.hosts.add(dompc)
-            event.gms.add(dompc)
+            event.add_host(dompc, main_host=True)
+            event.add_gm(dompc)
             event_manager = ScriptDB.objects.get(db_key="Event Manager")
             event_manager.start_event(event)
             self.msg("Event started.")

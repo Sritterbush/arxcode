@@ -10,7 +10,7 @@ from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister
                      OrgRelationship, Reputation, TaskSupporter, InfluenceCategory,
                      Renown, SphereOfInfluence, TaskRequirement, ClueForOrg, ActionOOCQuestion,
                      PlotRoom, Landmark, Shardhaven, ShardhavenType, ShardhavenClue, ShardhavenDiscovery,
-                     Honorific, Propriety, PCEventParticipation, OrgEventParticipation)
+                     Honorific, Propriety, PCEventParticipation, OrgEventParticipation, Fealty)
 
 from web.help_topics.templatetags.app_filters import mush_to_html
 
@@ -97,9 +97,9 @@ class OrgListFilter(admin.SimpleListFilter):
 
 class OrgAdmin(DomAdmin):
     """Admin for organizations"""
-    list_display = ('id', 'name', 'category')
+    list_display = ('id', 'name', 'category', 'fealty')
     ordering = ['name']
-    search_fields = ['name', 'category', 'members__player__player__username']
+    search_fields = ['name', 'category', 'members__player__player__username', 'fealty__name']
     list_filter = (OrgListFilter,)
     filter_horizontal = ("theories",)
     # omit unused fields for now
@@ -658,6 +658,17 @@ class HonorificAdmin(DomAdmin):
     raw_id_fields = ('owner',)
 
 
+class FealtyAdmin(DomAdmin):
+    """Admin for Fealties"""
+    list_display = ('name', 'org_names')
+    search_fields = ('name', 'orgs__name')
+
+    @staticmethod
+    def org_names(obj):
+        """Get names of organizations for this fealty"""
+        return ", ".join(str(ob) for ob in obj.orgs.all())
+
+
 # Register your models here.
 admin.site.register(PlayerOrNpc, PCAdmin)
 admin.site.register(Organization, OrgAdmin)
@@ -688,3 +699,4 @@ admin.site.register(WorkSetting, WorkSettingAdmin)
 admin.site.register(PraiseOrCondemn, PraiseAdmin)
 admin.site.register(Honorific, HonorificAdmin)
 admin.site.register(Propriety, ProprietyAdmin)
+admin.site.register(Fealty, FealtyAdmin)
