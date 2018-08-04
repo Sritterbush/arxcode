@@ -61,7 +61,7 @@ class Channel(DefaultChannel):
 
     """
     @lazy_property
-    def org(self):
+    def org_channel(self):
         from world.dominion.models import Organization
         try:
             return self.org
@@ -102,10 +102,10 @@ class Channel(DefaultChannel):
     def wholist(self):
         # check if we have an org
         who_list = self.non_muted_subs
-        org = self.org
+        org = self.org_channel
         if org and org.secret:
             # check if list members are players who are non-secret members of the org
-            non_secret = [ob.player.player for ob in self.org.active_members.filter(secret=False)]
+            non_secret = [ob.player.player for ob in org.active_members.filter(secret=False)]
             who_list = [ob for ob in who_list if ob in non_secret or ob.check_permstring("builders")]
         # pass final list to format_wholist and return it
         return self.format_wholist(who_list)
