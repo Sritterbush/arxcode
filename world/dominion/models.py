@@ -3197,6 +3197,10 @@ class Organization(InformMixin, SharedMemoryModel):
     clues = models.ManyToManyField('character.Clue', blank=True, related_name="orgs",
                                    through="ClueForOrg")
     theories = models.ManyToManyField('character.Theory', blank=True, related_name="orgs")
+    org_channel = models.OneToOneField('comms.ChannelDB', blank=True, null=True, related_name="org",
+                                       on_delete=models.SET_NULL)
+    org_board = models.OneToOneField('objects.ObjectDB', blank=True, null=True, related_name="org",
+                                     on_delete=models.SET_NULL)
     objects = OrganizationManager()
 
     def _get_npc_money(self):
@@ -3327,6 +3331,8 @@ class Organization(InformMixin, SharedMemoryModel):
                 msg += "\n{wTheories Known:{n %s\n" % "; ".join("%s (#%s)" % (ob, ob.id) for ob in theories)
         if holdings:
             msg += "{wHoldings{n: %s\n" % ", ".join(ob.name for ob in holdings)
+        if self.motd and (viewing_member or show_all):
+            msg += "|yMessage of the day for %s set to:|n %s\n" % (self, self.motd)
         if viewing_member:
             msg += "\n{wMember stats for {c%s{n\n" % viewing_member
             msg += viewing_member.display()
@@ -3448,34 +3454,13 @@ class Organization(InformMixin, SharedMemoryModel):
         return reverse('help_topics:display_org', kwargs={'object_id': self.id})
 
     @property
-    def org_channel(self):
-        """Returns channel for this org"""
-        from typeclasses.channels import Channel
-        try:
-            return Channel.objects.get(db_lock_storage__icontains=self.name)
-        except Channel.DoesNotExist:
-            return None
-        except Channel.MultipleObjectsReturned:
-            print("More than one match for org %s's channel" % self)
-
-    @property
     def channel_color(self):
+        """Color for their channel"""
         color = "|w"
         channel = self.org_channel
         if channel:
             color = channel.db.colorstr or color
         return color
-
-    @property
-    def org_board(self):
-        """Returns bulletin board for this org"""
-        from typeclasses.bulletin_board.bboard import BBoard
-        try:
-            return BBoard.objects.get(db_lock_storage__icontains=self.name)
-        except BBoard.DoesNotExist:
-            return None
-        except BBoard.MultipleObjectsReturned:
-            print("More than one match for org %s's BBoard" % self)
 
     def notify_inform(self, new_inform):
         """Notifies online players that there's a new inform"""
@@ -3490,15 +3475,23 @@ class Organization(InformMixin, SharedMemoryModel):
         from typeclasses.channels import Channel
         from typeclasses.bulletin_board.bboard import BBoard
         from evennia.utils.create import create_object, create_channel
+        lockstr = "send: organization(%s) or perm(builders);listen: organization(%s) or perm(builders)" % (self, self)
         if not self.org_channel:
-            create_channel(key=str(self.name), desc="%s channel" % self,
-                           locks="send: organization(%s) or perm(builders);listen: organization(%s) or perm(builders)"
-                                 % (self, self),
-                           typeclass=Channel)
+            self.org_channel = create_channel(key=str(self.name), desc="%s channel" % self, locks=lockstr,
+                                              typeclass=Channel)
         if not self.org_board:
-            create_object(typeclass=BBoard, key=str(self.name),
-                          locks="read: organization(%s) or perm(builders);write: organization(%s) or perm(builders)"
-                                % (self, self))
+            lockstr = lockstr.replace("send", "read").replace("listen", "write")
+            self.org_board = create_object(typeclass=BBoard, key=str(self.name), locks=lockstr)
+        self.save()
+
+    def set_motd(self, message):
+        """Sets our motd, notifies people, sets their flags."""
+        self.motd = message
+        self.save()
+        self.msg("|yMessage of the day for %s set to:|n %s" % (self, self.motd), prefix=False)
+        for pc in self.offline_members.filter(has_seen_motd=True):
+            pc.has_seen_motd = False
+            pc.save()
 
 
 class UnitTypeInfo(models.Model):
@@ -4643,6 +4636,7 @@ class Member(SharedMemoryModel):
     desc = models.TextField(blank=True, default=True)
     public_notes = models.TextField(blank=True, default=True)
     officer_notes = models.TextField(blank=True, default=True)
+    has_seen_motd = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['rank']
@@ -4704,7 +4698,7 @@ class Member(SharedMemoryModel):
 
     def __getattr__(self, name):
         """So OP for getting player's inform or msg methods."""
-        if name in ("msg", "inform") and hasattr(self, 'player') and self.player:
+        if name in ("msg", "inform") and self.player:
             return getattr(self.player, name)
         raise AttributeError("%r object has no attribute %r" % (self.__class__, name))
 

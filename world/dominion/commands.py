@@ -2359,9 +2359,7 @@ class CmdOrganization(ArxPlayerCommand):
         if not org.access(self.caller, "motd"):
             self.msg("You do not have permission to set the motd.")
             return
-        org.motd = self.lhs
-        org.save()
-        org.msg("|yMessage of the day for %s set to:|n %s" % (org, org.motd), prefix=False)
+        org.set_motd(self.lhs)
 
 
 class CmdFamily(ArxPlayerCommand):

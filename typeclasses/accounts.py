@@ -266,6 +266,14 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
             return []
 
     @property
+    def active_memberships(self):
+        """Returns our active memberships"""
+        try:
+            return self.Dominion.memberships.filter(deguilded=False)
+        except AttributeError:
+            return []
+
+    @property
     def assets(self):
         """Returns the holder for all our assets/prestige/etc"""
         return self.Dominion.assets
@@ -546,9 +554,12 @@ class Account(InformMixin, MsgMixins, DefaultAccount):
         msg = ""
         if motd:
             msg += "|yServer Message of the Day:|n %s\n\n" % motd
-        for org in self.current_orgs:
-            if org.motd:
+        for membership in self.active_memberships:
+            org = membership.organization
+            if not membership.has_seen_motd and org.motd:
                 msg += "|wMessage of the Day for %s:|n %s\n" % (org, org.motd)
+                membership.has_seen_motd = True
+                membership.save()
         self.msg(msg)
 
     def check_petitions(self):

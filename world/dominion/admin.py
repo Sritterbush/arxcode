@@ -105,6 +105,7 @@ class OrgAdmin(DomAdmin):
     # omit unused fields for now
     exclude = ('motd', 'special_modifiers', 'morale', 'allow_work', 'base_support_value', 'member_support_multiplier')
     inlines = [MemberInline, ClueForOrgInline, OrgUnitInline, WorkSettingInline]
+    raw_id_fields = ('org_channel', 'org_board')
 
 
 class Supporters(admin.TabularInline):

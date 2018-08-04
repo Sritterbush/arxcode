@@ -63,15 +63,8 @@ class Channel(DefaultChannel):
     @lazy_property
     def org(self):
         from world.dominion.models import Organization
-        # use Organization model to find an org that matches self.key with org.name
         try:
-            return Organization.objects.get(name__icontains=self.key)
-        except Organization.MultipleObjectsReturned:
-            try:
-                # find match
-                return Organization.objects.get(name__iexact=self.key)
-            except Organization.DoesNotExist:
-                return None
+            return self.org
         except Organization.DoesNotExist:
             return None
     

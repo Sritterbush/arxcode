@@ -577,7 +577,7 @@ class StaffCommandTests(ArxCommandTest):
         Story.objects.create(name="test story")
         Episode.objects.create(name="test episode")
         self.setup_cmd(staff_commands.CmdGemit, self.account)
-        org = Organization.objects.create(name="test org")
+        org = Organization.objects.create(name="test org", org_board=board)
         org.members.create(player=self.dompc2, rank=1)
         self.dompc2.inform = Mock()
         self.call_cmd("/orgs foo=blah", "No organization named 'foo' was found.")
