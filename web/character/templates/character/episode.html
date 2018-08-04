@@ -14,7 +14,6 @@
 {% endif %}
 </div>
 
-{% with emits=episode.emits.all %}
 {% if emits %}
 <div class="row"><h2 class="text-center">Story Emits</h2>
 {% for emit in emits %}
@@ -22,7 +21,6 @@
 {% endfor %}
 </div>
 {% endif %}
-{% endwith %}
     {% if updates %}
         <div class="row"><h2 class="text-center">Crisis Updates</h2>
         {% for update in updates %}

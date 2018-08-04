@@ -15,6 +15,7 @@ from evennia.scripts.models import ScriptDB
 
 from server.utils import prettytable
 from server.utils.arx_utils import inform_staff, broadcast, create_gemit_and_post, ArxCommand, ArxPlayerCommand
+from server.utils.exceptions import CommandError
 from web.character.models import Clue
 from world.dominion.models import Organization, RPEvent
 from typeclasses.characters import Character
@@ -78,12 +79,14 @@ class CmdGemit(ArxPlayerCommand):
       @gemit/norecord <message>
       @gemit/startepisode <name>[/episode synopsis]=<message>
       @gemit <message>
+      @gemit/orgs <org>[, <org2>,...]=<message>
 
     Announces a message to all connected players.
     Unlike @wall, this command will only send the text,
-    without "soandso shouts:" attached. It will also be logged to 
-    all actively running events. Text will be sent in green by 
-    default.
+    without "soandso shouts:" attached. It will also be logged to
+    all actively running events. Text will be sent in green by
+    default. The org switch messages online members, informs offline
+    members, and makes an org bboard post.
     """
     key = "@gemit"
     locks = "cmd:perm(gemit) or perm(Wizards)"
@@ -92,35 +95,46 @@ class CmdGemit(ArxPlayerCommand):
     # noinspection PyAttributeOutsideInit
     def func(self):
         """Implements command"""
-        caller = self.caller
-        if not self.args:
-            self.caller.msg("Usage: @gemit <message>")
-            return
-        if "norecord" in self.switches:
-            self.msg("Announcing to all connected players ...")
-            if not self.args.startswith("{") and not self.args.startswith("|"):
-                self.args = "|g" + self.args
-            broadcast(self.args, format_announcement=False)
-            return
-        if "startepisode" in self.switches:
-            msg = self.rhs
-            lhslist = self.lhs.split("/")
-            episode_name = lhslist[0]
-            synopsis = ""
-            if len(lhslist) > 1:
-                synopsis = lhslist[1]
-            if not episode_name:
-                caller.msg("You must give a name for the new episode.")
+        try:
+            if not self.args:
+                raise CommandError("Usage: @gemit <message>")
+            elif "norecord" in self.switches:
+                self.msg("Announcing to all connected players ...")
+                if not self.args.startswith("{") and not self.args.startswith("|"):
+                    self.args = "|g" + self.args
+                broadcast(self.args, format_announcement=False)
                 return
-            if not msg:
-                caller.msg("You must give a message for the emit.")
-                return
-            create_gemit_and_post(msg, caller, episode_name, synopsis)
-        else:
-            msg = self.lhs
-            create_gemit_and_post(msg, caller)
-        
-            
+            elif "startepisode" in self.switches:
+                msg = self.rhs
+                lhslist = self.lhs.split("/")
+                episode_name = lhslist[0]
+                synopsis = ""
+                if len(lhslist) > 1:
+                    synopsis = lhslist[1]
+                if not episode_name or not msg:
+                    raise CommandError("You must give a name & message for the new episode.")
+                create_gemit_and_post(msg, self.caller, episode_name, synopsis)
+            else:
+                orgs_list = None
+                if "orgs" in self.switches:
+                    if not self.lhs or not self.rhs:
+                        raise CommandError("Specify at least one org and the message.")
+                    orgs_list = []
+                    msg = self.rhs
+                    for arg in self.lhslist:
+                        try:
+                            org = Organization.objects.get(name__iexact=arg)
+                        except Organization.DoesNotExist:
+                            raise CommandError("No organization named '%s' was found." % arg)
+                        else:
+                            orgs_list.append(org)
+                else:
+                    msg = self.lhs
+                create_gemit_and_post(msg, self.caller, orgs_list=orgs_list)
+        except CommandError as err:
+            self.caller.msg(err)
+
+
 class CmdWall(ArxCommand):
     """
     @wall
@@ -500,8 +514,8 @@ class CmdListStaff(ArxPlayerCommand):
             obname = CmdWho.format_pname(ob)
             table.add_row(obname, ob.db.staff_role or "", timestr)
         caller.msg("{wOnline staff:{n\n%s" % table)
-            
-            
+
+
 class CmdCcolor(ArxPlayerCommand):
     """
     @ccolor
@@ -1353,7 +1367,7 @@ class CmdRelocateExit(ArxCommand):
     key = "@relocate_exit"
     locks = "cmd: perm(builders)"
     help_category = "Building"
-    
+
     def func(self):
         """Executes relocate exit command"""
         from typeclasses.rooms import ArxRoom

@@ -564,3 +564,14 @@ class StaffCommandTests(ArxCommandTest):
         past_string = past.strftime("%m/%d/%y %H:%M")
         self.call_cmd(past_string, "Break date updated.|Current end date is: %s." % past_string)
         self.assertFalse(check_break())
+
+    def test_cmd_gemit(self):
+        from world.dominion.models import Organization
+        self.setup_cmd(staff_commands.CmdGemit, self.account)
+        org = Organization.objects.create(name="test org")
+        org.members.create(player=self.dompc2, rank=1)
+        self.dompc2.msg = Mock()
+        self.call_cmd("/orgs foo=blah", "No organization named 'foo' was found.")
+        self.call_cmd("/orgs test org=blah", "Announcing to test org ...\nblah")
+        self.dompc2.msg.assert_called_once()
+        self.assertEqual(org.emits.count(), 1)

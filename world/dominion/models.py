@@ -3208,7 +3208,7 @@ class Organization(InformMixin, SharedMemoryModel):
     amount = property(_get_npc_money)
 
     def __str__(self):
-        return self.name or "Unnamed organization (#%s" % self.id
+        return self.name or "Unnamed organization (#%s)" % self.id
 
     def __unicode__(self):
         return self.name or "Unnamed organization (#%s)" % self.id
@@ -3370,16 +3370,30 @@ class Organization(InformMixin, SharedMemoryModel):
                 return False
         return self.locks.check(accessing_obj, access_type=access_type, default=default)
 
-    def msg(self, message, prefix=True, *args, **kwargs):
+    def msg(self, message, prefix=True, use_channel_color=True, *args, **kwargs):
         """Sends msg to all active members"""
-        pcs = self.active_members
-        for pc in pcs:
-            if prefix:
-                msg = "|w%s organization-wide message:|n %s" % (self.name, message)
-            else:
-                msg = message
-            pc.msg(msg, *args, **kwargs)
-        return
+        color = "|w" if not use_channel_color else self.channel_color
+        if prefix:
+            message = "%s%s organization-wide message:|n %s" % (color, self, message)
+        elif use_channel_color:
+            message = color + message + "|n"
+        for pc in self.online_members:
+            pc.msg(message, *args, **kwargs)
+
+    def gemit_to_org(self, gemit):
+        """
+        Messages online members, informs offline members, and makes an org
+        bboard story post.
+        """
+        category = "%s Story Update" % self
+        bboard = self.org_board
+        if bboard:
+            bboard.bb_post(poster_obj=gemit.sender, msg=gemit.text, subject=category, poster_name="Story")
+        for pc in self.offline_members:
+            pc.inform(msg=gemit.text, category=category, append=False)
+        box_chars = '\n' + '*' * 70 + '\n'
+        msg = box_chars + '[' + category + '] ' + gemit.text + box_chars
+        self.msg(msg=msg, prefix=False)
 
     @property
     def active_members(self):
@@ -3407,6 +3421,10 @@ class Organization(InformMixin, SharedMemoryModel):
     def online_members(self):
         """Returns members who are currently online"""
         return self.active_members.filter(player__player__db_is_connected=True)
+
+    @property
+    def offline_members(self):
+        return self.active_members.difference(self.online_members)
 
     @property
     def support_pool(self):
@@ -3438,6 +3456,14 @@ class Organization(InformMixin, SharedMemoryModel):
             return None
         except Channel.MultipleObjectsReturned:
             print("More than one match for org %s's channel" % self)
+
+    @property
+    def channel_color(self):
+        color = "|w"
+        channel = self.org_channel
+        if channel:
+            color = channel.db.colorstr or color
+        return color
 
     @property
     def org_board(self):
@@ -4620,11 +4646,6 @@ class Member(SharedMemoryModel):
     class Meta:
         ordering = ['rank']
 
-    def msg(self, *args, **kwargs):
-        """Passthrough method to send msg to player"""
-        if self.player:
-            self.player.msg(*args, **kwargs)
-
     def _get_char(self):
         if self.player and self.player.player and self.player.player.char_ob:
             return self.player.player.char_ob
@@ -4679,6 +4700,14 @@ class Member(SharedMemoryModel):
         org_channel = self.organization.org_channel
         if org_channel:
             org_channel.connect(self.player.player)
+
+    def __getattr__(self, name):
+        """So OP for getting player's inform or msg methods."""
+        if name in ("msg", "inform") and self.player:
+            return getattr(self.player, name)
+        elif not self.player:
+            raise AttributeError("%r object has no player to pass through attribute %r." % (self.__class__, name))
+        raise AttributeError("%r object has no attribute %r" % (self.__class__, name))
 
     def work(self, resource_type, ap_cost, protege=None):
         """

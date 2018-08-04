@@ -465,7 +465,7 @@ def text_box(text):
     return boxchars + text + boxchars
 
 
-def create_gemit_and_post(msg, caller, episode_name=None, synopsis=None):
+def create_gemit_and_post(msg, caller, episode_name=None, synopsis=None, orgs_list=None):
     """Creates a new StoryEmit and an accompanying episode if specified, then broadcasts it."""
     # current story
     from web.character.models import Story, Episode, StoryEmit
@@ -480,9 +480,11 @@ def create_gemit_and_post(msg, caller, episode_name=None, synopsis=None):
             episode_name = episode.name
     gemit = StoryEmit.objects.create(episode=episode, chapter=chapter, text=msg,
                                      sender=caller)
-    broadcast_msg_and_post(msg, caller, episode_name=episode_name)
+    if orgs_list:
+        gemit.orgs.add(orgs_list)
+        caller.msg("Announcing to %s ...\n%s" % (self.list_to_string(orgs_list), msg))
+    gemit.broadcast()
     return gemit
-
 
 def broadcast_msg_and_post(msg, caller, episode_name=None):
     """Sends a message to all online sessions, then makes a post about it."""
@@ -502,7 +504,6 @@ def broadcast_msg_and_post(msg, caller, episode_name=None):
     if episode_name:
         subject = "Episode: %s" % episode_name
     bboard.bb_post(poster_obj=caller, msg=post_msg, subject=subject, poster_name="Story")
-
 
 def dict_from_choices_field(cls, field_name, include_uppercase=True):
     """Gets a dict from a Choices tuple in a model"""

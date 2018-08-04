@@ -436,8 +436,10 @@ def episode(request, ep_id):
     """View for displaying a specific episode in a chapter"""
     new_episode = get_object_or_404(Episode, id=ep_id)
     crisis_updates = new_episode.get_viewable_crisis_updates_for_player(request.user)
+    emits = new_episode.get_viewable_emits_for_player(request.user)
     return render(request, 'character/episode.html', {'episode': new_episode,
                                                       'updates': crisis_updates,
+                                                      'emits': emits,
                                                       'page_title': str(new_episode)})
 
 

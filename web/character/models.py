@@ -92,7 +92,7 @@ class RosterEntry(SharedMemoryModel):
     player = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='roster', blank=True, null=True, unique=True)
     character = models.OneToOneField('objects.ObjectDB', related_name='roster', blank=True, null=True, unique=True)
     current_account = models.ForeignKey('PlayerAccount', related_name='characters', db_index=True,
-                                        on_delete=models.SET_NULL, blank=True, null=True)   
+                                        on_delete=models.SET_NULL, blank=True, null=True)
     previous_accounts = models.ManyToManyField('PlayerAccount', through='AccountHistory', blank=True)
     gm_notes = models.TextField(blank=True)
     # different variations of reasons not to display us
@@ -104,7 +104,7 @@ class RosterEntry(SharedMemoryModel):
     sheet_style = models.TextField(blank=True)
     lock_storage = models.TextField('locks', blank=True, help_text='defined in setup_utils')
     action_points = models.SmallIntegerField(default=100, blank=100)
-    
+
     def __init__(self, *args, **kwargs):
         super(RosterEntry, self).__init__(*args, **kwargs)
         self.locks = LockHandler(self)
@@ -387,6 +387,14 @@ class Episode(SharedMemoryModel):
         return self.crisis_updates.filter(Q(crisis__public=True) | Q(
             crisis__required_clue__discoveries__in=player.roster.finished_clues)).distinct()
 
+    def get_viewable_emits_for_player(self, player):
+        if not player or not player.is_authenticated():
+            return self.emits.filter(orgs__isnull=True).distinct()
+        elif player.is_staff or player.check_permstring("builders"):
+            return self.emits.all()
+        orgs = player.Dominion.current_orgs
+        return self.emits.filter(Q(orgs__isnull=True) | Q(orgs__in=orgs)).distinct()
+
 
 class StoryEmit(SharedMemoryModel):
     """
@@ -402,6 +410,16 @@ class StoryEmit(SharedMemoryModel):
     date = models.DateTimeField(auto_now_add=True)
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True,
                                on_delete=models.SET_NULL, related_name='emits')
+    orgs = models.ManyToManyField('dominion.Organization', blank=True, related_name='emits')
+
+    def broadcast(self):
+        if not self.orgs:
+            from server.utils.arx_utils import broadcast_msg_and_post
+            broadcast_msg_and_post(self.text, self.sender, episode_name=str(self.episode or ""))
+        else:
+            orgs = self.orgs.all()
+            for org in orgs:
+                org.gemit_to_org(self)
 
 
 class Milestone(SharedMemoryModel):
@@ -458,7 +476,7 @@ class PlayerAccount(SharedMemoryModel):
 
     def __unicode__(self):
         return str(self.email)
-    
+
     @property
     def total_xp(self):
         """Total xp they've earned over all time"""
@@ -560,7 +578,7 @@ class RPScene(SharedMemoryModel):
         default - what to return if no lock of access_type was found
         """
         return self.locks.check(accessing_obj, access_type=access_type, default=default)
-        
+
 
 class AbstractPlayerAllocations(SharedMemoryModel):
     """Mixin for resources/stats used for an in-game activity."""
@@ -581,10 +599,10 @@ class AbstractPlayerAllocations(SharedMemoryModel):
     action_points = models.PositiveSmallIntegerField(default=0, blank=0,
                                                      help_text="How many action points spent by player/assistants.")
     roll = models.SmallIntegerField(default=UNSET_ROLL, blank=True, help_text="Current dice roll")
-    
+
     class Meta:
         abstract = True
-        
+
     @property
     def roll_is_set(self):
         """
@@ -601,7 +619,7 @@ class AbstractPlayerAllocations(SharedMemoryModel):
             return str(self.roll)
         return "No roll"
 
-    
+
 class Mystery(SharedMemoryModel):
     """One of the big mysteries of the game. Kind of used as a category for revelations."""
     name = models.CharField(max_length=255, db_index=True)
@@ -626,10 +644,10 @@ class Revelation(SharedMemoryModel):
     desc = models.TextField("Description", help_text="Description of the revelation given to the player",
                             blank=True)
     mysteries = models.ManyToManyField("Mystery", through='RevelationForMystery')
-    
+
     required_clue_value = models.PositiveSmallIntegerField(default=0, blank=0,
                                                            help_text="The total value of clues to trigger this")
-    
+
     red_herring = models.BooleanField(default=False, help_text="Whether this revelation is totally fake")
     characters = models.ManyToManyField('RosterEntry', blank=True, through='RevelationDiscovery',
                                         through_fields=('revelation', 'character'), db_index=True)
@@ -1028,7 +1046,7 @@ class InvestigationAssistant(SharedMemoryModel):
         entry = self.roster_entry
         if entry:
             clue.share(entry, investigation=self.investigation, inform_creator=inform_creator)
-        
+
     @property
     def roster_entry(self):
         """Gets roster entry object for either character or a retainer's owner"""
@@ -1122,7 +1140,7 @@ class Investigation(AbstractPlayerAllocations):
         roll = do_dice_check(obj.char, stat_list=[stat, "perception", "intellect"], skill_list=[skill, "investigation"],
                              difficulty=diff, average_skill_list=True)
         return roll
-    
+
     def do_roll(self, mod=0, diff=None):
         """
         Do a dice roll to return a result
@@ -1170,7 +1188,7 @@ class Investigation(AbstractPlayerAllocations):
         if self.roll == self.UNSET_ROLL:
             return self.do_roll()
         return self.roll
-    
+
     @property
     def difficulty(self):
         """
@@ -1193,7 +1211,7 @@ class Investigation(AbstractPlayerAllocations):
         if not self.targeted_clue:
             return 30
         return self.targeted_clue.value_for_discovery
-    
+
     def check_success(self, modifier=0, diff=None):
         """
         Checks success. Modifier can be passed by a GM based on their
@@ -1246,7 +1264,7 @@ class Investigation(AbstractPlayerAllocations):
                 roll = self.get_roll()
                 try:
                     clue = self.clues.get(clue=self.targeted_clue, character=self.character)
-                except ClueDiscovery.DoesNotExist:                    
+                except ClueDiscovery.DoesNotExist:
                     clue = ClueDiscovery.objects.create(clue=self.targeted_clue, investigation=self,
                                                         character=self.character)
                 final_roll = clue.roll + roll
@@ -1273,7 +1291,7 @@ class Investigation(AbstractPlayerAllocations):
             else:
                 self.results += " None of your leads seemed to go anywhere this week."
             self.results += " To continue the investigation, set it active again."
-        
+
     def reset_values(self):
         """
         Reduce the silver/resources added to this investigation.
@@ -1350,7 +1368,7 @@ class Investigation(AbstractPlayerAllocations):
                                          roll=roll,
                                          character=self.character)
         return roll
-        
+
     @property
     def progress_str(self):
         """Returns a string saying how close they are to discovery."""
@@ -1505,7 +1523,7 @@ def get_random_clue(topic, character):
 
 class Flashback(SharedMemoryModel):
     """
-    Represents a record of a scene in the past, played out via play-by-post for 
+    Represents a record of a scene in the past, played out via play-by-post for
     involved characters.
     """
     title = models.CharField(max_length=250, unique=True)
@@ -1530,13 +1548,13 @@ class Flashback(SharedMemoryModel):
 
     def __str__(self):
         return self.title
-        
+
     @property
     def all_players(self):
         """List of players who are involved in the flashback."""
         all_entries = [self.owner] + list(self.allowed.all())
         return [ob.player for ob in all_entries]
-        
+
     def add_post(self, actions, poster=None):
         """
         Adds a new post to the flashback.
