@@ -565,8 +565,13 @@ class StaffCommandTests(ArxCommandTest):
         self.call_cmd(past_string, "Break date updated.|Current end date is: %s." % past_string)
         self.assertFalse(check_break())
 
-    def test_cmd_gemit(self):
+    @patch("world.dominion.models.get_week")
+    def test_cmd_gemit(self, mock_get_week):
         from world.dominion.models import Organization
+        from web.character.models import Story, Episode
+        mock_get_week.return_value = 1
+        Story.objects.create(name="test story")
+        Episode.objects.create(name="test episode")
         self.setup_cmd(staff_commands.CmdGemit, self.account)
         org = Organization.objects.create(name="test org")
         org.members.create(player=self.dompc2, rank=1)

@@ -3390,10 +3390,10 @@ class Organization(InformMixin, SharedMemoryModel):
         if bboard:
             bboard.bb_post(poster_obj=gemit.sender, msg=gemit.text, subject=category, poster_name="Story")
         for pc in self.offline_members:
-            pc.inform(msg=gemit.text, category=category, append=False)
+            pc.inform(gemit.text, category=category, append=False)
         box_chars = '\n' + '*' * 70 + '\n'
         msg = box_chars + '[' + category + '] ' + gemit.text + box_chars
-        self.msg(msg=msg, prefix=False)
+        self.msg(msg, prefix=False)
 
     @property
     def active_members(self):
@@ -3424,7 +3424,8 @@ class Organization(InformMixin, SharedMemoryModel):
 
     @property
     def offline_members(self):
-        return self.active_members.difference(self.online_members)
+        """Returns members who are currently offline"""
+        return self.active_members.exclude(id__in=self.online_members)
 
     @property
     def support_pool(self):
@@ -4703,10 +4704,8 @@ class Member(SharedMemoryModel):
 
     def __getattr__(self, name):
         """So OP for getting player's inform or msg methods."""
-        if name in ("msg", "inform") and self.player:
+        if name in ("msg", "inform") and hasattr(self, 'player') and self.player:
             return getattr(self.player, name)
-        elif not self.player:
-            raise AttributeError("%r object has no player to pass through attribute %r." % (self.__class__, name))
         raise AttributeError("%r object has no attribute %r" % (self.__class__, name))
 
     def work(self, resource_type, ap_cost, protege=None):

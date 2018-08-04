@@ -476,13 +476,11 @@ def create_gemit_and_post(msg, caller, episode_name=None, synopsis=None, orgs_li
         episode = Episode.objects.create(name=episode_name, date=date, chapter=chapter, synopsis=synopsis)
     else:
         episode = Episode.objects.latest('date')
-        if episode:
-            episode_name = episode.name
     gemit = StoryEmit.objects.create(episode=episode, chapter=chapter, text=msg,
                                      sender=caller)
     if orgs_list:
-        gemit.orgs.add(orgs_list)
-        caller.msg("Announcing to %s ...\n%s" % (self.list_to_string(orgs_list), msg))
+        gemit.orgs.add(*orgs_list)
+        caller.msg("Announcing to %s ...\n%s" % (list_to_string(orgs_list), msg))
     gemit.broadcast()
     return gemit
 
