@@ -413,11 +413,11 @@ class StoryEmit(SharedMemoryModel):
     orgs = models.ManyToManyField('dominion.Organization', blank=True, related_name='emits')
 
     def broadcast(self):
-        if not self.orgs:
+        orgs = self.orgs.all()
+        if not orgs:
             from server.utils.arx_utils import broadcast_msg_and_post
             broadcast_msg_and_post(self.text, self.sender, episode_name=str(self.episode or ""))
         else:
-            orgs = self.orgs.all()
             for org in orgs:
                 org.gemit_to_org(self)
 
