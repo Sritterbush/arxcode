@@ -97,7 +97,7 @@ class OrgListFilter(admin.SimpleListFilter):
 
 class OrgAdmin(DomAdmin):
     """Admin for organizations"""
-    list_display = ('id', 'name', 'category', 'fealty')
+    list_display = ('id', 'name', 'category', 'fealty', 'org_board', 'org_channel')
     ordering = ['name']
     search_fields = ['name', 'category', 'members__player__player__username', 'fealty__name']
     list_filter = (OrgListFilter,)
@@ -106,6 +106,7 @@ class OrgAdmin(DomAdmin):
     exclude = ('motd', 'special_modifiers', 'morale', 'allow_work', 'base_support_value', 'member_support_multiplier')
     inlines = [MemberInline, ClueForOrgInline, OrgUnitInline, WorkSettingInline]
     raw_id_fields = ('org_channel', 'org_board')
+    readonly_fields = ('economic_modifier', 'social_modifier', 'military_modifier')
 
 
 class Supporters(admin.TabularInline):

@@ -927,6 +927,8 @@ class CharitableDonation(SharedMemoryModel):
                 player.gain_reputation(self.organization, affection, respect)
                 val = affection
                 msg += "You gain %s affection with %s.\n" % (val, self.organization)
+            self.organization.assets.adjust_prestige(prest)
+            msg += "%s has gained %s prestige.\n" % (self.organization, prest)
         if caller != character:
             caller.msg("You donated and they gain %s prestige." % prest)
             msg += "You gain %s prestige." % prest
@@ -3189,11 +3191,11 @@ class Organization(InformMixin, SharedMemoryModel):
     special_modifiers = models.TextField(blank=True, null=True)
     motd = models.TextField(blank=True, null=True)
     # used for when resource gain
-    economic_modifier = models.SmallIntegerField(default=0, blank=0)
-    military_modifier = models.SmallIntegerField(default=0, blank=0)
-    social_modifier = models.SmallIntegerField(default=0, blank=0)
-    base_support_value = models.SmallIntegerField(default=5, blank=5)
-    member_support_multiplier = models.SmallIntegerField(default=5, blank=5)
+    economic_influence = models.IntegerField(default=0)
+    military_influence = models.IntegerField(default=0)
+    social_influence = models.IntegerField(default=0)
+    base_support_value = models.SmallIntegerField(default=5)
+    member_support_multiplier = models.SmallIntegerField(default=5)
     clues = models.ManyToManyField('character.Clue', blank=True, related_name="orgs",
                                    through="ClueForOrg")
     theories = models.ManyToManyField('character.Theory', blank=True, related_name="orgs")
@@ -3202,6 +3204,38 @@ class Organization(InformMixin, SharedMemoryModel):
     org_board = models.OneToOneField('objects.ObjectDB', blank=True, null=True, related_name="org",
                                      on_delete=models.SET_NULL)
     objects = OrganizationManager()
+
+    def get_modifier_from_influence(self, resource_name):
+        """The modifier for an org based on their total influence"""
+        from math import sqrt
+        influence = getattr(self, "%s_influence" % resource_name)
+        influence /= 3000
+        if not influence:
+            return 0
+        sign = 1 if influence >= 0 else -1
+        return int(sqrt(abs(influence)) * sign)
+
+    def get_progress_to_next_modifier(self, resource_name):
+        """Gets our percentage progress toward next modifier"""
+        influence = getattr(self, "%s_influence" % resource_name)
+        goal_level = self.get_modifier_from_influence(resource_name) + 1
+        influence_required = (goal_level * goal_level) * 3000
+        return round(influence/float(influence_required), 2) * 100
+
+    @property
+    def economic_modifier(self):
+        """Gets our economic mod"""
+        return self.get_modifier_from_influence("economic")
+
+    @property
+    def military_modifier(self):
+        """Gets our military mod"""
+        return self.get_modifier_from_influence("military")
+
+    @property
+    def social_modifier(self):
+        """Gets our social mod"""
+        return self.get_modifier_from_influence("social")
 
     def _get_npc_money(self):
         npc_income = self.npc_members * self.income_per_npc
@@ -4618,9 +4652,12 @@ class Member(SharedMemoryModel):
     commanding_officer = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='subordinates', blank=True,
                                            null=True)
     organization = models.ForeignKey('Organization', related_name='members', blank=True, null=True, db_index=True)
-
+    # work they've gained
     work_this_week = models.PositiveSmallIntegerField(default=0, blank=0)
     work_total = models.PositiveSmallIntegerField(default=0, blank=0)
+    # amount of org influence they've gained
+    investment_this_week = models.SmallIntegerField(default=0)
+    investment_total = models.SmallIntegerField(default=0)
     secret = models.BooleanField(blank=False, default=False)
     deguilded = models.BooleanField(blank=False, default=False)
 
@@ -4761,6 +4798,47 @@ class Member(SharedMemoryModel):
             self.save()
         if protege:
             adjust_resources(protege.assets, get_amount_after_clout(protege_clout, added=25, minimum=1))
+
+    def invest(self, resource_type, ap_cost, protege=None, resources=0):
+        """
+        Perform work in a week for our Organization. If a protege is specified we use their skills and add their
+        social clout to the roll.
+
+            Raises:
+                ValueError if resource_type is invalid or ap_cost is greater than Member's AP
+        """
+        resource_type = resource_type.lower()
+        clout = self.char.social_clout
+        msg = "Your social clout "
+        protege_clout = 0
+        if protege:
+            protege_clout = protege.player.char_ob.social_clout
+            msg += "combined with that of your protege "
+        clout += protege_clout
+        msg += "reduces difficulty by %s." % clout
+        outcome, roll_msg = self.get_work_roll(resource_type, clout, protege)
+        msg += roll_msg
+        assets = self.player.assets
+        if getattr(assets, resource_type) < resources:
+            raise ValueError("You cannot afford to pay %s resources." % resources)
+        if not self.player.player.pay_action_points(ap_cost):
+            raise ValueError("You cannot afford the AP cost to work.")
+        self.player.player.pay_resources(resource_type, resources)
+        percent = (clout + 100) / 100.0
+        outcome = int(outcome * percent)
+        org_amount = outcome + resources
+        if org_amount:
+            self.investment_this_week += org_amount
+            self.investment_total += org_amount
+            self.save()
+            current = getattr(self.organization, "%s_influence" % resource_type)
+            setattr(self.organization, "%s_influence" % resource_type, current + org_amount)
+            self.organization.save()
+        msg += "\nYou have increased the %s influence of %s by %d." % (resource_type, self.organization, org_amount)
+        mod = getattr(self.organization, "%s_modifier" % resource_type)
+        progress = self.organization.get_progress_to_next_modifier(resource_type)
+        msg += "\nCurrent modifier is %s, progress to next is %d/100." % (mod, progress)
+        self.msg(msg)
 
     def get_work_roll(self, resource_type, clout, protege=None):
         """
