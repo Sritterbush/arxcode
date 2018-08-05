@@ -4827,6 +4827,7 @@ class Member(SharedMemoryModel):
         percent = (clout + 100) / 100.0
         outcome = int(outcome * percent)
         org_amount = outcome + resources
+        prestige = ((clout * 5) + 50) * org_amount
         if org_amount:
             self.investment_this_week += org_amount
             self.investment_total += org_amount
@@ -4834,6 +4835,9 @@ class Member(SharedMemoryModel):
             current = getattr(self.organization, "%s_influence" % resource_type)
             setattr(self.organization, "%s_influence" % resource_type, current + org_amount)
             self.organization.save()
+        msg += "\nYou and %s both gain %d prestige." % (self.organization, prestige)
+        self.player.assets.adjust_prestige(prestige)
+        self.organization.assets.adjust_prestige(prestige)
         msg += "\nYou have increased the %s influence of %s by %d." % (resource_type, self.organization, org_amount)
         mod = getattr(self.organization, "%s_modifier" % resource_type)
         progress = self.organization.get_progress_to_next_modifier(resource_type)
