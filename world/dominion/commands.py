@@ -3581,8 +3581,12 @@ class CmdWork(ArxPlayerCommand):
         member.invest(resource_type=res_type, ap_cost=self.ap_cost, protege=protege, resources=amount)
 
     def do_score(self):
+        """Lists scoreboard for members"""
         org = self.get_member(org_name=self.lhs).organization
-        members = org.active_members.values_list('player__player__username', 'work_total', 'investment_total')
+        if org.secret:
+            raise CommandError("Cannot list data for secret orgs.")
+        members = org.active_members.exclude(secret=True).values_list('player__player__username',
+                                                                      'work_total', 'investment_total')
         table = PrettyTable(["Member", "Total Work", "Total Invested"])
         for member in members:
             table.add_row(member)
