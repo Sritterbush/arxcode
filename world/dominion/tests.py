@@ -96,7 +96,7 @@ class TestGeneralDominionCommands(ArxCommandTest):
         self.call_cmd("/invest orgtest,economic=testaccount2", "You must specify at least 10 resources to invest.")
         self.call_cmd("/invest orgtest,economic,20=testaccount2", "You cannot afford to pay 20 resources.")
         self.call_cmd("/invest orgtest,economic,18=testaccount2",
-                      'You use 15 action points and have 40 remaining this week.|'
+                      'You use 5 action points and have 50 remaining this week.|'
                       'Your social clout combined with that of your protege reduces difficulty by 22.\n'
                       'Char rolling intellect and economics. \n'
                       'You and Orgtest both gain 4000 prestige.\n'

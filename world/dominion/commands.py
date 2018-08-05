@@ -3578,7 +3578,7 @@ class CmdWork(ArxPlayerCommand):
                 raise ValueError
         except (TypeError, ValueError, IndexError):
             raise CommandError("You must specify at least 10 resources to invest.")
-        member.invest(resource_type=res_type, ap_cost=self.ap_cost, protege=protege, resources=amount)
+        member.invest(resource_type=res_type, ap_cost=5, protege=protege, resources=amount)
 
     def do_score(self):
         """Lists scoreboard for members"""
