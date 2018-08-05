@@ -2073,6 +2073,7 @@ class CmdOrganization(ArxPlayerCommand):
                 member = caller.Dominion.memberships.create(organization=org, secret=secret)
             caller.msg("You have joined %s." % org.name)
             org.msg("%s has joined %s." % (caller, org.name))
+            inform_staff("%s has joined %s." % (caller, org))
             member.setup()
             caller.ndb.orginvite = None
             return
@@ -2303,6 +2304,7 @@ class CmdOrganization(ArxPlayerCommand):
             tarmember.fake_delete()
             caller.msg("Booted %s from %s." % (player, org))
             player.msg("You have been removed from %s." % org)
+            inform_staff("%s has been removed from %s by %s." % (player, org, caller))
             return
         if 'memberview' in self.switches:
             if org.secret and not org.access(caller, 'view'):
