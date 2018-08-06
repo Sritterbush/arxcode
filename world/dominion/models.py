@@ -3219,7 +3219,10 @@ class Organization(InformMixin, SharedMemoryModel):
         """Gets our percentage progress toward next modifier"""
         influence = getattr(self, "%s_influence" % resource_name)
         goal_level = self.get_modifier_from_influence(resource_name) + 1
-        influence_required = (goal_level * goal_level) * 3000
+        influence_required = pow(goal_level, 2) * 3000
+        base = pow(goal_level - 1, 2) * 3000
+        influence_required -= base
+        influence -= base
         return round(influence/float(influence_required), 2) * 100
 
     @property
