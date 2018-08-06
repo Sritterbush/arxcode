@@ -2059,7 +2059,7 @@ class CmdOrganization(ArxPlayerCommand):
                 altorgs = Organization.objects.filter(Q(members__player__player=alt.player)
                                                       & Q(members__deguilded=False))
                 if org in altorgs:
-                    inform_staff("%s has joined %s, but their alt %s is already a member." % (caller, org, alt))
+                    inform_staff("{r%s has joined %s, but their alt %s is already a member.{n" % (caller, org, alt))
 
             # check if they were previously booted out, then we just have them rejoin
             try:
@@ -2073,7 +2073,7 @@ class CmdOrganization(ArxPlayerCommand):
                 member = caller.Dominion.memberships.create(organization=org, secret=secret)
             caller.msg("You have joined %s." % org.name)
             org.msg("%s has joined %s." % (caller, org.name))
-            inform_staff("%s has joined %s." % (caller, org))
+            inform_staff("%s has joined {c%s{n." % (caller, org))
             member.setup()
             caller.ndb.orginvite = None
             return
@@ -2304,7 +2304,7 @@ class CmdOrganization(ArxPlayerCommand):
             tarmember.fake_delete()
             caller.msg("Booted %s from %s." % (player, org))
             player.msg("You have been removed from %s." % org)
-            inform_staff("%s has been removed from %s by %s." % (player, org, caller))
+            inform_staff("%s has been removed from {c%s{n by %s." % (player, org, caller))
             return
         if 'memberview' in self.switches:
             if org.secret and not org.access(caller, 'view'):
