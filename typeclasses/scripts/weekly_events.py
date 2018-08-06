@@ -518,7 +518,7 @@ class WeeklyEvents(RunDateMixin, Script):
         """Makes a board post of the top prestige earners this past week"""
         import random
         from world.dominion.models import PraiseOrCondemn
-        changes = PraiseOrCondemn.objects.filter(week=self.db.week)
+        changes = PraiseOrCondemn.objects.filter(week=self.db.week).exclude(target__organization_owner__secret=True)
         praises = defaultdict(list)
         condemns = defaultdict(list)
         total_values = {}
