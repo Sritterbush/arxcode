@@ -3350,9 +3350,12 @@ class Organization(InformMixin, SharedMemoryModel):
 
             income_mod = int(prestige_mod/4)
             msg += " {wResource Mod:{n %s {wIncome Mod:{n %s" % (mod_string(resource_mod), mod_string(income_mod))
-        msg += "\n{wEconomic Mod:{n %s, {wMilitary Mod:{n %s, {wSocial Mod:{n %s\n" % (self.economic_modifier,
-                                                                                       self.military_modifier,
-                                                                                       self.social_modifier)
+        econ_progress = self.get_progress_to_next_modifier("economic")
+        mil_progress = self.get_progress_to_next_modifier("military")
+        soc_progress = self.get_progress_to_next_modifier("social")
+        msg += "\n{wEconomic Mod:{n %s (%s/100), {wMilitary Mod:{n %s (%s/100), {wSocial Mod:{n %s (%s/100)\n" % (
+            self.economic_modifier, econ_progress, self.military_modifier, mil_progress,
+            self.social_modifier, soc_progress)
         # msg += "{wSpheres of Influence:{n %s\n" % ", ".join("{w%s{n: %s" % (ob.category, ob.rating)
         #                                                     for ob in self.spheres.all())
         msg += self.display_work_settings()
