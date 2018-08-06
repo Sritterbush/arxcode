@@ -3584,9 +3584,15 @@ class CmdWork(ArxPlayerCommand):
 
     def do_score(self):
         """Lists scoreboard for members"""
-        org = self.get_member(org_name=self.lhs).organization
-        if org.secret:
-            raise CommandError("Cannot list data for secret orgs.")
+        if not self.caller.is_staff:
+            org = self.get_member(org_name=self.lhs).organization
+            if org.secret:
+                raise CommandError("Cannot list data for secret orgs.")
+        else:
+            try:
+                org = Organization.objects.get(name__iexact=self.lhs)
+            except Organization.DoesNotExist:
+                raise CommandError("Bad name for org: %s" % self.lhs)
         members = org.active_members.exclude(secret=True).values_list('player__player__username',
                                                                       'work_total', 'investment_total')
         table = PrettyTable(["Member", "Total Work", "Total Invested"])

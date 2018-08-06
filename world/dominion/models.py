@@ -3350,7 +3350,9 @@ class Organization(InformMixin, SharedMemoryModel):
 
             income_mod = int(prestige_mod/4)
             msg += " {wResource Mod:{n %s {wIncome Mod:{n %s" % (mod_string(resource_mod), mod_string(income_mod))
-            msg += "\n{wResources{n: Economic: %s, Military: %s, Social: %s"
+            msg += "\n{wResources{n: Economic: %s, Military: %s, Social: %s" % (self.assets.economic,
+                                                                                self.assets.military,
+                                                                                self.assets.social)
         econ_progress = self.get_progress_to_next_modifier("economic")
         mil_progress = self.get_progress_to_next_modifier("military")
         soc_progress = self.get_progress_to_next_modifier("social")
