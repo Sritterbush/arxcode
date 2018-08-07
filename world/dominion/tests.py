@@ -93,3 +93,15 @@ class TestGeneralDominionCommands(ArxCommandTest):
         self.assertEqual(self.assetowner.economic, 18)
         self.assertEqual(org_owner.economic, 3)
         self.assertEqual(member.work_this_week, 3)
+        self.call_cmd("/invest orgtest,economic=testaccount2", "You must specify at least 10 resources to invest.")
+        self.call_cmd("/invest orgtest,economic,20=testaccount2", "You cannot afford to pay 20 resources.")
+        self.call_cmd("/invest orgtest,economic,18=testaccount2",
+                      'You use 5 action points and have 50 remaining this week.|'
+                      'Your social clout combined with that of your protege reduces difficulty by 22.\n'
+                      'Char rolling intellect and economics. \n'
+                      'You and Orgtest both gain 4000 prestige.\n'
+                      'You have increased the economic influence of Orgtest by 25.\n'
+                      'Current modifier is 0, progress to next is 1/100.')
+        self.call_cmd("/score orgtest2", "No match for an org by the name: orgtest2.")
+        self.call_cmd("/score orgtest", 'Member      Total Work Total Invested \n'
+                                        'TestAccount 3          25')

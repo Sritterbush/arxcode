@@ -154,7 +154,7 @@ class WeeklyEvents(RunDateMixin, Script):
                 traceback.print_exc()
                 print("Error in %s's weekly adjustment: %s" % (owner, err))
         # resets the weekly record of work command
-        cache_safe_update(Member.objects.filter(deguilded=False), work_this_week=0)
+        cache_safe_update(Member.objects.filter(deguilded=False), work_this_week=0, investment_this_week=0)
         # decrement timer of limited transactions, remove transactions that are over
         AccountTransaction.objects.filter(repetitions_left__gt=0).update(repetitions_left=F('repetitions_left') - 1)
         AccountTransaction.objects.filter(repetitions_left=0).delete()
@@ -518,7 +518,7 @@ class WeeklyEvents(RunDateMixin, Script):
         """Makes a board post of the top prestige earners this past week"""
         import random
         from world.dominion.models import PraiseOrCondemn
-        changes = PraiseOrCondemn.objects.filter(week=self.db.week)
+        changes = PraiseOrCondemn.objects.filter(week=self.db.week).exclude(target__organization_owner__secret=True)
         praises = defaultdict(list)
         condemns = defaultdict(list)
         total_values = {}

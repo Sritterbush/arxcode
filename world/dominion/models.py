@@ -927,6 +927,8 @@ class CharitableDonation(SharedMemoryModel):
                 player.gain_reputation(self.organization, affection, respect)
                 val = affection
                 msg += "You gain %s affection with %s.\n" % (val, self.organization)
+            self.organization.assets.adjust_prestige(prest)
+            msg += "%s has gained %s prestige.\n" % (self.organization, prest)
         if caller != character:
             caller.msg("You donated and they gain %s prestige." % prest)
             msg += "You gain %s prestige." % prest
@@ -3189,15 +3191,54 @@ class Organization(InformMixin, SharedMemoryModel):
     special_modifiers = models.TextField(blank=True, null=True)
     motd = models.TextField(blank=True, null=True)
     # used for when resource gain
-    economic_modifier = models.SmallIntegerField(default=0, blank=0)
-    military_modifier = models.SmallIntegerField(default=0, blank=0)
-    social_modifier = models.SmallIntegerField(default=0, blank=0)
-    base_support_value = models.SmallIntegerField(default=5, blank=5)
-    member_support_multiplier = models.SmallIntegerField(default=5, blank=5)
+    economic_influence = models.IntegerField(default=0)
+    military_influence = models.IntegerField(default=0)
+    social_influence = models.IntegerField(default=0)
+    base_support_value = models.SmallIntegerField(default=5)
+    member_support_multiplier = models.SmallIntegerField(default=5)
     clues = models.ManyToManyField('character.Clue', blank=True, related_name="orgs",
                                    through="ClueForOrg")
     theories = models.ManyToManyField('character.Theory', blank=True, related_name="orgs")
+    org_channel = models.OneToOneField('comms.ChannelDB', blank=True, null=True, related_name="org",
+                                       on_delete=models.SET_NULL)
+    org_board = models.OneToOneField('objects.ObjectDB', blank=True, null=True, related_name="org",
+                                     on_delete=models.SET_NULL)
     objects = OrganizationManager()
+
+    def get_modifier_from_influence(self, resource_name):
+        """The modifier for an org based on their total influence"""
+        from math import sqrt
+        influence = getattr(self, "%s_influence" % resource_name)
+        influence /= 3000
+        if not influence:
+            return 0
+        sign = 1 if influence >= 0 else -1
+        return int(sqrt(abs(influence)) * sign)
+
+    def get_progress_to_next_modifier(self, resource_name):
+        """Gets our percentage progress toward next modifier"""
+        influence = getattr(self, "%s_influence" % resource_name)
+        goal_level = self.get_modifier_from_influence(resource_name) + 1
+        influence_required = pow(goal_level, 2) * 3000
+        base = pow(goal_level - 1, 2) * 3000
+        influence_required -= base
+        influence -= base
+        return round(influence/float(influence_required), 2) * 100
+
+    @property
+    def economic_modifier(self):
+        """Gets our economic mod"""
+        return self.get_modifier_from_influence("economic")
+
+    @property
+    def military_modifier(self):
+        """Gets our military mod"""
+        return self.get_modifier_from_influence("military")
+
+    @property
+    def social_modifier(self):
+        """Gets our social mod"""
+        return self.get_modifier_from_influence("social")
 
     def _get_npc_money(self):
         npc_income = self.npc_members * self.income_per_npc
@@ -3208,7 +3249,7 @@ class Organization(InformMixin, SharedMemoryModel):
     amount = property(_get_npc_money)
 
     def __str__(self):
-        return self.name or "Unnamed organization (#%s" % self.id
+        return self.name or "Unnamed organization (#%s)" % self.id
 
     def __unicode__(self):
         return self.name or "Unnamed organization (#%s)" % self.id
@@ -3312,9 +3353,15 @@ class Organization(InformMixin, SharedMemoryModel):
 
             income_mod = int(prestige_mod/4)
             msg += " {wResource Mod:{n %s {wIncome Mod:{n %s" % (mod_string(resource_mod), mod_string(income_mod))
-        msg += "\n{wEconomic Mod:{n %s, {wMilitary Mod:{n %s, {wSocial Mod:{n %s\n" % (self.economic_modifier,
-                                                                                       self.military_modifier,
-                                                                                       self.social_modifier)
+            msg += "\n{wResources{n: Economic: %s, Military: %s, Social: %s" % (self.assets.economic,
+                                                                                self.assets.military,
+                                                                                self.assets.social)
+        econ_progress = self.get_progress_to_next_modifier("economic")
+        mil_progress = self.get_progress_to_next_modifier("military")
+        soc_progress = self.get_progress_to_next_modifier("social")
+        msg += "\n{wMods: Economic:{n %s (%s/100), {wMilitary:{n %s (%s/100), {wSocial:{n %s (%s/100)\n" % (
+            self.economic_modifier, int(econ_progress), self.military_modifier, int(mil_progress),
+            self.social_modifier, int(soc_progress))
         # msg += "{wSpheres of Influence:{n %s\n" % ", ".join("{w%s{n: %s" % (ob.category, ob.rating)
         #                                                     for ob in self.spheres.all())
         msg += self.display_work_settings()
@@ -3327,6 +3374,8 @@ class Organization(InformMixin, SharedMemoryModel):
                 msg += "\n{wTheories Known:{n %s\n" % "; ".join("%s (#%s)" % (ob, ob.id) for ob in theories)
         if holdings:
             msg += "{wHoldings{n: %s\n" % ", ".join(ob.name for ob in holdings)
+        if self.motd and (viewing_member or show_all):
+            msg += "|yMessage of the day for %s set to:|n %s\n" % (self, self.motd)
         if viewing_member:
             msg += "\n{wMember stats for {c%s{n\n" % viewing_member
             msg += viewing_member.display()
@@ -3370,16 +3419,30 @@ class Organization(InformMixin, SharedMemoryModel):
                 return False
         return self.locks.check(accessing_obj, access_type=access_type, default=default)
 
-    def msg(self, message, prefix=True, *args, **kwargs):
+    def msg(self, message, prefix=True, use_channel_color=True, *args, **kwargs):
         """Sends msg to all active members"""
-        pcs = self.active_members
-        for pc in pcs:
-            if prefix:
-                msg = "|w%s organization-wide message:|n %s" % (self.name, message)
-            else:
-                msg = message
-            pc.msg(msg, *args, **kwargs)
-        return
+        color = "|w" if not use_channel_color else self.channel_color
+        if prefix:
+            message = "%s%s organization-wide message:|n %s" % (color, self, message)
+        elif use_channel_color:
+            message = color + message + "|n"
+        for pc in self.online_members:
+            pc.msg(message, *args, **kwargs)
+
+    def gemit_to_org(self, gemit):
+        """
+        Messages online members, informs offline members, and makes an org
+        bboard story post.
+        """
+        category = "%s Story Update" % self
+        bboard = self.org_board
+        if bboard:
+            bboard.bb_post(poster_obj=gemit.sender, msg=gemit.text, subject=category, poster_name="Story")
+        for pc in self.offline_members:
+            pc.inform(gemit.text, category=category, append=False)
+        box_chars = '\n' + '*' * 70 + '\n'
+        msg = box_chars + '[' + category + '] ' + gemit.text + box_chars
+        self.msg(msg, prefix=False)
 
     @property
     def active_members(self):
@@ -3409,6 +3472,11 @@ class Organization(InformMixin, SharedMemoryModel):
         return self.active_members.filter(player__player__db_is_connected=True)
 
     @property
+    def offline_members(self):
+        """Returns members who are currently offline"""
+        return self.active_members.exclude(id__in=self.online_members)
+
+    @property
     def support_pool(self):
         """Returns our current support pool"""
         return self.base_support_value + (self.active_members.count()) * self.member_support_multiplier
@@ -3429,26 +3497,13 @@ class Organization(InformMixin, SharedMemoryModel):
         return reverse('help_topics:display_org', kwargs={'object_id': self.id})
 
     @property
-    def org_channel(self):
-        """Returns channel for this org"""
-        from typeclasses.channels import Channel
-        try:
-            return Channel.objects.get(db_lock_storage__icontains=self.name)
-        except Channel.DoesNotExist:
-            return None
-        except Channel.MultipleObjectsReturned:
-            print("More than one match for org %s's channel" % self)
-
-    @property
-    def org_board(self):
-        """Returns bulletin board for this org"""
-        from typeclasses.bulletin_board.bboard import BBoard
-        try:
-            return BBoard.objects.get(db_lock_storage__icontains=self.name)
-        except BBoard.DoesNotExist:
-            return None
-        except BBoard.MultipleObjectsReturned:
-            print("More than one match for org %s's BBoard" % self)
+    def channel_color(self):
+        """Color for their channel"""
+        color = "|w"
+        channel = self.org_channel
+        if channel:
+            color = channel.db.colorstr or color
+        return color
 
     def notify_inform(self, new_inform):
         """Notifies online players that there's a new inform"""
@@ -3463,15 +3518,23 @@ class Organization(InformMixin, SharedMemoryModel):
         from typeclasses.channels import Channel
         from typeclasses.bulletin_board.bboard import BBoard
         from evennia.utils.create import create_object, create_channel
+        lockstr = "send: organization(%s) or perm(builders);listen: organization(%s) or perm(builders)" % (self, self)
         if not self.org_channel:
-            create_channel(key=str(self.name), desc="%s channel" % self,
-                           locks="send: organization(%s) or perm(builders);listen: organization(%s) or perm(builders)"
-                                 % (self, self),
-                           typeclass=Channel)
+            self.org_channel = create_channel(key=str(self.name), desc="%s channel" % self, locks=lockstr,
+                                              typeclass=Channel)
         if not self.org_board:
-            create_object(typeclass=BBoard, key=str(self.name),
-                          locks="read: organization(%s) or perm(builders);write: organization(%s) or perm(builders)"
-                                % (self, self))
+            lockstr = lockstr.replace("send", "read").replace("listen", "write")
+            self.org_board = create_object(typeclass=BBoard, key=str(self.name), locks=lockstr)
+        self.save()
+
+    def set_motd(self, message):
+        """Sets our motd, notifies people, sets their flags."""
+        self.motd = message
+        self.save()
+        self.msg("|yMessage of the day for %s set to:|n %s" % (self, self.motd), prefix=False)
+        for pc in self.offline_members.filter(has_seen_motd=True):
+            pc.has_seen_motd = False
+            pc.save()
 
 
 class UnitTypeInfo(models.Model):
@@ -4598,9 +4661,12 @@ class Member(SharedMemoryModel):
     commanding_officer = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='subordinates', blank=True,
                                            null=True)
     organization = models.ForeignKey('Organization', related_name='members', blank=True, null=True, db_index=True)
-
+    # work they've gained
     work_this_week = models.PositiveSmallIntegerField(default=0, blank=0)
     work_total = models.PositiveSmallIntegerField(default=0, blank=0)
+    # amount of org influence they've gained
+    investment_this_week = models.SmallIntegerField(default=0)
+    investment_total = models.SmallIntegerField(default=0)
     secret = models.BooleanField(blank=False, default=False)
     deguilded = models.BooleanField(blank=False, default=False)
 
@@ -4616,14 +4682,10 @@ class Member(SharedMemoryModel):
     desc = models.TextField(blank=True, default=True)
     public_notes = models.TextField(blank=True, default=True)
     officer_notes = models.TextField(blank=True, default=True)
+    has_seen_motd = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['rank']
-
-    def msg(self, *args, **kwargs):
-        """Passthrough method to send msg to player"""
-        if self.player:
-            self.player.msg(*args, **kwargs)
 
     def _get_char(self):
         if self.player and self.player.player and self.player.player.char_ob:
@@ -4679,6 +4741,12 @@ class Member(SharedMemoryModel):
         org_channel = self.organization.org_channel
         if org_channel:
             org_channel.connect(self.player.player)
+
+    def __getattr__(self, name):
+        """So OP for getting player's inform or msg methods."""
+        if name in ("msg", "inform") and self.player:
+            return getattr(self.player, name)
+        raise AttributeError("%r object has no attribute %r" % (self.__class__, name))
 
     def work(self, resource_type, ap_cost, protege=None):
         """
@@ -4739,6 +4807,51 @@ class Member(SharedMemoryModel):
             self.save()
         if protege:
             adjust_resources(protege.assets, get_amount_after_clout(protege_clout, added=25, minimum=1))
+
+    def invest(self, resource_type, ap_cost, protege=None, resources=0):
+        """
+        Perform work in a week for our Organization. If a protege is specified we use their skills and add their
+        social clout to the roll.
+
+            Raises:
+                ValueError if resource_type is invalid or ap_cost is greater than Member's AP
+        """
+        resource_type = resource_type.lower()
+        clout = self.char.social_clout
+        msg = "Your social clout "
+        protege_clout = 0
+        if protege:
+            protege_clout = protege.player.char_ob.social_clout
+            msg += "combined with that of your protege "
+        clout += protege_clout
+        msg += "reduces difficulty by %s." % clout
+        outcome, roll_msg = self.get_work_roll(resource_type, clout, protege)
+        msg += roll_msg
+        assets = self.player.assets
+        if getattr(assets, resource_type) < resources:
+            raise ValueError("You cannot afford to pay %s resources." % resources)
+        if not self.player.player.pay_action_points(ap_cost):
+            raise ValueError("You cannot afford the AP cost to work.")
+        self.player.player.pay_resources(resource_type, resources)
+        percent = (clout + 100) / 100.0
+        outcome = int(outcome * percent)
+        org_amount = outcome + resources
+        prestige = ((clout * 5) + 50) * org_amount
+        if org_amount:
+            self.investment_this_week += org_amount
+            self.investment_total += org_amount
+            self.save()
+            current = getattr(self.organization, "%s_influence" % resource_type)
+            setattr(self.organization, "%s_influence" % resource_type, current + org_amount)
+            self.organization.save()
+        msg += "\nYou and %s both gain %d prestige." % (self.organization, prestige)
+        self.player.assets.adjust_prestige(prestige)
+        self.organization.assets.adjust_prestige(prestige)
+        msg += "\nYou have increased the %s influence of %s by %d." % (resource_type, self.organization, org_amount)
+        mod = getattr(self.organization, "%s_modifier" % resource_type)
+        progress = self.organization.get_progress_to_next_modifier(resource_type)
+        msg += "\nCurrent modifier is %s, progress to next is %d/100." % (mod, progress)
+        self.msg(msg)
 
     def get_work_roll(self, resource_type, clout, protege=None):
         """

@@ -9,21 +9,21 @@ from django.conf import settings
 from django.db.models import Q
 
 from evennia import CmdSet
-from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
 from evennia.objects.models import ObjectDB
 from evennia.accounts.models import AccountDB
-from server.utils.arx_utils import get_week, caller_change_field
-from server.utils.prettytable import PrettyTable
 from evennia.utils.evtable import EvTable
+
+from server.utils.arx_utils import get_week, caller_change_field, inform_staff, ArxCommand, ArxPlayerCommand
+from server.utils.exceptions import CommandError
+from server.utils.prettytable import PrettyTable
 from . import setup_utils
 from web.character.models import Clue
 from world.dominion.models import (Region, Domain, Land, PlayerOrNpc, Army, ClueForOrg,
-                     Castle, AssetOwner, Task, MilitaryUnit,
-                     Ruler, Organization, Member, SphereOfInfluence, SupportUsed, AssignedTask,
-                     TaskSupporter, InfluenceCategory, Minister, PlotRoom)
+                                   Castle, AssetOwner, Task, MilitaryUnit,
+                                   Ruler, Organization, Member, SphereOfInfluence, SupportUsed, AssignedTask,
+                                   TaskSupporter, InfluenceCategory, Minister, PlotRoom)
 from .unit_types import type_from_str
 from world.stats_and_skills import do_dice_check
-from server.utils.arx_utils import inform_staff
 
 # Constants for Dominion projects
 BUILDING_COST = 1000
@@ -2059,7 +2059,7 @@ class CmdOrganization(ArxPlayerCommand):
                 altorgs = Organization.objects.filter(Q(members__player__player=alt.player)
                                                       & Q(members__deguilded=False))
                 if org in altorgs:
-                    inform_staff("%s has joined %s, but their alt %s is already a member." % (caller, org, alt))
+                    inform_staff("{r%s has joined %s, but their alt %s is already a member.{n" % (caller, org, alt))
 
             # check if they were previously booted out, then we just have them rejoin
             try:
@@ -2073,6 +2073,7 @@ class CmdOrganization(ArxPlayerCommand):
                 member = caller.Dominion.memberships.create(organization=org, secret=secret)
             caller.msg("You have joined %s." % org.name)
             org.msg("%s has joined %s." % (caller, org.name))
+            inform_staff("%s has joined {c%s{n." % (caller, org))
             member.setup()
             caller.ndb.orginvite = None
             return
@@ -2303,6 +2304,7 @@ class CmdOrganization(ArxPlayerCommand):
             tarmember.fake_delete()
             caller.msg("Booted %s from %s." % (player, org))
             player.msg("You have been removed from %s." % org)
+            inform_staff("%s has been removed from {c%s{n by %s." % (player, org, caller))
             return
         if 'memberview' in self.switches:
             if org.secret and not org.access(caller, 'view'):
@@ -2359,9 +2361,7 @@ class CmdOrganization(ArxPlayerCommand):
         if not org.access(self.caller, "motd"):
             self.msg("You do not have permission to set the motd.")
             return
-        org.motd = self.lhs
-        org.save()
-        org.msg("|yMessage of the day for %s set to:|n %s" % (org, org.motd), prefix=False)
+        org.set_motd(self.lhs)
 
 
 class CmdFamily(ArxPlayerCommand):
@@ -3499,7 +3499,9 @@ class CmdWork(ArxPlayerCommand):
     Does work for a given organization to generate resources
 
     Usage:
-        work organization,type[=protege to use]
+        work <organization>,<type>[=protege to use]
+        work/invest <organization>,<type>,<amount>[=protege to use]
+        work/score <organization>
 
     Spends 15 action points to have work done for an organization,
     either by yourself or by one of your proteges, to generate
@@ -3519,34 +3521,84 @@ class CmdWork(ArxPlayerCommand):
     aliases = ["task", "support"]
     ap_cost = 15
 
+    @property
+    def dompc(self):
+        """caller's dompc"""
+        return self.caller.Dominion
+
     def func(self):
         """Perform work command"""
-        if self.cmdstring.lower() in self.aliases:
-            self.msg("Command does not exist. Please see 'help work'.")
-            return
         try:
-            name, res_type = self.lhslist
-        except ValueError:
-            self.msg("Must give a name and type of resource.")
-            return
-        dompc = self.caller.Dominion
+            if self.cmdstring.lower() in self.aliases:
+                raise CommandError("Command does not exist. Please see 'help work'.")
+            if not self.switches:
+                return self.do_work()
+            if "invest" in self.switches:
+                return self.do_invest()
+            if "score" in self.switches:
+                return self.do_score()
+        except (CommandError, ValueError) as err:
+            self.msg(err)
+
+    def do_work(self):
+        """Performs work"""
+        res_type = self.get_resource_type()
+        member = self.get_member(org_name=self.lhslist[0])
+        protege = self.get_protege()
+        member.work(res_type, self.ap_cost, protege)
+
+    def get_member(self, org_name):
+        """Gets membership from an org"""
         try:
-            member = dompc.memberships.get(deguilded=False, organization__name__iexact=name)
+            return self.dompc.memberships.get(deguilded=False, organization__name__iexact=org_name)
         except Member.DoesNotExist:
-            self.msg("No match for an org by the name: %s." % name)
-            return
+            raise CommandError("No match for an org by the name: %s." % org_name)
+
+    def get_protege(self):
+        """Gets a protege"""
         if self.rhs:
             try:
-                protege = dompc.proteges.get(player__username__iexact=self.rhs)
+                return self.dompc.proteges.get(player__username__iexact=self.rhs)
             except PlayerOrNpc.DoesNotExist:
-                self.msg("No protege by that name.")
-                return
-        else:
-            protege = None
+                raise CommandError("No protege by that name.")
+
+    def get_resource_type(self):
+        """Gets resource type or raises a command error"""
         try:
-            member.work(res_type, self.ap_cost, protege)
-        except ValueError as err:
-            self.msg(err)
+            return self.lhslist[1]
+        except IndexError:
+            raise CommandError("Must give a name and type of resource.")
+
+    def do_invest(self):
+        """Does an investment"""
+        res_type = self.get_resource_type()
+        member = self.get_member(org_name=self.lhslist[0])
+        protege = self.get_protege()
+        try:
+            amount = int(self.lhslist[2])
+            if amount < 10:
+                raise ValueError
+        except (TypeError, ValueError, IndexError):
+            raise CommandError("You must specify at least 10 resources to invest.")
+        member.invest(resource_type=res_type, ap_cost=5, protege=protege, resources=amount)
+
+    def do_score(self):
+        """Lists scoreboard for members"""
+        if not self.caller.is_staff:
+            org = self.get_member(org_name=self.lhs).organization
+            if org.secret:
+                raise CommandError("Cannot list data for secret orgs.")
+        else:
+            try:
+                org = Organization.objects.get(name__iexact=self.lhs)
+            except Organization.DoesNotExist:
+                raise CommandError("Bad name for org: %s" % self.lhs)
+        members = org.active_members.exclude(secret=True).values_list('player__player__username',
+                                                                      'work_total', 'investment_total')
+        table = PrettyTable(["Member", "Total Work", "Total Invested"])
+        for member in members:
+            table.add_row(member)
+        self.msg(str(table))
 
 
 class CmdPlotRoom(ArxCommand):
