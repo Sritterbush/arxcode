@@ -79,7 +79,7 @@ class CmdPetition(ArxCommand):
 
     def list_petitions(self):
         """Lists petitions for org/player"""
-        if ("search" in self.switches and self.rhs) or self.args:
+        if ("search" in self.switches and self.rhs) or (self.args and "search" not in self.switches):
             if self.rhs:
                 org = self.get_org_from_args(self.rhs)
             else:

@@ -136,4 +136,7 @@ class TestPetitionCommands(ArxCommandTest):
         self.char.db.petition_form = {'topic': 'test2', 'description': 'testing2', 'organization': org.id}
         org.inform = Mock()
         self.call_cmd("/submit", "Successfully created petition 3.")
+        self.call_cmd("/search testing2=test org", 'ID Owner       Topic Org      On \n3  Testaccount test2 test org')
+        self.call_cmd("/search test2", 'ID Owner       Topic Org      On \n3  Testaccount test2 test org')
+        self.call_cmd("/search asdfadsf", "ID Owner Topic Org On")
         org.inform.assert_called_with('A new petition has been made by Testaccount.', category='Petitions')
