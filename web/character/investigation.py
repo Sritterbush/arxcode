@@ -1038,7 +1038,7 @@ class CmdInvestigate(InvestigationFormCommand):
                 if not (ob.active and ob.ongoing):
                     self.msg("You may only invite others to active investigations.")
                     return
-                self.msg("Asking %s to assist with %s." % (char, ob))
+                self.msg("Asking %s to assist with %s." % (char.key, ob))
                 current.append(ob.id)
                 char.db.investigation_invitations = current
                 name = caller.key
