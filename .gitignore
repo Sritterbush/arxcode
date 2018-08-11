@@ -32,7 +32,6 @@ __pycache__
 
 # Installation-specific. 
 # For group efforts, comment out some or all of these.
-server/conf/settings.py
 server/conf/secret_settings.py
 server/logs/*.log.*
 server/logs/*
@@ -73,3 +72,5 @@ world/dominion/map/arxmap_imagesize.cfg
 
 # generated fealty graph
 world/dominion/fealty/fealty_graph.png
+config.env
+settings.ini
