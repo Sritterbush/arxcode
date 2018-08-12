@@ -1,63 +1,15 @@
-Arx is a game based on Evennia. It has the following requirements:
-'pip install unidecode' for use during the guest process
-'pip install cloudinary' for the CDN backend
-for helpdesk, pip install the following: 'django-markdown-deux,
-humanize, django-bootstrap-form'
+Arx is a game based on Evennia. I decided to make an orphan branch open source to let people
+use code as they like for their own games and contribute if they like. In general we should
+be compatible with any given Evennia branch, though I tend to stay on master and occasionally
+make a branch to cherry-pick additions from develop.
 
-It requires the following added to settings.py:
-```
-CHANNEL_COMMAND_CLASS = "commands.commands.channels.ArxChannelCommand"
+The basic requirements  are added in the different setup files. Evennia sets the django settings
+environmental variable at startup and looks specifically in the server/conf/ directory, so specify
+`--settings=foo_settings` where `foo_settings` is a settings file in the server/conf/ directory.
+The default will use production_settings unless otherwise specified.
 
-BASE_ROOM_TYPECLASS = "typeclasses.rooms.ArxRoom"
-
-TEMPLATES[0]['OPTIONS']['context_processors'] += [
-    'web.character.context_processors.consts']
-
-INSTALLED_APPS += ('world.dominion',
-                   'world.msgs',
-                   'web.character',
-                   'web.news',
-                   'web.helpdesk',
-                   'web.help_topics',
-                   'cloudinary',
-                   'django.contrib.humanize',
-                   'markdown_deux',
-                   'crispy_forms',
-                   'bootstrapform',
-                   'test_without_migrations')
-
-CRISPY_TEMPLATE_PACK = 'bootstrap3'
-
-from evennia.contrib import color_markups
-
-COLOR_ANSI_EXTRA_MAP = color_markups.CURLY_COLOR_ANSI_EXTRA_MAP + color_markups.MUX_COLOR_ANSI_EXTRA_MAP
-COLOR_XTERM256_EXTRA_FG = color_markups.CURLY_COLOR_XTERM256_EXTRA_FG + color_markups.MUX_COLOR_XTERM256_EXTRA_FG
-COLOR_XTERM256_EXTRA_BG = color_markups.CURLY_COLOR_XTERM256_EXTRA_BG + color_markups.MUX_COLOR_XTERM256_EXTRA_BG
-COLOR_XTERM256_EXTRA_GFG = color_markups.CURLY_COLOR_XTERM256_EXTRA_GFG + color_markups.MUX_COLOR_XTERM256_EXTRA_GFG
-COLOR_XTERM256_EXTRA_GBG = color_markups.CURLY_COLOR_XTERM256_EXTRA_GBG + color_markups.MUX_COLOR_XTERM256_EXTRA_GBG
-COLOR_ANSI_BRIGHT_BG_EXTRA_MAP = color_markups.CURLY_COLOR_ANSI_XTERM256_BRIGHT_BG_EXTRA_MAP + color_markups.MUX_COLOR_ANSI_XTERM256_BRIGHT_BG_EXTRA_MAP
-PERMISSION_HIERARCHY = ["Guest",  # note-only used if GUEST_ENABLED=True
-                        "Player",
-                        "Helper",
-                        "Builders",
-                        "Builder",
-                        "Wizards",
-                        "Wizard",
-                        "Admin",
-                        "Immortals",
-                        "Immortal",
-                        "Developer",
-                        ]
-COMMAND_DEFAULT_ARG_REGEX = r'^[ /]+.*$|$'
-
-
-HELPDESK_CREATE_TICKET_HIDE_ASSIGNED_TO = True
-
-
-REQUEST_QUEUE_ID = 1
-
-BUG_QUEUE_ID = 2
-```
+Some django packages aren't compatible with Evennia due to clashes in middleware. Silk,
+for example, will throw errors from its middleware whenever an in-game script runs.
 
 Evennia resources:
 
