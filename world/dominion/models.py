@@ -5523,6 +5523,8 @@ class RPEvent(SharedMemoryModel):
         dom = player.Dominion
         if dom in self.gms.all() or dom in self.hosts.all() or dom in self.participants.all():
             return True
+        if dom.current_orgs.filter(events=self).exists():
+            return True
 
     def can_end_or_move(self, player):
         """Whether an in-progress event can be stopped or moved by a host"""
