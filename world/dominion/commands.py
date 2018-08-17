@@ -3601,6 +3601,7 @@ class CmdWork(ArxPlayerCommand):
         qs = org.active_members.exclude(secret=True)
         members = (qs.annotate(combined=ExpressionWrapper(F('work_total') + F('investment_total'),
                                                           output_field=IntegerField()))
+                     .exclude(combined__lte=0)
                      .values_list('player__player__username', 'work_total', 'investment_total', 'combined')
                      .order_by('-combined'))
         table = PrettyTable(["Member", "Total Work", "Total Invested", "Combined"])
