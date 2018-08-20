@@ -3593,12 +3593,13 @@ class CmdWork(ArxPlayerCommand):
             org = self.get_member(org_name=self.lhs).organization
             if org.secret:
                 raise CommandError("Cannot list data for secret orgs.")
+            qs = org.active_members.exclude(secret=True)
         else:
             try:
                 org = Organization.objects.get(name__iexact=self.lhs)
             except Organization.DoesNotExist:
                 raise CommandError("Bad name for org: %s" % self.lhs)
-        qs = org.active_members.exclude(secret=True)
+            qs = org.active_members
         members = (qs.annotate(combined=ExpressionWrapper(F('work_total') + F('investment_total'),
                                                           output_field=IntegerField()))
                      .exclude(combined__lte=0)
