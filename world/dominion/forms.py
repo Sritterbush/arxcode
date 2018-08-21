@@ -113,7 +113,9 @@ class RPEventCreateForm(forms.ModelForm):
         event.add_host(self.owner, main_host=True)
         hosts = self.cleaned_data.get('hosts', [])
         for host in hosts:
-            event.add_host(host)
+            # prevent owner from being downgraded to normal host if they were added
+            if host != self.owner:
+                event.add_host(host)
         gms = self.cleaned_data.get('gms', [])
         for gm in gms:
             event.add_gm(gm)
