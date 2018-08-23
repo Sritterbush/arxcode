@@ -2135,7 +2135,7 @@ class CmdRoomMood(ArxCommand):
     describing what is going on for people who enter.
     """
     key = "+room_mood"
-    aliases = ["+roommood"]
+    aliases = ["+roommood", "setscene"]
     locks = "cmd:all()"
     help_category = "Social"
 
@@ -2150,7 +2150,7 @@ class CmdRoomMood(ArxCommand):
             return
         mood = (caller, time.time(), self.args)
         caller.location.db.room_mood = mood
-        self.msg("New mood is: %s" % mood[2])
+        self.caller.location("{w(OOC)The scene set/room mood is now set to:{n %s" % mood[2])
 
 
 class CmdSocialScore(ArxCommand):

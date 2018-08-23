@@ -152,7 +152,7 @@ class Character(NameMixins, MsgMixins, ObjectMixins, DefaultCharacter):
         if script:
             scent = script.db.scent
             if scent:
-                string += "\n\n%s" % scent
+                string += "\n\n%s{n" % scent
         if health_appearance:
             string += "\n\n%s" % health_appearance
         string += self.return_contents(pobject, detailed, strip_ansi=strip_ansi)
