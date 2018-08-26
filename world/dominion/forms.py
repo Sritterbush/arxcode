@@ -18,7 +18,7 @@ class RPEventCommentForm(forms.Form):
         msg = self.cleaned_data['journal_text']
         white = not self.cleaned_data['private']
         char.messages.add_event_journal(event, msg, white=white)
-    
+
 
 class RPEventCreateForm(forms.ModelForm):
     """Form for creating a RPEvent. We'll actually try using it in commands for validation"""
@@ -104,8 +104,12 @@ class RPEventCreateForm(forms.ModelForm):
 
     def check_location_or_plotroom(self):
         """Checks to make sure either a location or plotroom is defined."""
-        if not (self.cleaned_data.get('location') or self.cleaned_data.get('plotroom')):
+        location = self.cleaned_data.get('location')
+        plotroom = self.cleaned_data.get('plotroom')
+        if not (location or plotroom):
             self.add_error('plotroom', "You must give either a location or a plot room.")
+        elif all((location, plotroom)):
+            self.add_error('plotroom', "Please only specify location or plot room, not both.")
 
     def save(self, commit=True):
         """Saves the instance and adds the form's owner as the owner of the petition"""
