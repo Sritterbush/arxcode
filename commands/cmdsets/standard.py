@@ -246,6 +246,7 @@ class MobileCmdSet(CmdSet):
         self.add(CmdApplyConsumable())
         self.add(gambling.CmdRoll())
         self.add(fashion_commands.CmdFashionModel())
+        self.add(fashion_commands.CmdFashionOutfit())
         self.add(petitions_commands.CmdPetition())
 
 
