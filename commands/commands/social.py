@@ -2150,7 +2150,7 @@ class CmdRoomMood(ArxCommand):
             return
         mood = (caller, time.time(), self.args)
         caller.location.db.room_mood = mood
-        self.caller.location("{w(OOC)The scene set/room mood is now set to:{n %s" % mood[2])
+        self.caller.location.msg_contents("{w(OOC)The scene set/room mood is now set to:{n %s" % mood[2])
 
 
 class CmdSocialScore(ArxCommand):
