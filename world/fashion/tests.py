@@ -35,7 +35,8 @@ class FashionCommandTests(TestEquipmentMixins, ArxCommandTest):
             self.call_cmd("/create Unfriendly Shadows", "Created [Unfriendly Shadows]\nattire: Top2")
         outfit1 = fashion_commands.get_caller_outfit_from_args(self.caller, "Friendly Shadows")
         outfit2 = fashion_commands.get_caller_outfit_from_args(self.caller, "Unfriendly Shadows")
-        self.call_cmd("/create Friendly Shadows", "You own an outfit named 'Friendly Shadows' already.")
+        self.call_cmd("/create Friendly Shadows",
+                      "There is an outfit named 'Friendly Shadows' already. Another simply won't do.")
         self.call_cmd("", "Created    Outfit             Appraisal/Buzz \n"
                           "1978/08/27 Friendly Shadows   27290          "
                           "1978/08/27 Unfriendly Shadows 500")

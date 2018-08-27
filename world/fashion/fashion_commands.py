@@ -99,9 +99,9 @@ class CmdFashionOutfit(ArxCommand):
         """Create outfit object, add equipment to it, then display result."""
         if not self.args:
             raise FashionError("Cannot create your shiny new outfit without a name.")
-        others = self.caller.player_ob.Dominion.fashion_outfits.filter(name__iexact=self.args)
+        others = Outfit.objects.filter(name__iexact=self.args)
         if others.exists():
-            raise FashionError("You own an outfit named '%s' already." % self.args)
+            raise FashionError("There is an outfit named '%s' already. Another simply won't do." % self.args)
         worn = list(self.caller.worn)
         weapons = list(self.caller.wielded) + list(self.caller.sheathed)
         if not worn and not weapons:
