@@ -1372,7 +1372,8 @@ class CmdCalendar(ArxPlayerCommand):
         if self.caller.check_permstring("builders"):
             qs = RPEvent.objects.all()
         else:
-            qs = RPEvent.objects.filter(Q(public_event=True) | Q(dompcs=self.caller.Dominion))
+            dompc = self.caller.Dominion
+            qs = RPEvent.objects.filter(Q(public_event=True) | Q(dompcs=dompc) | Q(orgs__in=dompc.current_orgs))
         if "old" in self.switches:  # display finished events
             finished = qs.filter(finished=True).distinct().order_by('-date')
             from server.utils import arx_more
