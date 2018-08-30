@@ -594,3 +594,20 @@ class StaffCommandTests(ArxCommandTest):
         self.assertEqual(org.emits.count(), 1)
         board.bb_post.assert_called_with(msg='blah', poster_name='Story', poster_obj=self.account,
                                          subject='test org Story Update')
+
+    def test_cmd_admin_propriety(self):
+        from world.dominion.models import Organization, AssetOwner
+        org1 = Organization.objects.create(name="testorg")
+        org2 = Organization.objects.create(name="Testorg2")
+        AssetOwner.objects.create(organization_owner=org1)
+        AssetOwner.objects.create(organization_owner=org2)
+        self.setup_cmd(staff_commands.CmdAdminPropriety, self.account)
+        self.call_cmd("/create test", "Must provide a value for the tag.")
+        self.call_cmd("/create test=50", "Created tag test with a percentage modifier of 50.")
+        self.call_cmd("/create test=30", "Already a tag by the name test.")
+        self.call_cmd("", "Propriety Tags: test(50)")
+        self.call_cmd("/add test=testaccount,testaccount2, testorg,testorg2",
+                      "Added to test: Testaccount, Testaccount2, testorg, Testorg2")
+        self.call_cmd("test", "Entities with test tag: Testaccount, Testaccount2, testorg, Testorg2")
+        self.call_cmd("/remove test=testaccount2,testorg2", "Removed from test: Testaccount2, Testorg2")
+        self.call_cmd("test", "Entities with test tag: Testaccount, testorg")
