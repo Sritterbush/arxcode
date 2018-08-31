@@ -157,6 +157,7 @@ class OOCCmdSet(CmdSet):
         self.add(xp.CmdVoteXP())
         self.add(social.CmdPosebreak())
         self.add(social.CmdSocialScore())
+        self.add(social.CmdFavor())
         self.add(overrides.SystemNoMatch())
 
 
