@@ -3144,6 +3144,9 @@ class Reputation(SharedMemoryModel):
     npc_gossip = models.TextField(blank=True)
     date_gossip_set = models.DateTimeField(null=True)
 
+    def __str__(self):
+        return "%s for %s (%s)" % (self.player, self.organization, self.favor)
+
     class Meta:
         unique_together = ('player', 'organization')
 
