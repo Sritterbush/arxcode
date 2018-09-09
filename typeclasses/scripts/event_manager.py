@@ -154,11 +154,10 @@ class EventManager(Script):
                 event.save()
         else:
             start_str = "%s has started." % event.name
-        border = "{w***********************************************************{n\n"
         if event.public_event:
-            SESSIONS.announce_all(border)
+            border = "{w***********************************************************{n\n"
+            start_str = border + start_str + "\n" + border
             SESSIONS.announce_all(start_str)
-            SESSIONS.announce_all(border)
         elif event.location:
             try:
                 event.location.msg_contents(start_str, options={'box': True})
