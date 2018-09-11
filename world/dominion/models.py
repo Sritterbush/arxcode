@@ -5833,10 +5833,11 @@ class RPEvent(SharedMemoryModel):
         part.delete()
 
     def make_announcement(self, msg):
+        from typeclasses.accounts import Account
         msg = "{y(Private Message) %s" % msg
         guildies = Member.objects.filter(organization__in=self.orgs.all(), deguilded=False)
         all_dompcs = PlayerOrNpc.objects.filter(Q(id__in=self.dompcs.all()) | Q(memberships__in=guildies))
-        audience = Accounts.objects.filter(Dominion__in=all_dompcs, db_is_connected=True).distinct()
+        audience = Account.objects.filter(Dominion__in=all_dompcs, db_is_connected=True).distinct()
         for ob in audience:
             ob.msg(msg)
 
