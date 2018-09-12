@@ -138,7 +138,7 @@ class CmdMarket(ArxCommand):
             if pmats:
                 caller.msg("\n{wYour materials:{n %s" % ", ".join(str(ob) for ob in pmats))
             return
-        elif not ("economic" in self.switches or "buyeconomic" in self.switches or "social" in self.switches or
+        if not ("economic" in self.switches or "buyeconomic" in self.switches or "social" in self.switches or
                 "military" in self.switches):
             try:
                 material = materials.get(name__icontains=self.lhs)
@@ -154,7 +154,7 @@ class CmdMarket(ArxCommand):
                 except (CraftingMaterialType.DoesNotExist, CraftingMaterialType.MultipleObjectsReturned):
                     caller.msg("Unable to get a unique match for that.")
                     return
-        elif 'buy' in self.switches or 'import' in self.switches:
+        if 'buy' in self.switches or 'import' in self.switches:
             if not usemats:
                 amt = 1
             else:
@@ -207,7 +207,7 @@ class CmdMarket(ArxCommand):
                 material.create(caller)
             caller.msg("You buy %s %s for %s." % (amt, material, paystr))
             return
-        elif 'sell' in self.switches:
+        if 'sell' in self.switches:
             try:
                 amt = int(self.rhs)
             except (ValueError, TypeError):
@@ -239,7 +239,7 @@ class CmdMarket(ArxCommand):
             caller.db.currency = money
             caller.msg("You have sold %s %s for %s silver coins." % (amt, material.name, sale))
             return
-        elif 'info' in self.switches:
+        if 'info' in self.switches:
             msg = "{wInformation on %s:{n %s\n" % (material.name, material.desc)
             price = material.value
             msg += "{wPrice in silver: {c%s{n\n" % price
@@ -249,7 +249,7 @@ class CmdMarket(ArxCommand):
             msg += "{wPrice in economic resources: {c%s{n" % cost
             caller.msg(msg)
             return
-        elif "economic" in self.switches or "military" in self.switches or "social" in self.switches:
+        if "economic" in self.switches or "military" in self.switches or "social" in self.switches:
             try:
                 assets = caller.player_ob.Dominion.assets
                 amt = int(self.args)
