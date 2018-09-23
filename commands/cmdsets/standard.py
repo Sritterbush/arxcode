@@ -157,6 +157,7 @@ class OOCCmdSet(CmdSet):
         self.add(xp.CmdVoteXP())
         self.add(social.CmdPosebreak())
         self.add(social.CmdSocialScore())
+        self.add(social.CmdFavor())
         self.add(overrides.SystemNoMatch())
 
 
@@ -165,8 +166,8 @@ class StateIndependentCmdSet(CmdSet):
     Character commands that will always exist, regardless of character state.
     Poses and emits, for example, should be allowed even when a character is
     dead, because they might be posing something about the corpse, etc.
-    """  
-    key = "StateIndependentCmdSet"   
+    """
+    key = "StateIndependentCmdSet"
 
     def at_cmdset_creation(self):
         self.add(overrides.CmdPose())
@@ -242,20 +243,20 @@ class MobileCmdSet(CmdSet):
         self.add(social.CmdGetInLine())
         self.add(investigation.CmdInvestigate())
         self.add(investigation.CmdAssistInvestigation())
-        self.add(general.CmdUndress())
         self.add(general.CmdDump())
         self.add(CmdApplyConsumable())
         self.add(gambling.CmdRoll())
         self.add(fashion_commands.CmdFashionModel())
+        self.add(fashion_commands.CmdFashionOutfit())
         self.add(petitions_commands.CmdPetition())
 
 
 class StaffCmdSet(CmdSet):
     """OOC staff and building commands. Character-based due to interacting with game world."""
-    key = "StaffCmdSet"   
+    key = "StaffCmdSet"
 
     def at_cmdset_creation(self):
-        # The help system       
+        # The help system
         self.add(help.CmdSetHelp())
         # System commands
         self.add(overrides.CmdArxScripts())
@@ -268,7 +269,7 @@ class StaffCmdSet(CmdSet):
         # Admin commands
         self.add(admin.CmdBoot())
         self.add(admin.CmdBan())
-        self.add(admin.CmdUnban())  
+        self.add(admin.CmdUnban())
         self.add(admin.CmdPerm())
         self.add(admin.CmdWall())
         # Building and world manipulation
@@ -309,6 +310,7 @@ class StaffCmdSet(CmdSet):
         self.add(staff_commands.CmdGMEvent())
         self.add(staff_commands.CmdRelocateExit())
         self.add(staff_commands.CmdAdminKey())
+        self.add(staff_commands.CmdAdminPropriety())
         self.add(extended_room.CmdExtendedDesc())
         self.add(xp.CmdAdjustSkill())
         self.add(xp.CmdAwardXP())

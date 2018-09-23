@@ -71,6 +71,7 @@ class InvestigationTests(ArxCommandTest):
 
 class SceneCommandTests(ArxCommandTest):
     def test_cmd_flashback(self):
+        from web.character.models import Flashback
         self.setup_cmd(scene_commands.CmdFlashback, self.account)
         self.call_cmd("/create testing", "You have created a new flashback with the ID of #1.")
         self.call_cmd("/create testing", "There is already a flashback with that title. Please choose another.")
@@ -93,6 +94,9 @@ class SceneCommandTests(ArxCommandTest):
         self.call_cmd("/uninvite 1=Testaccount2", "You have uninvited Testaccount2 from this flashback.")
         self.account2.inform.assert_called_with("You have been removed from flashback #1.", category="Flashbacks")
         self.call_cmd("/summary 1=test summary", "summary set to: test summary.")
+        Flashback.objects.get(id=1).posts.create(poster=self.roster_entry, actions="Foo")
+        self.call_cmd("1=foo", '(#1) testing\nOwner: Char\nSummary: test summary\nPosts:\nChar wrote: A new testpost\nChar wrote: Foo')
+        self.call_cmd("1=1", '(#1) testing\nOwner: Char\nSummary: test summary\nPosts:\nChar wrote: Foo')
 
 
 class ViewTests(ArxTest):

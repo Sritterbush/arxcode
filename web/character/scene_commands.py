@@ -16,7 +16,7 @@ class CmdFlashback(ArxPlayerCommand):
     
     Usage:
         flashback
-        flashback <ID #>
+        flashback <ID #>[=<number of last posts to display]
         flashback/catchup <ID #>
         flashback/create <title>[=<summary>]
         flashback/title <ID #>=<new title>
@@ -98,7 +98,11 @@ class CmdFlashback(ArxPlayerCommand):
             self.list_flashbacks()
     
     def view_flashback(self, flashback):
-        self.msg(flashback.display())
+        try:
+            post_limit = int(self.rhs)
+        except (TypeError, ValueError):
+            post_limit = None
+        self.msg(flashback.display(post_limit=post_limit))
 
     def read_new_posts(self, flashback):
         new_posts = flashback.get_new_posts(self.roster_entry)

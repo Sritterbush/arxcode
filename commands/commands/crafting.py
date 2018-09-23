@@ -145,7 +145,7 @@ def get_ability_val(char, recipe):
     Returns a character's highest rank in any ability used in the
     recipe.
     """
-    ability_list = recipe.ability.split(",")
+    ability_list = (recipe.ability or "").split(",")
     abilities = char.db.abilities or {}
     skills = char.db.skills or {}
     if recipe.skill == "artwork":

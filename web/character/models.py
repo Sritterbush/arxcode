@@ -1536,14 +1536,17 @@ class Flashback(SharedMemoryModel):
         """Returns posts that entry hasn't read yet."""
         return self.posts.exclude(Q(read_by=entry) | Q(poster=entry))
 
-    def display(self, display_summary_only=False):
+    def display(self, display_summary_only=False, post_limit=None):
         """Returns string display of a flashback."""
         msg = "(#%s) %s\n" % (self.id, self.title)
         msg += "Owner: %s\n" % self.owner
         msg += "Summary: %s\n" % self.summary
         if display_summary_only:
             return msg
-        msg += "Posts:\n%s" % "\n".join(post.display() for post in self.posts.all())
+        posts = list(self.posts.all())
+        if post_limit:
+            posts = posts[-post_limit:]
+        msg += "Posts:\n%s" % "\n".join(post.display() for post in posts)
         return msg
 
     def __str__(self):

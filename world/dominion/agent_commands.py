@@ -77,7 +77,7 @@ class CmdAgents(ArxPlayerCommand):
     @staticmethod
     def get_allowed_types_from_org(org):
         """Gets types of agents allowed for an org"""
-        if "noble" in org.category:
+        if org.category in ("noble", "law", "discipleship"):
             return ["guards"]
         if "crime" in org.category:
             return ["thugs"]
