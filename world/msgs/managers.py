@@ -121,6 +121,18 @@ def q_favorite_of_player(player):
     return q_tagname(tag_name)
 
 
+def q_recent():
+    """
+    Gets a Q() object only of recent posts
+    Returns:
+        Q() object that is more recent
+    """
+    from datetime import datetime, timedelta
+    # only display most recent journals
+    delay = datetime.now() - timedelta(hours=6)
+    return Q(db_date_created__gt=delay)
+
+
 # noinspection PyProtectedMember
 def reload_model_as_proxy(msg):
     """
@@ -225,6 +237,7 @@ class MsgQuerySet(QuerySet):
 
 class MsgProxyManager(MsgManager):
     white_query = q_msgtag(WHITE_TAG)
+    recent_white_query = white_query & ~q_recent()
     black_query = q_msgtag(BLACK_TAG)
     revealed_query = q_msgtag(REVEALED_BLACK_TAG)
     all_journals_query = Q(white_query | black_query)
@@ -269,8 +282,8 @@ class JournalManager(MsgProxyManager):
         if user.is_staff:
             return qs
         # get all White Journals plus Black Journals they've written
-        return qs.filter(self.white_query |
-                         Q(self.black_query & q_sender_character(user.char_ob) | self.revealed_query))
+        return qs.filter(self.recent_white_query | Q(self.all_journals_query & q_sender_character(user.char_ob)) |
+                         self.revealed_query)
         
         
 class BlackJournalManager(MsgProxyManager):
@@ -280,7 +293,7 @@ class BlackJournalManager(MsgProxyManager):
         
 class WhiteJournalManager(MsgProxyManager):
     def get_queryset(self):
-        return super(WhiteJournalManager, self).get_queryset().filter(self.white_query)
+        return super(WhiteJournalManager, self).get_queryset().filter(self.recent_white_query)
         
         
 class MessengerManager(MsgProxyManager):
