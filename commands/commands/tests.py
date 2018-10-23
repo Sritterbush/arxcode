@@ -50,7 +50,7 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/readycheck 1", "Only the action leader can use that switch.")
         self.caller = self.account
         self.call_cmd("/add 1=foo,bar", "Invalid type of resource.")
-        self.call_cmd("/add 1=ap,50", "50 ap added. Action #1 Resources: extra action points 50")
+        self.call_cmd("/add 1=ap,50", "50 ap added. Action #1 Total resources: extra action points 50")
         self.call_cmd("/add 1=army,1", "You have successfully relayed new orders to that army.")
         self.call_cmd("/toggletraitor 1", "Traitor is now set to: True")
         self.call_cmd("/toggletraitor 1", "Traitor is now set to: False")
@@ -148,7 +148,7 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/invite 1=TestAccount", "You have new informs. Use @inform 1 to read them."
                                                "|You have invited Testaccount to join your action.")
         self.account2.pay_resources = Mock()
-        self.call_cmd("/charge 1=economic,2000", "2000 economic added. Action #1 Resources: economic 2000, silver 50")
+        self.call_cmd("/charge 1=economic,2000", "2000 economic added. Action #1 Total resources: economic 2000, silver 50")
         self.account2.pay_resources.assert_called_with("economic", 2000)
         self.caller.inform = Mock()
         self.account2.inform = Mock()
@@ -183,7 +183,7 @@ class StoryActionTests(ArxCommandTest):
                            "Testaccount2 OOC intentions: ooc intent test\n\nOOC Notes and GM responses\n"
                            "Testaccount2 OOC Question: foo inform\nReply by Testaccount: Sure go nuts\n"
                            "Testaccount2 OOC Question: another test question\nOutcome Value: 0\nStory Result: \n"
-                           "Secret Story sekritfoo\nResources: economic 2000, silver 50\n[STATUS: Pending Resolution]")
+                           "Secret Story sekritfoo\nTotal resources: economic 2000, silver 50\n[STATUS: Pending Resolution]")
         self.call_cmd("/publish 1=story test", "You have published the action and sent the players informs.")
         self.assertEquals(action.status, CrisisAction.PUBLISHED)
         self.account2.inform.assert_called_with('{wGM Response to story action of Testaccount2\n'
@@ -335,6 +335,28 @@ class SocialTests(ArxCommandTest):
         for _ in range(max_size):
             self.caller.db.watching.append(self.char2)
         self.call_cmd("testAccount2", "You may only have %s characters on your watchlist." % max_size)
+
+    def test_cmd_iamhelping(self):
+        from web.character.models import PlayerAccount
+        self.setup_cmd(social.CmdIAmHelping, self.account)
+        paccount1 = PlayerAccount.objects.create(email="foo@foo.com")
+        self.account2.inform = Mock()
+        ap_cap = self.roster_entry.max_action_points
+        self.call_cmd("", "You have 100 AP remaining.")
+        self.call_cmd("testaccount2=30", "You cannot give AP to an alt.")
+        self.caller.roster.current_account = paccount1
+        self.call_cmd("testaccount2=102", "You do not have enough AP.")
+        self.roster_entry2.action_points = 250
+        self.roster_entry.action_points = 300
+        self.call_cmd("testaccount2=1", "Must transfer at least 3 AP.")
+        self.call_cmd("testaccount2=aipl", "AP needs to be a number.")
+        self.call_cmd("testaccount2=300", "That would put them over %s AP." % ap_cap)
+        inform_msg = "Testaccount has given you 30 AP."
+        self.call_cmd("testaccount2=90", "You use 90 action points and have 210 remaining this week."
+                                         "|Using 90 of your AP, you have given Testaccount2 30 AP.")
+        self.account2.inform.assert_called_with(inform_msg, category=inform_msg)
+        self.assertEqual(self.roster_entry2.action_points, 280)
+        self.assertEqual(self.roster_entry.action_points, 210)
 
     def test_cmd_rphooks(self):
         self.setup_cmd(social.CmdRPHooks, self.account)
