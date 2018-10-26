@@ -5,7 +5,7 @@ whitespace characters don't match.
 """
 import re
 
-from mock import Mock
+from mock import Mock, patch
 
 from evennia.commands.default.tests import CommandTest
 from evennia.server.sessionhandler import SESSIONS
@@ -117,13 +117,17 @@ class ArxCommandTest(ArxTestConfigMixin, CommandTest):
     """
     cmd_class = None
     caller = None
+    instance = None
 
     def setup_cmd(self, cmd_cls, caller):
         self.cmd_class = cmd_cls
         self.caller = caller
+        self.instance = self.cmd_class()
 
     def call_cmd(self, args, msg, **kwargs):
-        self.call(self.cmd_class(), args, msg, caller=self.caller, **kwargs)
+        if not self.instance:
+            self.instance = self.cmd_class()
+        self.call(self.instance, args, msg, caller=self.caller, **kwargs)
 
     # noinspection PyBroadException
     def call(self, cmdobj, args, msg=None, cmdset=None, noansi=True, caller=None, receiver=None, cmdstring=None,
@@ -223,31 +227,33 @@ class TestEquipmentMixins(object):
         AssetOwner.objects.create(organization_owner=self.org)
         self.org.members.create(player=self.dompc)
         self.mat1 = CraftingMaterialType.objects.create(name="Mat1", value=100)
-        self.recipe1 = CraftingRecipe.objects.create(name="Top 1 Slot",
+        self.recipe1 = CraftingRecipe.objects.create(name="Top 1 Slot", ability="tailor",
                                                      primary_amount=5, level=5,
                                                      result="slot:chest;slot_limit:1;baseval:1;penalty:2")
-        self.recipe2 = CraftingRecipe.objects.create(name="Top 2 Slot",
+        self.recipe2 = CraftingRecipe.objects.create(name="Top 2 Slot", ability="leatherworker",
                                                      primary_amount=6, level=6,
                                                      result="slot:chest;slot_limit:2")
-        self.recipe3 = CraftingRecipe.objects.create(name="Bag",
+        self.recipe3 = CraftingRecipe.objects.create(name="Bag", ability="leatherworker",
                                                      primary_amount=5, level=5,
                                                      result="slot:bag;slot_limit:2;baseval:40")
-        self.recipe4 = CraftingRecipe.objects.create(name="Small Weapon",
+        self.recipe4 = CraftingRecipe.objects.create(name="Small Weapon", ability="weaponsmith",
                                                      primary_amount=4, level=4,
                                                      result="baseval:1;weapon_skill:small wpn")
-        self.recipe5 = CraftingRecipe.objects.create(name="Hairpins",
+        self.recipe5 = CraftingRecipe.objects.create(name="Hairpins", ability="weaponsmith",
                                                      primary_amount=4, level=4,
                                                      result="slot:hair;slot_limit:2;baseval:4;")
-        self.recipe6 = CraftingRecipe.objects.create(name="Mask",
+        self.recipe6 = CraftingRecipe.objects.create(name="Mask", ability="apothecary",
                                                      primary_amount=4, level=4,
                                                      result="slot:face;slot_limit:1;fashion_mult:6")
-        self.recipe7 = CraftingRecipe.objects.create(name="Medium Weapon",
+        self.recipe7 = CraftingRecipe.objects.create(name="Medium Weapon", ability="weaponsmith",
                                                      primary_amount=4, level=4,
                                                      result="baseval:5")
-        recipes = (self.recipe1, self.recipe2, self.recipe3, self.recipe4, self.recipe5,
-                   self.recipe6, self.recipe7)
-        for recipe in recipes:
+        self.test_recipes = [self.recipe1, self.recipe2, self.recipe3, self.recipe4, self.recipe5,
+                             self.recipe6, self.recipe7]
+        for recipe in self.test_recipes:
             recipe.primary_materials.add(self.mat1)
+            recipe.locks.add("learn:all();teach:all()")
+            recipe.save()
         # Top1 is a wearable object with no recipe or crafter designated
         self.top1 = create.create_object(wearable_typeclass, key="Top1", location=self.room1, home=self.room1)
         self.top1.db.quality_level = 6
@@ -319,3 +325,55 @@ class TestEquipmentMixins(object):
         for item in worn:
             outfit.add_fashion_item(item=item)
         return outfit
+
+    def add_recipe_additional_costs(self, val):
+        """Adds additional_cost to recipes and saves them."""
+        for recipe in self.test_recipes:
+            recipe.additional_cost = val
+            recipe.save()
+
+    def match_recipe_locks_to_level(self):
+        """Replaces with locks appropriate to recipe difficulty."""
+        for recipe in self.test_recipes:
+            lvl = recipe.level
+            lockstr = "learn: ability(%s)" % lvl
+            if lvl < 6:
+                lockstr += ";teach: ability(%s)" % (lvl + 1)
+            recipe.locks.replace(lockstr)
+            recipe.save()
+
+
+class TestTicketMixins(object):
+    def setUp(self):
+        from web.helpdesk.models import Ticket, Queue
+        super(TestTicketMixins, self).setUp()
+        self.q_req = Queue.objects.create(slug="Request", title="Request for GM action")
+        self.q_bug = Queue.objects.create(slug="Bug", title="Bug reports/Technical issues")
+        self.q_typ = Queue.objects.create(slug="Typo", title="Typos")
+        self.q_cod = Queue.objects.create(slug="Code", title="Coding Requests/Wishlist")
+        self.q_prp = Queue.objects.create(slug="PRP", title="PRP Questions")
+        self.q_sto = Queue.objects.create(slug="Story", title="Story Actions")
+        pout = Ticket.objects.create
+        with patch('django.utils.timezone.now', Mock(return_value=self.fake_datetime)):
+            self.tix1 = pout(title="Bishi too easy", queue=self.q_bug, submitter_email="sly@vix.com",
+                             submitting_player=self.account2, submitting_room=self.room,
+                             description="Galvanion didn't last longer than three minutes. Wtf.")
+            self.tix2 = pout(title="Let me kill a bishi?", queue=self.q_req, submitter_email="sly@vix.com",
+                             submitting_player=self.account2, submitting_room=self.room,
+                             description="Somehow Darain is still alive, as a paladin. Can't let it slide.")
+            self.tix3 = pout(title="Sly Spareaven?", queue=self.q_typ, submitter_email="sly@vix.com",
+                             submitting_player=self.account2, submitting_room=self.room, priority=5,
+                             description="What's a Spareaven anyway? I am -the- sexiest Deraven.")
+            self.tix4 = pout(title="Command for licking paladins", queue=self.q_cod, submitter_email="sly@vix.com",
+                             submitting_player=self.account2, submitting_room=self.room, priority=4,
+                             description="Need a command to let me steal souls like Poison. /lick maybe?")
+            self.tix5 = pout(title="Bring Sexy Back", queue=self.q_prp, submitter_email="sly@vix.com",
+                             submitting_player=self.account2, submitting_room=self.room,
+                             description="Propose an event with so many shy bishis, and 0 Dark Princesses.")
+            self.tix6 = pout(title="Poison too hot", queue=self.q_bug, submitter_email="sly@vix.com",
+                             submitting_player=self.account2, submitting_room=self.room, priority=1,
+                             description="Let's make Poison an Iksar. Scaled for his pleasure?")
+            # this ticket's player is char1 instead:
+            self.tix7 = pout(title="3 Raccoons in a Trenchcoat", queue=self.q_sto, submitter_email="p@ison.com",
+                             submitting_player=self.account, submitting_room=self.room,
+                             description="Just when you thought you'd met the perfect girl.")

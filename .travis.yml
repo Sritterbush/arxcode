@@ -1,0 +1,13 @@
+language: python
+python:
+  - "2.7"
+install:
+  - git clone https://github.com/evennia/evennia.git
+  - cd evennia
+  - pip install -e .
+  - cd $TRAVIS_BUILD_DIR
+  - mkdir server/logs
+  - pip install -r requirements.txt
+script:
+  - evennia migrate --settings=travis_settings
+  - evennia test --settings=travis_settings .
