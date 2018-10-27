@@ -24,40 +24,6 @@ class WeatherEmit(SharedMemoryModel):
 
     intensity_min = models.PositiveSmallIntegerField('Min Intensity', default=1)
     intensity_max = models.PositiveSmallIntegerField('Max Intensity', default=10)
-    weight = models.PositiveIntegerField('Weight')
+    weight = models.PositiveIntegerField('Weight', default=10)
     text = models.TextField('Emit', blank=False, null=False)
     gm_notes = models.TextField('GM Notes', blank=True, null=True)
-
-
-def build_defaults():
-    """
-    This builds some very basic defaults so we at least have some weather.
-    """
-    clear_type = WeatherType(name='Clear')
-    storm_type = WeatherType(name='Stormy/Raining')
-    snow_type = WeatherType(name='Snowing')
-    fog_type = WeatherType(name='Fog')
-
-    WeatherType.objects.bulk_create([clear_type, storm_type, snow_type, fog_type])
-
-    emit1 = WeatherEmit(
-        weather=clear_type,
-        text="The sky is clear and cloudless, the sun shining brightly."
-    )
-
-    emit2 = WeatherEmit(
-        weather=storm_type,
-        text="Dark clouds cover the sky, thunder rumbling in the distance, as rain threatens to fall."
-    )
-
-    emit3 = WeatherEmit(
-        weather=snow_type,
-        text="Snow falls gently from the sky, gathering in white piles on the ground."
-    )
-
-    emit4 = WeatherEmit(
-        weather=fog_type,
-        text="Fog clings low to the ground, turning the world into dimly seen outlines."
-    )
-
-    WeatherEmit.objects.bulk_create([emit1, emit2, emit3, emit4])
