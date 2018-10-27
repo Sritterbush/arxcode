@@ -1,4 +1,7 @@
 import time
+
+from evennia.utils.create import create_script
+
 from .scripts import Script
 from server.conf import settings
 
@@ -129,7 +132,7 @@ class GameTime(Script):
         times.
         """
         global SERVER_RUNTIME
-        SERVER_RUNTIME = self.attributes.get("run_time")
+        SERVER_RUNTIME = self.attributes.get("run_time", 0.0)
         self._upgrade()
 
 
@@ -143,7 +146,7 @@ def get_script():
         script = ScriptDB.objects.get(db_key=GAMETIME_SCRIPT_NAME)
         return script
     except ScriptDB.DoesNotExist:
-        return None
+        return create_script(GameTime)
 
 
 # Legacy definitions
