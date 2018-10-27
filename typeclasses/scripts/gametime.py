@@ -244,6 +244,42 @@ def time_intervals():
     return script.intervals
 
 
+# Initialize our values only once.
+MONTHS_PER_YEAR = 12
+SEASONAL_BOUNDARIES = (3 / 12.0, 6 / 12.0, 9 / 12.0)
+HOURS_PER_DAY = 24
+DAY_BOUNDARIES = (0, 6 / 24.0, 12 / 24.0, 18 / 24.0)
+
+
+def get_time_and_season():
+    # get the current time as parts of year and parts of day
+    # returns a tuple (years,months,weeks,days,hours,minutes,sec)
+    current_time = gametime(format=True)
+    month, hour = current_time[1], current_time[4]
+    season = float(month) / MONTHS_PER_YEAR
+    timeslot = float(hour) / HOURS_PER_DAY
+
+    # figure out which slots these represent
+    if SEASONAL_BOUNDARIES[0] <= season < SEASONAL_BOUNDARIES[1]:
+        curr_season = "spring"
+    elif SEASONAL_BOUNDARIES[1] <= season < SEASONAL_BOUNDARIES[2]:
+        curr_season = "summer"
+    elif SEASONAL_BOUNDARIES[2] <= season < 1.0 + SEASONAL_BOUNDARIES[0]:
+        curr_season = "autumn"
+    else:
+        curr_season = "winter"
+
+    if DAY_BOUNDARIES[0] <= timeslot < DAY_BOUNDARIES[1]:
+        curr_timeslot = "night"
+    elif DAY_BOUNDARIES[1] <= timeslot < DAY_BOUNDARIES[2]:
+        curr_timeslot = "morning"
+    elif DAY_BOUNDARIES[2] <= timeslot < DAY_BOUNDARIES[3]:
+        curr_timeslot = "afternoon"
+    else:
+        curr_timeslot = "evening"
+    return curr_season, curr_timeslot
+
+
 def init_gametime():
     """
     This is called once, when the server starts for the very first time.
