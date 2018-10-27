@@ -1,6 +1,7 @@
 import time
 from .scripts import Script
 from server.conf import settings
+from evennia.server.models import ServerConfig
 
 SERVER_START = time.time()
 SERVER_RUNTIME = 0.0
@@ -29,9 +30,14 @@ class GameTime(Script):
         """
         Internal function to upgrade from the old gametime script
         """
+        from evennia.utils import logger
+        if not ServerConfig.objects.conf(key="run_time", default=None):
+            logger.log_info("Upgrading or configuring gametime as ServerConfig value...")
+            run_time = self.attributes.get("run_time", default=0.0)
+            ServerConfig.objects.conf(key="run_time", value=run_time)
         if not self.attributes.has("intervals"):
             # Convert from old script style
-            run_time = self.attributes.get("run_time", default=0.0)
+            run_time = ServerConfig.objects.conf("run_time", default=0.0)
             game_time = run_time * 2
             self.mark_time(runtime=run_time, gametime=game_time, multiplier=TIMEFACTOR)
 
@@ -108,8 +114,8 @@ class GameTime(Script):
         """
         Called every minute to update the timers.
         """
+        ServerConfig.objects.conf(key="run_time", value=self.runtime)
         self.attributes.add("run_time", self.runtime)
-        self.attributes.add("up_time", self.uptime)
         # Despite having checks elsewhere, apparently sometimes
         # the script can restart without ever calling at_start
         # or at_script_creation. So a final check here, just
@@ -129,8 +135,8 @@ class GameTime(Script):
         times.
         """
         global SERVER_RUNTIME
-        SERVER_RUNTIME = self.attributes.get("run_time")
         self._upgrade()
+        SERVER_RUNTIME = ServerConfig.objects.conf("run_time")
 
 
 def get_script():
