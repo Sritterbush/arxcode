@@ -1,4 +1,5 @@
 from evennia.server.models import ServerConfig
+from evennia import ScriptDB
 from server.utils.arx_utils import ArxCommand
 from . import utils
 from .models import WeatherType
@@ -16,7 +17,20 @@ class CmdAdminWeather(ArxCommand):
         @admin_weather/lock
         @admin_weather/unlock
         @admin_weather/set [custom weather emit]
+        @admin_weather/start
 
+        The first form of this command will show you current weather information.
+        The second will manually advance the weather, as though the weather pattern
+        timer had just run.
+        The third will pick an appropriate weather for the current weather patterns
+        and announce it to everyone.  This is useful if you've just set a custom
+        weather pattern, or reset back to normal.
+        The fourth and fifth will lock or unlock the weather system, preventing
+        changes from happening.
+        The sixth will set a custom weather pattern, for unusual GM'd weather events.
+        Remember to lock, or it'll go away when the weather changes again!
+        The seventh is used to restart the Weather system if, for some reason,
+        it hasn't been running.
     """
 
     key = "@admin_weather"
@@ -63,6 +77,17 @@ class CmdAdminWeather(ArxCommand):
             self.msg("Weather is now unlocked and will change again as normal.")
             return
 
+        if "start" in self.switches:
+            try:
+                weather = ScriptDB.objects.get(db_key='Weather Patterns')
+                if weather:
+                    self.msg("The weather system appears to already be running!")
+            except ScriptDB.DoesNotExist:
+                from . import weather_script
+                weather_script.init_weather()
+                self.msg("The weather system is now running.")
+            return
+
         current_weather = utils.get_weather_type()
         target_weather = utils.get_weather_target_type()
 
@@ -91,7 +116,7 @@ class CmdWeather(ArxCommand):
     Usage:
         weather
 
-    This will show you the current time and weather.
+    This will show you the current time and weather.  That's about it.
     """
     key = "weather"
     locks = "cmd:all()"
