@@ -236,6 +236,9 @@ def advance_weather():
     If we have met our target, pick a new one for the next run.
     :return: Current weather ID as an integer, current weather intensity as an integer
     """
+    if ServerConfig.objects.conf('weather_locked', default=False):
+        return get_weather_type(), get_weather_intensity()
+
     target_weather = ServerConfig.objects.conf('weather_type_target', default=None)
     target_intensity = ServerConfig.objects.conf('weather_intensity_target', default=None)
 
@@ -279,10 +282,39 @@ def advance_weather():
     return current_weather, current_intensity
 
 
-def announce_current_weather():
+def choose_current_weather():
+    """
+    Picks a new emit for the current weather conditions, and locks it in.
+    :return: The emit to use.
+    """
 
     weather_type = get_weather_type()
     weather_intensity = get_weather_intensity()
 
     emit = pick_emit(weather_type, intensity=weather_intensity)
-    SESSION_HANDLER.announce_all("|wWeather:|n {}".format(emit))
+    ServerConfig.objects.conf(key='weather_last_emit', value=emit)
+    return emit
+
+
+def get_last_emit():
+    """
+    Returns the last emit chosen by the weather system.
+    :return: The last emit chosen by the weather system.
+    """
+    return ServerConfig.objects.conf(key='weather_last_emit', default=None)
+
+
+def announce_weather(text=None):
+    """
+    Announces weather to everyone who cares about it.
+    :param text: The emit to show.
+    """
+    if not text:
+        return
+
+    for sess in SESSION_HANDLER.get_sessions():
+        account = sess.get_account()
+        if account:
+            ignore_weather = account.db.ignore_weather or False
+            if not ignore_weather:
+                sess.msg("|wWeather:|n {}".format(text))
