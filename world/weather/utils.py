@@ -83,7 +83,8 @@ def pick_emit(weathertype, season=None, time=None, intensity=None):
     emits = weather_emits(weathertype, season=season, time=time, intensity=intensity)
 
     if emits.count() == 0:
-        logger.log_err("Weather: Unable to find any matching emits.")
+        logger.log_err("Weather: Unable to find any matching emits for {} intensity {} on a {} {}."
+                       .format(weathertype.name, intensity, season, time))
         return None
 
     if emits.count() == 1:
