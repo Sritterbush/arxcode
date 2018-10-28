@@ -40,12 +40,3 @@ class WeatherEmit(SharedMemoryModel):
     weight = models.PositiveIntegerField('Weight', default=10)
     text = models.TextField('Emit', blank=False, null=False)
     gm_notes = models.TextField('GM Notes', blank=True, null=True)
-
-    def __repr__(self):
-        return self.weather + ": " + self.text
-
-    def __unicode__(self):
-        return self.weather + ": " + self.text
-
-    def __str__(self):
-        return self.weather + ": " + self.text
