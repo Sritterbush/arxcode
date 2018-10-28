@@ -44,8 +44,8 @@ def weather_emits(weathertype, season=None, time=None, intensity=5):
         qs = qs.filter(at_morning=True)
     elif time == 'afternoon':
         qs = qs.filter(at_afternoon=True)
-    elif time == 'night':
-        qs = qs.filter(at_night=True)
+    elif time == 'evening':
+        qs = qs.filter(at_evening=True)
 
     return qs
 
