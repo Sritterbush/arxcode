@@ -4,32 +4,39 @@ from server.utils.arx_utils import ArxCommand
 
 class PaxformCommand(ArxCommand):
 
-    form = None
+    form_class = None
 
     def __init__(self):
         super(ArxCommand, self).__init__()
+        self._form = None
         if not self.__doc__ or len(self.__doc__) == 0:
             self.__doc__ = self.__docstring
 
     @property
+    def form(self):
+        if not self._form:
+            self._form = self.form_class()
+        return self._form
+
+    @property
     def __docstring(self):
         cls = self.__class__
-        if cls.form is None or not isinstance(cls.form, Paxform):
+        if self.form is None or not isinstance(self.form, Paxform):
             return "Something has gone horribly wrong with this command, and we cannot generate a helpfile."
         result = "\n    "
-        result += cls.form.form_purpose or "A useful command."
+        result += self.form.form_purpose or "A useful command."
         result += "\n\n"
         result += "    Usage:\n"
         result += "      {}/create\n".format(cls.key)
-        for f in cls.form.fields:
+        for f in self.form.fields:
             result += "      {}/{} {}\n".format(cls.key, f.key, f.get_display_params())
         result += "      {}/cancel\n".format(cls.key)
         result += "      {}/submit\n".format(cls.key)
-        result += "{}".format(cls.form.form_description)
+        result += "{}".format(self.form.form_description)
         return result
 
     def at_pre_cmd(self):
-        form = self.__class__.form
+        form = self.form
         values = self.caller.attributes.get(form.key, default=None)
         form.deserialize(values)
 
@@ -37,18 +44,18 @@ class PaxformCommand(ArxCommand):
         if not key:
             raise ValueError
 
-        values = self.caller.attributes.get(form.key, default=None)
+        values = self.caller.attributes.get(self.form.key, default=None)
         if not value:
             del values[key]
         else:
             values[key] = value
-        self.caller.attributes.add(form.key, values)
+        self.caller.attributes.add(self.form.key, values)
 
     def get_extra_field(self, key, default=None):
         if not key:
             raise ValueError
 
-        values = self.caller.attributes.get(form.key, default=None)
+        values = self.caller.attributes.get(self.form.key, default=None)
         if key in values:
             return values[key]
         else:
@@ -58,7 +65,7 @@ class PaxformCommand(ArxCommand):
         pass
 
     def func(self):
-        form = self.__class__.form
+        form = self.form
         values = self.caller.attributes.get(form.key, default=None)
 
         if form is None or not isinstance(form, Paxform):
