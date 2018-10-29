@@ -6,6 +6,7 @@ class WeatherType(SharedMemoryModel):
 
     name = models.CharField('Weather Name', max_length=25)
     gm_notes = models.TextField('GM Notes', blank=True, null=True)
+    automated = models.BooleanField('Automated', help_text="Should this weather ever occur automatically?", default=True)
 
     def __repr__(self):
         return self.name
