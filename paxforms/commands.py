@@ -45,7 +45,7 @@ class PaxformCommand(ArxCommand):
     def set_extra_field(self, key, value):
         if not key:
             raise ValueError
-
+        form = self.form
         values = self.caller.attributes.get(form.key, default=None)
         if not value:
             del values[key]
@@ -57,7 +57,7 @@ class PaxformCommand(ArxCommand):
         if not key:
             raise ValueError
 
-        values = self.caller.attributes.get(form.key, default=None)
+        values = self.caller.attributes.get(self.form.key, default=None)
         if key in values:
             return values[key]
         else:
