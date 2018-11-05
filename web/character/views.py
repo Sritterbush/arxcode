@@ -530,23 +530,15 @@ def new_action_view(request, object_id, action_id):
         for assist in crisis_action.assisting_actions.all():
             if assist.dompc.player.char_ob.id == int(object_id):
                 found = True
+                editable = assist.editable
 
         if not found:
             raise Http404
+    else:
+        editable = crisis_action.editable
 
     if require_public and not crisis_action.public:
         raise Http404
-
-    if crisis_action.status == CrisisAction.DRAFT:
-        if request.user.char_ob == character():
-            editable = crisis_action.editable
-        else:
-            editable = False
-            for assist in crisis_action.assistants.all():
-                if assist.dompc == request.user.char_ob.dompc:
-                    editable = assist.editable
-    else:
-        editable = False
 
     context = {'page_title': str(crisis_action), 'action': crisis_action, 'object_id': object_id, 'editable': editable}
     return render(request, 'character/action_view.html', context)
@@ -655,7 +647,11 @@ def edit_action(request, object_id, action_id):
     form_errors = None
 
     if request.method == "POST":
-        form = ActionForm(request.user.char_ob, request.POST)
+        if real_action.main_action == real_action:
+            form = ActionForm(request.user.char_ob, request.POST)
+        else:
+            form = AssistForm(request.user.char_ob, request.POST)
+
         if not form.is_valid():
             raise Http404
 
