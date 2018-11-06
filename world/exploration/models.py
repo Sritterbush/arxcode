@@ -1,7 +1,77 @@
-from world.dominion.models import Land, MapLocation, PlotRoom, ShardhavenType
-from evennia.typeclasses.models import SharedMemoryModel
+from world.dominion.models import PlotRoom, Clue
+from evennia.utils.idmapper.models import SharedMemoryModel
+from evennia.utils import create
 from django.db import models
-from random import random
+from server.conf import settings
+from . import builder
+import random
+
+
+class ShardhavenType(SharedMemoryModel):
+    """
+    This model is to bind together Shardhavens and plotroom tilesets, as well as
+    eventually the types of monsters and treasures that one finds there.  This is
+    simply a model so we can easily add new types without having to update Choice
+    fields in Shardhaven, Plotroom, and others.
+    """
+    name = models.CharField(blank=False, null=False, max_length=32, db_index=True)
+    description = models.TextField(max_length=2048)
+
+    def __str__(self):
+        return self.name
+
+
+class Shardhaven(SharedMemoryModel):
+    """
+    This model represents an actual Shardhaven.  Right now, it's just meant to
+    be used for storing the Shardhavens we create so we can easily refer back to them
+    later.  Down the road, it will be used for the exploration system.
+    """
+    name = models.CharField(blank=False, null=False, max_length=78, db_index=True)
+    description = models.TextField(max_length=4096)
+    location = models.ForeignKey('dominion.MapLocation', related_name='shardhavens', blank=True, null=True)
+    haven_type = models.ForeignKey('ShardhavenType', related_name='havens', blank=False, null=False)
+    required_clue_value = models.IntegerField(default=0)
+    discovered_by = models.ManyToManyField('dominion.PlayerOrNpc', blank=True, related_name="discovered_shardhavens",
+                                           through="ShardhavenDiscovery")
+
+    def __str__(self):
+        return self.name or "Unnamed Shardhaven (#%d)" % self.id
+
+
+class ShardhavenDiscovery(SharedMemoryModel):
+    """
+    This model maps a player's discovery of a shardhaven
+    """
+    class Meta:
+        verbose_name_plural = "Shardhaven Discoveries"
+
+    TYPE_UNKNOWN = 0
+    TYPE_EXPLORATION = 1
+    TYPE_CLUES = 2
+    TYPE_STAFF = 3
+
+    CHOICES_TYPES = (
+        (TYPE_UNKNOWN, 'Unknown'),
+        (TYPE_EXPLORATION, 'Exploration'),
+        (TYPE_CLUES, 'Clues'),
+        (TYPE_STAFF, 'Staff Ex Machina')
+    )
+
+    player = models.ForeignKey('dominion.PlayerOrNpc', related_name='shardhaven_discoveries')
+    shardhaven = models.ForeignKey(Shardhaven, related_name='+')
+    discovered_on = models.DateTimeField(blank=True, null=True)
+    discovery_method = models.PositiveSmallIntegerField(choices=CHOICES_TYPES, default=TYPE_UNKNOWN)
+
+
+class ShardhavenClue(SharedMemoryModel):
+    """
+    This model shows clues that might be used for a shardhaven,
+    knowledge about it or hints that it exists.
+    """
+    shardhaven = models.ForeignKey(Shardhaven, related_name='related_clues')
+    clue = models.ForeignKey(Clue, related_name='related_shardhavens')
+    required = models.BooleanField(default=False)
 
 
 class ShardhavenLayoutExit(SharedMemoryModel):
@@ -11,7 +81,56 @@ class ShardhavenLayoutExit(SharedMemoryModel):
 
     layout = models.ForeignKey('ShardhavenLayout', related_name='exits')
 
+    room_west = models.ForeignKey('ShardhavenLayoutSquare', related_name='exit_east', null=True, blank=True)
+    room_east = models.ForeignKey('ShardhavenLayoutSquare', related_name='exit_west', null=True, blank=True)
+    room_north = models.ForeignKey('ShardhavenLayoutSquare', related_name='exit_south', null=True, blank=True)
+    room_south = models.ForeignKey('ShardhavenLayoutSquare', related_name='exit_north', null=True, blank=True)
+
     # TODO: Add optional ShardhavenEvent reference.
+
+    def __str__(self):
+        string = str(self.layout) + " Exit: "
+        if self.room_west is not None:
+            string += "(%d,%d)" % (self.room_west.x_coord, self.room_west.y_coord)
+        if self.room_east is not None:
+            string += "(%d,%d)" % (self.room_east.x_coord, self.room_east.y_coord)
+        if self.room_north is not None:
+            string += "(%d,%d)" % (self.room_north.x_coord, self.room_north.y_coord)
+        if self.room_south is not None:
+            string += "(%d,%d)" % (self.room_south.x_coord, self.room_south.y_coord)
+        return string
+
+    def __repr__(self):
+        return str(self)
+
+    def __unicode__(self):
+        return unicode(str(self))
+
+    def create_exits(self):
+        if self.room_south and self.room_south.room\
+                and self.room_north and self.room_north.room:
+            create.create_object(settings.BASE_EXIT_TYPECLASS,
+                                 key="North <N>",
+                                 location=self.room_south.room,
+                                 aliases=["north", "n"],
+                                 destination=self.room_north.room)
+            create.create_object(settings.BASE_EXIT_TYPECLASS,
+                                 key="South <S>",
+                                 location=self.room_north.room,
+                                 aliases=["south", "s"],
+                                 destination=self.room_south.room)
+        if self.room_east and self.room_east.room\
+                and self.room_west and self.room_west.room:
+            create.create_object(settings.BASE_EXIT_TYPECLASS,
+                                 key="East <E>",
+                                 location=self.room_west.room,
+                                 aliases=["east", "e"],
+                                 destination=self.room_east.room)
+            create.create_object(settings.BASE_EXIT_TYPECLASS,
+                                 key="West <W>",
+                                 location=self.room_east.room,
+                                 aliases=["west", "w"],
+                                 destination=self.room_west.room)
 
 
 class ShardhavenLayoutSquare(SharedMemoryModel):
@@ -25,194 +144,173 @@ class ShardhavenLayoutSquare(SharedMemoryModel):
 
     # We use '+' for the related name because Django will then not create a reverse relationship.
     # We don't need such, and it would just be excessive.
-    tile = models.ForeignKey(PlotRoom, related_name='+')
+    tile = models.ForeignKey('dominion.PlotRoom', related_name='+')
 
-    # Exits are stored on the exit class as the direction the room is relative to the exit.
-    room_north = models.ForeignKey(ShardhavenLayoutExit, related_name='exit_south')
-    room_east = models.ForeignKey(ShardhavenLayoutExit, related_name='exit_west')
-    room_south = models.ForeignKey(ShardhavenLayoutExit, related_name='exit_north')
-    room_west = models.ForeignKey(ShardhavenLayoutExit, related_name='exit_east')
+    room = models.OneToOneField('objects.ObjectDB', related_name='shardhaven_room', blank=True, null=True)
 
     # TODO: Add optional ShardhavenEvent reference
 
+    def __str__(self):
+        return "{} ({},{})".format(self.layout, self.x_coord, self.y_coord)
+
+    def __repr__(self):
+        return str(self)
+
+    def __unicode__(self):
+        return unicode(str(self))
+
+    def create_room(self):
+        if self.room:
+            return self.room
+
+        namestring = "|yOutside Arx - "
+        namestring += self.layout.haven.name + " - "
+        namestring += self.tile.name + "|n"
+
+        room = create.create_object(typeclass='typeclasses.rooms.ArxRoom',
+                                    key=namestring)
+        room.db.raw_desc = self.tile.description
+        room.db.desc = self.tile.description
+
+        self.room = room
+        return room
+
+    def destroy_room(self):
+        if self.room:
+            self.room.softdelete()
+            self.room = None
+            self.save()
+
 
 class ShardhavenLayout(SharedMemoryModel):
+
     width = models.PositiveSmallIntegerField(default=5)
     height = models.PositiveSmallIntegerField(default=4)
-    type = models.ForeignKey(ShardhavenType)
+    haven = models.ForeignKey(Shardhaven, related_name='layouts', null=True,
+                              blank=True)
+    haven_type = models.ForeignKey(ShardhavenType, related_name='+')
 
     entrance_x = models.PositiveSmallIntegerField(default=0)
     entrance_y = models.PositiveSmallIntegerField(default=0)
 
     matrix = None
 
-    def cache_room_matrix(self):
-        matrix = []
-        for r in range(0, width):
-            row = []
-            for c in range(0, height):
-                row.append(None)
-            matrix.append(row)
+    def __repr__(self):
+        return self.haven.name + " Layout"
 
-        for room in self.rooms:
-            matrix[room.x_coord][room.y_coord] = room
+    def __str__(self):
+        return self.__repr__()
+
+    def __unicode__(self):
+        return unicode(str(self))
+
+    def cache_room_matrix(self):
+        self.matrix = [[None for y in range(self.height)] for x in range(self.width)]
+
+        for room in self.rooms.all():
+            self.matrix[room.x_coord][room.y_coord] = room
 
     def save_rooms(self):
-        for room in self.rooms:
+        for room in self.rooms.all():
             room.save()
-        for room_exit in self.exits:
+        for room_exit in self.exits.all():
             room_exit.save()
 
-    def destroy_haven(self):
-        self.exits.delete()
-        self.rooms.delete()
+    def destroy_instanciation(self):
+        for room in self.rooms.all():
+            room.destroy_room()
 
-    def build_rooms(self):
-        """
-        This function is called when a new ShardhavenLayout is created; it will generate
-        a random shardhaven fitting in a grid of <width>x<height> squares.  If an existing
-        ShardhavenLayout exists for this Shardhaven, it will delete it first.
+    @property
+    def ascii(self):
+        self.cache_room_matrix()
+        string = ""
+        for y in range(self.height):
+            for x in range(self.width):
+                if x == self.entrance_x and y == self.entrance_y:
+                    string += "|w*|n"
+                elif self.matrix[x][y] is None:
+                    string += "|[B|B#|n"
+                else:
+                    string += " "
+            string += "|n\n"
 
-        :return:
-        """
+        return string
 
-        def connect_rooms(room1, room2):
-            delta_x = room1.x_coord - room2.x_coord
-            delta_y = room1.y_coord - room2.y_coord
+    def instanciate(self):
+        for room in self.rooms.all():
+            room.create_room()
+        for room_exit in self.exits.all():
+            room_exit.create_exits()
 
-            if (delta_x != 0) and (delta_y != 0):
-                return None
+        self.cache_room_matrix()
+        return self.matrix[self.entrance_x][self.entrance_y].room.id
 
-            new_exit = ShardhavenLayoutExit()
+    @classmethod
+    def new_haven(cls, haven, width=9, height=9):
+        if haven is None or not isinstance(haven, Shardhaven):
+            raise ValueError("Must provide a shardhaven!")
 
-            if delta_x == -1:
-                new_exit.room_east = room1
-                new_exit.room_west = room2
-            elif delta_x == 1:
-                new_exit.room_west = room1
-                new_exit.room_east = room2
-            elif delta_y == -1:
-                new_exit.room_south = room1
-                new_exit.room_north = room2
-            elif delta_y == 1:
-                new_exit.room_north = room1
-                new_exit.room_south = room2
-            else:
-                return None
+        maze = builder.Builder(x_dim=width, y_dim=height)
+        maze.build()
 
-            return new_exit
+        plotrooms = PlotRoom.objects.filter(shardhaven_type=haven.haven_type)
 
-        def valid_direction(room, x, y):
-            if (x < 0) or (x >= self.width):
-                return False
-            if (y < 0) or (y >= self.height):
-                return False
+        if plotrooms.count() == 0:
+            raise ValueError("No valid rooms for that shardhaven type!")
 
-            delta_x = room1.x_coord - x
-            delta_y = room1.y_coord - y
+        # Fetch all our plotrooms so we can pick them randomly
+        plotrooms = list(plotrooms)
 
-            if (delta_x != 0) and (delta_y != 0):
-                return False
+        layout = ShardhavenLayout(haven=haven, haven_type=haven.haven_type, width=width, height=height,
+                                  entrance_x=maze.x_start, entrance_y=maze.y_start)
+        layout.save()
 
-            if delta_x == -1:
-                return not room.exit_west
-            elif delta_x == 1:
-                return not room.exit_east
-            elif delta_y == -1:
-                return not room.exit_north
-            elif delta_y == 1:
-                return not room.exit_south
-            else:
-                return False
+        bulk_rooms = []
+        for x in range(width):
+            for y in range(height):
+                if not maze.grid[x][y].wall:
+                    room = ShardhavenLayoutSquare(layout=layout, tile=random.choice(plotrooms), x_coord=x, y_coord=y)
+                    bulk_rooms.append(room)
 
-        def walk_random(x, y):
-            new_x = x
-            new_y = y
+        ShardhavenLayoutSquare.objects.bulk_create(bulk_rooms)
+        layout.cache_room_matrix()
 
-            direction = random.randint(0,3)
-            if direction == 0:
-                new_x -= 1
-            elif direction == 1:
-                new_x += 1
-            elif direction == 2:
-                new_y -= 1
-            elif direction == 3:
-                new_y += 1
+        for x in range(width):
+            for y in range(height):
+                room = layout.matrix[x][y]
+                if room is not None:
+                    west = layout.matrix[x - 1][y]
+                    east = layout.matrix[x + 1][y]
+                    north = layout.matrix[x][y - 1]
+                    south = layout.matrix[x][y + 1]
 
-            return new_x, new_y
+                    # Why do our related-fields not populate properly?
+                    # Aaargh.
+                    if west and not ShardhavenLayoutExit.objects.filter(room_east=room).count():
+                        room_exit = ShardhavenLayoutExit(layout=layout)
+                        room_exit.room_east = room
+                        room_exit.room_west = west
+                        room_exit.save()
+                    if east and not ShardhavenLayoutExit.objects.filter(room_west=room).count():
+                        room_exit = ShardhavenLayoutExit(layout=layout)
+                        room_exit.room_east = east
+                        room_exit.room_west = room
+                        room_exit.save()
+                    if north and not ShardhavenLayoutExit.objects.filter(room_south=room).count():
+                        room_exit = ShardhavenLayoutExit(layout=layout)
+                        room_exit.room_north = north
+                        room_exit.room_south = room
+                        room_exit.save()
+                    if south and not ShardhavenLayoutExit.objects.filter(room_north=room).count():
+                        room_exit = ShardhavenLayoutExit(layout=layout)
+                        room_exit.room_north = room
+                        room_exit.room_south = south
+                        room_exit.save()
 
-        self.destroy_haven()
+        layout.save()
 
-        matrix = []
-        for r in range(0, width):
-            row = []
-            for c in range(0, height):
-                row.append(None)
-            matrix.append(row)
+        # TODO: Create exit events
 
-        # First let's cache our tiles
-        tiles = PlotRoom.objects.filter(shardhaven_type=type)
-        tile_count = tiles.count()
+        # TODO: Create room events
 
-        new_rooms = []
-        new_exits = []
-
-        # Pick a starting point
-        current_x = random.randint(0, self.width)
-        current_y = random.randint(0, self.height)
-
-        # Set the entrance
-        self.entrance_x = current_x
-        self.entrance_y = current_y
-
-        # Pick how many rooms we want to generate for this particular Shardhaven
-        # (i.e. how dense it should be within its grid).
-        min_rooms = (self.width * self.height) / 2
-        max_rooms = ((self.width * self.height) / 3) * 2
-        num_rooms = random.randint(min_rooms, max_rooms)
-
-        room = None
-        old_room = None
-        backed_up = False
-
-        for counter in range(0, num_rooms):
-            # Create the room if needed
-            if not room:
-                room = ShardhavenLayoutSquare()
-                room.x_coord = current_x
-                room.y_coord = current_y
-                room.tile = tiles[random.randint(0, tile_count)]
-                new_rooms.append(room)
-
-            # If there was an old room, make the exit from that room to this.
-            if old_room:
-                connected_exit = connect_rooms(old_room, room)
-                if connected_exit:
-                    new_exits.append(connected_exit)
-
-            # Pick a cardinal direction to move for our next room.
-            new_x = -1
-            new_y = -1
-
-            walk_room = room
-            counter = 0
-            while not valid_direction(walk_room, new_x, new_y):
-                new_x, new_y = walk_random(walk_room.x_coord, walk_room.y_coord)
-                if counter++ > 4:
-                    if not backed_up:
-                        # Abort and back up a room
-                        walk_room = old_room
-                        backed_up = True
-                    else:
-                        # Give up and call it done.
-                        continue
-
-            # Connect to whatever room we walked out of, and check if there's a room
-            # already there.
-            old_room = walk_room
-            room = matrix[new_x][new_y]
-
-        ShardhavenLayoutSquare.objects.bulk_create(new_rooms)
-        ShardhavenLayoutExit.objects.bulk_create(new_exits)
-
-
+        return layout
