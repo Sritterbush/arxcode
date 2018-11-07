@@ -101,7 +101,7 @@ LIFESTYLES = {
     5: (1500, 7000),
     6: (5000, 10000),
     }
-PRESTIGE_DECAY_AMOUNT = 0.2
+PRESTIGE_DECAY_AMOUNT = 0.35
 
 PAGEROOT = "http://play.arxgame.org"
 
