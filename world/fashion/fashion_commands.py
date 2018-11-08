@@ -261,8 +261,8 @@ class CmdFashionModel(ArxCommand):
         """Raises an error if we've modelled too recently"""
         week_ago = datetime.now() - timedelta(days=7)
         qs = self.caller.dompc.fashion_snapshots
-        if qs.filter(db_date_created__gte=week_ago).exists():
-            raise FashionError("You have shown off fashion too recently to attract public notice.")
+        if qs.filter(db_date_created__gte=week_ago).count() >= 3:
+            raise FashionError("You may only model up to three items a week before the public tires of you.")
         if org:
             two_weeks_ago = datetime.now() - timedelta(days=14)
             if qs.filter(db_date_created__gte=two_weeks_ago, org=org):

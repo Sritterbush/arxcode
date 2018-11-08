@@ -159,7 +159,7 @@ class FashionCommandTests(TestEquipmentMixins, ArxCommandTest):
             from datetime import timedelta
             mock_datetime.now = Mock(return_value=fake_dt)
             self.call_cmd("/outfit Friendliest=Orgtest",
-                          'You have shown off fashion too recently to attract public notice.')
+                          'You may only model up to three items a week before the public tires of you.')
             mock_datetime.now = Mock(return_value=fake_dt + timedelta(days=8))
             self.call_cmd("/outfit Friendliest=Orgtest",
                           'You have displayed fashion too recently for Orgtest to bring them more acclaim.')
