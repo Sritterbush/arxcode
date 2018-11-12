@@ -15,6 +15,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='shardhavenobstacle',
             name='haven_types',
-            field=models.ManyToManyField(blank=True, null=True, related_name='_shardhavenobstacle_haven_types_+', to='exploration.ShardhavenType'),
+            field=models.ManyToManyField(blank=True, related_name='_shardhavenobstacle_haven_types_+', to='exploration.ShardhavenType'),
         ),
     ]

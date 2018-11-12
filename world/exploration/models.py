@@ -1,4 +1,3 @@
-from world.dominion.models import PlotRoom, Clue
 from typeclasses.scripts.combat import combat_settings
 from world.stats_and_skills import do_dice_check
 from evennia.utils.idmapper.models import SharedMemoryModel
@@ -6,7 +5,6 @@ from evennia.utils import create
 from django.db import models
 from . import builder
 from server.utils.arx_utils import inform_staff
-from evennia.commands import command
 import random
 
 
@@ -73,7 +71,7 @@ class ShardhavenClue(SharedMemoryModel):
     knowledge about it or hints that it exists.
     """
     shardhaven = models.ForeignKey(Shardhaven, related_name='related_clues')
-    clue = models.ForeignKey(Clue, related_name='related_shardhavens')
+    clue = models.ForeignKey("character.Clue", related_name='related_shardhavens')
     required = models.BooleanField(default=False)
 
 
@@ -103,7 +101,7 @@ class ShardhavenObstacle(SharedMemoryModel):
         (ANYONE, "If anyone passes, that's enough"),
     )
 
-    haven_types = models.ManyToManyField(ShardhavenType, related_name='+', blank=True, null=True)
+    haven_types = models.ManyToManyField(ShardhavenType, related_name='+', blank=True)
     obstacle_type = models.PositiveSmallIntegerField(choices=OBSTACLE_TYPES)
     description = models.TextField(blank=False, null=False)
     clue = models.ForeignKey("character.Clue", blank=True, null=True)
@@ -212,7 +210,7 @@ class ShardhavenLayoutExit(SharedMemoryModel):
     room_south = models.ForeignKey('ShardhavenLayoutSquare', related_name='exit_north', null=True, blank=True)
 
     obstacle = models.ForeignKey(ShardhavenObstacle, related_name='+', null=True, blank=True)
-    passed_by = models.ManyToManyField('objects.ObjectDB', blank=True, null=True)
+    passed_by = models.ManyToManyField('objects.ObjectDB', blank=True)
 
     def __str__(self):
         string = str(self.layout) + " Exit: "
@@ -388,6 +386,7 @@ class ShardhavenLayout(SharedMemoryModel):
 
     @classmethod
     def new_haven(cls, haven, width=9, height=9):
+        from world.dominion.models import PlotRoom
         if haven is None or not isinstance(haven, Shardhaven):
             raise ValueError("Must provide a shardhaven!")
 

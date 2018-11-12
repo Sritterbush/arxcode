@@ -52,12 +52,12 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='shardhavenlayoutexit',
             name='passed_by',
-            field=models.ManyToManyField(blank=True, null=True, to='objects.ObjectDB'),
+            field=models.ManyToManyField(blank=True, to='objects.ObjectDB'),
         ),
         migrations.AddField(
             model_name='shardhavenobstacle',
             name='rolls',
-            field=models.ManyToManyField(blank=True, null=True, to='exploration.ShardhavenObstacleRoll'),
+            field=models.ManyToManyField(blank=True, to='exploration.ShardhavenObstacleRoll'),
         ),
         migrations.AddField(
             model_name='shardhavenlayoutexit',
