@@ -889,8 +889,8 @@ class CmdWho(ArxPlayerCommand):
                     # Get a sane client name to display.
                     client_name = session.protocol_flags.get('CLIENTNAME')
                     if not client_name:
-                        client_name = session.protocol_flags['TERM']
-                    if client_name.upper().endswith("-256COLOR"):
+                        client_name = session.protocol_flags.get('TERM')
+                    if client_name and client_name.upper().endswith("-256COLOR"):
                         client_name = client_name[:-9]
 
                 if client_name is None:
