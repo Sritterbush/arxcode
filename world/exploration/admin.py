@@ -135,7 +135,12 @@ class MonsterAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'difficulty')
     inlines = (MonsterDropInline,)
     filter_horizontal = ('habitats',)
-    readonly_fields = ('instances',)
+    exclude = ('instances',)
+
+
+class GeneratedLootFragmentAdmin(admin.ModelAdmin):
+    list_display = ('id', 'fragment_type', 'text')
+    list_filter = ('fragment_type',)
 
 
 admin.site.register(Shardhaven, ShardhavenAdmin)
@@ -147,3 +152,4 @@ admin.site.register(ShardhavenLayoutSquare, ShardhavenLayoutSquareAdmin)
 admin.site.register(ShardhavenLayoutExit, ShardhavenLayoutExitAdmin)
 admin.site.register(ShardhavenObstacle, ShardhavenObstacleAdmin)
 admin.site.register(Monster, MonsterAdmin)
+admin.site.register(GeneratedLootFragment, GeneratedLootFragmentAdmin)

@@ -1,7 +1,11 @@
 from server.utils.arx_utils import ArxCommand
 from . import builder
-from models import Shardhaven, ShardhavenLayout
+from .loot import LootGenerator
+from models import Shardhaven, ShardhavenLayout, GeneratedLootFragment
 from evennia.commands.cmdset import CmdSet
+from evennia.utils import create
+from server.conf import settings
+import random
 
 
 class CmdTestShardhavenBuild(ArxCommand):
@@ -60,8 +64,20 @@ class CmdTestShardhavenBuild(ArxCommand):
                 return
 
             self.msg("Instanciating " + str(layout))
-            room_id = layout.instanciate()
-            self.msg("The entrance is at #" + str(room_id))
+            room = layout.instanciate()
+
+            try:
+                from typeclasses.rooms import ArxRoom
+                city_center = ArxRoom.objects.get(id=13)
+                create.create_object(settings.BASE_EXIT_TYPECLASS,
+                                     key="Back to Arx <Arx>",
+                                     location=room,
+                                     aliases=["arx", "back to arx", "out"],
+                                     destination=city_center)
+            except ArxRoom.DoesNotExist:
+                pass
+
+            self.msg("The entrance is at #" + str(room.id))
             return
 
         if "destroy" in self.switches:
@@ -82,7 +98,116 @@ class CmdTestShardhavenBuild(ArxCommand):
         return
 
 
+class CmdTestLoot(ArxCommand):
+    """
+    This command tests the generated loot functionality.
+
+    Usage:
+        @gl_testbuild/weaponname [small||medium||huge]
+        @gl_testbuild/trinketname
+    """
+
+    key = "@gl_testbuild"
+    locks = "cmd:perm(Admins)"
+
+    def func(self):
+
+        if "weaponname" in self.switches:
+            weapon_materials = (
+                'steel',
+                'rubicund',
+                'diamondplate',
+                'alaricite'
+            )
+
+            size = GeneratedLootFragment.MEDIUM_WEAPON_TYPE
+
+            if self.args == "small":
+                size = GeneratedLootFragment.SMALL_WEAPON_TYPE
+            elif self.args == "huge":
+                size = GeneratedLootFragment.HUGE_WEAPON_TYPE
+            elif self.args == "bow":
+                size = GeneratedLootFragment.BOW_WEAPON_TYPE
+
+            material = random.choice(weapon_materials)
+            should_name = material in ['diamondplate', 'alaricite']
+
+            name = GeneratedLootFragment.generate_weapon_name(material, wpn_type=size, include_name=should_name)
+            self.msg("Generated a weapon: {}".format(name))
+            return
+
+        if "trinketname" in self.switches:
+
+            name = GeneratedLootFragment.generate_trinket_name()
+            self.msg("Generated a trinket: {}".format(name))
+            return
+
+        if "trinket" in self.switches:
+
+            try:
+                haven = Shardhaven.objects.get(pk=int(self.args))
+            except ValueError, Shardhaven.DoesNotExist:
+                self.msg("Something went horribly wrong.")
+                return
+
+            trinket = LootGenerator.create_trinket(haven)
+            trinket.location = self.caller.location
+            self.msg("Created %s" % trinket.name)
+            return
+
+        if "weapon" in self.switches:
+
+            weapon_types = (
+                LootGenerator.WPN_SMALL,
+                LootGenerator.WPN_MEDIUM,
+                LootGenerator.WPN_HUGE,
+                LootGenerator.WPN_BOW
+            )
+            weapon_type = random.choice(weapon_types)
+
+            try:
+                haven = Shardhaven.objects.get(pk=int(self.args))
+            except ValueError, Shardhaven.DoesNotExist:
+                self.msg("Something went horribly wrong.")
+                return
+
+            weapon = LootGenerator.create_weapon(haven, wpn_type=weapon_type)
+            weapon.location = self.caller.location
+            self.msg("Created %s" % weapon.name)
+            return
+
+        self.msg("Unknown option!")
+
+
 class CmdExplorationCmdSet(CmdSet):
 
     def at_cmdset_creation(self):
         self.add(CmdTestShardhavenBuild())
+        self.add(CmdTestLoot())
+
+
+class CmdExplorationHome(ArxCommand):
+    """
+    Sends you home.
+
+    Usage:
+        home
+
+    This command is unavailable while you're in a shardhaven!
+    """
+
+    key = "home"
+    locks = "cmd:all()"
+
+    def func(self):
+        self.caller.msg("|/|wYou are far from home, and do not know the way back!|n")
+        self.caller.msg("(You cannot use the 'home' command while in a shardhaven.)|/")
+
+
+class CmdExplorationRoomCommands(CmdSet):
+
+    # We want to override the CharacterCmdSet's 'home' command.
+    priority = 200
+
+    def at_cmdset_creation(self):
+        self.add(CmdExplorationHome)

@@ -87,6 +87,9 @@ class Monster(SharedMemoryModel):
         return result
 
     def handle_loot_drop(self, obj, location):
+        if location is None:
+            return
+
         values = {
             0: None
         }
@@ -120,6 +123,79 @@ class MonsterDrops(SharedMemoryModel):
     weight = models.PositiveSmallIntegerField(default=10, blank=False, null=False)
 
 
+class GeneratedLootFragment(SharedMemoryModel):
+
+    ADJECTIVE = 0
+    BAUBLE_MATERIAL = 1
+    BAUBLE_TYPE = 2
+    NAME_FIRST = 3
+    NAME_SECOND = 4
+    NAME_PRE = 5
+    SMALL_WEAPON_TYPE = 6
+    MEDIUM_WEAPON_TYPE = 7
+    HUGE_WEAPON_TYPE = 8
+    BOW_WEAPON_TYPE = 9
+    WEAPON_DECORATION = 10
+    WEAPON_ELEMENT = 11
+
+    FRAGMENT_TYPES = (
+        (ADJECTIVE, 'Adjective'),
+        (BAUBLE_MATERIAL, 'Bauble Material'),
+        (BAUBLE_TYPE, 'Type of Item'),
+        (NAME_FIRST, 'Name fragment (first)'),
+        (NAME_SECOND, 'Name fragment (second)'),
+        (NAME_PRE, 'Name fragment (prefix)'),
+        (SMALL_WEAPON_TYPE, 'Small Weapon Type'),
+        (MEDIUM_WEAPON_TYPE, 'Medium Weapon Type'),
+        (HUGE_WEAPON_TYPE, 'Huge Weapon Type'),
+        (BOW_WEAPON_TYPE, 'Archery Weapon Type'),
+        (WEAPON_DECORATION, 'Weapon Decoration'),
+        (WEAPON_ELEMENT, 'Weapon Element')
+    )
+
+    fragment_type = models.PositiveSmallIntegerField(choices=FRAGMENT_TYPES, default=0)
+    text = models.CharField(max_length=45)
+
+    @classmethod
+    def pick_random_fragment(cls, ftype):
+
+        results = cls.objects.filter(fragment_type=ftype)
+        return random.choice(results.all()).text
+
+    @classmethod
+    def generate_weapon_name(cls, material='rubicund', wpn_type=MEDIUM_WEAPON_TYPE, include_name=True):
+
+        result = ""
+
+        if include_name:
+            if random.randint(0,100) >= 97:
+                result += cls.pick_random_fragment(GeneratedLootFragment.NAME_PRE) + " "
+
+            name_first = cls.pick_random_fragment(GeneratedLootFragment.NAME_FIRST)
+            name_second = cls.pick_random_fragment(GeneratedLootFragment.NAME_SECOND)
+            wpn_name = "{}{}".format(name_first, name_second).capitalize()
+            result += wpn_name + ", "
+
+        result += 'an ancient {} '.format(material)
+
+        result += cls.pick_random_fragment(wpn_type)
+        return result
+
+    @classmethod
+    def generate_trinket_name(cls):
+
+        adjective = cls.pick_random_fragment(GeneratedLootFragment.ADJECTIVE)
+        if adjective[:1] in ["a", "e", "i", "o", "u"]:
+            result = "an {} ".format(adjective)
+        else:
+            result = "a {} ".format(adjective)
+
+        result += cls.pick_random_fragment(GeneratedLootFragment.BAUBLE_MATERIAL) + " "
+        result += cls.pick_random_fragment(GeneratedLootFragment.BAUBLE_TYPE)
+
+        return result
+
+
 class ShardhavenType(SharedMemoryModel):
     """
     This model is to bind together Shardhavens and plotroom tilesets, as well as
@@ -149,6 +225,8 @@ class Shardhaven(SharedMemoryModel):
     discovered_by = models.ManyToManyField('dominion.PlayerOrNpc', blank=True, related_name="discovered_shardhavens",
                                            through="ShardhavenDiscovery")
     difficulty_rating = models.PositiveSmallIntegerField(default=4)
+    taint_level = models.PositiveSmallIntegerField(default=1, help_text='How much abyssal taint does this shardhaven '
+                                                                        'have, on a scale of 1 to 10.')
 
     def __str__(self):
         return self.name or "Unnamed Shardhaven (#%d)" % self.id
@@ -193,6 +271,9 @@ class ShardhavenMoodFragment(SharedMemoryModel):
 
     shardhaven_type = models.ForeignKey(ShardhavenType, related_name='+')
     text = models.TextField(blank=False, null=False)
+    taint_level = models.PositiveSmallIntegerField(default=1, help_text='This mood fragment will only appear in '
+                                                                        'shardhavens with this much or more abyssal '
+                                                                        'taint.')
 
 
 class ShardhavenObstacle(SharedMemoryModel):
@@ -416,7 +497,10 @@ class ShardhavenLayoutSquare(SharedMemoryModel):
 
     room = models.OneToOneField('objects.ObjectDB', related_name='shardhaven_room', blank=True, null=True)
 
-    # TODO: Add optional ShardhavenEvent reference
+    name = models.CharField(blank=True, null=True, max_length=30,
+                            help_text='A name to use for this square instead of the tile name.')
+    description = models.TextField(blank=True, null=True, help_text='A description to use for this square instead of '
+                                                                    'the generated one.')
 
     def __str__(self):
         return "{} ({},{})".format(self.layout, self.x_coord, self.y_coord)
@@ -433,23 +517,30 @@ class ShardhavenLayoutSquare(SharedMemoryModel):
 
         namestring = "|yOutside Arx - "
         namestring += self.layout.haven.name + " - "
-        namestring += self.tile.name + "|n"
+        namestring += self.name or self.tile.name + "|n"
 
         room = create.create_object(typeclass='world.exploration.rooms.ShardhavenRoom',
                                     key=namestring)
         room.db.haven_id = self.layout.haven.id
 
-        final_description = self.tile.description
+        if self.description:
+            final_description = self.description
+        else:
+            final_description = self.tile.description
 
-        fragments = ShardhavenMoodFragment.objects.filter(shardhaven_type=self.layout.haven_type)
-        fragments = [fragment.text for fragment in fragments]
-        random.shuffle(fragments)
+            fragments = ShardhavenMoodFragment.objects.filter(shardhaven_type=self.layout.haven_type,
+                                                              taint_level__lte=self.layout.haven.taint_level)
+            fragments = [fragment.text for fragment in fragments]
+            random.shuffle(fragments)
 
-        while "{}" in final_description:
-            final_description = final_description.replace("{}", fragments.pop(), 1)
+            while "{}" in final_description:
+                final_description = final_description.replace("{}", fragments.pop(), 1)
 
         room.db.raw_desc = final_description
         room.db.desc = final_description
+
+        from commands import CmdExplorationRoomCommands
+        room.cmdset.add(CmdExplorationRoomCommands())
 
         self.room = room
         return room
@@ -522,7 +613,7 @@ class ShardhavenLayout(SharedMemoryModel):
             room_exit.create_exits()
 
         self.cache_room_matrix()
-        return self.matrix[self.entrance_x][self.entrance_y].room.id
+        return self.matrix[self.entrance_x][self.entrance_y].room
 
     @classmethod
     def new_haven(cls, haven, width=9, height=9):
@@ -556,6 +647,7 @@ class ShardhavenLayout(SharedMemoryModel):
         layout.cache_room_matrix()
 
         obstacles = ShardhavenObstacle.objects.filter(haven_types__pk=layout.haven_type.id).all()
+        target_difficulty = 30 + (min(layout.haven.difficulty_rating, 2) * 4)
 
         for x in range(width):
             for y in range(height):
@@ -573,7 +665,7 @@ class ShardhavenLayout(SharedMemoryModel):
                         room_exit.room_east = room
                         room_exit.room_west = west
 
-                        if random.randint(1,100) > 60:
+                        if random.randint(1,100) < target_difficulty:
                             obstacle = random.choice(obstacles)
                             room_exit.obstacle = obstacle
 
@@ -583,7 +675,7 @@ class ShardhavenLayout(SharedMemoryModel):
                         room_exit.room_east = east
                         room_exit.room_west = room
 
-                        if random.randint(1, 100) > 60:
+                        if random.randint(1, 100) < target_difficulty:
                             obstacle = random.choice(obstacles)
                             room_exit.obstacle = obstacle
 
@@ -593,7 +685,7 @@ class ShardhavenLayout(SharedMemoryModel):
                         room_exit.room_north = north
                         room_exit.room_south = room
 
-                        if random.randint(1, 100) > 60:
+                        if random.randint(1, 100) < target_difficulty:
                             obstacle = random.choice(obstacles)
                             room_exit.obstacle = obstacle
 
@@ -603,16 +695,12 @@ class ShardhavenLayout(SharedMemoryModel):
                         room_exit.room_north = room
                         room_exit.room_south = south
 
-                        if random.randint(1,100) > 60:
+                        if random.randint(1, 100) < target_difficulty:
                             obstacle = random.choice(obstacles)
                             room_exit.obstacle = obstacle
 
                         room_exit.save()
 
         layout.save()
-
-        # TODO: Create exit events
-
-        # TODO: Create room events
 
         return layout

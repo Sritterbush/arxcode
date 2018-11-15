@@ -688,14 +688,12 @@ class CraftingMixins(object):
             adorn_strs = ["%s %s" % (amt, mat.name) for mat, amt in adorns.items()]
             string += "\nAdornments: %s" % ", ".join(adorn_strs)
         # recipe is an integer matching the CraftingRecipe ID
-        recipe = self.recipe
-        if recipe:
-            string += "\nIt is a %s." % recipe.name
-            # quality_level is an integer, we'll get a name from crafter file's dict
+        if hasattr(self, 'type_description') and self.type_description:
+            string += "\nIt is a %s." % self.type_description
+        if self.db.quality_level:
             string += self.get_quality_appearance()
-        elif self.is_typeclass('world.magic.materials.MagicMaterial'):
-            string += "\nIt is an alchemical material."
-            string += self.get_quality_appearance()
+        if hasattr(self, 'origin_description') and self.origin_description:
+            string += self.origin_description
         if self.db.translation:
             string += "\nIt contains script in a foreign tongue."
         # signed_by is a crafter's character object
@@ -703,6 +701,19 @@ class CraftingMixins(object):
         if signed:
             string += "\n%s" % (signed.db.crafter_signature or "")
         return string
+
+    @property
+    def type_description(self):
+        if self.recipe:
+            return self.recipe.name
+
+        return None
+
+    @property
+    def origin_description(self):
+        if self.db.found_shardhaven:
+            return "\nIt was found in %s." % self.db.found_shardhaven
+        return None
 
     @property
     def quality_level(self):
