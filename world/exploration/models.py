@@ -156,6 +156,9 @@ class GeneratedLootFragment(SharedMemoryModel):
     fragment_type = models.PositiveSmallIntegerField(choices=FRAGMENT_TYPES, default=0)
     text = models.CharField(max_length=45)
 
+    class Meta:
+        unique_together = ('fragment_type', 'text')
+
     @classmethod
     def pick_random_fragment(cls, ftype):
 
