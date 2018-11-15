@@ -47,7 +47,7 @@ class ShardhavenTypeFilter(admin.SimpleListFilter):
         return self.finish_queryset_by_region(queryset, haven_type)
 
     # noinspection PyMethodMayBeStatic
-    def finish_queryset_by_region(self, queryset, region):
+    def finish_queryset_by_region(self, queryset, haven_type):
         """Finishes modifying the queryset. Overridden in subclasses"""
         return queryset.filter(haven_type=haven_type)
 
@@ -56,7 +56,7 @@ class ShardhavenLayoutTypeFilter(ShardhavenTypeFilter):
     """List filter for plot rooms, letting us see what regions they're in"""
 
     # noinspection PyMethodMayBeStatic
-    def finish_queryset_by_region(self, queryset, region):
+    def finish_queryset_by_region(self, queryset, haven_type):
         """Finishes modifying the queryset. Overridden in subclasses"""
         return queryset.filter(layout__haven_type=haven_type)
 
