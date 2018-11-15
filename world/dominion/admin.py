@@ -13,7 +13,7 @@ from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister
                      OrgEventParticipation, Fealty)
 
 from web.help_topics.templatetags.app_filters import mush_to_html
-from world.exploration.models import Shardhaven, ShardhavenClue
+from world.exploration.models import Shardhaven, ShardhavenType
 
 
 class DomAdmin(admin.ModelAdmin):
@@ -531,12 +531,47 @@ class RegionFilter(admin.SimpleListFilter):
         return queryset.filter(location__land__region=region)
 
 
+class ShardhavenTypeFilter(admin.SimpleListFilter):
+    """List filter for plot rooms, letting us see what regions they're in"""
+    title = "Shardhaven Type"
+    parameter_name = "shardhaven_type"
+
+    def lookups(self, request, model_admin):
+        """Get lookup names derived from Regions"""
+        haven_types = ShardhavenType.objects.all().order_by('name')
+        result = []
+        for haven_type in haven_types:
+            result.append((haven_type.id, haven_type.name))
+        return result
+
+    def queryset(self, request, queryset):
+        """Filter queryset by Region selection"""
+        if not self.value():
+            return queryset
+
+        try:
+            haven_id = int(self.value())
+            haven = ShardhavenType.objects.get(id=haven_id)
+        except (ValueError, ShardhavenType.DoesNotExist):
+            haven = None
+
+        if not haven:
+            return queryset
+
+        return self.finish_queryset_by_haventype(queryset, haven)
+
+    # noinspection PyMethodMayBeStatic
+    def finish_queryset_by_haventype(self, queryset, haven_type):
+        """Finishes modifying the queryset. Overridden in subclasses"""
+        return queryset.filter(shardhaven_type=haven_type)
+
+
 class PlotRoomAdmin(DomAdmin):
     """Admin for plotrooms, templates that can be used repeatedly for temprooms for events"""
     list_display = ('id', 'domain', 'location', 'name', 'public')
     search_files = ('name', 'description')
     raw_id_fields = ('creator', 'domain')
-    list_filter = ('public', RegionFilter)
+    list_filter = ('public', RegionFilter, ShardhavenTypeFilter)
 
 
 class DomainInline(admin.TabularInline):
