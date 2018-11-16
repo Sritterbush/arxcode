@@ -13,7 +13,7 @@ from server.utils import prettytable, helpdesk_api
 from web.helpdesk.models import Ticket, Queue
 
 from server.utils.arx_utils import inform_staff
-from server.utils.arx_utils import ArxPlayerCommand
+from commands.base import ArxPlayerCommand
 
 from evennia.objects.models import ObjectDB
 import traceback
@@ -203,7 +203,7 @@ class CmdJob(ArxPlayerCommand):
             if not self.rhs:
                 caller.msg("Usage: @job/close <#>=<GM Notes>")
                 return
-            if helpdesk_api.resolve_ticket(caller, ticket.id, self.rhs):
+            if helpdesk_api.resolve_ticket(caller, ticket, self.rhs):
                 caller.msg("Ticket #%s successfully closed." % ticket.id)
                 return
             else:
@@ -363,18 +363,18 @@ class CmdRequest(ArxPlayerCommand):
         args = self.rhs if self.rhs else self.args
         email = caller.email if caller.email != "dummy@dummy.com" else None
         if cmdstr == "bug":
-            queue = settings.BUG_QUEUE_ID
+            slug = settings.BUG_QUEUE_SLUG
         elif cmdstr == "typo":
             priority = 5
-            queue = Queue.objects.get(slug="Typo").id
+            slug = "Typo"
         elif cmdstr == "+featurerequest":
             priority = 4
-            queue = Queue.objects.get(slug="Code").id
+            slug = "Code"
         elif cmdstr == "+prprequest":
-            queue = Queue.objects.get(slug="PRP").id
+            slug = "PRP"
         else:
-            queue = settings.REQUEST_QUEUE_ID
-        new_ticket = helpdesk_api.create_ticket(caller, args, priority, queue=queue, send_email=email,
+            slug = settings.REQUEST_QUEUE_SLUG
+        new_ticket = helpdesk_api.create_ticket(caller, args, priority, queue_slug=slug, send_email=email,
                                                 optional_title=optional_title)
         if new_ticket:
             caller.msg("Thank you for submitting a request to the GM staff. Your ticket (#%s) "

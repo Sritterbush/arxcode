@@ -4,7 +4,7 @@ Admin commands
 
 """
 from django.conf import settings
-from django.db.models import Q
+from django.db.models import Q, Count, Subquery, OuterRef, IntegerField
 
 from evennia.server.sessionhandler import SESSIONS
 from evennia.utils import evtable
@@ -14,11 +14,12 @@ from evennia.server.models import ServerConfig
 from evennia.typeclasses.tags import Tag
 from evennia.scripts.models import ScriptDB
 
-from server.utils import prettytable
-from server.utils.arx_utils import inform_staff, broadcast, create_gemit_and_post, ArxCommand, ArxPlayerCommand
+from server.utils.arx_utils import inform_staff, broadcast, create_gemit_and_post, list_to_string
+from server.utils.prettytable import PrettyTable
 from server.utils.exceptions import CommandError
-from web.character.models import Clue
-from world.dominion.models import Organization, RPEvent, Propriety, AssetOwner
+from commands.base import ArxCommand, ArxPlayerCommand
+from web.character.models import Clue, SearchTag, Revelation, StoryEmit, Flashback, CluePlotInvolvement
+from world.dominion.models import Organization, RPEvent, Propriety, AssetOwner, Plot, PlotAction
 from typeclasses.characters import Character
 
 PERMISSION_HIERARCHY = [p.lower() for p in settings.PERMISSION_HIERARCHY]
@@ -378,15 +379,10 @@ class CmdSendVision(ArxPlayerCommand):
     @sendvision
 
     Usage:
-        @sendvision
-        @sendvision/global <what they see>
-        @sendvision <character>
-        @sendvision <character>=<What they see>
+        @sendvision <character>=<vision name>/<What they see>
         @sendclue <character>,<character2, etc>=<clue ID>/<message>
 
-    With no args, list characters who have have the visions tag, or display
-    all visions for a given character. Otherwise, send a vision with the
-    appropriate text to a given character.
+    Send a vision with the appropriate text to a given character.
     """
     key = "sendvision"
     aliases = ["sendvisions", "sendclue"]
@@ -395,32 +391,23 @@ class CmdSendVision(ArxPlayerCommand):
 
     def func(self):
         """Implements command"""
-        args = self.args
         caller = self.caller
-        if not args:
-            visionaries = ObjectDB.objects.filter(db_tags__db_key__iexact="visions")
-            table = prettytable.PrettyTable(["{wName{n", "{wNumber of Visions{n"])
-            for char in visionaries:
-                table.add_row([char.key, len(char.messages.visions)])
-            caller.msg("{wCharacters who have the 'visions' @tag:{n")
-            caller.msg(str(table))
+        targlist = [caller.search(arg) for arg in self.lhslist if caller.search(arg)]
+        try:
+            rhs = self.rhs.split("/")
+        except (TypeError, ValueError):
+            self.msg("Provide a a name/ID and msg.")
             return
-        if "global" in self.switches:
-            targlist = AccountDB.objects.filter(roster__roster__name="Active")
-            rhs = self.args
-        else:
-            targlist = [caller.search(arg) for arg in self.lhslist if caller.search(arg)]
-            rhs = self.rhs
         if not targlist:
             return
+        name = rhs[0]
+        try:
+            msg = rhs[1]
+        except IndexError:
+            msg = ""
         if "sendclue" in self.cmdstring:
             try:
-                rhs = self.rhs.split("/")
-                clue = Clue.objects.get(id=rhs[0])
-                if len(rhs) > 1:
-                    msg = rhs[1]
-                else:
-                    msg = ""
+                clue = Clue.objects.get(id=name)
             except Clue.DoesNotExist:
                 self.msg("No clue found by that ID.")
                 return
@@ -429,10 +416,7 @@ class CmdSendVision(ArxPlayerCommand):
                 return
             for targ in targlist:
                 try:
-                    disco = targ.roster.discover_clue(clue)
-                    if msg:
-                        disco.message = msg
-                        disco.save()
+                    targ.roster.discover_clue(clue, message=msg)
                     targ.inform("A new clue has been sent to you. Use @clues to view it.", category="Clue Discovery")
                 except AttributeError:
                     continue
@@ -444,19 +428,12 @@ class CmdSendVision(ArxPlayerCommand):
             if not char:
                 caller.msg("No valid character for %s." % targ)
                 continue
-            visions = char.messages.visions
-            if not rhs:
-                table = evtable.EvTable("{wVisions{n", width=78)
-                for vision in visions:
-                    table.add_row(char.messages.disp_entry(vision))
-                caller.msg(str(table))
-                return
             # use the same vision object for all of them once it's created
-            vision_object = char.messages.add_vision(rhs, caller, vision_object)
-            msg = "{rYou have experienced a vision!{n\n%s" % rhs
-            targ.send_or_queue_msg(msg)
+            vision_object = char.messages.add_vision(msg, caller, name, vision_object)
+            header = "{rYou have experienced a vision!{n\n%s" % msg
+            targ.send_or_queue_msg(header)
             targ.inform("Your character has experienced a vision. Use @sheet/visions to view it.", category="Vision")
-        caller.msg("Vision added to %s: %s" % (", ".join(str(ob) for ob in targlist), rhs))
+        caller.msg("Vision added to %s: %s" % (", ".join(str(ob) for ob in targlist), msg))
         return
 
 
@@ -538,8 +515,8 @@ class CmdCcolor(ArxPlayerCommand):
         if not self.lhs or not self.rhs:
             self.msg("Usage: @ccolor <channelname>=<color code>")
             return
-        from evennia.commands.default.comms import find_channel
-        channel = find_channel(caller, self.lhs)
+        from evennia.commands.default import comms
+        channel = comms.find_channel(caller, self.lhs)
         if not channel:
             self.msg("Could not find channel %s." % self.args)
             return
@@ -970,113 +947,332 @@ class CmdGMEvent(ArxCommand):
 
 class CmdGMNotes(ArxPlayerCommand):
     """
-    Adds or views notes about a character
-
-    Usage:
-        @gmnotes
-        @gmnotes/search <tagtype>
-        @gmnotes/tag <character>=<type>
-        @gmnotes/rmtag <character>=<type>
-        @gmnotes/set <character>=<notes>
+    Create tags, add notes or secrets. Allows searching for keywords.
+    Tags:
+        @gmnotes/create <tag name>
+        @gmnotes/delete <tag name>
+        @gmnotes/tag/<classtype>[/remove] <name or #ID>=<tag name>
+    View Usage:
+        @gmnotes [<tag name>]
+        @gmnotes/plot[/old] [<plot name or #ID>]
+        @gmnotes/rev [<revelation name or #ID>]
+        @gmnotes/char <tag name>
+    Secrets & Clues:
+        @gmnotes/secret <char>,<revelation name or #>=<IC message>[/<GMnote>]
+        @gmnotes/quick <simple topic>[=<gmnote for placeholder clue>]
+    Plot Hooks:
+        @gmnotes/hook <secret #ID>,<plot #ID>[=<gm notes>]
         @gmnotes/no_gming
-        @gmnotes/search/all
-        @gmnotes/deltag <tagtype>
+
+    Classtypes: clue, revelation, plot, action, gemit, RPevent, flashback,
+    or objectdb (which is any in-game object, e.g. a sword, character)
+    This switch used with the /tag switch chooses what kind of thing you are
+    adding/removing a tag on. Exclude spaces: "/rpevent" not "/rp event".
+
+    Without args, the base command and plot/revelation switches will show
+    tables of tags, plots, or revelations respectively. Given an arg, /rev
+    shows a table of clues comprising that revelation. Its 'about' column is
+    clue type - Lore, Vision, or a character's name for Secret. Similarly,
+    /plot with an arg lists associated revelations/clues & their gmnotes.
+    Specify a tag with the /char switch to list characters whose secrets use
+    that tag.
+
+    A secret is created & tied to a revelation with the /secret switch. This
+    secret is auto-discovered by the character. The /quick switch creates a
+    clue that's prefixed with "PLACEHOLDER" for future editing.
+
+    A list of characters needing secrets is shown with the /no_gming switch.
+    Connect secrets to plots with /hook, which lets characters see recruiter
+    messages to plan their RP approach to a plot.
     """
     key = "@gmnotes"
     aliases = ["@gmnote"]
     locks = "cmd: perm(builders)"
     help_category = "GMing"
-
-    @property
-    def tags(self):
-        """Gets queryset of gmnotes, which are Tags"""
-        return Tag.objects.filter(db_category="gmnotes")
-
-    def list_all_tags(self):
-        """Displays table of all tags"""
-        from evennia.utils.evtable import EvTable
-        from evennia.utils.utils import crop
-        from server.utils import arx_more
-        if not self.args and not self.switches:
-            self.msg("|wTypes of Search Tags:|n %s" % ", ".join(set(ob.db_key for ob in self.tags)))
-            return
-        table = EvTable("{wCharacter{n", "{wType{n", "{wDesc{n", width=78, border="cells")
-        chars = Character.objects.filter(db_tags__in=self.tags).distinct()
-        if "all" not in self.switches:
-            chars = chars.filter(roster__roster__name="Active")
-        if self.args:
-            chars = chars.filter(db_tags__db_key__icontains=self.args).distinct()
-        for character in chars:
-            desc = character.db.gm_notes or ""
-            desc = crop(desc, width=40)
-            table.add_row(character.key, str(character.tags.get(category="gmnotes")), desc)
-        arx_more.msg(self.caller, str(table), justify_kwargs=False)
-
-    def list_no_gming(self):
-        """Displays list of Characters who haven't had a vision or been on a GM event"""
-        from datetime import datetime, timedelta
-        date = datetime.now() - timedelta(days=7)
-        chars = Character.objects.filter(roster__player__last_login__gte=date, roster__roster__name="Active").exclude(
-            receiver_object_set__db_tags__db_key__iexact="visions").exclude(
-            roster__player__Dominion__events_attended__gm_event=True).exclude(
-            roster__current_account__characters__player__is_staff=True).order_by('db_key')
-        msg = "{wCharacters who have never received a vision, nor attended a GM event,"
-        msg += " that have logged in the last seven days:{n %s" % ", ".join(ob.key for ob in chars)
-        self.msg(msg)
-
-    def view_char(self):
-        """Views a character's GM notes"""
-        try:
-            char = Character.objects.get(db_key__iexact=self.lhs)
-        except Character.DoesNotExist:
-            self.list_all_tags()
-            return
-        self.msg("{wNotes for {c%s{n" % char)
-        self.msg(char.db.gm_notes)
+    taggables = ("clue", "revelation", "crisis", "action", "gemit", "rpevent", "flashback",
+                 "clues", "revelations", "crises", "actions", "gemits", "storyemit", "storyemits", "rpevents",
+                 "rpe", "flashbacks", "plot", "plots", "objectdb")
 
     def func(self):
-        """Executes gmnotes command"""
-        if "no_gming" in self.switches:
-            self.list_no_gming()
+        """Executes the GMNotes command"""
+        try:
+            if not self.switches:
+                self.view_tag()
+            elif "tag" in self.switches:
+                self.tag_object()
+            elif "create" in self.switches:
+                self.create_tag()
+            elif "delete" in self.switches:
+                self.delete_tag()
+            elif "hook" in self.switches:
+                self.hook_secret_to_plot()
+            elif "no_gming" in self.switches:
+                self.list_needy_characters()
+            elif self.check_switches(("character", "characters", "char", "chars")):
+                self.list_tagged_characters()
+            elif self.check_switches(("revelation", "revelations", "rev", "revs")):
+                self.view_revelation_tables()
+            elif self.check_switches(("plot", "plots")):
+                self.view_plot_connections()
+            elif self.check_switches(("quick", "quickie", "note")):
+                self.write_clue_quick()
+            elif self.check_switches(("addsec", "addsecret", "secret")):
+                self.write_clue_secret()
+        except CommandError as err:
+            self.msg(err)
+
+    def get_tag(self, tag_text=None):
+        """Searches for a tag."""
+        if not tag_text:
+            raise CommandError("What tag are we searching with?")
+        return self.get_by_name_or_id(SearchTag, tag_text)
+
+    def get_taggable_thing(self, thing_text, thing_class):
+        """Discerns the class, then finds/returns an object in that class."""
+        field_name = "name"
+        thing_class = thing_class.lower()
+        if thing_class in ("clue", "clues", "secret", "secrets"):
+            class_type = Clue
+        elif thing_class in ("revelation", "revelations"):
+            class_type = Revelation
+        elif thing_class in ("crisis", "crises", "plot", "plots"):
+            class_type = Plot
+        elif thing_class in ("action", "actions"):
+            class_type = PlotAction
+        elif thing_class in ("gemit", "gemits", "storyemit", "storyemits"):
+            class_type = StoryEmit
+            if not thing_text.isdigit():
+                raise CommandError("Can only look up a gemit by its ID#.")
+        elif thing_class in ("rpevent", "rpevents", "rpe", "rp event"):
+            class_type = RPEvent
+        elif thing_class in ("flashback", "flashbacks"):
+            class_type = Flashback
+            field_name = "title"
+        elif thing_class in ("objectdb", "object", "obj"):
+            class_type = ObjectDB
+            field_name = "db_key"
+        else:
+            raise ValueError("Unsupported option in get_taggable_thing selected.")
+        return self.get_by_name_or_id(class_type, thing_text, field_name=field_name)
+
+    def view_tag(self):
+        """Shows tagged things if args, else displays all tags."""
+        if not self.args:
+            return self.list_all_tags()
+        tag = self.get_tag(self.args)
+        tag_display = tag.display_tagged_objects()
+        if not tag_display:
+            raise CommandError("The '%s' tag is not attached to anything." % tag)
+        self.msg(tag_display)
+
+    def list_all_tags(self):
+        """Displays all tags."""
+        all_tags = SearchTag.objects.values_list('id', 'name')
+        # yo dawg I heard you like tags so I put some tags in your tags
+        msg = "ALL OF THE TAGS: "
+        msg += list_to_string(["%s (#%s)" % (ob[1], ob[0]) for ob in all_tags])
+        self.msg(msg)
+
+    def create_tag(self):
+        """Creates a new tag with args as its name."""
+        others = SearchTag.objects.filter(name__iexact=self.args)
+        if others:
+            raise CommandError("Cannot create; tag already exists: %s (tag #%s)" % (others[0], others[0].id))
+        SearchTag.objects.create(name=self.args)
+        self.msg("Tag created for '%s'!" % self.args)
+
+    def list_needy_characters(self):
+        """Lists characters yet to benefit from GM attention."""
+        chars = Character.objects.filter(roster__roster__name="Active")
+        neediest = chars.filter(clues__isnull=True).distinct()
+        chars = chars.difference(neediest)
+        needier = chars.exclude(Q(clues__plots__isnull=True) | Q(clues__plots__resolved=False)).distinct()
+        msg = ""
+        if neediest:
+            msg += "Characters without secrets: {}\n".format(list_to_string([ob.key for ob in neediest]))
+        if needier:
+            msg += "Characters with secrets not connected to active plots: {}".format(
+                list_to_string([ob.key for ob in needier]))
+        elif not any((neediest, needier)):
+            msg = "Thank you, hero! But our characters in need of secrets are in another castle."
+        self.msg(msg)
+
+    def list_tagged_characters(self):
+        """
+        Lists the characters who have secrets about them with the args-given tag.
+        """
+        tag = self.get_tag(self.args)
+        chars = Character.objects.filter(clues__search_tags=tag).distinct()
+        if not chars:
+            raise CommandError("No character secrets have the '%s' tag." % tag)
+        msg = "Characters with a '%s' secret: " % tag
+        msg += list_to_string([ob.key for ob in chars])
+        self.msg(msg)
+
+    def tag_object(self):
+        """
+        Uses switches to decide which class of object to look for, then tags
+        (or removes tag from) an object of that class.
+        """
+        if len(self.switches) < 2 or not self.lhs or not self.rhs or not self.check_switches(self.taggables):
+            usage = "Usage: @gmnotes/tag/<class type> <ID or name>=<tag name>\n"
+            usage += "Class types: clue, revelation, plot, action, gemit, rpevent, flashback, objectdb."
+            raise CommandError(usage)
+        tag = self.get_tag(self.rhs)
+        # don't like that thing. No sir.
+        thing = self.get_taggable_thing(self.lhs, self.switches[1])
+        if len(self.switches) > 2 and self.switches[2] in ("rem", "remove"):
+            thing.search_tags.remove(tag)
+            msg = "Removed"
+        else:
+            thing.search_tags.add(tag)
+            msg = "Added"
+        msg += " the '%s' tag on %s: %s." % (self.rhs, self.switches[1], self.lhs)
+        self.msg(msg)
+
+    def delete_tag(self):
+        """Will request confirmation before deleting a populated tag."""
+        tag = self.get_tag(self.args)
+        tag_display = tag.display_tagged_objects()
+        confirm_msg = tag_display + "\n|yRepeat command to delete the '%s' tag anyway.|n" % tag
+        if tag_display and not self.caller.confirmation("delete_tag", tag, confirm_msg):
             return
-        if "deltag" in self.switches:
-            try:
-                tag = self.tags.get(db_key__iexact=self.args)
-            except (Tag.DoesNotExist, ValueError):
-                self.msg("No tag by that name.")
-            else:
-                affected_characters = tag.objectdb_set.all()
-                if affected_characters:
-                    self.msg("Characters who have lost that tag: %s" % ", ".join(ob.key for ob in affected_characters))
-                tag.delete()
-                self.msg("Tag deleted.")
-            return
-        if not self.args or "search" in self.switches:
-            self.list_all_tags()
-            return
-        if not self.switches and not self.rhs:
-            self.view_char()
-            return
-        player = self.caller.search(self.lhs)
-        if not player:
-            return
-        character = player.db.char_ob
-        if "tag" in self.switches:
-            character.tags.add(self.rhs, category="gmnotes")
-            self.msg("%s tagged with %s" % (character, self.rhs))
-            return
-        if "rmtag" in self.switches:
-            character.tags.remove(self.rhs, category="gmnotes")
-            self.msg("Removed %s from %s" % (self.rhs, character))
-            return
-        if "set" in self.switches:
-            old = character.db.gm_notes
-            if old:
-                self.msg("{wOld gm notes were:{n\n%s" % old)
-            character.db.gm_notes = self.rhs
-            self.msg("{wNew gm notes are:{n\n%s" % self.rhs)
-            return
-        self.msg("invalid switch")
+        else:
+            delete_msg = "Deleting the '%s' tag. Poof." % tag
+            self.msg(delete_msg)
+            tag.delete()
+
+    def view_revelation_tables(self):
+        """Table of all revelations, or clues comprising a specified revelation."""
+        def get_gmnote(thing):
+            gm_notes = thing.gm_notes or ""
+            if gm_notes and len(gm_notes) > 20:
+                gm_notes = "%s..." % gm_notes[:20]
+            return gm_notes
+
+        if self.args:
+            rev = self.get_taggable_thing(self.args, "revelation")
+            table = PrettyTable(["|w%s|n" % rev, "About", "Disco", "GM Notes"])
+            clues = rev.clues.annotate(disco=Count('discoveries', distinct=True)).order_by('clue_type')
+            if not clues:
+                raise CommandError("No clues exist for %s." % rev)
+            for clue in clues:
+                gmnote = get_gmnote(clue)
+                if clue.clue_type == Clue.CHARACTER_SECRET:
+                    clue_type = clue.tangible_object.key if clue.tangible_object else "secret"
+                elif clue.clue_type == Clue.VISION:
+                    clue_type = "vision"
+                else:
+                    clue_type = "lore"
+                table.add_row([clue.name, clue_type, clue.disco, gmnote])
+        else:
+            secrets = Subquery(Clue.objects.filter(clue_type=Clue.CHARACTER_SECRET, revelations=OuterRef('id'))
+                                           .values('revelations')
+                                           .annotate(cnt=Count('id'))
+                                           .values('cnt'), output_field=IntegerField())
+            revs = (Revelation.objects.annotate(clue_total=Count('clues_used', distinct=True))
+                                      .annotate(secret_total=secrets))
+            table = PrettyTable(["{w#{n", "{wRevelation{n", "{wClu{n", "{wSecrt{n", "{wGM Notes{n"])
+            for r in revs:
+                gmnote = get_gmnote(r)
+                table.add_row([r.id, r.name, r.clue_total, r.secret_total, gmnote])
+        self.msg(str(table))
+
+    def view_plot_connections(self):
+        """
+        Lists Revelations and/or Clues tied to plot, with their gmnotes.
+        Without args, a table of plots is summoned from the abyss instead.
+        """
+        if self.args:
+            plot = self.get_taggable_thing(self.args, "plot")
+            rev_involvements = plot.revelation_involvement.all()
+            clue_involvements = plot.clue_involvement.all().order_by('-access')
+            title = " tied to %s|w:|n" % plot
+            msg = ""
+            if rev_involvements:
+                msg += "|wREVELATIONS%s\n" % title
+                msg += "\n".join(["|w[%s|w]|n %s" % (ob.revelation, ob.gm_notes) for ob in rev_involvements])
+                msg += "\n"
+            if clue_involvements:
+                gr_col, bl_col = "|g", "|035"
+
+                def get_details(involvement):
+                    if involvement.access == involvement.GRANTED:
+                        color = gr_col
+                    elif involvement.access == involvement.HOOKED:
+                        color = bl_col
+                    else:
+                        color = "|w"
+                    return "%s[%s%s]|n (#%s) %s" % (color, involvement.clue, color, involvement.clue.id,
+                                                    involvement.gm_notes)
+
+                msg += "|wCLUES%s " % title
+                msg += "(%sGrants access|n, %sProvides hook|n, |wNeutral|n)\n" % (gr_col, bl_col)
+                msg += "\n".join([get_details(ob) for ob in clue_involvements])
+            self.msg(msg)
+        else:
+            old = "old" in self.switches
+            self.msg(str(Plot.objects.view_plots_table(old=old)))
+
+    def write_clue_quick(self):
+        """Creates clue with title prefixed by "PLACEHOLDER" so you know for sure."""
+        if not self.args:
+            self.CommandError("Please include at least one word for your Placeholder clue.")
+        author = self.caller.roster
+        name = "PLACEHOLDER by %s: %s" % (author, self.lhs)
+        gm_notes = self.rhs if self.rhs else ""
+        clue = Clue.objects.create(name=name, gm_notes=gm_notes, author=author)
+        msg = "Created placeholder for '%s' (clue #%s)." % (self.lhs, clue.id)
+        if gm_notes:
+            msg += " GM Notes: %s" % gm_notes
+        self.msg(msg)
+
+    def write_clue_secret(self):
+        """
+        Creates clue designated as a secret, and assigns the character to be its
+        tangible object. Character is auto-granted discovery of this clue.
+        """
+        if not len(self.lhslist) == 2 or not self.rhs:
+            raise CommandError("Usage: <character>,<revelation name or #>=<IC message>/<GMnote>")
+        character = self.character_search(self.lhslist[0])
+        revelation = self.get_taggable_thing(self.lhslist[1], "revelation")
+        rhslist = self.rhs.split("/")
+        gm_notes = rhslist[1] if rhslist[1] else ""
+        desc = rhslist[0]
+        num_secrets = character.clues.filter(clue_type=Clue.CHARACTER_SECRET).count()
+        name = "Secret #%s of %s" % (num_secrets + 1, character.db_key)
+        cloo = Clue.objects.create(name=name, tangible_object=character, author=self.caller.roster, desc=desc,
+                                   gm_notes=gm_notes, clue_type=Clue.CHARACTER_SECRET)
+        cloo.usage.create(revelation=revelation, required_for_revelation=False, tier=99)
+        character.roster.discover_clue(cloo, method="GM granted", message="%s has a secret!" % character.db_key)
+        msg = "|w[Clue #%s] %s:|n %s\n" % (cloo.id, cloo.name, cloo.desc)
+        if gm_notes:
+            msg += "|wGM Notes:|n %s\n" % gm_notes
+        msg += "|wCreated a secret for |c%s|w related to revelation #%s '%s'.|n" % (character.db_key,
+                                                                                    revelation.id, revelation)
+        self.msg(msg)
+
+    def hook_secret_to_plot(self):
+        """
+        Creates a connection from plot to clue, with access set to 'hooked'. Sends an inform
+        to the dompc of the character designated as the clue's tangible_object.
+        """
+        if not len(self.lhslist) == 2:
+            raise CommandError("Usage: @gmnotes/hook <secret #ID>,<plot #ID>[=<gm notes>]")
+        secret = self.get_taggable_thing(self.lhslist[0], "secret")
+        plot = self.get_taggable_thing(self.lhslist[1], "plot")
+        gm_notes = self.rhs if self.rhs else ""
+        content_str = "secret '%s' (#%s) and plot '%s' (#%s)" % (secret, secret.id, plot, plot.id)
+        if plot.clue_involvement.filter(clue=secret).exists():
+            raise CommandError("Hook failed; one exists between %s already." % content_str)
+        plot.clue_involvement.create(clue=secret, gm_notes=gm_notes, access=CluePlotInvolvement.HOOKED)
+        inf_msg = "Your %s are now connected! Use plots/findcontact to decide how you will " % content_str
+        inf_msg += "approach a contact and get involved."
+        secret.tangible_object.dompc.inform(message=inf_msg, category="Plot Hook", append=True)
+        msg = "Created a plot hook for %s." % content_str
+        if gm_notes:
+            msg += " GM Notes: %s" % gm_notes
+        self.msg(msg)
 
 
 class CmdJournalAdminForDummies(ArxPlayerCommand):
@@ -1103,7 +1299,6 @@ class CmdJournalAdminForDummies(ArxPlayerCommand):
 
     def journal_index(self, character, j_list):
         """Displays table of journals for character"""
-        from server.utils.prettytable import PrettyTable
         num = 1
         table = PrettyTable(["{w#{n", "{wWritten About{n", "{wDate{n", "{wPublic{n"])
         fav_tag = "pid_%s_favorite" % self.caller.id
@@ -1142,7 +1337,7 @@ class CmdJournalAdminForDummies(ArxPlayerCommand):
             return
         charob = player.db.char_ob
         if not self.switches:
-            from commands.commands.roster import display_relationships
+            from commands.base_commands.roster import display_relationships
             display_relationships(self.caller, charob, show_hidden=True)
             self.display_white(charob)
             self.display_black(charob)

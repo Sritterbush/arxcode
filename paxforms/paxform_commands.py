@@ -1,5 +1,5 @@
 from .forms import Paxform
-from server.utils.arx_utils import ArxCommand
+from commands.base import ArxCommand
 
 
 class PaxformCommand(ArxCommand):

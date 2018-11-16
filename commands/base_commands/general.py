@@ -10,7 +10,8 @@ from evennia.utils import utils, evtable
 from evennia.utils.utils import make_iter, variable_from_module
 
 from server.utils import prettytable
-from server.utils.arx_utils import ArxCommand, ArxPlayerCommand, raw
+from server.utils.arx_utils import raw
+from commands.base import ArxCommand, ArxPlayerCommand
 
 AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
 

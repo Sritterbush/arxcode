@@ -1,4 +1,4 @@
-from server.utils.arx_utils import ArxCommand
+from commands.base import ArxCommand
 from . import builder
 from .loot import LootGenerator
 from models import Shardhaven, ShardhavenLayout, GeneratedLootFragment
@@ -42,7 +42,7 @@ class CmdTestShardhavenBuild(ArxCommand):
             except ValueError:
                 self.msg("You need to provide an integer ID!")
                 return
-            except Shardhaven.DoesNotExist, Shardhaven.MultipleObjectsReturned:
+            except (Shardhaven.DoesNotExist, Shardhaven.MultipleObjectsReturned):
                 self.msg("That doesn't appear to be an ID matching a Shardhaven!")
                 return
 
@@ -69,7 +69,7 @@ class CmdTestShardhavenBuild(ArxCommand):
             except ValueError:
                 self.msg("You need to provide an integer ID!")
                 return
-            except Shardhaven.DoesNotExist, Shardhaven.MultipleObjectsReturned:
+            except (Shardhaven.DoesNotExist, Shardhaven.MultipleObjectsReturned):
                 self.msg("That doesn't appear to be an ID matching a Shardhaven!")
                 return
 
@@ -88,7 +88,7 @@ class CmdTestShardhavenBuild(ArxCommand):
             except ValueError:
                 self.msg("You need to provide an integer ID!")
                 return
-            except Shardhaven.DoesNotExist, Shardhaven.MultipleObjectsReturned:
+            except (Shardhaven.DoesNotExist, Shardhaven.MultipleObjectsReturned):
                 self.msg("That doesn't appear to be an ID matching a Shardhaven!")
                 return
 
@@ -100,9 +100,8 @@ class CmdTestShardhavenBuild(ArxCommand):
 
             self.msg("Instanciating " + str(layout))
             room = layout.instanciate()
-
+            from typeclasses.rooms import ArxRoom
             try:
-                from typeclasses.rooms import ArxRoom
                 city_center = ArxRoom.objects.get(id=13)
                 create.create_object(settings.BASE_EXIT_TYPECLASS,
                                      key="Back to Arx <Arx>",
@@ -121,7 +120,7 @@ class CmdTestShardhavenBuild(ArxCommand):
             except ValueError:
                 self.msg("You need to provide an integer ID!")
                 return
-            except Shardhaven.DoesNotExist, Shardhaven.MultipleObjectsReturned:
+            except (Shardhaven.DoesNotExist, Shardhaven.MultipleObjectsReturned):
                 self.msg("That doesn't appear to be an ID matching a Shardhaven!")
                 return
 
@@ -189,7 +188,7 @@ class CmdTestLoot(ArxCommand):
 
             try:
                 haven = Shardhaven.objects.get(pk=int(self.args))
-            except ValueError, Shardhaven.DoesNotExist:
+            except (ValueError, Shardhaven.DoesNotExist):
                 self.msg("Something went horribly wrong.")
                 return
 
@@ -210,7 +209,7 @@ class CmdTestLoot(ArxCommand):
 
             try:
                 haven = Shardhaven.objects.get(pk=int(self.args))
-            except ValueError, Shardhaven.DoesNotExist:
+            except (ValueError, Shardhaven.DoesNotExist):
                 self.msg("Something went horribly wrong.")
                 return
 

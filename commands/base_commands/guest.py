@@ -20,7 +20,7 @@ from evennia.utils import utils, create, search
 from six import string_types
 from unidecode import unidecode
 
-from server.utils.arx_utils import ArxPlayerCommand
+from commands.base import ArxPlayerCommand
 from server.utils.arx_utils import inform_staff, check_break
 from world.stats_and_skills import (get_partial_match, get_skill_cost,
                                     CRAFTING_ABILITIES, VALID_SKILLS,
@@ -37,7 +37,7 @@ _vocations_ = ("noble", "courtier", "charlatan", "soldier", "knight", "priest", 
 _stage3_fields_ = ("concept", "gender", "age", "fealty", "family", "religion", "desc", "personality", "background",
                    "marital_status", "quote", "birthday", "social_rank", "skintone", "eyecolor", "haircolor", "height")
 _valid_fealty_ = ("Crownsworn", "Grayson", "Redrain", "Thrax", "Valardin", "Velenosa")
-_stage3_optional_ = ("secrets", "real_concept", "real_age")
+_stage3_optional_ = ("real_concept", "real_age")
 # Minimum and maximum ages players can set for starting characters
 _min_age_ = 18
 _max_age_ = 65
@@ -117,6 +117,7 @@ def setup_voc(char, args):
     if args in CRAFTING_ABILITIES:
         char.db.abilities = {args: 3}
 
+
 STAT_POINTS = 12
 SKILL_POINTS = 20
 CONCEPT_MAX_LEN = 30
@@ -178,6 +179,7 @@ def award_bonus_by_age(age):
     except (TypeError, ValueError):
         bonus = 0
     return bonus
+
 
 STAGE0 = \
        """
@@ -762,9 +764,6 @@ class CmdGuestAddInput(ArxPlayerCommand):
             msg = "For having the fealty of %s, you will receive %s " % (args, bonus)
             msg += "bonus xp after character creation."
             caller.msg(msg)
-        if 'secrets' in switches:
-            # secrets is a list
-            args = [args]
         if 'social_rank' in switches:
             args = args.strip()
             if not args.isdigit():
@@ -944,7 +943,7 @@ class CmdGuestAddInput(ArxPlayerCommand):
                        "your preferences in stories, the type of RP you want to seek out or " +
                        "create, etc.")
             return
-        from commands.commands.jobs import get_apps_manager
+        from commands.base_commands.jobs import get_apps_manager
         char = caller.db.char
         # check if we're ready yet
         if char.db.skill_points or char.db.stat_points:

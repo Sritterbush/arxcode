@@ -12,7 +12,7 @@ from evennia.commands.command import Command
 from evennia.help.models import HelpEntry
 from evennia.utils import create
 from evennia.utils.utils import string_suggestions
-from server.utils.arx_utils import ArxCommand
+from commands.base import ArxCommand
 from commands.cmdsets.situational import SituationalCmdSet
 
 # limit symbol import for API

@@ -10,9 +10,9 @@ players to peruse characters while OOC if they wish.
 from evennia.utils import utils
 from server.utils import prettytable
 from server.utils.arx_utils import inform_staff
-from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
+from commands.base import ArxCommand, ArxPlayerCommand
 from datetime import datetime
-from commands.commands.jobs import get_apps_manager
+from commands.base_commands.jobs import get_apps_manager
 from django.db.models import Q
 from web.character.models import Roster
 from server.utils import arx_more
@@ -20,7 +20,7 @@ from typeclasses.bulletin_board.bboard import BBoard
 
 
 # limit symbol import for API
-__all__ = ("CmdRosterList", "CmdAdminRoster", "CmdSheet", "CmdRelationship")
+__all__ = ("CmdRosterList", "CmdAdminRoster", "CmdSheet", "CmdRelationship", "display_relationships")
 
 
 def get_roster_manager():
@@ -128,7 +128,7 @@ def list_characters(caller, character_list, roster_type="Active Characters", ros
                 table.add_row([name, sex, age, house, concept[:25], srank, afk])
             else:
                 table.add_row([name, sex, age, house, concept[:30], srank])
-        message += "\n%s" % table                
+        message += "\n%s" % table
     message += "\n"
     arx_more.msg(caller, message, justify_kwargs=False)
 
@@ -224,7 +224,7 @@ class CmdRosterList(ArxPlayerCommand):
     are both simultaneously young and old.
 
     To see the character sheet of a specific character, please use @sheet.
-    
+
     """
 
     key = "@roster"
@@ -257,7 +257,7 @@ class CmdRosterList(ArxPlayerCommand):
                     list_characters(caller, char_list, "Unavailable Characters", roster, False)
                     if 'unavailable' in self.switches:
                         return
-                if 'all' in self.switches or 'incomplete' in self.switches:                
+                if 'all' in self.switches or 'incomplete' in self.switches:
                     char_list = roster.get_all_incomplete_characters()
                     list_characters(caller, char_list, "Incomplete Characters", roster, False)
             return
@@ -618,7 +618,7 @@ def display_header(caller, character, show_hidden=False):
     if not age:
         age = "Unknown"
     else:
-        age = str(age)   
+        age = str(age)
     birth = character.db.birthday
     if not birth:
         birth = "Unknown"
@@ -715,7 +715,7 @@ def display_stats(caller, character):
     wit = character.db.wits
     if not wit:
         wit = 0
-        
+
     disp = \
         """
 {w==================================================================={n
@@ -786,7 +786,7 @@ def display_skills(caller, character):
         for skill, value in skills:
             if value <= 0:
                 continue
-            skills_count += 1           
+            skills_count += 1
             skillstr += format_skillstr(skill, value)
             # only have 4 skills per line for formatting
             if skills_count % 4 == 0:
@@ -858,7 +858,7 @@ def display_relationships(caller, character, show_hidden=False):
         if proteges:
             caller.msg("{wProteges:{n %s" % ", ".join(str(ob) for ob in proteges))
     caller.msg("\n{wSocial circle for {c%s{n:\n------------------------------------" % name)
-    
+
     # relationship_short is a dict of types of relationships to a list of tuple of
     # character name and a very brief (2-3 word) description enclosed in parens.
     # More detailed relationships will be in character.db.relationships
@@ -870,7 +870,7 @@ def display_relationships(caller, character, show_hidden=False):
     for rel_type, rel_value in sorted(relationships.items()):
         # rel_type will be 'Parent', 'Sibling', 'Friend', 'Enemy', etc
         # display it either if it's not secret, or if show_hidden is True
-        if rel_type != 'secret' or show_hidden:          
+        if rel_type != 'secret' or show_hidden:
             if rel_value:
                 showed_matches = True
                 disp = "{w%s: {n" % rel_type.capitalize()
@@ -888,19 +888,20 @@ def display_relationships(caller, character, show_hidden=False):
     pass
 
 
-def display_secrets(caller, character):
+def display_secrets(caller, character, secret_num):
     """
     Display secrets
     """
-    caller.msg("{wSecrets for %s:{n" % character.key.capitalize())
-    caller.msg("{w-------------------------------{n")
-    secrets = character.db.secrets
+    secrets = character.messages.secrets
+    caller.msg("{wSecrets for %s" % character.key)
     if not secrets:
         caller.msg("No secrets to display.")
         return
-    for num, secret in enumerate(secrets):
-        caller.msg("{w%s) {n%s" % ((num + 1), secret))
-    return
+    if not secret_num:
+        caller.msg(character.messages.get_secret_list_display())
+    else:
+        show_notes = caller.check_permstring("builders")
+        caller.msg(character.messages.get_secret_display(secret_number=secret_num, show_gm_notes=show_notes))
 
 
 # noinspection PyUnusedLocal
@@ -989,10 +990,10 @@ class CmdSheet(ArxPlayerCommand):
             if show_hidden:
                 display_stats(caller, charob)
                 display_skills(caller, charob)
-                display_abilities(caller, charob)            
-                display_secrets(caller, charob)
+                display_abilities(caller, charob)
+                display_secrets(caller, charob, self.get_num_from_args())
                 self.display_visions(charob)
-            display_relationships(caller, charob, show_hidden)          
+            display_relationships(caller, charob, show_hidden)
             bground = charob.db.background
             if not bground:
                 bground = "No background written yet."
@@ -1011,7 +1012,7 @@ class CmdSheet(ArxPlayerCommand):
             if show_hidden and 'desc' not in switches:
                 display_stats(caller, charob)
                 display_skills(caller, charob)
-                display_abilities(caller, charob)                                
+                display_abilities(caller, charob)
             return
         if self.check_switches(self.private_switches):
             check_storyactions = ('actions' in switches or 'storyrequests' in switches) and self.rhs
@@ -1022,7 +1023,7 @@ class CmdSheet(ArxPlayerCommand):
                 self.msg("You lack permission to view them.")
                 return
             if 'secrets' in switches or 'secret' in switches:
-                display_secrets(caller, charob)
+                display_secrets(caller, charob, self.get_num_from_args())
                 return
             if 'visions' in switches or 'vision' in switches:
                 self.display_visions(charob)
@@ -1158,10 +1159,10 @@ class CmdSheet(ArxPlayerCommand):
             self.msg("%s" % table)
             return
         # have self.rhs: get storyrequest, print its display().
-        from world.dominion.models import CrisisAction
+        from world.dominion.models import PlotAction
         try:
             action = actions.get(id=action_num)
-        except (CrisisAction.DoesNotExist, ValueError):
+        except (PlotAction.DoesNotExist, ValueError):
             self.msg("No Story Action matches that ID #.")
         else:
             self.msg(action.view_action(caller=self.caller, disp_pending=False, disp_old=False, disp_ooc=False))
@@ -1180,17 +1181,10 @@ class CmdSheet(ArxPlayerCommand):
             return
         vision_num = self.get_num_from_args()
         if not vision_num:
-            table = prettytable.PrettyTable(["{w#", "{wDate", "{wBegins with:"])
-            for num, ob in enumerate(visions, start=1):
-                table.add_row([num, ob.ic_date, ob.db_message[:50]])
-            self.msg(str(table))
+            self.msg(character.messages.get_vision_list_display())
         else:
-            try:
-                vision = visions[int(vision_num) - 1]
-            except (TypeError, ValueError, IndexError):
-                self.msg("You must enter a number between 1 and %s." % len(visions))
-            else:
-                self.msg(character.messages.disp_entry(vision))
+            show_notes = self.caller.check_permstring("builder")
+            self.msg(character.messages.get_vision_display(vision_number=vision_num, show_gm_notes=show_notes))
 
     def get_num_from_args(self):
         """
@@ -1340,7 +1334,7 @@ class CmdRelationship(ArxPlayerCommand):
                 caller.msg("{wRelationship with %s:{n" % args.capitalize())
             sep = "{w-------------------------------------------------------------------{n"
             caller.msg(sep)
-            for msg in entries:            
+            for msg in entries:
                 jname = "{wJournal:{n %s\n" % ("White Journal" if msg in white.get(self.rhs.lower() if self.rhs
                                                                                    else self.args.lower(), [])
                                                else "Black Reflection")
@@ -1407,7 +1401,7 @@ class CmdRelationship(ArxPlayerCommand):
             rels = charob.db.relationship_short
             if not rels:
                 caller.msg("No relationships in tree to change - use /short to add instead.")
-                return         
+                return
             oldtype, newtype = lhslist[0].lower(), lhslist[1].lower()
             if newtype not in self.typelist:
                 caller.msg("Relationship must be one of the following: %s" % ", ".join(self.typelist))
@@ -1449,7 +1443,7 @@ class CmdRelationship(ArxPlayerCommand):
                         caller.msg("Entry for %s deleted." % args.capitalize())
                         return
             caller.msg("No match found to delete.")
-            return       
+            return
         caller.msg("Usage: @relationship/switches <arguments>")
         return
 
@@ -1466,13 +1460,13 @@ class CmdComment(ArxPlayerCommand):
 
     Using @comment without a right-hand-side argument will look up
     comments upon yourself or the given character.
-    
+
     The @comment command represents an entry into a character's White
     Journal where they give their thoughts on another character. Like
     all white journal entries, they may be read by absolutely anyone.
     Therefore, all comments should be treated as IC and completely
     public knowledge.
-    
+
     Remember, since all comments are treated as public knowledge,
     in-character retribution is very appropriate and may range from
     a mean-spirited retalitatory statement to a team of highly-paid
@@ -1583,79 +1577,6 @@ class CmdHere(ArxCommand):
     pass
 
 
-class CmdAddSecret(ArxPlayerCommand):
-    """
-    @addsecret - adds a secret to a player
-    Usage:
-        @addsecret player=secret - adds secret to list
-        @addsecret/del player=<# of secret> - deletes secret
-        @addsecret/list player
-
-    Adds or deletes a given secret. Secret to be added is
-    text string. Deleting a secret with /del switch is by
-    number. See secrets on a character by @sheet/secrets <char>.
-    Secret number should be between 1 to whatever, rather than 0,
-    because we made it start at 1 for player formatting.
-    """
-    key = "@addsecret"
-    help_category = "General"
-    locks = "cmd:perm(addsecret) or perm(Wizards)"
-
-    def func(self):
-        """Executes addsecret command"""
-        caller = self.caller
-        roster = get_roster_manager()
-        lhs = self.lhs
-        rhs = self.rhs
-        switches = self.switches
-        if not lhs:
-            caller.msg("Add secret to who?")
-            return
-        if not roster:
-            return
-        if not rhs and 'list' not in switches:
-            caller.msg("No secret specified.")
-            return
-        playob = caller.search(lhs)
-        if not playob:
-            caller.msg("No character found by that name.")
-            return
-        charob = playob.char_ob
-        if not charob:
-            caller.msg("No character found to @comment upon.")
-            return
-        if 'del' in switches:
-            if not rhs.isdigit():
-                caller.msg("Secret to be deleted must be a number.")
-                return
-            if not charob.db.secrets:
-                caller.msg("No secrets found to delete.")
-                return
-            rhs = int(rhs)
-            if not (1 <= rhs <= len(charob.db.secrets)):
-                caller.msg("No secret found by that number.")
-                return
-            rhs -= 1
-            charob.db.secrets.pop(rhs)
-            charob.save()
-            caller.msg("Secret %s deleted." % (rhs + 1))
-            return
-        if 'list' in switches:
-            secrets = charob.db.secrets
-            caller.msg("Secrets:")
-            secret_str = ""
-            for num in range(len(secrets)):
-                secret_str += "{w[%s]{n: " % (num + 1)
-                secret_str += "%s\n" % secrets[num]
-            caller.msg(secret_str)
-            return
-        if not charob.db.secrets:
-            charob.db.secrets = []
-        charob.db.secrets.append(rhs)
-        caller.msg("Secret '%s' added to %s." % (rhs, charob.name))
-        return
-
-
 class CmdDelComment(ArxPlayerCommand):
     """
     @delcomment - removes a comment from a character
@@ -1701,7 +1622,7 @@ class CmdAdmRelationship(ArxPlayerCommand):
         @admin_relationship player,target=description
         @admin_relationship/private player,target=description
         @admin_relationship/short player,target=type,desc
-        @admin_relationship/deleteshort player,target=type 
+        @admin_relationship/deleteshort player,target=type
 
     Adds a white journal or black journal (with /private switch)
     relationship of player's character to target's character. To
@@ -1764,7 +1685,7 @@ class CmdAdmRelationship(ArxPlayerCommand):
                 relshort[rtype] = rel
                 caller.msg("Removed instances of %s from dict." % targ)
             charob.db.relationship_short = relshort
-            return          
+            return
         desc = self.rhs
         white = "private" not in self.switches
         jname = "relationships" if white else "private relationships"

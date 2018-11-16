@@ -8,7 +8,7 @@ for easy handling.
 
 """
 from evennia.utils import create
-from server.utils.arx_utils import ArxCommand
+from commands.base import ArxCommand
 from evennia.objects.models import ObjectDB
 
 MAP_TYPECLASS = "typeclasses.map.Map"

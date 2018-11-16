@@ -13,7 +13,8 @@ from evennia.objects.models import ObjectDB
 from evennia.accounts.models import AccountDB
 from evennia.utils.evtable import EvTable
 
-from server.utils.arx_utils import get_week, caller_change_field, inform_staff, ArxCommand, ArxPlayerCommand
+from server.utils.arx_utils import get_week, caller_change_field, inform_staff
+from commands.base import ArxCommand, ArxPlayerCommand
 from server.utils.exceptions import CommandError
 from server.utils.prettytable import PrettyTable
 from . import setup_utils
@@ -1965,7 +1966,7 @@ class CmdOrganization(ArxPlayerCommand):
                     return
                 caller.ndb.briefing_cost_warning = None
                 # check if they don't need this at all
-                discovered_clues = [ob.clue for ob in entry.finished_clues]
+                discovered_clues = entry.clues.all()
                 if clue in discovered_clues:
                     self.msg("They cannot learn anything from this briefing.")
                     return
@@ -2002,7 +2003,7 @@ class CmdOrganization(ArxPlayerCommand):
                 return
             if 'addclue' in self.switches:
                 try:
-                    clue = caller.roster.finished_clues.get(id=self.lhs).clue
+                    clue = caller.roster.clues.get(id=self.lhs)
                 except (ClueDiscovery.DoesNotExist, ValueError):
                     self.msg("No clue by that number found.")
                     return

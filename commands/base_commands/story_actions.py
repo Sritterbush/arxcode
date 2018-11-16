@@ -7,9 +7,10 @@ from django.db.models import Q
 from evennia.utils.evtable import EvTable
 
 from server.utils.exceptions import ActionSubmissionError
-from server.utils.arx_utils import dict_from_choices_field, ArxPlayerCommand
+from server.utils.arx_utils import dict_from_choices_field
+from commands.base import ArxPlayerCommand
 from server.utils import arx_more
-from world.dominion.models import Crisis, CrisisAction, CrisisActionAssistant, ActionOOCQuestion
+from world.dominion.models import Plot, PlotAction, PlotActionAssistant, ActionOOCQuestion
 
 
 # noinspection PyUnresolvedReferences
@@ -127,9 +128,9 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
     """
     key = "@action"
     locks = "cmd:all()"
-    help_category = "Dominion"
+    help_category = "Story"
     aliases = ["@actions", "+storyrequest"]
-    action_categories = dict_from_choices_field(CrisisAction, "CATEGORY_CHOICES")
+    action_categories = dict_from_choices_field(PlotAction, "CATEGORY_CHOICES")
     requires_draft_switches = ("invite", "setcrisis", "readycheck")
     requires_editable_switches = ("roll", "tldr", "title", "category", "submit", "invite",
                                   "setaction", "setcrisis", "add", "toggletraitor", "toggleattend",
@@ -145,16 +146,16 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
     @property
     def actions_and_invites(self):
         """Lists non-cancelled actions for creator and those invited to it"""
-        return CrisisAction.objects.filter(Q(dompc=self.dompc) | Q(assistants=self.dompc)).exclude(
-            status=CrisisAction.CANCELLED).distinct()
+        return PlotAction.objects.filter(Q(dompc=self.dompc) | Q(assistants=self.dompc)).exclude(
+            status=PlotAction.CANCELLED).distinct()
 
     # noinspection PyUnusedLocal
     def get_help(self, caller, cmdset):
         """Overrides basic help, which defaults to the __doc__ string"""
         msg = self.__doc__
         recent_actions = caller.recent_actions
-        max_actions = CrisisAction.max_requests
-        max_assists = CrisisActionAssistant.MAX_ASSISTS
+        max_actions = PlotAction.max_requests
+        max_assists = PlotActionAssistant.MAX_ASSISTS
         recent_assists = caller.recent_assists
         msg += """
     You are permitted {w%s{n actions and {w%s{n assists every 30 days, and have currently
@@ -195,7 +196,7 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
         Checks if the specified switches require the main action, and if so, whether our action is the main action.
         
             Args:
-                action (CrisisAction or CrisisActionAssistant): action or assisting action
+                action (PlotAction or PlotActionAssistant): action or assisting action
                 
             Returns:
                 True or False for whether we're okay to proceed.
@@ -216,7 +217,7 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
     
     def do_requires_draft_switches(self, action):
         """Executes switches that require the action to be in Draft status"""
-        if not action.status == CrisisAction.DRAFT:
+        if not action.status == PlotAction.DRAFT:
             return self.send_too_late_msg()
         elif "invite" in self.switches:
             return self.invite_assistant(action)
@@ -252,7 +253,7 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
         
     def do_requires_unpublished_switches(self, action):
         """Executes switches that require the action to not be Published"""
-        if action.status in (CrisisAction.PUBLISHED, CrisisAction.PENDING_PUBLISH):
+        if action.status in (PlotAction.PUBLISHED, PlotAction.PENDING_PUBLISH):
             return self.send_no_edits_msg()
         elif "cancel" in self.switches:
             return self.cancel_action(action)
@@ -280,7 +281,7 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
 
             def color_unsubmitted(string):
                 """Colors the status display for assisting actions of the player that aren't ready to submit"""
-                if action.status == CrisisAction.DRAFT and action.check_unready_assistant(self.dompc):
+                if action.status == PlotAction.DRAFT and action.check_unready_assistant(self.dompc):
                     return "|r%s|n" % string
                 return string
             is_attending = action in attending
@@ -311,8 +312,8 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
                 return
         if not self.can_create(crisis):
             return
-        diff = CrisisAction.NORMAL_DIFFICULTY
-        action = self.dompc.actions.create(actions=actions, crisis=crisis, stat_used="", skill_used="", difficulty=diff)
+        diff = PlotAction.NORMAL_DIFFICULTY
+        action = self.dompc.actions.create(actions=actions, plot=crisis, stat_used="", skill_used="", difficulty=diff)
         self.msg("You have drafted a new action {w(#%s){n%s: %s" % (action.id, crisis_msg, actions))
         self.msg("Please note that you cannot invite players to an action once it is submitted.")
         if crisis:
@@ -333,10 +334,10 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
             action = self.actions_and_invites.get(id=arg)
             try:
                 action = action.assisting_actions.get(dompc=dompc)
-            except CrisisActionAssistant.DoesNotExist:
+            except PlotActionAssistant.DoesNotExist:
                 pass
             return action
-        except (CrisisAction.DoesNotExist, ValueError):
+        except (PlotAction.DoesNotExist, ValueError):
             self.msg("No action found by that ID.")
             self.list_actions()
     
@@ -346,26 +347,26 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
         if not assists:
             actions = dompc.actions.all()
         else:
-            actions = CrisisAction.objects.filter(Q(dompc=dompc) | Q(assistants=dompc)).distinct()
+            actions = PlotAction.objects.filter(Q(dompc=dompc) | Q(assistants=dompc)).distinct()
         if not crisis:
-            actions = actions.filter(crisis__isnull=True)
+            actions = actions.filter(plot__isnull=True)
         return actions
     
     def get_valid_crisis(self, name_or_id):
         """Gets crisis they can participate in that matches name or ID"""
         try:
-            qs = Crisis.objects.viewable_by_player(self.caller)
+            qs = Plot.objects.viewable_by_player(self.caller)
             if name_or_id.isdigit():
                 return qs.get(id=name_or_id)
             return qs.get(name__iexact=name_or_id)
-        except Crisis.DoesNotExist:
+        except Plot.DoesNotExist:
             self.msg("No crisis found by that name or ID.")
     
     def can_create(self, crisis=None):
         """Checks criteria for creating a new action."""
         if crisis and not self.can_set_crisis(crisis):
             return False
-        my_draft = self.get_my_actions().filter(status=CrisisAction.DRAFT).last()
+        my_draft = self.get_my_actions().filter(status=PlotAction.DRAFT).last()
         if my_draft:
             self.msg("You have drafted an action which needs to be submitted or canceled: %s" % my_draft.id)
             return False
@@ -481,10 +482,10 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
                 self.msg(err)
                 return
             else:
-                self.msg("%s now has your assistance: %s" % (action.crisis_action, self.rhs))
+                self.msg("%s now has your assistance: %s" % (action.plot_action, self.rhs))
         else:
             self.set_action_field(action, "actions", self.rhs)
-        if action.crisis:
+        if action.plot:
             self.do_passive_warnings(action)
 
     def set_secret_action(self, action):
@@ -496,14 +497,14 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
     def warn_crisis_overcrowd(self, action):
         """Warns that too many people are attending"""
         try:
-            action.check_crisis_overcrowd()
+            action.check_plot_overcrowd()
         except ActionSubmissionError as err:
             self.msg("{yWarning:{n %s" % err)
                 
     def warn_crisis_omnipresence(self, action):
         """Warns that they're already doing stuff for the crisis"""
         try:
-            action.check_crisis_omnipresence()
+            action.check_plot_omnipresence()
         except ActionSubmissionError as err:
             self.msg("{yWarning:{n %s" % err)
     
@@ -588,8 +589,6 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
         @gm/allowedit <action #>[,assistant name]
         @gm/togglefree <action #>[,assistant name]
         @gm/invite <action #>=<player to add as assistant>[,player2,...]
-        @gm/addevent <action #>=<event #>
-        @gm/rmevent <action #>=<event #>
 
     Commands for GMing. @actions can be claimed/assigned to GMs with the /assign
     switch, and then viewed with @gm/mine. Actions are initially in a draft state
@@ -624,10 +623,9 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
     gming_switches = ("story", "secretstory", "charge", "check", "checkall", "stat", "skill", "diff")
     followup_switches = ("ooc", "markanswered")
     admin_switches = ("publish", "markpending", "cancel", "assign", "gemit", "allowedit", "invite",
-                      "addevent", "rmevent", "togglefree")
-    event_switches = ("addevent", "rmevent")
-    difficulties = {"easy": CrisisAction.EASY_DIFFICULTY, "normal": CrisisAction.NORMAL_DIFFICULTY,
-                    "hard": CrisisAction.HARD_DIFFICULTY}
+                      "togglefree")
+    difficulties = {"easy": PlotAction.EASY_DIFFICULTY, "normal": PlotAction.NORMAL_DIFFICULTY,
+                    "hard": PlotAction.HARD_DIFFICULTY}
     
     def func(self):
         """Executes the @gm command"""
@@ -635,8 +633,8 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
                              and not self.args.isdigit()):
             return self.list_actions()
         try:
-            action = CrisisAction.objects.get(id=self.lhslist[0])
-        except (CrisisAction.DoesNotExist, ValueError):
+            action = PlotAction.objects.get(id=self.lhslist[0])
+        except (PlotAction.DoesNotExist, ValueError):
             self.msg("No action by that ID #.")
             return
         if "tldr" in self.switches:
@@ -671,19 +669,19 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
     
     def get_queryset_from_switches(self):
         """Filters the queryset of actions based on given options from switches/args"""
-        old_status = CrisisAction.PUBLISHED
-        draft_status = CrisisAction.DRAFT
-        cancelled_status = CrisisAction.CANCELLED
-        pending_status = CrisisAction.PENDING_PUBLISH
-        qs = CrisisAction.objects.all()
+        old_status = PlotAction.PUBLISHED
+        draft_status = PlotAction.DRAFT
+        cancelled_status = PlotAction.CANCELLED
+        pending_status = PlotAction.PENDING_PUBLISH
+        qs = PlotAction.objects.all()
         if "old" in self.switches:
             qs = qs.filter(status=old_status)
         elif "draft" in self.switches:
             qs = qs.filter(status=draft_status)
         elif "needgm" in self.switches:
-            qs = qs.filter(status=CrisisAction.NEEDS_GM)
+            qs = qs.filter(status=PlotAction.NEEDS_GM)
         elif "needplayer" in self.switches:
-            qs = qs.filter(status=CrisisAction.NEEDS_PLAYER)
+            qs = qs.filter(status=PlotAction.NEEDS_PLAYER)
         elif "pending" in self.switches:
             qs = qs.filter(status=pending_status)
         elif "cancelled" in self.switches:
@@ -705,7 +703,7 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
             qs = qs.filter(gm__isnull=True)
         if self.args and not "search" in self.switches:
             name = self.args
-            qs = qs.filter(Q(crisis__name__iexact=name) | Q(dompc__player__username__iexact=name) |
+            qs = qs.filter(Q(plot__name__iexact=name) | Q(dompc__player__username__iexact=name) |
                            Q(category__iexact=name) | Q(assistants__player__username__iexact=name) |
                            Q(gm__username__iexact=name))
         return qs.distinct().order_by('date_submitted')
@@ -787,7 +785,7 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
             return action
         try:
             return action.assisting_actions.get(dompc__player__username__iexact=name)
-        except CrisisActionAssistant.DoesNotExist:
+        except PlotActionAssistant.DoesNotExist:
             self.msg("No assistant by that name.")
     
     def do_followup(self, action):
@@ -815,7 +813,7 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
         if "publish" in self.switches:
             return self.publish_action(action)
         if "markpending" in self.switches:
-            return self.set_action_field(action, "status", CrisisAction.PENDING_PUBLISH)
+            return self.set_action_field(action, "status", PlotAction.PENDING_PUBLISH)
         if "cancel" in self.switches:
             return self.cancel_action(action)
         if "assign" in self.switches:
@@ -828,8 +826,6 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
             return self.toggle_free(action)
         if "invite" in self.switches:
             return self.invite_assistant(action)
-        if self.check_switches(self.event_switches):
-            return self.do_event_admin(action)
         
     def publish_action(self, action):
         """Publishes an action, marking it as resolved and telling players the outcome"""
@@ -864,8 +860,8 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
         actions = [action]
         for id_num in self.lhslist[1:]:
             try:
-                another_action = CrisisAction.objects.get(id=id_num)
-            except (CrisisAction.DoesNotExist, ValueError, TypeError):
+                another_action = PlotAction.objects.get(id=id_num)
+            except (PlotAction.DoesNotExist, ValueError, TypeError):
                 self.msg("Invalid ID.")
                 return
             else:
@@ -906,18 +902,3 @@ class CmdGMAction(ActionCommandMixin, ArxPlayerCommand):
             self.msg("You have made their action free and the player has been informed.")
         else:
             self.msg("Their action is no longer free.")
-
-    def do_event_admin(self, action):
-        """Adds an RPEvent for this action"""
-        from world.dominion.models import RPEvent
-        try:
-            event = RPEvent.objects.get(id=self.rhs)
-        except (RPEvent.DoesNotExist, ValueError, TypeError):
-            self.msg("No event by that ID.")
-        else:
-            if "addevent" in self.switches:
-                action.events.add(event)
-                self.msg("Added event: %s" % event)
-            else:
-                action.events.remove(event)
-                self.msg("Removed event: %s" % event)

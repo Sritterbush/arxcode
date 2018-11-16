@@ -21,7 +21,7 @@ from evennia.utils.utils import (make_iter, crop, time_format, variable_from_mod
                                  inherits_from, list_to_string)
 
 from server.utils import arx_utils, prettytable
-from server.utils.arx_utils import ArxCommand, ArxPlayerCommand
+from commands.base import ArxCommand, ArxPlayerCommand
 from world.dominion.models import CraftingMaterials
 
 

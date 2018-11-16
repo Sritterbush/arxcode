@@ -6,12 +6,14 @@ from mock import Mock, patch, PropertyMock
 from datetime import datetime, timedelta
 
 from server.utils.test_utils import ArxCommandTest, TestEquipmentMixins, TestTicketMixins
-from world.dominion.models import CrisisAction, Crisis, Army, RPEvent
+
+from web.character.models import Revelation
+from world.dominion.models import PlotAction, Plot, Army, RPEvent
 
 from world.templates.models import Template
 from web.character.models import PlayerAccount
 
-from commands.commands.crafting import CmdCraft
+from commands.base_commands.crafting import CmdCraft
 from world.dominion.models import CraftingRecipe
 from typeclasses.readable.readable import CmdWrite
 
@@ -177,7 +179,7 @@ class StoryActionTests(ArxCommandTest):
     def test_cmd_action(self, mock_get_week, mock_inform_staff):
         mock_get_week.return_value = 1
         self.setup_cmd(story_actions.CmdAction, self.account)
-        self.crisis = Crisis.objects.create(name="Test Crisis")
+        self.crisis = Plot.objects.create(name="Test Crisis")
         self.call_cmd("/newaction", "You need to include a story.")
         self.caller.pay_action_points = Mock(return_value=False)
         self.call_cmd("/newaction testing", "You do not have enough action points.")
@@ -227,30 +229,30 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/submit 1", "You have new informs. Use @inform 1 to read them.|You have submitted your action.")
         mock_inform_staff.assert_called_with('Testaccount submitted action #1. {wSummary:{n summary')
         self.call_cmd("/makepublic 1", "The action must be finished before you can make details of it public.")
-        action.status = CrisisAction.PUBLISHED
+        action.status = PlotAction.PUBLISHED
         self.call_cmd("/makepublic 1", "You have gained 2 xp for making your action public.")
         self.call_cmd("/makepublic 1", "That action has already been made public.")
         self.call_cmd("/question 1=test question", "You have submitted a question: test question")
         self.call_cmd("/newaction test crisis=testing",
                       "You have already submitted an action for this stage of the crisis.")
-        action_2 = self.dompc.actions.create(actions="completed storyaction", status=CrisisAction.PUBLISHED,
+        action_2 = self.dompc.actions.create(actions="completed storyaction", status=PlotAction.PUBLISHED,
                                              date_submitted=datetime.now())
         action_2.assisting_actions.create(dompc=self.dompc2)
-        action_3 = self.dompc.actions.create(actions="another completed storyaction", status=CrisisAction.PUBLISHED,
+        action_3 = self.dompc.actions.create(actions="another completed storyaction", status=PlotAction.PUBLISHED,
                                              date_submitted=datetime.now())
         action_3.assisting_actions.create(dompc=self.dompc2)
-        draft = self.dompc.actions.create(actions="storyaction draft", status=CrisisAction.DRAFT,
-                                          category=CrisisAction.RESEARCH,
+        draft = self.dompc.actions.create(actions="storyaction draft", status=PlotAction.DRAFT,
+                                          category=PlotAction.RESEARCH,
                                           topic="test summary", stat_used="stat", skill_used="skill")
         draft.questions.create(is_intent=True, text="intent")
         self.call_cmd("/invite 4=TestAccount2", "You have invited Testaccount2 to join your action.")
         self.call_cmd("/submit 4", "You are permitted 2 action requests every 30 days. Recent actions: 1, 2, 3")
         self.caller = self.account2
         # unused actions can be used as assists. Try with one slot free to be used as an assist
-        self.dompc2.actions.create(actions="dompc completed storyaction", status=CrisisAction.PUBLISHED,
+        self.dompc2.actions.create(actions="dompc completed storyaction", status=PlotAction.PUBLISHED,
                                    date_submitted=datetime.now())
         self.call_cmd("/setaction 4=test assist", 'Action by Testaccount now has your assistance: test assist')
-        self.dompc2.actions.create(actions="another dompc completed storyaction", status=CrisisAction.PUBLISHED,
+        self.dompc2.actions.create(actions="another dompc completed storyaction", status=PlotAction.PUBLISHED,
                                    date_submitted=datetime.now())
         # now both slots used up
         self.call_cmd("/setaction 4=test assist", "You are assisting too many actions.")
@@ -263,10 +265,10 @@ class StoryActionTests(ArxCommandTest):
         action_2.save()
         self.call_cmd("/setaction 4=test assist", "You are assisting too many actions.")
         # cancel an action to free a slot
-        action_2.status = CrisisAction.CANCELLED
+        action_2.status = PlotAction.CANCELLED
         action_2.save()
         self.call_cmd("/setaction 4=test assist", 'Action by Testaccount now has your assistance: test assist')
-        action.status = CrisisAction.CANCELLED
+        action.status = PlotAction.CANCELLED
         action.save()
         # now back to player 1 to see if they can submit after the other actions are gone
         self.caller = self.account
@@ -279,7 +281,7 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/newaction test crisis=testing",
                       "You have drafted an action which needs to be submitted or canceled: 4")
         action_4 = self.dompc.actions.last()
-        action_4.status = CrisisAction.CANCELLED
+        action_4.status = PlotAction.CANCELLED
         action_4.save()
         self.call_cmd("/newaction test crisis=testing", "You have drafted a new action (#7) to respond to Test Crisis: "
                                                         "testing|Please note that you cannot invite players to an "
@@ -291,7 +293,7 @@ class StoryActionTests(ArxCommandTest):
         from datetime import datetime
         now = datetime.now()
         mock_get_week.return_value = 1
-        action = self.dompc2.actions.create(actions="test", status=CrisisAction.NEEDS_GM, editable=False, silver=50,
+        action = self.dompc2.actions.create(actions="test", status=PlotAction.NEEDS_GM, editable=False, silver=50,
                                             date_submitted=now, topic="test summary")
         action.set_ooc_intent("ooc intent test")
         self.setup_cmd(story_actions.CmdGMAction, self.account)
@@ -302,7 +304,7 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/stat 1=charm", "stat set to charm.")
         self.call_cmd("/skill 1=seduction", "skill set to seduction.")
         self.call_cmd("/diff 1=25", "difficulty set to 25.")
-        self.call_cmd("/diff 1=hard", "difficulty set to %s." % CrisisAction.HARD_DIFFICULTY)
+        self.call_cmd("/diff 1=hard", "difficulty set to %s." % PlotAction.HARD_DIFFICULTY)
         self.call_cmd("/assign 1=Testaccount", "gm set to Testaccount.|GM for the action set to Testaccount")
         self.call_cmd("/invite 1=TestAccount2", "The owner of an action cannot be an assistant.")
         self.call_cmd("/invite 1=TestAccount", "You have new informs. Use @inform 1 to read them."
@@ -327,9 +329,9 @@ class StoryActionTests(ArxCommandTest):
         self.call_cmd("/cancel 1", "Action cancelled.")
         self.account2.gain_resources.assert_called_with("economic", 2000)
         self.assertEquals(self.assetowner2.vault, 50)
-        self.assertEquals(action.status, CrisisAction.CANCELLED)
+        self.assertEquals(action.status, PlotAction.CANCELLED)
         self.call_cmd("/markpending 1", "status set to Pending Resolution.")
-        self.assertEquals(action.status, CrisisAction.PENDING_PUBLISH)
+        self.assertEquals(action.status, PlotAction.PENDING_PUBLISH)
         self.call_cmd("/publish 1=story test", "That story already has an action written. "
                       "To prevent accidental overwrites, please change "
                       "it manually and then /publish without additional arguments.")
@@ -345,7 +347,7 @@ class StoryActionTests(ArxCommandTest):
                            "Testaccount2 OOC Question: another test question\nOutcome Value: 0\nStory Result: \n"
                            "Secret Story sekritfoo\nTotal resources: economic 2000, silver 50\n[STATUS: Pending Resolution]")
         self.call_cmd("/publish 1=story test", "You have published the action and sent the players informs.")
-        self.assertEquals(action.status, CrisisAction.PUBLISHED)
+        self.assertEquals(action.status, PlotAction.PUBLISHED)
         self.account2.inform.assert_called_with('{wGM Response to story action of Testaccount2\n'
                                                 '{wRolls:{n 0\n\n{wStory Result:{n story test\n\n',
                                                 append=False, category='Actions', week=1)
@@ -370,9 +372,6 @@ class StoryActionTests(ArxCommandTest):
                                                       '{wSummary:{n test summary\n\n'
                                                       '{wStory Result:{n story test\n{wSecret '
                                                       'Story{n sekritfoo', subject='Action 1 Published by Testaccount')
-        RPEvent.objects.create(name="test event")
-        self.call_cmd("/addevent 1=1", "Added event: test event")
-        self.call_cmd("/rmevent 1=1", "Removed event: test event")
 
 
 class OverridesTests(ArxCommandTest):
@@ -838,6 +837,103 @@ class StaffCommandTests(ArxCommandTest):
         self.call_cmd("test", "Entities with test tag: Testaccount, testorg")
 
 
+class StaffCommandTestsPlus(ArxCommandTest):
+    num_additional_characters = 1
+
+    def test_cmd_gmnotes(self):
+        self.setup_cmd(staff_commands.CmdGMNotes, self.account)
+        self.call_cmd("vixen", "No SearchTag found using 'vixen'.")
+        self.call_cmd("/create vixen", "Tag created for 'vixen'!")
+        self.call_cmd("/create bishi", "Tag created for 'bishi'!")
+        self.call_cmd("/create Vixen", "Cannot create; tag already exists: vixen (tag #1)")
+        self.call_cmd("", "ALL OF THE TAGS: vixen (#1) and bishi (#2)")
+        self.call_cmd("/characters vixen", "No character secrets have the 'vixen' tag.")
+        slycloo1 = self.char2.clues.create(clue_type=2, name="Secret #1 of Slyyyy",
+                                           gm_notes="Sly is incredibly hot and smirkity.")
+        slycloo2 = self.char2.clues.create(clue_type=2, name="Secret #2 of Slyyyy")
+        self.call_cmd("/tag Slyyyy=vixen", "Usage: @gmnotes/tag/<class type> <ID or name>=<tag name>\n"
+                                           "Class types: clue, revelation, plot, action, gemit,"
+                                           " rpevent, flashback, objectdb.")
+        self.call_cmd("/tag/clue Galvanion is easy=vixen", "No Clue found using 'Galvanion is easy'.")
+        galvcloo1 = self.char1.clues.create(clue_type=2, name="Secret #1 of Galvanion")
+        self.call_cmd("/tag/clue Secret=vixen", "More than one Clue found with 'Secret'; be specific.")
+        self.call_cmd("/tag/clue Secret #1 of Slyyyy=vixen", "Added the 'vixen' tag on clue: Secret #1 of Slyyyy.")
+        self.call_cmd("/tag/clue Secret #2 of Slyyyy=vixen", "Added the 'vixen' tag on clue: Secret #2 of Slyyyy.")
+        self.call_cmd("/tag/clue Secret #1 of Galvanion=bishi", "Added the 'bishi' tag on clue: Secret #1 of Galvanion.")
+        self.call_cmd("/char vixen", "Characters with a 'vixen' secret: Char2")
+        self.call_cmd("/tag/clue/rem Secret #2 of Slyyyy=vixen",
+                      "Removed the 'vixen' tag on clue: Secret #2 of Slyyyy.")
+        self.assertFalse(slycloo2.search_tags.all().exists())
+        slyplot1 = Plot.objects.create(name="Slypose", usage=Plot.PLAYER_RUN_PLOT, desc="Sly as a fox.",
+                                       headline="Sly as a fox.")
+        slyvolvement1 = slyplot1.dompc_involvement.create(dompc=self.char2.dompc, gm_notes="Does a fox flirt in the woods?")
+        slyvolvement1.admin_status = slyvolvement1.OWNER
+        slyvolvement1.save()
+        self.call_cmd("/tag/plot Slypose=vixen", "Added the 'vixen' tag on plot: Slypose.")
+        glyphcloo1 = self.obj.clues.create(clue_type=0, name="Glyphed Catsuit",
+                                           gm_notes="Chath pets a slyposed vixen and paints roons on her.")
+        glyphcloo1.discoveries.create(character=self.roster_entry, message="*wriggle*", discovery_method="trauma")
+        self.call_cmd("/tag/clue Catsuit=vixen", "Added the 'vixen' tag on clue: Catsuit.")
+        vixenrev1 = Revelation.objects.create(name="Vixens Are Evil", gm_notes="Hss ss ss")
+        vixenrev1.clues_used.create(clue=slycloo1, required_for_revelation=False)
+        vixenrev1.clues_used.create(clue=glyphcloo1)
+        vixenrev1.discoveries.create(character=self.roster_entry, message="*cough*", discovery_method="trauma")
+        vixenrev1.discoveries.create(character=self.roster_entry2, message="*smirk*", discovery_method="exploration")
+        bishirev1 = Revelation.objects.create(name="Bishis Are Hot", gm_notes="Also bishis are easy for smirkity glee.")
+        self.call_cmd("/rev Bishis Are Hot", "No clues exist for Bishis Are Hot.")
+        bishirev1.clues_used.create(clue=galvcloo1, required_for_revelation=False)
+        self.call_cmd("/rev", "# Revelation      Clu Secrt GM Notes                \n"
+                              "1 Vixens Are Evil 2   1     Hss ss ss               "
+                              "2 Bishis Are Hot  1   1     Also bishis are easy...")
+        self.call_cmd("/rev Vixens", "Vixens Are Evil     About Disco GM Notes                \n"
+                                     "Glyphed Catsuit     lore  1     Chath pets a slypose... "
+                                     "Secret #1 of Slyyyy Char2 0     Sly is incredibly ho...")
+        slyplot1.revelation_involvement.create(revelation=vixenrev1, gm_notes="Naturally this applies to Slyyyy.")
+        slyplot1.revelation_involvement.create(revelation=bishirev1, gm_notes="Poor bishis do not stand a chance.")
+        slyplot1.clue_involvement.create(clue=slycloo1, access=2,
+                                         gm_notes="Not really a secret that Slyyy is sexy tbh.")
+        slyplot1.clue_involvement.create(clue=glyphcloo1, access=1,
+                                         gm_notes="Slyposing synergizes with glyphed catsuits.")
+        slyplot1.clue_involvement.create(clue=galvcloo1, access=0, gm_notes="Bishis are excellent to slypose upon.")
+        self.call_cmd("/plot Slypose", "REVELATIONS tied to Slypose:\n"
+                                       "[Vixens Are Evil] Naturally this applies to Slyyyy.\n"
+                                       "[Bishis Are Hot] Poor bishis do not stand a chance.\n"
+                                       "CLUES tied to Slypose: (Grants access, Provides hook, Neutral)\n"
+                                       "[Secret #1 of Slyyyy] (#1) Not really a secret that Slyyy is sexy tbh.\n"
+                                       "[Glyphed Catsuit] (#4) Slyposing synergizes with glyphed catsuits.\n"
+                                       "[Secret #1 of Galvanion] (#3) Bishis are excellent to slypose upon.")
+        self.call_cmd("/plot", '| #   | Plot (owner)           | {Summary                                    '
+                               '~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+\n'
+                               '| 1   | Slypose (Testaccount2) | Sly as a fox.')
+        self.call_cmd("/quick Send Help", "Created placeholder for 'Send Help' (clue #5).")
+        self.call_cmd("/quick Please=She's evil", "Created placeholder for 'Please' (clue #6). GM Notes: She's evil")
+        self.assertEqual([str(ob) for ob in self.roster_entry.clues_written.all()],
+                         ["PLACEHOLDER by Char: Send Help", "PLACEHOLDER by Char: Please"])
+        self.call_cmd("/secret Char2,1=Sly you are evil. Srsly./Do not trust.",
+                      "[Clue #7] Secret #3 of Char2: Sly you are evil. Srsly.\nGM Notes: Do not trust.\n"
+                      "Created a secret for Char2 related to revelation #1 'Vixens Are Evil'.")
+        slyplot1.resolved = True
+        slyplot1.save()
+        self.call_cmd("/no_gming", "Characters without secrets: Char3\n"
+                                   "Characters with secrets not connected to active plots: Char and Char2")
+        self.char2.dompc.inform = Mock()
+        self.call_cmd("/hook 1,1", "Hook failed; one exists between secret 'Secret #1 of Slyyyy' (#1) and "
+                                   "plot 'Slypose' (#1) already.")
+        self.call_cmd("/hook 2,1=All Sly's secrets are related to Slyposing.",
+                      "Created a plot hook for secret 'Secret #2 of Slyyyy' (#2) and plot 'Slypose' (#1). "
+                      "GM Notes: All Sly's secrets are related to Slyposing.")
+        self.char2.dompc.inform.assert_called_with(message="Your secret 'Secret #2 of Slyyyy' (#2) and plot "
+                                                   "'Slypose' (#1) are now connected! Use plots/findcontact to "
+                                                   "decide how you will approach a contact and get involved.",
+                                                   category="Plot Hook", append=True)
+        self.call_cmd("vixen", "Tagged as 'vixen':\n[Clues] Secret #1 of Slyyyy (#1); Glyphed Catsuit (#4)\n"
+                               "[Plots] Slypose (#1)")
+        self.call_cmd("/delete bishi", "Tagged as 'bishi':\n"
+                                       "[Clues] Secret #1 of Galvanion (#3)\n"
+                                       "Repeat command to delete the 'bishi' tag anyway.")
+        self.call_cmd("/delete bishi", "Deleting the 'bishi' tag. Poof.")
+
+
 class JobCommandTests(TestTicketMixins, ArxCommandTest):
 
     @patch.object(jobs, "inform_staff")
@@ -845,15 +941,15 @@ class JobCommandTests(TestTicketMixins, ArxCommandTest):
         self.setup_cmd(jobs.CmdJob, self.account)
         self.call_cmd("", "Open Tickets:\n\n"
                           "# Player       Request              Priority/Q \n"
-                          "1 TestAccount2 Bishi too easy       3 Bug      "
+                          "1 TestAccount2 Bishi too easy       3 Bugs     "
                           "2 TestAccount2 Let me kill a bishi? 3 Request  "
                           "3 TestAccount2 Sly Spareaven?       5 Typo     "
                           "4 TestAccount2 Command for licking  4 Code     "
                           "5 TestAccount2 Bring Sexy Back      3 PRP      "
-                          "6 TestAccount2 Poison too hot       1 Bug")
+                          "6 TestAccount2 Poison too hot       1 Bugs")
         # Anything that saves ticket prob needs to be inside context manager, for stupid datetime
         with patch('django.utils.timezone.now', Mock(return_value=self.fake_datetime)):
-            self.call_cmd("/move 6", "Usage: @job/move <#>=<queue> Queue options: Bug, Code, PRP, Request, "
+            self.call_cmd("/move 6", "Usage: @job/move <#>=<queue> Queue options: Bugs, Code, PRP, Request, "
                                      "Story, Typo")
             self.call_cmd("/move 6=code", "Ticket 6 is now in queue Coding Requests/Wishlist.")
             self.call_cmd("/priority 6=hella", "Must be a number.")
