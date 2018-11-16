@@ -898,7 +898,7 @@ def display_secrets(caller, character, secret_num):
         caller.msg("No secrets to display.")
         return
     if not secret_num:
-        caller.msg(character.messages.get_secret_list_display())
+        caller.msg(character.messages.get_secrets_list_display())
     else:
         show_notes = caller.check_permstring("builders")
         caller.msg(character.messages.get_secret_display(secret_number=secret_num, show_gm_notes=show_notes))
