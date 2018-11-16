@@ -38,7 +38,7 @@ class CmdTestShardhavenBuild(ArxCommand):
         if "layout" in self.switches:
 
             try:
-                haven = Shardhaven.objects.get(id=int(self.args))
+                haven = Shardhaven.objects.get(id=int(self.lhs))
             except ValueError:
                 self.msg("You need to provide an integer ID!")
                 return
@@ -53,7 +53,10 @@ class CmdTestShardhavenBuild(ArxCommand):
 
             self.msg("Generating layout for " + str(haven))
 
-            layout = ShardhavenLayout.new_haven(haven, 9, 9)
+            x_dim = int(self.rhslist[0]) if len(self.rhslist) == 2 else 9
+            y_dim = int(self.rhslist[1]) if len(self.rhslist) == 2 else 9
+
+            layout = ShardhavenLayout.new_haven(haven, x_dim, y_dim)
             self.msg("Layout generated!")
             self.msg(layout.ascii)
 
