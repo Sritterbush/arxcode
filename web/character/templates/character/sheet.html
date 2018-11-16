@@ -88,7 +88,7 @@
         {% endif %}
       {% endfor %}
       {% endif %}
-      {% if additional_notes %}
+      {% if additional_notes and request.user.is_staff %}
         <h2 class="text-center">More GM Notes</h2>
           {% for note in additional_notes %}
             {{ note.gm_notes }}

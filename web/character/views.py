@@ -83,7 +83,7 @@ def sheet(request, object_id):
     except Organization.DoesNotExist:
         family_org_id = None
     clues = list(character.clues.all())
-    secrets = character.messages.secrets
+    secrets = [ob.clue for ob in character.messages.secrets]
     additional_notes = [ob for ob in clues if ob not in secrets]
     return render(request, 'character/sheet.html', {'character': character,
                                                     'show_hidden': show_hidden,
