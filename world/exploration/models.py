@@ -340,6 +340,7 @@ class ShardhavenObstacle(SharedMemoryModel):
     description = models.TextField(blank=False, null=False)
     pass_type = models.PositiveSmallIntegerField(choices=OBSTACLE_PASS_TYPES, default=INDIVIDUAL,
                                                  verbose_name="Requirements")
+    clue_success = models.TextField(blank=True, null=True)
 
     def msg(self, *args, **kwargs):
         """
@@ -431,6 +432,9 @@ class ShardhavenObstacle(SharedMemoryModel):
             else:
                 if clue.clue in calling_object.roster.discovered_clues:
                     calling_object.msg("Your knowledge of \"{}\" allows you to pass.".format(clue.clue.name))
+                    if self.clue_success:
+                        message = self.clue_success.replace("{name}", calling_object.key)
+                        calling_object.location.msg_contents(message)
                     return True, False, True
 
         if not require_all:
@@ -446,6 +450,10 @@ class ShardhavenObstacle(SharedMemoryModel):
                 return False, False, False
 
             return False, False, True
+
+        if self.clue_success:
+            message = self.clue_success.replace("{name}", calling_object.key)
+            calling_object.location.msg_contents(message)
 
         return True, False, True
 

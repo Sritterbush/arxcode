@@ -141,8 +141,10 @@ class CmdTestLoot(ArxCommand):
     This command tests the generated loot functionality.
 
     Usage:
-        @gl_testbuild/weaponname [small||medium||huge]
+        @gl_testbuild/weaponname [small||medium||huge||bow]
         @gl_testbuild/trinketname
+        @gl_testbuild/weapon <shardhaven ID>
+        @gl_testbuild/trinket <shardhaven ID>
     """
 
     key = "@gl_testbuild"
