@@ -390,7 +390,7 @@ class ShardhavenInstanceExit(DefaultExit, BaseObjectMixins):
         if not self.haven_exit or not self.haven_exit.obstacle:
             return True
 
-        if self.ndb.override:
+        if self.db.override:
             return True
 
         obstacle = self.haven_exit.obstacle
@@ -427,15 +427,24 @@ class ShardhavenInstanceExit(DefaultExit, BaseObjectMixins):
 
     # noinspection PyMethodMayBeStatic
     def can_traverse(self, character):
-        if not character.location.ndb.combat_manager:
+        import time
+
+        if character.location.ndb.combat_manager:
+            cscript = character.location.ndb.combat_manager
+            if cscript.ndb.combatants:
+                if cscript.check_character_is_combatant(character):
+                    character.msg("You're in combat, and cannot move rooms again unless you flee!")
+                    return False
+
+        attempts = self.db.attempts or {}
+        if character.id not in attempts:
             return True
 
-        cscript = character.location.ndb.combat_manager
-        if not cscript.ndb.combatants:
-            return True
-
-        if cscript.check_character_is_combatant(character):
-            character.msg("You're in combat, and cannot move rooms again unless you flee!")
+        timestamp = attempts[character.id]
+        delta = time.time() - timestamp
+        if delta < 180:
+            from math import trunc
+            character.msg("You can't attempt to pass this obstacle again for {} seconds.".format(trunc(180 - delta)))
             return False
 
         return True
@@ -444,11 +453,17 @@ class ShardhavenInstanceExit(DefaultExit, BaseObjectMixins):
                     allow_follow=True, arguments=None):
 
         if not self.passable(traversing_object):
-            result, override_obstacle = self.haven_exit.obstacle.handle_obstacle(traversing_object, args=arguments)
+            import time
+            result, override_obstacle, attempted = self.haven_exit.obstacle.handle_obstacle(traversing_object, args=arguments)
+            if attempted:
+                attempts = self.db.attempts or {}
+                attempts[traversing_object.id] = time.time()
+                self.db.attempts = attempts
+
             if result:
                 self.haven_exit.passed_by.add(traversing_object)
                 if override_obstacle:
-                    self.ndb.override = True
+                    self.db.override = True
             else:
                 return
 

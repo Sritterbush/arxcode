@@ -70,7 +70,13 @@ class LootGenerator(object):
         return recipes[material][wpn_type]
 
     @classmethod
-    def create_weapon(cls, haven, wpn_type=WPN_MEDIUM):
+    def create_weapon(cls, haven, wpn_type=None):
+
+        weapon_types = (LootGenerator.WPN_SMALL, LootGenerator.WPN_MEDIUM, LootGenerator.WPN_HUGE,
+                        LootGenerator.WPN_BOW)
+
+        if not wpn_type:
+            wpn_type = random.choice(weapon_types)
 
         difficulty = haven.difficulty_rating
         if difficulty < 3:

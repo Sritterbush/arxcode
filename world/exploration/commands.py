@@ -16,8 +16,9 @@ class CmdTestShardhavenBuild(ArxCommand):
     Usage:
       @sh_testbuild/maze [width,height]
       @sh_testbuild/layout <shardhaven ID>
-      @sh_testbuild/instanciate <shardhaven layout ID>
-      @sh_testbuild/destroy <shardhaven layout ID>
+      @sh_testbuild/showlayout <shardhaven ID>
+      @sh_testbuild/instanciate <shardhaven ID>
+      @sh_testbuild/destroy <shardhaven ID>
     """
 
     key = "@sh_testbuild"
@@ -45,6 +46,11 @@ class CmdTestShardhavenBuild(ArxCommand):
                 self.msg("That doesn't appear to be an ID matching a Shardhaven!")
                 return
 
+            layouts = ShardhavenLayout.objects.filter(haven=haven)
+            if layouts.count() > 0:
+                self.msg("That shardhaven already has a layout generated!")
+                return
+
             self.msg("Generating layout for " + str(haven))
 
             layout = ShardhavenLayout.new_haven(haven, 9, 9)
@@ -53,15 +59,41 @@ class CmdTestShardhavenBuild(ArxCommand):
 
             return
 
+        if "showlayout" in self.switches:
+
+            try:
+                haven = Shardhaven.objects.get(id=int(self.args))
+            except ValueError:
+                self.msg("You need to provide an integer ID!")
+                return
+            except Shardhaven.DoesNotExist, Shardhaven.MultipleObjectsReturned:
+                self.msg("That doesn't appear to be an ID matching a Shardhaven!")
+                return
+
+            layouts = ShardhavenLayout.objects.filter(haven=haven)
+            if layouts.count() == 0:
+                self.msg("That shardhaven doesn't appear to have a layout!")
+                return
+
+            self.msg("Layout for {}".format(haven.name))
+            self.msg(layouts[0].ascii)
+            return
+
         if "instanciate" in self.switches:
             try:
-                layout = ShardhavenLayout.objects.get(id=int(self.args))
+                haven = Shardhaven.objects.get(id=int(self.args))
             except ValueError:
-                self.msg("You need to provide an integer ID")
+                self.msg("You need to provide an integer ID!")
                 return
-            except ShardhavenLayout.DoesNotExist, ShardhavenLayout.MultipleObjectsReturned:
-                self.msg("That doesn't appear to be an ID matching a valid shardhaven layout!")
+            except Shardhaven.DoesNotExist, Shardhaven.MultipleObjectsReturned:
+                self.msg("That doesn't appear to be an ID matching a Shardhaven!")
                 return
+
+            layouts = ShardhavenLayout.objects.filter(haven=haven)
+            if layouts.count() == 0:
+                self.msg("That shardhaven doesn't appear to have a layout!")
+                return
+            layout = layouts[0]
 
             self.msg("Instanciating " + str(layout))
             room = layout.instanciate()
@@ -82,13 +114,19 @@ class CmdTestShardhavenBuild(ArxCommand):
 
         if "destroy" in self.switches:
             try:
-                layout = ShardhavenLayout.objects.get(id=int(self.args))
+                haven = Shardhaven.objects.get(id=int(self.args))
             except ValueError:
-                self.msg("You need to provide an integer ID")
+                self.msg("You need to provide an integer ID!")
                 return
-            except ShardhavenLayout.DoesNotExist, ShardhavenLayout.MultipleObjectsReturned:
-                self.msg("That doesn't appear to be an ID matching a valid shardhaven layout!")
+            except Shardhaven.DoesNotExist, Shardhaven.MultipleObjectsReturned:
+                self.msg("That doesn't appear to be an ID matching a Shardhaven!")
                 return
+
+            layouts = ShardhavenLayout.objects.filter(haven=haven)
+            if layouts.count() == 0:
+                self.msg("That shardhaven doesn't appear to have a layout!")
+                return
+            layout = layouts[0]
 
             self.msg("Destroying " + str(layout) + " instance.")
             layout.destroy_instanciation()

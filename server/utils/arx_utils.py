@@ -619,3 +619,11 @@ def list_to_string(inlist, endsep="and", addquote=False):
         if len(inlist) == 1:
             return str(inlist[0])
         return ", ".join(str(v) for v in inlist[:-1]) + "%s %s" % (endsep, inlist[-1])
+
+
+def a_or_an(word):
+
+    if word[:1].lower() in ['a', 'e', 'i', 'o', 'u']:
+        return "an"
+
+    return "a"

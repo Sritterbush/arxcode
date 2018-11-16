@@ -689,7 +689,10 @@ class CraftingMixins(object):
             string += "\nAdornments: %s" % ", ".join(adorn_strs)
         # recipe is an integer matching the CraftingRecipe ID
         if hasattr(self, 'type_description') and self.type_description:
-            string += "\nIt is a %s." % self.type_description
+            from server.utils.arx_utils import a_or_an
+            td = self.type_description
+            part = a_or_an(td)
+            string += "\nIt is %s %s." % (part, td)
         if self.db.quality_level:
             string += self.get_quality_appearance()
         if hasattr(self, 'origin_description') and self.origin_description:
