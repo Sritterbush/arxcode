@@ -386,6 +386,22 @@ class ShardhavenInstanceExit(DefaultExit, BaseObjectMixins):
 
         return haven_exit
 
+    def return_appearance(self, pobject, detailed=False, format_desc=False,
+                          show_contents=True):
+
+        result = "|c" + self.key + "|n|/|/"
+
+        if self.haven_exit and self.haven_exit.obstacle:
+            result += self.haven_exit.obstacle.description
+
+            if self.passable(pobject):
+                result += "|/|/However, you have already addressed this obstacle, and may pass."
+
+        else:
+            result += "The way seems clear ahead."
+
+        return result + "|/"
+
     def passable(self, traversing_object):
         if not self.haven_exit or not self.haven_exit.obstacle:
             return True
