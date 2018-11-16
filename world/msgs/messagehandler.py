@@ -210,7 +210,7 @@ class MessageHandler(messengerhandler.MessengerHandler, journalhandler.JournalHa
         table = PrettyTable(["{w#", "{wName", "{wDate:"])
         for ob in getattr(self, attr):
             name = ob.name
-            if len(name) > 15:
-                name = name[:12] + "..."
-            table.add_row([ob.clue.id, name, ob.date.strftime("%x %X")])
+            if len(name) > 35:
+                name = name[:32] + "..."
+            table.add_row([ob.clue.id, name, ob.date.strftime("%x")])
         return str(table)
