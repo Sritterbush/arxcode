@@ -103,6 +103,7 @@ class MessageHandler(messengerhandler.MessengerHandler, journalhandler.JournalHa
         from datetime import datetime
         if not vision_obj:
             vision_obj = Clue(desc=msg, name=name, rating=25, author=sender.roster, clue_type=Clue.VISION)
+            vision_obj.save()
         ClueDiscovery.objects.create(clue=vision_obj, character=self.obj.roster, date=datetime.now(),
                                      discovery_method="original receiver")
         self._visions = None  # clear cache
