@@ -1778,7 +1778,7 @@ class CmdPRPRevelation(PRPLorecommand):
     in the above example, and if the House was destroyed by 'The Bloodcurse',
     you would add that as a tag as well.
     """
-    key = "prpclue"
+    key = "prprevelation"
     help_category = "PRP"
     locks = "cmd: all()"
     form_class = RevelationCreateForm
