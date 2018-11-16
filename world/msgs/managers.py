@@ -285,7 +285,7 @@ class JournalManager(MsgProxyManager):
             return qs
         # get all White Journals plus Black Journals they've written
         # noinspection PyUnresolvedReferences
-        return qs.filter(self.non_recent_white_query | Q(self.all_journals_query & q_sender_character(user.char_ob)) |
+        return qs.filter(self.non_recent_white_query() | Q(self.all_journals_query & q_sender_character(user.char_ob)) |
                          self.revealed_query)
 
 
@@ -296,7 +296,7 @@ class BlackJournalManager(MsgProxyManager):
 
 class WhiteJournalManager(MsgProxyManager):
     def get_queryset(self):
-        return super(WhiteJournalManager, self).get_queryset().filter(self.non_recent_white_query)
+        return super(WhiteJournalManager, self).get_queryset().filter(self.non_recent_white_query())
 
 
 class MessengerManager(MsgProxyManager):
