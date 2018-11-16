@@ -29,10 +29,13 @@ class CrisisManager(Manager):
             qs = self.filter(Q(public=True) | Q(required_clue__in=player.roster.clues.all()))
         return qs
 
-    def view_plots_table(self, old=False):
+    def view_plots_table(self, old=False, only_open_tickets=False):
         """Returns an EvTable chock full of spicy Plots."""
         from evennia.utils.evtable import EvTable
         qs = self.filter(resolved=old).exclude(Q(usage=self.model.CRISIS) | Q(parent_plot__isnull=False)).distinct()
+        if only_open_tickets:
+            from web.helpdesk.models import Ticket
+            qs = qs.filter(tickets__status=Ticket.OPEN_STATUS)
         alt_header = "Resolved " if old else ""
         table = EvTable("{w#{n", "{w%sPlot (owner){n" % alt_header, "{Summary{n", width=78, border="cells")
         for plot in qs:

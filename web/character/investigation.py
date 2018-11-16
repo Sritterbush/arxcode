@@ -1360,22 +1360,21 @@ class CmdListRevelations(ArxPlayerCommand):
         caller.msg(msg, options={'box': True})
 
     def resync_revelations(self):
-        self.msg("Disabled")
-        # character = self.caller.roster
-        # revelations = Revelation.objects.filter(~Q(characters=character)).distinct()
-        # discovered = []
-        # for revelation in revelations:
-        #     if revelation.player_can_discover(character):
-        #         discovered.append(revelation)
-        #
-        # date = datetime.now()
-        # for revelation in discovered:
-        #     message = "You had a revelation which had been missed!"
-        #     RevelationDiscovery.objects.create(character=character, discovery_method="Checked for Missing",
-        #                                        message=message, investigation=None,
-        #                                        revelation=revelation, date=date)
-        #
-        #     self.msg("You were missing a revelation: %s" % str(revelation))
+        character = self.caller.roster
+        revelations = Revelation.objects.filter(~Q(characters=character)).distinct()
+        discovered = []
+        for revelation in revelations:
+            if revelation.player_can_discover(character):
+                discovered.append(revelation)
+
+        date = datetime.now()
+        for revelation in discovered:
+            message = "You had a revelation which had been missed!"
+            RevelationDiscovery.objects.create(character=character, discovery_method="Checked for Missing",
+                                               message=message, investigation=None,
+                                               revelation=revelation, date=date)
+
+            self.msg("You were missing a revelation: %s" % str(revelation))
 
     def func(self):
         if "checkmissed" in self.switches:

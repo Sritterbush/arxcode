@@ -464,6 +464,7 @@ class CmdGMPlots(ArxCommand):
     """
     @gmplots [<plot ID>]
     @gmplots/old
+    @gmplots/all
     Admin:
     @gmplots/create <name>/<headline>/<description>[=<parent plot if subplot>]
     @gmplots/end <ID>[=<gm notes of resolution>]
@@ -506,7 +507,7 @@ class CmdGMPlots(ArxCommand):
     def func(self):
         """Executes gmplots command"""
         try:
-            if "old" in self.switches or not self.switches:
+            if "old" in self.switches or not self.switches or "all" in self.switches:
                 return self.view_plots()
             if "create" in self.switches:
                 return self.create_plot()
@@ -521,7 +522,8 @@ class CmdGMPlots(ArxCommand):
         """Displays existing plots"""
         if not self.args:
             old = "old" in self.switches
-            self.msg(str(Plot.objects.view_plots_table(old=old)))
+            only_open = "all" not in self.switches and not old
+            self.msg(str(Plot.objects.view_plots_table(old=old, only_open_tickets=only_open)))
         else:
             try:
                 plot = Plot.objects.get(id=self.lhs)

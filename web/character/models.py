@@ -692,8 +692,7 @@ class AbstractPlayerAllocations(SharedMemoryModel):
 class Mystery(SharedMemoryModel):
     """One of the big mysteries of the game. Kind of used as a category for revelations."""
     name = models.CharField(max_length=255, db_index=True)
-    desc = models.TextField("Description", help_text="Description of the mystery given to the player " +
-                                                     "when fully revealed",
+    desc = models.TextField("Description", help_text="A summary of the lore of revelations for this category",
                             blank=True)
     category = models.CharField(help_text="Type of mystery this is - ability-related, metaplot, etc", max_length=80,
                                 blank=True)
@@ -711,7 +710,8 @@ class Revelation(SharedMemoryModel):
     desc = models.TextField("Description", help_text="Description of the revelation given to the player",
                             blank=True)
     gm_notes = models.TextField(help_text="OOC Notes about this topic", blank=True)
-    mysteries = models.ManyToManyField("Mystery", through='RevelationForMystery')
+    mysteries = models.ManyToManyField("Mystery", blank=True, related_name="revelations",
+                                       help_text="Categories of revelations with summaries")
 
     required_clue_value = models.PositiveSmallIntegerField(default=0, blank=0,
                                                            help_text="The total value of clues to trigger this")
@@ -905,20 +905,6 @@ class RevelationDiscovery(SharedMemoryModel):
         if self.message:
             msg += "\n" + self.message
         return msg
-
-
-class RevelationForMystery(SharedMemoryModel):
-    """Through model for showing which revelations are required for mystery discovery."""
-    mystery = models.ForeignKey('Mystery', related_name="revelations_used", db_index=True)
-    revelation = models.ForeignKey('Revelation', related_name="usage", db_index=True)
-    required_for_mystery = models.BooleanField(default=True, help_text="Whether this must be discovered for the" +
-                                                                       " mystery to finish")
-    tier = models.PositiveSmallIntegerField(default=0, blank=0,
-                                            help_text="How high in the hierarchy of discoveries this revelation is," +
-                                                      " lower number discovered first")
-
-    def __str__(self):
-        return "Revelation %s used for %s" % (self.revelation, self.mystery)
 
 
 class ClueDiscovery(SharedMemoryModel):
