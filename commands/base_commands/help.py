@@ -190,9 +190,6 @@ class CmdHelp(Command):
                      suggested=suggestions))
             found_match = True
 
-        if found_match:
-            return
-
         # try to see if a category name was entered
         if query in all_categories:
             # fixed bug - wouldn't match if category name was capitalized
@@ -201,6 +198,8 @@ class CmdHelp(Command):
                 {query: [topic.key for topic in all_topics if topic.help_category.lower() == query]}))
             return
 
+        if found_match:
+            return
         # no exact matches found. Just give suggestions.
         self.msg(format_help_entry("", "No help entry found for '%s'" % query, None, suggested=suggestions))
 
