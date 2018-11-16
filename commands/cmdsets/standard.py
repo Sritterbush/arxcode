@@ -143,6 +143,10 @@ try:
     from world.exploration import exploration_commands
 except Exception as err:
     print("<<ERROR>>: Error encountered in exploration commands: %s" % err)
+try:
+    from world.dominion import plot_commands
+except Exception as err:
+    print("<<ERROR>>: Error encountered in plot commands: %s" % err)
 
 
 from evennia.commands.cmdset import CmdSet
@@ -216,6 +220,7 @@ class StateIndependentCmdSet(CmdSet):
         self.add(social.CmdLanguages())
         self.add(maps.CmdMap())
         self.add(story_actions.CmdAction())
+        self.add(plot_commands.CmdPlots())
 
 
 class MobileCmdSet(CmdSet):
@@ -334,6 +339,7 @@ class StaffCmdSet(CmdSet):
         self.add(staff_commands.CmdRelocateExit())
         self.add(staff_commands.CmdAdminKey())
         self.add(staff_commands.CmdAdminPropriety())
+        self.add(plot_commands.CmdGMPlots())
         self.add(extended_room.CmdExtendedDesc())
         self.add(xp.CmdAdjustSkill())
         self.add(xp.CmdAwardXP())
