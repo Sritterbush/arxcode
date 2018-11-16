@@ -256,6 +256,7 @@ class AccountCmdSet(cmdset_account.AccountCmdSet):
         self.add(investigation.CmdTheories())
         self.add(investigation.CmdListRevelations())
         self.add(investigation.CmdPRPClue())
+        self.add(investigation.CmdPRPRevelation())
 
     @check_errors
     def add_scene_commands(self):
