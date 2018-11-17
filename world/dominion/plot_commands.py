@@ -64,8 +64,8 @@ class CmdPlots(ArxCommand):
         plots/add/action <action ID>=<beat ID>
         plots/add/gemit <gemit ID>=<beat ID>
         plots/add/flashback <flashback ID>=<beat ID>
-        plots/addclue <plot ID>=<clue ID>/<how it's related to the plot>
-        plots/addrevelation <plot ID>=<revelation ID>/<how it's related>
+        plots/add/clue <plot ID>=<clue ID>/<how it's related to the plot>
+        plots/add/revelation <plot ID>=<revelation ID>/<how it's related>
         plots/storyhook <plot ID>=<recruiter>/<Example plot hook for meeting>
         plots/perm <plot ID>=<participant>/<gm, recruiter, or player>
         plots/rfr <ID>[,<beat ID>]=<message to staff of what to review>
@@ -232,6 +232,11 @@ class CmdPlots(ArxCommand):
 
     def add_object_to_beat(self):
         """Adds an object that was the origin of a beat for a plot"""
+        # clues and revelations aren't part of beats but using /add is a convenience for players
+        if "clue" in self.switches:
+            return self.add_clue()
+        if "revelation" in self.switches:
+            return self.add_revelation()
         beat = self.get_beat(self.rhs)
         if "rpevent" in self.switches:
             if self.called_by_staff:
