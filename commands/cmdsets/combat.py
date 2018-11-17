@@ -655,6 +655,9 @@ class CmdFlee(CombatCommand):
         if not exit_obj.is_exit:
             caller.msg("That is not an exit.")
             return
+        if hasattr(exit_obj, "passable") and not exit_obj.passable(self.caller):
+            caller.msg("That exit is blocked by an obstacle you have not passed!")
+            return
         caller.combat.state.do_flee(exit_obj)
 
 

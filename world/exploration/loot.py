@@ -2,6 +2,7 @@ from .models import GeneratedLootFragment, Shardhaven
 from typeclasses.bauble import Bauble
 from typeclasses.wearable.wieldable import Wieldable
 from evennia.utils import create
+from server.utils.arx_utils import a_or_an
 import random
 
 
@@ -101,14 +102,16 @@ class LootGenerator(object):
         name = GeneratedLootFragment.generate_weapon_name(material, include_name=should_name, wpn_type=generator_wpn)
         weapon = create.create_object(typeclass="world.exploration.loot.AncientWeapon", key=name)
 
-        desc = "\nAn ancient {adjective} {material} weapon, with {decor} on the {element}.\n"
+        desc = "\n{particle} {adjective} ancient {material} weapon, with {decor} on the {element}.\n"
         if wpn_type == LootGenerator.WPN_BOW:
-            desc = "\nAn ancient {adjective} {material} bow, decorated with {decor}.\n"
+            desc = "\n{particle} {adjective} ancient {material} bow, decorated with {decor}.\n"
 
         adjective = GeneratedLootFragment.pick_random_fragment(GeneratedLootFragment.ADJECTIVE)
         decor = GeneratedLootFragment.pick_random_fragment(GeneratedLootFragment.WEAPON_DECORATION)
         element = GeneratedLootFragment.pick_random_fragment(GeneratedLootFragment.WEAPON_ELEMENT)
+        particle = a_or_an(adjective).capitalize()
 
+        desc = desc.replace("{particle}", particle)
         desc = desc.replace("{material}", material)
         desc = desc.replace("{adjective}", adjective)
         desc = desc.replace("{decor}", decor)

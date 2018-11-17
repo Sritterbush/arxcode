@@ -23,6 +23,10 @@ class ShardhavenRoom(ArxRoom):
         if not haven:
             return
 
+        entrance_square = haven.entrance
+        if entrance_square is not None and entrance_square.room == self:
+            return
+
         difficulty = haven.difficulty_rating
         chance = random.randint(0, 100)
         if chance < difficulty * 5:

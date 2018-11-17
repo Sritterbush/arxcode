@@ -270,6 +270,13 @@ class Shardhaven(SharedMemoryModel):
     def __str__(self):
         return self.name or "Unnamed Shardhaven (#%d)" % self.id
 
+    @property
+    def entrance(self):
+        if self.layout is None:
+            return None
+
+        return self.layout.entrance
+
 
 class ShardhavenDiscovery(SharedMemoryModel):
     """
@@ -628,10 +635,11 @@ class ShardhavenLayoutSquare(SharedMemoryModel):
         room.db.raw_desc = final_description
         room.db.desc = final_description
 
-        from commands import CmdExplorationRoomCommands
+        from exploration_commands import CmdExplorationRoomCommands
         room.cmdset.add(CmdExplorationRoomCommands())
 
         self.room = room
+        self.save()
         return room
 
     def destroy_room(self):
@@ -661,6 +669,13 @@ class ShardhavenLayout(SharedMemoryModel):
 
     def __unicode__(self):
         return unicode(str(self))
+
+    @property
+    def entrance(self):
+        if not self.matrix:
+            self.cache_room_matrix()
+
+        return self.matrix[self.entrance_x][self.entrance_y]
 
     def cache_room_matrix(self):
         self.matrix = [[None for y in range(self.height)] for x in range(self.width)]
