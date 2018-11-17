@@ -344,7 +344,7 @@ def check_targ(caller, target, verb="Attack"):
     if not target:
         caller.msg("%s who?" % verb)
         return False
-    if not target.attackable:
+    if not hasattr(target, 'attackable') or not target.attackable:
         caller.msg("%s is not attackable and cannot enter combat." % target.name)
         return False
     combat = target.combat.combat
