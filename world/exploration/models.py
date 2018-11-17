@@ -86,6 +86,7 @@ class Monster(SharedMemoryModel):
                          plural_name=self.plural_name or self.name)
         result.name = mob_name
         result.db.monster_id = self.id
+        result.db.desc = self.description
 
         if self.spawn_message:
             location.msg_contents(self.spawn_message)
@@ -357,6 +358,16 @@ class ShardhavenObstacle(SharedMemoryModel):
         """
         pass
 
+    @property
+    def options_description(self):
+        result = "|/You have the following options:|/"
+        counter = 1
+        for roll in self.rolls.all():
+            result += "|/{}: [{}+{}] {}".format(counter, roll.stat, roll.skill, roll.description)
+            counter += 1
+        result += "|/|/Enter the direction followed by the number you choose, such as 'south 1'."
+        return result
+
     def handle_dice_check(self, calling_object, args):
 
         if self.rolls.count() == 0:
@@ -364,12 +375,7 @@ class ShardhavenObstacle(SharedMemoryModel):
 
         if not args:
             calling_object.msg(self.description)
-            calling_object.msg("|/You have the following options:")
-            counter = 1
-            for roll in self.rolls.all():
-                calling_object.msg("{}: [{}+{}] {}".format(counter, roll.stat, roll.skill, roll.description))
-                counter += 1
-            calling_object.msg("|/Enter the direction followed by the number you choose, such as 'south 1'.")
+            calling_object.msg(self.options_description)
             return False, False, False
 
         try:
@@ -429,12 +435,7 @@ class ShardhavenObstacle(SharedMemoryModel):
                     calling_object.msg("You lack the knowledge to pass this obstacle.")
 
                     if self.rolls.count() > 0:
-                        calling_object.msg("|/However, you have other options:|/")
-                        counter = 1
-                        for roll in self.rolls.all():
-                            calling_object.msg("{}: [{}+{}] {}".format(counter, roll.stat, roll.skill, roll.description))
-                            counter += 1
-                        calling_object.msg("|/Enter the direction followed by the number you choose, such as 'south 1'.")
+                        calling_object.msg(self.options_description)
                         return False, False, False
 
                     return False, False, True

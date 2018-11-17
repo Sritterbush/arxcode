@@ -396,6 +396,8 @@ class ShardhavenInstanceExit(DefaultExit, BaseObjectMixins):
 
             if self.passable(pobject):
                 result += "|/|/However, you have already addressed this obstacle, and may pass."
+            else:
+                result += self.haven_exit.obstacle.options_description
 
         else:
             result += "The way seems clear ahead."
@@ -452,18 +454,24 @@ class ShardhavenInstanceExit(DefaultExit, BaseObjectMixins):
                     character.msg("You're in combat, and cannot move rooms again unless you flee!")
                     return False
 
-        attempts = self.db.attempts or {}
-        if character.id not in attempts:
-            return True
+        if not self.passable(character):
+            attempts = self.db.attempts or {}
+            if character.id not in attempts:
+                return True
 
-        timestamp = attempts[character.id]
-        delta = time.time() - timestamp
-        if delta < 180:
-            from math import trunc
-            character.msg("You can't attempt to pass this obstacle again for {} seconds.".format(trunc(180 - delta)))
-            return False
+            timestamp = attempts[character.id]
+            delta = time.time() - timestamp
+            if delta < 180:
+                from math import trunc
+                character.msg("You can't attempt to pass this obstacle again for {} seconds.".format(trunc(180 - delta)))
+                return False
 
         return True
+
+    @property
+    def direction_name(self):
+        first = self.key.split(" ")[0]
+        return first.lower()
 
     def at_traverse(self, traversing_object, target_location, key_message=True, special_entrance=None, quiet=False,
                     allow_follow=True, arguments=None):
@@ -482,6 +490,8 @@ class ShardhavenInstanceExit(DefaultExit, BaseObjectMixins):
                     self.db.override = True
             else:
                 return
+
+        self.location.msg_contents("{} heads {}.".format(traversing_object.name, self.direction_name))
 
         return super(ShardhavenInstanceExit, self).at_traverse(traversing_object, target_location,
                                                                key_message=key_message,
