@@ -15,6 +15,12 @@ class ShardhavenRoom(ArxRoom):
         except Shardhaven.DoesNotExist, Shardhaven.MultipleObjectsReturned:
             return None
 
+    def at_init(self):
+        from exploration_commands import CmdExplorationRoomCommands
+        self.cmdset.add(CmdExplorationRoomCommands())
+
+        super(ShardhavenRoom, self).at_init()
+
     def at_object_receive(self, obj, source_location):
         if not obj.is_typeclass('typeclasses.characters.Character'):
             return
