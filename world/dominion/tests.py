@@ -214,6 +214,17 @@ class TestPlotCommands(TestTicketMixins, ArxCommandTest):
                                                          'You have both gained xp.')
         self.assertEqual(self.char2.db.xp, recruiter_xp)
         self.assertEqual(self.char1.db.xp, plot_commands.CmdPlots.recruited_xp)
+        self.call_cmd("/addclue 2=asdf", 'You must include a clue ID and notes of how the clue is related to the plot.')
+        clue2 = Clue.objects.create(name="testclue")
+        clue2.discoveries.create(character=self.roster_entry)
+        self.call_cmd("/addclue 2=2/foo", "You have associated clue 'testclue' with plot 'testplot2'.")
+        self.call_cmd("/addclue 2=2/so connected", 'That clue is already related to that plot.')
+        self.assertEqual(clue2.plot_involvement.get(plot=self.plot2).gm_notes, "foo")
+        rev = Revelation.objects.create(name="testrev")
+        rev.discoveries.create(character=self.roster_entry)
+        self.call_cmd("/addrevelation 2=1/foo", "You have associated revelation 'testrev' with plot 'testplot2'.")
+        self.call_cmd("/addrevelation 2=1/blargh", 'That revelation is already related to that plot.')
+        self.assertEqual(rev.plot_involvement.get(plot=self.plot2).gm_notes, "foo")
 
     @patch('django.utils.timezone.now')
     def test_cmd_gm_plots(self, mock_now):

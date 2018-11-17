@@ -64,6 +64,8 @@ class CmdPlots(ArxCommand):
         plots/add/action <action ID>=<beat ID>
         plots/add/gemit <gemit ID>=<beat ID>
         plots/add/flashback <flashback ID>=<beat ID>
+        plots/addclue <plot ID>=<clue ID>/<how it's related to the plot>
+        plots/addrevelation <plot ID>=<revelation ID>/<how it's related>
         plots/storyhook <plot ID>=<recruiter>/<Example plot hook for meeting>
         plots/perm <plot ID>=<participant>/<gm, recruiter, or player>
         plots/rfr <ID>[,<beat ID>]=<message to staff of what to review>
@@ -155,6 +157,10 @@ class CmdPlots(ArxCommand):
                 return self.find_contact()
             if "rewardrecruiter" in self.switches:
                 return self.reward_recruiter()
+            if "addclue" in self.switches:
+                return self.add_clue()
+            if "addrevelation" in self.switches:
+                return self.add_revelation()
             raise CommandError("Unrecognized switch.")
         except CommandError as err:
             self.msg(err)
@@ -458,6 +464,42 @@ class CmdPlots(ArxCommand):
             involvement, involvement.plot, xp))
         self.caller.adjust_xp(self.recruited_xp)
         self.msg("You have marked %s as your recruiter. You have both gained xp." % targ.key)
+
+    def add_clue(self):
+        """Adds a clue to an existing plot"""
+        plot = self.get_involvement_by_plot_id(PCPlotInvolvement.PLAYER).plot
+        try:
+            clue_id, notes = self.rhs.split("/", 1)
+        except (TypeError, ValueError):
+            raise CommandError("You must include a clue ID and notes of how the clue is related to the plot.")
+        try:
+            clue = self.caller.roster.clues.get(id=clue_id)
+        except (Clue.DoesNotExist, TypeError, ValueError):
+            raise CommandError("No clue by that ID.")
+        clue_plot_inv, created = clue.plot_involvement.get_or_create(plot=plot)
+        if not created:
+            raise CommandError("That clue is already related to that plot.")
+        clue_plot_inv.gm_notes = notes
+        clue_plot_inv.save()
+        self.msg("You have associated clue '%s' with plot '%s'." % (clue, plot))
+
+    def add_revelation(self):
+        """Adds a revelation to an existing plot"""
+        plot = self.get_involvement_by_plot_id(PCPlotInvolvement.PLAYER).plot
+        try:
+            rev_id, notes = self.rhs.split("/", 1)
+        except (TypeError, ValueError):
+            raise CommandError("You must include a revelation ID and notes of how the clue is related to the plot.")
+        try:
+            revelation = self.caller.roster.revelations.get(id=rev_id)
+        except (Clue.DoesNotExist, TypeError, ValueError):
+            raise CommandError("No revelation by that ID.")
+        rev_plot_inv, created = revelation.plot_involvement.get_or_create(plot=plot)
+        if not created:
+            raise CommandError("That revelation is already related to that plot.")
+        rev_plot_inv.gm_notes = notes
+        rev_plot_inv.save()
+        self.msg("You have associated revelation '%s' with plot '%s'." % (revelation, plot))
 
 
 class CmdGMPlots(ArxCommand):
