@@ -67,7 +67,7 @@ class CmdPlots(ArxCommand):
         plots/storyhook <plot ID>=<recruiter>/<Example plot hook for meeting>
         plots/perm <plot ID>=<participant>/<gm, recruiter, or player>
         plots/rfr <ID>[,<beat ID>]=<message to staff of what to review>
-        plots/invite <ID>=<character>,<main, secondary, extra>
+        plots/invite <ID>=<character>,<required, main, secondary, extra>
         plots/accept <ID>[=<IC description of character's involvement>]
         plots/leave <ID>
         plots/pitch <name>/<summary>/<desc>/<GM Notes>[=<plot ID if subplot>]
@@ -370,7 +370,7 @@ class CmdPlots(ArxCommand):
         except (TypeError, ValueError):
             raise CommandError("Must provide both a name and a status for invitation.")
         dompc = self.dompc_search(name)
-        plot.add_dompc(dompc, status)
+        plot.add_dompc(dompc, status.lower())
         self.msg("You have invited %s to join %s." % (dompc, plot))
 
     def request_for_review(self, plot):

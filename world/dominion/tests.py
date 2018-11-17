@@ -177,7 +177,7 @@ class TestPlotCommands(TestTicketMixins, ArxCommandTest):
         self.call_cmd("/invite 2=testaccount", "That plot has been resolved.")
         self.plot2.resolved = False
         self.call_cmd("/invite 2=testaccount", 'Must provide both a name and a status for invitation.')
-        self.call_cmd("/invite 2=testaccount,foo", 'Status must be in: main, secondary, extra')
+        self.call_cmd("/invite 2=testaccount,foo", 'Status must be in: required, main, secondary, extra')
         self.call_cmd("/invite 2=testaccount,extra", "You have invited Testaccount to join testplot2.")
         self.call_cmd("/invite 2=testaccount,extra", "They are already invited.")
         self.call_cmd("/rfr 2=argleblargle", "You lack the required permission for that plot.")

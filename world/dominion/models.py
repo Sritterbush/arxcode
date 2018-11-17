@@ -2138,7 +2138,7 @@ class Plot(SharedMemoryModel):
     def add_dompc(self, dompc, status):
         """Invites a dompc to join the plot."""
         from server.utils.exceptions import CommandError
-        status_types = ("main", "secondary", "extra")
+        status_types = ("required", "main", "secondary", "extra")
         if status not in status_types:
             raise CommandError("Status must be in: %s" % ", ".join(status_types))
         try:
@@ -2148,7 +2148,7 @@ class Plot(SharedMemoryModel):
         except PCPlotInvolvement.DoesNotExist:
             involvement = PCPlotInvolvement(dompc=dompc, plot=self)
         involvement.activity_status = PCPlotInvolvement.INVITED
-        involvement.cast_status = status_types.index(status) + 1
+        involvement.cast_status = status_types.index(status)
         involvement.save()
         dompc.inform("You have been invited to join plot %s." % self)
 
