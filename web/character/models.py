@@ -866,8 +866,10 @@ class SearchTag(SharedMemoryModel):
             message = ""
             sep = ""
             for obj in qset:
-                if obj._meta.verbose_name_plural != class_name:
-                    class_name = obj._meta.verbose_name_plural
+                # noinspection PyProtectedMember
+                plural_name = obj._meta.verbose_name_plural
+                if plural_name != class_name:
+                    class_name = plural_name
                     message += "\n|w[%s]|n " % class_name.title()
                     sep = ""
                 message += sep + get_obj_str(obj)
@@ -1024,7 +1026,7 @@ class ClueDiscovery(SharedMemoryModel):
         targ_clue.mark_discovered(method="Sharing", message=message, revealed_by=self.character,
                                   investigation=investigation, inform_creator=inform_creator)
         pc = targ_clue.character.player
-        msg = "A new clue (%d) has been shared with you by %s!\n\n%s\n" % (targ_clue.id, self.character,
+        msg = "A new clue (%d) has been shared with you by %s!\n\n%s\n" % (self.clue.id, self.character,
                                                                            targ_clue.display())
         if inform_creator:
             inform_creator.add_player_inform(pc, msg, "Investigations")
