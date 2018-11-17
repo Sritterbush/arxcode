@@ -33,17 +33,32 @@ class ShardhavenRoom(ArxRoom):
         if entrance_square is not None and entrance_square.room == self:
             return
 
-        difficulty = haven.difficulty_rating
-        chance = random.randint(0, 100)
-        if chance < difficulty * 5:
-            obj.scripts.add(SpawnMobScript)
-
+        characters = []
         for testobj in self.contents:
             if testobj != obj and (testobj.has_player or (hasattr(testobj, 'is_character') and testobj.is_character)):
-                return
+                characters.append(testobj)
+
+        player_characters = []
+        for testobj in characters:
+            if not testobj.is_typeclass("world.exploration.npcs.BossMonsterNpc") \
+                    and not testobj.is_typeclass("world.exploration.npcs.MookMonsterNpc"):
+                player_characters.append(testobj)
+
+        difficulty = haven.difficulty_rating
+        if len(player_characters) == 1:
+            difficulty *= 6
+        else:
+            difficulty *= 2
 
         chance = random.randint(0, 100)
         if chance < difficulty:
+            obj.scripts.add(SpawnMobScript)
+
+        if len(characters) > 0:
+            return
+
+        chance = random.randint(0, 100)
+        if chance < haven.difficulty_rating:
             if random.randint(0, 1) == 0:
                 trinket = LootGenerator.create_trinket(haven)
                 trinket.location = self

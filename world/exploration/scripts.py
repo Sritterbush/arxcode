@@ -28,6 +28,6 @@ class SpawnMobScript(Script):
 
         monster = random.choice(monsters.all())
         mob_instance = monster.create_instance(self.obj.location)
-        self.obj.msg("{} attacks you!".format(mob_instance.name))
+        self.obj.location.msg_contents("{} attacks {}!".format(mob_instance.name, self.obj.name))
         mob_instance.attack(self.obj.name, kill=True)
         self.stop()

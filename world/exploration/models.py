@@ -360,12 +360,14 @@ class ShardhavenObstacle(SharedMemoryModel):
 
     @property
     def options_description(self):
-        result = "|/You have the following options:|/"
-        counter = 1
-        for roll in self.rolls.all():
-            result += "|/{}: [{}+{}] {}".format(counter, roll.stat, roll.skill, roll.description)
-            counter += 1
-        result += "|/|/Enter the direction followed by the number you choose, such as 'south 1'."
+        result = ""
+        if self.rolls.count > 0:
+            result += "|/You have the following options:|/"
+            counter = 1
+            for roll in self.rolls.all():
+                result += "|/{}: [{}+{}] {}".format(counter, roll.stat, roll.skill, roll.description)
+                counter += 1
+            result += "|/|/Enter the direction followed by the number you choose, such as 'south 1'."
         return result
 
     def handle_dice_check(self, calling_object, args):
@@ -430,6 +432,12 @@ class ShardhavenObstacle(SharedMemoryModel):
         calling_object.msg(self.description + "|/")
 
         for clue in self.clues.all():
+            if not hasattr(calling_object, "discovered_clues"):
+                calling_object.msg("You lack the knowledge to pass this obstacle.")
+                if self.rolls.count() > 0:
+                    calling_object.msg(self.options_description)
+                    return False, False, False
+
             if require_all:
                 if clue.clue not in calling_object.roster.discovered_clues:
                     calling_object.msg("You lack the knowledge to pass this obstacle.")

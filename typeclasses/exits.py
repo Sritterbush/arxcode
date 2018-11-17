@@ -394,10 +394,13 @@ class ShardhavenInstanceExit(DefaultExit, BaseObjectMixins):
         if self.haven_exit and self.haven_exit.obstacle:
             result += self.haven_exit.obstacle.description
 
+            if self.haven_exit.obstacle.clues.count() > 0:
+                result += "|/|/This obstacle can be passed if you have the correct knowledge."
+
             if self.passable(pobject):
                 result += "|/|/However, you have already addressed this obstacle, and may pass."
             else:
-                result += self.haven_exit.obstacle.options_description
+                result += "|/" + self.haven_exit.obstacle.options_description
 
         else:
             result += "The way seems clear ahead."
