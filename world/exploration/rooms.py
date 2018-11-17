@@ -45,7 +45,7 @@ class ShardhavenRoom(ArxRoom):
                 player_characters.append(testobj)
 
         difficulty = haven.difficulty_rating
-        if len(player_characters) == 1:
+        if len(player_characters) == 0:
             difficulty *= 6
         else:
             difficulty *= 2
@@ -59,7 +59,7 @@ class ShardhavenRoom(ArxRoom):
 
         chance = random.randint(0, 100)
         if chance < haven.difficulty_rating:
-            if random.randint(0, 1) == 0:
+            if random.randint(0, 5) != 5:
                 trinket = LootGenerator.create_trinket(haven)
                 trinket.location = self
             else:
@@ -89,6 +89,10 @@ class ShardhavenRoom(ArxRoom):
                     mob.location = None
 
     def softdelete(self):
+        self.reset()
+        super(ShardhavenRoom, self).softdelete()
+
+    def reset(self):
         try:
             city_center = ArxRoom.objects.get(id=13)
         except ArxRoom.DoesNotExist, ArxRoom.MultipleObjectsReturned:
@@ -102,10 +106,9 @@ class ShardhavenRoom(ArxRoom):
                 else:
                     testobj.location = city_center
             elif testobj.is_typeclass('world.exploration.loot.Trinket') \
-                    or testobj.is_typeclass('world.exploration.loot.AncientWeapon'):
+                    or testobj.is_typeclass('world.exploration.loot.AncientWeapon') \
+                    or testobj.is_typeclass('world.magic.materials.MagicMaterial'):
                 testobj.softdelete()
-            else:
+            elif not testobj.is_typeclass('typeclasses.exits.ShardhavenInstanceExit'):
                 # Someone dropped something in the shardhaven.  Let's not destroy it.
                 testobj.location = None
-
-        super(ShardhavenRoom, self).softdelete()

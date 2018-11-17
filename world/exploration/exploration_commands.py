@@ -18,6 +18,8 @@ class CmdTestShardhavenBuild(ArxCommand):
       @sh_testbuild/layout <shardhaven ID>
       @sh_testbuild/showlayout <shardhaven ID>
       @sh_testbuild/instanciate <shardhaven ID>
+      @sh_testbuild/entrance <shardhaven ID>
+      @sh_testbuild/reset <shardhaven ID>
       @sh_testbuild/destroy <shardhaven ID>
     """
 
@@ -111,7 +113,49 @@ class CmdTestShardhavenBuild(ArxCommand):
             except ArxRoom.DoesNotExist:
                 pass
 
-            self.msg("The entrance is at #" + str(room.id))
+            self.msg("Done. The entrance is at #" + str(room.id))
+            return
+
+        if "entrance" in self.switches:
+
+            try:
+                haven = Shardhaven.objects.get(id=int(self.args))
+            except ValueError:
+                self.msg("You need to provide an integer ID!")
+                return
+            except (Shardhaven.DoesNotExist, Shardhaven.MultipleObjectsReturned):
+                self.msg("That doesn't appear to be an ID matching a Shardhaven!")
+                return
+
+            layouts = ShardhavenLayout.objects.filter(haven=haven)
+            if layouts.count() == 0:
+                self.msg("That shardhaven doesn't appear to have a layout!")
+                return
+            layout = layouts[0]
+
+            self.msg("The entrance to {} is #{}.".format(haven.name, haven.entrance.room.id))
+            return
+
+        if "reset" in self.switches:
+
+            try:
+                haven = Shardhaven.objects.get(id=int(self.args))
+            except ValueError:
+                self.msg("You need to provide an integer ID!")
+                return
+            except (Shardhaven.DoesNotExist, Shardhaven.MultipleObjectsReturned):
+                self.msg("That doesn't appear to be an ID matching a Shardhaven!")
+                return
+
+            layouts = ShardhavenLayout.objects.filter(haven=haven)
+            if layouts.count() == 0:
+                self.msg("That shardhaven doesn't appear to have a layout!")
+                return
+            layout = layouts[0]
+
+            self.msg("Resetting layout for " + layout.haven.name + ".")
+            layout.reset()
+            self.msg("Done.")
             return
 
         if "destroy" in self.switches:
