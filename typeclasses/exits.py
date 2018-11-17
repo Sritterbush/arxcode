@@ -374,6 +374,13 @@ class ShardhavenInstanceExit(DefaultExit, BaseObjectMixins):
     def is_character(self):
         return False
 
+    @property
+    def reverse_exit(self):
+        entrances = [ob for ob in self.destination.exits if ob.destination == self.location]
+        if not entrances:
+            return "nowhere"
+        return entrances[0]
+
     def msg(self, text=None, from_obj=None, options=None, **kwargs):
         options = options or {}
         if options.get('shout', False):

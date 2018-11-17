@@ -46,9 +46,7 @@ class ShardhavenRoom(ArxRoom):
 
         difficulty = haven.difficulty_rating
         if len(player_characters) == 0:
-            difficulty *= 6
-        else:
-            difficulty *= 2
+            difficulty *= 5
 
         chance = random.randint(0, 100)
         if chance < difficulty:
@@ -58,7 +56,7 @@ class ShardhavenRoom(ArxRoom):
             return
 
         chance = random.randint(0, 100)
-        if chance < haven.difficulty_rating:
+        if chance < (haven.difficulty_rating * 1.5):
             if random.randint(0, 5) != 5:
                 trinket = LootGenerator.create_trinket(haven)
                 trinket.location = self

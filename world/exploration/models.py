@@ -385,7 +385,7 @@ class ShardhavenObstacle(SharedMemoryModel):
             message = roll.success_msg.replace("{name}", calling_object.key)
             calling_object.location.msg_contents(message)
             return True, roll.override, \
-                True, roll.pass_instantly or self.obstacle_type == ShardhavenObstacle.INDIVIDUAL
+                True, roll.pass_instantly or (self.obstacle_type != ShardhavenObstacle.ANYONE and not roll.override)
         else:
             if roll.personal_failure_msg:
                 calling_object.msg(roll.personal_failure_msg)
