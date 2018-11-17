@@ -81,6 +81,7 @@ class Monster(SharedMemoryModel):
                 result = create.create_object(key=mob_name, typeclass=self.MOOK_TYPECLASS)
             elif self.npc_type == self.BOSS:
                 result = create.create_object(key=mob_name, typeclass=self.BOSS_TYPECLASS)
+                result.db.boss_rating = self.boss_rating
             self.instances.add(result)
 
         result.setup_npc(self.npc_template, self.threat_rating, quantity, sing_name=self.name,

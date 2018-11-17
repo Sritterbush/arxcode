@@ -1,11 +1,43 @@
 from commands.base import ArxCommand
 from . import builder
 from .loot import LootGenerator
-from models import Shardhaven, ShardhavenLayout, GeneratedLootFragment
+from models import Shardhaven, ShardhavenLayout, GeneratedLootFragment, Monster
 from evennia.commands.cmdset import CmdSet
 from evennia.utils import create
 from server.conf import settings
 import random
+
+
+class CmdTestMonsterBuild(ArxCommand):
+    """
+    This command will spawn in test monsters from the
+    shardhaven tables.
+
+    Usage:
+      @mh_testbuild/spawn <monster ID>
+    """
+
+    key = "@mh_testbuild"
+    locks = "cmd:perm(Admins)"
+
+    def func(self):
+        if "spawn" in self.switches:
+
+            try:
+                monster_id = int(self.args)
+                monster = Monster.objects.get(id=monster_id)
+            except ValueError:
+                self.msg("You need to provide an integer value!")
+                return
+            except Monster.DoesNotExist, Monster.MultipleObjectsReturned:
+                self.msg("That doesn't appear to be a valid monster!")
+                return
+
+            mob = monster.create_instance(self.caller.location)
+            self.msg("Spawned in " + mob.name)
+            return
+
+        self.msg("Pick a valid switch!")
 
 
 class CmdTestShardhavenBuild(ArxCommand):
@@ -268,6 +300,7 @@ class CmdTestLoot(ArxCommand):
 class CmdExplorationCmdSet(CmdSet):
 
     def at_cmdset_creation(self):
+        self.add(CmdTestMonsterBuild())
         self.add(CmdTestShardhavenBuild())
         self.add(CmdTestLoot())
 
