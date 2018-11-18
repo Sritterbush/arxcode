@@ -2280,7 +2280,7 @@ class PlotUpdate(SharedMemoryModel):
         for attr in ("actions", "events", "emits", "flashbacks"):
             qs = getattr(self, attr).all()
             if qs:
-                msg += "\n{w%s:{n %s" % (attr.capitalize(), ", ".join(str(ob) for ob in qs))
+                msg += "\n{w%s:{n %s" % (attr.capitalize(), ", ".join("%s (#%s)" % (ob, ob.id) for ob in qs))
         return msg
 
 

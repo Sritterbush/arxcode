@@ -515,6 +515,7 @@ class CmdGMPlots(ArxCommand):
     @gmplots [<plot ID>]
     @gmplots/old
     @gmplots/all
+    @gmplots/timeline [<plot ID>]
     Admin:
     @gmplots/create <name>/<headline>/<description>[=<parent plot if subplot>]
     @gmplots/end <ID>[=<gm notes of resolution>]
@@ -543,6 +544,7 @@ class CmdGMPlots(ArxCommand):
     plot_switches = ("end", "addbeat", "adb", "participation", "perm", "connect")
     ticket_switches = ("rfr", "pitches")
     beat_objects = ("rpevent", "flashback", "action")
+    view_switches = ("old", "all", "timeline")
 
     @property
     def pitches(self):
@@ -557,7 +559,7 @@ class CmdGMPlots(ArxCommand):
     def func(self):
         """Executes gmplots command"""
         try:
-            if "old" in self.switches or not self.switches or "all" in self.switches:
+            if not self.switches or self.check_switches(self.view_switches):
                 return self.view_plots()
             elif "create" in self.switches:
                 return self.create_plot()
@@ -581,7 +583,10 @@ class CmdGMPlots(ArxCommand):
                 plot = Plot.objects.get(id=self.lhs)
             except Plot.DoesNotExist:
                 raise CommandError("No plot found by that ID.")
-            self.msg(plot.display())
+            if "timeline" in self.switches:
+                self.msg(plot.display_timeline())
+            else:
+                self.msg(plot.display())
 
     def create_plot(self):
         """Creates a new plot"""

@@ -39,7 +39,7 @@ class TestCrisisCommands(ArxCommandTest):
                                                  subject='Update for test crisis')
             self.call_cmd("1", '[test crisis] (50 Rating)\nNone\n'
                                '[Update #1 for test crisis] Date 08/27/78 12:08:00\ntest gemit\n'
-                               'Actions: Action by Testaccount2 for test crisis')
+                               'Actions: Action by Testaccount2 for test crisis (#1)')
             self.call_cmd("/update 1/another test episode/test synopsis=test gemit 2",
                           "You have updated the crisis, creating a new episode called 'another test episode'.")
             mock_msg_and_post.assert_called_with("test gemit 2", self.caller, episode_name="another test episode")
