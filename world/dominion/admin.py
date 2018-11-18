@@ -2,6 +2,9 @@
 Admin for Dominion
 """
 from django.contrib import admin
+from django.shortcuts import reverse
+from django.utils.html import escape
+
 from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister, MapLocation,
                      AssetOwner, Region, Land, Castle, WorkSetting, PraiseOrCondemn,
                      Ruler, Army, Orders, MilitaryUnit, Member, Task, OrgUnitModifiers,
@@ -13,7 +16,6 @@ from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister
                      Honorific, Propriety, PCEventParticipation, OrgEventParticipation, Fealty,
                      OrgPlotInvolvement, PCPlotInvolvement)
 
-from web.character.models import Flashback, StoryEmit
 from web.help_topics.templatetags.app_filters import mush_to_html
 from world.exploration.models import Shardhaven, ShardhavenType
 
@@ -232,12 +234,6 @@ class EventAdmin(DomAdmin):
     inlines = (PCEventParticipantInline, OrgEventParticipantInline)
 
 
-class EventInline(admin.TabularInline):
-    model = RPEvent
-    extra = 0
-    raw_id_fields = ('location', 'beat', 'plotroom')
-
-
 class SendTransactionInline(admin.TabularInline):
     """Inline for transactions we're sending"""
     model = AccountTransaction
@@ -321,12 +317,41 @@ class TaskAdmin(DomAdmin):
         return super(TaskAdmin, self).formfield_for_manytomany(db_field, request, **kwargs)
 
 
-class PlotUpdateInline(admin.TabularInline):
+class PlotUpdateTagMixin(object):
+    readonly_fields = ('tagged_actions', 'tagged_story_emits', 'tagged_events', 'tagged_flashbacks')
+
+    def tagged_actions(self, obj):
+        return "<br>".join('<a href="%s">%s</a>' % (reverse("admin:dominion_plotaction_change", args=[action.id]),
+                                                    escape(str(action)))
+                           for action in obj.actions.all())
+    tagged_actions.allow_tags = True
+
+    def tagged_story_emits(self, obj):
+        return "<br>".join('<a href="%s">%s</a>' % (reverse("admin:character_storyemit_change", args=[emit.id]),
+                                                    escape(emit.id))
+                           for emit in obj.emits.all())
+    tagged_story_emits.allow_tags = True
+
+    def tagged_events(self, obj):
+        return "<br>".join('<a href="%s">%s</a>' % (reverse("admin:dominion_rpevent_change", args=[ev.id]),
+                                                    escape(ev.name))
+                           for ev in obj.events.all())
+    tagged_events.allow_tags = True
+
+    def tagged_flashbacks(self, obj):
+        return "<br>".join('<a href="%s">%s</a>' % (reverse("admin:character_flashback_change", args=[emit.id]),
+                                                    escape(emit.id))
+                           for emit in obj.flashbacks.all())
+    tagged_story_emits.allow_tags = True
+
+
+class PlotUpdateInline(PlotUpdateTagMixin, admin.StackedInline):
     """Inline showing plot updates"""
     model = PlotUpdate
     extra = 0
     raw_id_fields = ('episode',)
     filter_horizontal = ('search_tags',)
+    classes = ['collapse']
 
 
 class PlotOrgInvolvementInline(admin.TabularInline):
@@ -353,35 +378,11 @@ class PlotAdmin(DomAdmin):
     inlines = (PlotUpdateInline, PlotOrgInvolvementInline, PCPlotInvolvementInline)
 
 
-class ActionInline(admin.TabularInline):
-    """Inline for actions"""
-    model = PlotAction
-    extra = 0
-    raw_id_fields = ('dompc', 'gemit', 'gm', 'plot', 'beat')
-    show_change_link = True
-
-
-class FlashbackInline(admin.TabularInline):
-    """Inline for flashbacks"""
-    model = Flashback
-    extra = 0
-    raw_id_fields = ('owner',)
-    show_change_link = True
-
-
-class StoryEmitInline(admin.TabularInline):
-    """Inline for emits"""
-    model = StoryEmit
-    extra = 0
-    show_change_link = True
-
-
-class PlotUpdateAdmin(DomAdmin):
+class PlotUpdateAdmin(PlotUpdateTagMixin, DomAdmin):
     """Admin for Plot Updates"""
     list_display = ('id', 'plot', 'desc', 'date',)
     filter_horizontal = ('search_tags',)
     raw_id_fields = ('plot',)
-    inlines = (EventInline, ActionInline)
 
 
 class PlotActionAssistantInline(admin.StackedInline):
