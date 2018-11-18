@@ -477,6 +477,19 @@ class ShardhavenInstanceExit(DefaultExit, BaseObjectMixins):
                     character.msg("You're in combat, and cannot move rooms again unless you flee!")
                     return False
 
+        if character.ndb.followers and len(character.ndb.followers) > 0:
+            if not self.passable(character):
+                character.msg("You can't have people follow you through an obstacle that you haven't tried yet!")
+                return False
+
+            can_pass = True
+            for follower in character.ndb.followers:
+                if not self.passable(follower):
+                    can_pass = False
+            if not can_pass:
+                character.msg("At least one of your followers hasn't passed this obstacle!")
+                return False
+
         if not self.passable(character):
             attempts = self.db.attempts or {}
             if character.id not in attempts:
@@ -519,9 +532,49 @@ class ShardhavenInstanceExit(DefaultExit, BaseObjectMixins):
 
         self.location.msg_contents("{} heads {}.".format(traversing_object.name, self.direction_name))
 
-        return super(ShardhavenInstanceExit, self).at_traverse(traversing_object, target_location,
-                                                               key_message=key_message,
-                                                               special_entrance=special_entrance,
-                                                               quiet=quiet, allow_follow=allow_follow)
+        super(ShardhavenInstanceExit, self).at_traverse(traversing_object, target_location,
+                                                        key_message=key_message,
+                                                        special_entrance=special_entrance,
+                                                        quiet=quiet, allow_follow=allow_follow)
+
+        if traversing_object and traversing_object.ndb.followers and allow_follow:
+            invalid_followers = []
+            valid_followers = []
+            leader = None
+            for follower in traversing_object.ndb.followers:
+                # only move followers who are conscious
+                if not follower.conscious:
+                    invalid_followers.append(follower)
+                    continue
+                # only move followers who were in same square
+                if follower.location == self.location:
+                    fname = follower.ndb.following
+                    if follower.ndb.followers and fname in follower.ndb.followers:
+                        # this would be an infinite loop
+                        invalid_followers.append(follower)
+                        continue
+                    if fname == traversing_object:
+                        follower.msg("You follow %s." % fname.name)
+                    else:  # not marked as following us
+                        invalid_followers.append(follower)
+                        continue
+                    # followers won't see the message about the door being locked
+                    self.at_traverse(follower, self.destination, key_message=False, quiet=True)
+                    valid_followers.append(follower.name)
+                    leader = fname
+                else:
+                    invalid_followers.append(follower)
+            # make all characters who could not follow stop following us
+            for invalid in invalid_followers:
+                if invalid.ndb.following == traversing_object:
+                    invalid.stop_follow()
+                else:
+                    traversing_object.ndb.followers.remove(invalid)
+            if valid_followers:
+                verb = "arrive" if len(valid_followers) > 1 else "arrives"
+                fol_msg = "%s %s, following %s." % (", ".join(valid_followers), verb, leader.name)
+                leave_msg = fol_msg.replace("arrive", "leave")
+                self.destination.msg_contents(fol_msg)
+                self.location.msg_contents(leave_msg)
 
 
