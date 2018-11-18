@@ -339,10 +339,10 @@ class PlotUpdateTagMixin(object):
     tagged_events.allow_tags = True
 
     def tagged_flashbacks(self, obj):
-        return "<br>".join('<a href="%s">%s</a>' % (reverse("admin:character_flashback_change", args=[emit.id]),
-                                                    escape(emit.id))
-                           for emit in obj.flashbacks.all())
-    tagged_story_emits.allow_tags = True
+        return "<br>".join('<a href="%s">%s</a>' % (reverse("admin:character_flashback_change", args=[fb.id]),
+                                                    escape(fb.title))
+                           for fb in obj.flashbacks.all())
+    tagged_flashbacks.allow_tags = True
 
 
 class PlotUpdateInline(PlotUpdateTagMixin, admin.StackedInline):
