@@ -254,7 +254,7 @@ class CmdPlots(ArxCommand):
             if self.called_by_staff:
                 qs = PlotAction.objects.all()
             else:
-                qs = self.caller.dompc.actions.all()
+                qs = self.caller.past_participated_actions
             try:
                 added_obj = qs.get(id=self.lhs)
             except PlotAction.DoesNotExist:

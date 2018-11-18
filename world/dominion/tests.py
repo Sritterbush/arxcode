@@ -159,7 +159,7 @@ class TestPlotCommands(TestTicketMixins, ArxCommandTest):
         self.call_cmd("/add/gemit 1=1", "You have added StoryEmit #1 to beat(ID: 1) of testplot1.")
         self.assertEqual(gemit.beat, beat1)
         self.caller = self.char2
-        action = self.dompc2.actions.create(plot=self.plot1)
+        action = self.dompc2.actions.create(plot=self.plot1, status=PlotAction.PUBLISHED)
         self.call_cmd("/add/action 1=2",
                       'You have added Action by Testaccount2 for testplot1 to beat(ID: 2) of testplot1.')
         self.assertEqual(action.beat, beat2)
