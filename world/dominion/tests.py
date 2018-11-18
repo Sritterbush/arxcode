@@ -244,9 +244,9 @@ class TestPlotCommands(TestTicketMixins, ArxCommandTest):
                               '| 2   | testplot2              | None')
         self.call_cmd("1", '[testplot1]\nNone')
         self.call_cmd("/create foo", 'Must include a name, summary, and a description for the plot.')
-        self.call_cmd("/create testplot3/test/test", "You have created a new gm plot: testplot3.")
+        self.call_cmd("/create testplot3/test/test", 'You have created a new gm plot: testplot3 (#3).')
         self.call_cmd("/create testplot4/test/test=testplot3",
-                      "You have created a new subplot of testplot3: testplot4.")
+                      'You have created a new subplot of testplot3: testplot4 (#4).')
         self.call_cmd("/end 2", "You must include a resolution.")
         self.call_cmd("/end 2=asdf", "That plot has already been resolved.")
         self.call_cmd("/end testplot3=asdf", "You have ended testplot3.")

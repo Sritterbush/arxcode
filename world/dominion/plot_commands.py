@@ -600,9 +600,9 @@ class CmdGMPlots(ArxCommand):
         plot = Plot.objects.create(name=name, desc=desc, parent_plot=parent, usage=Plot.GM_PLOT,
                                    start_date=datetime.now(), headline=summary)
         if parent:
-            self.msg("You have created a new subplot of %s: %s." % (parent, plot))
+            self.msg("You have created a new subplot of %s: %s (#%s)." % (parent, plot, plot.id))
         else:
-            self.msg("You have created a new gm plot: %s." % plot)
+            self.msg("You have created a new gm plot: %s (#%s)." % (plot, plot.id))
 
     def get_plot(self, args=None):
         if args is None:
