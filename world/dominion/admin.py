@@ -13,7 +13,7 @@ from .models import (PlayerOrNpc, Organization, Domain, Agent, AgentOb, Minister
                      Honorific, Propriety, PCEventParticipation, OrgEventParticipation, Fealty,
                      OrgPlotInvolvement, PCPlotInvolvement)
 
-
+from web.character.models import Flashback, StoryEmit
 from web.help_topics.templatetags.app_filters import mush_to_html
 from world.exploration.models import Shardhaven, ShardhavenType
 
@@ -232,6 +232,12 @@ class EventAdmin(DomAdmin):
     inlines = (PCEventParticipantInline, OrgEventParticipantInline)
 
 
+class EventInline(admin.TabularInline):
+    model = RPEvent
+    extra = 0
+    raw_id_fields = ('location', 'beat', 'plotroom')
+
+
 class SendTransactionInline(admin.TabularInline):
     """Inline for transactions we're sending"""
     model = AccountTransaction
@@ -347,11 +353,35 @@ class PlotAdmin(DomAdmin):
     inlines = (PlotUpdateInline, PlotOrgInvolvementInline, PCPlotInvolvementInline)
 
 
+class ActionInline(admin.TabularInline):
+    """Inline for actions"""
+    model = PlotAction
+    extra = 0
+    raw_id_fields = ('dompc', 'gemit', 'gm', 'plot', 'beat')
+    show_change_link = True
+
+
+class FlashbackInline(admin.TabularInline):
+    """Inline for flashbacks"""
+    model = Flashback
+    extra = 0
+    raw_id_fields = ('owner',)
+    show_change_link = True
+
+
+class StoryEmitInline(admin.TabularInline):
+    """Inline for emits"""
+    model = StoryEmit
+    extra = 0
+    show_change_link = True
+
+
 class PlotUpdateAdmin(DomAdmin):
     """Admin for Plot Updates"""
     list_display = ('id', 'plot', 'desc', 'date',)
     filter_horizontal = ('search_tags',)
     raw_id_fields = ('plot',)
+    inlines = (EventInline, ActionInline)
 
 
 class PlotActionAssistantInline(admin.StackedInline):
@@ -411,7 +441,7 @@ class PlotActionAdmin(DomAdmin):
     fieldsets = [(None, {'fields': [('dompc', 'topic'), ('search_tags',)]}),
                  ('Status', {'fields': [('attending', 'traitor', 'prefer_offscreen'),
                                         ('status', 'public', 'editable', 'free_action'),
-                                        ('plot', 'update', 'gemit'), ('week', 'date_submitted')],
+                                        ('plot', 'beat', 'gemit'), ('week', 'date_submitted')],
                              'classes': ['collapse'], 'description': 'Current ooc status of the action'}),
                  ('Story', {'fields': [('topic', 'category'), 'actions', 'secret_actions', 'story', 'secret_story',
                                        'ooc_intent'],
