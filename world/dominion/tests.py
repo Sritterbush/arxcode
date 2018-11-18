@@ -236,10 +236,10 @@ class TestPlotCommands(TestTicketMixins, ArxCommandTest):
         from plot_commands import create_plot_pitch
         mock_now.return_value = self.fake_datetime
         self.setup_cmd(plot_commands.CmdGMPlots, self.char1)
-        self.call_cmd("/all", '| #   | Plot (owner)           | {Summary                                    '
+        self.call_cmd("/all", '| #   | Plot (owner)           | Summary                                     '
                           '~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+\n'
                           '| 1   | testplot1              | None')
-        self.call_cmd("/old", '| #   | Resolved Plot (owner)  | {Summary                                    '
+        self.call_cmd("/old", '| #   | Resolved Plot (owner)  | Summary                                     '
                               '~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+\n'
                               '| 2   | testplot2              | None')
         self.call_cmd("1", '[testplot1]\nNone')
