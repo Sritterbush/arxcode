@@ -53,7 +53,7 @@ class AlchemicalMaterial(SharedMemoryModel):
         quality_picker.add_option(9, 5)
         quality_picker.add_option(10, 1)
 
-        result.db.quality_level = picker.pick()
+        result.db.quality_level = quality_picker.pick()
         return result
 
     def __repr__(self):

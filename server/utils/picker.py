@@ -36,13 +36,15 @@ class WeightedPicker(object):
         result = None
         sorted_keys = sorted(pickerdict.keys())
 
+        found = False
         for key in sorted_keys:
             if key >= picker:
                 result = pickerdict[last_value]
+                found = True
                 continue
             last_value = key
 
-        if not result:
+        if not found:
             result = pickerdict[sorted_keys[-1]]
 
         return result

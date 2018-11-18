@@ -112,6 +112,10 @@ class ShardhavenRoom(ArxRoom):
                 weapon = LootGenerator.create_weapon(haven, random.choice(weapon_types))
                 weapon.location = self
 
+        if self.ndb.combat_manager:
+            obj.msg("Your party is already in combat! Joining the fight.")
+            obj.msg(self.ndb.combat_manager.add_combatant(obj, obj))
+
     def at_object_leave(self, obj, target_location):
         if obj.has_player or (hasattr(obj, 'is_character') and obj.is_character):
             mobs = []
@@ -149,6 +153,7 @@ class ShardhavenRoom(ArxRoom):
                     or testobj.is_typeclass('world.exploration.loot.AncientWeapon') \
                     or testobj.is_typeclass('world.magic.materials.MagicMaterial'):
                 testobj.softdelete()
-            elif not testobj.is_typeclass('typeclasses.exits.ShardhavenInstanceExit'):
+            elif not testobj.is_typeclass('typeclasses.exits.ShardhavenInstanceExit') \
+                    or testobj.is_typeclass('typeclasses.exits.Exit'):
                 # Someone dropped something in the shardhaven.  Let's not destroy it.
                 testobj.location = None

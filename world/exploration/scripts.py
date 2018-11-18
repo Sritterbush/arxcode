@@ -44,4 +44,13 @@ class SpawnMobScript(Script):
         mob_instance = monster.create_instance(self.obj.location)
         self.obj.location.msg_contents("{} attacks {}!".format(mob_instance.name, self.obj.name))
         mob_instance.attack(self.obj.name, kill=True)
+
+        if haven.auto_combat:
+            cscript = self.obj.location.ndb.combat_manager
+
+            for testobj in self.obj.location.contents:
+                if testobj.has_player or (hasattr(testobj, 'is_character') and testobj.is_character):
+                    if not cscript.check_character_is_combatant(testobj):
+                        testobj.msg(cscript.add_combatant(testobj, testobj))
+
         self.stop()

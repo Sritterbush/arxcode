@@ -88,8 +88,6 @@ class Monster(SharedMemoryModel):
         if self.npc_type == self.BOSS:
             result.db.boss_rating = self.boss_rating
 
-        result.resurrect()
-
         result.setup_npc(self.npc_template, self.threat_rating, quantity, sing_name=self.name,
                          plural_name=self.plural_name or self.name)
         result.name = mob_name
@@ -272,6 +270,8 @@ class Shardhaven(SharedMemoryModel):
     weight_no_treasure_backtrack = models.PositiveSmallIntegerField(default=50, verbose_name="No Treasure Weight on Backtrack")
     weight_trinket = models.PositiveSmallIntegerField(default=5, verbose_name="Trinket Weight")
     weight_weapon = models.PositiveSmallIntegerField(default=1, verbose_name="Weapon Weight")
+
+    auto_combat = models.BooleanField(default=False, verbose_name="Manage Combat Automatically")
 
     def __str__(self):
         return self.name or "Unnamed Shardhaven (#%d)" % self.id
