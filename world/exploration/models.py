@@ -10,6 +10,7 @@ from server.utils.arx_utils import inform_staff
 import random
 from typeclasses.npcs import npc_types
 from server.utils.picker import WeightedPicker
+import datetime
 
 
 class Monster(SharedMemoryModel):
@@ -37,6 +38,7 @@ class Monster(SharedMemoryModel):
 
     name = models.CharField(max_length=40, blank=False, null=False)
     plural_name = models.CharField(max_length=40, blank=True, null=True)
+    weight_spawn = models.PositiveSmallIntegerField(default=10)
     description = models.TextField(blank=False, null=False)
     spawn_message = models.TextField(blank=True, null=True)
     difficulty = models.PositiveSmallIntegerField(default=5, blank=False, null=False)
@@ -422,15 +424,11 @@ class ShardhavenObstacle(SharedMemoryModel):
 
         calling_object.msg(self.description + "|/")
 
-        for clue in self.clues.all():
-            if not hasattr(calling_object, "discovered_clues"):
-                calling_object.msg("You lack the knowledge to pass this obstacle.")
-                if self.rolls.count() > 0:
-                    calling_object.msg(self.options_description)
-                    return False, False, False, False
+        clue_discoveries = calling_object.roster.clue_discoveries
 
+        for clue in self.clues.all():
             if require_all:
-                if clue.clue not in calling_object.roster.discovered_clues:
+                if clue_discoveries.filter(clue=clue.clue).count() == 0:
                     calling_object.msg("You lack the knowledge to pass this obstacle.")
 
                     if self.rolls.count() > 0:
@@ -439,7 +437,7 @@ class ShardhavenObstacle(SharedMemoryModel):
 
                     return False, False, True, False
             else:
-                if clue.clue in calling_object.roster.discovered_clues:
+                if clue_discoveries.filter(clue=clue.clue).count() > 0:
                     calling_object.msg("Your knowledge of \"{}\" allows you to pass.".format(clue.clue.name))
                     if self.clue_success:
                         message = self.clue_success.replace("{name}", calling_object.key)
@@ -601,6 +599,9 @@ class ShardhavenLayoutSquare(SharedMemoryModel):
     description = models.TextField(blank=True, null=True, help_text='A description to use for this square instead of '
                                                                     'the generated one.')
 
+    visitors = models.ManyToManyField('objects.ObjectDB', related_name='+')
+    last_visited = models.DateTimeField(blank=True, null=True)
+
     def __str__(self):
         return "{} ({},{})".format(self.layout, self.x_coord, self.y_coord)
 
@@ -609,6 +610,24 @@ class ShardhavenLayoutSquare(SharedMemoryModel):
 
     def __unicode__(self):
         return unicode(str(self))
+
+    def visit(self, character):
+        if character not in self.visitors.all():
+            self.visitors.add(character)
+
+        self.last_visited = datetime.datetime.now()
+
+    def has_visited(self, character):
+        return character in self.visitors.all()
+
+    @property
+    def visited_recently(self):
+        if not self.last_visited:
+            return False
+
+        now = datetime.datetime.now()
+        delta = now - self.last_visited
+        return delta.total_seconds() < 86400
 
     def create_room(self):
         if self.room:
@@ -621,6 +640,7 @@ class ShardhavenLayoutSquare(SharedMemoryModel):
         room = create.create_object(typeclass='world.exploration.rooms.ShardhavenRoom',
                                     key=namestring)
         room.db.haven_id = self.layout.haven.id
+        room.db.haven_square_id = self.id
 
         if self.description:
             final_description = self.description
@@ -703,11 +723,32 @@ class ShardhavenLayout(SharedMemoryModel):
         for y in range(self.height):
             for x in range(self.width):
                 if x == self.entrance_x and y == self.entrance_y:
-                    string += "|w*|n"
+                    string += "|w$|n"
                 elif self.matrix[x][y] is None:
                     string += "|[B|B#|n"
                 else:
                     string += " "
+            string += "|n\n"
+
+        return string
+
+    def map_for(self, player):
+        self.cache_room_matrix()
+        string = ""
+        for y in range(self.height):
+            for x in range(self.width):
+                if x == self.entrance_x and y == self.entrance_y:
+                    string += "|w$|n"
+                elif self.matrix[x][y] is None:
+                    string += "|[B|B#|n"
+                elif self.matrix[x][y].has_visited(player):
+                    if self.matrix[x][y].room == player.location:
+                        string += "|w*|n"
+                    else:
+                        string += " "
+                else:
+                    string += "|[B|B#|n"
+
             string += "|n\n"
 
         return string

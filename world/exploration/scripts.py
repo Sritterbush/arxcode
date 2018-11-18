@@ -1,6 +1,7 @@
 from typeclasses.scripts import Script
 from .models import Monster, Shardhaven
 import random
+from server.utils.picker import WeightedPicker
 
 
 class SpawnMobScript(Script):
@@ -26,7 +27,11 @@ class SpawnMobScript(Script):
             self.stop()
             return
 
-        monster = random.choice(monsters.all())
+        picker = WeightedPicker()
+        for monster in monsters.all():
+            picker.add_option(monster, monster.weight_spawn)
+
+        monster = picker.pick()
         mob_instance = monster.create_instance(self.obj.location)
         self.obj.location.msg_contents("{} attacks {}!".format(mob_instance.name, self.obj.name))
         mob_instance.attack(self.obj.name, kill=True)

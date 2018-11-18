@@ -24,7 +24,7 @@ class CmdTestMonsterBuild(ArxCommand):
         if "spawn" in self.switches:
 
             try:
-                monster_id = int(self.args)
+                monster_id = int(self.lhs)
                 monster = Monster.objects.get(id=monster_id)
             except ValueError:
                 self.msg("You need to provide an integer value!")
@@ -323,6 +323,28 @@ class CmdExplorationHome(ArxCommand):
         self.caller.msg("(You cannot use the 'home' command while in a shardhaven.)|/")
 
 
+class CmdExplorationMap(ArxCommand):
+
+    key = "map"
+    locks = "cmd:all()"
+
+    def func(self):
+        if not hasattr(self.caller.location, "shardhaven"):
+            self.msg("You aren't in a shardhaven!  How did this happen?")
+            return
+
+        haven = self.caller.location.shardhaven
+        if not haven:
+            self.msg("You aren't in a shardhaven!  How did this happen?")
+            return
+
+        header = "|/{}'s map of {}|/".format(self.caller.name, haven.name).upper()
+        self.msg(header)
+        map = haven.layout.map_for(self.caller)
+        self.msg(map)
+        self.msg("|/Key:|/  |w*|n - Your location|/  |w$|n - Entrance|/")
+
+
 class CmdExplorationRoomCommands(CmdSet):
 
     # We want to override the CharacterCmdSet's 'home' command.
@@ -330,3 +352,4 @@ class CmdExplorationRoomCommands(CmdSet):
 
     def at_cmdset_creation(self):
         self.add(CmdExplorationHome)
+        self.add(CmdExplorationMap)

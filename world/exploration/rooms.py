@@ -1,5 +1,5 @@
 from typeclasses.rooms import ArxRoom
-from .models import Shardhaven
+from .models import Shardhaven, ShardhavenLayoutSquare
 from .scripts import SpawnMobScript
 from .loot import LootGenerator
 import random
@@ -13,6 +13,14 @@ class ShardhavenRoom(ArxRoom):
             haven = Shardhaven.objects.get(pk=self.db.haven_id)
             return haven
         except Shardhaven.DoesNotExist, Shardhaven.MultipleObjectsReturned:
+            return None
+        
+    @property
+    def shardhaven_square(self):
+        try:
+            haven_square = ShardhavenLayoutSquare.objects.get(pk=self.db.haven_square_id)
+            return haven_square
+        except ShardhavenLayoutSquare.DoesNotExist, ShardhavenLayoutSquare.MultipleObjectsReturned:
             return None
 
     def at_init(self):
@@ -33,6 +41,19 @@ class ShardhavenRoom(ArxRoom):
         if entrance_square is not None and entrance_square.room == self:
             return
 
+        if not obj.has_player or not (hasattr(obj, 'is_character') and obj.is_character):
+            return
+
+        if obj.is_typeclass("world.exploration.npcs.BossMonsterNpc")\
+                or obj.is_typeclass("world.explorations.npcs.MookMonsterNpc"):
+            return
+
+        haven_square = self.shardhaven_square
+        recent = False
+        if haven_square is not None:
+            recent = haven_square.visited_recently
+            haven_square.visit(obj)
+
         characters = []
         for testobj in self.contents:
             if testobj != obj and (testobj.has_player or (hasattr(testobj, 'is_character') and testobj.is_character)):
@@ -46,7 +67,13 @@ class ShardhavenRoom(ArxRoom):
 
         difficulty = haven.difficulty_rating
         if len(player_characters) == 0:
-            difficulty *= 5
+            if recent:
+                difficulty = difficulty / 2
+            else:
+                difficulty = (difficulty * difficulty) / (difficulty / 4)
+        else:
+            if recent:
+                difficulty = 0
 
         chance = random.randint(0, 100)
         if chance < difficulty:
