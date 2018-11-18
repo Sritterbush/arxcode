@@ -259,6 +259,9 @@ class CmdPlots(ArxCommand):
                 added_obj = qs.get(id=self.lhs)
             except PlotAction.DoesNotExist:
                 raise CommandError("No action by that ID found for you.")
+            if added_obj.plot and added_obj.plot != beat.plot:
+                raise CommandError("That action is already part of another plot.")
+            added_obj.plot = beat.plot
         elif "gemit" in self.switches:
             if not self.called_by_staff:
                 raise CommandError("Only staff can add gemits to plot beats.")
@@ -655,6 +658,9 @@ class CmdGMPlots(ArxCommand):
                     obj = Flashback.objects.get(id=object_id)
                 else:  # action
                     obj = PlotAction.objects.get(id=object_id)
+                    if obj.plot and obj.plot != plot:
+                        raise CommandError("That action is already assigned to a different plot.")
+                    obj.plot = plot
                 if obj.beat:
                     raise CommandError("That object was already associated with beat #%s." % obj.beat.id)
             elif "other" in self.switches:
