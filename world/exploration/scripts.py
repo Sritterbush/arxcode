@@ -23,6 +23,15 @@ class SpawnMobScript(Script):
             return
 
         monsters = Monster.objects.filter(habitats__in=[haven.haven_type], difficulty__lte=haven.difficulty_rating)
+
+        monster_type = self.obj.ndb.last_monster_type
+
+        if monster_type:
+            if monster_type == "mook":
+                monsters = monsters.filter(npc_type=Monster.MOOKS)
+            elif monster_type == "boss":
+                monsters = monsters.filter(npc_type=Monster.BOSS)
+
         if monsters.count() == 0:
             self.stop()
             return

@@ -3,7 +3,7 @@ from .models import Shardhaven, ShardhavenLayoutSquare
 from .scripts import SpawnMobScript
 from .loot import LootGenerator
 import random
-
+from server.utils.picker import WeightedPicker
 
 class ShardhavenRoom(ArxRoom):
 
@@ -65,29 +65,44 @@ class ShardhavenRoom(ArxRoom):
                     and not testobj.is_typeclass("world.exploration.npcs.MookMonsterNpc"):
                 player_characters.append(testobj)
 
-        difficulty = haven.difficulty_rating
-        if len(player_characters) == 0:
-            if recent:
-                difficulty = difficulty / 2
-            else:
-                difficulty = (difficulty * difficulty) / (difficulty / 4)
+        picker = WeightedPicker()
+        if recent:
+            weight_none = haven.weight_no_monster_backtrack
         else:
-            if recent:
-                difficulty = 0
+            weight_none = haven.weight_no_monster
 
-        chance = random.randint(0, 100)
-        if chance < difficulty:
+        if len(player_characters) > 0:
+            weight_none *= 4
+
+        picker.add_option(None, weight_none)
+        picker.add_option("mook", haven.weight_mook_monster)
+        picker.add_option("boss", haven.weight_boss_monster)
+
+        monster = picker.pick()
+
+        if monster:
+            self.ndb.last_monster_type = monster
             obj.scripts.add(SpawnMobScript)
 
         if len(characters) > 0:
             return
 
-        chance = random.randint(0, 100)
-        if chance < (haven.difficulty_rating * 1.5):
-            if random.randint(0, 5) != 5:
+        picker = WeightedPicker()
+        if recent:
+            picker.add_option(None, haven.weight_no_treasure_backtrack)
+        else:
+            picker.add_option(None, haven.weight_no_treasure)
+
+        picker.add_option("trinket", haven.weight_trinket)
+        picker.add_option("weapon", haven.weight_weapon)
+
+        treasure = picker.pick()
+
+        if treasure:
+            if treasure == "trinket":
                 trinket = LootGenerator.create_trinket(haven)
                 trinket.location = self
-            else:
+            elif treasure == "weapon":
                 weapon_types = (
                     LootGenerator.WPN_BOW,
                     LootGenerator.WPN_SMALL,

@@ -35,7 +35,16 @@ class LootGenerator(object):
         name = GeneratedLootFragment.generate_trinket_name()
         trinket = create.create_object(typeclass="world.exploration.loot.Trinket", key=name)
         trinket.db.desc = "\nAn ancient trinket, one that feels slightly warm to the touch.\n"
-        trinket.db.quality_level = random.randint(4, 11)
+
+        quality_picker = WeightedPicker()
+        quality_picker.add_option(4, 25)
+        quality_picker.add_option(5, 45)
+        quality_picker.add_option(6, 30)
+        quality_picker.add_option(7, 10)
+        quality_picker.add_option(8, 3)
+        quality_picker.add_option(9, 1)
+
+        trinket.db.quality_level = quality_picker.pick()
         trinket.db.found_shardhaven = haven.name
         return trinket
 
@@ -93,7 +102,7 @@ class LootGenerator(object):
             picker.add_option("diamondplate", 5)
         elif difficulty < 8:
             picker.add_option("rubicund", 30)
-            picker.add_option("diamondplate", 30)
+            picker.add_option("diamondplate", 20)
             picker.add_option("alaricite", 5)
         else:
             picker.add_option("rubicund", 10)
@@ -133,11 +142,12 @@ class LootGenerator(object):
         weapon.db.desc = desc
 
         quality_picker = WeightedPicker()
+        quality_picker.add_option(4, 25)
         quality_picker.add_option(5, 45)
         quality_picker.add_option(6, 30)
-        quality_picker.add_option(7, 15)
-        quality_picker.add_option(8, 5)
-        quality_picker.add_option(9, 2)
+        quality_picker.add_option(7, 10)
+        quality_picker.add_option(8, 3)
+        quality_picker.add_option(9, 1)
 
         weapon.db.quality_level = quality_picker.pick()
         weapon.db.found_shardhaven = haven.name

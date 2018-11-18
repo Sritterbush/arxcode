@@ -88,6 +88,8 @@ class Monster(SharedMemoryModel):
         if self.npc_type == self.BOSS:
             result.db.boss_rating = self.boss_rating
 
+        result.resurrect()
+
         result.setup_npc(self.npc_template, self.threat_rating, quantity, sing_name=self.name,
                          plural_name=self.plural_name or self.name)
         result.name = mob_name
@@ -260,6 +262,17 @@ class Shardhaven(SharedMemoryModel):
     taint_level = models.PositiveSmallIntegerField(default=1, help_text='How much abyssal taint does this shardhaven '
                                                                         'have, on a scale of 1 to 10.')
 
+    weight_no_monster = models.PositiveSmallIntegerField(default=40, verbose_name="No Spawn Weight")
+    weight_no_monster_backtrack = models.PositiveSmallIntegerField(default=100,
+                                                                   verbose_name="No Spawn Weight on Backtrack")
+    weight_boss_monster = models.PositiveSmallIntegerField(default=5, verbose_name="Boss Spawn Weight")
+    weight_mook_monster = models.PositiveSmallIntegerField(default=5, verbose_name="Mook Spawn Weight")
+
+    weight_no_treasure = models.PositiveSmallIntegerField(default=50, verbose_name="No Treasure Weight")
+    weight_no_treasure_backtrack = models.PositiveSmallIntegerField(default=50, verbose_name="No Treasure Weight on Backtrack")
+    weight_trinket = models.PositiveSmallIntegerField(default=5, verbose_name="Trinket Weight")
+    weight_weapon = models.PositiveSmallIntegerField(default=1, verbose_name="Weapon Weight")
+
     def __str__(self):
         return self.name or "Unnamed Shardhaven (#%d)" % self.id
 
@@ -387,7 +400,7 @@ class ShardhavenObstacle(SharedMemoryModel):
             message = roll.success_msg.replace("{name}", calling_object.key)
             calling_object.location.msg_contents(message)
             return True, roll.override, \
-                True, roll.pass_instantly or (self.obstacle_type != ShardhavenObstacle.ANYONE and not roll.override)
+                True, roll.pass_instantly or not (self.obstacle_type != ShardhavenObstacle.ANYONE and roll.override)
         else:
             if roll.personal_failure_msg:
                 calling_object.msg(roll.personal_failure_msg)
@@ -408,6 +421,9 @@ class ShardhavenObstacle(SharedMemoryModel):
                         targets = targets[:random.randint(1,len(targets) - 1)]
                         if calling_object not in targets:
                             targets.append(calling_object)
+
+                for target in targets:
+                    calling_object.location.msg_contents("{} is injured!".format(target.name))
 
                 from typeclasses.scripts.combat.attacks import Attack
                 attack = Attack(targets=targets, affect_real_dmg=True, damage=roll.damage_amt,
@@ -769,7 +785,10 @@ class ShardhavenLayout(SharedMemoryModel):
             room_exit.save()
 
         for room in self.rooms.all():
-            if room.room.is_typeclass('world.exploration.rooms.ShardhavenRoom'):
+            room.visitors.clear()
+            room.last_visited = None
+            room.save()
+            if room.room and room.room.is_typeclass('world.exploration.rooms.ShardhavenRoom'):
                 room.room.reset()
 
     @classmethod
@@ -813,7 +832,7 @@ class ShardhavenLayout(SharedMemoryModel):
         layout.entrance_y = y
 
         obstacles = ShardhavenObstacle.objects.filter(haven_types__pk=layout.haven_type.id).all()
-        target_difficulty = 30 + (min(layout.haven.difficulty_rating, 4) * 4)
+        target_difficulty = 30 + max(layout.haven.difficulty_rating * 2, 5)
 
         for x in range(width):
             for y in range(height):
