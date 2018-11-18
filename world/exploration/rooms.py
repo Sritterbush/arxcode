@@ -48,6 +48,9 @@ class ShardhavenRoom(ArxRoom):
                 or obj.is_typeclass("world.explorations.npcs.MookMonsterNpc"):
             return
 
+        if obj.check_permstring("builders"):
+            return
+
         haven_square = self.shardhaven_square
         recent = False
         if haven_square is not None:
@@ -56,7 +59,8 @@ class ShardhavenRoom(ArxRoom):
 
         characters = []
         for testobj in self.contents:
-            if testobj != obj and (testobj.has_player or (hasattr(testobj, 'is_character') and testobj.is_character)):
+            if testobj != obj and (testobj.has_player or (hasattr(testobj, 'is_character') and testobj.is_character)) \
+                    and not testobj.check_permstring("builders"):
                 characters.append(testobj)
 
         player_characters = []

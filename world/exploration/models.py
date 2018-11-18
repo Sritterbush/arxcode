@@ -414,7 +414,8 @@ class ShardhavenObstacle(SharedMemoryModel):
                 if roll.damage_splash:
                     for testobj in calling_object.location.contents:
                         if testobj != calling_object and (testobj.has_player or
-                                                          (hasattr(testobj, 'is_character') and testobj.is_character)):
+                                                          (hasattr(testobj, 'is_character') and testobj.is_character))\
+                                and not testobj.check_permstring("builders"):
                             targets.append(testobj)
                     random.shuffle(targets)
                     if len(targets) > 1:
