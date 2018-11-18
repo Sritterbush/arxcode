@@ -352,20 +352,23 @@ class PlotUpdateInline(PlotUpdateTagMixin, admin.StackedInline):
     raw_id_fields = ('episode',)
     filter_horizontal = ('search_tags',)
     classes = ['collapse']
+    show_change_link = True
 
 
-class PlotOrgInvolvementInline(admin.TabularInline):
+class PlotOrgInvolvementInline(admin.StackedInline):
     """Inline for Orgs involved in plots"""
     model = OrgPlotInvolvement
     extra = 0
     raw_id_fields = ('org',)
+    classes = ['collapse']
 
 
-class PCPlotInvolvementInline(admin.TabularInline):
+class PCPlotInvolvementInline(admin.StackedInline):
     """Inline for PC involvement in plots"""
     model = PCPlotInvolvement
     extra = 0
     raw_id_fields = ('dompc', 'recruited_by')
+    classes = ['collapse']
 
 
 class PlotAdmin(DomAdmin):
