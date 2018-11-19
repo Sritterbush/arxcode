@@ -11,8 +11,8 @@ class MonsterMixin(object):
 
         monsters = []
         for testobj in self.location.contents:
-            if testobj.is_typeclass("world.exploration.npcs.MookMonsterNpc") \
-                    or testobj.is_typeclass("world.exploration.npcs.BossMonsterNpc"):
+            if testobj != self and (testobj.is_typeclass("world.exploration.npcs.MookMonsterNpc")
+                                    or testobj.is_typeclass("world.exploration.npcs.BossMonsterNpc")):
                 monsters.append(testobj)
 
         return monsters
