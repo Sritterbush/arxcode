@@ -357,11 +357,36 @@ class ShardhavenObstacle(SharedMemoryModel):
                                                  verbose_name="Requirements")
     clue_success = models.TextField(blank=True, null=True)
 
+    modified_diff_by = models.SmallIntegerField(blank=True, null=True)
+    modified_diff_reason = models.CharField(max_length=80, blank=True, null=True)
+    modified_diff_at = models.DateTimeField(blank=True, null=True)
+
     def msg(self, *args, **kwargs):
         """
         Keep the attack code happy.
         """
         pass
+
+    def modify_diff(self, amount=None, reason=None):
+        if amount:
+            self.modified_diff_at = datetime.datetime.now()
+            self.modified_diff_by = amount
+            self.modified_diff_reason = reason
+        else:
+            self.modified_diff_at = None
+            self.modified_diff_by = None
+            self.modified_diff_reason = None
+
+    @property
+    def diff_modifier(self):
+        if not self.modified_diff_by or not self.modified_diff_at:
+            return 0
+
+        delta = datetime.datetime.now() - self.modified_diff_at
+        if delta.total_seconds() > 600:
+            return 0
+
+        return self.modified_diff_by
 
     @property
     def options_description(self):
@@ -392,6 +417,12 @@ class ShardhavenObstacle(SharedMemoryModel):
             return False, False, False, False
 
         roll = self.rolls.all()[choice - 1]
+        difficulty = roll.difficulty
+
+        difficulty -= self.diff_modifier
+        if self.diff_modifier != 0 and self.modified_diff_reason:
+            calling_object.msg("Your roll difficulty is altered because %s!" % self.modified_diff_reason)
+
         result = do_dice_check(caller=calling_object, stat=roll.stat, skill=roll.skill, difficulty=roll.difficulty)
         if result >= roll.target:
             if roll.personal_success_msg:
@@ -436,6 +467,25 @@ class ShardhavenObstacle(SharedMemoryModel):
                     inform_staff("{} broke combat failing an obstacle check in a Shardhaven: {}"
                                  .format(calling_object.name, str(err)))
             return False, False, True, False
+
+    def can_pass_with_clue(self, calling_object):
+
+        require_all = self.pass_type == ShardhavenObstacle.HAS_ALL_CLUES
+
+        clue_discoveries = calling_object.roster.clue_discoveries
+
+        for clue in self.clues.all():
+            if require_all:
+                if clue_discoveries.filter(clue=clue.clue).count() == 0:
+                    return False
+            else:
+                if clue_discoveries.filter(clue=clue.clue).count() > 0:
+                    return True
+
+        if not require_all:
+            return False
+
+        return True
 
     def handle_clue_check(self, calling_object, require_all):
 
@@ -833,7 +883,9 @@ class ShardhavenLayout(SharedMemoryModel):
         layout.entrance_x = x
         layout.entrance_y = y
 
-        obstacles = ShardhavenObstacle.objects.filter(haven_types__pk=layout.haven_type.id).all()
+        obstacles = list(ShardhavenObstacle.objects.filter(haven_types__pk=layout.haven_type.id).all())
+        base_obstacles = list(obstacles)
+        random.shuffle(obstacles)
         target_difficulty = 30 + max(layout.haven.difficulty_rating * 2, 5)
 
         for x in range(width):
@@ -853,7 +905,11 @@ class ShardhavenLayout(SharedMemoryModel):
                         room_exit.room_west = west
 
                         if random.randint(1,100) < target_difficulty:
-                            obstacle = random.choice(obstacles)
+                            if len(obstacles) == 0:
+                                obstacles = list(base_obstacles)
+                                random.shuffle(obstacles)
+
+                            obstacle = obstacles.pop()
                             room_exit.obstacle = obstacle
 
                         room_exit.save()
@@ -863,7 +919,11 @@ class ShardhavenLayout(SharedMemoryModel):
                         room_exit.room_west = room
 
                         if random.randint(1, 100) < target_difficulty:
-                            obstacle = random.choice(obstacles)
+                            if len(obstacles) == 0:
+                                obstacles = list(base_obstacles)
+                                random.shuffle(obstacles)
+
+                            obstacle = obstacles.pop()
                             room_exit.obstacle = obstacle
 
                         room_exit.save()
@@ -873,7 +933,11 @@ class ShardhavenLayout(SharedMemoryModel):
                         room_exit.room_south = room
 
                         if random.randint(1, 100) < target_difficulty:
-                            obstacle = random.choice(obstacles)
+                            if len(obstacles) == 0:
+                                obstacles = list(base_obstacles)
+                                random.shuffle(obstacles)
+
+                            obstacle = obstacles.pop()
                             room_exit.obstacle = obstacle
 
                         room_exit.save()
@@ -883,7 +947,11 @@ class ShardhavenLayout(SharedMemoryModel):
                         room_exit.room_south = south
 
                         if random.randint(1, 100) < target_difficulty:
-                            obstacle = random.choice(obstacles)
+                            if len(obstacles) == 0:
+                                obstacles = list(base_obstacles)
+                                random.shuffle(obstacles)
+
+                            obstacle = obstacles.pop()
                             room_exit.obstacle = obstacle
 
                         room_exit.save()

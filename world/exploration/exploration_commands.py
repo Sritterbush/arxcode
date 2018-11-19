@@ -7,6 +7,7 @@ from evennia.utils import create
 from server.conf import settings
 from world.stats_and_skills import do_dice_check
 import random
+import time
 
 
 class CmdTestMonsterBuild(ArxCommand):
@@ -399,7 +400,7 @@ class CmdExplorationSneak(ArxCommand):
             self.msg("You cannot sneak that way; there's still an obstacle there you have to pass!")
             return
 
-        roll = do_dice_check(self.caller, "dexterity", "stealth", 20)
+        roll = do_dice_check(self.caller, "dexterity", "stealth", 25, quiet=False)
         if roll < 0:
             self.caller.location.msg_contents("%s attempts to sneak %s, but makes noise as they do so!"
                                               % (self.caller.name, exit_obj.direction_name))
@@ -411,6 +412,62 @@ class CmdExplorationSneak(ArxCommand):
         self.caller.execute_cmd(exit_obj.direction_name)
 
 
+class CmdExplorationAssist(ArxCommand):
+    """
+    Temporarily alter the difficulty of an obstacle.
+
+    Usage:
+      assist <direction>
+
+    This command can only be used once every 30 minutes, but will allow
+    a player to make a wits+leadership roll in order to adjust the difficulty
+    of an obstacle's rolls for 10 minutes.  If you succeed on your roll, your
+    leadership and cleverness will lower the difficulty and your party will
+    have an easier time passing the obstacle.  If you fail, however, your
+    advice is bad and it will make things more difficult.
+    """
+
+    key = "assist"
+    locks = "cmd:all()"
+    help_category = "Shardhavens"
+
+    def func(self):
+        if not self.args:
+            self.msg("You must provide a direction to assist the party with!")
+            return
+
+        last_assist = self.caller.db.shardhaven_last_assist
+        if last_assist and time.time() - last_assist < 1800:
+            self.msg("You cannot assist through a direction again yet.")
+            return
+
+        exit_objs = self.caller.search(self.args, quiet=True, global_search=False,
+                                       typeclass='typeclasses.exits.ShardhavenInstanceExit')
+        if not exit_objs or len(exit_objs) == 0:
+            self.msg("There doesn't appear to be a shardhaven exit by that name!")
+            return
+
+        if len(exit_objs) > 1:
+            self.msg("That matches too many exits!")
+            return
+
+        exit_obj = exit_objs[0]
+        haven_exit = exit_obj.haven_exit
+        if not haven_exit:
+            self.msg("Something is horribly wrong with that exit; it's not set up as a Shardhaven exit.")
+            return
+
+        if not haven_exit.obstacle:
+            self.msg("There's no obstacle in that direction to assist with!")
+            return
+
+        self.caller.db.shardhaven_last_assist = time.time()
+        roll = do_dice_check(self.caller, "wits", "leadership", 30, quiet=False)
+        haven_exit.obstacle.modify_diff(amount=roll / 2, reason="%s assisted with a leadership roll" % self.caller.name)
+        self.caller.location.msg_contents("%s attempts to assist the party with the obstacle to the %s, "
+                                          "adjusting the difficulty." % (self.caller.name, exit_obj.direction_name))
+
+
 class CmdExplorationRoomCommands(CmdSet):
 
     # We want to override the CharacterCmdSet's 'home' command.
@@ -420,3 +477,4 @@ class CmdExplorationRoomCommands(CmdSet):
         self.add(CmdExplorationHome())
         self.add(CmdExplorationMap())
         self.add(CmdExplorationSneak())
+        self.add(CmdExplorationAssist())
