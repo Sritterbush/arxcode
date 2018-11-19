@@ -49,7 +49,7 @@ class SpawnMobScript(Script):
         if haven.auto_combat:
             cscript = self.obj.location.ndb.combat_manager
             for testobj in self.obj.location.contents:
-                if testobj.has_player or (hasattr(testobj, 'is_character') and testobj.is_character) \
+                if (testobj.has_player or (hasattr(testobj, 'is_character') and testobj.is_character)) \
                         and not testobj.check_permstring("builders"):
                     if not cscript.check_character_is_combatant(testobj):
                         testobj.msg(cscript.add_combatant(testobj, testobj))

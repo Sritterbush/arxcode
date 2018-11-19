@@ -632,6 +632,7 @@ class ShardhavenLayoutSquare(SharedMemoryModel):
         if character not in self.visitors.all():
             self.visitors.add(character)
 
+    def mark_emptied(self):
         self.last_visited = datetime.datetime.now()
 
     def has_visited(self, character):

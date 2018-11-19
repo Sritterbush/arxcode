@@ -11,21 +11,22 @@ class MonsterMixin(object):
 
         monsters = []
         for testobj in self.location.contents:
-            if testobj.is_typeclass("world.exploration.npcs.MookMonster") \
-                    or testobj.is_typeclass("world.exploration.npcs.BossMonster"):
+            if testobj.is_typeclass("world.exploration.npcs.MookMonsterNpc") \
+                    or testobj.is_typeclass("world.exploration.npcs.BossMonsterNpc"):
                 monsters.append(testobj)
 
         return monsters
 
     def end_combat(self):
+        if not self.location:
+            return
+
         cscript = self.location.ndb.combat_manager
         if not cscript:
             return
 
-        for testobj in self.location.contents:
-            if testobj.has_player or (hasattr(testobj, 'is_character') and testobj.is_character):
-                if cscript.check_character_is_combatant(testobj):
-                    testobj.execute_cmd("+end_combat")
+        cscript.end_combat()
+        self.location.msg_contents("All the enemies are dead; combat has ended!")
 
     def monster_loot_spawn(self):
         if self.db.monster_id:

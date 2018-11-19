@@ -55,6 +55,7 @@ class ShardhavenRoom(ArxRoom):
         recent = False
         if haven_square is not None:
             recent = haven_square.visited_recently
+            haven_square.visit(obj)
 
         characters = []
         for testobj in self.contents:
@@ -149,12 +150,6 @@ class ShardhavenRoom(ArxRoom):
             mobs = []
             characters = []
 
-            if not obj.is_typeclass('world.exploration.npcs.BossMonsterNpc') \
-                    and not obj.is_typeclass('world.exploration.npcs.MookMonsterNpc'):
-                haven_square = self.shardhaven_square
-                if haven_square:
-                    haven_square.visit(obj)
-
             for testobj in self.contents:
                 if testobj.has_player or (hasattr(testobj, 'is_character') and testobj.is_character):
                     if testobj.is_typeclass('world.exploration.npcs.BossMonsterNpc') \
@@ -166,6 +161,9 @@ class ShardhavenRoom(ArxRoom):
             if len(characters) == 0:
                 for mob in mobs:
                     mob.location = None
+                haven_square = self.shardhaven_square
+                if haven_square:
+                    haven_square.mark_emptied()
 
     def softdelete(self):
         self.reset()
