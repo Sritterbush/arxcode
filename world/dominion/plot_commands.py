@@ -60,26 +60,26 @@ class CmdPlots(ArxCommand):
         plots <plot ID>[=<beat ID>]
         plots/timeline <plot ID>
         plots/old
+    Plot Usage:
+        plots/pitch <name>/<summary>/<desc>/<GM Notes>[=<plot ID if subplot>]
+        plots/rfr <ID>[,<beat ID>]=<message to staff of what to review>
+        plots/add/clue <plot ID>=<clue ID>/<how it's related to the plot>
+        plots/add/revelation <plot ID>=<revelation ID>/<how it's related>
     Beat Usage:
         plots/createbeat <plot ID>=<IC summary>/<ooc notes of consequences>
         plots/add/rpevent <rp event ID>=<beat ID>
         plots/add/action <action ID>=<beat ID>
         plots/add/gemit <gemit ID>=<beat ID>
         plots/add/flashback <flashback ID>=<beat ID>
-        plots/add/clue <plot ID>=<clue ID>/<how it's related to the plot>
-        plots/add/revelation <plot ID>=<revelation ID>/<how it's related>
     Cast Usage:
         plots/storyhook <plot ID>=<recruiter>/<Example plot hook for meeting>
         plots/perm <plot ID>=<participant>/<gm, recruiter, or player>
-        plots/invite <ID>=<character>,<cast status*>
-            *cast status choices: required, main, supporting, extra
+        plots/invite <ID>=<character>,<casting*>
+            *casting options: required, main, supporting, extra
         plots/accept <ID>[=<IC description of character's involvement>]
         plots/leave <ID>
         plots/findcontact <secret ID>
         plots/rewardrecruiter <plot ID>=<recruiter>
-    Staff Usage:
-        plots/rfr <ID>[,<beat ID>]=<message to staff of what to review>
-        plots/pitch <name>/<summary>/<desc>/<GM Notes>[=<plot ID if subplot>]
 
     Allows for managing and participating in plots in the game. Plots are
     updated with 'beats' - an event or action that advances the plot. For
@@ -88,6 +88,15 @@ class CmdPlots(ArxCommand):
     beat with the rpevent by using 'plots/add/rpevent'. Request staff review
     the beat with 'plots/rfr', which stands for 'request for review'. Staff
     will make appropriate game adjustments to represent world consequences.
+
+    The plots command can also be used to pitch ideas for new plots. The
+    plots/pitch command will open a ticket for GM approval of your plot.
+    If approved, the plot will be created automatically, with you as the
+    plot owner. You can select an existing plot to pitch a subplot for,
+    such as if you wanted to run a small subplot for a few players that
+    respond to a large GM plot. A pitch requires a name, a one-sentence
+    summary of the plot, a longer IC description, and OOC notes describing
+    what the plot aims to accomplish or what you'd like to see happen.
 
     Plots are hidden until someone is a participant. However, when a secret
     is marked as a hook for plots, the /findcontact command becomes
@@ -103,22 +112,13 @@ class CmdPlots(ArxCommand):
     is its administrator, while a GM has the ability to run events/create
     beats for it. A recruiter is a point of contact for plot newcomers.
 
-    When inviting, cast status is how essential a character is for the
+    When inviting, casting options are how essential a character is for the
     plot to proceed. 'Required' cast must be present for an event to occur;
     the plot is essentially about them. 'Main' cast is involved in most
     events. 'Supporting' cast might only be present sometimes, while any
     lower status indicates someone only appearing once or twice in a few
     events. GMs must be supporting cast or lower - they cannot be central
     characters in the story.
-
-    The plots command can also be used to pitch ideas for new plots. The
-    plots/pitch command will open a ticket for GM approval of your plot.
-    If approved, the plot will be created automatically, with you as the
-    plot owner. You can select an existing plot to pitch a subplot for,
-    such as if you wanted to run a small subplot for a few players that
-    respond to a large GM plot. A pitch requires a name, a one-sentence
-    summary of the plot, a longer IC description, and OOC notes describing
-    what the plot aims to accomplish or what you'd like to see happen.
     """
     key = "+plots"
     aliases = ["+plot"]
@@ -240,7 +240,7 @@ class CmdPlots(ArxCommand):
             return self.add_clue()
         if "revelation" in self.switches:
             return self.add_revelation()
-        beat = self.get_beat(self.rhs)
+        beat = self.get_beat(self.rhs, cast_access=True)
         if "rpevent" in self.switches:
             if self.called_by_staff:
                 qs = RPEvent.objects.all()
@@ -270,7 +270,7 @@ class CmdPlots(ArxCommand):
             except StoryEmit.DoesNotExist:
                 raise CommandError("No gemit found by that ID.")
         elif "flashback" in self.switches:
-            if not self.called_by_staff:
+            if self.called_by_staff:
                 qs = Flashback.objects.all()
             else:
                 qs = self.caller.roster.created_flashbacks.all()
@@ -290,16 +290,18 @@ class CmdPlots(ArxCommand):
         added_obj.save()
         self.msg("You have added %s to beat(ID: %d) of %s." % (added_obj, beat.id, beat.plot))
 
-    def get_beat(self, beat_id):
+    def get_beat(self, beat_id, cast_access=False):
         """Gets a beat for a plot by its ID"""
         if self.called_by_staff:
             qs = PlotUpdate.objects.all()
+        elif cast_access:
+            qs = PlotUpdate.objects.filter(plot_id__in=self.caller.dompc.active_plots)
         else:
             qs = PlotUpdate.objects.filter(plot_id__in=self.caller.dompc.plots_we_can_gm)
         try:
             beat = qs.get(id=beat_id)
         except (PlotUpdate.DoesNotExist, ValueError):
-            raise CommandError("You are not a GM for the plot that has a beat of that ID.")
+            raise CommandError("You are not able to alter a beat of that ID.")
         return beat
 
     def do_admin_switches(self):

@@ -485,12 +485,12 @@ class PlayerOrNpc(SharedMemoryModel):
         return Fealty.objects.filter(orgs__in=self.current_orgs).distinct().count() + no_fealties
 
     @property
-    def plots_we_can_gm(self):
-        return self.plots.filter(dompc_involvement__admin_status__gte=PCPlotInvolvement.GM)
-
-    @property
     def active_plots(self):
         return self.plots.filter(dompc_involvement__activity_status=PCPlotInvolvement.ACTIVE)
+
+    @property
+    def plots_we_can_gm(self):
+        return self.active_plots.filter(dompc_involvement__admin_status__gte=PCPlotInvolvement.GM)
 
 
 class AssetOwner(CachedPropertiesMixin, SharedMemoryModel):
