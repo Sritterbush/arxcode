@@ -577,4 +577,3 @@ class ShardhavenInstanceExit(DefaultExit, BaseObjectMixins):
                 self.destination.msg_contents(fol_msg)
                 self.location.msg_contents(leave_msg)
 
-

@@ -55,7 +55,6 @@ class ShardhavenRoom(ArxRoom):
         recent = False
         if haven_square is not None:
             recent = haven_square.visited_recently
-            haven_square.visit(obj)
 
         characters = []
         for testobj in self.contents:
@@ -64,10 +63,13 @@ class ShardhavenRoom(ArxRoom):
                 characters.append(testobj)
 
         player_characters = []
+        monsters = []
         for testobj in characters:
             if not testobj.is_typeclass("world.exploration.npcs.BossMonsterNpc") \
                     and not testobj.is_typeclass("world.exploration.npcs.MookMonsterNpc"):
                 player_characters.append(testobj)
+            else:
+                monsters.append(testobj)
 
         picker = WeightedPicker()
         if recent:
@@ -75,10 +77,29 @@ class ShardhavenRoom(ArxRoom):
         else:
             weight_none = haven.weight_no_monster
 
-        if len(player_characters) > 0:
+        if len(monsters) > 0:
             weight_none *= 4
+            if haven.auto_combat:
+                cscript = self.ndb.combat_manager
+                if cscript and not cscript.check_character_is_combatant(obj):
+                    obj.msg("There is a fight in the room!")
+                    obj.msg(cscript.add_combatant(obj, obj))
 
-        picker.add_option(None, weight_none)
+        if obj.ndb.shardhaven_sneak_value:
+            weight_none += (obj.ndb.shardhaven_sneak_value * 10)
+            if obj.ndb.shardhaven_sneak_value > 0:
+                self.msg_contents("%s sneaks quietly into the room, hoping not to disturb any monsters." % obj.name)
+            elif obj.ndb.shardhaven_sneak_value < 0:
+                self.msg_contents("%s attempts to sneak into the room, but ends up making more "
+                                  "noise than if they'd just walked!" % obj.name)
+            obj.ndb.shardhaven_sneak_value = None
+
+        if weight_none < 0:
+            weight_none = 0
+
+        if weight_none > 0:
+            picker.add_option(None, weight_none)
+
         picker.add_option("mook", haven.weight_mook_monster)
         picker.add_option("boss", haven.weight_boss_monster)
 
@@ -124,6 +145,13 @@ class ShardhavenRoom(ArxRoom):
         if obj.has_player or (hasattr(obj, 'is_character') and obj.is_character):
             mobs = []
             characters = []
+
+            if not obj.is_typeclass('world.exploration.npcs.BossMonsterNpc') \
+                    and not obj.is_typeclass('world.exploration.npcs.MookMonsterNpc'):
+                haven_square = self.shardhaven_square
+                if haven_square:
+                    haven_square.visit(obj)
+
             for testobj in self.contents:
                 if testobj.has_player or (hasattr(testobj, 'is_character') and testobj.is_character):
                     if testobj.is_typeclass('world.exploration.npcs.BossMonsterNpc') \
@@ -158,6 +186,6 @@ class ShardhavenRoom(ArxRoom):
                     or testobj.is_typeclass('world.magic.materials.MagicMaterial'):
                 testobj.softdelete()
             elif not testobj.is_typeclass('typeclasses.exits.ShardhavenInstanceExit') \
-                    or testobj.is_typeclass('typeclasses.exits.Exit'):
+                    and not testobj.is_typeclass('typeclasses.exits.Exit'):
                 # Someone dropped something in the shardhaven.  Let's not destroy it.
                 testobj.location = None
