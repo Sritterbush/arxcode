@@ -140,6 +140,9 @@ class ShardhavenRoom(ArxRoom):
         if self.ndb.combat_manager:
             obj.msg("Your party is already in combat! Joining the fight.")
             obj.msg(self.ndb.combat_manager.add_combatant(obj, obj))
+            for mob in monsters:
+                if mob.combat and mob.combat.state:
+                    mob.combat.state.add_foe(obj)
 
     def at_object_leave(self, obj, target_location):
         if obj.has_player or (hasattr(obj, 'is_character') and obj.is_character):

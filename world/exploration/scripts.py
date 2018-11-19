@@ -44,14 +44,18 @@ class SpawnMobScript(Script):
         mob_instance = monster.create_instance(self.obj.location)
         self.obj.location.msg_contents("{} attacks {}!".format(mob_instance.name, self.obj.name))
         mob_instance.attack(self.obj.name, kill=True)
+        mob_instance.combat.set_switch_chance(40)
 
         if haven.auto_combat:
             cscript = self.obj.location.ndb.combat_manager
-
             for testobj in self.obj.location.contents:
                 if testobj.has_player or (hasattr(testobj, 'is_character') and testobj.is_character) \
                         and not testobj.check_permstring("builders"):
                     if not cscript.check_character_is_combatant(testobj):
                         testobj.msg(cscript.add_combatant(testobj, testobj))
+                    if not testobj.is_typeclass('world.exploration.npcs.BossMonsterNpc') \
+                            and not testobj.is_typeclass('world.exploration.npcs.MookMonsterNpc'):
+                        if mob_instance.combat.state:
+                            mob_instance.combat.state.add_foe(testobj)
 
         self.stop()
