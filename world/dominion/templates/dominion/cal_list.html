@@ -34,8 +34,8 @@
     </tr>
     {% for obj in view.unfinished %}
         <tr>
-        <td width="10%">{{ obj.id }}</td>
-        <td width="25%"><a href="{% url 'dominion:display_event' obj.id %}">{{ obj.name|mush_to_html }}</a></td>
+        <td width="5%">{{ obj.id }}</td>
+        <td width="30%"><a href="{% url 'dominion:display_event' obj.id %}">{{ obj.name|mush_to_html }}</a></td>
         <td width="25%">{{ obj.date }}</td>
         <td width="25%">{{ obj.location_name|mush_to_html }}</td>
         <td width="15%">{{ obj.get_celebration_tier_display }}</td>
@@ -53,10 +53,11 @@
     </tr>
     {% for obj in object_list %}
         <tr>
-        <td width="25%"><a href="{% url 'dominion:display_event' obj.id %}">{{ obj.name|mush_to_html }}</a></td>
+        <td width="5%">{{ obj.id }}</td>
+        <td width="30%"><a href="{% url 'dominion:display_event' obj.id %}">{{ obj.name|mush_to_html }}</a></td>
         <td width="25%">{{ obj.date }}</td>
         <td width="25%">{{ obj.location_name|mush_to_html }}</td>
-        <td width="25%">{{ obj.get_celebration_tier_display }}</td>
+        <td width="15%">{{ obj.get_celebration_tier_display }}</td>
         </tr>
     {% endfor %}
     </table>
