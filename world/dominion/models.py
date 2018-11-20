@@ -2039,8 +2039,6 @@ class Plot(SharedMemoryModel):
         msg = self.display_base()
         orgs, clue, cast = self.orgs.all(), self.required_clue, self.cast_list
         parent, subplots, beats = self.parent_plot, self.subplots.all(), list(self.beats)
-        if orgs:
-            msg += "\n{wInvolved Organizations:{n %s" % ", ".join(str(ob) for ob in self.orgs.all())
         if clue:
             msg += "\n{wRequired Clue:{n %s" % self.required_clue
         if parent:
@@ -2049,6 +2047,8 @@ class Plot(SharedMemoryModel):
             msg += "\n{wSubplots:{n %s" % ", ".join(("%s (#%s)" % (ob, ob.id)) for ob in subplots)
         if cast:
             msg += "\n%s" % cast
+        if orgs:
+            msg += "\n{wInvolved Organizations:{n %s" % ", ".join(str(ob) for ob in self.orgs.all())
         if beats:
             last = beats[-1]
             if self.usage in (self.PLAYER_RUN_PLOT, self.GM_PLOT):
