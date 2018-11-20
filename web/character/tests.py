@@ -127,7 +127,7 @@ class PRPClueTests(ArxCommandTest):
     def setUp(self):
         from world.dominion.models import Plot, PCPlotInvolvement
         super(PRPClueTests, self).setUp()
-        self.plot = Plot.objects.create(name="TestPlot")
+        self.plot = Plot.objects.create(name="TestPlot", usage=Plot.PLAYER_RUN_PLOT)
         self.plot.dompc_involvement.create(dompc=self.dompc, admin_status=PCPlotInvolvement.GM)
 
     def test_cmd_prpclue(self):

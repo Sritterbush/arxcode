@@ -486,7 +486,8 @@ class PlayerOrNpc(SharedMemoryModel):
 
     @property
     def active_plots(self):
-        return self.plots.filter(dompc_involvement__activity_status=PCPlotInvolvement.ACTIVE)
+        return self.plots.filter(dompc_involvement__activity_status=PCPlotInvolvement.ACTIVE,
+                                 usage__in=(Plot.GM_PLOT, Plot.PLAYER_RUN_PLOT))
 
     @property
     def plots_we_can_gm(self):
