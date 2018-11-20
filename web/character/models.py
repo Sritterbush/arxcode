@@ -1437,6 +1437,7 @@ class Theory(SharedMemoryModel):
     desc = models.TextField(blank=True, null=True)
     related_clues = models.ManyToManyField("Clue", related_name="theories", blank=True, db_index=True)
     related_theories = models.ManyToManyField("self", blank=True)
+    plots = models.ManyToManyField("dominion.Plot", related_name="theories", blank=True)
 
     class Meta:
         """Define Django meta options"""

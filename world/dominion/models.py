@@ -2049,7 +2049,7 @@ class Plot(SharedMemoryModel):
         if cast:
             msg += "\n%s" % cast
         if orgs:
-            msg += "\n{wInvolved Organizations:{n %s" % ", ".join(str(ob) for ob in self.orgs.all())
+            msg += "\n{wInvolved Organizations:{n %s" % ", ".join(str(ob) for ob in orgs)
         if beats:
             last = beats[-1]
             if self.usage in (self.PLAYER_RUN_PLOT, self.GM_PLOT):
@@ -2242,7 +2242,33 @@ class PCPlotInvolvement(SharedMemoryModel):
         return msg
 
     def display_plot_involvement(self):
-        return self.plot.display()
+        msg = self.plot.display()
+        clues = self.plot.clues.all()
+        revs = self.plot.revelations.all()
+        theories = self.plot.theories.all()
+
+        def format_name(obj, unknown):
+            name = "%s(#%s)" % (obj, obj.id)
+            if obj in unknown:
+                name += "({rX{n)"
+            return name
+
+        if clues:
+            msg += "\n{wRelated Clues:{n "
+            pc_clues = list(self.dompc.player.roster.clues.all())
+            unknown_clues = [ob for ob in clues if ob not in pc_clues]
+            msg += "; ".join(format_name(ob, unknown_clues) for ob in clues)
+        if revs:
+            msg += "\n{wRelated Revelations:{n "
+            pc_revs = list(self.dompc.player.roster.revelations.all())
+            unknown_revs = [ob for ob in revs if ob not in pc_revs]
+            msg += "; ".join(format_name(ob, unknown_revs) for ob in revs)
+        if theories:
+            msg += "\n{wRelated Theories:{n "
+            pc_theories = list(self.dompc.player.known_theories.all())
+            unknown_theories = [ob for ob in theories if ob not in pc_theories]
+            msg += "; ".join(format_name(ob, unknown_theories) for ob in theories)
+        return msg
 
     def accept_invitation(self, description=""):
         self.activity_status = self.ACTIVE

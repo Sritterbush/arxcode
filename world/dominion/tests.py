@@ -5,7 +5,7 @@ from mock import patch, Mock
 
 from server.utils.test_utils import ArxCommandTest, TestTicketMixins
 from . import crisis_commands, general_dominion_commands, plot_commands
-from web.character.models import StoryEmit, Clue, CluePlotInvolvement, Revelation, Investigation
+from web.character.models import StoryEmit, Clue, CluePlotInvolvement, Revelation, Theory, TheoryPermissions
 from world.dominion.models import Plot, PlotAction, PCPlotInvolvement, RPEvent, PlotUpdate, Organization
 
 
@@ -226,10 +226,24 @@ class TestPlotCommands(TestTicketMixins, ArxCommandTest):
         self.call_cmd("/add/clue 2=2/so connected", 'That clue is already related to that plot.')
         self.assertEqual(clue2.plot_involvement.get(plot=self.plot2).gm_notes, "foo")
         rev = Revelation.objects.create(name="testrev")
-        rev.discoveries.create(character=self.roster_entry)
+        rev_disco = rev.discoveries.create(character=self.roster_entry)
         self.call_cmd("/addrevelation 2=1/foo", "You have associated revelation 'testrev' with plot 'testplot2'.")
         self.call_cmd("/add/revelation 2=1/blargh", 'That revelation is already related to that plot.')
         self.assertEqual(rev.plot_involvement.get(plot=self.plot2).gm_notes, "foo")
+        theory = Theory.objects.create(topic="test_theory", creator=self.account)
+        theory_disco = TheoryPermissions.objects.create(player=self.account, theory=theory)
+        self.call_cmd("/add/theory 2=1", "You have associated theory 'Testaccount's theory on test_theory'"
+                                         " with plot 'testplot2'.")
+        self.call_cmd("2", "[testplot2]\nNone\nSubplots: foo (#3)\nInvolved Characters:\n"
+                           "Testaccount2 (Main Cast, Recruiter)\nTestaccount\n\nRelated Clues: testclue(#2)\n"
+                           "Related Revelations: testrev(#1)\n"
+                           "Related Theories: Testaccount's theory on test_theory(#1)")
+        rev_disco.delete()
+        theory_disco.delete()
+        self.call_cmd("2", "[testplot2]\nNone\nSubplots: foo (#3)\nInvolved Characters:\n"
+                           "Testaccount2 (Main Cast, Recruiter)\nTestaccount\n\nRelated Clues: testclue(#2)\n"
+                           "Related Revelations: testrev(#1)(X)\n"
+                           "Related Theories: Testaccount's theory on test_theory(#1)(X)")
 
     @patch('django.utils.timezone.now')
     def test_cmd_gm_plots(self, mock_now):
@@ -237,8 +251,8 @@ class TestPlotCommands(TestTicketMixins, ArxCommandTest):
         mock_now.return_value = self.fake_datetime
         self.setup_cmd(plot_commands.CmdGMPlots, self.char1)
         self.call_cmd("/all", '| #   | Plot (owner)           | Summary                                     '
-                          '~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+\n'
-                          '| 1   | testplot1              | None')
+                              '~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+\n'
+                              '| 1   | testplot1              | None')
         self.call_cmd("/old", '| #   | Resolved Plot (owner)  | Summary                                     '
                               '~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+\n'
                               '| 2   | testplot2              | None')
@@ -290,9 +304,9 @@ class TestPlotCommands(TestTicketMixins, ArxCommandTest):
         org = Organization.objects.create(name="testorg")
         self.call_cmd("/connect/org 5=testorg/staff", "You have connected testorg with testpitch.")
         self.assertEqual(org.plots.first().id, 5)
-        clue = Clue.objects.create(name="testclue")
+        Clue.objects.create(name="testclue")
         self.call_cmd("/connect/clue 5=testclue/stuff", "You have connected testclue with testpitch.")
-        rev = Revelation.objects.create(name="testrev")
+        Revelation.objects.create(name="testrev")
         self.call_cmd("/connect/revelation 5=testrev/stuff", "You have connected testrev with testpitch.")
         pitch3 = create_plot_pitch("desc", "notes", "testrfr", self.plot2, "headline", self.account2)
         pitch3.plot.usage = Plot.PLAYER_RUN_PLOT

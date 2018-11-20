@@ -11,7 +11,7 @@ from server.utils.helpdesk_api import create_ticket, add_followup, resolve_ticke
 from server.utils.prettytable import PrettyTable
 from server.utils.exceptions import CommandError
 from server.utils.arx_utils import dict_from_choices_field
-from web.character.models import StoryEmit, Flashback, Clue, Revelation
+from web.character.models import StoryEmit, Flashback, Clue, Revelation, Theory
 from web.helpdesk.models import Ticket
 from world.dominion.models import PCPlotInvolvement, PlotUpdate, RPEvent, PlotAction, Plot, Organization
 
@@ -65,6 +65,7 @@ class CmdPlots(ArxCommand):
         plots/rfr <ID>[,<beat ID>]=<message to staff of what to review>
         plots/add/clue <plot ID>=<clue ID>/<how it's related to the plot>
         plots/add/revelation <plot ID>=<revelation ID>/<how it's related>
+        plots/add/theory <plot ID>=<theory ID>
     Beat Usage:
         plots/createbeat <plot ID>=<IC summary>/<ooc notes of consequences>
         plots/add/rpevent <rp event ID>=<beat ID>
@@ -240,6 +241,8 @@ class CmdPlots(ArxCommand):
             return self.add_clue()
         if "revelation" in self.switches:
             return self.add_revelation()
+        if "theory" in self.switches:
+            return self.add_theory()
         beat = self.get_beat(self.rhs, cast_access=True)
         if "rpevent" in self.switches:
             if self.called_by_staff:
@@ -513,6 +516,16 @@ class CmdPlots(ArxCommand):
         rev_plot_inv.gm_notes = notes
         rev_plot_inv.save()
         self.msg("You have associated revelation '%s' with plot '%s'." % (revelation, plot))
+
+    def add_theory(self):
+        """Adds a theory to an existing plot"""
+        plot = self.get_involvement_by_plot_id(PCPlotInvolvement.PLAYER).plot
+        try:
+            theory = self.caller.player_ob.known_theories.get(id=self.rhs)
+        except (Theory.DoesNotExist, TypeError, ValueError):
+            raise CommandError("No theory by that ID.")
+        plot.theories.add(theory)
+        self.msg("You have associated theory '%s' with plot '%s'." % (theory, plot))
 
 
 class CmdGMPlots(ArxCommand):
