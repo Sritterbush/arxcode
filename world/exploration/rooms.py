@@ -72,7 +72,12 @@ class ShardhavenRoom(ArxRoom):
             else:
                 monsters.append(testobj)
 
+        if obj not in player_characters:
+            player_characters.append(obj)
+
         picker = WeightedPicker()
+        # Let's not roll high for EVERY single player
+        # Otherwise we run the risk of a monster showing up every single room.
         if recent:
             weight_none = haven.weight_no_monster_backtrack
         else:
@@ -85,6 +90,13 @@ class ShardhavenRoom(ArxRoom):
                 if cscript and not cscript.check_character_is_combatant(obj):
                     obj.msg("There is a fight in the room!")
                     obj.msg(cscript.add_combatant(obj, obj))
+                    for mon in monsters:
+                        if mon.combat.state:
+                            mon.combat.state.add_foe(obj)
+
+        if len(player_characters) > 1:
+            # Chance of spawn in goes down after the first player.
+            weight_none = weight_none * 2
 
         if obj.ndb.shardhaven_sneak_value:
             weight_none += (obj.ndb.shardhaven_sneak_value * 10)

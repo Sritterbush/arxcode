@@ -419,10 +419,14 @@ class ShardhavenInstanceExit(DefaultExit, BaseObjectMixins):
                 if self.haven_exit.obstacle.can_pass_with_clue(pobject):
                     result += " |w(Which you have!)|n"
 
-            if self.passable(pobject):
-                result += "|/|/However, someone has already addressed this obstacle, and you may pass."
-            else:
+            if pobject.check_permstring("builders"):
                 result += "|/" + self.haven_exit.obstacle.options_description
+                result += "|/|/(However, being staff, you can just pass through without a check.)"
+            else:
+                if self.passable(pobject):
+                    result += "|/|/However, someone has already addressed this obstacle, and you may pass."
+                else:
+                    result += "|/" + self.haven_exit.obstacle.options_description
 
         else:
             result += "The way seems clear ahead."
@@ -434,6 +438,9 @@ class ShardhavenInstanceExit(DefaultExit, BaseObjectMixins):
             return True
 
         if self.haven_exit.override:
+            return True
+
+        if traversing_object.check_permstring("builders"):
             return True
 
         obstacle = self.haven_exit.obstacle
