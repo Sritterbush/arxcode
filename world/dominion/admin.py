@@ -227,7 +227,7 @@ class OrgEventParticipantInline(admin.TabularInline):
 class EventAdmin(DomAdmin):
     """Admin for RP Events/PRPs/GM Events"""
     list_display = ('id', 'name', 'date')
-    search_fields = ['name', 'dompcs__username', 'orgs__name']
+    search_fields = ['name', 'dompcs__player__username', 'orgs__name']
     ordering = ['date']
     raw_id_fields = ('location', 'beat', 'plotroom')
     filter_horizontal = ('search_tags',)

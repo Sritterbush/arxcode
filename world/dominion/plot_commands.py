@@ -601,7 +601,7 @@ class CmdGMPlots(ArxCommand):
         except (TypeError, ValueError):
             raise CommandError("Must include a name, summary, and a description for the plot.")
         if self.rhs:
-            parent = self.get_plot(self.rhs)
+            parent = self.get_by_name_or_id(Plot, self.rhs)
         plot = Plot.objects.create(name=name, desc=desc, parent_plot=parent, usage=Plot.GM_PLOT,
                                    start_date=datetime.now(), headline=summary)
         if parent:
@@ -609,21 +609,9 @@ class CmdGMPlots(ArxCommand):
         else:
             self.msg("You have created a new gm plot: %s (#%s)." % (plot, plot.id))
 
-    def get_plot(self, args=None):
-        if args is None:
-            args = self.lhs
-        try:
-            if args.isdigit():
-                parent = Plot.objects.get(id=args)
-            else:
-                parent = Plot.objects.get(name__iexact=args)
-        except (TypeError, ValueError, Plot.DoesNotExist):
-            raise CommandError("Invalid plot ID or name: %s" % args)
-        return parent
-
     def do_plot_switches(self):
         """Commands for handling a given plot"""
-        plot = self.get_plot()
+        plot = self.get_by_name_or_id(Plot, self.lhs)
         if "end" in self.switches:
             return self.end_plot(plot)
         if "addbeat" in self.switches or "adb" in self.switches or self.check_switches(self.beat_objects):
