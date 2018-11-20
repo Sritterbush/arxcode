@@ -584,10 +584,7 @@ class CmdGMPlots(ArxCommand):
             only_open = "all" not in self.switches and not old
             self.msg(str(Plot.objects.view_plots_table(old=old, only_open_tickets=only_open)))
         else:
-            try:
-                plot = Plot.objects.get(id=self.lhs)
-            except Plot.DoesNotExist:
-                raise CommandError("No plot found by that ID.")
+            plot = self.get_by_name_or_id(Plot, self.lhs)
             if "timeline" in self.switches:
                 self.msg(plot.display_timeline())
             else:
