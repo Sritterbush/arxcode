@@ -2192,7 +2192,7 @@ class Plot(SharedMemoryModel):
             status = []
             if role.cast_status <= 2:
                 status.append(role.get_cast_status_display())
-            if role.admin_status <= 2:
+            if role.admin_status >= 2:
                 status.append(role.get_admin_status_display())
             if any(status):
                 msg += " (%s)" % ", ".join([ob for ob in status])
