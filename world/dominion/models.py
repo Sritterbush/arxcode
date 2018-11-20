@@ -2037,13 +2037,18 @@ class Plot(SharedMemoryModel):
     def display(self):
         """Returns string display for the plot and its latest update/beat"""
         msg = self.display_base()
-        if self.orgs.all():
-            msg += "\n{wOrganizations affected:{n %s" % ", ".join(str(ob) for ob in self.orgs.all())
-        if self.required_clue:
+        orgs, clue, cast = self.orgs.all(), self.required_clue, self.cast_list
+        parent, subplots, beats = self.parent_plot, self.subplots.all(), list(self.beats)
+        if orgs:
+            msg += "\n{wInvolved Organizations:{n %s" % ", ".join(str(ob) for ob in self.orgs.all())
+        if clue:
             msg += "\n{wRequired Clue:{n %s" % self.required_clue
-        cast_list = self.cast_list
-        msg += ("\n%s" % cast_list) if cast_list else ""
-        beats = list(self.beats)
+        if parent:
+            msg += "\n{wMain Plot:{n %s (#%s)" % (parent, parent.id)
+        if subplots:
+            msg += "\n{wSubplots:{n %s" % ", ".join(("%s (#%s)" % (ob, ob.id)) for ob in subplots)
+        if cast:
+            msg += "\n%s" % cast
         if beats:
             last = beats[-1]
             if self.usage in (self.PLAYER_RUN_PLOT, self.GM_PLOT):
@@ -2179,18 +2184,18 @@ class Plot(SharedMemoryModel):
     @property
     def cast_list(self):
         """Returns string of the cast's status and admin levels."""
-        role = PCPlotInvolvement
-        cast = self.dompc_involvement.filter(activity_status__lte=role.INVITED).order_by('cast_status')
-        msg = ""
-        status_tier = None
-        for ob in cast:
-            if ob.get_cast_status_display() != status_tier:
-                status_tier = ob.get_cast_status_display()
-                msg += "|w%s:|n\n" % status_tier
-            invited = "|w(Invited) " if ob.activity_status == ob.INVITED else ""
-            msg += "%s|c%s|n" % (invited, ob.dompc)
-            if ob.admin_status > ob.PLAYER:
-                msg += " (%s)" % ob.get_admin_status_display()
+        cast = self.dompc_involvement.filter(activity_status__lte=PCPlotInvolvement.INVITED).order_by('cast_status')
+        msg = "Involved Characters:\n" if cast else ""
+        for role in cast:
+            invited = "*Invited* " if role.activity_status == role.INVITED else ""
+            msg += "%s|c%s|n" % (invited, role.dompc)
+            status = []
+            if role.cast_status <= 2:
+                status.append(role.get_cast_status_display())
+            if role.admin_status <= 2:
+                status.append(role.get_admin_status_display())
+            if any(status):
+                msg += " (%s)" % ", ".join([ob for ob in status])
             msg += "\n"
         return msg
 

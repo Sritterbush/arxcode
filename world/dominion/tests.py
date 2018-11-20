@@ -131,8 +131,8 @@ class TestPlotCommands(TestTicketMixins, ArxCommandTest):
                               'Name/ID        Involvement \n'
                               'testplot2 (#2) Main Cast')
         self.call_cmd("4", 'No plot found by that ID.')
-        self.call_cmd("1", '[testplot1]\nNone\nSupporting Cast:\nTestaccount2 (Owner)')
-        self.call_cmd("2", '[testplot2]\nNone\nMain Cast:\nTestaccount2')
+        self.call_cmd("1", '[testplot1]\nNone\nInvolved Characters:\nTestaccount2 (Supporting Cast, Owner)')
+        self.call_cmd("2", '[testplot2]\nNone\nInvolved Characters:\nTestaccount2 (Main Cast)')
         self.call_cmd("1=1", "No beat found by that ID.")
         beat1 = self.plot1.updates.create(desc="test update")
         self.call_cmd("/createbeat 2=foo", "You lack the required permission for that plot.")
@@ -275,7 +275,7 @@ class TestPlotCommands(TestTicketMixins, ArxCommandTest):
                                     'Player: TestAccount2\nLocation: Room (#1)\n'
                                     'Submitted: 08/27/78 12:08:00 - Last Update: 08/27/78 12:08:00\nRequest: notes\n\n'
                                     'Plot Pitch:\n\n[testpitch]\ndesc\n'
-                                    'Main Cast:\nTestaccount2\n\n\nGM Resolution: None')
+                                    'Involved Characters:\nTestaccount2 (Main Cast)\n\n\nGM Resolution: None')
         self.call_cmd("/pitches/followup 8=meh", "You have added a followup to Ticket 8.")
         self.call_cmd("/pitches/approve 8=k",
                       "You have approved the pitch. testpitch is now active with Testaccount2 as the owner.")
