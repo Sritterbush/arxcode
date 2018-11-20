@@ -158,7 +158,8 @@ class ShardhavenRoom(ArxRoom):
                     mob.combat.state.add_foe(obj)
 
     def at_object_leave(self, obj, target_location):
-        if obj.has_player or (hasattr(obj, 'is_character') and obj.is_character):
+        if (obj.has_player or (hasattr(obj, 'is_character') and obj.is_character)) \
+                and not obj.check_permstring("builders"):
             mobs = []
             characters = []
 
@@ -167,7 +168,7 @@ class ShardhavenRoom(ArxRoom):
                     if testobj.is_typeclass('world.exploration.npcs.BossMonsterNpc') \
                             or testobj.is_typeclass('world.exploration.npcs.MookMonsterNpc'):
                         mobs.append(testobj)
-                    elif testobj != obj:
+                    elif testobj != obj and not testobj.check_permstring("builders"):
                         characters.append(testobj)
 
             if len(characters) == 0:
