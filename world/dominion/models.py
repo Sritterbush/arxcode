@@ -2026,7 +2026,7 @@ class Plot(SharedMemoryModel):
 
     def display_base(self):
         """Common plot display information"""
-        msg = "\n|w[%s|w]{n" % self.name
+        msg = "|w[%s|w]{n" % self
         if self.rating:
             msg += " |w(%s Rating)|n" % self.rating
         if self.time_remaining:

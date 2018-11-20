@@ -274,7 +274,7 @@ class TestPlotCommands(TestTicketMixins, ArxCommandTest):
         self.call_cmd("/pitches 8", '[Ticket #8] Pitch: testpitch (testplot2)\nQueue: PRP Questions - Priority 3\n'
                                     'Player: TestAccount2\nLocation: Room (#1)\n'
                                     'Submitted: 08/27/78 12:08:00 - Last Update: 08/27/78 12:08:00\nRequest: notes\n\n'
-                                    'Plot Pitch:\n\n[testpitch]\ndesc\n'
+                                    'Plot Pitch:\n[testpitch]\ndesc\nMain Plot: testplot2 (#2)\n'
                                     'Involved Characters:\nTestaccount2 (Main Cast)\n\n\nGM Resolution: None')
         self.call_cmd("/pitches/followup 8=meh", "You have added a followup to Ticket 8.")
         self.call_cmd("/pitches/approve 8=k",
