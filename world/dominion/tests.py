@@ -262,10 +262,10 @@ class TestPlotCommands(TestTicketMixins, ArxCommandTest):
         self.call_cmd("/addbeat/rpevent 2=1/story 2/gm notes 2",
                       'You have created a new beat for plot testplot2. The beat concerns test event(#1).')
         self.assertEqual(event.beat, self.plot2.updates.last())
-        self.call_cmd("/perm 4=testaccount2/gm", "You have set Testaccount2 as a GM in testplot4.")
-        self.call_cmd("/participation 4=testaccount/blargh",
+        self.call_cmd("/perm 4=testaccount2,gm", "You have set Testaccount2 as a GM in testplot4.")
+        self.call_cmd("/participation 4=testaccount,blargh",
                       'Choice must be one of: required cast, main cast, supporting cast, extra, tangential.')
-        self.call_cmd("/participation 4=testaccount2/required cast",
+        self.call_cmd("/participation 4=testaccount2,required cast",
                       "You have set Testaccount2 as a Required Cast in testplot4.")
         pitch = create_plot_pitch("desc", "notes", "testpitch", self.plot2, "headline", self.account2)
         self.assertEqual(pitch.plot.usage, Plot.PITCH)

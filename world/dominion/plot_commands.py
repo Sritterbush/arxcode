@@ -535,7 +535,7 @@ class CmdGMPlots(ArxCommand):
     @gmplots/pitches/approve <pitch ID>[=<ooc notes to player>]
     @gmplots/pitches/decline <pitch ID>[=<ooc notes to player>]
     @gmplots/participation <plot ID>=<player>,<participation level>
-    @gmplots/perm <plot ID>=<player>/<owner, gm, recruiter, player>
+    @gmplots/perm <plot ID>=<player>,<owner, gm, recruiter, player>
 
     Tagging:
     @gmplots/connect/char <plot ID>=<character>/<desc of relationship>
@@ -681,7 +681,7 @@ class CmdGMPlots(ArxCommand):
         """Sets a property for someone involved in a plot"""
         choices = dict_from_choices_field(PCPlotInvolvement, choices_attr)
         try:
-            name, choice = self.rhs.split("/")
+            name, choice = self.rhslist
         except (TypeError, ValueError):
             raise CommandError("You must give both a name and a value.")
         choice = choice.lower()
