@@ -357,39 +357,17 @@ class ShardhavenObstacle(SharedMemoryModel):
                                                  verbose_name="Requirements")
     clue_success = models.TextField(blank=True, null=True)
 
-    modified_diff_by = models.SmallIntegerField(blank=True, null=True)
-    modified_diff_reason = models.CharField(max_length=80, blank=True, null=True)
-    modified_diff_at = models.DateTimeField(blank=True, null=True)
-
     def msg(self, *args, **kwargs):
         """
         Keep the attack code happy.
         """
         pass
 
-    def modify_diff(self, amount=None, reason=None):
-        if amount:
-            self.modified_diff_at = datetime.datetime.now()
-            self.modified_diff_by = amount
-            self.modified_diff_reason = reason
-        else:
-            self.modified_diff_at = None
-            self.modified_diff_by = None
-            self.modified_diff_reason = None
+    def options_description(self, exit_obj):
+        direction = "south"
+        if exit_obj is not None:
+            direction = exit_obj.direction_name
 
-    @property
-    def diff_modifier(self):
-        if not self.modified_diff_by or not self.modified_diff_at:
-            return 0
-
-        delta = datetime.datetime.now() - self.modified_diff_at
-        if delta.total_seconds() > 600:
-            return 0
-
-        return self.modified_diff_by
-
-    @property
-    def options_description(self):
         result = ""
         if self.rolls.count > 0:
             result += "|/You have the following options:|/"
@@ -397,17 +375,17 @@ class ShardhavenObstacle(SharedMemoryModel):
             for roll in self.rolls.all():
                 result += "|/{}: [{}+{}] {}".format(counter, roll.stat, roll.skill, roll.description)
                 counter += 1
-            result += "|/|/Enter the direction followed by the number you choose, such as 'south 1'."
+            result += "|/|/Enter the direction followed by the number you choose, such as '{} 1'.".format(direction)
         return result
 
-    def handle_dice_check(self, calling_object, args):
+    def handle_dice_check(self, calling_object, exit_obj, haven_exit, args):
 
         if self.rolls.count() == 0:
             return True, False, True, False
 
         if not args:
             calling_object.msg(self.description)
-            calling_object.msg(self.options_description)
+            calling_object.msg(self.options_description(exit_obj))
             return False, False, False, False
 
         try:
@@ -416,14 +394,19 @@ class ShardhavenObstacle(SharedMemoryModel):
             calling_object.msg("Please provide a number from 1 to {}".format(self.rolls.count()))
             return False, False, False, False
 
+        if choice > self.rolls.count():
+            calling_object.msg("Please provide a number from 1 to {}".format(self.rolls.count()))
+            return False, False, False, False
+
         roll = self.rolls.all()[choice - 1]
         difficulty = roll.difficulty
 
-        difficulty -= self.diff_modifier
-        if self.diff_modifier != 0 and self.modified_diff_reason:
-            calling_object.msg("Your roll difficulty is altered because %s!" % self.modified_diff_reason)
+        modifier = haven_exit.diff_modifier
+        difficulty -= modifier
+        if modifier != 0 and haven_exit.modified_diff_reason:
+            calling_object.msg("Your roll difficulty is altered because %s!" % haven_exit.modified_diff_reason)
 
-        result = do_dice_check(caller=calling_object, stat=roll.stat, skill=roll.skill, difficulty=roll.difficulty)
+        result = do_dice_check(caller=calling_object, stat=roll.stat, skill=roll.skill, difficulty=difficulty)
         if result >= roll.target:
             if roll.personal_success_msg:
                 calling_object.msg(roll.personal_success_msg)
@@ -487,7 +470,7 @@ class ShardhavenObstacle(SharedMemoryModel):
 
         return True
 
-    def handle_clue_check(self, calling_object, require_all):
+    def handle_clue_check(self, calling_object, exit_obj, require_all):
 
         calling_object.msg(self.description + "|/")
 
@@ -499,7 +482,7 @@ class ShardhavenObstacle(SharedMemoryModel):
                     calling_object.msg("You lack the knowledge to pass this obstacle.")
 
                     if self.rolls.count() > 0:
-                        calling_object.msg(self.options_description)
+                        calling_object.msg(self.options_description(exit_obj))
                         return False, False, False, False
 
                     return False, False, True, False
@@ -531,19 +514,19 @@ class ShardhavenObstacle(SharedMemoryModel):
 
         return True, False, True, False
 
-    def handle_obstacle(self, calling_object, args=None):
+    def handle_obstacle(self, calling_object, exit_obj, haven_exit, args=None):
         if self.obstacle_type == ShardhavenObstacle.PASS_CHECK:
-            return self.handle_dice_check(calling_object, args)
+            return self.handle_dice_check(calling_object, exit_obj, haven_exit, args)
         elif self.obstacle_type == ShardhavenObstacle.HAS_CLUE:
             if len(args) > 0 and self.rolls.count() > 0:
-                return self.handle_dice_check(calling_object, args)
+                return self.handle_dice_check(calling_object, exit_obj, haven_exit, args)
             else:
-                return self.handle_clue_check(calling_object, False)
+                return self.handle_clue_check(calling_object, exit_obj, False)
         elif self.obstacle_type == ShardhavenObstacle.HAS_ALL_CLUES:
             if len(args) > 0 and self.rolls.count() > 0:
-                return self.handle_dice_check(calling_object, args)
+                return self.handle_dice_check(calling_object, exit_obj, args)
             else:
-                return self.handle_clue_check(calling_object, True)
+                return self.handle_clue_check(calling_object, exit_obj, True)
         else:
             return True, False
 
@@ -597,6 +580,10 @@ class ShardhavenLayoutExit(SharedMemoryModel):
     passed_by = models.ManyToManyField('objects.ObjectDB', blank=True)
     override = models.BooleanField(default=False)
 
+    modified_diff_by = models.SmallIntegerField(blank=True, null=True)
+    modified_diff_reason = models.CharField(max_length=80, blank=True, null=True)
+    modified_diff_at = models.DateTimeField(blank=True, null=True)
+
     def __str__(self):
         string = str(self.layout) + " Exit: "
         if self.room_west is not None:
@@ -614,6 +601,28 @@ class ShardhavenLayoutExit(SharedMemoryModel):
 
     def __unicode__(self):
         return unicode(str(self))
+
+    def modify_diff(self, amount=None, reason=None):
+        if amount:
+            self.modified_diff_at = datetime.datetime.now()
+            self.modified_diff_by = amount
+            self.modified_diff_reason = reason
+        else:
+            self.modified_diff_at = None
+            self.modified_diff_by = None
+            self.modified_diff_reason = None
+        self.save()
+
+    @property
+    def diff_modifier(self):
+        if not self.modified_diff_by or not self.modified_diff_at:
+            return 0
+
+        delta = datetime.datetime.now() - self.modified_diff_at
+        if delta.total_seconds() > 600:
+            return 0
+
+        return self.modified_diff_by
 
     def create_exits(self):
         if self.room_south and self.room_south.room\

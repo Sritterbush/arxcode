@@ -420,13 +420,13 @@ class ShardhavenInstanceExit(DefaultExit, BaseObjectMixins):
                     result += " |w(Which you have!)|n"
 
             if pobject.check_permstring("builders"):
-                result += "|/" + self.haven_exit.obstacle.options_description
+                result += "|/" + self.haven_exit.obstacle.options_description(self)
                 result += "|/|/(However, being staff, you can just pass through without a check.)"
             else:
                 if self.passable(pobject):
                     result += "|/|/However, someone has already addressed this obstacle, and you may pass."
                 else:
-                    result += "|/" + self.haven_exit.obstacle.options_description
+                    result += "|/" + self.haven_exit.obstacle.options_description(self)
 
         else:
             result += "The way seems clear ahead."
@@ -523,7 +523,8 @@ class ShardhavenInstanceExit(DefaultExit, BaseObjectMixins):
 
         if not self.passable(traversing_object):
             import time
-            result, override_obstacle, attempted, instant = self.haven_exit.obstacle.handle_obstacle(traversing_object, args=arguments)
+            result, override_obstacle, attempted, instant = \
+                self.haven_exit.obstacle.handle_obstacle(traversing_object, self, self.haven_exit, args=arguments)
             if attempted:
                 attempts = self.db.attempts or {}
                 attempts[traversing_object.id] = time.time()

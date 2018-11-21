@@ -463,7 +463,7 @@ class CmdExplorationAssist(ArxCommand):
 
         self.caller.db.shardhaven_last_assist = time.time()
         roll = do_dice_check(self.caller, "wits", "leadership", 30, quiet=False)
-        haven_exit.obstacle.modify_diff(amount=roll / 2, reason="%s assisted with a leadership roll" % self.caller.name)
+        haven_exit.modify_diff(amount=roll / 2, reason="%s assisted with a leadership roll" % self.caller.name)
         self.caller.location.msg_contents("%s attempts to assist the party with the obstacle to the %s, "
                                           "adjusting the difficulty." % (self.caller.name, exit_obj.direction_name))
 
