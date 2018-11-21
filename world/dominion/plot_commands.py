@@ -544,17 +544,16 @@ class CmdGMPlots(ArxCommand):
     @gmplots/rfr [<ID>]
     @gmplots/rfr/close <ID>[=<ooc notes to players>]
     @gmplots/pitches [<pitch ID>]
-    @gmplots/pitches/followup <pitch ID>=<message to player>
-    @gmplots/pitches/approve <pitch ID>[=<ooc notes to player>]
-    @gmplots/pitches/decline <pitch ID>[=<ooc notes to player>]
-    @gmplots/participation <plot ID>=<player>,<participation level>
+            /pitches/followup <pitch ID>=<message to player>
+            /pitches/approve <pitch ID>[=<ooc notes to player>]
+            /pitches/decline <pitch ID>[=<ooc notes to player>]
     @gmplots/perm <plot ID>=<player>,<owner, gm, recruiter, player>
-
+    @gmplots/participation <plot ID>=<player>,<casting choice*>
+        (*required cast, main cast, supporting cast, extra, tangential)
     Tagging:
     @gmplots/connect/char <plot ID>=<character>/<desc of relationship>
                     /clue <plot ID>=<clue ID>/<desc of relationship>
-    /connect also supports /revelation, /org
-
+            /connect also supports /revelation, /org
     """
     key = "@gmplots"
     help_category = "GMing"
