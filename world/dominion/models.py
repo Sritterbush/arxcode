@@ -2035,26 +2035,33 @@ class Plot(SharedMemoryModel):
         msg += "\n%s" % self.desc
         return msg
 
-    def display(self):
+    def display(self, display_connected=True, staff_display=False):
         """Returns string display for the plot and its latest update/beat"""
         msg = self.display_base()
-        orgs, clue, cast = self.orgs.all(), self.required_clue, self.cast_list
-        parent, subplots, beats = self.parent_plot, self.subplots.all(), list(self.beats)
-        if clue:
-            msg += "\n{wRequired Clue:{n %s" % self.required_clue
-        if parent:
-            msg += "\n{wMain Plot:{n %s (#%s)" % (parent, parent.id)
-        if subplots:
-            msg += "\n{wSubplots:{n %s" % ", ".join(("%s (#%s)" % (ob, ob.id)) for ob in subplots)
-        if cast:
-            msg += "\n%s" % cast
-        if orgs:
-            msg += "\n{wInvolved Organizations:{n %s" % ", ".join(str(ob) for ob in orgs)
+        beats = list(self.beats)
+        if display_connected:
+            orgs, clue, cast = self.orgs.all(), self.required_clue, self.cast_list
+            if clue:
+                msg += "\n{wRequired Clue:{n %s" % self.required_clue
+            if staff_display:
+                subplots, clues, revs = self.subplots.all(), self.clues.all(), self.revelations.all()
+                if self.parent_plot:
+                    msg += "\n{wMain Plot:{n %s (#%s)" % (self.parent_plot, self.parent_plot.id)
+                if subplots:
+                    msg += "\n{wSubplots:{n %s" % ", ".join(("%s (#%s)" % (ob, ob.id)) for ob in subplots)
+                if clues:
+                    msg += "\n{wClues:{n %s" % "; ".join(("%s (#%s)" % (ob, ob.id)) for ob in clues)
+                if revs:
+                    msg += "\n{wRevelations:{n %s" % "; ".join(("%s (#%s)" % (ob, ob.id)) for ob in revs)
+            if cast:
+                msg += "\n%s" % cast
+            if orgs:
+                msg += "\n{wInvolved Organizations:{n %s" % ", ".join(str(ob) for ob in orgs)
         if beats:
             last = beats[-1]
             if self.usage in (self.PLAYER_RUN_PLOT, self.GM_PLOT):
                 msg += "\n{wBeat IDs:{n %s" % ", ".join(str(ob.id) for ob in beats)
-            msg += "\n%s" % last.display_beat()
+            msg += "\n%s" % last.display_beat(display_connected=display_connected)
         return msg
 
     def display_timeline(self):
@@ -2246,6 +2253,8 @@ class PCPlotInvolvement(SharedMemoryModel):
         clues = self.plot.clues.all()
         revs = self.plot.revelations.all()
         theories = self.plot.theories.all()
+        our_plots = self.dompc.active_plots.all()
+        subplots = set(self.plot.subplots.all()) & set(our_plots)
 
         def format_name(obj, unknown):
             name = "%s(#%s)" % (obj, obj.id)
@@ -2253,6 +2262,11 @@ class PCPlotInvolvement(SharedMemoryModel):
                 name += "({rX{n)"
             return name
 
+        if self.plot.parent_plot and self.plot.parent_plot in our_plots:
+            # noinspection PyTypeChecker
+            msg += "\n{wParent Plot:{n %s" % format_name(self.plot.parent_plot, [])
+        if subplots:
+            msg += "\n{wSubplots:{n %s" % ", ".join(format_name(ob, []) for ob in subplots)
         if clues:
             msg += "\n{wRelated Clues:{n "
             pc_clues = list(self.dompc.player.roster.clues.all())
@@ -2303,16 +2317,17 @@ class PlotUpdate(SharedMemoryModel):
     def __str__(self):
         return "%s #%s for %s" % (self.noun, self.id, self.plot)
 
-    def display_beat(self):
+    def display_beat(self, display_connected=True):
         """Return string display of this update/beat"""
         msg = "|w[%s|w]|n" % self
         if self.date:
             msg += " {wDate{n %s" % self.date.strftime("%x %X")
         msg += "\n%s" % self.desc if self.desc else "\nPending %s placeholder." % self.noun
-        for attr in ("actions", "events", "emits", "flashbacks"):
-            qs = getattr(self, attr).all()
-            if qs:
-                msg += "\n{w%s:{n %s" % (attr.capitalize(), ", ".join("%s (#%s)" % (ob, ob.id) for ob in qs))
+        if display_connected:
+            for attr in ("actions", "events", "emits", "flashbacks"):
+                qs = getattr(self, attr).all()
+                if qs:
+                    msg += "\n{w%s:{n %s" % (attr.capitalize(), ", ".join("%s (#%s)" % (ob, ob.id) for ob in qs))
         return msg
 
 

@@ -600,7 +600,7 @@ class CmdGMPlots(ArxCommand):
             if "timeline" in self.switches:
                 self.msg(plot.display_timeline())
             else:
-                self.msg(plot.display())
+                self.msg(plot.display(True, True))
 
     def create_plot(self):
         """Creates a new plot"""

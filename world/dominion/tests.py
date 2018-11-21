@@ -234,15 +234,14 @@ class TestPlotCommands(TestTicketMixins, ArxCommandTest):
         theory_disco = TheoryPermissions.objects.create(player=self.account, theory=theory)
         self.call_cmd("/add/theory 2=1", "You have associated theory 'Testaccount's theory on test_theory'"
                                          " with plot 'testplot2'.")
-        self.call_cmd("2", "[testplot2]\nNone\nSubplots: foo (#3)\nInvolved Characters:\n"
-                           "Testaccount2 (Main Cast, Recruiter)\nTestaccount\n\nRelated Clues: testclue(#2)\n"
+        self.call_cmd("2", "[testplot2]\nNone\nInvolved Characters:\nTestaccount2 (Main Cast, Recruiter)\n"
+                           "Testaccount\n\nRelated Clues: testclue(#2)\n"
                            "Related Revelations: testrev(#1)\n"
                            "Related Theories: Testaccount's theory on test_theory(#1)")
         rev_disco.delete()
         theory_disco.delete()
-        self.call_cmd("2", "[testplot2]\nNone\nSubplots: foo (#3)\nInvolved Characters:\n"
-                           "Testaccount2 (Main Cast, Recruiter)\nTestaccount\n\nRelated Clues: testclue(#2)\n"
-                           "Related Revelations: testrev(#1)(X)\n"
+        self.call_cmd("2", "[testplot2]\nNone\nInvolved Characters:\nTestaccount2 (Main Cast, Recruiter)\n"
+                           "Testaccount\n\nRelated Clues: testclue(#2)\nRelated Revelations: testrev(#1)(X)\n"
                            "Related Theories: Testaccount's theory on test_theory(#1)(X)")
 
     @patch('django.utils.timezone.now')
