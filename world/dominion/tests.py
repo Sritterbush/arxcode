@@ -143,7 +143,7 @@ class TestPlotCommands(TestTicketMixins, ArxCommandTest):
         beat3 = self.plot2.updates.create()
         beat3.delete = Mock()
         event = RPEvent.objects.create(name="test event", beat=beat3)
-        self.call_cmd("/add/rpevent 1=2", "You are not a GM for an RPEvent with that ID.")
+        self.call_cmd("/add/rpevent 1=2", 'You did not attend an RPEvent with that ID.')
         event.pc_event_participation.create(dompc=self.dompc2, gm=True)
         self.call_cmd("/add/rpevent 1=99", "You are not able to alter a beat of that ID.")
         self.call_cmd("/add/rpevent 1=2", "You have added test event to beat(ID: 2) of testplot1.")

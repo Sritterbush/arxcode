@@ -248,11 +248,11 @@ class CmdPlots(ArxCommand):
             if self.called_by_staff:
                 qs = RPEvent.objects.all()
             else:
-                qs = self.caller.dompc.events.filter(pc_event_participation__gm=True)
+                qs = self.caller.dompc.events.all()
             try:
                 added_obj = qs.get(id=self.lhs)
             except RPEvent.DoesNotExist:
-                raise CommandError("You are not a GM for an RPEvent with that ID.")
+                raise CommandError("You did not attend an RPEvent with that ID.")
         elif "action" in self.switches:
             if self.called_by_staff:
                 qs = PlotAction.objects.all()
