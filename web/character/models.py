@@ -809,9 +809,11 @@ class Clue(SharedMemoryModel):
 
     def display(self):
         """String display for clue"""
-        msg = "\n{c%s{n\n" % self.name
-        msg += "{wRating:{n %s\n" % self.rating
-        msg += self.desc + "\n"
+        msg = "|w[|c%s|w]|n (%s Rating)" % (self.name, self.rating)
+        tags = self.search_tags.all()
+        if tags:
+            msg += " |wTags:|n %s" % ", ".join(("|235%s|n" % ob) for ob in tags)
+        msg += "\n%s\n" % self.desc
         return msg
 
     @property
