@@ -2501,7 +2501,7 @@ class AbstractAction(AbstractPlayerAllocations):
     def check_plot_omnipresence(self):
         """Raises an ActionSubmissionError if we are already attending for this crisis"""
         if self.attending:
-            already_attending = [ob for ob in self.plot_attendance if ob.crisis == self.crisis]
+            already_attending = [ob for ob in self.plot_attendance if ob.plot == self.plot]
             if already_attending:
                 already_attending = already_attending[-1]
                 raise ActionSubmissionError("You are marked as physically present at %s. Use @action/toggleattend"
