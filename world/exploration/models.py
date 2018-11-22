@@ -724,13 +724,13 @@ class ShardhavenLayoutSquare(SharedMemoryModel):
         else:
             final_description = self.tile.description
 
-            fragments = ShardhavenMoodFragment.objects.filter(shardhaven_type=self.layout.haven_type,
-                                                              taint_level__lte=self.layout.haven.taint_level)
-            fragments = [fragment.text for fragment in fragments]
-            random.shuffle(fragments)
+        fragments = ShardhavenMoodFragment.objects.filter(shardhaven_type=self.layout.haven_type,
+                                                          taint_level__lte=self.layout.haven.taint_level)
+        fragments = [fragment.text for fragment in fragments]
+        random.shuffle(fragments)
 
-            while "{}" in final_description:
-                final_description = final_description.replace("{}", fragments.pop(), 1)
+        while "{}" in final_description:
+            final_description = final_description.replace("{}", fragments.pop(), 1)
 
         room.db.raw_desc = final_description
         room.db.desc = final_description
@@ -792,6 +792,72 @@ class ShardhavenLayout(SharedMemoryModel):
     def destroy_instanciation(self):
         for room in self.rooms.all():
             room.destroy_room()
+
+    def delete_square(self, grid_x, grid_y):
+        self.cache_room_matrix()
+        room = self.matrix[grid_x][grid_y]
+        if room:
+            # Delete this room, and any exits leading to it.
+            if room.exit_north.count():
+                for room_exit in room.exit_north.all():
+                    room_exit.delete()
+            if room.exit_south.count():
+                for room_exit in room.exit_south.all():
+                    room_exit.delete()
+            if room.exit_east.count():
+                for room_exit in room.exit_east.all():
+                    room_exit.delete()
+            if room.exit_west.count():
+                for room_exit in room.exit_west.all():
+                    room_exit.delete()
+            room.delete()
+            self.cache_room_matrix()
+            return True
+        else:
+            return False
+
+    def create_square(self, grid_x, grid_y):
+        self.cache_room_matrix()
+        room = self.matrix[grid_x][grid_y]
+        if not room:
+            from world.dominion.models import PlotRoom
+            plotrooms = list(PlotRoom.objects.filter(shardhaven_type=self.haven_type))
+            room = ShardhavenLayoutSquare(layout=self, tile=random.choice(plotrooms), x_coord=grid_x, y_coord=grid_y)
+            room.save()
+
+            west = self.matrix[grid_x - 1][grid_y]
+            east = self.matrix[grid_x + 1][grid_y]
+            north = self.matrix[grid_x][grid_y - 1]
+            south = self.matrix[grid_x][grid_y + 1]
+
+            # Why do our related-fields not populate properly?
+            # Aaargh.
+            if west and not ShardhavenLayoutExit.objects.filter(room_east=room).count():
+                room_exit = ShardhavenLayoutExit(layout=self)
+                room_exit.room_east = room
+                room_exit.room_west = west
+                room_exit.save()
+            if east and not ShardhavenLayoutExit.objects.filter(room_west=room).count():
+                room_exit = ShardhavenLayoutExit(layout=self)
+                room_exit.room_east = east
+                room_exit.room_west = room
+                room_exit.save()
+            if north and not ShardhavenLayoutExit.objects.filter(room_south=room).count():
+                room_exit = ShardhavenLayoutExit(layout=self)
+                room_exit.room_north = north
+                room_exit.room_south = room
+                room_exit.save()
+            if south and not ShardhavenLayoutExit.objects.filter(room_north=room).count():
+                room_exit = ShardhavenLayoutExit(layout=self)
+                room_exit.room_north = room
+                room_exit.room_south = south
+                room_exit.save()
+
+            self.save()
+            self.cache_room_matrix()
+            return True
+        else:
+            return False
 
     @property
     def ascii(self):
