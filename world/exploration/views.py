@@ -1,7 +1,7 @@
 from django.http import JsonResponse
 from django.db.models import Q
 from .models import Shardhaven, ShardhavenLayout, ShardhavenLayoutSquare, \
-    ShardhavenLayoutExit, ShardhavenObstacle
+    ShardhavenLayoutExit, ShardhavenObstacle, ShardhavenPuzzle, Monster
 
 
 JSON_ERROR_AUTHORIZATION = -1
@@ -54,7 +54,8 @@ def get_obstacle_list(request):
     except Shardhaven.DoesNotExist, Shardhaven.MultipleObjectsReturned:
         return JsonErrorResponse("No such haven found.", status=404, code=JSON_ERROR_BADPARAM)
 
-    obstacles = ShardhavenObstacle.objects.filter(haven_types__in=[haven.haven_type])
+    obstacles = ShardhavenObstacle.objects.filter(haven_types__in=[haven.haven_type],
+                                                  obstacle_class=ShardhavenObstacle.EXIT_OBSTACLE)
     result = []
     for obstacle in obstacles:
         name = obstacle.description
@@ -67,6 +68,70 @@ def get_obstacle_list(request):
         result.append(obstacle_data)
 
     return JsonResponse({'obstacles': result})
+
+
+def get_monster_list(request):
+    if not request.user.is_staff:
+        return JsonErrorResponse("Not authorized!", code=JSON_ERROR_AUTHORIZATION)
+
+    haven_id = None
+    try:
+        haven_string = request.POST.get('haven_id')
+        if haven_string:
+            haven_id = int(haven_string)
+    except ValueError:
+        pass
+
+    if not haven_id:
+        return JsonErrorResponse("No haven ID given.", status=404, code=JSON_ERROR_BADPARAM)
+
+    try:
+        haven = Shardhaven.objects.get(id=haven_id)
+    except Shardhaven.DoesNotExist, Shardhaven.MultipleObjectsReturned:
+        return JsonErrorResponse("No such haven found.", status=404, code=JSON_ERROR_BADPARAM)
+
+    monsters = Monster.objects.filter(habitats__in=[haven.haven_type]).order_by('name')
+    result = []
+    for monster in monsters:
+        monster_data = {
+            'id': monster.id,
+            'name': monster.name
+        }
+        result.append(monster_data)
+
+    return JsonResponse({'monsters': result})
+
+
+def get_puzzle_list(request):
+    if not request.user.is_staff:
+        return JsonErrorResponse("Not authorized!", code=JSON_ERROR_AUTHORIZATION)
+
+    haven_id = None
+    try:
+        haven_string = request.POST.get('haven_id')
+        if haven_string:
+            haven_id = int(haven_string)
+    except ValueError:
+        pass
+
+    if not haven_id:
+        return JsonErrorResponse("No haven ID given.", status=404, code=JSON_ERROR_BADPARAM)
+
+    try:
+        haven = Shardhaven.objects.get(id=haven_id)
+    except Shardhaven.DoesNotExist, Shardhaven.MultipleObjectsReturned:
+        return JsonErrorResponse("No such haven found.", status=404, code=JSON_ERROR_BADPARAM)
+
+    puzzles = ShardhavenPuzzle.objects.filter(haven_types__in=[haven.haven_type])
+    result = []
+    for puzzle in puzzles:
+        puzzle_data = {
+            'id': puzzle.id,
+            'name': puzzle.name
+        }
+        result.append(puzzle_data)
+
+    return JsonResponse({'puzzles': result})
 
 
 def get_haven(request):
@@ -127,6 +192,15 @@ def get_haven(request):
                 for room_exit in layout_room.exit_west.all():
                     if room_exit.obstacle:
                         room['obstacle_west'] = room_exit.obstacle.id
+
+                if layout_room.puzzle:
+                    room['puzzle'] = layout_room.puzzle.id
+                    room['puzzle_solved'] = layout_room.puzzle_solved
+
+                if layout_room.monster:
+                    room['monster'] = layout_room.monster.id
+                    room['monster_defeated'] = layout_room.monster_defeated
+
             matrix[x][y] = room
 
     result = {
@@ -172,7 +246,7 @@ def create_room(request):
         x = int(x_string)
         y = int(y_string)
     except ValueError:
-        return JsonErrorResponse("Invalid paramter.", status=500, code=JSON_ERROR_BADPARAM)
+        return JsonErrorResponse("Invalid parameter.", status=500, code=JSON_ERROR_BADPARAM)
 
     if x == layout.entrance_x and y == layout.entrance_y:
         return JsonErrorResponse("You cannot delete the entrance.", status=500, code=JSON_ERROR_BADPARAM)
@@ -242,6 +316,34 @@ def obstacle_for_id(obstacle_id):
     return obstacle
 
 
+def monster_for_id(monster_id):
+    try:
+        monster_id = int(monster_id)
+    except ValueError:
+        return None
+
+    try:
+        monster = Monster.objects.get(id=monster_id)
+    except Monster.DoesNotExist, Monster.MultipleObjectsReturned:
+        return None
+
+    return monster
+
+
+def puzzle_for_id(puzzle_id):
+    try:
+        puzzle_id = int(puzzle_id)
+    except ValueError:
+        return None
+
+    try:
+        puzzle = ShardhavenPuzzle.objects.get(id=puzzle_id)
+    except ShardhavenPuzzle.DoesNotExist, ShardhavenPuzzle.MultipleObjectsReturned:
+        return None
+
+    return puzzle
+
+
 def save_room(request):
     if not request.user.is_staff:
         return JsonErrorResponse("Not authorized!", code=JSON_ERROR_AUTHORIZATION)
@@ -285,6 +387,10 @@ def save_room(request):
     obstacle_south = None
     obstacle_west = None
     obstacle_east = None
+    monster = None
+    monster_defeated = False
+    puzzle = None
+    puzzle_solved = False
 
     if request.POST.get("obstacle_north"):
         obstacle_north = obstacle_for_id(request.POST.get("obstacle_north"))
@@ -306,6 +412,18 @@ def save_room(request):
         if not obstacle_east:
             return JsonErrorResponse("Unable to set obstacle", status=500, code=JSON_ERROR_BADPARAM)
 
+    if request.POST.get("monster"):
+        monster = monster_for_id(request.POST.get("monster"))
+        if not monster:
+            return JsonErrorResponse("Unable to set monster", status=500, code=JSON_ERROR_BADPARAM)
+        monster_defeated = request.POST.get("monster_defeated") == "true"
+
+    if request.POST.get("puzzle"):
+        puzzle = puzzle_for_id(request.POST.get("puzzle"))
+        if not puzzle:
+            return JsonErrorResponse("Unable to set puzzle", status=500, code=JSON_ERROR_BADPARAM)
+        puzzle_solved = request.POST.get("puzzle_solved") == "true"
+
     if request.POST.get("name"):
         room.name = request.POST.get("name")
     else:
@@ -319,6 +437,11 @@ def save_room(request):
     if request.POST.get("entrance"):
         layout.entrance_x = x
         layout.entrance_y = y
+
+    room.puzzle = puzzle
+    room.puzzle_solved = puzzle_solved
+    room.monster = monster
+    room.monster_defeated = monster_defeated
 
     room.save()
     layout.save()

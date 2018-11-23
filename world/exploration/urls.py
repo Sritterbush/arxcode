@@ -9,4 +9,6 @@ urlpatterns = [
     url(r'^api/haven/room/create', views.create_room, name="create_room"),
     url(r'^api/haven/room/delete', views.delete_room, name="delete_room"),
     url(r'^api/haven/room/edit', views.save_room, name="save_room"),
+    url(r'^api/haven/puzzles', views.get_puzzle_list, name='get_puzzles'),
+    url(r'^api/haven/monsters', views.get_monster_list, name='get_monsters'),
 ]

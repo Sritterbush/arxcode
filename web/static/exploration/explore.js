@@ -120,15 +120,6 @@ function drawCanvas() {
 					var gridX = xLoop * gridSizeWidth;
 					var gridY = yLoop * gridSizeHeight;
 
-					// if ((xLoop == selectedX) && (yLoop == selectedY)) {
-					// 	canvas_ctx.fillColor = "green";
-					// 	canvas_ctx.strokeColor = "green";
-					// }
-					// else {
-					// 	canvas_ctx.fillColor = "#FFFFFFFF";
-					// 	canvas_ctx.strokeColor = "#FFFFFFFF";
-					// }
-
 					canvas_ctx.beginPath();
 					canvas_ctx.rect(gridX, gridY, gridSizeWidth, gridSizeHeight);
 
@@ -164,12 +155,26 @@ function drawCanvas() {
 					canvas_ctx.strokeStyle = room.obstacle_east ? obstacleLineStyle : openLineStyle;
 					canvas_ctx.stroke();
 
+					smallGridWidth = (gridSizeWidth - 10) / 2;
+					smallGridHeight = (gridSizeHeight - 10) / 2;
+					smallDotWidth = gridSizeWidth - (smallGridWidth * 2);
+					smallDotHeight = gridSizeHeight - (smallGridHeight * 2);
+
+					if (room.monster) {
+						canvas_ctx.fillStyle = "red"
+						canvas_ctx.fillRect(gridX + smallGridWidth, gridY + (smallGridHeight - smallDotHeight), smallDotWidth, smallDotHeight);
+					}
+
+					if (room.puzzle) {
+						canvas_ctx.fillStyle = "green"
+						canvas_ctx.fillRect(gridX + smallGridWidth, gridY + gridSizeHeight - smallGridHeight, smallDotWidth, smallDotHeight);
+					}
+
 					if (room.entrance) {
 						canvas_ctx.fillStyle = "blue";
-						smallGridWidth = (gridSizeWidth - 10) / 2;
-						smallGridHeight = (gridSizeHeight - 10) / 2;
-						canvas_ctx.fillRect(gridX + smallGridWidth, gridY + smallGridHeight, gridSizeWidth - (smallGridWidth * 2), gridSizeHeight - (smallGridHeight * 2));
+						canvas_ctx.fillRect(gridX + smallGridWidth, gridY + smallGridHeight, smallDotWidth, smallDotHeight);
 					}
+
 				}
 			}
 		}
@@ -191,6 +196,10 @@ function setRoomData(data) {
 	west = document.getElementById("WestObstacle");
 	east = document.getElementById("eastObstacle");
 	entranceToggle = document.getElementById("entranceToggle");
+	monster = document.getElementById("monster");
+	monsterToggle = document.getElementById("monsterDefeated");
+	puzzle = document.getElementById("puzzle");
+	puzzleToggle = document.getElementById("puzzleSolved");
 	saveButton = document.getElementById("shardhavenRoomSave");
 	deleteButton = document.getElementById("shardhavenRoomDelete");
 
@@ -211,6 +220,14 @@ function setRoomData(data) {
 		deleteButton.disabled = true;
 		entranceToggle.disabled = true;
 		entranceToggle.checked = false;
+		puzzle.disabled = true;
+		puzzle.value = "0";
+		puzzleToggle.checked = false;
+		puzzleToggle.disabled = true;
+		monster.disabled = true;
+		monster.value = "0";
+		monsterToggle.checked = false;
+		monsterToggle.disabled = true;
 		return;
 	}
 	else {
@@ -230,7 +247,17 @@ function setRoomData(data) {
 		deleteButton.disabled = false;
 		entranceToggle.disabled = false;
 		entranceToggle.checked = false;
+		puzzle.disabled = false;
+		puzzle.value = "0";
+		puzzleToggle.checked = false;
+		puzzleToggle.disabled = false;
+		monster.disabled = false;
+		monster.value = "0";
+		monsterToggle.checked = false;
+		monsterToggle.disabled = false;
 	}
+
+	console.log(data);
 
 	if (data['name'] != null) {
 		havenName.value = data['name'];
@@ -258,6 +285,16 @@ function setRoomData(data) {
 
 	if (data['entrance']) {
 		entranceToggle.checked = true;
+	}
+
+	if (data['monster']) {
+		monster.value = data['monster'];
+		monsterToggle.checked = data['monster_defeated'];
+	}
+
+	if (data['puzzle']) {
+		puzzle.value = data['puzzle'];
+		puzzleToggle.checked = data['puzzle_solved'];
 	}
 }
 
@@ -291,6 +328,14 @@ function saveRoom() {
 	}
 	if (entranceToggle.checked) {
 		result['entrance'] = true;
+	}
+	if (monster.value != "0") {
+		result['monster'] = monster.value;
+		result['monster_defeated'] = monsterToggle.checked;
+	}
+	if (puzzle.value != "0") {
+		result['puzzle'] = puzzle.value;
+		result['puzzle_solved'] = puzzleToggle.checked;
 	}
 
 	postData("/haven/room/edit", result, function(status, data) {
@@ -416,6 +461,36 @@ function fetchObstacles(havenId) {
 	});
 }
 
+function fetchMonsters(havenId) {
+	postData("/haven/monsters", { 'haven_id': havenId }, function(status, data) {
+		if (status == 200) {
+			var options = "<option value='0'>----</option>"
+			for (var loop = 0; loop < data['monsters'].length; loop++) {
+				var dict = data['monsters'][loop];
+				options += "<option value='" + dict.id + "'>" + dict.name + "</option>" 
+			}
+
+			var picker = document.getElementById("monster");
+			picker.innerHTML = options;
+		}
+	});
+}
+
+function fetchPuzzles(havenId) {
+	postData("/haven/puzzles", { 'haven_id': havenId }, function(status, data) {
+		if (status == 200) {
+			var options = "<option value='0'>----</option>"
+			for (var loop = 0; loop < data['puzzles'].length; loop++) {
+				var dict = data['puzzles'][loop];
+				options += "<option value='" + dict.id + "'>" + dict.name + "</option>" 
+			}
+
+			var picker = document.getElementById("puzzle");
+			picker.innerHTML = options;
+		}
+	});
+}
+
 window.onload = function() {
 	canvas = document.getElementById("shardhavenMap");
 	canvas_ctx = canvas.getContext('2d');
@@ -441,6 +516,8 @@ window.onload = function() {
 			setRoomData(null);
 			fetchHaven(picker.value);
 			fetchObstacles(picker.value);
+			fetchMonsters(picker.value);
+			fetchPuzzles(picker.value);
 		}
 	};
 

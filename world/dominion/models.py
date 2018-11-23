@@ -5595,6 +5595,18 @@ class CraftingMaterialType(SharedMemoryModel):
     def __unicode__(self):
         return self.name or "Unknown"
 
+    def create_instance(self, quantity):
+        name_string = self.name
+        if quantity > 1:
+            name_string = "{} {}".format(quantity, self.name)
+
+        result = create.create_object(key=name_string,
+                                      typeclass="world.dominion.dominion_typeclasses.CraftingMaterialObject")
+        result.db.desc = self.desc
+        result.db.material_type = self.id
+        result.db.quantity = quantity
+        return result
+
 
 class CraftingMaterials(SharedMemoryModel):
     """

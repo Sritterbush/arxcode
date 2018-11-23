@@ -468,6 +468,80 @@ class CmdExplorationAssist(ArxCommand):
                                           "adjusting the difficulty." % (self.caller.name, exit_obj.direction_name))
 
 
+class CmdExplorationPuzzle(ArxCommand):
+    """
+    Gets information on -- or solves -- a puzzle in a Shardhaven room.
+
+    Usage:
+      puzzle
+      puzzle/solve
+      puzzle/solve <choice>
+
+    The first form of this command will show information on the puzzle -- if any --
+    in the current room.  The second form will attempt to solve the puzzle with
+    a clue, if you have one that applies.  The third one will attempt to solve
+    the puzzle with one of the roll options.
+    """
+
+    key = "puzzle"
+    locks = "cmd:all()"
+
+    def shardhaven_room(self):
+        if not hasattr(self.caller.location, "shardhaven_room"):
+            return None
+
+        haven_room = self.caller.location.shardhaven_room
+        return haven_room
+
+    def puzzle_for_room(self):
+        haven_room = self.shardhaven_room()
+        if haven_room and haven_room.puzzle and not haven_room.puzzle_solved:
+            return haven_room.puzzle
+
+        return None
+
+    def can_attempt(self):
+        attempts = self.caller.location.db.puzzle_attempts
+        if not attempts:
+            return True
+
+        if not self.caller.id in attempts:
+            return True
+
+        timestamp = attempts[self.caller.id]
+        delta = time.time() - timestamp
+        if delta < 180:
+            from math import trunc
+            self.msg("You can't attempt to solve this puzzle for {} seconds.".format(trunc(180 - delta)))
+            return False
+
+    def func(self):
+
+        puzzle = self.puzzle_for_room()
+        if not puzzle:
+            self.msg("There is no puzzle here to solve!")
+            return
+
+        if "solve" in self.switches:
+            if not self.can_attempt():
+                return
+
+            result, override_obstacle, attempted, instant = \
+                puzzle.obstacle.handle_obstacle(self.caller, None, None, args=self.args)
+            if result:
+                puzzle.handle_loot_drop(self.caller.location)
+                haven_room = self.shardhaven_room()
+                haven_room.puzzle_solved = True
+                haven_room.save()
+            elif attempted:
+                attempts = self.caller.location.db.puzzle_attempts or {}
+                attempts[self.caller.id] = time.time()
+                self.caller.location.db.puzzle_attempts = attempts
+            return
+
+        self.msg("|/" + puzzle.obstacle.description + "|/" + puzzle.obstacle.options_description(None) + "|/")
+
+
 class CmdExplorationRoomCommands(CmdSet):
 
     # We want to override the CharacterCmdSet's 'home' command.
@@ -478,3 +552,4 @@ class CmdExplorationRoomCommands(CmdSet):
         self.add(CmdExplorationMap())
         self.add(CmdExplorationSneak())
         self.add(CmdExplorationAssist())
+        self.add(CmdExplorationPuzzle())

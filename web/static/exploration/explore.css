@@ -35,7 +35,7 @@ select {
 	width: 100%; 
 	display: flex; 
 	flex-flow: column; 
-	height: 100%
+	height: 100%;
 }
 
 #titleContainer {
@@ -45,10 +45,12 @@ select {
 }
 
 #mapContainer {
-	width: 100%; 
 	min-height: 200px; 
+	margin-right: 400px;
 	overflow: scroll; 
 	flex-grow: 1;
+	border-top: 1px solid black;
+	border-right: 1px solid black;
 }
 
 #roomDataContainer {
@@ -56,7 +58,7 @@ select {
 	width: 360px; 
 	margin-left: -100%; 
 	overflow-y:scroll; 
-	height: 100%; 
+	height: 95%; 
 	background: #d0d0d0; 
 	padding: 20px;
 }
@@ -86,11 +88,16 @@ select {
 }
 
 .obstacleLabel {
-	width: 40px;
+	width: 55px;
 	padding: 5px;
 	text-align: right;
 	font-size: 14px;
 	float: left;
+}
+
+.checkboxDiv {
+	margin-left: 64px;
+	font-size: 14px;
 }
 
 button {

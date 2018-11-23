@@ -36,11 +36,28 @@ class MonsterMixin(object):
             except Monster.DoesNotExist, Monster.MultipleObjectsReturned:
                 pass
 
+    def check_if_defeat(self):
+        if not self.location:
+            return
+
+        if not self.location.db.last_monster:
+            return
+
+        if not hasattr(self.location, "shardhaven_square"):
+            return
+
+        haven_square = self.location.shardhaven_square
+        if haven_square.monster and haven_square.monster.id == self.location.db.last_monster:
+            self.location.db.last_monster = None
+            haven_square.monster_defeated = True
+            haven_square.save()
+
 
 class BossMonsterNpc(Npc, MonsterMixin):
 
     def death_process(self, *args, **kwargs):
         super(BossMonsterNpc, self).death_process(*args, **kwargs)
+        self.check_if_defeat()
         if len(self.room_monsters) == 0:
             self.end_combat()
 
@@ -53,6 +70,7 @@ class MookMonsterNpc(MultiNpc, MonsterMixin):
     def multideath(self, num, death=False):
         super(MookMonsterNpc, self).multideath(num, death=death)
         if self.db.num_living == 0:
+            self.check_if_defeat()
             if len(self.room_monsters) == 0:
                 self.end_combat()
             self.monster_loot_spawn()

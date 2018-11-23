@@ -4,8 +4,18 @@ from .scripts import SpawnMobScript
 from .loot import LootGenerator
 import random
 from server.utils.picker import WeightedPicker
+from typeclasses.mixins import ObjectMixins
+from evennia.contrib.extended_room import ExtendedRoom
+
 
 class ShardhavenRoom(ArxRoom):
+
+    def extra_status_string(self, looker):
+        haven_room = self.shardhaven_square
+        if haven_room and haven_room.puzzle and not haven_room.puzzle_solved:
+            return "|/|/|yThere is a puzzle to solve here.  Type 'puzzle' for details!|n|/"
+
+        return ""
 
     @property
     def shardhaven(self):
@@ -75,52 +85,58 @@ class ShardhavenRoom(ArxRoom):
         if obj not in player_characters:
             player_characters.append(obj)
 
-        picker = WeightedPicker()
-        # Let's not roll high for EVERY single player
-        # Otherwise we run the risk of a monster showing up every single room.
-        if recent:
-            weight_none = haven.weight_no_monster_backtrack
+        if haven_square.monster and not haven_square.monster_defeated and len(monsters) == 0:
+            self.db.last_monster = haven_square.monster.id
+            self.ndb.monster_attack = obj.name
+            self.scripts.add(SpawnMobScript)
         else:
-            weight_none = haven.weight_no_monster
+            picker = WeightedPicker()
+            # Let's not roll high for EVERY single player
+            # Otherwise we run the risk of a monster showing up every single room.
+            if recent:
+                weight_none = haven.weight_no_monster_backtrack
+            else:
+                weight_none = haven.weight_no_monster
 
-        if len(monsters) > 0:
-            weight_none *= 4
-            if haven.auto_combat:
-                cscript = self.ndb.combat_manager
-                if cscript and not cscript.check_character_is_combatant(obj):
-                    obj.msg("There is a fight in the room!")
-                    obj.msg(cscript.add_combatant(obj, obj))
-                    for mon in monsters:
-                        if mon.combat.state:
-                            mon.combat.state.add_foe(obj)
+            if len(monsters) > 0:
+                weight_none *= 4
+                if haven.auto_combat:
+                    cscript = self.ndb.combat_manager
+                    if cscript and not cscript.check_character_is_combatant(obj):
+                        obj.msg("There is a fight in the room!")
+                        obj.msg(cscript.add_combatant(obj, obj))
+                        for mon in monsters:
+                            if mon.combat.state:
+                                mon.combat.state.add_foe(obj)
 
-        if len(player_characters) > 1:
-            # Chance of spawn in goes down after the first player.
-            weight_none = weight_none * 2
+            if len(player_characters) > 1:
+                # Chance of spawn in goes down after the first player.
+                weight_none = weight_none * 2
 
-        if obj.ndb.shardhaven_sneak_value:
-            weight_none += (obj.ndb.shardhaven_sneak_value * 10)
-            if obj.ndb.shardhaven_sneak_value > 0:
-                self.msg_contents("%s sneaks quietly into the room, hoping not to disturb any monsters." % obj.name)
-            elif obj.ndb.shardhaven_sneak_value < 0:
-                self.msg_contents("%s attempts to sneak into the room, but ends up making more "
-                                  "noise than if they'd just walked!" % obj.name)
-            obj.ndb.shardhaven_sneak_value = None
+            if obj.ndb.shardhaven_sneak_value:
+                weight_none += (obj.ndb.shardhaven_sneak_value * 10)
+                if obj.ndb.shardhaven_sneak_value > 0:
+                    self.msg_contents("%s sneaks quietly into the room, hoping not to disturb any monsters." % obj.name)
+                elif obj.ndb.shardhaven_sneak_value < 0:
+                    self.msg_contents("%s attempts to sneak into the room, but ends up making more "
+                                      "noise than if they'd just walked!" % obj.name)
+                obj.ndb.shardhaven_sneak_value = None
 
-        if weight_none < 0:
-            weight_none = 0
+            if weight_none < 0:
+                weight_none = 0
 
-        if weight_none > 0:
-            picker.add_option(None, weight_none)
+            if weight_none > 0:
+                picker.add_option(None, weight_none)
 
-        picker.add_option("mook", haven.weight_mook_monster)
-        picker.add_option("boss", haven.weight_boss_monster)
+            picker.add_option("mook", haven.weight_mook_monster)
+            picker.add_option("boss", haven.weight_boss_monster)
 
-        monster = picker.pick()
+            monster = picker.pick()
 
-        if monster:
-            self.ndb.last_monster_type = monster
-            obj.scripts.add(SpawnMobScript)
+            if monster:
+                self.ndb.last_monster_type = monster
+                self.ndb.monster_attack = obj.name
+                self.scripts.add(SpawnMobScript)
 
         if len(characters) > 0:
             return

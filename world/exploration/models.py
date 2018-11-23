@@ -109,7 +109,8 @@ class Monster(SharedMemoryModel):
 
         picker = WeightedPicker()
 
-        picker.add_option(None, self.weight_no_drop)
+        if self.weight_no_drop > 0:
+            picker.add_option(None, self.weight_no_drop)
 
         if haven:
             if self.weight_trinket > 0:
@@ -119,7 +120,10 @@ class Monster(SharedMemoryModel):
                 picker.add_option("weapon", self.weight_trinket)
 
         for loot in self.drops.all():
-            picker.add_option(loot.material, loot.weight)
+            picker.add_option(loot, loot.weight)
+
+        for crafting_loot in self.crafting_drops.all():
+            picker.add_option(crafting_loot, crafting_loot.weight)
 
         result = picker.pick()
 
@@ -132,18 +136,32 @@ class Monster(SharedMemoryModel):
                 elif result == "trinket":
                     final_loot = LootGenerator.create_trinket(haven)
             else:
-                final_loot = result.create_instance()
+                quantity = random.randint(result.min_quantity, result.max_quantity)
+                final_loot = result.material.create_instance(quantity)
+                if haven:
+                    final_loot.db.found_shardhaven = haven.name
 
             if final_loot is not None:
                 location.msg_contents("The {} dropped {}!".format(obj.key, final_loot.name))
                 final_loot.location = location
 
 
-class MonsterDrops(SharedMemoryModel):
+class MonsterAlchemicalDrop(SharedMemoryModel):
 
     monster = models.ForeignKey(Monster, related_name='drops')
     material = models.ForeignKey('magic.AlchemicalMaterial', related_name='monsters')
     weight = models.PositiveSmallIntegerField(default=10, blank=False, null=False)
+    min_quantity = models.PositiveSmallIntegerField(default=1)
+    max_quantity = models.PositiveSmallIntegerField(default=1)
+
+
+class MonsterCraftingDrop(SharedMemoryModel):
+
+    monster = models.ForeignKey(Monster, related_name='crafting_drops')
+    material = models.ForeignKey('dominion.CraftingMaterialType', related_name='monsters')
+    weight = models.PositiveSmallIntegerField(default=10, blank=False, null=False)
+    min_quantity = models.PositiveSmallIntegerField(default=1)
+    max_quantity = models.PositiveSmallIntegerField(default=1)
 
 
 class GeneratedLootFragment(SharedMemoryModel):
@@ -330,6 +348,14 @@ class ShardhavenMoodFragment(SharedMemoryModel):
 
 class ShardhavenObstacle(SharedMemoryModel):
 
+    EXIT_OBSTACLE = 0
+    PUZZLE_OBSTACLE = 1
+
+    OBSTACLE_CLASSES = (
+        (EXIT_OBSTACLE, "Pass an Exit"),
+        (PUZZLE_OBSTACLE, "Obtain a Treasure")
+    )
+
     PASS_CHECK = 0
     HAS_CLUE = 1
     HAS_ALL_CLUES = 2
@@ -351,6 +377,7 @@ class ShardhavenObstacle(SharedMemoryModel):
     )
 
     haven_types = models.ManyToManyField(ShardhavenType, related_name='+', blank=True)
+    obstacle_class = models.PositiveSmallIntegerField(default=0, choices=OBSTACLE_CLASSES)
     obstacle_type = models.PositiveSmallIntegerField(choices=OBSTACLE_TYPES)
     description = models.TextField(blank=False, null=False)
     pass_type = models.PositiveSmallIntegerField(choices=OBSTACLE_PASS_TYPES, default=INDIVIDUAL,
@@ -362,6 +389,15 @@ class ShardhavenObstacle(SharedMemoryModel):
         Keep the attack code happy.
         """
         pass
+
+    def __str__(self):
+        return self.description
+
+    def __repr__(self):
+        return str(self)
+
+    def __unicode__(self):
+        return unicode(str(self))
 
     def options_description(self, exit_obj):
         direction = "south"
@@ -375,7 +411,10 @@ class ShardhavenObstacle(SharedMemoryModel):
             for roll in self.rolls.all():
                 result += "|/{}: [{}+{}] {}".format(counter, roll.stat, roll.skill, roll.description)
                 counter += 1
-            result += "|/|/Enter the direction followed by the number you choose, such as '{} 1'.".format(direction)
+            if exit_obj:
+                result += "|/|/Enter the direction followed by the number you choose, such as '{} 1'.".format(direction)
+            else:
+                result += "|/|/Call the puzzle command with the number you choose, such as 'puzzle/solve 1'."
         return result
 
     def handle_dice_check(self, calling_object, exit_obj, haven_exit, args):
@@ -401,10 +440,11 @@ class ShardhavenObstacle(SharedMemoryModel):
         roll = self.rolls.all()[choice - 1]
         difficulty = roll.difficulty
 
-        modifier = haven_exit.diff_modifier
-        difficulty -= modifier
-        if modifier != 0 and haven_exit.modified_diff_reason:
-            calling_object.msg("Your roll difficulty is altered because %s!" % haven_exit.modified_diff_reason)
+        if haven_exit:
+            modifier = haven_exit.diff_modifier
+            difficulty -= modifier
+            if modifier != 0 and haven_exit.modified_diff_reason:
+                calling_object.msg("Your roll difficulty is altered because %s!" % haven_exit.modified_diff_reason)
 
         result = do_dice_check(caller=calling_object, stat=roll.stat, skill=roll.skill, difficulty=difficulty)
         if result >= roll.target:
@@ -503,7 +543,12 @@ class ShardhavenObstacle(SharedMemoryModel):
                 for roll in self.rolls.all():
                     calling_object.msg("{}: [{}+{}] {}".format(counter, roll.stat, roll.skill, roll.description))
                     counter += 1
-                calling_object.msg("|/Enter the direction followed by the number you choose, such as 'south 1'.")
+                if exit_obj:
+                    direction = exit_obj.direction_name
+                    calling_object.msg("|/|/Enter the direction followed by the number you choose, such as '{} 1'."
+                                       .format(direction))
+                else:
+                    calling_object.msg("|/|/Call the puzzle command with the number you choose, such as 'puzzle/solve 1'.")
                 return False, False, False, False
 
             return False, False, True, False
@@ -562,6 +607,105 @@ class ShardhavenObstacleClue(SharedMemoryModel):
 
     obstacle = models.ForeignKey(ShardhavenObstacle, related_name='clues', blank=False, null=False)
     clue = models.ForeignKey('character.Clue', blank=False, null=False)
+
+
+class ShardhavenPuzzle(SharedMemoryModel):
+
+    name = models.CharField(max_length=40, blank=True, null=True)
+    haven_types = models.ManyToManyField('ShardhavenType', related_name='puzzles')
+    obstacle = models.ForeignKey(ShardhavenObstacle, blank=False, null=False, related_name='puzzles')
+    weight_trinket = models.SmallIntegerField(default=0,
+                                              help_text="A weight chance that this puzzle will drop a trinket.")
+    weight_weapon = models.SmallIntegerField(default=0,
+                                             help_text="A weight chance that this puzzle will drop a weapon.")
+
+    def handle_loot_drop(self, location):
+        if location is None:
+            return
+
+        haven = None
+        if hasattr(location, 'shardhaven'):
+            haven = location.shardhaven
+
+        picker = WeightedPicker()
+
+        if haven:
+            if self.weight_trinket > 0:
+                picker.add_option("trinket", self.weight_trinket)
+
+            if self.weight_weapon > 0:
+                picker.add_option("weapon", self.weight_trinket)
+
+        for loot in self.alchemical_materials.all():
+            picker.add_option(loot, loot.weight)
+
+        for crafting_loot in self.crafting_materials.all():
+            picker.add_option(crafting_loot, crafting_loot.weight)
+
+        for object_loot in self.object_drops.all():
+            picker.add_option(object_loot, object_loot.weight)
+
+        result = picker.pick()
+
+        if result:
+            final_loot = None
+            if isinstance(result, basestring):
+                from .loot import LootGenerator
+                if result == "weapon":
+                    final_loot = LootGenerator.create_weapon(haven)
+                elif result == "trinket":
+                    final_loot = LootGenerator.create_trinket(haven)
+            else:
+                quantity = random.randint(result.minimum_quantity, result.maximum_quantity)
+
+                if hasattr(result, "object"):
+                    if result.duplicate:
+                        from evennia.objects.models import ObjectDB
+                        final_loot = ObjectDB.objects.copy_object(result.object, new_key=result.object.key)
+                    else:
+                        final_loot = result.object
+                else:
+                    final_loot = result.material.create_instance(quantity)
+                    if haven:
+                        final_loot.db.found_shardhaven = haven.name
+
+            if final_loot is not None:
+                location.msg_contents("The {} dropped {}!".format(self.name, final_loot.name))
+                final_loot.location = location
+
+
+class ShardhavenPuzzleMaterial(SharedMemoryModel):
+
+    puzzle = models.ForeignKey(ShardhavenPuzzle, blank=False, null=False, related_name='alchemical_materials')
+    weight = models.SmallIntegerField(default=10, help_text="A weight chance that this puzzle will drop this material.")
+    material = models.ForeignKey('magic.AlchemicalMaterial', blank=False, null=False)
+    minimum_quantity = models.PositiveSmallIntegerField(default=1)
+    maximum_quantity = models.PositiveSmallIntegerField(default=1)
+
+
+class ShardhavenPuzzleCraftingMaterial(SharedMemoryModel):
+
+    puzzle = models.ForeignKey(ShardhavenPuzzle, blank=False, null=False, related_name='crafting_materials')
+    weight = models.SmallIntegerField(default=10, help_text="A weight chance that this puzzle will drop this material.")
+    material = models.ForeignKey('dominion.CraftingMaterialType', blank=False, null=False)
+    minimum_quantity = models.PositiveSmallIntegerField(default=1)
+    maximum_quantity = models.PositiveSmallIntegerField(default=1)
+
+
+class ShardhavenPuzzleObjectLoot(SharedMemoryModel):
+
+    puzzle = models.ForeignKey(ShardhavenPuzzle, blank=False, null=False, related_name='object_drops')
+    weight = models.SmallIntegerField(default=10, help_text="A weight chance that this puzzle will drop this object.")
+    object = models.ForeignKey('objects.ObjectDB', blank=False, null=False)
+    duplicate = models.BooleanField(default=False)
+
+    @property
+    def minimum_quantity(self):
+        return 1
+
+    @property
+    def maximum_quantity(self):
+        return 1
 
 
 class ShardhavenLayoutExit(SharedMemoryModel):
@@ -677,6 +821,12 @@ class ShardhavenLayoutSquare(SharedMemoryModel):
 
     visitors = models.ManyToManyField('objects.ObjectDB', related_name='+')
     last_visited = models.DateTimeField(blank=True, null=True)
+
+    puzzle = models.ForeignKey(ShardhavenPuzzle, blank=True, null=True, related_name='+')
+    puzzle_solved = models.BooleanField(default=False)
+
+    monster = models.ForeignKey(Monster, blank=True, null=True, related_name='+')
+    monster_defeated = models.BooleanField(default=False)
 
     def __str__(self):
         return "{} ({},{})".format(self.layout, self.x_coord, self.y_coord)
@@ -913,6 +1063,8 @@ class ShardhavenLayout(SharedMemoryModel):
 
         for room in self.rooms.all():
             room.visitors.clear()
+            room.monster_defeated = False
+            room.puzzle_solved = False
             room.last_visited = None
             room.save()
             if room.room and room.room.is_typeclass('world.exploration.rooms.ShardhavenRoom'):
@@ -958,7 +1110,8 @@ class ShardhavenLayout(SharedMemoryModel):
         layout.entrance_x = x
         layout.entrance_y = y
 
-        obstacles = list(ShardhavenObstacle.objects.filter(haven_types__pk=layout.haven_type.id).all())
+        obstacles = list(ShardhavenObstacle.objects.filter(haven_types__pk=layout.haven_type.id,
+                                                           obstacle_class=ShardhavenObstacle.EXIT_OBSTACLE).all())
         base_obstacles = list(obstacles)
         random.shuffle(obstacles)
         target_difficulty = 30 + max(layout.haven.difficulty_rating * 2, 5)

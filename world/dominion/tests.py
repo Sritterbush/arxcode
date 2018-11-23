@@ -6,7 +6,23 @@ from mock import patch, Mock
 from server.utils.test_utils import ArxCommandTest, TestTicketMixins
 from . import crisis_commands, general_dominion_commands, plot_commands
 from web.character.models import StoryEmit, Clue, CluePlotInvolvement, Revelation, Theory, TheoryPermissions
-from world.dominion.models import Plot, PlotAction, PCPlotInvolvement, RPEvent, PlotUpdate, Organization
+from world.dominion.models import Plot, PlotAction, PCPlotInvolvement, RPEvent, PlotUpdate, Organization, \
+    CraftingMaterialType, CraftingMaterials
+
+
+class TestCraftingCommands(ArxCommandTest):
+
+    def setUp(self):
+        super(TestCraftingCommands, self).setUp()
+        self.material = CraftingMaterialType.objects.create(name="testonium", desc="A test material.", value=5000)
+
+    def test_create_material_object(self):
+        testobject = self.material.create_instance(3)
+        self.assertEqual(testobject.db.quantity, 3)
+        self.assertEqual(testobject.db.material_type, self.material.id)
+        self.assertEqual(testobject.db.desc, self.material.desc)
+        self.assertEqual(testobject.name, "3 testonium")
+        self.assertEqual(testobject.type_description, "crafting material, testonium")
 
 
 class TestCrisisCommands(ArxCommandTest):
