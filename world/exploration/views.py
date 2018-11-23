@@ -408,7 +408,7 @@ def save_room(request):
             return JsonErrorResponse("Unable to set obstacle", status=500, code=JSON_ERROR_BADPARAM)
 
     if request.POST.get("obstacle_east"):
-        obstacle_west = obstacle_for_id(request.POST.get("obstacle_east"))
+        obstacle_east = obstacle_for_id(request.POST.get("obstacle_east"))
         if not obstacle_east:
             return JsonErrorResponse("Unable to set obstacle", status=500, code=JSON_ERROR_BADPARAM)
 
