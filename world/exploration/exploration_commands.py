@@ -523,6 +523,14 @@ class CmdExplorationPuzzle(ArxCommand):
             return
 
         if "solve" in self.switches:
+
+            if self.caller.location.ndb.combat_manager:
+                cscript = self.caller.location.ndb.combat_manager
+                if cscript.ndb.combatants:
+                    if cscript.check_character_is_combatant(self.caller):
+                        self.msg("You're in combat, and cannot attempt to solve this puzzle right now!")
+                        return False
+
             if not self.can_attempt():
                 return
 
