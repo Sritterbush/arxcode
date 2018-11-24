@@ -213,7 +213,8 @@ class ShardhavenRoom(ArxRoom):
                     testobj.location = city_center
             elif testobj.is_typeclass('world.exploration.loot.Trinket') \
                     or testobj.is_typeclass('world.exploration.loot.AncientWeapon') \
-                    or testobj.is_typeclass('world.magic.materials.MagicMaterial'):
+                    or testobj.is_typeclass('world.magic.materials.MagicMaterial') \
+                    or testobj.is_typeclass('world.dominion.dominion_typeclasses.CraftingMaterialObject'):
                 testobj.softdelete()
             elif not testobj.is_typeclass('typeclasses.exits.ShardhavenInstanceExit') \
                     and not testobj.is_typeclass('typeclasses.exits.Exit'):
