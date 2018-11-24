@@ -113,6 +113,10 @@ class ShardhavenRoom(ArxRoom):
                 # Chance of spawn in goes down after the first player.
                 weight_none = weight_none * 2
 
+            if len(monsters) > 1:
+                # Chance of spawn in goes down after the first monster.
+                weight_none = weight_none * 2
+
             if obj.ndb.shardhaven_sneak_value:
                 weight_none += (obj.ndb.shardhaven_sneak_value * 10)
                 if obj.ndb.shardhaven_sneak_value > 0:
