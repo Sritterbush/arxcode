@@ -187,16 +187,17 @@ class CluePlotInvolvementInline(admin.TabularInline):
 class ClueAdmin(BaseCharAdmin):
     """Admin for Clues"""
     list_display = ('id', 'name', 'rating', 'used_for')
-    search_fields = ('id', 'name', '=revelations__name', '=search_tags__name')
+    search_fields = ('id', 'name', '=search_tags__name')
     inlines = (ClueForRevInline, CluePlotInvolvementInline)
     filter_horizontal = ('search_tags',)
     raw_id_fields = ('author', 'tangible_object')
-    list_filter = ('clue_type',)
+    list_filter = ('clue_type', 'allow_investigation')
 
-    @staticmethod
-    def used_for(obj):
-        """Names of revelations this clue is used for"""
-        return ", ".join([str(ob) for ob in obj.revelations.all()])
+    def used_for(self, obj):
+        return ", ".join('<a href="%s">%s</a>' % (reverse("admin:character_revelation_change", args=[rev.id]),
+                                                  escape(rev.name))
+                         for rev in obj.revelations.all())
+    used_for.allow_tags = True
 
 
 class ClueDiscoveryAdmin(BaseCharAdmin):
