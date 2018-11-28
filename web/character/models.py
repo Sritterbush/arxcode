@@ -23,6 +23,7 @@ from evennia.utils.idmapper.models import SharedMemoryModel
 
 from .managers import ArxRosterManager, AccountHistoryManager
 from server.utils.arx_utils import CachedProperty
+from server.utils.picker import WeightedPicker
 from world.stats_and_skills import do_dice_check
 
 
@@ -1283,6 +1284,9 @@ class Investigation(AbstractPlayerAllocations):
         """
         diff = (diff if diff is not None else self.difficulty) + mod
         roll = self.do_obj_roll(self, diff)
+        if roll > 0:
+            # a successful roll adds 0-5% of the completion roll as a base
+            roll += int(self.completion_value/20.0) * random.randint(0, 5)
         assistant_roll_total = 0
         assistants = self.active_assistants
         for ass in assistants:
@@ -1465,9 +1469,12 @@ class Investigation(AbstractPlayerAllocations):
         except cmd.error_class:
             names = self.topic.split()
             search = SearchTag.objects.filter(reduce(lambda x, y: x | Q(name__icontains=y), names, Q()))
-            clues = Clue.objects.exclude(characters=self.character).filter(search_tags__in=search)
+            clues = Clue.objects.exclude(characters=self.character).filter(search_tags__in=search).annotate(cnt=Count('discoveries'))
             if clues:
-                return random.choice(clues)
+                picker = WeightedPicker()
+                for clue in clues:
+                    picker.add_option(clue, clue.cnt)
+                return picker.pick()
         else:
             return get_random_clue(self.character, search_tags=search, omit_tags=omit)
 
@@ -1500,6 +1507,12 @@ class Investigation(AbstractPlayerAllocations):
         progress = self.progress_percentage
         if progress <= 0:
             return "No real progress has been made to finding something new."
+        if progress <= 5:
+            return "You have made a very tiny amount of progress."
+        if progress <= 10:
+            return "You have made a tiny amount of progress."
+        if progress <= 15:
+            return "You have made a little bit of progress."
         if progress <= 25:
             return "You've made some progress."
         if progress <= 50:
@@ -1627,7 +1640,11 @@ def get_random_clue(roster, search_tags, omit_tags=None):
         exclude_query = reduce(lambda x, y: x | Q(search_tags=y), omit_tags, Q())
         exact = exact.exclude(exclude_query)
     if exact:
-        return random.choice(exact)
+        picker = WeightedPicker()
+        exact = exact.annotate(cnt=Count('discoveries'))
+        for clue in exact:
+            picker.add_option(clue, clue.cnt)
+        return picker.pick()
 
 
 class Flashback(SharedMemoryModel):

@@ -190,7 +190,7 @@ class InvestigationFormCommand(ArxCommand):
             clue_name = "PLACEHOLDER for Investigation #%s" % inv_ob.id
             gm_notes = "Added tags: %s\n" % list_to_string(search_tags)
             gm_notes += "Exclude tags: %s" % list_to_string([("-%s" % ob) for ob in omit_tags])
-            clue = Clue.objects.create(name=clue_name, gm_notes=gm_notes, allow_investigation=True)
+            clue = Clue.objects.create(name=clue_name, gm_notes=gm_notes, allow_investigation=True, rating=30)
             for tag in search_tags:
                 clue.search_tags.add(tag)
             inv_ob.clue_target = clue
@@ -787,8 +787,8 @@ class CmdInvestigate(InvestigationFormCommand):
     on a clue involving ALL those topics. You may place '-' in front to
     omit clues with that tag. ex: "@investigate/tags primum/tyrval/-adept"
     Be aware that specificity may result in nothing found, but you might be
-    offered the chance to expend great effort (AP) into researching a clue
-    that no one has found before.
+    offered the chance to expend great effort (100 AP) into researching a
+    clue that no one has found before.
     """
     key = "@investigate"
     locks = "cmd:all()"
