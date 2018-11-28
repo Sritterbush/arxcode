@@ -1417,7 +1417,8 @@ class CmdListClues(ArxPlayerCommand):
         if "search" in self.switches:
             msg = "{wMatching Clues{n\n"
             discoveries = discoveries.filter(Q(message__icontains=self.args) | Q(clue__desc__icontains=self.args) |
-                                             Q(clue__name__icontains=self.args))
+                                             Q(clue__name__icontains=self.args) |
+                                             Q(clue__search_tags__name__iexact=self.args)).distinct()
         else:
             msg = "{wDiscovered Clues{n\n"
         for discovery in discoveries:
