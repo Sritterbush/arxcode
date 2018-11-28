@@ -910,6 +910,20 @@ class Clue(SharedMemoryModel):
             value = 1
         return value
 
+    def save(self, *args, **kwargs):
+        """Save and then update all investigations that point to us"""
+        super(Clue, self).save(*args, **kwargs)
+        ongoing = self.investigation_set.filter(ongoing=True)
+        if ongoing:
+            value = self.get_completion_value()
+            for investigation in ongoing:
+                investigation.completion_value = value
+                if investigation.active:
+                    # do_roll will take care of saving
+                    investigation.do_roll()
+                else:
+                    investigation.save()
+
 
 class CluePlotInvolvement(SharedMemoryModel):
     """How a clue is related to a plot"""
@@ -1350,9 +1364,18 @@ class Investigation(AbstractPlayerAllocations):
             base = self.targeted_clue.rating
         try:
             base = int(base + settings.INVESTIGATION_DIFFICULTY_MOD)
+            base -= self.newbie_bonus
         except (AttributeError, ValueError, TypeError):
             pass
         return base - self.resource_mod
+
+    @CachedProperty
+    def newbie_bonus(self):
+        """Bonus to reduce difficulty of the investigation for the character's first 5 investigations"""
+        bonus = 60 - (10 * self.character.investigations.count())
+        if bonus < 0:
+            bonus = 0
+        return bonus
 
     def check_success(self, modifier=0, diff=None):
         """
