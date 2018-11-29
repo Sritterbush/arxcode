@@ -1394,7 +1394,7 @@ class CmdListClues(ArxPlayerCommand):
             rhslist, note = split_result[0], split_result[1]
         except IndexError:
             raise CommandError("You must provide a note that gives context to the clues you're sharing.")
-        if len(note) < 10:
+        if len(note) < 80:
             raise CommandError("Please write a longer note that gives context to the clues you're sharing.")
         rhslist = rhslist.split(",")
         shared_names = []
