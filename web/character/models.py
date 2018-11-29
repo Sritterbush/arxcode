@@ -1324,6 +1324,8 @@ class Investigation(AbstractPlayerAllocations):
             roll = int(roll * settings.INVESTIGATION_PROGRESS_RATE)
         except (AttributeError, TypeError, ValueError):
             pass
+        # newbie bonus adds an overall 0-50% increase in roll
+        roll = int(roll * (1 + (self.newbie_bonus/100.0)))
         # save the character's roll
         self.roll = roll
         self.save()
@@ -1492,7 +1494,8 @@ class Investigation(AbstractPlayerAllocations):
         except cmd.error_class:
             names = self.topic.split()
             search = SearchTag.objects.filter(reduce(lambda x, y: x | Q(name__icontains=y), names, Q()))
-            clues = Clue.objects.exclude(characters=self.character).filter(search_tags__in=search).annotate(cnt=Count('discoveries'))
+            clues = (Clue.objects.exclude(characters=self.character)
+                                 .filter(search_tags__in=search).annotate(cnt=Count('discoveries')))
             if clues:
                 picker = WeightedPicker()
                 for clue in clues:
@@ -1619,37 +1622,6 @@ class TheoryPermissions(SharedMemoryModel):
     player = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="theory_permissions")
     theory = models.ForeignKey("Theory", related_name="theory_permissions")
     can_edit = models.BooleanField(default=False)
-
-
-def get_keywords_from_topic(topic):
-    """
-    Helper function for breaking up a phrase into keywords
-    Args:
-        topic: The phrase we'll break up
-
-    Returns:
-        List of words/phrases that are substrings of the topic.
-    """
-    old_topic = topic
-    topic = topic.strip("?").strip(".").strip("!").strip(":").strip(",").strip(";")
-    # convert to str from unicode
-    k_words = [str(ob) for ob in topic.split()]
-    # add singular version
-    k_words.extend([ob[:-1] for ob in k_words if ob.endswith("s") and len(ob) > 1])
-    # add back in the phrases for phrase matching
-    if len(k_words) > 1:
-        for pos in range(0, len(k_words)):
-            phrase = []
-            for s_pos in range(0, pos):
-                phrase.append(k_words[s_pos])
-            k_words.append(" ".join(phrase))
-    for word in ("a", "or", "an", "the", "and", "but", "not",
-                 "yet", "with", "in", "how", "if", "of"):
-        if word in k_words:
-            k_words.remove(str(word))
-    if old_topic not in k_words:
-        k_words.append(str(old_topic))
-    return set(k_words)
 
 
 def get_random_clue(roster, search_tags, omit_tags=None):
