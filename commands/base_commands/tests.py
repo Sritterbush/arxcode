@@ -246,7 +246,7 @@ class StoryActionTests(ArxCommandTest):
                                           topic="test summary", stat_used="stat", skill_used="skill")
         draft.questions.create(is_intent=True, text="intent")
         self.call_cmd("/invite 4=TestAccount2", "You have invited Testaccount2 to join your action.")
-        self.call_cmd("/submit 4", "You are permitted 2 action requests every 30 days. Recent actions: 1, 2, 3")
+        self.call_cmd("/submit 4", "You are permitted 2 action requests every 60 days. Recent actions: 1, 2, 3")
         self.caller = self.account2
         # unused actions can be used as assists. Try with one slot free to be used as an assist
         self.dompc2.actions.create(actions="dompc completed storyaction", status=PlotAction.PUBLISHED,
