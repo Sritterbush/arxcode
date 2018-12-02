@@ -3096,7 +3096,7 @@ class PlotActionAssistant(AbstractAction):
     """An assist for a plot action - a player helping them out and writing how."""
     NOUN = "Assist"
     BASE_AP_COST = 10
-    MAX_ASSISTS = 2
+    MAX_ASSISTS = 4
     plot_action = models.ForeignKey("PlotAction", db_index=True, related_name="assisting_actions")
     dompc = models.ForeignKey("PlayerOrNpc", db_index=True, related_name="assisting_actions")
 
