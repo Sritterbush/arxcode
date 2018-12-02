@@ -1257,8 +1257,11 @@ class CmdAdminInvestigations(ArxPlayerCommand):
             player = self.caller.search(self.lhs)
             if not player:
                 return
-            undisco = player.roster.undiscovered_clues.filter(Q(desc__icontains=self.rhs) | Q(name__icontains=self.rhs)
-                                                              | Q(search_tags__name__icontains=self.rhs)).distinct()
+            clue_query = Q(desc__icontains=self.rhs) | Q(name__icontains=self.rhs) | Q(search_tags__name__icontains=self.rhs)
+            rev_query = Q(revelations__desc__icontains=self.rhs) | Q(revelations__search_tags__name__icontains=self.rhs)
+            rev_query |= Q(revelations__name__icontains=self.rhs)
+            undisco = (player.roster.undiscovered_clues.filter(allow_investigation=True)
+                                                       .filter(clue_query | rev_query).distinct())
             self.msg("Clues that match: %s" % ", ".join("(ID:%s, %s)" % (ob.id, ob) for ob in undisco))
             return
         try:
