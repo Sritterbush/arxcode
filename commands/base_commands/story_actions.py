@@ -160,8 +160,8 @@ class CmdAction(ActionCommandMixin, ArxPlayerCommand):
         msg += """
     You are permitted {w%s{n actions and {w%s{n assists every 60 days, and have currently
     taken {w%s{n actions and {w%s{n assists. Assists can be made instead of actions, and
-    assists over 2 count toward the action cap.""" % (max_actions, max_assists, recent_actions.count(),
-                                                      recent_assists.count())
+    assists over %s count toward the action cap.""" % (max_actions, max_assists, recent_actions.count(),
+                                                       recent_assists.count(), max_assists)
         return msg
     
     def func(self):
