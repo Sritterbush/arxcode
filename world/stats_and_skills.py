@@ -106,6 +106,7 @@ def cost_at_rank(skill, current_rating, new_rating):
                 mult = NON_COMBAT_SKILL_COST_MULT
             if current_rating >= 6 and skill in VALID_SKILLS:
                 base = LEGENDARY_COST
+                mult /= 10
             else:
                 base = current_rating
             cost += base * mult
