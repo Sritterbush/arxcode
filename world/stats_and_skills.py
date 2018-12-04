@@ -137,12 +137,12 @@ def get_skill_cost_increase(caller, additional_cost=0):
     discounts = skill_xp + bonus_by_srank + bonus_by_age
     if total + additional_cost < discounts:  # we're free
         return -1.0
-    elif total > discounts:  # we have an xp tax
+    elif total >= discounts:  # we have an xp tax
         total -= discounts
         total += additional_cost
         return total/500.0
     else:  # we have some newbie skill points left over. Give us a discount
-        initial = ((additional_cost - (discounts - total))/additional_cost) * -1
+        initial = (discounts - total)/additional_cost * -1
         # we need to determine the tax from the remaining points over, after discount
         cost = additional_cost + (additional_cost * initial)
         tax = cost/500.0
