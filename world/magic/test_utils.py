@@ -39,6 +39,7 @@ class ArxMagicTest(ArxTest):
     def setUp(self):
         super(ArxMagicTest, self).setUp()
         self.alignment = Alignment.objects.create(name="Test", adjective="spectacular", alter_caster=False)
+        self.primal = Alignment.objects.create(name="primal")
         self.affinity = Affinity.objects.create(name="Light")
         self.recipe = CraftingRecipe.objects.create(name="alaricite tester", desc="A test recipe.")
         self.test_object = create.create_object(typeclass="typeclasses.objects.Object", key="Test Object",
