@@ -559,6 +559,7 @@ class CmdGMPlots(ArxCommand):
     @gmplots [<plot ID>]
     @gmplots/old
     @gmplots/all
+    @gmplots/recruiting
     @gmplots/timeline [<plot ID>]
     Admin:
     @gmplots/create <name>/<headline>/<description>[=<parent plot if subplot>]
@@ -587,7 +588,7 @@ class CmdGMPlots(ArxCommand):
     plot_switches = ("end", "addbeat", "adb", "participation", "perm", "connect")
     ticket_switches = ("rfr", "pitches")
     beat_objects = ("rpevent", "flashback", "action")
-    view_switches = ("old", "all", "timeline")
+    view_switches = ("old", "all", "timeline", "recruiting")
 
     @property
     def pitches(self):
@@ -619,8 +620,10 @@ class CmdGMPlots(ArxCommand):
         """Displays existing plots"""
         if not self.args:
             old = "old" in self.switches
-            only_open = "all" not in self.switches and not old
-            self.msg(str(Plot.objects.view_plots_table(old=old, only_open_tickets=only_open)))
+            recruiting = "recruiting" in self.switches
+            only_open = "all" not in self.switches and not old and not recruiting
+            self.msg(str(Plot.objects.view_plots_table(old=old, only_open_tickets=only_open,
+                                                       only_recruiting=recruiting)))
         else:
             plot = self.get_by_name_or_id(Plot, self.lhs)
             if "timeline" in self.switches:
