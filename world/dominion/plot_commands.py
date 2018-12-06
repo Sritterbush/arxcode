@@ -323,7 +323,7 @@ class CmdPlots(ArxCommand):
                 if "perm" in self.switches:
                     raise CommandError("You must specify both a name and a permission level.")
                 else:  # attr being a blank string means it's being wiped
-                    name = self.rhs
+                    name = self.rhs or ""
             if "storyhook" in self.switches:
                 story = attr
                 perm_status = None
