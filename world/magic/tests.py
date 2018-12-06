@@ -69,7 +69,7 @@ class TestMagicSystem(ArxMagicTest):
                              " ID:                 1                                                        \n"
                              " Participants:       Char2                                                    \n"
                              " Lead:               Char2                                                    \n"
-                             " Alignment:          primal                                                   \n"
+                             " Alignment:          Primal                                                   \n"
                              " Type:               Casting                                                  \n"
                              " Spell:              Test Spell                                               \n"
                              " Calculated:         yes                                                      \n"
