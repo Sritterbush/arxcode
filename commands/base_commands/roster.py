@@ -1292,8 +1292,8 @@ class CmdRelationship(ArxPlayerCommand):
     To create a new relationship or update an existing one, use
     @relationship/change.
     """
-    key = "@relationship"
-    aliases = ["+relationship", "@relationships", "+relationships"]
+    key = "relationship"
+    aliases = ["relationships"]
     help_category = "Social"
     locks = "cmd:all()"
     typelist = ['parent', 'sibling', 'friend', 'enemy', 'frenemy', 'family', 'client', 'patron', 'protege',
