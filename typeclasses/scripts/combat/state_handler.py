@@ -20,7 +20,8 @@ class CombatAction(object):
     ATTACK_QTYPES = ["attack", "kill", "flank"]
     
     def __init__(self, character, qtype="pass", targ=None, msg="", attack_penalty=0, 
-                 dmg_penalty=0, status="queued", desc="", action=None, working=None, unsafe=False):
+                 dmg_penalty=0, status="queued", desc="", action=None, working=None, unsafe=False,
+                 delete_on_fail=False):
         self.character = character
         self.state = character.combat.state
         self.status = status
@@ -35,7 +36,7 @@ class CombatAction(object):
         self.description = desc
         self.special_action = action
         self.finished_attack = None
-        self.working = None
+        self.working = working
         self.unsafe = unsafe
 
     def __str__(self):
@@ -500,7 +501,7 @@ class CombatantStateHandler(object):
             if q.working.perform(unsafe=q.unsafe):
                 q.working.finalize()
                 return True
-            else:
+            elif q.delete_working_on_failure:
                 q.working.delete()
 
     def roll_initiative(self):
