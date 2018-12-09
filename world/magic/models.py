@@ -907,8 +907,8 @@ class Condition(SharedMemoryModel):
             if effect_class:
                 handler = effect_class(lead=practitioner, participants=[practitioner], target_string="me",
                                        target_obj=practitioner.character, parameters=effect.coded_params,
-                                       conditions=effect.conditions, strength=strength,
-                                       successes=successes, quiet=False)
+                                       conditions=effect.conditions, strength=strength, alignment=self.alignment,
+                                       successes=successes, quiet=False, affinity=effect.affinity or self.affinity)
                 handler.calculate()
                 handler.perform()
             else:
@@ -1399,8 +1399,8 @@ class Working(SharedMemoryModel):
 
         return effect_class(lead=self.lead, participants=self.participants, target_string=target_string,
                             target_obj=target_obj, parameters=effect.coded_params,
-                            conditions=effect.conditions, strength=effect.strength,
-                            successes=self.total_successes, quiet=quiet)
+                            conditions=effect.conditions, strength=effect.strength, alignment=self.alignment,
+                            successes=self.total_successes, quiet=quiet, affinity=effect.affinity or self.affinity)
 
     def validation_error(self, target_string=None, gm_override=False):
         if not gm_override and len(self.effects) == 0:
