@@ -38,6 +38,7 @@ class CombatAction(object):
         self.finished_attack = None
         self.working = working
         self.unsafe = unsafe
+        self.delete_working_on_failure = delete_on_fail
 
     def __str__(self):
         text = "attack" if self.qtype in self.ATTACK_QTYPES else self.qtype

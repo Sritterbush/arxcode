@@ -127,9 +127,6 @@ class CodedEffect(object):
         if self.target_obj:
             result['target_obj'] = self.target_obj.id
 
-        if self.target_string:
-            result['target_string'] = self.target_string
-
         if self.parameters:
             result['parameters'] = self.parameters
 
@@ -349,6 +346,18 @@ class BucketEffect(CodedEffect):
         return super(BucketEffect, self).serialize(result)
 
 
+class DamageEffect(CodedEffect):
+    requires_combat = True
+
+    def valid_target(self):
+        """
+        Target must be in combat for this to be valid. We already check for caster to be in combat with
+        requires_combat being set to True.
+        """
+        try:
+            return bool(self.target_obj.combat.state)
+        except AttributeError:
+            return False
 # TODO: All the other handlers, gods help me.
 
 
