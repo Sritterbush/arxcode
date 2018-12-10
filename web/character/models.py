@@ -1299,8 +1299,8 @@ class Investigation(AbstractPlayerAllocations):
         diff = (diff if diff is not None else self.difficulty) + mod
         roll = self.do_obj_roll(self, diff)
         if roll > 0:
-            # a successful roll adds 0-5% of the completion roll as a base
-            roll += int(self.completion_value/20.0) * random.randint(0, 5)
+            # a successful roll adds 12% of our completion value, so around 2 months as a limit
+            roll += int(self.completion_value * 0.12)
         assistant_roll_total = 0
         assistants = self.active_assistants
         for ass in assistants:
