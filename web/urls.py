@@ -29,7 +29,7 @@ urlpatterns = [
     url(r'^webclient/', include('web.website.webclient_urls', namespace='webclient', app_name='webclient')),
 
     # favicon
-    url(r'^favicon\.ico$', RedirectView.as_view(url='/media/images/favicon.ico', permanent=False)),
+    url(r'^favicon\.ico$', RedirectView.as_view(url='/static/images/favicon.ico', permanent=False)),
 
     url(r'^character/', include('web.character.urls', namespace='character', app_name='character')),
 
