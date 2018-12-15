@@ -27,7 +27,7 @@ from typeclasses.rooms import ArxRoom
 from web.character.models import AccountHistory, FirstContact
 from world.dominion.forms import RPEventCreateForm
 from world.dominion.models import (RPEvent, Agent, CraftingMaterialType, CraftingMaterials,
-                                   AssetOwner, Renown, Reputation, Member, PlotRoom,
+                                   AssetOwner, Reputation, Member, PlotRoom,
                                    Organization, InfluenceCategory, PlotAction, PrestigeAdjustment)
 from world.msgs.models import Journal, Messenger
 from world.msgs.managers import reload_model_as_proxy
@@ -2161,147 +2161,6 @@ class CmdRoomMood(ArxCommand):
         self.caller.location.msg_contents("{w(OOC)The scene set/room mood is now set to:{n %s" % mood[2])
 
 
-class CmdSocialScore(ArxCommand):
-    """
-    The who's-who of Arx
-
-    Usage:
-        +score[/all]
-        +score/orgs[/all]
-        +score/org[/all] <organization>
-        +score/personal[/all]
-        +score/legend[/all]
-        +score/renown [<category>]
-        +score/reputation[/bad] [<organization>][=<start #>,<stop #>]
-        +score/commoners[/all]
-        +score/nobles[/all]
-
-    Checks the organizations and players who have the highest prestige.
-    Renown measures the influence a character has built with different npc
-    groups, while reputation is how a character is thought of by the npcs
-    within an organization. The 'bad' switch shows only those with respect or
-    affection below zero.
-    """
-    key = "+score"
-    locks = "cmd:all()"
-    help_category = "Information"
-    prestige_switches = ("orgs", "personal", "legend", "nobles", "commoners", "org", "all")
-
-    def func(self):
-        """Execute command."""
-        caller = self.caller
-        if not self.switches or self.check_switches(self.prestige_switches):
-            return self.get_queryset_for_prestige_table()
-        if "renown" in self.switches:
-            renowned = Renown.objects.filter(player__player__isnull=False,
-                                             player__player__roster__roster__name="Active").exclude(
-                                             category__name__icontains="mystery").order_by('-rating')
-            if self.args:
-                renowned = renowned.filter(Q(category__name__iexact=self.args) |
-                                           Q(player__player__username__iexact=self.args))
-            renowned = renowned[:20]
-            table = PrettyTable(["{wName{n", "{wCategory{n", "{wLevel{n", "{wRating{n"])
-            for ob in renowned:
-                table.add_row([str(ob.player), ob.category, ob.level, ob.rating])
-            self.msg(str(table))
-            return
-        if "reputation" in self.switches:
-            rep = Reputation.objects.filter(player__player__isnull=False,
-                                            player__player__roster__roster__name="Active")
-            if "bad" in self.switches:
-                rep = rep.filter(Q(respect__lt=0) | Q(affection__lt=0)).order_by('respect')
-            else:
-                rep = rep.order_by('-respect')
-            if self.lhs:
-                rep = rep.filter(Q(organization__name__iexact=self.lhs) |
-                                 Q(player__player__username__iexact=self.lhs))
-            slice_start = 0
-            slice_end = 20
-            if self.rhs:
-                try:
-                    if len(self.rhslist) > 1:
-                        slice_start, slice_end = self.rhslist
-                    else:
-                        slice_end = self.rhs
-                    slice_start = int(slice_start)
-                    slice_end = int(slice_end)
-                    if (slice_end < 0) or (slice_start < 0) or (slice_end - slice_start > 200):
-                        raise ValueError
-                except (ValueError, TypeError):
-                    caller.msg("Two positive numbers can be specified as start and endpoints, "
-                               "not to exceed 200 results. Example: =0,100")
-                    return
-            rep = rep[slice_start:slice_end]
-            table = PrettyTable(["{wName{n", "{wOrganization{n", "{wAffection{n", "{wRespect{n"])
-            for ob in rep:
-                if ob.organization.secret:
-                    # only show reputation to people in the org
-                    try:
-                        caller_member = ob.organization.active_members.get(player=self.caller.player_ob.Dominion)
-                    except (Member.DoesNotExist, ValueError):
-                        continue
-                    try:
-                        targ_member = ob.organization.active_members.get(player=ob.player)
-                        if targ_member.secret and caller_member.rank > targ_member.rank:
-                            continue
-                    # inactive and non-members will show up for members
-                    except (Member.DoesNotExist, ValueError):
-                        pass
-                table.add_row([str(ob.player), str(ob.organization), ob.affection, ob.respect])
-            self.msg(str(table))
-            return
-        else:
-            caller.msg("Invalid switch.")
-            return
-
-    def get_queryset_for_prestige_table(self):
-        """Determines who goes in the table based on our switches"""
-        from typeclasses.accounts import Account
-
-        def sort_queryset_by_social_rank(queryset):
-            """Helper function to sort by nobles or commoners"""
-            if "nobles" in self.switches:
-                return [own_ob for own_ob in queryset if own_ob.player.player.char_ob.db.social_rank < 7]
-            elif "commoners" in self.switches:
-                return [own_ob for own_ob in queryset if own_ob.player.player.char_ob.db.social_rank >= 7]
-            else:
-                return queryset
-        if "orgs" in self.switches:
-            assets = AssetOwner.objects.filter(organization_owner__secret=False).filter(
-                organization_owner__members__player__player__roster__roster__name="Active").distinct()
-            assets = sorted(assets, key=lambda x: x.prestige, reverse=True)
-        elif "legend" in self.switches:
-            assets = sort_queryset_by_social_rank(
-                AssetOwner.objects.filter(player__player__roster__roster__name__in=("Active", "Gone", "Available")))
-            assets = sorted(assets, key=lambda x: x.total_legend, reverse=True)
-        else:
-            if "org" in self.switches:
-                try:
-                    org = Organization.objects.get(name__iexact=self.args, secret=False)
-                except Organization.DoesNotExist:
-                    self.msg("No organization by that name.")
-                    return
-                assets = [ob.player.assets for ob in org.active_members.filter(secret=False)]
-            else:
-                assets = [ob.Dominion.assets for ob in Account.objects.filter(roster__roster__name="Active")]
-            assets = sort_queryset_by_social_rank(assets)
-            if "personal" in self.switches:
-                assets = sorted(assets, key=lambda x: x.fame + x.legend, reverse=True)
-            else:
-                assets = sorted(assets, key=lambda x: x.prestige, reverse=True)
-        if "all" not in self.switches:
-            assets = assets[:20]
-        self.display_prestige_table(assets)
-
-    def display_prestige_table(self, assets):
-        """Prints out a table of prestige"""
-        table = PrettyTable(["{wName{n", "{wPrestige{n", "{wFame{n", "{wLegend{n", "{wGrandeur{n", "{wPropriety{n"])
-        for asset in assets:
-            table.add_row([str(asset)[:21], asset.prestige, asset.fame, asset.total_legend, asset.grandeur,
-                           asset.propriety])
-        self.msg(str(table))
-
-
 class CmdSocialNotable(ArxCommand):
     """
     Who's currently being talked about around Arx?
@@ -2351,7 +2210,6 @@ class CmdSocialNotable(ArxCommand):
         self.msg(str(table) + "\n")
 
     def func(self):
-        title = None
         adjust_type = None
 
         if "orgs" in self.switches:
@@ -3398,6 +3256,7 @@ class CmdFirstImpression(ArxCommand):
             targ.char_ob.adjust_xp(4)
 
 
+# noinspection PyAttributeOutsideInit
 class CmdGetInLine(ArxCommand):
     """
     Manages lines of people waiting their turn in events
