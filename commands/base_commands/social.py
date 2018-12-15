@@ -28,7 +28,7 @@ from web.character.models import AccountHistory, FirstContact
 from world.dominion.forms import RPEventCreateForm
 from world.dominion.models import (RPEvent, Agent, CraftingMaterialType, CraftingMaterials,
                                    AssetOwner, Renown, Reputation, Member, PlotRoom,
-                                   Organization, InfluenceCategory, PlotAction)
+                                   Organization, InfluenceCategory, PlotAction, PrestigeAdjustment)
 from world.msgs.models import Journal, Messenger
 from world.msgs.managers import reload_model_as_proxy
 from world.stats_and_skills import do_dice_check
@@ -2300,6 +2300,83 @@ class CmdSocialScore(ArxCommand):
             table.add_row([str(asset)[:21], asset.prestige, asset.fame, asset.total_legend, asset.grandeur,
                            asset.propriety])
         self.msg(str(table))
+
+
+class CmdSocialNotable(ArxCommand):
+    """
+    Who's currently being talked about around Arx?
+
+    Usage:
+      notable
+      notable/buzz
+      notable/legend
+      notable/orgs
+
+    This command will return who's currently being talked about around Arx,
+    and if possible, why.
+
+    The first form will show it based on prestige (a combination of multiple
+    factors, such as your fame, legend, grandeur, and propriety).  This list
+    represents who's particularly recognizable at this moment in time.
+
+    The second form will show it just based on fame, which is transient and
+    fades over time.  Fame might come from being seen at a particularly
+    fashionable event, or winning a tournament, or something else that briefly
+    puts you in the spotlight.  The buzz list is thus who's currently in the
+    spotlight for something recent.
+
+    The third form will show it just based on legend, which is harder to earn
+    but does not fade like fame.  Legend might come from doing something
+    incredibly heroic, or rediscovering an ancient weapon of note, or other
+    notable acts which will be remembered by history.  The legend list is
+    thus people who are still reknowned for various things they've done.
+
+    The fourth form will show the organizations in the city that people
+    are talking about, though will not say precisely why the organization
+    is currently notable.
+    """
+    key = "notable"
+    locks = "cmd:all()"
+
+    def show_rankings(self, title, asset_owners, adjust_type):
+        counter = 1
+        table = EvTable()
+        table.add_column(width=8)
+        table.add_column()
+        for owner in asset_owners:
+            table.add_row(str(counter), owner.prestige_descriptor(adjust_type))
+            counter += 1
+        if title:
+            self.msg("\n|w" + title + "|n")
+        self.msg(str(table) + "\n")
+
+    def func(self):
+        title = None
+        adjust_type = None
+
+        if "orgs" in self.switches:
+            title = "Organizations Currently in the Public Eye"
+            assets = AssetOwner.objects.filter(organization_owner__secret=False).filter(
+                organization_owner__members__player__player__roster__roster__name="Active").distinct()
+            assets = sorted(assets, key=lambda x: x.prestige, reverse=True)
+        else:
+            assets = list(
+                AssetOwner.objects.filter(player__player__roster__roster__name__in=("Active", "Gone", "Available")))
+
+            if "buzz" in self.switches:
+                title = "Who's Momentarily in the News"
+                adjust_type = PrestigeAdjustment.FAME
+                assets = sorted(assets, key=lambda x: x.fame, reverse=True)
+            elif "legend" in self.switches:
+                title = "People of Legendary Renown"
+                adjust_type = PrestigeAdjustment.LEGEND
+                assets = sorted(assets, key=lambda x: x.total_legend, reverse=True)
+            else:
+                title = "Who's Being Talked About Right Now"
+                assets = sorted(assets, key=lambda x: x.prestige, reverse=True)
+
+        assets = assets[:20]
+        self.show_rankings(title, assets, adjust_type)
 
 
 class CmdThink(ArxCommand):
