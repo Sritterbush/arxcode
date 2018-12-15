@@ -23,6 +23,7 @@ class InvestigationFormCommand(ArxCommand):
     """
     ABC for creating commands based on investigations that process a form.
     """
+    help_entry_tags = ["investigations"]
     form_verb = "Creating"
     form_switches = ("topic", "target", "tag", "tags", "story", "stat", "skill", "cancel", "finish")
     ap_cost = 10
