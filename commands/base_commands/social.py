@@ -2203,13 +2203,21 @@ class CmdSocialNotable(ArxCommand):
     key = "notable"
     locks = "cmd:all()"
 
-    def show_rankings(self, title, asset_owners, adjust_type):
+    def show_rankings(self, title, asset_owners, adjust_type, show_percent=False):
         counter = 1
         table = EvTable()
         table.add_column(width=8)
         table.add_column()
+
+        median = AssetOwner.MEDIAN_PRESTIGE * 1.
+
         for owner in asset_owners:
-            table.add_row(str(counter), owner.prestige_descriptor(adjust_type))
+            if show_percent:
+                percentage = round((owner.prestige / median) * 100)
+                percentage -= percentage % 10
+                table.add_row(str(counter), owner.prestige_descriptor(adjust_type), str(percentage) + "%")
+            else:
+                table.add_row(str(counter), owner.prestige_descriptor(adjust_type))
             counter += 1
         if title:
             self.msg("\n|w" + title + "|n")
@@ -2219,18 +2227,22 @@ class CmdSocialNotable(ArxCommand):
         adjust_type = None
 
         if self.args:
-            target = self.character_search(self.args)
             try:
+                target = self.character_search(self.args)
                 asset = AssetOwner.objects.get(player=target.dompc)
-                percentage = int(round((asset.prestige / (AssetOwner.HIGHEST_PRESTIGE * 1.)) * 100))
-                percentage = percentage - (percentage % 10)
-                if percentage >= 90:
-                    self.msg("%s, is one of the most notable citizens." % asset.prestige_descriptor())
-                else:
-                    self.msg("%s, is roughly %d%% as notable as the "
-                             "most notable citizens." % (asset.prestige_descriptor(), percentage))
+
+                percentage = round((asset.prestige / (AssetOwner.MEDIAN_PRESTIGE * 1.)) * 100)
+                percentage -= percentage % 10
+                descriptor = asset.prestige_descriptor()
+
+                self.msg("%s, is roughly %d%% as notable as the average citizen." % (descriptor, percentage))
+
+            except CommandError as ce:
+                self.msg(ce)
             except (AssetOwner.DoesNotExist, AssetOwner.MultipleObjectsReturned):
                 self.msg("No such character!")
+            except ValueError:
+                self.msg("That character doesn't seem to be on the list!")
             return
 
         if "orgs" in self.switches:
@@ -2262,7 +2274,7 @@ class CmdSocialNotable(ArxCommand):
                 assets = sorted(assets, key=lambda x: x.prestige, reverse=True)
 
         assets = assets[:20]
-        self.show_rankings(title, assets, adjust_type)
+        self.show_rankings(title, assets, adjust_type, show_percent=self.caller.check_permstring("builders"))
 
 
 class CmdThink(ArxCommand):
