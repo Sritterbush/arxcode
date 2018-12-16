@@ -586,10 +586,16 @@ class PrestigeTier(SharedMemoryModel):
     minimum_prestige = models.PositiveIntegerField(blank=False, null=False)
 
     @classmethod
-    def rank_for_prestige(cls, value):
+    def rank_for_prestige(cls, value, max_value):
+        if value < -1000000:
+            return "infamous"
+        elif value < -100000:
+            return "shameful"
+
         results = cls.objects.order_by('-minimum_prestige')
+        percentage = round((value / (max_value * 1.)) * 100)
         for result in results.all():
-            if value >= result.minimum_prestige:
+            if percentage >= result.minimum_prestige:
                 return result.rank_name
 
         return None
@@ -598,6 +604,7 @@ class PrestigeTier(SharedMemoryModel):
         return self.rank_name
 
 
+# noinspection PyMethodParameters,PyPep8Naming
 class AssetOwner(CachedPropertiesMixin, SharedMemoryModel):
     """
     This model describes the owner of an asset, such as money
@@ -626,13 +633,59 @@ class AssetOwner(CachedPropertiesMixin, SharedMemoryModel):
     min_resources_for_inform = models.PositiveIntegerField(default=0)
     min_materials_for_inform = models.PositiveIntegerField(default=0)
 
+    _HIGHEST_PRESTIGE = {'last_check': None, 'last_value': 0}
+    _HIGHEST_FAME = {'last_check': None, 'last_value': 0}
+    _HIGHEST_LEGEND = {'last_check': None, 'last_value': 0}
+
+    @classproperty
+    def HIGHEST_PRESTIGE(cls):
+        last_check = cls._HIGHEST_PRESTIGE['last_check']
+        now = datetime.now()
+        if not last_check or (now - last_check).days >= 1:
+            cls._HIGHEST_PRESTIGE['last_check'] = now
+            assets = list(
+                AssetOwner.objects.filter(player__player__roster__roster__name__in=("Active", "Gone", "Available")))
+            assets = sorted(assets, key=lambda x: x.prestige, reverse=True)
+            best = assets[0]
+            cls._HIGHEST_PRESTIGE['last_value'] = best.prestige
+
+        return cls._HIGHEST_PRESTIGE['last_value']
+
+    @classproperty
+    def HIGHEST_FAME(cls):
+        last_check = cls._HIGHEST_FAME['last_check']
+        now = datetime.now()
+        if not last_check or (now - last_check).days >= 1:
+            cls._HIGHEST_FAME['last_check'] = now
+            assets = list(
+                AssetOwner.objects.filter(player__player__roster__roster__name__in=("Active", "Gone", "Available"))
+                    .order_by('-fame'))
+            best = assets[0]
+            cls._HIGHEST_FAME['last_value'] = best.prestige
+
+        return cls._HIGHEST_FAME['last_value']
+
+    @classproperty
+    def HIGHEST_LEGEND(cls):
+        last_check = cls._HIGHEST_LEGEND['last_check']
+        now = datetime.now()
+        if not last_check or (now - last_check).days >= 1:
+            cls._HIGHEST_LEGEND['last_check'] = now
+            assets = list(
+                AssetOwner.objects.filter(player__player__roster__roster__name__in=("Active", "Gone", "Available")))
+            assets = sorted(assets, key=lambda x: x.total_legend, reverse=True)
+            best = assets[0]
+            cls._HIGHEST_LEGEND['last_value'] = best.total_legend
+
+        return cls._HIGHEST_LEGEND['last_value']
+
     @CachedProperty
     def prestige(self):
         """Our prestige used for different mods. aggregate of fame, legend, and grandeur"""
         return self.fame + self.total_legend + self.grandeur + self.propriety
 
-    def descriptor_for_value_adjustment(self, value, best_adjust):
-        qualifier = PrestigeTier.rank_for_prestige(value)
+    def descriptor_for_value_adjustment(self, value, max_value, best_adjust):
+        qualifier = PrestigeTier.rank_for_prestige(value, max_value)
         result = None
         reason = None
         if best_adjust:
@@ -661,13 +714,18 @@ class AssetOwner(CachedPropertiesMixin, SharedMemoryModel):
         if not self.player:
             return self.organization_owner.name
 
-        value = self.prestige
         if adjust_type == PrestigeAdjustment.FAME:
             value = self.fame
+            max_value = AssetOwner.HIGHEST_FAME
         elif adjust_type == PrestigeAdjustment.LEGEND:
             value = self.total_legend
+            max_value = AssetOwner.HIGHEST_LEGEND
+        else:
+            value = self.prestige
+            max_value = AssetOwner.HIGHEST_PRESTIGE
 
-        return self.descriptor_for_value_adjustment(value, self.most_notable_adjustment(adjust_type=adjust_type))
+        return self.descriptor_for_value_adjustment(value, max_value,
+                                                    self.most_notable_adjustment(adjust_type=adjust_type))
 
     @CachedProperty
     def propriety(self):

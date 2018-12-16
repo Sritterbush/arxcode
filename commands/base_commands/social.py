@@ -2166,9 +2166,10 @@ class CmdSocialNotable(ArxCommand):
     Who's currently being talked about around Arx?
 
     Usage:
-      notable
+      notable [name]
       notable/buzz
       notable/legend
+      notable/infamous
       notable/orgs
 
     This command will return who's currently being talked about around Arx,
@@ -2176,7 +2177,9 @@ class CmdSocialNotable(ArxCommand):
 
     The first form will show it based on prestige (a combination of multiple
     factors, such as your fame, legend, grandeur, and propriety).  This list
-    represents who's particularly recognizable at this moment in time.
+    represents who's particularly recognizable at this moment in time.  If you
+    provide a character name, it will give you a quick note about that
+    particular character.
 
     The second form will show it just based on fame, which is transient and
     fades over time.  Fame might come from being seen at a particularly
@@ -2190,7 +2193,10 @@ class CmdSocialNotable(ArxCommand):
     notable acts which will be remembered by history.  The legend list is
     thus people who are still reknowned for various things they've done.
 
-    The fourth form will show the organizations in the city that people
+    The fourth form will show the people who are infamous, whose prestige
+    has dropped into the negative numbers.
+
+    The fifth form will show the organizations in the city that people
     are talking about, though will not say precisely why the organization
     is currently notable.
     """
@@ -2212,6 +2218,21 @@ class CmdSocialNotable(ArxCommand):
     def func(self):
         adjust_type = None
 
+        if self.args:
+            target = self.character_search(self.args)
+            try:
+                asset = AssetOwner.objects.get(player=target.dompc)
+                percentage = int(round((asset.prestige / (AssetOwner.HIGHEST_PRESTIGE * 1.)) * 100))
+                percentage = percentage - (percentage % 10)
+                if percentage >= 90:
+                    self.msg("%s, is one of the most notable citizens." % asset.prestige_descriptor())
+                else:
+                    self.msg("%s, is roughly %d%% as notable as the "
+                             "most notable citizens." % (asset.prestige_descriptor(), percentage))
+            except (AssetOwner.DoesNotExist, AssetOwner.MultipleObjectsReturned):
+                self.msg("No such character!")
+            return
+
         if "orgs" in self.switches:
             title = "Organizations Currently in the Public Eye"
             assets = AssetOwner.objects.filter(organization_owner__secret=False).filter(
@@ -2229,6 +2250,13 @@ class CmdSocialNotable(ArxCommand):
                 title = "People of Legendary Renown"
                 adjust_type = PrestigeAdjustment.LEGEND
                 assets = sorted(assets, key=lambda x: x.total_legend, reverse=True)
+            elif "infamous" in self.switches:
+                title = "Those Who Society Shuns"
+                assets = [asset for asset in assets if asset.prestige < 0]
+                assets = sorted(assets, key=lambda x: x.prestige, reverse=False)
+                if len(assets) == 0:
+                    self.msg("There don't seem to be any people with negative prestige right now!")
+                    return
             else:
                 title = "Who's Being Talked About Right Now"
                 assets = sorted(assets, key=lambda x: x.prestige, reverse=True)
