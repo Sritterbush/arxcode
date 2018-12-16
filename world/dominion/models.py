@@ -637,6 +637,8 @@ class AssetOwner(CachedPropertiesMixin, SharedMemoryModel):
     _HIGHEST_FAME = {'last_check': None, 'last_value': 0}
     _HIGHEST_LEGEND = {'last_check': None, 'last_value': 0}
 
+    _AVERAGE_NUMBER = 5
+
     @classproperty
     def HIGHEST_PRESTIGE(cls):
         last_check = cls._HIGHEST_PRESTIGE['last_check']
@@ -646,8 +648,12 @@ class AssetOwner(CachedPropertiesMixin, SharedMemoryModel):
             assets = list(
                 AssetOwner.objects.filter(player__player__roster__roster__name__in=("Active", "Gone", "Available")))
             assets = sorted(assets, key=lambda x: x.prestige, reverse=True)
-            best = assets[0]
-            cls._HIGHEST_PRESTIGE['last_value'] = best.prestige
+            best = assets[:cls._AVERAGE_NUMBER]
+            total = 0
+            for asset in best:
+                total += asset.prestige
+            total = total / len(best)
+            cls._HIGHEST_PRESTIGE['last_value'] = total
 
         return cls._HIGHEST_PRESTIGE['last_value']
 
@@ -660,8 +666,12 @@ class AssetOwner(CachedPropertiesMixin, SharedMemoryModel):
             assets = list(
                 AssetOwner.objects.filter(player__player__roster__roster__name__in=("Active", "Gone", "Available"))
                     .order_by('-fame'))
-            best = assets[0]
-            cls._HIGHEST_FAME['last_value'] = best.prestige
+            best = assets[:cls._AVERAGE_NUMBER]
+            total = 0
+            for asset in best:
+                total += asset.fame
+            total = total / len(best)
+            cls._HIGHEST_FAME['last_value'] = total
 
         return cls._HIGHEST_FAME['last_value']
 
@@ -674,8 +684,12 @@ class AssetOwner(CachedPropertiesMixin, SharedMemoryModel):
             assets = list(
                 AssetOwner.objects.filter(player__player__roster__roster__name__in=("Active", "Gone", "Available")))
             assets = sorted(assets, key=lambda x: x.total_legend, reverse=True)
-            best = assets[0]
-            cls._HIGHEST_LEGEND['last_value'] = best.total_legend
+            best = assets[:cls._AVERAGE_NUMBER]
+            total = 0
+            for asset in best:
+                total += asset.total_legend
+            total = total / len(best)
+            cls._HIGHEST_LEGEND['last_value'] = total
 
         return cls._HIGHEST_LEGEND['last_value']
 
