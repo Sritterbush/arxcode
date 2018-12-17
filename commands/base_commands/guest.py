@@ -669,8 +669,6 @@ class CmdGuestAddInput(ArxPlayerCommand):
             char.player_ob.db.tutorial_stage = caller.db.tutorial_stage
         caller.msg("{cName{n set to {w%s{n." % char.key)
         char.save()
-        char.player_ob.char_ob = char
-        char.player_ob.save()
         caller.execute_cmd("look")
 
     @staticmethod
