@@ -580,7 +580,6 @@ class CmdGuestCharCreate(ArxPlayerCommand):
                 # noinspection PyProtectedMember
                 new_player.db._playable_characters.append(new_character)
                 new_player.db._last_puppet = new_character
-                new_player.char_ob = new_character
                 # this is redundant, but shows up a few times in code, so just setting both
                 new_player.email = email
                 new_player.save()
