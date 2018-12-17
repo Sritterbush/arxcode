@@ -12,6 +12,7 @@ jumping around to them.
 
 """
 import copy
+import traceback
 
 from django.conf import settings
 from evennia import syscmdkeys
@@ -595,12 +596,12 @@ class CmdGuestCharCreate(ArxPlayerCommand):
                     incom.entries.create(character=new_character, player=new_player)
                 except Exception as err:
                     print("Error in adding character to roster for guest: %s" % err)
-                    import traceback
                     traceback.print_exc()
             except Exception as err:
                 print("Error in creating a character/player combination for guest: %s" % err)
                 player.msg("Something went wrong during the character/player startup process." +
                            " Please tell an admin to look into it.")
+                traceback.print_exc()
                 return
             player.db.char = new_character
             player.db.tutorial_stage = 1
