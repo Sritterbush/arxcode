@@ -460,7 +460,6 @@ def post_view_unread_board(request, board_id):
         accounts.extend(alts)
         ReadPostModel = Post.db_receivers_accounts.through
         bulk_list = []
-
         for post in unread_posts:
             for account in accounts:
                 bulk_list.append(ReadPostModel(accountdb=account, msg=post))

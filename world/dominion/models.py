@@ -750,7 +750,7 @@ class AssetOwner(CachedPropertiesMixin, SharedMemoryModel):
         reason = None
         if best_adjust:
             reason = best_adjust.reason
-            char = self.player.player.db.char_ob
+            char = self.player.player.char_ob
             gender = char.db.gender or "Male"
             if gender.lower() == "male":
                 result = best_adjust.category.male_noun
