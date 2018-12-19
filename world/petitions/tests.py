@@ -89,7 +89,7 @@ class TestPetitionCommands(ArxCommandTest):
         mat.save()
         self.call_cmd("/sell testium=2,500", "You can't put contraband on the broker! "
                                              "Seriously, how are you still alive?")
-        self.call_cmd("/cancel 1", "You can only cancel your own sales.")
+        self.call_cmd("/cancel 6", "You can only cancel your own sales.")
         self.assertEqual(self.assetowner.economic, 2)
         self.call_cmd("", 'ID Seller       Type               Price Amount \n'
                           '6  Testaccount2 Economic Resources 5     45     '
