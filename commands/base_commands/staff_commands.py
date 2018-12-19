@@ -379,7 +379,7 @@ class CmdSendVision(ArxPlayerCommand):
     @sendvision
 
     Usage:
-        @sendvision <character>=<vision name>/<What they see>
+        @sendvision <character>=<vision name or Clue ID>/<What they see>
         @sendclue <character>,<character2, etc>=<clue ID>/<message>
 
     Send a vision with the appropriate text to a given character.
@@ -428,6 +428,15 @@ class CmdSendVision(ArxPlayerCommand):
             if not char:
                 caller.msg("No valid character for %s." % targ)
                 continue
+            if name.isdigit():
+                try:
+                    vision_object = Clue.objects.get(id=name)
+                except Clue.DoesNotExist:
+                    self.msg("Name was a Clue ID but did not match any existing clue.")
+                    return
+                if vision_object.clue_type != Clue.VISION:
+                    self.msg("You must send a vision, not a regular clue.")
+                    return
             # use the same vision object for all of them once it's created
             vision_object = char.messages.add_vision(msg, caller, name, vision_object)
             header = "{rYou have experienced a vision!{n\n%s" % msg
