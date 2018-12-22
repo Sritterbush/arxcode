@@ -1,8 +1,9 @@
-from helpdesk.models import Queue, CustomField, Ticket
+from web.helpdesk.models import Queue, CustomField, Ticket
 from django.test import TestCase
 from django.core import mail
 from django.test.client import Client
 from django.core.urlresolvers import reverse
+
 
 class TicketBasicsTestCase(TestCase):
     fixtures = ['emailtemplate.json']
@@ -24,7 +25,6 @@ class TicketBasicsTestCase(TestCase):
         ticket = Ticket.objects.create(**ticket_data)
         self.assertEqual(ticket.ticket_for_url, "q1-%s" % ticket.id)
         self.assertEqual(email_count, len(mail.outbox))
-        
 
     def test_create_ticket_public(self):
         email_count = len(mail.outbox)
@@ -45,7 +45,7 @@ class TicketBasicsTestCase(TestCase):
         last_redirect_url = last_redirect[0]
         last_redirect_status = last_redirect[1]
         # Ensure we landed on the "View" page.
-        self.assertEqual(last_redirect_url.split('?')[0], 'http://testserver%s' % reverse('helpdesk_public_view'))
+        self.assertEqual(last_redirect_url.split('?')[0], reverse('helpdesk_public_view'))
         # Ensure submitter, new-queue + update-queue were all emailed.
         self.assertEqual(email_count+3, len(mail.outbox))
     
@@ -84,6 +84,6 @@ class TicketBasicsTestCase(TestCase):
         last_redirect_url = last_redirect[0]
         last_redirect_status = last_redirect[1]
         # Ensure we landed on the "View" page.
-        self.assertEqual(last_redirect_url.split('?')[0], 'http://testserver%s' % reverse('helpdesk_public_view'))
+        self.assertEqual(last_redirect_url.split('?')[0], reverse('helpdesk_public_view'))
         # Ensure only two e-mails were sent - submitter & updated.
         self.assertEqual(email_count+2, len(mail.outbox))
