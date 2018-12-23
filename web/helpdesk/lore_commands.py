@@ -88,8 +88,14 @@ class CmdLoreSearch(ArxPlayerCommand):
         entries = KBItem.objects.filter(Q(title__icontains=self.args) | Q(question__icontains=self.args) |
                                         Q(answer__icontains=self.args) | search_tag_query).distinct()
         disco_query = Q(name__icontains=self.args) | Q(desc__icontains=self.args) | search_tag_query
-        clues = self.caller.roster.clues.filter(disco_query).distinct()
-        revelations = self.caller.roster.revelations.filter(disco_query).distinct()
+        try:
+            clues = self.caller.roster.clues.filter(disco_query).distinct()
+        except AttributeError:
+            clues = []
+        try:
+            revelations = self.caller.roster.revelations.filter(disco_query).distinct()
+        except AttributeError:
+            revelations = []
         msg = ""
         if categories:
             msg += "|wCategories:|n %s\n" % ", ".join(str(ob) for ob in categories)

@@ -44,7 +44,10 @@ def convert_help_entries_and_posts_to_kb_items(apps, schema_editor):
             question = ""
         kb_items.append(KBItem(title=title, category=category, answer=entry.db_entrytext, question=question,
                                last_updated=now))
-    board = ObjectDB.objects.filter(db_typeclass_path="typeclasses.bulletin_board.bboard.BBoard").get(db_key__iexact="theme questions")
+    try:
+        board = ObjectDB.objects.filter(db_typeclass_path="typeclasses.bulletin_board.bboard.BBoard").get(db_key__iexact="theme questions")
+    except Exception:
+        return
     posts = Msg.objects.filter(db_receivers_objects=board)
     for post in posts:
         title = post.db_header.title()
