@@ -942,7 +942,7 @@ class CmdPropriety(ArxPlayerCommand):
     """
     Usage:
         @Proprieties
-        @Proprieties <propriety title>
+        @Proprieties[/all] <propriety title>
 
     Propriety in Arx is a measure of whether a character conflicts or adheres
     to the societal norms expected of them by all of Arvani society, in ways
@@ -973,6 +973,7 @@ class CmdPropriety(ArxPlayerCommand):
     locks = "cmd:all()"
 
     def list_propriety_owners(self):
+        """Returns a string listing characters and orgs who carry the given propriety/reputation."""
         string = ""
         try:
             propriety = Propriety.objects.get(name__iexact=self.lhs)
@@ -982,8 +983,10 @@ class CmdPropriety(ArxPlayerCommand):
         owners = propriety.owners.all()
         if not owners:
             string = "No one is currently spoken of{}.".format(reputation)
-        orgs = owners.filter(organization_owner__isnull=False)
-        ppl = owners.filter(player__isnull=False)
+        orgs = owners.filter(organization_owner__isnull=False).order_by('organization_owner__name')
+        ppl = owners.filter(player__isnull=False).order_by('player__player__username')
+        if not self.check_switches(["all"]):  # only get active ppl
+            ppl = ppl.filter(player__roster__roster__name="Active")
         if ppl:
             def find_longname(owner):
                 longname = owner.player.player.char_ob.db.longname
