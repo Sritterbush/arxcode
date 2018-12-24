@@ -975,10 +975,9 @@ class CmdPropriety(ArxPlayerCommand):
     def list_propriety_owners(self):
         string = ""
         try:
-            propriety=Propriety.objects.get(name__iexact=self.lhs)
+            propriety = Propriety.objects.get(name__iexact=self.lhs)
         except (Propriety.DoesNotExist,AttributeError):
-                self.msg("There's no propriety known as '%s'." % self.lhs)
-                return
+                return "There's no propriety known as '%s'." % self.lhs
         reputation = " with the '{}' reputation".format(str(propriety).title())
         owners = propriety.owners.all()
         if not owners:
@@ -1007,11 +1006,12 @@ class CmdPropriety(ArxPlayerCommand):
             string = self.list_propriety_owners()
         else:
             proprieties = Propriety.objects.all()
-            string += "{:25} {}".format("Title", "Propriety")
+            string = "{:25} {}".format("Title", "Propriety")
             for propriety in proprieties:
                 string += "\n{:25} {:>9}".format(propriety.name, propriety.percentage)
         self.msg(string)
         return
+
 
 class CmdSheet(ArxPlayerCommand):
     """
