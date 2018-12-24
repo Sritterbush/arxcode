@@ -993,12 +993,12 @@ class CmdPropriety(ArxPlayerCommand):
                     longname = "Unknown"
                 return longname
 
-            string += "Individuals{}: ".format(reputation)
+            string += "|wIndividuals{}:|n ".format(reputation)
             string += list_to_string([find_longname(person) for person in ppl])
             string += "\n"
         if orgs:
-            string += "Organizations{}: ".format(reputation)
-            string += list_to_string([orgs])
+            string += "|wOrganizations{}:|n ".format(reputation)
+            string += list_to_string(list(orgs))
         return string
 
     def func(self):
