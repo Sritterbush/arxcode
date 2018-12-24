@@ -986,7 +986,7 @@ class CmdPropriety(ArxPlayerCommand):
         orgs = owners.filter(organization_owner__isnull=False).order_by('organization_owner__name')
         ppl = owners.filter(player__isnull=False).order_by('player__player__username')
         if not self.check_switches(["all"]):  # only get active ppl
-            ppl = ppl.filter(player__roster__roster__name="Active")
+            ppl = ppl.filter(player__player__roster__roster__name="Active")
         if ppl:
             def find_longname(owner):
                 longname = owner.player.player.char_ob.db.longname
