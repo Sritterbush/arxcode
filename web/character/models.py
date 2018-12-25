@@ -269,8 +269,12 @@ class RosterEntry(SharedMemoryModel):
         """
         from server.utils.arx_utils import qslist_to_string
         from world.dominion.models import PlotUpdate, RPEvent
+        from web.helpdesk.models import KBItem, KBCategory
         dompc = self.player.Dominion
         querysets = []
+        # knowledge base categories & items:
+        querysets.append(KBCategory.objects.filter(search_tags=tag))
+        querysets.append(KBItem.objects.filter(search_tags=tag))
         # append clues/revelations we know:
         for related_name in ("clues", "revelations"):
             querysets.append(getattr(self, related_name).filter(search_tags=tag))
@@ -290,6 +294,8 @@ class RosterEntry(SharedMemoryModel):
         # append our tagged inventory items:
         querysets.append(self.character.locations_set.filter(search_tags=tag).order_by('db_typeclass_path'))
         msg = qslist_to_string(querysets)
+        if msg:
+            msg = ("|wTagged as '|235%s|w':|n" % tag) + msg
         return msg
 
     def save(self, *args, **kwargs):

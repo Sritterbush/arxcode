@@ -660,8 +660,7 @@ def queryset_to_string(qset):
         plural_name = obj._meta.verbose_name_plural
         if plural_name != class_name:
             class_name = plural_name
-            message += "\n" if message else ""
-            message += "|w[%s]|n " % class_name.title()
+            message += "\n|w[%s]|n " % class_name.title()
             sep = ""
         message += sep + str(obj)
         sep = "; "
@@ -681,11 +680,11 @@ def qslist_to_string(qslist):
                         [Clues] Vixens are Evil
     """
     qslist = [ob.distinct() for ob in qslist if len(ob) > 0]
-    msg = ""
+    message = ""
     if qslist:
         for qset in qslist:
-            msg += queryset_to_string(qset)
-    return msg
+            message += queryset_to_string(qset)
+    return message
 
 
 class CachedProperty(object):
