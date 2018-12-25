@@ -641,6 +641,53 @@ def list_to_string(inlist, endsep="and", addquote=False):
         return ", ".join(str(v) for v in inlist[:-1]) + "%s %s" % (endsep, inlist[-1])
 
 
+def queryset_to_string(qset):
+    """
+    Gets a string representation of the queryset. We check plural class name for each object in the
+    queryset, starting a new line & title to represent separate match categories.
+    Args:
+        qset (queryset): The pre-ordered queryset to print. If multiple ObjectDB classes, should
+                         already be ordered by 'db_typeclass_path' as well.
+    Returns:
+        Example string: [Weapons] Sword of Killing; Stabbyknife
+                        [Wearables] Sleek Catsuit; Fox-eared Scarf; Beaded Belt
+    """
+    class_name = None
+    message = ""
+    sep = ""
+    for obj in qset:
+        # noinspection PyProtectedMember
+        plural_name = obj._meta.verbose_name_plural
+        if plural_name != class_name:
+            class_name = plural_name
+            message += "\n" if message else ""
+            message += "|w[%s]|n " % class_name.title()
+            sep = ""
+        message += sep + str(obj)
+        sep = "; "
+    return message
+
+
+def qslist_to_string(qslist):
+    """
+    Gets a string representation of multiple querysets in a list, separated by queryset classes.
+    Args:
+        qslist (list of querysets): Each queryset should be pre-ordered. If a qet contains
+                                    multiple ObjectDB classes, should already be ordered by
+                                    'db_typeclass_path' as well.
+    Returns:
+        Example string: [Weapons] Sword of Killing; Stabbyknife
+                        [Wearables] Sleek Catsuit; Fox-eared Scarf; Beaded Belt
+                        [Clues] Vixens are Evil
+    """
+    qslist = [ob.distinct() for ob in qslist if len(ob) > 0]
+    msg = ""
+    if qslist:
+        for qset in qslist:
+            msg += queryset_to_string(qset)
+    return msg
+
+
 class CachedProperty(object):
     """
     Pretty similar to django's cached_property, but will be used for the CachedPropertiesMixin for models
