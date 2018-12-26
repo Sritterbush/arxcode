@@ -767,3 +767,18 @@ class classproperty(object):
             Returns the result of calling self.getter with the class passed in, instead of 'self'
         """
         return self.getter(owner)
+
+
+def get_full_url(url):
+    """
+    Gets the full url when given a partial, used for formatting links. For this to work
+    properly, you should define your Site's url under the 'Sites' app in django's admin
+    site.
+    Args:
+        url: A partial url from a few, like '/namespace/view/'
+
+    Returns:
+        A full url, like "http://www.example.com/namespace/view/"
+    """
+    from django.contrib.sites.models import Site
+    return "http://%s%s" % (Site.objects.get_current(), url)
