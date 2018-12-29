@@ -2207,13 +2207,11 @@ class CmdSocialNotable(ArxCommand):
     key = "notable"
     locks = "cmd:all()"
 
-
     def show_rankings(self, title, asset_owners, adjust_type, show_percent=False):
         counter = 1
         table = EvTable()
         table.add_column(width=8)
         table.add_column()
-
 
         median = AssetOwner.MEDIAN_PRESTIGE * 1.
 
@@ -2335,10 +2333,11 @@ class PrestigeCategoryField(fields.Paxfield):
         return True, None
 
     def webform_field(self, caller=None):
+        from django.forms import CharField
         options = {'label': self.full_name}
         if self.required is not None:
             options['required'] = self.required
-        return django.forms.CharField(**options)
+        return CharField(**options)
 
 
 class FormNomination(forms.Paxform):
@@ -2354,7 +2353,7 @@ class FormNomination(forms.Paxform):
                                          help_text="You must provide one or more characters for this nomination.")
     category = PrestigeCategoryField(required=True, full_name="Category",
                                      help_text="You must provide a valid prestige adjustment category.  "
-                                               "Do 'nominate/types' to see the valid types." )
+                                               "Do 'nominate/types' to see the valid types.")
     type = fields.ChoiceField(required=True, full_name="Adjustment Type",
                               choices=PrestigeNomination.TYPES, help_text="You must define whether this nomination is "
                                                                           "for fame or legend.")
@@ -2374,6 +2373,7 @@ class FormNomination(forms.Paxform):
         except Character.DoesNotExist:
             return self._get_character_by_id(args)
 
+    # noinspection PyMethodMayBeStatic
     def _get_character_by_id(self, args):
         from typeclasses.characters import Character
         try:
@@ -2391,7 +2391,7 @@ class FormNomination(forms.Paxform):
 
         try:
             category = PrestigeCategory.objects.get(name__iexact=values['category'])
-        except Category.DoesNotExist:
+        except PrestigeCategory.DoesNotExist:
             caller.msg("Something has gone horribly wrong; your category seems to no longer be valid.")
             return
 
@@ -2548,7 +2548,7 @@ class CmdSocialReview(ArxCommand):
         approved_by = [str(approver) for approver in nom.approved_by.all()]
         denied_by = [str(denier) for denier in nom.denied_by.all()]
 
-        result =  "\n|wID:|n %d\n" % nom.id
+        result = "\n|wID:|n %d\n" % nom.id
         result += "|wNominees:|n %s\n" % commafy(names)
         result += "|wNominated by:|n %s\n" % str(nom.nominator)
         result += "|wApproved by:|n %s\n" % commafy(approved_by)
