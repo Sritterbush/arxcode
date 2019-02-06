@@ -140,9 +140,9 @@ class InvestigationFormCommand(ArxCommand):
         """
         ap = self.new_clue_cost
         topic = self.topic_string(color=True)
-        prompt = "An opportunity has arisen to pursue knowledge previously unseen by mortal eyes. " \
-                 "It will require a great deal of energy (|c%s|n action points) to investigate. " \
-                 "Your tag requirements: %s\n|yRepeat the command to confirm and continue.|n" % (ap, topic)
+        prompt = ("An opportunity has arisen to pursue knowledge previously unseen by mortal eyes. "
+                 "It will require a great deal of energy (|c%s|n action points) to investigate. "
+                 "Your tag requirements: %s\n|yRepeat the command to confirm and continue.|n" % (ap, topic))
         if not self.confirm_command("new_clue_write", topic, prompt):
             return False
         if not self.caller.player.pay_action_points(ap):

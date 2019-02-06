@@ -106,9 +106,9 @@ class ArxCommmandMixin(object):
         attr = "confirm_%s" % attr
         val = "%s_%s" % (val, date)
         if self.caller.nattributes.get(attr) == val:
-            self.nattributes.remove(attr)
+            self.caller.nattributes.remove(attr)
             return True
-        self.nattributes.add(attr, val)
+        self.caller.nattributes.add(attr, val)
         self.caller.msg(prompt_msg)
 
 
