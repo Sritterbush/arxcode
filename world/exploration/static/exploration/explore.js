@@ -13,7 +13,7 @@ selectedY = null;
 canvas = null;
 canvas_ctx = null;
 
-baseUri = "http://" + window.location.host + "/explore/api"
+baseUri = window.location.protocol + "//" + window.location.host + "/explore/api"
 
 openLineStyle = "#FFB0B0B0";
 obstacleLineStyle = "red";
@@ -53,7 +53,7 @@ function postData(endPoint, body, callbackFunction) {
 			response.json().then(function(data) {
 			if (response.status != 200) {
 				window.alert(data.error);
-			} 
+			}
 			callbackFunction(response.status, data);
 		});
 	});
@@ -82,7 +82,7 @@ function getData(endPoint, callbackFunction) {
 		response.json().then(function(data) {
 			if (response.status != 200) {
 				window.alert(data.error);
-			} 
+			}
 			callbackFunction(response.status, data);
 		});
 	});
@@ -110,7 +110,7 @@ function drawCanvas() {
 	canvas_ctx.lineTo(0, 0);
 	canvas_ctx.fill();
 
-	canvas_ctx.strokeColor = "white";	
+	canvas_ctx.strokeColor = "white";
 
 	if (havenMatrix != null) {
 		for (var xLoop = 0; xLoop < xDimension; xLoop++) {
@@ -261,7 +261,7 @@ function setRoomData(data) {
 
 	if (data['name'] != null) {
 		havenName.value = data['name'];
-	} 
+	}
 
 	if (data['description'] != null) {
 		havenDesc.value = data['description'];
@@ -310,7 +310,7 @@ function saveRoom() {
 	result = { 'x': selectedX, 'y': selectedY, 'haven_id': havenIdNumber };
 	if (havenName.value.length > 0) {
 		result['name'] = havenName.value;
-	}	
+	}
 	if (havenDesc.value.length > 0) {
 		result['description'] = havenDesc.value;
 	}
@@ -443,7 +443,7 @@ function fetchObstacles(havenId) {
 			var options = "<option value='0'>----</option>"
 			for (var loop = 0; loop < data['obstacles'].length; loop++) {
 				var dict = data['obstacles'][loop];
-				options += "<option value='" + dict.id + "'>" + dict.name + "</option>" 
+				options += "<option value='" + dict.id + "'>" + dict.name + "</option>"
 			}
 
 			var picker = document.getElementById("northObstacle");
@@ -467,7 +467,7 @@ function fetchMonsters(havenId) {
 			var options = "<option value='0'>----</option>"
 			for (var loop = 0; loop < data['monsters'].length; loop++) {
 				var dict = data['monsters'][loop];
-				options += "<option value='" + dict.id + "'>" + dict.name + "</option>" 
+				options += "<option value='" + dict.id + "'>" + dict.name + "</option>"
 			}
 
 			var picker = document.getElementById("monster");
@@ -482,7 +482,7 @@ function fetchPuzzles(havenId) {
 			var options = "<option value='0'>----</option>"
 			for (var loop = 0; loop < data['puzzles'].length; loop++) {
 				var dict = data['puzzles'][loop];
-				options += "<option value='" + dict.id + "'>" + dict.name + "</option>" 
+				options += "<option value='" + dict.id + "'>" + dict.name + "</option>"
 			}
 
 			var picker = document.getElementById("puzzle");
