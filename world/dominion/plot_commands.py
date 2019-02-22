@@ -67,7 +67,6 @@ class CmdPlots(RewardRPToolUseMixin, ArxCommand):
         plots/search <tag topic>
     Beat Usage:
         plots/createbeat <plot ID>=<IC summary>/<ooc notes of consequences>
-             /editbeat <plot ID>=<IC summary>
         plots/add/rpevent <rp event ID>=<beat ID>
         plots/add/action <action ID>=<beat ID>
         plots/add/gemit <gemit ID>=<beat ID>
