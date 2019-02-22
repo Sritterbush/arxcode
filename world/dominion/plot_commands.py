@@ -67,6 +67,7 @@ class CmdPlots(RewardRPToolUseMixin, ArxCommand):
         plots/search <tag topic>
     Beat Usage:
         plots/createbeat <plot ID>=<IC summary>/<ooc notes of consequences>
+             /editbeat <plot ID>=<IC summary>
         plots/add/rpevent <rp event ID>=<beat ID>
         plots/add/action <action ID>=<beat ID>
         plots/add/gemit <gemit ID>=<beat ID>
@@ -343,8 +344,8 @@ class CmdPlots(RewardRPToolUseMixin, ArxCommand):
                 elif perm == "extra":
                     new_cast = PCPlotInvolvement.EXTRA
                 else:
-                    err = ("Permission levels: gm, player, or recruiter. "
-                          "Cast options: required, main, supporting, or extra.")
+                    err = ("You entered '%s'. Valid permission levels: gm, player, or recruiter. "
+                          "Valid cast options: required, main, supporting, or extra." % attr)
                     raise CommandError(err)
             plot = self.get_involvement_by_plot_id(required_permission=access_level).plot
             self.change_permission_or_set_story(plot, name, new_perm, new_cast, story)
@@ -362,16 +363,16 @@ class CmdPlots(RewardRPToolUseMixin, ArxCommand):
         """Changes permissions for a plot for a participant or set their recruiter story"""
         involvement = self.get_involvement_by_plot_object(plot, pc_name)
         success = ["You have "]
-        gm_err = "GMs are limited to supporting cast."
+        gm_err = "GMs are limited to supporting cast; they should not star in stories they're telling."
         if new_perm is not None:
             if involvement.admin_status == PCPlotInvolvement.OWNER:
-                raise CommandError("Owners cannot have their status changed.")
-            if involvement.cast_status < PCPlotInvolvement.SUPPORTING_CAST and new_perm >= PCPlotInvolvement.GM:
+                raise CommandError("Owners cannot have their admin permission changed.")
+            if involvement.cast_status < PCPlotInvolvement.SUPPORTING_CAST and new_perm == PCPlotInvolvement.GM:
                 raise CommandError(gm_err)
             involvement.admin_status = new_perm
             success.append("marked %s as a %s." % (involvement.dompc, involvement.get_admin_status_display()))
         elif new_cast is not None:
-            if new_cast < PCPlotInvolvement.SUPPORTING_CAST and involvement.admin_status >= PCPlotInvolvement.GM:
+            if new_cast < PCPlotInvolvement.SUPPORTING_CAST and involvement.admin_status == PCPlotInvolvement.GM:
                 raise CommandError(gm_err)
             involvement.cast_status = new_cast
             success.append("added %s to the plot's %s members." % (involvement.dompc, involvement.get_cast_status_display()))

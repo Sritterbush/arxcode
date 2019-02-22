@@ -234,18 +234,19 @@ class TestPlotCommands(TestTicketMixins, ArxCommandTest):
         self.call_cmd("/perm 2=foo/recruiter", 'You lack the required permission for that plot.')
         self.call_cmd("/perm 1=foo", 'You must specify both a name and perm-level.')
         self.call_cmd("/perm 1=foo/recruiter", "No one is involved in your plot by the name 'foo'.")
-        self.call_cmd("/perm 1=testaccount2/recruiter", 'Owners cannot have their status changed.')
+        self.call_cmd("/perm 1=testaccount2/recruiter", 'Owners cannot have their admin permission changed.')
         self.call_cmd("/perm 2=foo/gm", 'You lack the required permission for that plot.')
         self.call_cmd("/perm 1=foo/gm", "No one is involved in your plot by the name 'foo'.")
         self.plot1.dompc_involvement.create(dompc=self.dompc)
-        self.call_cmd("/perm 1=testaccount/gm", "GMs are limited to supporting cast.")
+        gm_err = "GMs are limited to supporting cast; they should not star in stories they're telling."
+        self.call_cmd("/perm 1=testaccount/gm", gm_err)
         self.call_cmd("/cast 1=testaccount/supporting", "You have added Testaccount to the plot's Supporting Cast members.")
         self.call_cmd("/perm 1=testaccount/gm", "You have marked Testaccount as a GM.")
-        self.call_cmd("/cast 1=testaccount/required", "GMs are limited to supporting cast.")
+        self.call_cmd("/cast 1=testaccount/required", gm_err)
         self.call_cmd("/perm 1=testaccount/player", 'You have marked Testaccount as a Player.')
         self.call_cmd("/perm 1=testaccount/recruiter", 'You have marked Testaccount as a Recruiter.')
-        self.call_cmd("/perm 1=testaccount/owner", "Permission levels: gm, player, or recruiter. "
-                                                   "Cast options: required, main, supporting, or extra.")
+        self.call_cmd("/perm 1=testaccount/owner", "You entered 'owner'. Valid permission levels: gm, player, or recruiter. "
+                                                   "Valid cast options: required, main, supporting, or extra.")
         self.call_cmd("/invite 2=testaccount", 'You lack the required permission for that plot.')
         plot2_part.admin_status = PCPlotInvolvement.RECRUITER
         self.call_cmd("/invite 2=testaccount", "That plot has been resolved.")
