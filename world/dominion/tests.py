@@ -57,7 +57,7 @@ class TestCrisisCommands(ArxCommandTest):
                                                  subject='Update for test crisis')
             self.call_cmd("1", '[test crisis] (50 Rating)\nNone\n'
                                '[Update #1 for test crisis] Date 08/27/78 12:08:00\ntest gemit\n'
-                               'Actions: Action by Testaccount2 for test crisis (#1)')
+                               'Actions: Action by Testaccount2 for test crisis (#1)\nOOC for Staff: test note')
             self.call_cmd("/update 1/another test episode/test synopsis=test gemit 2",
                           "You have updated the crisis, creating a new episode called 'another test episode'.")
             mock_msg_and_post.assert_called_with("test gemit 2", self.caller, episode_name="another test episode")
@@ -169,16 +169,14 @@ class TestPlotCommands(TestTicketMixins, ArxCommandTest):
 
     def test_cmd_plots(self):
         self.setup_cmd(plot_commands.CmdPlots, self.char2)
-        self.call_cmd("", 'Plot Involvement:\n\nName/ID Involvement')
+        self.call_cmd("", 'Plot (ID) Involvement')
         self.plot1.dompc_involvement.create(dompc=self.dompc2, cast_status=PCPlotInvolvement.SUPPORTING_CAST,
                                             admin_status=PCPlotInvolvement.OWNER)
         plot2_part = self.plot2.dompc_involvement.create(dompc=self.dompc2)
-        self.call_cmd("", 'Plot Involvement:\n\n'
-                          'Name/ID        Involvement             \n'
+        self.call_cmd("", 'Plot (ID)      Involvement             \n'
                           'testplot1 (#1) Supporting Cast (Owner)')
-        self.call_cmd("/old", 'Plot Involvement:\n\n'
-                              'Name/ID        Involvement \n'
-                              'testplot2 (#2) Main Cast')
+        self.call_cmd("/old", 'Resolved Plot (ID) Involvement \n'
+                              'testplot2 (#2)     Main Cast')
         self.call_cmd("4", 'No plot found by that ID.')
         self.call_cmd("1", '[testplot1]\nNone\nInvolved Characters:\nTestaccount2 (Supporting Cast, Owner)')
         self.call_cmd("2", '[testplot2]\nNone\nInvolved Characters:\nTestaccount2 (Main Cast)')
@@ -188,6 +186,10 @@ class TestPlotCommands(TestTicketMixins, ArxCommandTest):
         self.call_cmd("/createbeat 1", "Please use / only to divide IC summary from OOC notes. Usage: <#>=<IC>/<OOC>")
         self.call_cmd("/createbeat 1=asdf/", "Please have a slightly longer IC summary.")
         self.call_cmd("/createbeat 1=Bob died it was super/...sad", "You have created a new beat for testplot1, ID: 2.")
+        prompt = ("[Proposed Edit to Beat #2] Bob died it was super\nOOC Char2: ...sad\nOOC Char2: but not really"
+                  "\nIf this appears correct, repeat command to confirm and continue.")
+        self.call_cmd("/editbeat 2=/but not really", prompt)
+        self.call_cmd("/editbeat 2=/but not really", "Beat #2 has been updated.")
         beat2 = PlotUpdate.objects.get(id=2)
         beat3 = self.plot2.updates.create()
         beat3.delete = Mock()
