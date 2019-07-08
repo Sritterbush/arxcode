@@ -10,7 +10,8 @@ from evennia.utils.create import create_object
 from evennia.utils.utils import make_iter
 from server.utils.arx_utils import validate_name, inform_staff
 from server.utils.prettytable import PrettyTable
-from world.dominion.models import (AssetOwner, PlayerOrNpc, CraftingRecipe, CraftingMaterials, CraftingMaterialType)
+from world.dominion.models import (AssetOwner, PlayerOrNpc)
+from world.crafting.models import CraftingRecipe, CraftingMaterialType, CraftingMaterials
 from world.dominion.setup_utils import setup_dom_for_char
 from world.stats_and_skills import do_dice_check
 from world.templates.mixins import TemplateMixins

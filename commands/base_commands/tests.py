@@ -15,7 +15,7 @@ from world.dominion.plots.models import PlotAction, Plot
 from world.templates.models import Template
 from web.character.models import PlayerAccount
 
-from world.dominion.models import CraftingRecipe
+from world.crafting.models import CraftingRecipe
 from typeclasses.readable.readable import CmdWrite
 
 from . import story_actions, overrides, social, staff_commands, roster, crafting, jobs, xp, help, general

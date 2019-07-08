@@ -1,5 +1,5 @@
 from typeclasses.objects import Object as DefaultObject
-from .models import CraftingMaterialType, CraftingMaterials
+from world.crafting.models import CraftingMaterialType, CraftingMaterials
 
 
 class CraftingMaterialObject(DefaultObject):

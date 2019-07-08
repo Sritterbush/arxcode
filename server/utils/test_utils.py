@@ -217,7 +217,9 @@ class TestEquipmentMixins(object):
         from typeclasses.disguises.disguises import Mask
         from typeclasses.wearable.wieldable import Wieldable
         from typeclasses.wearable.decorative_weapon import DecorativeWieldable
-        from world.dominion.models import Organization, AssetOwner, CraftingRecipe, CraftingMaterialType
+        from world.dominion.models import Organization, AssetOwner
+        from world.crafting.models import CraftingMaterialType
+        from world.crafting.models import CraftingRecipe
         wearable_typeclass = Wearable
         purse_typeclass = WearableContainer
         weapon_typeclass = Wieldable

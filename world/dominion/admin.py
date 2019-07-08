@@ -8,12 +8,12 @@ from django.utils.html import escape
 
 from .models import (PlayerOrNpc, Organization, Agent, AgentOb, MapLocation,
                      AssetOwner, Region, Land, WorkSetting, PraiseOrCondemn,
-                     Member, Task, CraftingRecipe, CraftingMaterialType, CraftingMaterials,
-                     RPEvent, AccountTransaction, AssignedTask,
+                     Member, Task, RPEvent, AccountTransaction, AssignedTask,
                      OrgRelationship, Reputation, TaskSupporter, InfluenceCategory,
                      Renown, SphereOfInfluence, TaskRequirement, ClueForOrg,
                      PlotRoom, Landmark, PrestigeTier, PrestigeCategory, PrestigeAdjustment,
                      Honorific, Propriety, PCEventParticipation, OrgEventParticipation, Fealty)
+from world.crafting.models import CraftingRecipe, CraftingMaterialType, CraftingMaterials
 
 from world.dominion.plots.models import (Plot, PlotAction, PlotUpdate, ActionOOCQuestion,
                                          PCPlotInvolvement, OrgPlotInvolvement, PlotActionAssistant)

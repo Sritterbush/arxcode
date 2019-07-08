@@ -23,8 +23,7 @@ from evennia.utils.utils import (make_iter, crop, time_format, variable_from_mod
 from server.utils import arx_utils, prettytable
 from server.utils.exceptions import CommandError
 from commands.base import ArxCommand, ArxPlayerCommand
-from world.dominion.models import CraftingMaterials
-
+from world.crafting.models import CraftingMaterials
 
 AT_SEARCH_RESULT = variable_from_module(*settings.SEARCH_AT_RESULT.rsplit('.', 1))
 _DEFAULT_WIDTH = settings.CLIENT_DEFAULT_WIDTH

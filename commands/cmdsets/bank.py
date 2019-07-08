@@ -6,7 +6,8 @@ from evennia.commands.cmdset import CmdSet
 from evennia.utils import evtable
 from commands.base import ArxCommand
 from world.dominion import setup_utils
-from world.dominion.models import CraftingMaterials, AccountTransaction, AssetOwner
+from world.dominion.models import AccountTransaction, AssetOwner
+from world.crafting.models import CraftingMaterials
 
 
 class BankCmdSet(CmdSet):

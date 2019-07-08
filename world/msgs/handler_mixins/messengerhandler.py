@@ -1,7 +1,7 @@
 """
 Handler for Messengers
 """
-from world.dominion.models import CraftingMaterials, CraftingMaterialType
+from world.crafting.models import CraftingMaterialType, CraftingMaterials
 from world.msgs.handler_mixins.msg_utils import get_initial_queryset, lazy_import_from_str
 from world.msgs.handler_mixins.handler_base import MsgHandlerBase
 from world.msgs.managers import q_msgtag, PRESERVE_TAG, MESSENGER_TAG, reload_model_as_proxy

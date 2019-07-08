@@ -19,7 +19,8 @@ from evennia.utils.logger import log_info
 from commands.base import ArxCommand
 from server.utils import prettytable
 from evennia.utils.create import create_object
-from world.dominion.models import (CraftingMaterialType, PlayerOrNpc, CraftingMaterials)
+from world.dominion.models import (PlayerOrNpc)
+from world.crafting.models import CraftingMaterialType, CraftingMaterials
 from world.dominion import setup_utils
 from world.stats_and_skills import do_dice_check
 

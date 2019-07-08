@@ -665,7 +665,8 @@ class CraftingMixins(object):
 
     def do_junkout(self, caller):
         """Attempts to salvage materials from crafted item, then junks it."""
-        from world.dominion.models import (CraftingMaterials, CraftingMaterialType)
+        from world.crafting.models import CraftingMaterials
+        from world.crafting.models import CraftingMaterialType
 
         def get_refund_chance():
             """Gets our chance of material refund based on a skill check"""
@@ -730,7 +731,7 @@ class CraftingMixins(object):
             The crafting recipe used to create this object.
         """
         if self.db.recipe:
-            from world.dominion.models import CraftingRecipe
+            from world.crafting.models import CraftingRecipe
             try:
                 recipe = CraftingRecipe.objects.get(id=self.db.recipe)
                 return recipe
@@ -750,7 +751,7 @@ class CraftingMixins(object):
         so these queries will only hit the database once. After that, we're just
         building a dict so it'll be insignificant.
         """
-        from world.dominion.models import CraftingMaterialType
+        from world.crafting.models import CraftingMaterialType
         ret = {}
         adorns = self.db.adorns or {}
         for adorn_id in adorns:

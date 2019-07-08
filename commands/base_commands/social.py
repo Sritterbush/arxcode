@@ -27,10 +27,10 @@ from typeclasses.characters import Character
 from typeclasses.rooms import ArxRoom
 from web.character.models import AccountHistory, FirstContact
 from world.dominion.forms import RPEventCreateForm
-from world.dominion.models import (RPEvent, Agent, CraftingMaterialType, CraftingMaterials,
-                                   AssetOwner, Reputation, Member, PlotRoom,
+from world.dominion.models import (RPEvent, Agent, AssetOwner, Reputation, Member, PlotRoom,
                                    Organization, InfluenceCategory, PlotAction, PrestigeAdjustment,
                                    PrestigeCategory, PrestigeNomination)
+from world.crafting.models import CraftingMaterialType, CraftingMaterials
 from world.msgs.models import Journal, Messenger
 from world.msgs.managers import reload_model_as_proxy
 from world.stats_and_skills import do_dice_check
