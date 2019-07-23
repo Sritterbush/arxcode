@@ -45,18 +45,18 @@ class CraftingRecipe(CachedPropertiesMixin, SharedMemoryModel):
     difficulty = models.PositiveSmallIntegerField(blank=0, default=0)
     additional_cost = models.PositiveIntegerField(blank=0, default=0)
     # the ability/profession that is used in creating this
-    ability = models.CharField(blank=True, null=True, max_length=80, db_index=True)
-    skill = models.CharField(blank=True, null=True, max_length=80, db_index=True)
+    ability = models.CharField(blank=True, max_length=80, db_index=True)
+    skill = models.CharField(blank=True, max_length=80, db_index=True)
     # the type of object we're creating
-    type = models.CharField(blank=True, null=True, max_length=80)
+    type = models.CharField(blank=True, max_length=80)
     # level in ability this recipe corresponds to. 1 through 6, usually
-    level = models.PositiveSmallIntegerField(blank=1, default=1)
+    level = models.PositiveSmallIntegerField(default=1)
     allow_adorn = models.BooleanField(default=True, blank=True)
 
     def org_owners(self):
-        return self.known_by.select_related('organization_owner').filter(organization_owner__isnull=False)
+        return list(self.known_by.select_related('organization_owner').filter(organization_owner__isnull=False))
 
-    org_owners = CachedProperty(org_owners, '_org_owners')
+    org_owners = CachedProperty(org_owners, '_org_owners')  # type: list
 
     def can_be_learned_by(self, learner):
         """Returns True if learner can learn this recipe, False otherwise"""
