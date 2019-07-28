@@ -13,7 +13,7 @@ from .models import (PlayerOrNpc, Organization, Agent, AgentOb, MapLocation,
                      Renown, SphereOfInfluence, TaskRequirement, ClueForOrg,
                      PlotRoom, Landmark, PrestigeTier, PrestigeCategory, PrestigeAdjustment,
                      Honorific, Propriety, PCEventParticipation, OrgEventParticipation, Fealty)
-from world.crafting.models import CraftingRecipe, CraftingMaterialType, CraftingMaterials
+from world.crafting.models import CraftingRecipe, CraftingMaterialType, OwnedMaterial
 
 from world.dominion.plots.models import (Plot, PlotAction, PlotUpdate, ActionOOCQuestion,
                                          PCPlotInvolvement, OrgPlotInvolvement, PlotActionAssistant)
@@ -256,7 +256,7 @@ class ReceiveTransactionInline(admin.TabularInline):
 
 class MaterialsInline(admin.TabularInline):
     """Inline for amounts of materials an assetowner has"""
-    model = CraftingMaterials
+    model = OwnedMaterial
     extra = 0
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):

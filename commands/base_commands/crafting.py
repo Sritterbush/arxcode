@@ -11,7 +11,7 @@ from evennia.utils.utils import make_iter
 from server.utils.arx_utils import validate_name, inform_staff
 from server.utils.prettytable import PrettyTable
 from world.dominion.models import (AssetOwner, PlayerOrNpc)
-from world.crafting.models import CraftingRecipe, CraftingMaterialType, CraftingMaterials
+from world.crafting.models import CraftingRecipe, CraftingMaterialType, OwnedMaterial
 from world.dominion.setup_utils import setup_dom_for_char
 from world.stats_and_skills import do_dice_check
 from world.templates.mixins import TemplateMixins
@@ -447,7 +447,7 @@ class CmdCraft(ArxCommand, TemplateMixins):
                         if pmat.amount < amt:
                             caller.msg("You need %s of %s, and only have %s." % (amt, mat.name, pmat.amount))
                             return
-                    except CraftingMaterials.DoesNotExist:
+                    except OwnedMaterial.DoesNotExist:
                         caller.msg("You do not have any of the material %s." % mat.name)
                         return
                     pmat.amount -= amt
@@ -710,7 +710,7 @@ class CmdCraft(ArxCommand, TemplateMixins):
                             caller.msg("You need %s of %s, and only have %s." % (mats[mat], c_mat.name, pmat.amount))
                             return
                         realvalue += c_mat.value * mats[mat]
-                    except CraftingMaterials.DoesNotExist:
+                    except OwnedMaterial.DoesNotExist:
                         caller.msg("You do not have any of the material %s." % c_mat.name)
                         return
                 # check if they have enough action points

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from collections import Counter
 from django.db import models
 
 # Create your models here.
@@ -38,10 +39,10 @@ class CraftingRecipe(CachedPropertiesMixin, SharedMemoryModel):
     are used for wearable objects to denote the slot they're worn in and
     how many other objects may be worn in that slot, respectively.
     """
-    name = models.CharField(blank=True, null=True, max_length=255, db_index=True)
-    desc = models.TextField(blank=True, null=True)
+    name = models.CharField(blank=True, max_length=255, unique=True)
+    desc = models.TextField(blank=True)
     # organizations or players that know this recipe
-    known_by = models.ManyToManyField('dominion.AssetOwner', blank=True, related_name='recipes', db_index=True)
+    known_by = models.ManyToManyField('dominion.AssetOwner', blank=True, related_name='recipes')
     difficulty = models.PositiveSmallIntegerField(blank=0, default=0)
     additional_cost = models.PositiveIntegerField(blank=0, default=0)
     # the ability/profession that is used in creating this
@@ -51,7 +52,8 @@ class CraftingRecipe(CachedPropertiesMixin, SharedMemoryModel):
     type = models.CharField(blank=True, max_length=80)
     # level in ability this recipe corresponds to. 1 through 6, usually
     level = models.PositiveSmallIntegerField(default=1)
-    allow_adorn = models.BooleanField(default=True, blank=True)
+    allow_adorn = models.BooleanField(default=True)
+    baseval = models.IntegerField("Value used for things like weapon damage, armor rating, etc.", default=0)
 
     def org_owners(self):
         return list(self.known_by.select_related('organization_owner').filter(organization_owner__isnull=False))
@@ -71,6 +73,13 @@ class CraftingRecipe(CachedPropertiesMixin, SharedMemoryModel):
     @CachedProperty
     def cached_required_materials(self):
         return list(self.required_materials.all())
+
+    @property
+    def materials_counter(self):
+        counter = Counter()
+        for req in self.cached_required_materials:
+            counter.update({req.type: req.amount})
+        return counter
 
     @property
     def primary_requirements(self):
@@ -122,6 +131,84 @@ class CraftingRecipe(CachedPropertiesMixin, SharedMemoryModel):
 
     def __str__(self):
         return self.name or "Unknown"
+
+    def calculate_quality_from_roll(self, roll):
+        diff = self.difficulty
+        roll += diff
+        if roll < diff / 4:
+            return 0
+        if roll < (diff * 3) / 4:
+            return 1
+        if roll < diff * 1.2:
+            return 2
+        if roll < diff * 1.6:
+            return 3
+        if roll < diff * 2:
+            return 4
+        if roll < diff * 2.5:
+            return 5
+        if roll < diff * 3.5:
+            return 6
+        if roll < diff * 5:
+            return 7
+        if roll < diff * 7:
+            return 8
+        if roll < diff * 10:
+            return 9
+        return 10
+
+    def create_object(self, crafter, roll, adornment_map):
+        """
+        Crafts a new object for this recipe by the crafter. All costs are assumed to have
+        already been paid at this point and success is guaranteed
+        Args:
+            crafter (Character): Character who created the object
+            roll (int): The roll for crafting success
+            adornment_map (dict): Dict of CraftingMaterialType and quantities
+
+        Returns:
+            The new object with the CraftingRecord and Adornments already applied.
+        """
+        obj = create.create_object(self.type)
+        self.crafting_records.create(object=obj, crafter=crafter, base_quality=self.calculate_quality_from_roll(roll))
+        for material, amount in adornment_map.items():
+            obj.add_adornment(material, amount)
+        return obj
+
+
+class RecipeExtentions(models.Model):
+    """Some of the recipes will have slightly different fields. For example, armor"""
+    recipe = models.OneToOneField("crafting.CraftingRecipe", on_delete=models.CASCADE)
+
+    class Meta:
+        abstract = True
+
+
+class WearableStats(RecipeExtentions):
+    """
+    Stats for wearable recipes, which is armor and pure fashion items. Slot will probably become a foreignkey
+    eventually.
+    """
+    slot = models.CharField(max_length=80, blank=True)
+    slot_volume = models.PositiveSmallIntegerField("How much space we take up. 100 is all of it.", default=0)
+    fashion_mult = models.PositiveIntegerField("Percentage multiplier when used for fashion", default=0)
+    penalty = models.SmallIntegerField("How much the armor impedes movement", default=0)
+    resilience = models.SmallIntegerField("How easy the armor is to penetrate", default=0)
+
+
+class WeaponStats(RecipeExtentions):
+    """
+    Stats for a Weapon Recipe. Currently just has the weapon skill, which will probably eventually become a
+    foreignkey when skills/abilities are converted into a proper model. We'll probably add more stats here when
+    we revamp combat.
+    """
+    MEDIUM_WPN = "medium wpn"
+    SMALL_WPN = "small wpn"
+    HUGE_WPN = "huge wpn"
+    ARCHERY = "archery"
+    WPN_SKILL_CHOICES = ((SMALL_WPN, "Small Weapons"), (MEDIUM_WPN, "Medium Weapons"), (HUGE_WPN, "Huge Weapons"),
+                         (ARCHERY, "Archery"))
+    weapon_skill = models.CharField(max_length=80, blank=True, choices=WPN_SKILL_CHOICES, default=MEDIUM_WPN)
 
 
 class CraftingMaterialType(SharedMemoryModel):
@@ -187,7 +274,7 @@ class RecipeRequirement(AbstractMaterialAmount):
 
 class Adornment(AbstractMaterialAmount):
     """Materials contained within an object, such as adornments, or when used as a loot object"""
-    object = models.ForeignKey('objects.ObjectDB', on_delete=models.CASCADE)
+    object = models.ForeignKey('objects.ObjectDB', on_delete=models.CASCADE, related_name="adornments")
 
     class Meta:
         default_related_name = "object_materials"
@@ -204,3 +291,15 @@ class OwnedMaterial(AbstractMaterialAmount):
         """Define Django meta options"""
         verbose_name_plural = "Owned Materials"
         default_related_name = "materials"
+
+
+class CraftingRecord(models.Model):
+    """
+    This is where stats for crafting an object are really recorded. We'll store data on who the crafter was,
+    the current quality level, progress toward increasing the quality level, damage it has taken, etc.
+    """
+    object = models.OneToOneField('objects.ObjectDB', on_delete=models.CASCADE, related_name="crafting_record")
+    recipe = models.ForeignKey('crafting.CraftingRecipe', on_delete=models.CASCADE, related_name="crafting_records")
+    base_quality = models.SmallIntegerField("Quality without other modifiers", default=5)
+    refining_progress = models.SmallIntegerField(default=0)
+    damage = models.SmallIntegerField("Current damage, which affects quality", default=0)
