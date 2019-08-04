@@ -109,12 +109,16 @@ class Wearable(FashionableMixins, Object):
         recipe = self.recipe
         if not recipe:
             return self.db.armor_class or 0, self.db.penalty or 0, self.db.armor_resilience or 0
-        base = float(recipe.resultsdict.get("baseval", 0.0))
-        scaling = float(recipe.resultsdict.get("scaling", (base/10.0) or 0.2))
-        penalty = float(recipe.resultsdict.get("penalty", 0.0))
+        base = recipe.baseval / 100.0
+        scaling = recipe.scaling
+        if scaling is None:
+            scaling = (base / 10.0) or 0.2
+        else:
+            scaling /= 100.0
+        penalty = recipe.wearable_stats.penalty / 100.0
         resilience = penalty / 3
         if quality >= 10:
-            crafter = self.db.crafted_by
+            crafter = self.crafted_by
             if (recipe.level > 3) or not crafter or crafter.check_permstring("builders"):
                 base += 1
         if not base:

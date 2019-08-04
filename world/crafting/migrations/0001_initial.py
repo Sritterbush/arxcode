@@ -15,6 +15,21 @@ attributes_to_delete = [
     "materials",
     "adorns",
     "quality_level",
+    "crafted_by",
+    "stealth",
+    "sense_difficulty",
+    "attack_skill",
+    "attack_stat",
+    "damage_stat",
+    "damage_bonus",
+    "attack_type",
+    "can_be_parried",
+    "can_be_blocked",
+    "can_be_dodged",
+    "can_be_countered",
+    "can_parry",
+    "can_riposte",
+    "difficulty_mod"
 ]
 
 

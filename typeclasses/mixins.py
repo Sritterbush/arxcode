@@ -724,6 +724,13 @@ class CraftingMixins(object):
         except AttributeError:
             return None
 
+    @property
+    def crafted_by(self):
+        try:
+            return self.crafting_record.crafted_by
+        except AttributeError:
+            return None
+
     def return_crafting_desc(self):
         """
         :type self: ObjectDB

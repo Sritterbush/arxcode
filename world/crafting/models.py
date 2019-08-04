@@ -10,25 +10,6 @@ from evennia.utils.idmapper.models import SharedMemoryModel
 from server.utils.arx_utils import CachedProperty, CachedPropertiesMixin
 
 
-class Mats(object):
-    """helper classes for crafting recipe to simplify API - allow for 'recipe.materials.all()'"""
-    def __init__(self, mat, amount):
-        self.mat = mat
-        self.id = mat.id
-        self.type = mat
-        self.amount = amount
-
-
-class MatList(object):
-    """Helper class for list of mats used"""
-    def __init__(self):
-        self.mats = []
-
-    def all(self):
-        """All method to simplify API"""
-        return self.mats
-
-
 class CraftingRecipe(CachedPropertiesMixin, SharedMemoryModel):
     """
     For crafting, a recipe has a name, description, then materials. A lot of information
@@ -54,6 +35,7 @@ class CraftingRecipe(CachedPropertiesMixin, SharedMemoryModel):
     level = models.PositiveSmallIntegerField(default=1)
     allow_adorn = models.BooleanField(default=True)
     baseval = models.IntegerField("Value used for things like weapon damage, armor rating, etc.", default=0)
+    scaling = models.IntegerField("Override of how much to modify baseval per quality level.", null=True, default=None)
 
     def org_owners(self):
         return list(self.known_by.select_related('organization_owner').filter(organization_owner__isnull=False))
@@ -176,39 +158,22 @@ class CraftingRecipe(CachedPropertiesMixin, SharedMemoryModel):
         return obj
 
 
-class RecipeExtentions(models.Model):
-    """Some of the recipes will have slightly different fields. For example, armor"""
-    recipe = models.OneToOneField("crafting.CraftingRecipe", on_delete=models.CASCADE)
-
-    class Meta:
-        abstract = True
-
-
-class WearableStats(RecipeExtentions):
+class WearableStats(models.Model):
     """
     Stats for wearable recipes, which is armor and pure fashion items. Slot will probably become a foreignkey
-    eventually.
+    eventually, or a Many-to-Many for recipes that'd cover more than one slot. Maybe. Outfits could make that
+    unnecessary.
     """
+    ANY, INNER, OUTER = range(3)
+    LAYER_CHOICES = ((ANY, "Any"), (INNER, "Inner"), (OUTER, "Outer"))
+    recipe = models.OneToOneField("crafting.CraftingRecipe", on_delete=models.CASCADE, related_name="wearable_stats")
     slot = models.CharField(max_length=80, blank=True)
-    slot_volume = models.PositiveSmallIntegerField("How much space we take up. 100 is all of it.", default=0)
-    fashion_mult = models.PositiveIntegerField("Percentage multiplier when used for fashion", default=0)
+    slot_volume = models.PositiveSmallIntegerField("How much space we take up. 100 is all of it.", default=100)
+    layer = models.PositiveSmallIntegerField("Whether this item must be worn as inner or outerwear", default=ANY,
+                                             choices=LAYER_CHOICES)
+    fashion_mult = models.PositiveIntegerField("Override FashionableMixin if specified", null=True, default=None)
     penalty = models.SmallIntegerField("How much the armor impedes movement", default=0)
     resilience = models.SmallIntegerField("How easy the armor is to penetrate", default=0)
-
-
-class WeaponStats(RecipeExtentions):
-    """
-    Stats for a Weapon Recipe. Currently just has the weapon skill, which will probably eventually become a
-    foreignkey when skills/abilities are converted into a proper model. We'll probably add more stats here when
-    we revamp combat.
-    """
-    MEDIUM_WPN = "medium wpn"
-    SMALL_WPN = "small wpn"
-    HUGE_WPN = "huge wpn"
-    ARCHERY = "archery"
-    WPN_SKILL_CHOICES = ((SMALL_WPN, "Small Weapons"), (MEDIUM_WPN, "Medium Weapons"), (HUGE_WPN, "Huge Weapons"),
-                         (ARCHERY, "Archery"))
-    weapon_skill = models.CharField(max_length=80, blank=True, choices=WPN_SKILL_CHOICES, default=MEDIUM_WPN)
 
 
 class CraftingMaterialType(SharedMemoryModel):
@@ -233,7 +198,7 @@ class CraftingMaterialType(SharedMemoryModel):
         # uses same method from CraftingRecipe in order to create a dict of our mods
         self.mods = CraftingRecipe.parse_result(self.acquisition_modifiers)
 
-    def __unicode__(self):
+    def __str__(self):
         return self.name or "Unknown"
 
     def create_instance(self, quantity):
@@ -303,3 +268,5 @@ class CraftingRecord(models.Model):
     base_quality = models.SmallIntegerField("Quality without other modifiers", default=5)
     refining_progress = models.SmallIntegerField(default=0)
     damage = models.SmallIntegerField("Current damage, which affects quality", default=0)
+    crafted_by = models.ForeignKey('objects.ObjectDB', on_delete=models.SET_NULL, related_name="crafted_objects_record",
+                                   null=True, blank=True)
