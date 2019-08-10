@@ -18,19 +18,18 @@ class Wearable(FashionableMixins, Object):
     Class for wearable objects
     """
     default_desc = "A piece of clothing or armor."
+
     def at_object_creation(self):
         """
         Run at Wearable creation.
         """
-        self.is_worn = False
-        self.db.armor_class = 0
         self.at_init()
 
     def softdelete(self):
         """Fake-deletes the object so that it can still be cancelled, is purged in weekly maintenance"""
         if self.is_worn:
             wearer = self.location
-            self.is_worn = False
+            self.set_removed()
             self.at_post_remove(wearer)
         modi = self.modusornamenta_set.all()
         for mo in modi:
@@ -62,7 +61,7 @@ class Wearable(FashionableMixins, Object):
         """
         if not self.is_worn:
             raise EquipError("not equipped")
-        self.is_worn = False
+        self.set_removed()
         self.at_post_remove(wearer)
 
     def at_post_remove(self, wearer):
@@ -76,10 +75,18 @@ class Wearable(FashionableMixins, Object):
         """
         # Assume fail exceptions are raised at_pre_wear
         self.at_pre_wear(wearer)
-        self.is_worn = True
+        self.set_worn()
+        self.at_post_wear(wearer)
+
+    def set_worn(self):
+        self.tags.add("currently_worn")
         if self.decorative:
             self.db.worn_time = time()
-        self.at_post_wear(wearer)
+
+    def set_removed(self):
+        self.tags.remove("currently_worn")
+        if self.decorative:
+            self.attributes.remove("worn_time")
 
     def at_pre_wear(self, wearer):
         """Hook called before wearing for any checks."""
@@ -203,12 +210,7 @@ class Wearable(FashionableMixins, Object):
 
     @property
     def is_worn(self):
-        return self.db.currently_worn
-
-    @is_worn.setter
-    def is_worn(self, bull):
-        """Bool luvs u"""
-        self.db.currently_worn = bull
+        return self.tags.get("currently_worn")
 
     @property
     def is_equipped(self):

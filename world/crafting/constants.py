@@ -6,7 +6,7 @@ we create for different recipes.
 SMALL_WPN = "typeclasses.wearable.wieldable.Wieldable"
 MEDIUM_WPN = "typeclasses.wearable.wieldable.Wieldable"
 HUGE_WPN = "typeclasses.wearable.wieldable.Wieldable"
-BOW = "typeclasses.wearable.wieldable.Wieldable"
+BOW = "typeclasses.wearable.wieldable.RangedWeapon"
 DECORATIVE_WIELD = "typeclasses.wearable.decorative_weapon.DecorativeWieldable"
 WEAR = "typeclasses.wearable.wearable.Wearable"
 PLACE = "typeclasses.places.places.Place"

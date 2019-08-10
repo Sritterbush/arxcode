@@ -765,7 +765,6 @@ class CraftingMixins(object):
     def type_description(self):
         if self.recipe:
             return self.recipe.name
-
         return None
 
     @property
@@ -776,7 +775,25 @@ class CraftingMixins(object):
 
     @property
     def quality_level(self):
-        return self.crafting_record.quality_level
+        try:
+            return self.crafting_record.quality_level
+        except AttributeError:
+            return self.db.quality_level or 0
+
+    @property
+    def baseval(self):
+        try:
+            base = self.recipe.baseval
+            crafter = self.crafted_by
+            if (self.recipe.level > 3) or not crafter or crafter.check_permstring("builders"):
+                base += 1
+            return base
+        except AttributeError:
+            return self.db.baseval or 0
+
+    @property
+    def ignore_crafted(self):
+        return self.tags.get("ignore_crafted")
 
     def get_quality_appearance(self):
         """

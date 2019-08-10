@@ -16,6 +16,9 @@ attributes_to_delete = [
     "adorns",
     "quality_level",
     "crafted_by",
+    # for weapons
+    "is_wieldable",
+    "armor_class",  # note - filter by typeclass when removing that
     "stealth",
     "sense_difficulty",
     "attack_skill",
@@ -29,7 +32,15 @@ attributes_to_delete = [
     "can_be_countered",
     "can_parry",
     "can_riposte",
-    "difficulty_mod"
+    "difficulty_mod",
+    "ignore_crafted",
+    "currently_wielded",
+    # wearable
+    "currently_worn",
+    "slot_limit",
+    "penalty",
+    "worn_time",  # if we come up with better way for displaying order
+
 ]
 
 
