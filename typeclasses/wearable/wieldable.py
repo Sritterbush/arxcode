@@ -160,17 +160,6 @@ class Wieldable(Wearable):
     def ready_phrase(self):
         return self.db.ready_phrase or "wields %s" % self.name
 
-    @property
-    def scaling(self):
-        try:
-            val = self.recipe.scaling
-            if val is None:
-                val = 0.2
-            else:
-                val = self.baseval/20.0
-        except AttributeError:
-            return self.db.scaling or 0.2
-
     def calc_armor(self):
         """Sheathed/worn weapons have no armor value or other modifiers"""
         return 0, 0, 0
@@ -201,7 +190,7 @@ class Wieldable(Wearable):
     @property
     def flat_damage(self):
         flat = self.db.flat_damage_bonus or 0
-        if not self.db.recipe or self.db.ignore_crafted:
+        if not self.recipe or self.ignore_crafted:
             return flat
         flat += (self.quality_level - 2) * 2
         return flat

@@ -139,7 +139,7 @@ class CraftingRecipe(CachedPropertiesMixin, SharedMemoryModel):
             return 9
         return 10
 
-    def create_object(self, crafter, roll, adornment_map):
+    def create_object(self, crafter=None, roll=0, adornment_map=None, quality=None, **kwargs):
         """
         Crafts a new object for this recipe by the crafter. All costs are assumed to have
         already been paid at this point and success is guaranteed
@@ -147,12 +147,14 @@ class CraftingRecipe(CachedPropertiesMixin, SharedMemoryModel):
             crafter (Character): Character who created the object
             roll (int): The roll for crafting success
             adornment_map (dict): Dict of CraftingMaterialType and quantities
-
+            quality (int): If specified, set quality and ignore roll
         Returns:
             The new object with the CraftingRecord and Adornments already applied.
         """
-        obj = create.create_object(self.type)
-        self.crafting_records.create(object=obj, crafter=crafter, base_quality=self.calculate_quality_from_roll(roll))
+        adornment_map = adornment_map or {}
+        obj = create.create_object(self.type, **kwargs)
+        base_quality = quality if isinstance(quality, int) else self.calculate_quality_from_roll(roll)
+        self.crafting_records.create(object=obj, crafter=crafter, base_quality=base_quality)
         for material, amount in adornment_map.items():
             obj.add_adornment(material, amount)
         return obj
@@ -185,21 +187,16 @@ class CraftingMaterialType(SharedMemoryModel):
     difficult it is to fake it as another material of the same category
     """
     # the type of material we are
-    name = models.CharField(max_length=80, db_index=True)
-    desc = models.TextField(blank=True, null=True)
+    name = models.CharField(max_length=80, unique=True)
+    desc = models.TextField(blank=True)
     # silver value per unit
-    value = models.PositiveIntegerField(blank=0, default=0)
-    category = models.CharField(blank=True, null=True, max_length=80, db_index=True)
+    value = models.PositiveIntegerField(default=0)
+    category = models.CharField(blank=True, max_length=80, db_index=True)
     # Text we can parse for notes about cost modifiers for different orgs, locations to obtain, etc
-    acquisition_modifiers = models.TextField(blank=True, null=True)
-
-    def __init__(self, *args, **kwargs):
-        super(CraftingMaterialType, self).__init__(*args, **kwargs)
-        # uses same method from CraftingRecipe in order to create a dict of our mods
-        self.mods = CraftingRecipe.parse_result(self.acquisition_modifiers)
+    acquisition_modifiers = models.TextField(blank=True)
 
     def __str__(self):
-        return self.name or "Unknown"
+        return self.name
 
     def create_instance(self, quantity):
         name_string = self.name

@@ -205,13 +205,13 @@ class MaterialTypeAdmin(DomAdmin):
     list_filter = ('category',)
 
 
-class RecipeAdmin(DomAdmin):
-    """Admin for crafting recipes"""
-    list_display = ('id', 'name', 'result', 'skill', 'ability', 'level', 'difficulty')
-    ordering = ['ability', 'level', 'name']
-    search_fields = ['name', 'ability', 'skill', 'result']
-    list_filter = ('ability',)
-    filter_horizontal = ['known_by', 'primary_materials', 'secondary_materials', 'tertiary_materials']
+# class RecipeAdmin(DomAdmin):
+#     """Admin for crafting recipes"""
+#     list_display = ('id', 'name', 'result', 'skill', 'ability', 'level', 'difficulty')
+#     ordering = ['ability', 'level', 'name']
+#     search_fields = ['name', 'ability', 'skill', 'result']
+#     list_filter = ('ability',)
+#     filter_horizontal = ['known_by', 'primary_materials', 'secondary_materials', 'tertiary_materials']
 
 
 class PCEventParticipantInline(admin.TabularInline):
@@ -786,7 +786,7 @@ admin.site.register(Region, DomAdmin)
 admin.site.register(Land, LandAdmin)
 admin.site.register(Task, TaskAdmin)
 admin.site.register(Ruler, RulerAdmin)
-admin.site.register(CraftingRecipe, RecipeAdmin)
+# admin.site.register(CraftingRecipe, RecipeAdmin)
 admin.site.register(CraftingMaterialType, MaterialTypeAdmin)
 admin.site.register(RPEvent, EventAdmin)
 admin.site.register(Plot, PlotAdmin)

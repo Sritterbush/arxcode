@@ -10,7 +10,6 @@ from world.templates.mixins import TemplateMixins
 from world.templates.models import Template
 
 
-
 class DescMixins(object):
     """
     Handles descriptions for objects, which is controlled by three
@@ -110,18 +109,6 @@ class DescMixins(object):
         self.db.raw_desc = val
         self.ndb.cached_template_desc = None
     perm_desc = property(__perm_desc_get, __perm_desc_set)
-
-    def __get_volume(self):
-        """
-        :type self: ObjectDB
-        """
-        total = 0
-        for obj in self.contents:
-            if not obj.db.currently_worn and obj.db.sheathed_by != self:
-                vol = obj.db.volume or 1
-                total += vol
-        return total
-    volume = property(__get_volume)
 
     @property
     def health_status(self):
@@ -244,17 +231,12 @@ class NameMixins(object):
 
 # noinspection PyAttributeOutsideInit
 class BaseObjectMixins(object):
-    @property
-    def is_room(self):
-        return False
-
-    @property
-    def is_exit(self):
-        return False
-
-    @property
-    def is_character(self):
-        return False
+    is_room = False
+    is_exit = False
+    is_character = False
+    is_container = False
+    max_volume = 0  # carrying capacity
+    volume = 1  # space something takes up
 
     @property
     def player(self):
@@ -263,6 +245,11 @@ class BaseObjectMixins(object):
     @player.setter
     def player(self, value):
         self.account = value
+
+    @property
+    def used_volume(self):
+        """How much of our volume is currently filled with other objects"""
+        return sum(ob.volume for ob in self.contents)
 
     def softdelete(self):
         """
@@ -639,6 +626,12 @@ class ObjectMixins(DescMixins, AppearanceMixins, ModifierMixin, TriggersMixin):
     def has_player(self):
         return self.has_account
 
+    def at_object_creation(self):
+        """
+        Run at Wearable creation.
+        """
+        self.at_init()
+
 
 class CraftingMixins(object):
     do_not_format_desc = True
@@ -790,6 +783,18 @@ class CraftingMixins(object):
             return base
         except AttributeError:
             return self.db.baseval or 0
+
+    @property
+    def scaling(self):
+        try:
+            val = self.recipe.scaling
+            if val is None:
+                val = 0.2
+            else:
+                val = self.baseval / 20.0
+            return val
+        except AttributeError:
+            return self.db.scaling or 0.2
 
     @property
     def ignore_crafted(self):

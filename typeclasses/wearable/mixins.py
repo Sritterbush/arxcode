@@ -196,3 +196,10 @@ class UseEquipmentMixins(object):
     def is_naked(self):
         """Confirms a character has no worn, sheathed, or wielded items."""
         return not any([self.worn, self.sheathed, self.wielded])
+
+    @property
+    def used_volume(self):
+        """The idea here is the only objects that take up carrying space are things which we aren't worn -
+        it's just objects that the character is physically holding. So weapons count, but worn clothes do not.
+        """
+        return sum(ob.volume for ob in self.contents if not ob.is_worn)

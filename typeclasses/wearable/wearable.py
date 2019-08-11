@@ -19,12 +19,6 @@ class Wearable(FashionableMixins, Object):
     """
     default_desc = "A piece of clothing or armor."
 
-    def at_object_creation(self):
-        """
-        Run at Wearable creation.
-        """
-        self.at_init()
-
     def softdelete(self):
         """Fake-deletes the object so that it can still be cancelled, is purged in weekly maintenance"""
         if self.is_worn:

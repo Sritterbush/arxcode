@@ -213,52 +213,44 @@ class TestEquipmentMixins(object):
     def setUp(self):
         super(TestEquipmentMixins, self).setUp()
         from evennia.utils import create
-        from typeclasses.wearable.wearable import Wearable, WearableContainer
-        from typeclasses.disguises.disguises import Mask
-        from typeclasses.wearable.wieldable import Wieldable
-        from typeclasses.wearable.decorative_weapon import DecorativeWieldable
         from world.dominion.models import Organization, AssetOwner
         from world.crafting.models import CraftingMaterialType
-        from world.crafting.models import CraftingRecipe
-        wearable_typeclass = Wearable
-        purse_typeclass = WearableContainer
-        weapon_typeclass = Wieldable
-        hairpin_typeclass = DecorativeWieldable
-        mask_typeclass = Mask
+        from world.crafting.models import CraftingRecipe, WearableStats, RecipeRequirement
+        wearable_typeclass = "typeclasses.wearable.wearable.Wearable"
+        purse_typeclass = "typeclasses.wearable.wearable.WearableContainer"
+        weapon_typeclass = "typeclasses.wearable.wieldable.Wieldable"
+        small_weapon_typeclass = "typeclasses.wearable.wieldable.SmallWeapon"
+        hairpin_typeclass = "typeclasses.wearable.decorative_weapon.DecorativeWieldable"
+        mask_typeclass = "typeclasses.disguises.disguises.Mask"
         self.org = Organization.objects.create(name="Orgtest")
         AssetOwner.objects.create(organization_owner=self.org)
         self.org.members.create(player=self.dompc)
         self.mat1 = CraftingMaterialType.objects.create(name="Mat1", value=100)
-        self.recipe1 = CraftingRecipe.objects.create(name="Top 1 Slot", ability="tailor",
-                                                     primary_amount=5, level=5,
-                                                     result="slot:chest;slot_limit:1;baseval:1;penalty:2")
-        self.recipe2 = CraftingRecipe.objects.create(name="Top 2 Slot", ability="leatherworker",
-                                                     primary_amount=6, level=6,
-                                                     result="slot:chest;slot_limit:2")
-        self.recipe3 = CraftingRecipe.objects.create(name="Bag", ability="leatherworker",
-                                                     primary_amount=5, level=5,
-                                                     result="slot:bag;slot_limit:2;baseval:40")
+        self.recipe1 = CraftingRecipe.objects.create(name="Top 1 Slot", ability="tailor", level=5, baseval=1,
+                                                     type=wearable_typeclass)
+        WearableStats.objects.create(recipe=self.recipe1, slot="chest", slot_volume=100, penalty=2)
+        self.recipe2 = CraftingRecipe.objects.create(name="Top 2 Slot", ability="leatherworker", level=6,
+                                                     type=wearable_typeclass)
+        WearableStats.objects.create(recipe=self.recipe2, slot="chest", slot_volume=50)
+        self.recipe3 = CraftingRecipe.objects.create(name="Bag", ability="leatherworker", primary_amount=5, level=5,
+                                                     baseval=40, type=purse_typeclass)
+        WearableStats.objects.create(recipe=self.recipe3, slot="bag", slot_volume=50)
         self.recipe4 = CraftingRecipe.objects.create(name="Small Weapon", ability="weaponsmith",
-                                                     primary_amount=4, level=4,
-                                                     result="baseval:1;weapon_skill:small wpn")
+                                                     primary_amount=4, level=4, baseval=1, type=small_weapon_typeclass)
         self.recipe5 = CraftingRecipe.objects.create(name="Hairpins", ability="weaponsmith",
-                                                     primary_amount=4, level=4,
-                                                     result="slot:hair;slot_limit:2;baseval:4;")
+                                                     primary_amount=4, level=4, baseval=4, type=hairpin_typeclass)
+        WearableStats.objects.create(recipe=self.recipe5, slot="hair", slot_volume=50)
         self.recipe6 = CraftingRecipe.objects.create(name="Mask", ability="apothecary",
-                                                     primary_amount=4, level=4,
-                                                     result="slot:face;slot_limit:1;fashion_mult:6")
+                                                     primary_amount=4, level=4, type=mask_typeclass)
+        WearableStats.objects.create(recipe=self.recipe6, slot="face", slot_volume=100, fashion_mult=6)
         self.recipe7 = CraftingRecipe.objects.create(name="Medium Weapon", ability="weaponsmith",
-                                                     primary_amount=4, level=4,
-                                                     result="baseval:5")
+                                                     primary_amount=4, level=4, baseval=5, type=weapon_typeclass)
         self.test_recipes = [self.recipe1, self.recipe2, self.recipe3, self.recipe4, self.recipe5,
                              self.recipe6, self.recipe7]
         for recipe in self.test_recipes:
-            recipe.primary_materials.add(self.mat1)
-            recipe.locks.add("learn:all();teach:all()")
-            recipe.save()
+            RecipeRequirement.objects.create(recipe=recipe, type=self.mat1, amount=recipe.level)
         # Top1 is a wearable object with no recipe or crafter designated
-        self.top1 = create.create_object(wearable_typeclass, key="Top1", location=self.room1, home=self.room1)
-        self.top1.db.quality_level = 6
+        self.top1 = self.recipe1.create(quality=6, location=self.room1, home=self.room1)
         # Top2 is a 1-slot_limit chest Wearable made by non-staff char2
         self.top2 = create.create_object(wearable_typeclass, key="Top2", location=self.char2,
                                          home=self.room1)
@@ -279,7 +271,7 @@ class TestEquipmentMixins(object):
         self.purse1.db.recipe = 3
         self.purse1.db.crafted_by = self.char2
         # Imps leer when they lick a knife
-        self.knife1 = create.create_object(weapon_typeclass, key="Lickyknife1", location=self.char2,
+        self.knife1 = create.create_object(small_weapon_typeclass, key="Lickyknife1", location=self.char2,
                                            home=self.room1)
         self.knife1.db.quality_level = 11
         self.knife1.db.recipe = 4
