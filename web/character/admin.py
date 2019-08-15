@@ -240,7 +240,7 @@ class ClueAdmin(BaseCharAdmin):
     def current_investigations(self, obj):
         return ", ".join('<a href="%s">%s</a>' % (reverse("admin:character_investigation_change", args=[inv.id]),
                                                   escape(str(inv)))
-                         for inv in obj.investigations.filter(ongoing=True))
+                         for inv in obj.investigation_set.filter(ongoing=True))
     current_investigations.allow_tags = True
 
 
