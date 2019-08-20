@@ -24,7 +24,7 @@ class Perfume(Consumable):
 
     @desc.setter
     def desc(self, value):
-        super(Perfume, self).desc = value
+        self.db.desc = value
 
     @property
     def quality_prefix(self):
