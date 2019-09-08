@@ -32,9 +32,11 @@ class Wieldable(Wearable):
     can_be_parried = True
     can_be_blocked = True
     can_be_countered = True
+    can_be_dodged = True
     can_parry = True
     can_riposte = True
     base_difficulty_mod = 0
+    slot = "sheathed"
 
     def at_object_creation(self):
         """
@@ -79,14 +81,14 @@ class Wieldable(Wearable):
         """
         super(Wieldable, self).wear(wearer)
 
-    def at_pre_wear(self, wearer):
+    def at_pre_wear(self, wearer, layer=None):
         """Hook called before wearing to cease wielding and perform checks."""
         self.cease_wield()
-        super(Wieldable, self).at_pre_wear(wearer)
+        super(Wieldable, self).at_pre_wear(wearer, layer=layer)
 
-    def slot_check(self, wearer):
+    def slot_check(self, wearer, layer):
         if self.decorative:
-            super(Wieldable, self).slot_check(wearer)
+            super(Wieldable, self).slot_check(wearer, layer)
         else:
             sheathed = wearer.sheathed
             if len(sheathed) >= self.SHEATHED_LIMIT:
@@ -137,7 +139,6 @@ class Wieldable(Wearable):
 
     def at_post_wield(self, wielder):
         """Hook called after wielding succeeds."""
-        self.calc_weapon()
         if wielder:
             wielder.combat.setup_weapon(wielder.weapondata)
         self.announce_wield(wielder)

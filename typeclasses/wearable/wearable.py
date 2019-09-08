@@ -7,6 +7,7 @@ defined as an attribute.
 from typeclasses.objects import Object
 from time import time
 from typeclasses.containers.container import Container
+from world.crafting.constants import DEFAULT_LAYER
 from world.fashion.mixins import FashionableMixins
 from typeclasses.exceptions import EquipError
 
@@ -63,12 +64,12 @@ class Wearable(FashionableMixins, Object):
         return True
 
     # noinspection PyAttributeOutsideInit
-    def wear(self, wearer):
+    def wear(self, wearer, layer=None):
         """
         Puts item on the wearer.
         """
         # Assume fail exceptions are raised at_pre_wear
-        self.at_pre_wear(wearer)
+        self.at_pre_wear(wearer, layer=layer)
         self.set_worn()
         self.at_post_wear(wearer)
 
@@ -82,20 +83,31 @@ class Wearable(FashionableMixins, Object):
         if self.decorative:
             self.attributes.remove("worn_time")
 
-    def at_pre_wear(self, wearer):
+    def at_pre_wear(self, wearer, layer=None):
         """Hook called before wearing for any checks."""
         if self.is_worn:
             raise EquipError("already worn")
         if self.location != wearer:
             raise EquipError("misplaced")
-        self.slot_check(wearer)
+        if layer is None:
+            layer = self.default_layer
+        if layer not in self.allowed_layers:
+            raise EquipError("cannot be worn on that layer")
+        self.slot_check(wearer, layer)
 
-    def slot_check(self, wearer):
-        slot, slot_limit = self.slot, self.slot_limit
-        if slot and slot_limit:
-            worn = [ob for ob in wearer.worn if ob.slot == slot]
-            if len(worn) >= slot_limit:
-                raise EquipError("%s slot full" % slot)
+    @property
+    def default_layer(self):
+        try:
+            return self.recipe.wearable_stats.default_layer
+        except AttributeError:
+            return DEFAULT_LAYER
+
+    def slot_check(self, wearer, layer):
+        slot, slot_volume = self.slot, self.slot_volume
+        if slot and slot_volume:
+            total = wearer.get_total_volume_for_slot_and_layer(slot, layer)
+            if slot_volume + total > 100:
+                raise EquipError("You are wearing too much on '%s' slot: %s/100" % (slot, total))
 
     def at_post_wear(self, wearer):
         """Hook called after wearing succeeds."""
@@ -185,26 +197,42 @@ class Wearable(FashionableMixins, Object):
         recipe = self.recipe
         if not recipe:
             return self.db.slot
-        return recipe.resultsdict.get("slot", None)
+        return recipe.wearable_stats.slot
 
     @property
-    def slot_limit(self):
+    def allowed_layers(self):
+        """Layer that this item can be worn on"""
+        recipe = self.recipe
+        if not recipe:
+            return self.db.allowed_layers or []
+        return recipe.wearable_stats.allowed_layers
+
+    @property
+    def slot_volume(self):
         """how many can be worn on that slot"""
         recipe = self.recipe
         if not recipe:
-            return self.db.slot_limit or 1
-        try:
-            return int(recipe.resultsdict.get("slot_limit", 1))
-        except (TypeError, ValueError):
-            return 1
+            return self.db.slot_volume or 100
+        return recipe.wearable_stats.slot_volume
 
     @property
     def is_wearable(self):
         return True
 
     @property
+    def layer(self):
+        """Returns tuple"""
+        try:
+            return self.equipped_details.layer
+        except AttributeError:
+            return None
+
+    @property
     def is_worn(self):
-        return self.tags.get("currently_worn")
+        try:
+            return self.equipped_details.is_worn
+        except AttributeError:
+            return False
 
     @property
     def is_equipped(self):

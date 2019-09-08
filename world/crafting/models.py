@@ -8,6 +8,23 @@ from django.db import models
 from evennia.utils import create
 from evennia.utils.idmapper.models import SharedMemoryModel
 from server.utils.arx_utils import CachedProperty, CachedPropertiesMixin
+from world.crafting.constants import LAYERS, DEFAULT_LAYER
+
+
+QUALITY_LEVELS = {
+    0: '{rawful{n',
+    1: '{mmediocre{n',
+    2: '{caverage{n',
+    3: '{cabove average{n',
+    4: '{ygood{n',
+    5: '{yvery good{n',
+    6: '{gexcellent{n',
+    7: '{gexceptional{n',
+    8: '{gsuperb{n',
+    9: '{454perfect{n',
+    10: '{553divine{n',
+    11: '|355transcendent|n'
+    }
 
 
 class CraftingRecipe(CachedPropertiesMixin, SharedMemoryModel):
@@ -96,7 +113,7 @@ class CraftingRecipe(CachedPropertiesMixin, SharedMemoryModel):
                         amt = pcmat.amount
                     except IndexError:
                         amt = 0
-                    mat_msgs.append("%s: %s (%s/%s)" % (mat, req.amount, amt, mat))
+                    mat_msgs.append("%s: (%s/%s)" % (mat, amt, req.amount))
                 else:
                     mat_msgs.append("%s: %s" % (mat, req.amount))
         if mat_msgs:
@@ -139,7 +156,7 @@ class CraftingRecipe(CachedPropertiesMixin, SharedMemoryModel):
             return 9
         return 10
 
-    def create_object(self, crafter=None, roll=0, adornment_map=None, quality=None, **kwargs):
+    def create_object(self, crafter=None, roll=0, adornment_map=None, quality=None, key=None, disguise=None, **kwargs):
         """
         Crafts a new object for this recipe by the crafter. All costs are assumed to have
         already been paid at this point and success is guaranteed
@@ -148,15 +165,20 @@ class CraftingRecipe(CachedPropertiesMixin, SharedMemoryModel):
             roll (int): The roll for crafting success
             adornment_map (dict): Dict of CraftingMaterialType and quantities
             quality (int): If specified, set quality and ignore roll
+            key (str): Name for the object created. If not specified, use recipe as default
+            disguise (str): Default description for a disguise, if this item is a mask/disguise
         Returns:
             The new object with the CraftingRecord and Adornments already applied.
         """
         adornment_map = adornment_map or {}
-        obj = create.create_object(self.type, **kwargs)
+        key = key or "a {}".format(self.name)
+        obj = create.create_object(self.type, key=key, **kwargs)
         base_quality = quality if isinstance(quality, int) else self.calculate_quality_from_roll(roll)
-        self.crafting_records.create(object=obj, crafter=crafter, base_quality=base_quality)
+        record = self.crafting_records.create(object=obj, crafted_by=crafter, base_quality=base_quality)
         for material, amount in adornment_map.items():
             obj.add_adornment(material, amount)
+        if disguise:
+            record.set_disguise(description=disguise)
         return obj
 
 
@@ -166,7 +188,7 @@ class WearableStats(models.Model):
     eventually, or a Many-to-Many for recipes that'd cover more than one slot. Maybe. Outfits could make that
     unnecessary.
     """
-    ANY, INNER, OUTER = range(3)
+    ANY, INNER, OUTER = LAYERS
     LAYER_CHOICES = ((ANY, "Any"), (INNER, "Inner"), (OUTER, "Outer"))
     recipe = models.OneToOneField("crafting.CraftingRecipe", on_delete=models.CASCADE, related_name="wearable_stats")
     slot = models.CharField(max_length=80, blank=True)
@@ -176,6 +198,18 @@ class WearableStats(models.Model):
     fashion_mult = models.PositiveIntegerField("Override FashionableMixin if specified", null=True, default=None)
     penalty = models.SmallIntegerField("How much the armor impedes movement", default=0)
     resilience = models.SmallIntegerField("How easy the armor is to penetrate", default=0)
+
+    @property
+    def allowed_layers(self):
+        if self.layer == self.ANY:
+            return [self.INNER, self.OUTER]
+        return [self.layer]
+
+    @property
+    def default_layer(self):
+        if self.layer == self.ANY:
+            return DEFAULT_LAYER
+        return self.layer
 
 
 class CraftingMaterialType(SharedMemoryModel):
@@ -267,3 +301,32 @@ class CraftingRecord(models.Model):
     damage = models.SmallIntegerField("Current damage, which affects quality", default=0)
     crafted_by = models.ForeignKey('objects.ObjectDB', on_delete=models.SET_NULL, related_name="crafted_objects_record",
                                    null=True, blank=True)
+
+    def display_quality(self):
+        return QUALITY_LEVELS[self.quality_level]
+
+    def set_disguise(self, character=None, description=None, name=None):
+        description = description or ""
+        name = name or ""
+        disguise, _ = self.disguises.get_or_create(character=character)
+        disguise.name = name
+        disguise.description = description
+        disguise.save()
+
+    @property
+    def quality_level(self):
+        """Calculated quality"""
+        return self.base_quality - (self.damage // 100)
+
+
+class CraftedDisguise(models.Model):
+    """
+    Crafted disguises, generally from masks. If a character is specified, that disguise will be used for that
+    individual when worn. If no character is specified, it's a default that's used for anyone without a specific
+    disguise.
+    """
+    record = models.ForeignKey('crafting.CraftingRecord', on_delete=models.CASCADE, related_name="disguises")
+    character = models.ForeignKey('objects.ObjectDB', on_delete=models.CASCADE, related_name="crafted_disguises",
+                                  null=True)
+    description = models.TextField("The changed description when worn. Blank is no change", blank=True)
+    name = models.TextField("The changed name. Blank means a default will be used, or no change", blank=True)

@@ -61,9 +61,15 @@ class UseEquipmentMixins(object):
         if verb == "wear":
             equipment = [ob for ob in self.equipment if not ob.is_equipped]
             from operator import attrgetter
-            return sorted(equipment, key=attrgetter('slot_limit', 'db_key'))
+            return sorted(equipment, key=attrgetter('slot', 'db_key'))
         else:  # Equipment to be removed
             return [ob for ob in self.equipment if ob.is_equipped]
+
+    def get_items_in_slot_and_layer(self, slot, layer):
+        return [item for item in self.equipment if item.slot == slot and item.layer == layer]
+
+    def get_total_volume_for_slot_and_layer(self, slot, layer):
+        return sum([item.slot_volume for item in self.get_items_in_slot_and_layer(slot, layer)])
 
     def undress(self):
         """A character method to take it aaaaall off. Does not handle exceptions!"""

@@ -3,7 +3,7 @@ from random import randint
 
 from evennia.utils.ansi import parse_ansi
 from evennia.utils.utils import lazy_property
-from server.utils.arx_utils import sub_old_ansi, text_box, lowercase_kwargs
+from server.utils.arx_utils import sub_old_ansi, text_box, lowercase_kwargs, list_to_string
 from world.conditions.triggerhandler import TriggerHandler
 from world.stats_and_skills import do_dice_check
 from world.templates.mixins import TemplateMixins
@@ -724,16 +724,18 @@ class CraftingMixins(object):
         except AttributeError:
             return None
 
+    @lazy_property
+    def adorns(self):
+        return list(self.adornments.all())
+
     def return_crafting_desc(self):
         """
         :type self: ObjectDB
         """
         string = ""
-        adorns = self.adorns
         # adorns are a dict of the ID of the crafting material type to amount
-        if adorns:
-            adorn_strs = ["%s %s" % (amt, mat.name) for mat, amt in adorns.items()]
-            string += "\nAdornments: %s" % ", ".join(adorn_strs)
+        if self.adorns:
+            string += "\nAdornments: %s" % list_to_string(self.adorns)
         # recipe is an integer matching the CraftingRecipe ID
         if hasattr(self, 'type_description') and self.type_description:
             from server.utils.arx_utils import a_or_an

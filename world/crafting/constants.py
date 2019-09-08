@@ -35,3 +35,7 @@ QUALITY_LEVELS = {
     10: '{553divine{n',
     11: '|355transcendent|n'
     }
+
+ANY, INNER, OUTER, WIELDED = range(4)
+LAYERS = (ANY, INNER, OUTER)
+DEFAULT_LAYER = OUTER
